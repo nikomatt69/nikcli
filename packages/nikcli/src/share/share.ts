@@ -68,7 +68,7 @@ export namespace Share {
 
   export const URL =
     process.env["NIKCLI_API"] ??
-    (Installation.isPreview() || Installation.isLocal() ? "https://api.dev.nikcli.ai" : "https://api.nikcli.ai")
+    (Installation.isPreview() || Installation.isLocal() ? "https://api.dev.nikcli.store" : "https://api.nikcli.store")
 
   const disabled = process.env["NIKCLI_DISABLE_SHARE"] === "true" || process.env["NIKCLI_DISABLE_SHARE"] === "1"
 

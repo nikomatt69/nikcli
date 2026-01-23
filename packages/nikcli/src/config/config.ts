@@ -61,11 +61,8 @@ export namespace Config {
         const wellknown = (await response.json()) as any
         const remoteConfig = wellknown.config ?? {}
         // Add $schema to prevent load() from trying to write back to a non-existent file
-        if (!remoteConfig.$schema) remoteConfig.$schema = "https://nikcli.ai/config.json"
-        result = mergeConfigConcatArrays(
-          result,
-          await load(JSON.stringify(remoteConfig), `${key}/.well-known/nikcli`),
-        )
+        if (!remoteConfig.$schema) remoteConfig.$schema = "https://nikcli.store/config.json"
+        result = mergeConfigConcatArrays(result, await load(JSON.stringify(remoteConfig), `${key}/.well-known/nikcli`))
         log.debug("loaded remote config from well-known", { url: key })
       }
     }
@@ -104,12 +101,12 @@ export namespace Config {
       // Only scan project .nikcli/ directories when project discovery is enabled
       ...(!Flag.NIKCLI_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
-          Filesystem.up({
-            targets: [".nikcli"],
-            start: Instance.directory,
-            stop: Instance.worktree,
-          }),
-        )
+            Filesystem.up({
+              targets: [".nikcli"],
+              start: Instance.directory,
+              stop: Instance.worktree,
+            }),
+          )
         : []),
       // Always scan ~/.nikcli/ (user home directory)
       ...(await Array.fromAsync(
@@ -217,11 +214,11 @@ export namespace Config {
       {
         cwd: dir,
       },
-    ).catch(() => { })
+    ).catch(() => {})
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
-    await BunProc.run(["install"], { cwd: dir }).catch(() => { })
+    await BunProc.run(["install"], { cwd: dir }).catch(() => {})
   }
 
   function rel(item: string, patterns: string[]) {
@@ -893,7 +890,7 @@ export namespace Config {
       command: z
         .record(z.string(), Command)
         .optional()
-        .describe("Command configuration, see https://nikcli.ai/docs/commands"),
+        .describe("Command configuration, see https://nikcli.store/docs/commands"),
       watcher: z
         .object({
           ignore: z.array(z.string()).optional(),
@@ -960,7 +957,7 @@ export namespace Config {
         })
         .catchall(Agent)
         .optional()
-        .describe("Agent configuration, see https://nikcli.ai/docs/agents"),
+        .describe("Agent configuration, see https://nikcli.store/docs/agents"),
       provider: z
         .record(z.string(), Provider)
         .optional()
@@ -1112,12 +1109,12 @@ export namespace Config {
       .then(async (mod) => {
         const { provider, model, ...rest } = mod.default
         if (provider && model) result.model = `${provider}/${model}`
-        result["$schema"] = "https://nikcli.ai/config.json"
+        result["$schema"] = "https://nikcli.store/config.json"
         result = mergeDeep(result, rest)
         await Bun.write(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
         await fs.unlink(path.join(Global.Path.config, "config"))
       })
-      .catch(() => { })
+      .catch(() => {})
 
     return result
   })
@@ -1204,10 +1201,10 @@ export namespace Config {
     const parsed = Info.safeParse(data)
     if (parsed.success) {
       if (!parsed.data.$schema) {
-        parsed.data.$schema = "https://nikcli.ai/config.json"
+        parsed.data.$schema = "https://nikcli.store/config.json"
         // Write the $schema to the original text to preserve variables like {env:VAR}
-        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://nikcli.ai/config.json",')
-        await Bun.write(configFilepath, updated).catch(() => { })
+        const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://nikcli.store/config.json",')
+        await Bun.write(configFilepath, updated).catch(() => {})
       }
       const data = parsed.data
       if (data.plugin) {
@@ -1215,7 +1212,7 @@ export namespace Config {
           const plugin = data.plugin[i]
           try {
             data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
-          } catch (err) { }
+          } catch (err) {}
         }
       }
       return data
@@ -1268,9 +1265,7 @@ export namespace Config {
   }
 
   function globalConfigFile() {
-    const candidates = ["nikcli.jsonc", "nikcli.json", "config.json"].map((file) =>
-      path.join(Global.Path.config, file),
-    )
+    const candidates = ["nikcli.jsonc", "nikcli.json", "config.json"].map((file) => path.join(Global.Path.config, file))
     for (const file of candidates) {
       if (existsSync(file)) return file
     }

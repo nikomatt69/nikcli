@@ -1,14 +1,12 @@
 {
   "$schema": "https://nikcli.store/config.json",
-  // "plugin": ["opencode-openai-codex-auth"],
+  // "plugin": ["nikcli-openai-codex-auth"],
   // "enterprise": {
-  //   "url": "https://enterprise.dev.opencode.ai",
+  //   "url": "https://enterprise.dev.nikcli.store",
   // },
-  "instructions": [
-    "STYLE_GUIDE.md"
-  ],
+  "instructions": ["STYLE_GUIDE.md"],
   "provider": {
-    "opencode": {
+    "nikcli": {
       "options": {},
     },
   },

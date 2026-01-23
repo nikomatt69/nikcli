@@ -12,7 +12,7 @@ const dir = path.resolve(__dirname, "..")
 
 process.chdir(dir)
 
-import pkg from "../package.json"
+import pkg from "../packages/nikcli/package.json"
 import { Script } from "@nikcli-ai/script"
 
 const singleFlag = process.argv.includes("--single")

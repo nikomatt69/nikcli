@@ -321,7 +321,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://nikcli.ai/",
+            "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",
           },
         },
@@ -332,7 +332,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "http-referer": "https://nikcli.ai/",
+            "http-referer": "https://nikcli.store/",
             "x-title": "nikcli",
           },
         },
@@ -399,7 +399,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://nikcli.ai/",
+            "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",
           },
         },
@@ -466,7 +466,7 @@ export namespace Provider {
             // Cloudflare AI Gateway uses cf-aig-authorization for authenticated gateways
             // This enables Unified Billing where Cloudflare handles upstream provider auth
             ...(apiToken ? { "cf-aig-authorization": `Bearer ${apiToken}` } : {}),
-            "HTTP-Referer": "https://nikcli.ai/",
+            "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",
           },
           // Custom fetch to handle parameter transformation and auth

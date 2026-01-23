@@ -1612,7 +1612,7 @@ export type Config = {
   }
   server?: ServerConfig
   /**
-   * Command configuration, see https://nikcli.ai/docs/commands
+   * Command configuration, see https://nikcli.store/docs/commands
    */
   command?: {
     [key: string]: {
@@ -1673,7 +1673,7 @@ export type Config = {
     [key: string]: AgentConfig | undefined
   }
   /**
-   * Agent configuration, see https://nikcli.ai/docs/agents
+   * Agent configuration, see https://nikcli.store/docs/agents
    */
   agent?: {
     plan?: AgentConfig

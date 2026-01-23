@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://nikcli.ai">
+  <a href="https://nikcli.store">
     <picture>
       <source srcset="packages/console/app/src/asset/logo-ornate-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="packages/console/app/src/asset/logo-ornate-light.svg" media="(prefers-color-scheme: light)">
@@ -9,12 +9,12 @@
 </p>
 <p align="center">開源的 AI Coding Agent。</p>
 <p align="center">
-  <a href="https://nikcli.ai/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
+  <a href="https://nikcli.store/discord"><img alt="Discord" src="https://img.shields.io/discord/1391832426048651334?style=flat-square&label=discord" /></a>
   <a href="https://www.npmjs.com/package/nikcli-ai"><img alt="npm" src="https://img.shields.io/npm/v/nikcli-ai?style=flat-square" /></a>
   <a href="https://github.com/nikomatt69/nikcli/actions/workflows/publish.yml"><img alt="Build status" src="https://img.shields.io/github/actions/workflow/status/nikomatt69/nikcli/publish.yml?style=flat-square&branch=dev" /></a>
 </p>
 
-[![Nikcli Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://nikcli.ai)
+[![Nikcli Terminal UI](packages/web/src/assets/lander/screenshot.png)](https://nikcli.store)
 
 ---
 
@@ -22,7 +22,7 @@
 
 ```bash
 # 直接安裝 (YOLO)
-curl -fsSL https://nikcli.ai/install | bash
+curl -fsSL https://nikcli.store/install | bash
 
 # 套件管理員
 npm i -g nikcli-ai@latest        # 也可使用 bun/pnpm/yarn
@@ -40,14 +40,14 @@ nix run nixpkgs#nikcli           # 或使用 github:nikomatt69/nikcli 以取得�
 
 ### 桌面應用程式 (BETA)
 
-Nikcli 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/nikomatt69/nikcli/releases) 或 [nikcli.ai/download](https://nikcli.ai/download) 下載。
+Nikcli 也提供桌面版應用程式。您可以直接從 [發佈頁面 (releases page)](https://github.com/nikomatt69/nikcli/releases) 或 [nikcli.store/download](https://nikcli.store/download) 下載。
 
-| 平台                  | 下載連結                              |
-| --------------------- | ------------------------------------- |
+| 平台                  | 下載連結                            |
+| --------------------- | ----------------------------------- |
 | macOS (Apple Silicon) | `nikcli-desktop-darwin-aarch64.dmg` |
 | macOS (Intel)         | `nikcli-desktop-darwin-x64.dmg`     |
 | Windows               | `nikcli-desktop-windows-x64.exe`    |
-| Linux                 | `.deb`, `.rpm`, 或 AppImage           |
+| Linux                 | `.deb`, `.rpm`, 或 AppImage         |
 
 ```bash
 # macOS (Homebrew Cask)
@@ -67,8 +67,8 @@ scoop bucket add extras; scoop install extras/nikcli-desktop
 
 ```bash
 # 範例
-NIKCLI_INSTALL_DIR=/usr/local/bin curl -fsSL https://nikcli.ai/install | bash
-XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://nikcli.ai/install | bash
+NIKCLI_INSTALL_DIR=/usr/local/bin curl -fsSL https://nikcli.store/install | bash
+XDG_BIN_DIR=$HOME/.local/bin curl -fsSL https://nikcli.store/install | bash
 ```
 
 ### Agents
@@ -83,11 +83,11 @@ Nikcli 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
 
 此外，Nikcli 還包含一個 **general** 子 Agent，用於處理複雜搜尋與多步驟任務。此 Agent 供系統內部使用，亦可透過在訊息中輸入 `@general` 來呼叫。
 
-了解更多關於 [Agents](https://nikcli.ai/docs/agents) 的資訊。
+了解更多關於 [Agents](https://nikcli.store/docs/agents) 的資訊。
 
 ### 線上文件
 
-關於如何設定 Nikcli 的詳細資訊，請參閱我們的 [**官方文件**](https://nikcli.ai/docs)。
+關於如何設定 Nikcli 的詳細資訊，請參閱我們的 [**官方文件**](https://nikcli.store/docs)。
 
 ### 參與貢獻
 
@@ -104,7 +104,7 @@ Nikcli 內建了兩種 Agent，您可以使用 `Tab` 鍵快速切換。
 在功能面上與 Claude Code 非常相似。以下是關鍵差異：
 
 - 100% 開源。
-- 不綁定特定的服務提供商。雖然我們推薦使用透過 [Nikcli Zen](https://nikcli.ai/zen) 提供的模型，但 Nikcli 也可搭配 Claude, OpenAI, Google 甚至本地模型使用。隨著模型不斷演進，彼此間的差距會縮小且價格會下降，因此具備「不限廠商 (provider-agnostic)」的特性至關重要。
+- 不綁定特定的服務提供商。雖然我們推薦使用透過 [Nikcli Zen](https://nikcli.store/zen) 提供的模型，但 Nikcli 也可搭配 Claude, OpenAI, Google 甚至本地模型使用。隨著模型不斷演進，彼此間的差距會縮小且價格會下降，因此具備「不限廠商 (provider-agnostic)」的特性至關重要。
 - 內建 LSP (語言伺服器協定) 支援。
 - 專注於終端機介面 (TUI)。Nikcli 由 Neovim 愛好者與 [terminal.shop](https://terminal.shop) 的創作者打造；我們將不斷挑戰終端機介面的極限。
 - 客戶端/伺服器架構 (Client/Server Architecture)。這讓 Nikcli 能夠在您的電腦上運行的同時，由行動裝置進行遠端操控。這意味著 TUI 前端只是眾多可能的客戶端之一。

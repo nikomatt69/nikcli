@@ -18,8 +18,8 @@ jobs:
             playwright: bunx playwright install --with-deps
             workdir: .
             command: |
-              git config --global user.email "bot@opencode.ai"
-              git config --global user.name "opencode"
+              git config --global user.email "bot@nikcli.store"
+              git config --global user.name "nikcli"
               bun turbo typecheck
               bun turbo test
           - name: windows
@@ -47,26 +47,26 @@ jobs:
       - name: Set OS-specific paths
         run: |
           if [ "${{ runner.os }}" = "Windows" ]; then
-            printf '%s\n' "OPENCODE_E2E_ROOT=${{ runner.temp }}\\opencode-e2e" >> "$GITHUB_ENV"
-            printf '%s\n' "OPENCODE_TEST_HOME=${{ runner.temp }}\\opencode-e2e\\home" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_DATA_HOME=${{ runner.temp }}\\opencode-e2e\\share" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_CACHE_HOME=${{ runner.temp }}\\opencode-e2e\\cache" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_CONFIG_HOME=${{ runner.temp }}\\opencode-e2e\\config" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_STATE_HOME=${{ runner.temp }}\\opencode-e2e\\state" >> "$GITHUB_ENV"
-            printf '%s\n' "MODELS_DEV_API_JSON=${{ github.workspace }}\\packages\\opencode\\test\\tool\\fixtures\\models-api.json" >> "$GITHUB_ENV"
+            printf '%s\n' "OPENCODE_E2E_ROOT=${{ runner.temp }}\\nikcli-e2e" >> "$GITHUB_ENV"
+            printf '%s\n' "OPENCODE_TEST_HOME=${{ runner.temp }}\\nikcli-e2e\\home" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_DATA_HOME=${{ runner.temp }}\\nikcli-e2e\\share" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_CACHE_HOME=${{ runner.temp }}\\nikcli-e2e\\cache" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_CONFIG_HOME=${{ runner.temp }}\\nikcli-e2e\\config" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_STATE_HOME=${{ runner.temp }}\\nikcli-e2e\\state" >> "$GITHUB_ENV"
+            printf '%s\n' "MODELS_DEV_API_JSON=${{ github.workspace }}\\packages\\nikcli\\test\\tool\\fixtures\\models-api.json" >> "$GITHUB_ENV"
           else
-            printf '%s\n' "OPENCODE_E2E_ROOT=${{ runner.temp }}/opencode-e2e" >> "$GITHUB_ENV"
-            printf '%s\n' "OPENCODE_TEST_HOME=${{ runner.temp }}/opencode-e2e/home" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_DATA_HOME=${{ runner.temp }}/opencode-e2e/share" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_CACHE_HOME=${{ runner.temp }}/opencode-e2e/cache" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_CONFIG_HOME=${{ runner.temp }}/opencode-e2e/config" >> "$GITHUB_ENV"
-            printf '%s\n' "XDG_STATE_HOME=${{ runner.temp }}/opencode-e2e/state" >> "$GITHUB_ENV"
-            printf '%s\n' "MODELS_DEV_API_JSON=${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json" >> "$GITHUB_ENV"
+            printf '%s\n' "OPENCODE_E2E_ROOT=${{ runner.temp }}/nikcli-e2e" >> "$GITHUB_ENV"
+            printf '%s\n' "OPENCODE_TEST_HOME=${{ runner.temp }}/nikcli-e2e/home" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_DATA_HOME=${{ runner.temp }}/nikcli-e2e/share" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_CACHE_HOME=${{ runner.temp }}/nikcli-e2e/cache" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_CONFIG_HOME=${{ runner.temp }}/nikcli-e2e/config" >> "$GITHUB_ENV"
+            printf '%s\n' "XDG_STATE_HOME=${{ runner.temp }}/nikcli-e2e/state" >> "$GITHUB_ENV"
+            printf '%s\n' "MODELS_DEV_API_JSON=${{ github.workspace }}/packages/nikcli/test/tool/fixtures/models-api.json" >> "$GITHUB_ENV"
           fi
 
-      - name: Seed opencode data
+      - name: Seed nikcli data
         if: matrix.settings.name != 'windows'
-        working-directory: packages/opencode
+        working-directory: packages/nikcli
         run: bun script/seed-e2e.ts
         env:
           MODELS_DEV_API_JSON: ${{ env.MODELS_DEV_API_JSON }}
@@ -83,11 +83,11 @@ jobs:
           OPENCODE_E2E_PROJECT_DIR: ${{ github.workspace }}
           OPENCODE_E2E_SESSION_TITLE: "E2E Session"
           OPENCODE_E2E_MESSAGE: "Seeded for UI e2e"
-          OPENCODE_E2E_MODEL: "opencode/gpt-5-nano"
+          OPENCODE_E2E_MODEL: "nikcli/gpt-5-nano"
 
-      - name: Run opencode server
+      - name: Run nikcli server
         if: matrix.settings.name != 'windows'
-        working-directory: packages/opencode
+        working-directory: packages/nikcli
         run: bun dev -- --print-logs --log-level WARN serve --port 4096 --hostname 127.0.0.1 &
         env:
           MODELS_DEV_API_JSON: ${{ env.MODELS_DEV_API_JSON }}
@@ -103,7 +103,7 @@ jobs:
           XDG_STATE_HOME: ${{ env.XDG_STATE_HOME }}
           OPENCODE_CLIENT: "app"
 
-      - name: Wait for opencode server
+      - name: Wait for nikcli server
         if: matrix.settings.name != 'windows'
         run: |
           for i in {1..120}; do

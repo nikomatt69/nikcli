@@ -11,7 +11,7 @@ export const ImportCommand = cmd({
   describe: "import session data from JSON file or URL",
   builder: (yargs: Argv) => {
     return yargs.positional("file", {
-      describe: "path to JSON file or nikcli.ai share URL",
+      describe: "path to JSON file or nikcli.store share URL",
       type: "string",
       demandOption: true,
     })
@@ -31,15 +31,15 @@ export const ImportCommand = cmd({
       const isUrl = args.file.startsWith("http://") || args.file.startsWith("https://")
 
       if (isUrl) {
-        const urlMatch = args.file.match(/https?:\/\/nikcli\.ai\/share\/([a-zA-Z0-9_-]+)/)
+        const urlMatch = args.file.match(/https?:\/\/nikcli\.store\/share\/([a-zA-Z0-9_-]+)/)
         if (!urlMatch) {
-          process.stdout.write(`Invalid URL format. Expected: https://nikcli.ai/share/<slug>`)
+          process.stdout.write(`Invalid URL format. Expected: https://nikcli.store/share/<slug>`)
           process.stdout.write(EOL)
           return
         }
 
         const slug = urlMatch[1]
-        const response = await fetch(`https://nikcli.ai/api/share/${slug}`)
+        const response = await fetch(`https://nikcli.store/api/share/${slug}`)
 
         if (!response.ok) {
           process.stdout.write(`Failed to fetch share data: ${response.statusText}`)

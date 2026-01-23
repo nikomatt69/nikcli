@@ -212,7 +212,7 @@ export const GithubInstallCommand = cmd({
               "",
               "    3. Go to a GitHub issue and comment `/oc summarize` to see the agent in action",
               "",
-              "   Learn more about the GitHub agent - https://nikcli.ai/docs/github/#usage-examples",
+              "   Learn more about the GitHub agent - https://nikcli.store/docs/github/#usage-examples",
             ].join("\n"),
           )
         }
@@ -327,7 +327,7 @@ export const GithubInstallCommand = cmd({
 
           async function getInstallation() {
             return await fetch(
-              `https://api.nikcli.ai/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
+              `https://api.nikcli.store/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
             )
               .then((res) => res.json())
               .then((data) => data.installation)

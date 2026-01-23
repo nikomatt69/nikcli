@@ -132,7 +132,7 @@ export namespace Installation {
     let cmd
     switch (method) {
       case "curl":
-        cmd = $`curl -fsSL https://nikcli.ai/install | bash`.env({
+        cmd = $`curl -fsSL https://nikcli.store/install | bash`.env({
           ...process.env,
           VERSION: target,
         })
