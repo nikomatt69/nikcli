@@ -1,0 +1,4 @@
+Load documentation entries into the AI context.
+
+Usage:
+- ids: list of documentation IDs or titles to load

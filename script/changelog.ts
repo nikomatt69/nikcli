@@ -7,13 +7,6 @@ import { parseArgs } from "util"
 export const team = [
   "actions-user",
   "nikcli",
-  "rekram1-node",
-  "thdxr",
-  "kommander",
-  "jayair",
-  "fwang",
-  "adamdotdevin",
-  "iamdavidhill",
   "nikcli-agent[bot]",
 ]
 

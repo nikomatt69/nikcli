@@ -1,0 +1,7 @@
+Report a missing documentation gap for later improvement.
+
+Usage:
+- missingConcept: concept that is not documented
+- frequency: how often this gap appears
+- impact: severity of the gap
+- userContext: what the user was doing

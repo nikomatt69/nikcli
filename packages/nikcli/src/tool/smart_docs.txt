@@ -1,0 +1,7 @@
+Search documentation and optionally load results into context.
+
+Usage:
+- query: search phrase
+- category: optional category filter
+- limit: maximum results (default: 5)
+- autoLoad: load matches into docs context (default: true)

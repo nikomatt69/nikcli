@@ -1146,9 +1146,22 @@ export namespace ACP {
       case "context7_get_library_docs":
         return "search"
 
+      case "docs_search":
+      case "docs_request":
+        return "search"
+
       case "list":
       case "read":
+      case "tree":
+      case "docs_context":
         return "read"
+
+      case "docs_add":
+      case "docs_load":
+      case "docs_unload":
+      case "docs_gap_report":
+      case "subagents":
+        return "other"
 
       default:
         return "other"

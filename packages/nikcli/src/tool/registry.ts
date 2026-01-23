@@ -6,6 +6,7 @@ import { GrepTool } from "./grep"
 import { BatchTool } from "./batch"
 import { ReadTool } from "./read"
 import { TaskTool } from "./task"
+import { SubagentsTool } from "./subagents"
 import { TodoWriteTool, TodoReadTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -21,6 +22,20 @@ import z from "zod"
 import { Plugin } from "../plugin"
 import { WebSearchTool } from "./websearch"
 import { CodeSearchTool } from "./codesearch"
+import { TreeTool } from "./tree"
+import { DocsAddTool } from "./docs_add"
+import { DocsSearchTool } from "./docs_search"
+import { DocsLoadTool } from "./docs_load"
+import { DocsUnloadTool } from "./docs_unload"
+import { DocsContextTool } from "./docs_context"
+import { DocsRequestTool } from "./docs_request"
+import { DocsGapReportTool } from "./docs_gap_report"
+import { SmartDocsTool } from "./smart_docs"
+import { ContextCollectTool } from "./context_collect"
+import { ContextSearchTool } from "./context_search"
+import { ContextRelatedTool } from "./context_related"
+import { ContextDiagnosticsTool } from "./context_diagnostics"
+import { MemorySearchTool } from "./memory_search"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
@@ -98,11 +113,26 @@ export namespace ToolRegistry {
       ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
       BashTool,
       ReadTool,
+      TreeTool,
       GlobTool,
       GrepTool,
       EditTool,
       WriteTool,
+      SubagentsTool,
       TaskTool,
+      DocsAddTool,
+      DocsSearchTool,
+      DocsLoadTool,
+      DocsUnloadTool,
+      DocsContextTool,
+      DocsRequestTool,
+      DocsGapReportTool,
+      SmartDocsTool,
+      ContextCollectTool,
+      ContextSearchTool,
+      ContextRelatedTool,
+      ContextDiagnosticsTool,
+      MemorySearchTool,
       WebFetchTool,
       TodoWriteTool,
       TodoReadTool,

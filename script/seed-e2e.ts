@@ -8,11 +8,11 @@ const modelID = parts[1] ?? "gpt-5-nano"
 const now = Date.now()
 
 const seed = async () => {
-  const { Instance } = await import("../src/project/instance")
-  const { InstanceBootstrap } = await import("../src/project/bootstrap")
-  const { Session } = await import("../src/session")
-  const { Identifier } = await import("../src/id/id")
-  const { Project } = await import("../src/project/project")
+  const { Instance } = await import("../packages/nikcli/src/project/instance")
+  const { InstanceBootstrap } = await import("../packages/nikcli/src/project/bootstrap")
+  const { Session } = await import("../packages/nikcli/src/session")
+  const { Identifier } = await import("../packages/nikcli/src/id/id")
+  const { Project } = await import("../packages/nikcli/src/project/project")
 
   await Instance.provide({
     directory: dir,

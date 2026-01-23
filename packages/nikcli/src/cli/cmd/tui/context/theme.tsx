@@ -36,6 +36,69 @@ import vercel from "./theme/vercel.json" with { type: "json" }
 import vesper from "./theme/vesper.json" with { type: "json" }
 import zenburn from "./theme/zenburn.json" with { type: "json" }
 import carbonfox from "./theme/carbonfox.json" with { type: "json" }
+import tokyonightStorm from "./theme/tokyonight-storm.json" with { type: "json" }
+import catppuccinLatte from "./theme/catppuccin-latte.json" with { type: "json" }
+import poimandres from "./theme/poimandres.json" with { type: "json" }
+import draculaOfficial from "./theme/dracula-official.json" with { type: "json" }
+import onepro from "./theme/one-pro.json" with { type: "json" }
+import materialOcean from "./theme/material-ocean.json" with { type: "json" }
+import githubDimmed from "./theme/github-dimmed.json" with { type: "json" }
+import arctic from "./theme/arctic.json" with { type: "json" }
+import vivid from "./theme/vivid.json" with { type: "json" }
+import equilibrium from "./theme/equilibrium.json" with { type: "json" }
+import ayuai from "./theme/ayuai.json" with { type: "json" }
+import dawnfox from "./theme/dawnfox.json" with { type: "json" }
+import neon from "./theme/neon.json" with { type: "json" }
+import githubDark from "./theme/github-dark.json" with { type: "json" }
+import githubLight from "./theme/github-light.json" with { type: "json" }
+import blood from "./theme/blood.json" with { type: "json" }
+import greyscale from "./theme/greyscale.json" with { type: "json" }
+import hacker from "./theme/hacker.json" with { type: "json" }
+import abyss from "./theme/abyss.json" with { type: "json" }
+import obsidian from "./theme/obsidian.json" with { type: "json" }
+import charcoal from "./theme/charcoal.json" with { type: "json" }
+import ebony from "./theme/ebony.json" with { type: "json" }
+import slate from "./theme/slate.json" with { type: "json" }
+import voidTheme from "./theme/void.json" with { type: "json" }
+import onyx from "./theme/onyx.json" with { type: "json" }
+import cosmic from "./theme/cosmic.json" with { type: "json" }
+import jet from "./theme/jet.json" with { type: "json" }
+import starlight from "./theme/starlight.json" with { type: "json" }
+import zinc from "./theme/zinc.json" with { type: "json" }
+import lavender from "./theme/lavender.json" with { type: "json" }
+import gone from "./theme/gone.json" with { type: "json" }
+import duo from "./theme/duo.json" with { type: "json" }
+import ink from "./theme/ink.json" with { type: "json" }
+import apple from "./theme/apple.json" with { type: "json" }
+import silicon from "./theme/silicon.json" with { type: "json" }
+import neutral from "./theme/neutral.json" with { type: "json" }
+import modern from "./theme/modern.json" with { type: "json" }
+import radiant from "./theme/radiant.json" with { type: "json" }
+import tech from "./theme/tech.json" with { type: "json" }
+import nordic from "./theme/nordic.json" with { type: "json" }
+import lightph from "./theme/lightph.json" with { type: "json" }
+import ghost from "./theme/ghost.json" with { type: "json" }
+import fusion from "./theme/fusion.json" with { type: "json" }
+import ethereal from "./theme/ethereal.json" with { type: "json" }
+import dimension from "./theme/dimension.json" with { type: "json" }
+import vapor from "./theme/vapor.json" with { type: "json" }
+import soft from "./theme/soft.json" with { type: "json" }
+import vscode from "./theme/vscode.json" with { type: "json" }
+import catmoe from "./theme/catmoe.json" with { type: "json" }
+import sunrise from "./theme/sunrise.json" with { type: "json" }
+import dusk from "./theme/dusk.json" with { type: "json" }
+import neonfusion from "./theme/neonfusion.json" with { type: "json" }
+import midnight from "./theme/midnight.json" with { type: "json" }
+import holo from "./theme/holo.json" with { type: "json" }
+import glass from "./theme/glass.json" with { type: "json" }
+import shadow from "./theme/shadow.json" with { type: "json" }
+import gold from "./theme/gold.json" with { type: "json" }
+import prism from "./theme/prism.json" with { type: "json" }
+import cyber from "./theme/cyber.json" with { type: "json" }
+import dream from "./theme/dream.json" with { type: "json" }
+import nova from "./theme/nova.json" with { type: "json" }
+import spectrum from "./theme/spectrum.json" with { type: "json" }
+import chromatic from "./theme/chromatic.json" with { type: "json" }
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
@@ -139,39 +202,103 @@ type ThemeJson = {
 }
 
 export const DEFAULT_THEMES: Record<string, ThemeJson> = {
+  abyss,
   aura,
   ayu,
+  ayuai,
+  blood,
+  carbonfox,
   catppuccin,
   ["catppuccin-frappe"]: catppuccinFrappe,
   ["catppuccin-macchiato"]: catppuccinMacchiato,
+  ["catppuccin-latte"]: catppuccinLatte,
+  charcoal,
   cobalt2,
+  cosmic,
   cursor,
+  dawnfox,
   dracula,
+  ["dracula-official"]: draculaOfficial,
+  ebony,
+  equilibrium,
   everforest,
   flexoki,
   github,
+  ["github-dark"]: githubDark,
+  ["github-dimmed"]: githubDimmed,
+  ["github-light"]: githubLight,
+  greyscale,
   gruvbox,
+  hacker,
+  jet,
   kanagawa,
   material,
+  ["material-ocean"]: materialOcean,
   matrix,
   mercury,
   monokai,
+
+  neon,
   nightowl,
+  nikcli,
   nord,
   ["one-dark"]: onedark,
-  ["osaka-jade"]: osakaJade,
-  nikcli,
+  ["one-pro"]: onepro,
+  onyx,
+  obsidian,
   orng,
   ["lucent-orng"]: lucentOrng,
+
   palenight,
+  poimandres,
   rosepine,
+  slate,
   solarized,
+  starlight,
   synthwave84,
   tokyonight,
+  ["tokyonight-storm"]: tokyonightStorm,
   vesper,
   vercel,
+  void: voidTheme,
   zenburn,
-  carbonfox,
+
+  // New themes
+  apple,
+  chromatic,
+  cyber,
+  dim: shadow,
+  dream,
+  duo,
+  ethereal,
+  fusion,
+  ghost,
+  glass,
+  gold,
+  gone,
+  holo,
+  ink,
+  lavender,
+  lightph,
+  midnight,
+  modern,
+  neonfusion,
+  neutral,
+  nordic,
+  nova,
+  prism,
+  radiant,
+  shadow,
+  silicon,
+  soft,
+  spectrum,
+  sunrise,
+  tech,
+  vapor,
+  vscode,
+  catmoe,
+  dusk,
+  dimension,
 }
 
 function resolveTheme(theme: ThemeJson, mode: "dark" | "light") {

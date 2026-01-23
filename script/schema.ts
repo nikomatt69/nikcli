@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { z } from "zod"
-import { Config } from "../src/config/config"
+import { Config } from "../packages/nikcli/src/config/config"
 
 const file = process.argv[2]
 console.log(file)
@@ -44,4 +44,8 @@ const result = z.toJSONSchema(Config.Info, {
 result.allowComments = true
 result.allowTrailingCommas = true
 
-await Bun.write(file, JSON.stringify(result, null, 2))
+if (!file) {
+  throw new Error("No output file provided.")
+}
+
+await Bun.write(file as string, JSON.stringify(result, null, 2))

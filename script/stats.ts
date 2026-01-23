@@ -59,8 +59,32 @@ async function fetchNpmDownloads(packageName: string): Promise<number> {
       console.warn(`Failed to fetch npm downloads for ${packageName}: ${response.status}`)
       return 0
     }
-    const data: NpmDownloadsRange = await response.json()
-    return data.downloads.reduce((total, day) => total + day.downloads, 0)
+    let data: unknown
+    try {
+      data = await response.json()
+    } catch (jsonErr) {
+      console.warn(`Error parsing JSON when fetching npm downloads for ${packageName}:`, jsonErr)
+      return 0
+    }
+
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "downloads" in data &&
+      Array.isArray((data as any).downloads)
+    ) {
+      return (data as NpmDownloadsRange).downloads.reduce(
+        (total, day) =>
+          total +
+          (day && typeof day.downloads === "number" ? day.downloads : 0),
+        0
+      )
+    } else {
+      console.warn(
+        `Unexpected response format when fetching npm downloads for ${packageName}`
+      )
+      return 0
+    }
   } catch (error) {
     console.warn(`Error fetching npm downloads for ${packageName}:`, error)
     return 0
@@ -80,11 +104,21 @@ async function fetchReleases(): Promise<Release[]> {
       throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
     }
 
-    const batch: Release[] = await response.json()
+    let batch: unknown
+    try {
+      batch = await response.json()
+    } catch (jsonErr) {
+      throw new Error(`Error parsing JSON from GitHub releases api: ${jsonErr}`)
+    }
+
+    if (!Array.isArray(batch)) {
+      throw new Error(`Unexpected response format from GitHub releases API: Not an array.`)
+    }
+
     if (batch.length === 0) break
 
-    releases.push(...batch)
-    console.log(`Fetched page ${page} with ${batch.length} releases`)
+    releases.push(...(batch as Release[]))
+    console.log(`Fetched page ${page} with ${(batch as Release[]).length} releases`)
 
     if (batch.length < per) break
     page++
@@ -137,12 +171,12 @@ async function save(githubTotal: number, npmDownloads: number) {
     const lines = content.trim().split("\n")
 
     for (let i = lines.length - 1; i >= 0; i--) {
-      const line = lines[i].trim()
-      if (line.startsWith("|") && !line.includes("Date") && !line.includes("---")) {
+      const line = lines[i]?.trim()
+      if (line && line.startsWith("|") && !line.includes("Date") && !line.includes("---")) {
         const match = line.match(
           /\|\s*[\d-]+\s*\|\s*([\d,]+)\s*(?:\([^)]*\))?\s*\|\s*([\d,]+)\s*(?:\([^)]*\))?\s*\|\s*([\d,]+)\s*(?:\([^)]*\))?\s*\|/,
         )
-        if (match) {
+        if (match?.[1] && match?.[2] && match?.[3]) {
           previousGithub = parseInt(match[1].replace(/,/g, ""))
           previousNpm = parseInt(match[2].replace(/,/g, ""))
           previousTotal = parseInt(match[3].replace(/,/g, ""))

@@ -1,0 +1,8 @@
+Search past session messages for a query.
+
+Usage:
+- query: search phrase
+- limit: maximum results (default: 10)
+- sessionId: restrict to a session
+- maxSessions: maximum sessions to scan (default: 10)
+- maxMessages: maximum messages to scan (default: 200)

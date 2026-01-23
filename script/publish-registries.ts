@@ -13,8 +13,7 @@ if (!Script.preview) {
 
   // arch
   const binaryPkgbuild = [
-    "# Maintainer: dax",
-    "# Maintainer: adam",
+
     "",
     "pkgname='nikcli-bin'",
     `pkgver=${pkgver}`,
@@ -113,7 +112,10 @@ if (!Script.preview) {
         await $`rm -rf ./dist/aur-${pkg}`
         await $`git clone ssh://aur@aur.archlinux.org/${pkg}.git ./dist/aur-${pkg}`
         await $`cd ./dist/aur-${pkg} && git checkout master`
-        await Bun.file(`./dist/aur-${pkg}/PKGBUILD`).write(pkgbuild)
+        if (typeof pkgbuild !== "string") {
+          throw new Error("pkgbuild must be a string");
+        }
+        await Bun.write(`./dist/aur-${pkg}/PKGBUILD`, pkgbuild)
         await $`cd ./dist/aur-${pkg} && makepkg --printsrcinfo > .SRCINFO`
         await $`cd ./dist/aur-${pkg} && git add PKGBUILD .SRCINFO`
         await $`cd ./dist/aur-${pkg} && git commit -m "Update to v${Script.version}"`

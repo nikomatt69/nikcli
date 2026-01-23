@@ -1,0 +1,5 @@
+List LSP diagnostics.
+
+Usage:
+- filePath: optional file path to filter
+- limit: maximum diagnostics per file (default: 50)

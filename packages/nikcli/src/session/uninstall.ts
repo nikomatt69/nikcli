@@ -1,12 +1,12 @@
 import type { Argv } from "yargs"
-import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
-import { Installation } from "../../installation"
-import { Global } from "../../global"
+import { Installation } from "../installation"
+import { Global } from "../global"
 import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
+import { UI } from "@/cli/ui"
 
 interface UninstallArgs {
   keepConfig: boolean

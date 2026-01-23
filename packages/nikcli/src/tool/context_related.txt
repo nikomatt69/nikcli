@@ -1,0 +1,5 @@
+List files related to an entry file.
+
+Usage:
+- filePath: entry file to analyze
+- limit: maximum related files (default: 50)

@@ -1,0 +1,7 @@
+Request documentation when a concept is missing.
+
+Usage:
+- concept: topic or technology name
+- context: where it was encountered
+- autoLoad: load best matches when possible
+- suggestSources: include external sources when missing

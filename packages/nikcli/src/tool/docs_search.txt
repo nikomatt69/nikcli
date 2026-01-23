@@ -1,0 +1,6 @@
+Search the local documentation library.
+
+Usage:
+- query: search phrase
+- category: optional filter
+- limit: maximum results (default: 5)

@@ -1,0 +1,7 @@
+Search workspace text to gather context.
+
+Usage:
+- pattern: regex pattern to search for
+- path: directory to search (defaults to workspace)
+- include: glob filter
+- limit: maximum matches (default: 50)

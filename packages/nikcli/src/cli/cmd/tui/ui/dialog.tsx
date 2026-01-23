@@ -5,6 +5,7 @@ import { Renderable, RGBA } from "@opentui/core"
 import { createStore } from "solid-js/store"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "./toast"
+import { GlassBorderLight } from "../component/border"
 
 export function Dialog(
   props: ParentProps<{
@@ -39,7 +40,13 @@ export function Dialog(
         width={props.size === "large" ? 80 : 60}
         maxWidth={dimensions().width - 2}
         backgroundColor={theme.backgroundPanel}
+        border={[...GlassBorderLight.border]}
+        borderColor={theme.borderSubtle}
+        customBorderChars={GlassBorderLight.customBorderChars}
         paddingTop={1}
+        paddingBottom={1}
+        paddingLeft={2}
+        paddingRight={2}
       >
         {props.children}
       </box>

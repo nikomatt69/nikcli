@@ -1,16 +1,18 @@
-import { Auth } from "../../auth"
-import { cmd } from "./cmd"
+import { Auth } from "../auth"
+
 import * as prompts from "@clack/prompts"
-import { UI } from "../ui"
-import { ModelsDev } from "../../provider/models"
+
+import { ModelsDev } from "../provider/models"
 import { map, pipe, sortBy, values } from "remeda"
 import path from "path"
 import os from "os"
-import { Config } from "../../config/config"
-import { Global } from "../../global"
-import { Plugin } from "../../plugin"
-import { Instance } from "../../project/instance"
+import { Config } from "../config/config"
+import { Global } from "../global"
+import { Plugin } from "../plugin"
+import { Instance } from "../project/instance"
 import type { Hooks } from "@nikcli-ai/plugin"
+import { cmd } from "@/cli/cmd/cmd"
+import { UI } from "@/cli/ui"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -164,7 +166,7 @@ export const AuthCommand = cmd({
   describe: "manage credentials",
   builder: (yargs) =>
     yargs.command(AuthLoginCommand).command(AuthLogoutCommand).command(AuthListCommand).demandCommand(),
-  async handler() {},
+  async handler() { },
 })
 
 export const AuthListCommand = cmd({
@@ -251,7 +253,7 @@ export const AuthLoginCommand = cmd({
           prompts.outro("Done")
           return
         }
-        await ModelsDev.refresh().catch(() => {})
+        await ModelsDev.refresh().catch(() => { })
 
         const config = await Config.get()
 
@@ -337,10 +339,10 @@ export const AuthLoginCommand = cmd({
         if (provider === "amazon-bedrock") {
           prompts.log.info(
             "Amazon Bedrock authentication priority:\n" +
-              "  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n" +
-              "  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\n" +
-              "Configure via nikcli.json options (profile, region, endpoint) or\n" +
-              "AWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
+            "  1. Bearer token (AWS_BEARER_TOKEN_BEDROCK or /connect)\n" +
+            "  2. AWS credential chain (profile, access keys, IAM roles, EKS IRSA)\n\n" +
+            "Configure via nikcli.json options (profile, region, endpoint) or\n" +
+            "AWS environment variables (AWS_PROFILE, AWS_REGION, AWS_ACCESS_KEY_ID, AWS_WEB_IDENTITY_TOKEN_FILE).",
           )
         }
 

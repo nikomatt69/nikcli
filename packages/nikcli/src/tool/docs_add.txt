@@ -1,0 +1,5 @@
+Add documentation from a URL into the local docs library.
+
+Usage:
+- Provide url for the documentation page
+- Optional category and tags help organize entries

@@ -1,0 +1,9 @@
+Collect workspace context from files.
+
+Usage:
+- paths: files or directories to include
+- pattern: optional regex to filter lines
+- maxFiles: maximum files to collect (default: 20)
+- maxLines: maximum lines per file (default: 200)
+- includeSymbols: include LSP symbols
+- includeDiagnostics: include LSP diagnostics

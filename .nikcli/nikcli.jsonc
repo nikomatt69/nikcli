@@ -4,7 +4,9 @@
   // "enterprise": {
   //   "url": "https://enterprise.dev.nikcli.store",
   // },
-  "instructions": ["STYLE_GUIDE.md"],
+  "instructions": [
+    "STYLE_GUIDE.md"
+  ],
   "provider": {
     "nikcli": {
       "options": {},

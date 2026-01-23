@@ -45,6 +45,17 @@ export namespace Agent {
     })
   export type Info = z.infer<typeof Info>
 
+  export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
+    "fast-explore": ["read", "grep", "glob", "list", "tree"],
+    planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
+    general: [],
+    explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
+    "code-reviewer": ["read", "grep", "glob", "list", "bash"],
+    debugger: ["read", "grep", "glob", "list", "bash", "edit"],
+    "test-runner": ["read", "grep", "list", "bash", "edit", "write"],
+    refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"],
+  }
+
   const state = Instance.state(async () => {
     const cfg = await Config.get()
 
@@ -117,7 +128,7 @@ export namespace Agent {
           user,
         ),
         options: {},
-        mode: "subagent",
+        mode: "all",
         native: true,
       },
       explore: {
@@ -144,7 +155,176 @@ export namespace Agent {
         description: `Fast agent specialized for exploring codebases.`,
         prompt: PROMPT_EXPLORE,
         options: {},
-        mode: "subagent",
+        mode: "all",
+        native: true,
+      },
+      "fast-explore": {
+        name: "fast-explore",
+        description: "Fast read-only explorer for quick codebase inspection.",
+        prompt: `You are a fast exploration agent.
+
+Use tools: read, grep, glob, list, tree.
+Do not modify files.
+Report findings with exact file paths and concise notes.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      planner: {
+        name: "planner",
+        description: "Planning agent for multi-step implementation strategies.",
+        prompt: `You are a planning agent.
+
+Use tools: read, grep, glob, list, tree, websearch, codesearch, webfetch.
+Do not modify files.
+Produce a clear, step-by-step plan with file paths.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            webfetch: "allow",
+            websearch: "allow",
+            codesearch: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      "code-reviewer": {
+        name: "code-reviewer",
+        description: "Code review agent focused on quality and safety.",
+        prompt: `You are a code reviewer.
+
+Use tools: read, grep, glob, list, bash.
+Review changes and report issues with file paths and fixes.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      debugger: {
+        name: "debugger",
+        description: "Debugging agent for failures and runtime issues.",
+        prompt: `You are a debugging agent.
+
+Use tools: read, grep, glob, list, bash, edit.
+Identify root cause and apply minimal fixes.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      "test-runner": {
+        name: "test-runner",
+        description: "Test runner for executing and analyzing tests.",
+        prompt: `You are a test runner agent.
+
+Use tools: read, grep, list, bash, edit.
+Run tests, analyze failures, and propose fixes.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      refactor: {
+        name: "refactor",
+        description: "Refactor agent for cleanups without behavior changes.",
+        prompt: `You are a refactor agent.
+
+Use tools: read, grep, glob, list, bash, edit.
+Apply small, safe refactors and verify results.`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
         native: true,
       },
       compaction: {
