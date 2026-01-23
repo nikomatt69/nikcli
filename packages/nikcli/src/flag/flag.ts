@@ -1,0 +1,74 @@
+function truthy(key: string) {
+  const value = process.env[key]?.toLowerCase()
+  return value === "true" || value === "1"
+}
+
+export namespace Flag {
+  export const NIKCLI_AUTO_SHARE = truthy("NIKCLI_AUTO_SHARE")
+  export const NIKCLI_GIT_BASH_PATH = process.env["NIKCLI_GIT_BASH_PATH"]
+  export const NIKCLI_CONFIG = process.env["NIKCLI_CONFIG"]
+  export declare const NIKCLI_CONFIG_DIR: string | undefined
+  export const NIKCLI_CONFIG_CONTENT = process.env["NIKCLI_CONFIG_CONTENT"]
+  export const NIKCLI_DISABLE_AUTOUPDATE = truthy("NIKCLI_DISABLE_AUTOUPDATE")
+  export const NIKCLI_DISABLE_PRUNE = truthy("NIKCLI_DISABLE_PRUNE")
+  export const NIKCLI_DISABLE_TERMINAL_TITLE = truthy("NIKCLI_DISABLE_TERMINAL_TITLE")
+  export const NIKCLI_PERMISSION = process.env["NIKCLI_PERMISSION"]
+  export const NIKCLI_DISABLE_DEFAULT_PLUGINS = truthy("NIKCLI_DISABLE_DEFAULT_PLUGINS")
+  export const NIKCLI_DISABLE_LSP_DOWNLOAD = truthy("NIKCLI_DISABLE_LSP_DOWNLOAD")
+  export const NIKCLI_ENABLE_EXPERIMENTAL_MODELS = truthy("NIKCLI_ENABLE_EXPERIMENTAL_MODELS")
+  export const NIKCLI_DISABLE_AUTOCOMPACT = truthy("NIKCLI_DISABLE_AUTOCOMPACT")
+  export const NIKCLI_DISABLE_MODELS_FETCH = truthy("NIKCLI_DISABLE_MODELS_FETCH")
+  export const NIKCLI_DISABLE_CLAUDE_CODE = truthy("NIKCLI_DISABLE_CLAUDE_CODE")
+  export const NIKCLI_DISABLE_CLAUDE_CODE_PROMPT =
+    NIKCLI_DISABLE_CLAUDE_CODE || truthy("NIKCLI_DISABLE_CLAUDE_CODE_PROMPT")
+  export const NIKCLI_DISABLE_CLAUDE_CODE_SKILLS =
+    NIKCLI_DISABLE_CLAUDE_CODE || truthy("NIKCLI_DISABLE_CLAUDE_CODE_SKILLS")
+  export declare const NIKCLI_DISABLE_PROJECT_CONFIG: boolean
+  export const NIKCLI_FAKE_VCS = process.env["NIKCLI_FAKE_VCS"]
+  export const NIKCLI_CLIENT = process.env["NIKCLI_CLIENT"] ?? "cli"
+  export const NIKCLI_SERVER_PASSWORD = process.env["NIKCLI_SERVER_PASSWORD"]
+  export const NIKCLI_SERVER_USERNAME = process.env["NIKCLI_SERVER_USERNAME"]
+
+  // Experimental
+  export const NIKCLI_EXPERIMENTAL = truthy("NIKCLI_EXPERIMENTAL")
+  export const NIKCLI_EXPERIMENTAL_FILEWATCHER = truthy("NIKCLI_EXPERIMENTAL_FILEWATCHER")
+  export const NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER = truthy("NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER")
+  export const NIKCLI_EXPERIMENTAL_ICON_DISCOVERY =
+    NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_ICON_DISCOVERY")
+  export const NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT = truthy("NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT")
+  export const NIKCLI_ENABLE_EXA =
+    truthy("NIKCLI_ENABLE_EXA") || NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_EXA")
+  export const NIKCLI_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH = number("NIKCLI_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH")
+  export const NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS = number("NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS")
+  export const NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX = number("NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX")
+  export const NIKCLI_EXPERIMENTAL_OXFMT = NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_OXFMT")
+  export const NIKCLI_EXPERIMENTAL_LSP_TY = truthy("NIKCLI_EXPERIMENTAL_LSP_TY")
+  export const NIKCLI_EXPERIMENTAL_LSP_TOOL = NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_LSP_TOOL")
+  export const NIKCLI_DISABLE_FILETIME_CHECK = truthy("NIKCLI_DISABLE_FILETIME_CHECK")
+  export const NIKCLI_EXPERIMENTAL_PLAN_MODE = NIKCLI_EXPERIMENTAL || truthy("NIKCLI_EXPERIMENTAL_PLAN_MODE")
+
+  function number(key: string) {
+    const value = process.env[key]
+    if (!value) return undefined
+    const parsed = Number(value)
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined
+  }
+}
+
+// Dynamic getter for NIKCLI_DISABLE_PROJECT_CONFIG
+Object.defineProperty(Flag, "NIKCLI_DISABLE_PROJECT_CONFIG", {
+  get() {
+    return truthy("NIKCLI_DISABLE_PROJECT_CONFIG")
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+// Dynamic getter for NIKCLI_CONFIG_DIR
+Object.defineProperty(Flag, "NIKCLI_CONFIG_DIR", {
+  get() {
+    return process.env["NIKCLI_CONFIG_DIR"]
+  },
+  enumerable: true,
+  configurable: false,
+})
