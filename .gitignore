@@ -26,3 +26,6 @@ target
 nikcli-dev
 logs/
 *.bun-build
+
+# Local RAG index (auto-generated)
+.nikcli/rag/
