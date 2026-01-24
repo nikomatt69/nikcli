@@ -1,6 +1,7 @@
 import z from "zod"
 import { EOL } from "os"
 import { NamedError } from "@nikcli-ai/util/error"
+import { remoteService } from "./remote"
 
 export namespace UI {
   const LOGO = [
@@ -32,11 +33,14 @@ export namespace UI {
   export function println(...message: string[]) {
     print(...message)
     Bun.stderr.write(EOL)
+    forwardToRemote(EOL)
   }
 
   export function print(...message: string[]) {
     blank = false
-    Bun.stderr.write(message.join(" "))
+    const text = message.join(" ")
+    Bun.stderr.write(text)
+    forwardToRemote(text)
   }
 
   let blank = false
@@ -80,5 +84,11 @@ export namespace UI {
 
   export function markdown(text: string): string {
     return text
+  }
+
+  function forwardToRemote(text: string) {
+    if (!text) return
+    if (!remoteService.hasActiveSession()) return
+    remoteService.writeToTerminal(text)
   }
 }

@@ -2,6 +2,7 @@ import z from "zod"
 import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_search.txt"
+import { Rag } from "@/rag"
 import { Ripgrep } from "@/file/ripgrep"
 import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
@@ -11,6 +12,7 @@ const parameters = z.object({
   path: z.string().optional().describe("Directory to search in"),
   include: z.string().optional().describe('File pattern to include in the search (e.g. "*.ts")'),
   limit: z.number().int().min(1).max(200).optional().describe("Maximum number of matches"),
+  mode: z.enum(["regex", "semantic"]).optional().describe("Search mode (regex or semantic)"),
 })
 
 export const ContextSearchTool = Tool.define<typeof parameters, { matches: number; truncated: boolean }>(
@@ -22,6 +24,7 @@ export const ContextSearchTool = Tool.define<typeof parameters, { matches: numbe
       const search = params.path ?? Instance.directory
       const base = path.isAbsolute(search) ? search : path.resolve(Instance.directory, search)
       const limit = params.limit ?? 50
+      const mode = params.mode ?? "regex"
 
       await ctx.ask({
         permission: "context_search",
@@ -32,10 +35,41 @@ export const ContextSearchTool = Tool.define<typeof parameters, { matches: numbe
           path: base,
           include: params.include,
           limit,
+          mode,
         },
       })
 
       await assertExternalDirectory(ctx, base, { kind: "directory" })
+
+      if (mode === "semantic") {
+        const semantic = await Rag.search({
+          query: params.pattern,
+          limit,
+        })
+        if (!semantic.ready) {
+          return {
+            title: params.pattern,
+            output: "RAG index not found. Run rag_index first.",
+            metadata: { matches: 0, truncated: false },
+          }
+        }
+        if (semantic.results.length === 0) {
+          return {
+            title: params.pattern,
+            output: "No semantic matches found.",
+            metadata: { matches: 0, truncated: false },
+          }
+        }
+        const lines = semantic.results.map((item) => {
+          const score = item.score.toFixed(3)
+          return `[${score}] ${item.file}:${item.start}-${item.end} ${item.snippet}`
+        })
+        return {
+          title: params.pattern,
+          output: lines.join("\n"),
+          metadata: { matches: semantic.results.length, truncated: false },
+        }
+      }
 
       const matches = await Ripgrep.search({
         cwd: base,

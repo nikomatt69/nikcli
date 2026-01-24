@@ -9,6 +9,7 @@ jobs:
     if: |
       github.event.pull_request.user.login != 'actions-user' &&
       github.event.pull_request.user.login != 'nikcli' &&
+       github.event.pull_request.user.login != 'nikomatt69' &&
       github.event.pull_request.user.login != 'nikcli-agent[bot]'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:

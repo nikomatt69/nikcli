@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/remote",
+  "version": "1.0.0",
+  "description": "NikCLI remote terminal server - Mobile access via WebSocket with QR code",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "nikcli-remote": "./bin/remote"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "bin"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "dev": "bun run --conditions=browser ./src/index.ts"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@types/qrcode": "^1.5.5",
+    "@types/ws": "^8.18.1",
+    "typescript": "catalog:"
+  },
+  "dependencies": {
+    "ghostty-web": "0.3.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "localtunnel": "^2.0.2",
+    "node-pty": "^1.0.0"
+  }
+}

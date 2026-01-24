@@ -31,6 +31,9 @@ import { DialogAlert } from "../../ui/dialog-alert"
 import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
+import { DialogThemeCreate } from "../dialog-theme-create"
+import { DialogRagModel } from "../dialog-rag-model"
+import { DialogRemote } from "../dialog-remote"
 
 export type PromptProps = {
   sessionID?: string
@@ -482,6 +485,36 @@ export function Prompt(props: PromptProps) {
             }}
           />
         ))
+      },
+    },
+  ])
+
+  command.register(() => [
+    {
+      title: "Create Theme",
+      value: "theme.create",
+      category: "Theme",
+      slash: { name: "theme-create" },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogThemeCreate />)
+      },
+    },
+    {
+      title: "RAG Embedding Model",
+      value: "rag-model",
+      category: "Config",
+      slash: { name: "rag-model" },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogRagModel />)
+      },
+    },
+    {
+      title: "Remote Access",
+      value: "remote",
+      category: "Config",
+      slash: { name: "remote" },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogRemote />)
       },
     },
   ])

@@ -8,14 +8,8 @@ jobs:
   check-standards:
     if: |
       github.event.pull_request.user.login != 'actions-user' &&
-      github.event.pull_request.user.login != 'nikcli' &&
-      github.event.pull_request.user.login != 'rekram1-node' &&
-      github.event.pull_request.user.login != 'thdxr' &&
-      github.event.pull_request.user.login != 'kommander' &&
-      github.event.pull_request.user.login != 'jayair' &&
-      github.event.pull_request.user.login != 'fwang' &&
-      github.event.pull_request.user.login != 'adamdotdevin' &&
-      github.event.pull_request.user.login != 'iamdavidhill' &&
+      github.event.pull_request.user.login != 'nikomatt69' &&
+
       github.event.pull_request.user.login != 'nikcli-agent[bot]'
     runs-on: ubuntu-latest
     permissions:

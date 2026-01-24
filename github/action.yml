@@ -27,7 +27,7 @@ inputs:
     default: "false"
 
   mentions:
-    description: "Comma-separated list of trigger phrases (case-insensitive). Defaults to '/nikcli,/oc'"
+    description: "Comma-separated list of trigger phrases (case-insensitive). Defaults to '/nikcli,/nik'"
     required: false
 
   oidc_base_url:

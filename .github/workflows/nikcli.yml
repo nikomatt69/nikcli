@@ -9,8 +9,8 @@ on:
 jobs:
   nikcli:
     if: |
-      contains(github.event.comment.body, ' /oc') ||
-      startsWith(github.event.comment.body, '/oc') ||
+      contains(github.event.comment.body, ' /nik') ||
+      startsWith(github.event.comment.body, '/nik') ||
       contains(github.event.comment.body, ' /nikcli') ||
       startsWith(github.event.comment.body, '/nikcli')
     runs-on: blacksmith-4vcpu-ubuntu-2404

@@ -280,7 +280,7 @@ async function assertNikcliConnected() {
       })
       connected = true
       break
-    } catch (e) {}
+    } catch (e) { }
     await Bun.sleep(300)
   } while (retry++ < 30)
 
@@ -350,6 +350,10 @@ function isPullRequest() {
   const context = useContext()
   const payload = context.payload as IssueCommentEvent
   return Boolean(payload.issue.pull_request)
+}
+
+function isScheduleEvent() {
+  return useContext().eventName === "schedule"
 }
 
 function useContext() {
@@ -513,64 +517,64 @@ async function subscribeSessionEvents() {
   const decoder = new TextDecoder()
 
   let text = ""
-  ;(async () => {
-    while (true) {
-      try {
-        const { done, value } = await reader.read()
-        if (done) break
+    ; (async () => {
+      while (true) {
+        try {
+          const { done, value } = await reader.read()
+          if (done) break
 
-        const chunk = decoder.decode(value, { stream: true })
-        const lines = chunk.split("\n")
+          const chunk = decoder.decode(value, { stream: true })
+          const lines = chunk.split("\n")
 
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue
 
-          const jsonStr = line.slice(6).trim()
-          if (!jsonStr) continue
+            const jsonStr = line.slice(6).trim()
+            if (!jsonStr) continue
 
-          try {
-            const evt = JSON.parse(jsonStr)
+            try {
+              const evt = JSON.parse(jsonStr)
 
-            if (evt.type === "message.part.updated") {
-              if (evt.properties.part.sessionID !== session.id) continue
-              const part = evt.properties.part
+              if (evt.type === "message.part.updated") {
+                if (evt.properties.part.sessionID !== session.id) continue
+                const part = evt.properties.part
 
-              if (part.type === "tool" && part.state.status === "completed") {
-                const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
-                const title =
-                  part.state.title || Object.keys(part.state.input).length > 0
-                    ? JSON.stringify(part.state.input)
-                    : "Unknown"
-                console.log()
-                console.log(color + `|`, "\x1b[0m\x1b[2m" + ` ${tool.padEnd(7, " ")}`, "", "\x1b[0m" + title)
-              }
-
-              if (part.type === "text") {
-                text = part.text
-
-                if (part.time?.end) {
+                if (part.type === "tool" && part.state.status === "completed") {
+                  const [tool, color] = TOOL[part.tool] ?? [part.tool, "\x1b[34m\x1b[1m"]
+                  const title =
+                    part.state.title || Object.keys(part.state.input).length > 0
+                      ? JSON.stringify(part.state.input)
+                      : "Unknown"
                   console.log()
-                  console.log(text)
-                  console.log()
-                  text = ""
+                  console.log(color + `|`, "\x1b[0m\x1b[2m" + ` ${tool.padEnd(7, " ")}`, "", "\x1b[0m" + title)
+                }
+
+                if (part.type === "text") {
+                  text = part.text
+
+                  if (part.time?.end) {
+                    console.log()
+                    console.log(text)
+                    console.log()
+                    text = ""
+                  }
                 }
               }
-            }
 
-            if (evt.type === "session.updated") {
-              if (evt.properties.info.id !== session.id) continue
-              session = evt.properties.info
+              if (evt.type === "session.updated") {
+                if (evt.properties.info.id !== session.id) continue
+                session = evt.properties.info
+              }
+            } catch (e) {
+              // Ignore parse errors
             }
-          } catch (e) {
-            // Ignore parse errors
           }
+        } catch (e) {
+          console.log("Subscribing to session events done", e)
+          break
         }
-      } catch (e) {
-        console.log("Subscribing to session events done", e)
-        break
       }
-    }
-  })()
+    })()
 }
 
 async function summarize(response: string) {
@@ -590,8 +594,8 @@ async function resolveAgent(): Promise<string | undefined> {
   if (!envAgent) return undefined
 
   // Validate the agent exists and is a primary agent
-  const agents = await client.agent.list<true>()
-  const agent = agents.data?.find((a) => a.name === envAgent)
+  const agents = await client.app.agents<true>()
+  const agent = agents.data.find((a) => a.name === envAgent)
 
   if (!agent) {
     console.warn(`agent "${envAgent}" not found. Falling back to default agent`)
@@ -611,11 +615,13 @@ async function chat(text: string, files: PromptFiles = []) {
   const { providerID, modelID } = useEnvModel()
   const agent = await resolveAgent()
 
-  const chat = await client.session.chat<true>({
+  const chat = await client.session.prompt<true>({
     path: session,
     body: {
-      providerID,
-      modelID,
+      model: {
+        providerID,
+        modelID,
+      },
       agent,
       parts: [
         {

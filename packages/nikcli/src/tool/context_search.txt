@@ -5,3 +5,4 @@ Usage:
 - path: directory to search (defaults to workspace)
 - include: glob filter
 - limit: maximum matches (default: 50)
+- mode: regex or semantic search

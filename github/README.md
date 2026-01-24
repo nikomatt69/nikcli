@@ -27,7 +27,7 @@ Leave the following comment on a GitHub issue. nikcli will create a new branch, 
 Leave the following comment on a GitHub PR. nikcli will implement the requested change and commit it to the same PR.
 
 ```
-Delete the attachment from S3 when the note is removed /oc
+Delete the attachment from S3 when the note is removed /nik
 ```
 
 #### Review specific code lines
@@ -36,7 +36,7 @@ Leave a comment directly on code lines in the PR's "Files" tab. nikcli will auto
 
 ```
 [Comment on specific lines in Files tab]
-/oc add error handling here
+/nik add error handling here
 ```
 
 When commenting on specific lines, nikcli receives:
@@ -75,7 +75,7 @@ This will walk you through installing the GitHub app, creating the workflow, and
    jobs:
      nikcli:
        if: |
-         contains(github.event.comment.body, '/oc') ||
+         contains(github.event.comment.body, '/nik') ||
          contains(github.event.comment.body, '/nikcli')
        runs-on: ubuntu-latest
        permissions:

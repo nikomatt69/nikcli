@@ -24,7 +24,7 @@ jobs:
 
       - name: Publish
         run: |
-          git config --global user.email "nikcli@sst.dev"
-          git config --global user.name "nikcli"
+          git config --global user.email "nicola.mattioli.95@gmail.com"
+          git config --global user.name "nikomatt69"
           ./script/publish
         working-directory: ./github

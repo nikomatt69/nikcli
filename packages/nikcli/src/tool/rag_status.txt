@@ -1,0 +1,4 @@
+Show RAG index status.
+
+Usage:
+- no parameters

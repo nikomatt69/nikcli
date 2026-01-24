@@ -1,0 +1,6 @@
+{
+  "rag": {
+    "model": "nvidia/llama-embed-nemotron-8b",
+    "provider": "nvidia"
+  }
+}

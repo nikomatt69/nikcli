@@ -26,6 +26,8 @@ import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
+import { RagModelCommand } from "./cli/cmd/rag-model"
+import { RemoteCommand } from "./cli/cmd/remote"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -97,6 +99,8 @@ const cli = yargs(hideBin(process.argv))
   .command(GithubCommand)
   .command(PrCommand)
   .command(SessionCommand)
+  .command(RagModelCommand)
+  .command(RemoteCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

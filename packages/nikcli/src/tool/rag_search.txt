@@ -1,0 +1,6 @@
+Search the RAG index semantically.
+
+Usage:
+- query: semantic search query
+- limit: maximum results (default: 8)
+- minScore: minimum similarity score (default: 0.2)

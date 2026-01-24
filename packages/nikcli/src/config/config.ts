@@ -543,6 +543,10 @@ export namespace Config {
           context_related: PermissionRule.optional(),
           context_diagnostics: PermissionRule.optional(),
           memory_search: PermissionRule.optional(),
+          rag_index: PermissionRule.optional(),
+          rag_search: PermissionRule.optional(),
+          rag_status: PermissionRule.optional(),
+          rag_reset: PermissionRule.optional(),
           external_directory: PermissionRule.optional(),
           todowrite: PermissionAction.optional(),
           todoread: PermissionAction.optional(),
@@ -841,6 +845,17 @@ export namespace Config {
   })
   export type Layout = z.infer<typeof Layout>
 
+  export const Rag = z
+    .object({
+      model: z.string().optional().describe("Embedding model for RAG (e.g., nvidia/llama-embed-nemotron-8b)"),
+      provider: z.string().optional().describe("Provider for RAG embeddings (defaults to nvidia)"),
+    })
+    .strict()
+    .meta({
+      ref: "RagConfig",
+    })
+  export type Rag = z.infer<typeof Rag>
+
   export const Provider = ModelsDev.Provider.partial()
     .extend({
       whitelist: z.array(z.string()).optional(),
@@ -1100,6 +1115,7 @@ export namespace Config {
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
         })
         .optional(),
+      rag: Rag.optional().describe("RAG embedding configuration"),
     })
     .strict()
     .meta({

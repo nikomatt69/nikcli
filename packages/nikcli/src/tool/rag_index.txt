@@ -1,0 +1,9 @@
+Build a semantic RAG index for the current project.
+
+Usage:
+- paths: files or directories to index
+- chunkLines: lines per chunk (default: 200)
+- maxFiles: maximum files to index (default: 200)
+- maxChunks: maximum chunks to store (default: 5000)
+- maxFileBytes: maximum file size in bytes (default: 1000000)
+- model: embedding model override

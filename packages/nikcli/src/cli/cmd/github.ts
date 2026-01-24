@@ -210,7 +210,7 @@ export const GithubInstallCommand = cmd({
               `    1. Commit the \`${WORKFLOW_FILE}\` file and push`,
               step2,
               "",
-              "    3. Go to a GitHub issue and comment `/oc summarize` to see the agent in action",
+              "    3. Go to a GitHub issue and comment `/nik summarize` to see the agent in action",
               "",
               "   Learn more about the GitHub agent - https://nikcli.store/docs/github/#usage-examples",
             ].join("\n"),
@@ -353,8 +353,8 @@ on:
 jobs:
   nikcli:
     if: |
-      contains(github.event.comment.body, ' /oc') ||
-      startsWith(github.event.comment.body, '/oc') ||
+      contains(github.event.comment.body, ' /nik') ||
+      startsWith(github.event.comment.body, '/nik') ||
       contains(github.event.comment.body, ' /nikcli') ||
       startsWith(github.event.comment.body, '/nikcli')
     runs-on: ubuntu-latest

@@ -36,6 +36,10 @@ import { ContextSearchTool } from "./context_search"
 import { ContextRelatedTool } from "./context_related"
 import { ContextDiagnosticsTool } from "./context_diagnostics"
 import { MemorySearchTool } from "./memory_search"
+import { RagIndexTool } from "./rag_index"
+import { RagSearchTool } from "./rag_search"
+import { RagStatusTool } from "./rag_status"
+import { RagResetTool } from "./rag_reset"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
@@ -133,6 +137,10 @@ export namespace ToolRegistry {
       ContextRelatedTool,
       ContextDiagnosticsTool,
       MemorySearchTool,
+      RagIndexTool,
+      RagSearchTool,
+      RagStatusTool,
+      RagResetTool,
       WebFetchTool,
       TodoWriteTool,
       TodoReadTool,
