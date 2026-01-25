@@ -72,6 +72,7 @@ import { Filesystem } from "@/util/filesystem"
 import { Global } from "@/global"
 import { PermissionPrompt } from "./permission"
 import { QuestionPrompt } from "./question"
+import { DBEditPrompt } from "./dbedit"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 
@@ -126,6 +127,10 @@ export function Session() {
   const questions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.question[x.id] ?? [])
+  })
+  const dbedits = createMemo(() => {
+    if (session()?.parentID) return []
+    return children().flatMap((x) => sync.data.dbedit[x.id] ?? [])
   })
 
   const pending = createMemo(() => {
@@ -1084,8 +1089,16 @@ export function Session() {
               <Show when={permissions().length === 0 && questions().length > 0}>
                 <QuestionPrompt request={questions()[0]} />
               </Show>
+              <Show when={permissions().length === 0 && questions().length === 0 && dbedits().length > 0}>
+                <DBEditPrompt request={dbedits()[0]} />
+              </Show>
               <Prompt
-                visible={!session()?.parentID && permissions().length === 0 && questions().length === 0}
+                visible={
+                  !session()?.parentID &&
+                  permissions().length === 0 &&
+                  questions().length === 0 &&
+                  dbedits().length === 0
+                }
                 ref={(r) => {
                   prompt = r
                   promptRef.set(r)
@@ -1094,7 +1107,7 @@ export function Session() {
                     r.set(route.initialPrompt)
                   }
                 }}
-                disabled={permissions().length > 0 || questions().length > 0}
+                disabled={permissions().length > 0 || questions().length > 0 || dbedits().length > 0}
                 onSubmit={() => {
                   toBottom()
                 }}

@@ -14,6 +14,9 @@ import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
 import { Global } from "@/global"
+import { isDBFile } from "@/tool/db-diff"
+import { DBVisualizer } from "../../component/table-db/ui"
+import type { DBSchema } from "../../component/table-db/db/types"
 
 type PermissionStage = "permission" | "always" | "reject"
 
@@ -50,8 +53,34 @@ function EditBody(props: { request: PermissionRequest }) {
   const sync = useSync()
   const dimensions = useTerminalDimensions()
 
-  const filepath = createMemo(() => (props.request.metadata?.filepath as string) ?? "")
-  const diff = createMemo(() => (props.request.metadata?.diff as string) ?? "")
+  const files = createMemo(
+    () =>
+      (props.request.metadata?.files as Array<{
+        filePath: string
+        isDB?: boolean
+        dbSchema?: DBSchema
+        diff: string
+      }>) ?? [],
+  )
+  const singleFile = createMemo(() => (props.request.metadata?.filepath as string) ?? "")
+  const singleDiff = createMemo(() => (props.request.metadata?.diff as string) ?? "")
+
+  const filepath = createMemo(() => {
+    if (files().length > 0) return files()[0]?.filePath ?? ""
+    return singleFile()
+  })
+
+  const diff = createMemo(() => {
+    if (files().length > 0) return files()[0]?.diff ?? ""
+    return singleDiff()
+  })
+
+  const dbSchema = createMemo(() => {
+    if (files().length > 0) return files()[0]?.dbSchema ?? null
+    return (props.request.metadata?.dbSchema as DBSchema | null) ?? null
+  })
+
+  const isDB = createMemo(() => filepath() && isDBFile(filepath()))
 
   const view = createMemo(() => {
     const diffStyle = sync.data.config.tui?.diff_style
@@ -66,28 +95,38 @@ function EditBody(props: { request: PermissionRequest }) {
       <box flexDirection="row" gap={1} paddingLeft={1}>
         <text fg={theme.textMuted}>{"→"}</text>
         <text fg={theme.textMuted}>Edit {normalizePath(filepath())}</text>
+        <Show when={files().length > 1}>
+          <text fg={theme.textMuted}>(+{files().length - 1} more)</text>
+        </Show>
       </box>
-      <Show when={diff()}>
+      <Show when={diff() || (isDB() && dbSchema())}>
         <scrollbox height="100%">
-          <diff
-            diff={diff()}
-            view={view()}
-            filetype={ft()}
-            syntaxStyle={syntax()}
-            showLineNumbers={true}
-            width="100%"
-            wrapMode="word"
-            fg={theme.text}
-            addedBg={theme.diffAddedBg}
-            removedBg={theme.diffRemovedBg}
-            contextBg={theme.diffContextBg}
-            addedSignColor={theme.diffHighlightAdded}
-            removedSignColor={theme.diffHighlightRemoved}
-            lineNumberFg={theme.diffLineNumber}
-            lineNumberBg={theme.diffContextBg}
-            addedLineNumberBg={theme.diffAddedLineNumberBg}
-            removedLineNumberBg={theme.diffRemovedLineNumberBg}
-          />
+          <Switch>
+            <Match when={isDB() && dbSchema() && dbSchema()!.tables.length > 0}>
+              <DBVisualizer tables={dbSchema()!.tables} mode="schema" />
+            </Match>
+            <Match when={diff()}>
+              <diff
+                diff={diff()}
+                view={view()}
+                filetype={ft()}
+                syntaxStyle={syntax()}
+                showLineNumbers={true}
+                width="100%"
+                wrapMode="word"
+                fg={theme.text}
+                addedBg={theme.diffAddedBg}
+                removedBg={theme.diffRemovedBg}
+                contextBg={theme.diffContextBg}
+                addedSignColor={theme.diffHighlightAdded}
+                removedSignColor={theme.diffHighlightRemoved}
+                lineNumberFg={theme.diffLineNumber}
+                lineNumberBg={theme.diffContextBg}
+                addedLineNumberBg={theme.diffAddedLineNumberBg}
+                removedLineNumberBg={theme.diffRemovedLineNumberBg}
+              />
+            </Match>
+          </Switch>
         </scrollbox>
       </Show>
     </box>

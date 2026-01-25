@@ -860,6 +860,98 @@ export type EventPtyDeleted = {
   }
 }
 
+export type DbEditRequest = {
+  id: string
+  sessionID: string
+  type: "db_create" | "db_edit" | "db_query"
+  filePath: string
+  schema?: {
+    tables: Array<{
+      name: string
+      columns: Array<{
+        name: string
+        type: string
+        notNull: boolean
+        defaultValue?: string
+        primaryKey: boolean
+      }>
+      primaryKey: Array<string>
+      foreignKeys?: Array<{
+        table: string
+        column: string
+        referencedTable: string
+        referencedColumn: string
+        onDelete: "CASCADE" | "RESTRICT" | "SET NULL" | "NO ACTION"
+      }>
+      rowCount?: number
+      sql?: string
+    }>
+    views?: Array<{
+      name: string
+      sql: string
+    }>
+    indexes?: Array<{
+      name: string
+      tableName: string
+      columns: Array<string>
+      unique: boolean
+    }>
+  }
+  preview?: Array<{
+    tableName: string
+    columns: Array<{
+      name: string
+      type: string
+      notNull: boolean
+      defaultValue?: string
+      primaryKey: boolean
+    }>
+    sampleData: Array<{
+      [key: string]: unknown
+    }>
+    rowCount: number
+  }>
+  changes?: Array<{
+    type: "add_table" | "drop_table" | "add_column" | "drop_column" | "modify_column"
+    tableName: string
+    columnName?: string
+    oldDefinition?: {
+      name: string
+      type: string
+      notNull: boolean
+      defaultValue?: string
+      primaryKey: boolean
+    }
+    newDefinition?: {
+      name: string
+      type: string
+      notNull: boolean
+      defaultValue?: string
+      primaryKey: boolean
+    }
+  }>
+  sql?: string
+  always: Array<string>
+  tool?: {
+    messageID: string
+    callID: string
+  }
+}
+
+export type EventDbeditAsked = {
+  type: "dbedit.asked"
+  properties: DbEditRequest
+}
+
+export type EventDbeditReplied = {
+  type: "dbedit.replied"
+  properties: {
+    sessionID: string
+    requestID: string
+    reply: "accept" | "edit" | "reject"
+  }
+}
+
 export type Event =
   | EventInstallationUpdated
   | EventInstallationUpdateAvailable
@@ -901,6 +993,8 @@ export type Event =
   | EventPtyUpdated
   | EventPtyExited
   | EventPtyDeleted
+  | EventDbeditAsked
+  | EventDbeditReplied
 
 export type GlobalEvent = {
   directory: string
@@ -1343,8 +1437,27 @@ export type PermissionConfig =
       glob?: PermissionRuleConfig
       grep?: PermissionRuleConfig
       list?: PermissionRuleConfig
+      tree?: PermissionRuleConfig
       bash?: PermissionRuleConfig
       task?: PermissionRuleConfig
+      subagents?: PermissionRuleConfig
+      docs_add?: PermissionRuleConfig
+      docs_search?: PermissionRuleConfig
+      docs_load?: PermissionRuleConfig
+      docs_unload?: PermissionRuleConfig
+      docs_context?: PermissionRuleConfig
+      docs_request?: PermissionRuleConfig
+      docs_gap_report?: PermissionRuleConfig
+      smart_docs?: PermissionRuleConfig
+      context_collect?: PermissionRuleConfig
+      context_search?: PermissionRuleConfig
+      context_related?: PermissionRuleConfig
+      context_diagnostics?: PermissionRuleConfig
+      memory_search?: PermissionRuleConfig
+      rag_index?: PermissionRuleConfig
+      rag_search?: PermissionRuleConfig
+      rag_status?: PermissionRuleConfig
+      rag_reset?: PermissionRuleConfig
       external_directory?: PermissionRuleConfig
       todowrite?: PermissionActionConfig
       todoread?: PermissionActionConfig
@@ -1577,6 +1690,20 @@ export type McpRemoteConfig = {
  */
 export type LayoutConfig = "auto" | "stretch"
 
+/**
+ * RAG embedding configuration
+ */
+export type RagConfig = {
+  /**
+   * Embedding model for RAG (e.g., nvidia/llama-embed-nemotron-8b)
+   */
+  model?: string
+  /**
+   * Provider for RAG embeddings (defaults to nvidia)
+   */
+  provider?: string
+}
+
 export type Config = {
   /**
    * JSON schema reference for configuration validation
@@ -1801,6 +1928,7 @@ export type Config = {
      */
     mcp_timeout?: number
   }
+  rag?: RagConfig
 }
 
 export type Model = {
@@ -3711,6 +3839,61 @@ export type PermissionListResponses = {
 }
 
 export type PermissionListResponse = PermissionListResponses[keyof PermissionListResponses]
+
+export type DbeditReplyData = {
+  body?: {
+    reply: "accept" | "edit" | "reject"
+    modified?: DbEditRequest
+    message?: string
+  }
+  path: {
+    requestID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/dbedit/{requestID}/reply"
+}
+
+export type DbeditReplyErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type DbeditReplyError = DbeditReplyErrors[keyof DbeditReplyErrors]
+
+export type DbeditReplyResponses = {
+  /**
+   * DB edit processed successfully
+   */
+  200: boolean
+}
+
+export type DbeditReplyResponse = DbeditReplyResponses[keyof DbeditReplyResponses]
+
+export type DbeditListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/dbedit"
+}
+
+export type DbeditListResponses = {
+  /**
+   * List of pending DB edits
+   */
+  200: Array<DbEditRequest>
+}
+
+export type DbeditListResponse = DbeditListResponses[keyof DbeditListResponses]
 
 export type QuestionListData = {
   body?: never

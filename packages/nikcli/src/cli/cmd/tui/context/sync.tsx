@@ -28,6 +28,9 @@ import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk"
+import { readFileSync } from "fs"
+import { isDBFile, createDBSchemaFromSQL, readDBSchema } from "@/tool/db-diff"
+import type { DBSchema } from "../component/table-db/db/types"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -46,48 +49,31 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: {
         [sessionID: string]: QuestionRequest[]
       }
-      config: Config
-      session: Session[]
-      session_status: {
-        [sessionID: string]: SessionStatus
-      }
-      session_diff: {
-        [sessionID: string]: Snapshot.FileDiff[]
-      }
-      todo: {
-        [sessionID: string]: Todo[]
-      }
-      message: {
-        [sessionID: string]: Message[]
-      }
-      part: {
-        [messageID: string]: Part[]
-      }
-      lsp: LspStatus[]
-      mcp: {
-        [key: string]: McpStatus
-      }
-      mcp_resource: {
-        [key: string]: McpResource
-      }
-      formatter: FormatterStatus[]
-      vcs: VcsInfo | undefined
-      path: Path
+      dbedit: {}
+      session: []
+      session_status: {}
+      session_diff: {}
+      todo: {}
+      message: {}
+      part: {}
+      lsp: []
+      mcp: {}
+      mcp_resource: {}
+      formatter: []
+      vcs: undefined
+      path: { state: ""; config: ""; worktree: ""; directory: "" }
+      dbschema: Record<string, DBSchema>
     }>({
-      provider_next: {
-        all: [],
-        default: {},
-        connected: [],
-      },
-      provider_auth: {},
-      config: {},
       status: "loading",
-      agent: [],
-      permission: {},
-      question: {},
-      command: [],
       provider: [],
       provider_default: {},
+      provider_next: { next: [], default: {} },
+      provider_auth: {},
+      agent: [],
+      command: [],
+      permission: {},
+      question: {},
+      dbedit: {},
       session: [],
       session_status: {},
       session_diff: {},
@@ -100,6 +86,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       formatter: [],
       vcs: undefined,
       path: { state: "", config: "", worktree: "", directory: "" },
+      dbschema: {},
     })
 
     const sdk = useSDK()
@@ -177,6 +164,43 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           }
           setStore(
             "question",
+            request.sessionID,
+            produce((draft) => {
+              draft.splice(match.index, 0, request)
+            }),
+          )
+          break
+        }
+
+        case "dbedit.replied": {
+          const requests = store.dbedit[event.properties.sessionID]
+          if (!requests) break
+          const match = Binary.search(requests, event.properties.requestID, (r) => r.id)
+          if (!match.found) break
+          setStore(
+            "dbedit",
+            event.properties.sessionID,
+            produce((draft) => {
+              draft.splice(match.index, 1)
+            }),
+          )
+          break
+        }
+
+        case "dbedit.asked": {
+          const request = event.properties
+          const requests = store.dbedit[request.sessionID]
+          if (!requests) {
+            setStore("dbedit", request.sessionID, [request])
+            break
+          }
+          const match = Binary.search(requests, request.id, (r) => r.id)
+          if (match.found) {
+            setStore("dbedit", request.sessionID, match.index, reconcile(request))
+            break
+          }
+          setStore(
+            "dbedit",
             request.sessionID,
             produce((draft) => {
               draft.splice(match.index, 0, request)
@@ -310,6 +334,26 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                 draft.splice(result.index, 1)
               }),
             )
+          break
+        }
+
+        case "file.edited": {
+          const file = event.properties.file
+          if (!isDBFile(file)) break
+          try {
+            let schema: DBSchema | null = null
+            if (file.endsWith(".sql") || file.endsWith(".prisma")) {
+              const content = readFileSync(file, "utf-8")
+              schema = await createDBSchemaFromSQL(content)
+            } else {
+              schema = await readDBSchema(file)
+            }
+            if (schema?.tables && schema.tables.length > 0) {
+              setStore("dbschema", file, schema)
+            }
+          } catch {
+            // Silent fail - file might be invalid or still being written
+          }
           break
         }
 

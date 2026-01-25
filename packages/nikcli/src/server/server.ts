@@ -38,6 +38,7 @@ import { HTTPException } from "hono/http-exception"
 import { errors } from "./error"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
+import { DBEditRoutes } from "./routes/dbedit"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 
@@ -157,6 +158,7 @@ export namespace Server {
         .route("/experimental", ExperimentalRoutes())
         .route("/session", SessionRoutes())
         .route("/permission", PermissionRoutes())
+        .route("/dbedit", DBEditRoutes())
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
         .route("/", FileRoutes())
@@ -188,8 +190,7 @@ export namespace Server {
           "/path",
           describeRoute({
             summary: "Get paths",
-            description:
-              "Retrieve the current working directory and related path information for the Nikcli instance.",
+            description: "Retrieve the current working directory and related path information for the Nikcli instance.",
             operationId: "path.get",
             responses: {
               200: {

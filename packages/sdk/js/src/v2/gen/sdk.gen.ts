@@ -17,6 +17,10 @@ import type {
   ConfigProvidersResponses,
   ConfigUpdateErrors,
   ConfigUpdateResponses,
+  DbeditListResponses,
+  DbeditReplyErrors,
+  DbeditReplyResponses,
+  DbEditRequest,
   EventSubscribeResponses,
   EventTuiCommandExecute,
   EventTuiPromptAppend,
@@ -1831,6 +1835,68 @@ export class Permission extends HeyApiClient {
   }
 }
 
+export class Dbedit extends HeyApiClient {
+  /**
+   * Respond to database edit request
+   *
+   * Accept, edit, or reject a database edit request from the AI assistant.
+   */
+  public reply<ThrowOnError extends boolean = false>(
+    parameters: {
+      requestID: string
+      directory?: string
+      reply?: "accept" | "edit" | "reject"
+      modified?: DbEditRequest
+      message?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "requestID" },
+            { in: "query", key: "directory" },
+            { in: "body", key: "reply" },
+            { in: "body", key: "modified" },
+            { in: "body", key: "message" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<DbeditReplyResponses, DbeditReplyErrors, ThrowOnError>({
+      url: "/dbedit/{requestID}/reply",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List pending DB edits
+   *
+   * Get all pending database edit requests across all sessions.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<DbeditListResponses, unknown, ThrowOnError>({
+      url: "/dbedit",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Question extends HeyApiClient {
   /**
    * List pending questions
@@ -3142,6 +3208,11 @@ export class NikcliClient extends HeyApiClient {
   private _permission?: Permission
   get permission(): Permission {
     return (this._permission ??= new Permission({ client: this.client }))
+  }
+
+  private _dbedit?: Dbedit
+  get dbedit(): Dbedit {
+    return (this._dbedit ??= new Dbedit({ client: this.client }))
   }
 
   private _question?: Question

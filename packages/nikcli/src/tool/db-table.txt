@@ -1,0 +1,15 @@
+Create, edit, or drop database tables in SQLite databases.
+
+Usage:
+- Create new tables by specifying the database path and table definition
+- Add, modify, or drop columns in existing tables
+- Drop entire tables
+
+Operations:
+- create: Create a new table with specified columns
+- add_column: Add a new column to an existing table
+- modify_column: Change an existing column's definition
+- drop_column: Remove a column from a table
+- drop: Drop an entire table
+
+For create operation, provide columns as an array with name, type (TEXT, INTEGER, REAL, BLOB, etc.), and optional constraints (primaryKey, notNull, defaultValue).
