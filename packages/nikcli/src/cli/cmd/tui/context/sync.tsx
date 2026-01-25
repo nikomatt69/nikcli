@@ -17,6 +17,7 @@ import type {
   ProviderListResponse,
   ProviderAuthMethod,
   VcsInfo,
+  FileDiff,
 } from "@nikcli-ai/sdk/v2"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
@@ -30,7 +31,7 @@ import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk"
 import { readFileSync } from "fs"
 import { isDBFile, createDBSchemaFromSQL, readDBSchema } from "@/tool/db-diff"
-import type { DBSchema } from "../component/table-db/db/types"
+import type { DBSchema, DBEditRequest } from "../component/table-db/db/types"
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -43,34 +44,32 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       provider_auth: Record<string, ProviderAuthMethod[]>
       agent: Agent[]
       command: Command[]
-      permission: {
-        [sessionID: string]: PermissionRequest[]
-      }
-      question: {
-        [sessionID: string]: QuestionRequest[]
-      }
-      dbedit: {}
-      session: []
-      session_status: {}
-      session_diff: {}
-      todo: {}
-      message: {}
-      part: {}
-      lsp: []
-      mcp: {}
-      mcp_resource: {}
-      formatter: []
-      vcs: undefined
-      path: { state: ""; config: ""; worktree: ""; directory: "" }
+      config: Config
+      permission: Record<string, PermissionRequest[]>
+      question: Record<string, QuestionRequest[]>
+      dbedit: Record<string, DBEditRequest[]>
+      session: Session[]
+      session_status: Record<string, SessionStatus>
+      session_diff: Record<string, FileDiff[]>
+      todo: Record<string, Todo[]>
+      message: Record<string, Message[]>
+      part: Record<string, Part[]>
+      lsp: LspStatus[]
+      mcp: Record<string, McpStatus>
+      mcp_resource: Record<string, McpResource>
+      formatter: FormatterStatus[]
+      vcs: VcsInfo | undefined
+      path: Path
       dbschema: Record<string, DBSchema>
     }>({
       status: "loading",
       provider: [],
       provider_default: {},
-      provider_next: { next: [], default: {} },
+      provider_next: { all: [], default: {}, connected: [] },
       provider_auth: {},
       agent: [],
       command: [],
+      config: {} as Config,
       permission: {},
       question: {},
       dbedit: {},
@@ -340,20 +339,23 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "file.edited": {
           const file = event.properties.file
           if (!isDBFile(file)) break
-          try {
-            let schema: DBSchema | null = null
-            if (file.endsWith(".sql") || file.endsWith(".prisma")) {
-              const content = readFileSync(file, "utf-8")
-              schema = await createDBSchemaFromSQL(content)
-            } else {
-              schema = await readDBSchema(file)
+          const processSchema = async () => {
+            try {
+              let schema: DBSchema | null = null
+              if (file.endsWith(".sql") || file.endsWith(".prisma")) {
+                const content = readFileSync(file, "utf-8")
+                schema = await createDBSchemaFromSQL(content)
+              } else {
+                schema = await readDBSchema(file)
+              }
+              if (schema?.tables && schema.tables.length > 0) {
+                setStore("dbschema", file, schema)
+              }
+            } catch {
+              // Silent fail - file might be invalid or still being written
             }
-            if (schema?.tables && schema.tables.length > 0) {
-              setStore("dbschema", file, schema)
-            }
-          } catch {
-            // Silent fail - file might be invalid or still being written
           }
+          processSchema()
           break
         }
 

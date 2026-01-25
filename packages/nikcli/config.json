@@ -2,5 +2,6 @@
   "rag": {
     "model": "nvidia/llama-embed-nemotron-8b",
     "provider": "nvidia"
-  }
+  },
+  "$schema": "https://nikcli.store/config.json"
 }
