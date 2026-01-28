@@ -5,15 +5,22 @@
   "license": "MIT",
   "scripts": {
     "dev": "bun run src/index.ts",
+    "dev:worker": "wrangler dev src/worker.ts",
+    "deploy": "wrangler deploy src/worker.ts",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
-    "@nikcli-ai/sdk": "workspace:*",
+    "@nikcli-ai/sdk": "^1.1.29",
     "@slack/bolt": "^3.17.1"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250122.0",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "@typescript/native-preview": "catalog:"
+    "@typescript/native-preview": "catalog:",
+    "wrangler": "^3.110.0"
+  },
+  "peerDependencies": {
+    "@slack/bolt": "^3.17.1"
   }
 }

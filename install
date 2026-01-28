@@ -20,8 +20,8 @@ Options:
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
-    curl -fsSL https://nikcli.ai/install | bash
-    curl -fsSL https://nikcli.ai/install | bash -s -- --version 1.0.180
+    curl -fsSL https://nikcli.store/install | bash
+    curl -fsSL https://nikcli.store/install | bash -s -- --version 1.0.180
     ./install --binary /path/to/nikcli
 EOF
 }
@@ -167,7 +167,9 @@ else
     fi
 
     if [ -z "$requested_version" ]; then
-        url="https://github.com/nikomatt69/nikcli/releases/latest/download/$filename"
+        # Primary: nikcli.store, Fallback: GitHub
+        url_primary="https://nikcli.store/releases/latest/download/$filename"
+        url_fallback="https://github.com/nikomatt69/nikcli/releases/latest/download/$filename"
         specific_version=$(curl -s https://api.github.com/repos/nikomatt69/nikcli/releases/latest | sed -n 's/.*"tag_name": *"v\([^"]*\)".*/\1/p')
 
         if [[ $? -ne 0 || -z "$specific_version" ]]; then
@@ -177,10 +179,11 @@ else
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
-        url="https://github.com/nikomatt69/nikcli/releases/download/v${requested_version}/$filename"
+        url_primary="https://nikcli.store/releases/download/v${requested_version}/$filename"
+        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/v${requested_version}/$filename"
         specific_version=$requested_version
 
-        # Verify the release exists before downloading
+        # Verify the release exists before downloading (check GitHub)
         http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/v${requested_version}")
         if [ "$http_status" = "404" ]; then
             echo -e "${RED}Error: Release v${requested_version} not found${NC}"
@@ -315,9 +318,33 @@ download_and_install() {
     local tmp_dir="${TMPDIR:-/tmp}/nikcli_install_$$"
     mkdir -p "$tmp_dir"
 
-    if [[ "$os" == "windows" ]] || ! [ -t 2 ] || ! download_with_progress "$url" "$tmp_dir/$filename"; then
-        # Fallback to standard curl on Windows, non-TTY environments, or if custom progress fails
-        curl -# -L -o "$tmp_dir/$filename" "$url"
+    # Try nikcli.store first, fallback to GitHub
+    local download_url=""
+    local download_success=false
+
+    # Try nikcli.store
+    if curl -sL -o "$tmp_dir/$filename" "$url_primary"; then
+        if [ -s "$tmp_dir/$filename" ]; then
+            download_url="$url_primary"
+            download_success=true
+        fi
+    fi
+
+    # Fallback to GitHub if nikcli.store failed
+    if [ "$download_success" = false ]; then
+        print_message info "${MUTED}Downloading from GitHub (fallback)...${NC}"
+        if curl -sL -o "$tmp_dir/$filename" "$url_fallback"; then
+            if [ -s "$tmp_dir/$filename" ]; then
+                download_url="$url_fallback"
+                download_success=true
+            fi
+        fi
+    fi
+
+    if [ "$download_success" = false ]; then
+        echo -e "${RED}Error: Failed to download nikcli${NC}"
+        rm -rf "$tmp_dir"
+        exit 1
     fi
 
     if [ "$os" = "linux" ]; then
@@ -430,10 +457,6 @@ if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
 fi
 
 echo -e ""
-echo -e "${MUTED}                    ${NC}             ▄     "
-echo -e "${MUTED}█▀▀█ █▀▀█ █▀▀█ █▀▀▄ ${NC}█▀▀▀ █▀▀█ █▀▀█ █▀▀█"
-echo -e "${MUTED}█░░█ █░░█ █▀▀▀ █░░█ ${NC}█░░░ █░░█ █░░█ █▀▀▀"
-echo -e "${MUTED}▀▀▀▀ █▀▀▀ ▀▀▀▀ ▀  ▀ ${NC}▀▀▀▀ ▀▀▀▀ ▀▀▀▀ ▀▀▀▀"
 echo -e ""
 echo -e ""
 echo -e "${MUTED}Nikcli includes free models, to start:${NC}"
@@ -441,6 +464,6 @@ echo -e ""
 echo -e "cd <project>  ${MUTED}# Open directory${NC}"
 echo -e "nikcli      ${MUTED}# Run command${NC}"
 echo -e ""
-echo -e "${MUTED}For more information visit ${NC}https://nikcli.ai/docs"
+echo -e "${MUTED}For more information visit ${NC}https://nikcli.store/docs"
 echo -e ""
 echo -e ""

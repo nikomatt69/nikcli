@@ -88,7 +88,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
 
   meta = {
     description = "The open source coding agent";
-    homepage = "https://nikcli.ai/";
+    homepage = "https://nikcli.store/";
     license = lib.licenses.mit;
     mainProgram = "nikcli";
     inherit (node_modules.meta) platforms;

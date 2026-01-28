@@ -92,7 +92,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   meta = {
     description = "Nikcli Desktop App";
-    homepage = "https://nikcli.ai";
+    homepage = "https://nikcli.store";
     license = lib.licenses.mit;
     mainProgram = "nikcli-desktop";
     inherit (nikcli.meta) platforms;

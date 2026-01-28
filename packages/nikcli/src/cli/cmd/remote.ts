@@ -2,16 +2,8 @@ import type { Argv } from "yargs"
 import { cmd } from "./cmd"
 import { Instance } from "../../project/instance"
 import { UI } from "../ui"
-import {
-  remoteService,
-  qrRenderer,
-  type RemoteSession,
-} from "../remote"
-import {
-  createTunnel,
-  findAvailableTunnel,
-  type TunnelProvider,
-} from "@nikcli-ai/remote"
+import { remoteService, qrRenderer, type RemoteSession } from "../remote"
+import { createTunnel, checkTunnelAvailability, probeTunnel, type TunnelProvider } from "@nikcli-ai/remote"
 import readline from "node:readline"
 import clipboardy from "clipboardy"
 
@@ -49,7 +41,7 @@ const RemoteStartCommand = cmd({
 
           if (remoteService.hasActiveSession()) {
             UI.println("A remote session is already active")
-            UI.println("Use \"nikcli remote status\" for details or \"nikcli remote stop\" to end it.")
+            UI.println('Use "nikcli remote status" for details or "nikcli remote stop" to end it.')
             return
           }
 
@@ -117,7 +109,7 @@ const RemoteStatusCommand = cmd({
             process.stdout.write(JSON.stringify({ active: false }))
           } else {
             UI.println("No active remote session")
-            UI.println("Use \"nikcli remote start\" to create one.")
+            UI.println('Use "nikcli remote start" to create one.')
           }
           return
         }
@@ -208,27 +200,55 @@ async function maybeCreateTunnel(
   options: { enableTunnel: boolean; provider?: TunnelProvider },
 ): Promise<void> {
   if (!options.enableTunnel) return
-
-  let provider = options.provider
-  if (!provider) {
-    provider = (await findAvailableTunnel()) || "localtunnel"
-  }
-
-  if (!provider || provider === "none") return
-
+  if (options.provider === "none") return
   const port = session.port ?? remoteService.getServerPort()
   if (!port) return
 
-  try {
-    const { url } = await createTunnel(port, provider)
-    const tunnelUrl = new URL(url)
-    tunnelUrl.searchParams.set("s", session.id)
-    tunnelUrl.searchParams.set("t", remoteService.getSessionSecret())
-    session.tunnelUrl = tunnelUrl.toString()
-    session.qrUrl = session.tunnelUrl
-  } catch (error: any) {
-    UI.println(`Tunnel failed: ${error?.message ?? error}`)
+  const providers: TunnelProvider[] = []
+  if (options.provider) {
+    providers.push(options.provider)
   }
+  if (!options.provider) {
+    const candidates: TunnelProvider[] = ["localtunnel", "cloudflared", "ngrok", "remotosh"]
+    for (const candidate of candidates) {
+      if (await checkTunnelAvailability(candidate)) {
+        providers.push(candidate)
+      }
+    }
+  }
+
+  if (providers.length === 0) {
+    UI.println("No tunnel providers available; using local network only")
+    return
+  }
+
+  for (const provider of providers) {
+    const result = await createTunnel(port, provider).catch((error) => {
+      const message = error instanceof Error ? error.message : String(error)
+      UI.println(`Tunnel failed (${provider}): ${message}`)
+      return null
+    })
+
+    if (!result) continue
+
+    const url = new URL(result.url)
+    url.searchParams.set("s", session.id)
+    url.searchParams.set("t", remoteService.getSessionSecret())
+    const tunnelUrl = url.toString()
+
+    const ok = await probeTunnel(tunnelUrl)
+    if (!ok) {
+      await result.close().catch(() => {})
+      UI.println(`Tunnel unreachable (${provider}); trying next provider`)
+      continue
+    }
+
+    session.tunnelUrl = tunnelUrl
+    session.qrUrl = tunnelUrl
+    return
+  }
+
+  UI.println("Tunnel failed: no reachable providers")
 }
 
 async function setupKeyboardControl(session: RemoteSession): Promise<void> {

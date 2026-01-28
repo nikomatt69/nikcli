@@ -26,11 +26,18 @@ let ghosttyWasmCache: Buffer | null = null
 function getGhosttyScript(): string | null {
   if (ghosttyScriptCache) return ghosttyScriptCache
   try {
-    const ghosttyPath = resolveGhosttyAsset("ghostty-web.js")
+    // Use UMD build for browser - it uses IIFE format, not ESM
+    const directPath = path.join(__dirname, "..", "node_modules", "ghostty-web", "dist", "ghostty-web.umd.cjs")
+    if (fs.existsSync(directPath)) {
+      ghosttyScriptCache = fs.readFileSync(directPath, "utf-8")
+      return ghosttyScriptCache
+    }
+    const ghosttyPath = resolveGhosttyAsset("ghostty-web.umd.cjs")
     if (!ghosttyPath) return null
     ghosttyScriptCache = fs.readFileSync(ghosttyPath, "utf-8")
     return ghosttyScriptCache
-  } catch {
+  } catch (e) {
+    console.error("Error loading ghostty-web:", e)
     return null
   }
 }
@@ -38,16 +45,24 @@ function getGhosttyScript(): string | null {
 function getGhosttyWasm(): Buffer | null {
   if (ghosttyWasmCache) return ghosttyWasmCache
   try {
+    // Direct path to WASM - more reliable than require.resolve
+    const directPath = path.join(__dirname, "..", "node_modules", "ghostty-web", "dist", "ghostty-vt.wasm")
+    if (fs.existsSync(directPath)) {
+      ghosttyWasmCache = fs.readFileSync(directPath)
+      return ghosttyWasmCache
+    }
+    // Fallback to require.resolve
     const wasmPath = resolveGhosttyAsset("ghostty-vt.wasm")
     if (!wasmPath) return null
     ghosttyWasmCache = fs.readFileSync(wasmPath)
     return ghosttyWasmCache
-  } catch {
+  } catch (e) {
+    console.error("Error loading ghostty wasm:", e)
     return null
   }
 }
 
-function resolveGhosttyAsset(filename: "ghostty-web.js" | "ghostty-vt.wasm"): string | null {
+function resolveGhosttyAsset(filename: string): string | null {
   const candidates: string[] = []
 
   try {
@@ -213,16 +228,21 @@ export class RemoteServer extends EventEmitter {
     let result = ""
     for (let i = 0; i < text.length; i++) {
       const ch = text[i]
+      if (!ch) continue
+      const nextCh = text[i + 1]
 
-      if (ch === "\x1b" && text[i + 1] === "[") {
+      if (ch === "\x1b" && nextCh === "[") {
         let j = i + 2
-        while (j < text.length && !/[A-Za-z]/.test(text[j])) {
+        while (j < text.length) {
+          const charAtJ = text[j]
+          if (!charAtJ) break
+          if (/[A-Za-z]/.test(charAtJ)) break
           j++
         }
         if (j < text.length) {
           const params = text.slice(i + 2, j)
           const final = text[j]
-          if (final === "m" && /^[0-9;]*$/.test(params)) {
+          if (final && final === "m" && /^[0-9;]*$/.test(params)) {
             result += text.slice(i, j + 1)
           }
           i = j
@@ -561,8 +581,10 @@ export class RemoteServer extends EventEmitter {
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",
         "Content-Security-Policy":
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: ws: wss:; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data:;",
+          "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob: 'wasm-unsafe-eval'; " +
+          "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
+          "connect-src 'self' ws: wss: https: blob: data:;",
       })
       res.end(getWebClient())
       return

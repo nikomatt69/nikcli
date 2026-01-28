@@ -483,7 +483,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://nikcli.ai/docs").catch(() => { })
+        open("https://nikcli.store/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",

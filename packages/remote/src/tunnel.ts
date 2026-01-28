@@ -90,7 +90,7 @@ export class TunnelManager {
       this.process.stdout?.on("data", (data: Buffer) => {
         output += data.toString()
         const match = output.match(/your url is:\s*(https?:\/\/[^\s]+)/i)
-        if (match) {
+        if (match?.[1]) {
           clearTimeout(timeout)
           this.url = match[1]
           resolve(match[1])
@@ -125,7 +125,7 @@ export class TunnelManager {
       const handleData = (data: Buffer) => {
         output += data.toString()
         const match = output.match(/(https:\/\/[^\s]+\.trycloudflare\.com)/i)
-        if (match) {
+        if (match?.[1]) {
           clearTimeout(timeout)
           this.url = match[1]
           resolve(match[1])
@@ -161,7 +161,7 @@ export class TunnelManager {
       this.process.stdout?.on("data", (data: Buffer) => {
         output += data.toString()
         const match = output.match(/url=(https?:\/\/[^\s]+)/i)
-        if (match) {
+        if (match?.[1]) {
           clearTimeout(timeout)
           this.url = match[1]
           resolve(match[1])
@@ -224,7 +224,7 @@ export class TunnelManager {
         }
         output += text
         const match = output.match(/(?:visit|connect)?\s*(https?:\/\/[^\s]+)/i)
-        if (match) {
+        if (match?.[1]) {
           if (process.env.NODE_DEBUG?.includes("nikcli:remotosh")) {
             process.stderr.write(`[nikcli:remotosh] Matched URL: ${match[1]}\n`)
           }
@@ -292,4 +292,13 @@ export async function findAvailableTunnel(): Promise<TunnelProvider | null> {
     }
   }
   return null
+}
+
+export async function probeTunnel(url: string, timeoutMs = 8000): Promise<boolean> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  return fetch(url, { signal: controller.signal })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => clearTimeout(timeout))
 }

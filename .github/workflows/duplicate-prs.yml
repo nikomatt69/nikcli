@@ -28,7 +28,7 @@ jobs:
         run: bun install
 
       - name: Install nikcli
-        run: curl -fsSL https://nikcli.ai/install | bash
+        run: curl -fsSL https://nikcli.store/install | bash
 
       - name: Build prompt
         env:

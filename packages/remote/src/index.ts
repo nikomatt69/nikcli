@@ -1,10 +1,17 @@
 import { RemoteServer } from "./server"
-import { RemoteSession, ServerConfig, TunnelProvider } from "./types"
+import type { RemoteSession, ServerConfig, TunnelProvider } from "./types"
 import WebSocket, { type RawData } from "ws"
 
 export { RemoteServer } from "./server"
 export type { RemoteServerEvents } from "./server"
-export { TunnelManager, createTunnel, checkTunnelAvailability, findAvailableTunnel, type TunnelResult } from "./tunnel"
+export {
+  TunnelManager,
+  createTunnel,
+  checkTunnelAvailability,
+  findAvailableTunnel,
+  probeTunnel,
+  type TunnelResult,
+} from "./tunnel"
 export { getWebClient } from "./web-client"
 export { generateQR, generateQRDataURL, renderSessionCard, type QROptions } from "./qrcode"
 export type { RemoteSession, TunnelProvider } from "./types"
@@ -116,7 +123,6 @@ export async function connectToTerminal(url: string, token?: string): Promise<Te
     }
   })
 }
-
 
 export async function createRemoteServer(
   config: Partial<ServerConfig> = {},

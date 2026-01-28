@@ -1,1 +1,11 @@
+# Code Owners for nikcli
 
+# Default owners for all files
+* @nikomatt69
+
+# Specific ownership for different areas
+/.github/workflows/ @nikomatt69
+/packages/nikcli/src/cli/ @nikomatt69
+/packages/nikcli/src/server/ @nikomatt69
+/packages/remote/ @nikomatt69
+/packages/sdk/ @nikomatt69

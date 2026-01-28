@@ -151,7 +151,7 @@ export function DialogThemeCreate() {
     const prefix = store.base === "dark" ? "darkStep" : "lightStep"
 
     return {
-      $schema: "https://nikcli.ai/theme.json",
+      $schema: "https://nikcli.store/theme.json",
       defs: {
         [`${prefix}1`]: store.base === "dark" ? "#070707" : "#f7f7f7",
         [`${prefix}2`]: rgbaToHex(grays()[2]!),

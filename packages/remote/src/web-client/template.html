@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#000000">
+  <title>NikCLI Remote</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    {
+        {
+        STYLES
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app">
+    <div id="auth-screen">
+      <div class="spinner"></div>
+      <p id="auth-status">Connecting to NikCLI...</p>
+    </div>
+
+    <header id="header">
+      <h1>NikCLI Remote</h1>
+      <div id="status">
+        <span id="status-dot" class="connecting"></span>
+        <span id="status-text">Connecting</span>
+      </div>
+    </header>
+
+    <div id="terminal-container">
+      <div id="terminal"></div>
+    </div>
+
+    <div id="quickkeys">
+      <button type="button" class="qkey" data-key="&#9;">Tab</button>
+      <button type="button" class="qkey" data-key="&#27;">Esc</button>
+      <button type="button" class="qkey" data-key="&#3;">^C</button>
+      <button type="button" class="qkey" data-key="&#4;">^D</button>
+      <button type="button" class="qkey" data-key="&#26;">^Z</button>
+      <button type="button" class="qkey" data-key="&#12;">^L</button>
+      <button type="button" class="qkey wide accent" data-key="&#10;">Enter</button>
+    </div>
+
+    <div id="input-container">
+      <div id="input-row">
+        <input type="text" id="input" placeholder="Type command..." autocomplete="off" autocorrect="off"
+          autocapitalize="off" spellcheck="false">
+        <button type="button" id="send">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+  <script>
+    { { SCRIPT } }
+  </script>
+</body>
+
+</html>

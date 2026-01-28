@@ -8,7 +8,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "nikcli-remote": "./bin/remote"
+    "nikcli-remote": "./dist/nikcli-remote"
   },
   "exports": {
     ".": {
@@ -18,12 +18,13 @@
   },
   "files": [
     "dist",
-    "src",
-    "bin"
+    "src"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc",
+    "build:client": "bun run scripts/inline-web-client.ts",
+    "build": "bun run build:client && bunx tsup src/index.ts --format esm --dts --target es2022 --out-dir dist --clean --splitting false --platform node --external ws --external ghostty-web --external qrcode --external localtunnel",
+    "compile": "bun run build && bun build src/cli.ts --compile --outfile=dist/nikcli-remote --target=node",
     "dev": "bun run --conditions=browser ./src/index.ts"
   },
   "devDependencies": {
@@ -31,6 +32,7 @@
     "@types/node": "catalog:",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
+    "tsup": "8.5.1",
     "typescript": "catalog:"
   },
   "dependencies": {

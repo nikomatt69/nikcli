@@ -7,10 +7,11 @@ import { DialogSelect, type DialogSelectRef } from "@tui/ui/dialog-select"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
 import {
+  checkTunnelAvailability,
   createTunnel,
-  findAvailableTunnel,
   connectToTerminal,
   generateQR,
+  probeTunnel,
   type TunnelProvider,
   type TerminalConnection,
   type TunnelResult,
@@ -165,25 +166,66 @@ export function DialogRemote() {
       }
 
       const enableTunnel = currentRemote()?.enableTunnel ?? true
-      let tunnelProvider: TunnelProvider = (currentRemote()?.provider as TunnelProvider) || "localtunnel"
-
-      if (enableTunnel && !tunnelProvider) {
-        tunnelProvider = (await findAvailableTunnel()) || "localtunnel"
-      }
-
+      const configuredProvider = currentRemote()?.provider as TunnelProvider | undefined
+      const tunnelProvider = configuredProvider || "localtunnel"
       const useTunnel = enableTunnel && tunnelProvider !== "none"
       const session = await remoteService.startSession()
       attachRendererBridge()
+      renderer.requestRender()
       let sessionUrl = buildSessionUrl(session, session.localUrl || session.qrUrl)
 
       if (useTunnel) {
-        try {
-          const tunnelResult = await createTunnel(session.port ?? remoteService.getServerPort(), tunnelProvider)
-          setTunnel(tunnelResult)
-          session.tunnelUrl = buildSessionUrl(session, tunnelResult.url)
-          sessionUrl = session.tunnelUrl
-        } catch (e) {
-          toast.show({ message: `Failed to create tunnel: ${e}`, variant: "error" })
+        const providers = await (async () => {
+          if (configuredProvider) return [tunnelProvider]
+
+          const candidates: TunnelProvider[] = ["localtunnel", "cloudflared", "ngrok", "remotosh"]
+          const available: TunnelProvider[] = []
+
+          for (const candidate of candidates) {
+            if (await checkTunnelAvailability(candidate)) {
+              available.push(candidate)
+            }
+          }
+
+          if (!available.includes(tunnelProvider)) return available
+
+          return [tunnelProvider, ...available.filter((candidate) => candidate !== tunnelProvider)]
+        })()
+
+        if (providers.length === 0) {
+          toast.show({ message: "No tunnel providers available; using local network only", variant: "warning" })
+        }
+
+        if (providers.length > 0) {
+          const port = session.port ?? remoteService.getServerPort()
+          if (!port) {
+            toast.show({ message: "Tunnel unavailable; missing server port", variant: "error" })
+          }
+
+          if (port) {
+            for (const provider of providers) {
+              const result = await createTunnel(port, provider).catch((error) => {
+                const message = error instanceof Error ? error.message : String(error)
+                toast.show({ message: `Tunnel failed (${provider}): ${message}`, variant: "error" })
+                return null
+              })
+
+              if (!result) continue
+
+              const url = buildSessionUrl(session, result.url)
+              const ok = await probeTunnel(url)
+              if (!ok) {
+                await result.close().catch(() => {})
+                toast.show({ message: `Tunnel unreachable (${provider})`, variant: "warning" })
+                continue
+              }
+
+              setTunnel(result)
+              session.tunnelUrl = url
+              sessionUrl = url
+              break
+            }
+          }
         }
       }
 
@@ -391,14 +433,49 @@ export function DialogRemote() {
       realStdoutWrite?: typeof process.stdout.write
       stdout?: NodeJS.WriteStream
     }
-    const original = target.realStdoutWrite?.bind(target.stdout ?? process.stdout)
-    if (!original) return
+    const stdout = target.stdout ?? process.stdout
+    const forward = (data: string | Uint8Array) => {
+      const text = typeof data === "string" ? data : Buffer.from(data).toString()
+      remoteService.writeToTerminal(text)
+    }
+    const original = target.realStdoutWrite?.bind(stdout)
+    if (original) {
+      const bridge = ((
+        data: string | Uint8Array,
+        encoding?: BufferEncoding | ((err?: Error | null) => void),
+        cb?: (err?: Error | null) => void,
+      ) => {
+        const result =
+          typeof encoding === "function"
+            ? original(data, encoding)
+            : original(data, encoding as BufferEncoding | undefined, cb)
+        forward(data)
+        return result
+      }) as typeof stdout.write
+      target.realStdoutWrite = bridge
 
-    const bridge = process.stdout.write.bind(process.stdout) as typeof process.stdout.write
-    target.realStdoutWrite = bridge
+      detachRendererBridge = () => {
+        target.realStdoutWrite = original
+        detachRendererBridge = null
+      }
+      return
+    }
+
+    const base = stdout.write.bind(stdout)
+    const bridge = ((
+      data: string | Uint8Array,
+      encoding?: BufferEncoding | ((err?: Error | null) => void),
+      cb?: (err?: Error | null) => void,
+    ) => {
+      const result =
+        typeof encoding === "function" ? base(data, encoding) : base(data, encoding as BufferEncoding | undefined, cb)
+      forward(data)
+      return result
+    }) as typeof stdout.write
+    stdout.write = bridge
 
     detachRendererBridge = () => {
-      target.realStdoutWrite = original
+      stdout.write = base
       detachRendererBridge = null
     }
   }
