@@ -36,8 +36,13 @@ export async function getCommits(from: string, to: string): Promise<Commit[]> {
 
   const commitData = new Map<string, { login: string | null; message: string }>()
   for (const line of compare.split("\n").filter(Boolean)) {
-    const data = JSON.parse(line) as { sha: string; login: string | null; message: string }
-    commitData.set(data.sha, { login: data.login, message: data.message.split("\n")[0] ?? "" })
+    if (!line.trim().startsWith("{")) continue
+    try {
+      const data = JSON.parse(line) as { sha: string; login: string | null; message: string }
+      commitData.set(data.sha, { login: data.login, message: data.message.split("\n")[0] ?? "" })
+    } catch {
+      // skip invalid lines
+    }
   }
 
   // Get commits that touch the relevant packages

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "name": "nikcli",
   "type": "module",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "lint": "echo 'Running lint checks...' && bun test --coverage",
     "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
     "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
-    "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'"
+    "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'",
+    "release": "bun run ../../script/release-github.ts"
   },
   "bin": {
     "nikcli": "./bin/nikcli"
