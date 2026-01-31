@@ -129,7 +129,9 @@ type IssueQueryResponse = {
   }
 }
 
-const AGENT_USERNAME = "nikcli-agent[bot]"
+const GITHUB_APP_NAME = process.env.NIKCLI_GITHUB_APP_NAME || "nikcli"
+const AGENT_USERNAME = `${GITHUB_APP_NAME}[bot]`
+const API_BASE_URL = process.env.NIKCLI_API_URL || "https://api.nikcli.store"
 const AGENT_REACTION = "eyes"
 const WORKFLOW_FILE = ".github/workflows/nikcli.yml"
 
@@ -291,7 +293,7 @@ export const GithubInstallCommand = cmd({
           const installation = await getInstallation()
           if (installation) return s.stop("GitHub app already installed")
 
-          const url = "https://github.com/apps/nikcli-agent"
+          const url = `https://github.com/apps/${GITHUB_APP_NAME}`
           const command =
             process.platform === "darwin"
               ? `open "${url}"`
@@ -304,6 +306,13 @@ export const GithubInstallCommand = cmd({
               prompts.log.warn(`Could not open browser. Please visit: ${url}`)
             }
           })
+
+          // Skip polling for custom apps (non-official)
+          if (GITHUB_APP_NAME !== "nikcli-agent") {
+            s.stop(`Opened ${url} - please install the app and then press Enter to continue...`)
+            await prompts.confirm({ message: "Have you installed the GitHub app?" })
+            return
+          }
 
           s.message("Waiting for GitHub app to be installed")
           const MAX_RETRIES = 120
@@ -326,11 +335,10 @@ export const GithubInstallCommand = cmd({
           s.stop("Installed GitHub app")
 
           async function getInstallation() {
-            return await fetch(
-              `https://api.nikcli.store/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`,
-            )
-              .then((res) => res.json())
-              .then((data) => data.installation)
+            const res = await fetch(`${API_BASE_URL}/get_github_app_installation?owner=${app.owner}&repo=${app.repo}`)
+            if (!res.ok) return null
+            const data = await res.json()
+            return data.installation
           }
         }
 
