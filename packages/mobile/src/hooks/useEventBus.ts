@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useCallback, useRef } from "react"
-import mitt, { type Emitter } from "mitt"
+import mitt from "mitt"
 import { useConnectionStore, useEventsStore, useSessionsStore, useSettingsStore } from "../stores"
-import type { SSEEvent } from "../types"
+import type { SSEEvent, MessagePart } from "../types"
 
-interface EventBusEvents {
-  [key: string]: SSEEvent
+type EventBusEvents = {
   "server.connected": SSEEvent
   "server.heartbeat": SSEEvent
   "server.instance.disposed": SSEEvent
@@ -51,7 +50,7 @@ interface EventBusEvents {
 }
 
 export function useEventBus() {
-  const emitter = useMemo<Emitter<EventBusEvents>>(() => mitt(), [])
+  const emitter = useMemo(() => mitt<EventBusEvents>(), [])
   const connectionStore = useConnectionStore()
   const eventsStore = useEventsStore()
   const sessionsStore = useSessionsStore()
@@ -122,13 +121,18 @@ export function useEventBus() {
         const data = event.data as Record<string, unknown> | undefined
         if (data?.properties) {
           const props = data.properties as Record<string, unknown>
+          const parts = props.parts as Array<{ id: string; type: string; content: string }> | undefined
           sessionsStore.appendMessage(props.sessionId as string, {
             id: props.id as string,
             sessionId: props.sessionId as string,
             role: (props.role as "user" | "assistant" | "system") || "assistant",
             content: props.content as string,
             createdAt: new Date((props.createdAt as number) || Date.now()),
-            parts: props.parts as { id: string; type: string; content: string }[],
+            parts: parts?.map((p) => ({
+              id: p.id,
+              type: p.type as MessagePart["type"],
+              content: p.content,
+            })),
           })
         }
       },
@@ -140,8 +144,12 @@ export function useEventBus() {
           const messages = sessionsStore.getSessionMessages(props.sessionId as string)
           const message = messages.find((m) => m.id === props.messageId)
           if (message) {
+            const part = props.part as { id: string; type: string; content: string }
             sessionsStore.updateMessage(props.sessionId as string, props.messageId as string, {
-              parts: [...(message.parts || []), props.part as { id: string; type: string; content: string }],
+              parts: [
+                ...(message.parts || []),
+                { id: part.id, type: part.type as MessagePart["type"], content: part.content },
+              ],
             })
           }
         }
@@ -208,7 +216,7 @@ export function useEventBus() {
     }
 
     for (const [eventType, handler] of Object.entries(handlers)) {
-      emitter.on(eventType, handler)
+      emitter.on(eventType as keyof EventBusEvents, handler as (event: SSEEvent) => void)
     }
 
     return () => {

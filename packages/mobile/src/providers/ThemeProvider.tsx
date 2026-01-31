@@ -42,7 +42,8 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const value: ThemeContextType = {
     colorScheme,
     setColorScheme: (scheme: ColorSchemeName) => {
-      settingsStore.setTheme(scheme)
+      const themeValue = scheme ?? "system"
+      settingsStore.setTheme(themeValue)
       setColorScheme(scheme)
     },
   }

@@ -1,12 +1,12 @@
 import { View, StyleSheet, Pressable, ScrollView } from "react-native"
-import { Text, useTheme, Switch, Divider } from "react-native-paper"
+import { Text, useTheme, Switch, Divider, Icon } from "react-native-paper"
 import { MotiView } from "moti"
 import { Moon, Sun, Smartphone, Bell, Volume2, Zap, Wifi, LogOut } from "lucide-react-native"
-import { Card, Button } from "../../components/ui"
-import { useSettingsStore } from "../../stores"
-import { useHapticFeedback } from "../../hooks/useHaptics"
-import { useSSE } from "../../hooks/useSSE"
-import { clearStoredCredentials } from "../../services/crypto"
+import { Card, Button } from "@/components/ui"
+import { useSettingsStore } from "@/stores"
+import { useHapticFeedback } from "@/hooks/useHaptics"
+import { useSSE } from "@/hooks/useSSE"
+import { clearStoredCredentials } from "@/services/crypto"
 import { router } from "expo-router"
 
 export default function SettingsScreen() {
@@ -42,7 +42,7 @@ export default function SettingsScreen() {
     <Pressable onPress={onPress} style={styles.settingRow}>
       <View style={styles.settingLeft}>
         <View style={[styles.settingIcon, { backgroundColor: theme.colors.surfaceVariant }]}>
-          <icon size={20} color={theme.colors.primary} />
+
         </View>
         <View style={styles.settingText}>
           <Text style={[styles.settingTitle, { color: theme.colors.onSurface }]}>{title}</Text>
@@ -115,7 +115,7 @@ export default function SettingsScreen() {
       </MotiView>
 
       <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 200 }}>
-        <Card variant="elevated" padding="none" style={styles.card}>
+        <Card variant="elevated" padding="none" >
           <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Notifications</Text>
 
           <SettingRow title="Push Notifications" description="Receive notifications for events" icon={Bell}>
@@ -155,7 +155,7 @@ export default function SettingsScreen() {
       </MotiView>
 
       <MotiView from={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 300 }}>
-        <Card variant="elevated" padding="none" style={styles.card}>
+        <Card variant="elevated" padding="none" >
           <Text style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>Connection</Text>
 
           <SettingRow title="Auto Connect" description="Connect to last server on launch" icon={Wifi}>

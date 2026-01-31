@@ -4,11 +4,11 @@ import { Text, useTheme } from "react-native-paper"
 import { MotiView } from "moti"
 import { ArrowLeft, Send, Terminal, MoreVertical } from "lucide-react-native"
 import { useEffect, useState, useRef } from "react"
-import { Card, Button, Input, Badge, Loading } from "../../components/ui"
-import { MessageItem } from "../../components/session"
-import { ConnectionStatusIndicator } from "../../components/sse"
-import { useSessionsStore } from "../../stores"
-import { useHapticFeedback } from "../../hooks/useHaptics"
+import { Card, Button, Input, Badge, Loading } from "@/components/ui"
+import { MessageItem } from "@/components/session"
+import { ConnectionStatusIndicator } from "@/components/sse"
+import { useSessionsStore } from "@/stores"
+import { useHapticFeedback } from "@/hooks/useHaptics"
 
 export default function SessionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -90,10 +90,10 @@ export default function SessionDetailScreen() {
           value={input}
           onChangeText={setInput}
           placeholder="Type a message..."
-          placeholderTextColor={theme.colors.onSurfaceVariant}
+
           onSubmitEditing={handleSend}
           returnKeyType="send"
-          containerStyle={styles.input}
+
         />
         <Pressable
           onPress={handleSend}

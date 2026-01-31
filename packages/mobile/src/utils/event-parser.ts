@@ -1,6 +1,10 @@
 import type { SSEEvent } from "../types"
 
-export function parseSSEEvent(lines: string[]): Partial<SSEEvent> {
+interface ParsedSSEEvent extends Partial<SSEEvent> {
+  retry?: number
+}
+
+export function parseSSEEvent(lines: string[]): ParsedSSEEvent {
   let id: string | undefined
   let event: string | undefined
   let data: string | undefined

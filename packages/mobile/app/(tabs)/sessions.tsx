@@ -3,11 +3,11 @@ import { View, StyleSheet, FlatList, TextInput, Pressable } from "react-native"
 import { Text, useTheme } from "react-native-paper"
 import { MotiView } from "moti"
 import { Search, X, Filter } from "lucide-react-native"
-import { Card, Button, Badge, EmptyState } from "../../components/ui"
-import { SessionCard } from "../../components/session"
-import { useSessionsStore } from "../../stores"
-import { useSSE } from "../../hooks/useSSE"
-import { useHapticFeedback } from "../../hooks/useHaptics"
+import { Card, Button, Badge, EmptyState } from "@/components/ui"
+import { SessionCard } from "@/components/session"
+import { useSessionsStore } from "@/stores"
+import { useSSE } from "@/hooks/useSSE"
+import { useHapticFeedback } from "@/hooks/useHaptics"
 
 export default function SessionsScreen() {
   const theme = useTheme()
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: theme.colors.surfaceVariant,
+    backgroundColor: "#000f",
     borderRadius: 12,
     paddingHorizontal: 12,
   },

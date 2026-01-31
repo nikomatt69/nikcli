@@ -2,10 +2,10 @@ import { useState } from "react"
 import { View, StyleSheet, FlatList, TextInput, Pressable } from "react-native"
 import { Text, useTheme } from "react-native-paper"
 import { Search, X } from "lucide-react-native"
-import { EmptyState } from "../../components/ui"
-import { EventStream } from "../../components/sse"
-import { useEventsStore } from "../../stores"
-import { useHapticFeedback } from "../../hooks/useHaptics"
+import { EmptyState } from "@/components/ui"
+import { EventStream } from "@/components/sse"
+import { useEventsStore } from "@/stores"
+import { useHapticFeedback } from "@/hooks/useHaptics"
 
 const EVENT_TYPES = [
   "session.created",

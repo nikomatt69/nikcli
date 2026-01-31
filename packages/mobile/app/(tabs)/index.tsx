@@ -4,11 +4,11 @@ import { MotiView } from "moti"
 import { RefreshCw, Activity, Calendar, Clock } from "lucide-react-native"
 import { useEffect } from "react"
 import { useRouter } from "expo-router"
-import { Card, Button, Badge, Loading } from "../../components/ui"
-import { ConnectionStatusIndicator, NetworkStatusIndicator } from "../../components/sse"
-import { SessionCard } from "../../components/session"
-import { useSSE } from "../../hooks/useSSE"
-import { useSessionsStore, useEventsStore, useConnectionStore } from "../../stores"
+import { Card, Button, Badge, Loading } from "@/components/ui"
+import { ConnectionStatusIndicator, NetworkStatusIndicator } from "@/components/sse"
+import { SessionCard } from "@/components/session"
+import { useSSE } from "@/hooks/useSSE"
+import { useSessionsStore, useEventsStore, useConnectionStore } from "@/stores"
 
 export default function DashboardScreen() {
   const theme = useTheme()

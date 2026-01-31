@@ -56,7 +56,7 @@ export class SSEClient {
   on(event: "event", listener: EventListener): () => void
   on(event: "status", listener: StatusListener): () => void
   on(event: "error", listener: ErrorListener): () => void
-  on(event: string, listener: (...args: unknown[]) => void): () => void {
+  on(event: string, listener: EventListener | StatusListener | ErrorListener): () => void {
     switch (event) {
       case "event":
         this.eventListeners.add(listener as EventListener)
@@ -68,7 +68,7 @@ export class SSEClient {
         this.errorListeners.add(listener as ErrorListener)
         break
     }
-    return () => this.off(event, listener)
+    return () => this.off(event, listener as (...args: unknown[]) => void)
   }
 
   off(event: string, listener: (...args: unknown[]) => void): void {

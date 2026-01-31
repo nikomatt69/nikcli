@@ -4,9 +4,9 @@ import { Text, useTheme } from "react-native-paper"
 import { useRouter } from "expo-router"
 import { MotiView } from "moti"
 import { Server, Key, History, Trash2, Wifi } from "lucide-react-native"
-import { Button, Card, Input, EmptyState } from "../../components/ui"
-import { useSSE } from "../../hooks/useSSE"
-import { useHapticFeedback } from "../../hooks/useHaptics"
+import { Button, Card, Input, EmptyState } from "@/components/ui"
+import { useSSE } from "@/hooks/useSSE"
+import { useHapticFeedback } from "@/hooks/useHaptics"
 import {
   normalizeUrl,
   validateUrl,
@@ -14,8 +14,8 @@ import {
   setStoredCredentials,
   getStoredCredentials,
   clearStoredCredentials,
-} from "../../services/crypto"
-import type { StoredServer } from "../../services/crypto"
+} from "@/services/crypto"
+import type { StoredServer } from "@/services/crypto"
 
 export default function ConnectScreen() {
   const router = useRouter()
@@ -193,7 +193,7 @@ export default function ConnectScreen() {
               transition={{ delay: 250 + index * 50 }}
             >
               <Pressable onPress={() => handleServerSelect(server)}>
-                <Card variant="outlined" padding="sm" style={styles.recentCard}>
+                <Card variant="outlined">
                   <View style={styles.recentCardContent}>
                     <Text style={[styles.recentUrl, { color: theme.colors.onSurface }]}>
                       {server.url.replace(/^https?:\/\//, "")}

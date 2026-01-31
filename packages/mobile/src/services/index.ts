@@ -1,4 +1,15 @@
 export { sseClient, SSEClient } from "./sse-client"
-export * from "./storage"
+export { setItem, getItem, removeItem, clearAll, STORAGE_KEYS } from "./storage"
 export * from "./offline-manager"
-export * from "./crypto"
+export {
+  generateSecret,
+  getStoredCredentials,
+  setStoredCredentials,
+  clearStoredCredentials,
+  getRecentServers,
+  removeFromRecentServers,
+  hashPassword,
+  validateUrl,
+  normalizeUrl,
+  type StoredServer,
+} from "./crypto"

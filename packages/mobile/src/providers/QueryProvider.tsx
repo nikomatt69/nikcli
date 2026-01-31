@@ -14,11 +14,5 @@ const queryClient = new QueryClient({
 })
 
 export function QueryProvider({ children }: PropsWithChildren) {
-  useEffect(() => {
-    if (Platform.OS === "ios") {
-      QueryClient.clearStore()
-    }
-  }, [])
-
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
 }

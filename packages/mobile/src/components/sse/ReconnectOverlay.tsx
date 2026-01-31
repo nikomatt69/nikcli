@@ -45,7 +45,7 @@ export function ReconnectOverlay({
         style={[styles.modal, { backgroundColor: theme.colors.surface }]}
       >
         <MotiView
-          animate={{ rotate: isReconnecting ? 360 : 0 }}
+
           transition={{
             loop: isReconnecting,
             duration: 1500,

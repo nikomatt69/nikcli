@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef } from "react"
-import { useFocusEffect } from "@react-navigation/native"
+import { useFocusEffect } from "expo-router"
 import { AppState, Platform } from "react-native"
 import { sseClient } from "../services/sse-client"
 import { useConnectionStore, useEventsStore, useSessionsStore, useSettingsStore } from "../stores"
-import type { SSEEvent, SSEConfig } from "../types"
+import type { SSEEvent, SSEConfig, ConnectionStatus } from "../types"
 
 export function useSSE() {
   const connectionStore = useConnectionStore()
@@ -71,7 +71,7 @@ export function useSSE() {
   )
 
   const handleStatusChange = useCallback(
-    (status: ConnectionStore["status"]) => {
+    (status: ConnectionStatus) => {
       connectionStore.status = status
       if (status === "connected") {
         connectionStore.setConnected()
@@ -95,9 +95,9 @@ export function useSSE() {
     async (config: SSEConfig) => {
       await sseClient.disconnect()
 
-      sseClient.on("event", handleEvent)
-      sseClient.on("status", handleStatusChange)
-      sseClient.on("error", handleError)
+      sseClient.on("event", handleEvent as (event: unknown) => void)
+      sseClient.on("status", handleStatusChange as (status: unknown) => void)
+      sseClient.on("error", handleError as (error: unknown) => void)
 
       await sseClient.connect(config)
     },
@@ -105,9 +105,9 @@ export function useSSE() {
   )
 
   const disconnect = useCallback(async () => {
-    sseClient.off("event", handleEvent)
-    sseClient.off("status", handleStatusChange)
-    sseClient.off("error", handleError)
+    sseClient.off("event", handleEvent as (event: unknown) => void)
+    sseClient.off("status", handleStatusChange as (status: unknown) => void)
+    sseClient.off("error", handleError as (error: unknown) => void)
 
     await sseClient.disconnect()
     connectionStore.disconnect()
@@ -129,7 +129,8 @@ export function useSSE() {
 
       if (nextAppState === "active" && previous === "background") {
         if (sseClient.getStatus() === "connected") {
-          const timeSinceLastEvent = sseClient.getLastEventAt() ? Date.now() - sseClient.getLastEventAt() : Infinity
+          const lastEventAt = sseClient.getLastEventAt()
+          const timeSinceLastEvent = lastEventAt ? Date.now() - lastEventAt : Infinity
 
           if (timeSinceLastEvent > settingsStore.heartbeatInterval * 2) {
             reconnectOnFocus.current = true

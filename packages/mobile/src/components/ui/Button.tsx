@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, ActivityIndicator, View } from "react-native"
+import { Pressable, StyleSheet, Text, ActivityIndicator, View, type ViewStyle, type TextStyle } from "react-native"
 import { useTheme } from "react-native-paper"
 import type { ReactNode } from "react"
 
@@ -28,42 +28,42 @@ export function Button({
   const isOutline = variant === "outline"
   const isDisabled = disabled || loading
 
-  const buttonStyle = StyleSheet.flatten([
-    styles.button,
-    {
-      backgroundColor:
-        variant === "primary"
-          ? theme.colors.primary
-          : variant === "secondary"
-            ? theme.colors.secondaryContainer
-            : variant === "danger"
-              ? theme.colors.error
-              : "transparent",
-      paddingVertical: size === "sm" ? 8 : size === "md" ? 12 : 16,
-      paddingHorizontal: size === "sm" ? 12 : size === "md" ? 16 : 24,
-      borderWidth: isOutline ? 1 : 0,
-      borderColor: isOutline ? theme.colors.outline : undefined,
-      opacity: isDisabled ? 0.6 : 1,
-      width: fullWidth ? "100%" : undefined,
-    },
-  ])
+  const buttonStyle: ViewStyle = {
+    backgroundColor:
+      variant === "primary"
+        ? theme.colors.primary
+        : variant === "secondary"
+          ? theme.colors.secondaryContainer
+          : variant === "danger"
+            ? theme.colors.error
+            : "transparent",
+    paddingVertical: size === "sm" ? 8 : size === "md" ? 12 : 16,
+    paddingHorizontal: size === "sm" ? 12 : size === "md" ? 16 : 24,
+    borderWidth: isOutline ? 1 : 0,
+    borderColor: isOutline ? theme.colors.outline : undefined,
+    opacity: isDisabled ? 0.6 : 1,
+    width: fullWidth ? "100%" : undefined,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  }
 
-  const textStyle = StyleSheet.flatten([
-    styles.text,
-    {
-      color:
-        variant === "primary"
-          ? theme.colors.onPrimary
-          : variant === "secondary"
-            ? theme.colors.onSecondaryContainer
-            : variant === "danger"
-              ? theme.colors.onError
-              : variant === "outline"
-                ? theme.colors.primary
-                : theme.colors.onSurface,
-      fontSize: size === "sm" ? 14 : size === "md" ? 16 : 18,
-    },
-  ])
+  const textColor =
+    variant === "primary"
+      ? theme.colors.onPrimary
+      : variant === "secondary"
+        ? theme.colors.onSecondaryContainer
+        : variant === "danger"
+          ? theme.colors.onError
+          : variant === "outline"
+            ? theme.colors.primary
+            : theme.colors.onSurface
+
+  const textStyle: TextStyle = {
+    color: textColor,
+    fontSize: size === "sm" ? 14 : size === "md" ? 16 : 18,
+    fontWeight: "600",
+  }
 
   return (
     <Pressable
@@ -72,7 +72,7 @@ export function Button({
       disabled={isDisabled}
     >
       {loading ? (
-        <ActivityIndicator size="small" color={textStyle.color as string} />
+        <ActivityIndicator size="small" color={textColor} />
       ) : (
         <View style={styles.contentContainer}>
           {icon && <View style={styles.icon}>{icon}</View>}
