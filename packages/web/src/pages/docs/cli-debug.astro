@@ -1,0 +1,124 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+const toc = [
+  { title: "Debug Commands", href: "#debug-commands", depth: 2 },
+  { title: "LSP Debug", href: "#lsp-debug", depth: 2 },
+  { title: "File + RG", href: "#file-rg", depth: 2 },
+  { title: "Snapshots", href: "#snapshots", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="CLI Debug"
+  subtitle="Debugging utilities under packages/nikcli/src/cli/cmd/debug."
+  toc={toc}
+>
+  <section id="debug-commands" class="doc-section" style="--delay: 40ms;">
+    <h2>Debug Commands</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr>
+          <td><code>debug config</code></td>
+          <td>Print resolved configuration.</td>
+        </tr>
+        <tr>
+          <td><code>debug scrap</code></td>
+          <td>List known projects (Project.list()).</td>
+        </tr>
+        <tr>
+          <td><code>debug skill</code></td>
+          <td>List skills discovered by the runtime.</td>
+        </tr>
+        <tr>
+          <td><code>debug agent &lt;name&gt;</code></td>
+          <td>Inspect agent config and resolved tool access.</td>
+        </tr>
+        <tr>
+          <td><code>debug paths</code></td>
+          <td>Print global path locations.</td>
+        </tr>
+        <tr>
+          <td><code>debug wait</code></td>
+          <td>Sleep indefinitely (diagnostic).</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="lsp-debug" class="doc-section" style="--delay: 80ms;">
+    <h2>LSP Debug</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr>
+          <td><code>debug lsp diagnostics &lt;file&gt;</code></td>
+          <td>Fetch diagnostics via LSP.</td>
+        </tr>
+        <tr>
+          <td><code>debug lsp symbols &lt;query&gt;</code></td>
+          <td>Search workspace symbols.</td>
+        </tr>
+        <tr>
+          <td><code>debug lsp document-symbols &lt;uri&gt;</code></td>
+          <td>Document symbol listing.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="file-rg" class="doc-section" style="--delay: 120ms;">
+    <h2>File + RG</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr>
+          <td><code>debug file read &lt;path&gt;</code></td>
+          <td>Read file as JSON payload.</td>
+        </tr>
+        <tr>
+          <td><code>debug file status</code></td>
+          <td>Show file status information.</td>
+        </tr>
+        <tr>
+          <td><code>debug file list &lt;path&gt;</code></td>
+          <td>List directory contents.</td>
+        </tr>
+        <tr>
+          <td><code>debug file tree [dir]</code></td>
+          <td>Tree listing via ripgrep.</td>
+        </tr>
+        <tr>
+          <td><code>debug rg search &lt;pattern&gt;</code></td>
+          <td>Run ripgrep search.</td>
+        </tr>
+        <tr>
+          <td><code>debug rg files</code></td>
+          <td>List files via ripgrep.</td>
+        </tr>
+        <tr>
+          <td><code>debug rg tree</code></td>
+          <td>Print ripgrep tree view.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="snapshots" class="doc-section" style="--delay: 160ms;">
+    <h2>Snapshots</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr>
+          <td><code>debug snapshot track</code></td>
+          <td>Track current snapshot state.</td>
+        </tr>
+        <tr>
+          <td><code>debug snapshot patch &lt;hash&gt;</code></td>
+          <td>View patch for snapshot hash.</td>
+        </tr>
+        <tr>
+          <td><code>debug snapshot diff &lt;hash&gt;</code></td>
+          <td>View diff for snapshot hash.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

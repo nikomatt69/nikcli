@@ -1,0 +1,149 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Default Agents", href: "#default-agents", depth: 2 },
+  { title: "Subagents", href: "#subagents", depth: 2 },
+  { title: "Toolsets", href: "#toolsets", depth: 2 },
+  { title: "Default Permissions", href: "#default-permissions", depth: 2 },
+  { title: "Agent Config", href: "#agent-config", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Agents"
+  subtitle="Agents are defined in packages/nikcli/src/agent/agent.ts and configured via nikcli.jsonc."
+  toc={toc}
+>
+  <section id="default-agents" class="doc-section" style="--delay: 40ms;">
+    <h2>Default Agents</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="build" eyebrow="Primary">
+        <p>Default agent with full permissions. Enables <code>question</code> and <code>plan_enter</code>.</p>
+      </DocCard>
+      <DocCard title="plan" eyebrow="Primary">
+        <p>Read-only planning agent. Denies edits by default and allows <code>plan_exit</code>.</p>
+      </DocCard>
+      <DocCard title="general" eyebrow="Subagent">
+        <p>General-purpose subagent for multi-step tasks. Disables todo tools by default.</p>
+      </DocCard>
+      <DocCard title="explore" eyebrow="Subagent">
+        <p>Exploration agent optimized for fast codebase discovery and web/doc search.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="subagents" class="doc-section" style="--delay: 80ms;">
+    <h2>Subagents</h2>
+    <p>Subagents are declared in <code>Agent.SUBAGENT_TOOLSETS</code> and can be invoked with <code>@name</code>.</p>
+    <div class="docs-grid cols-2">
+      <DocCard title="@fast-explore" eyebrow="Read-only">
+        <p>Minimal toolset for quick scans: <code>read</code>, <code>grep</code>, <code>glob</code>, <code>list</code>, <code>tree</code>.</p>
+      </DocCard>
+      <DocCard title="@planner" eyebrow="Planning">
+        <p>Planning agent with web + code search enabled. No file edits.</p>
+      </DocCard>
+      <DocCard title="@code-reviewer" eyebrow="Review">
+        <p>Quality and safety review with read/grep/glob/list/bash.</p>
+      </DocCard>
+      <DocCard title="@debugger" eyebrow="Debug">
+        <p>Debugging agent with read/grep/list/bash/edit.</p>
+      </DocCard>
+      <DocCard title="@test-runner" eyebrow="Tests">
+        <p>Runs tests and edits when needed; includes <code>write</code>.</p>
+      </DocCard>
+      <DocCard title="@refactor" eyebrow="Refactor">
+        <p>Refactor workflow with <code>apply_patch</code> where supported.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="toolsets" class="doc-section" style="--delay: 120ms;">
+    <h2>Toolsets</h2>
+    <p>The tool registry dynamically filters tools based on model and flags in <code>ToolRegistry.tools()</code>.</p>
+    <DocCallout type="info" title="Apply Patch vs Edit/Write">
+      <p>
+        For certain GPT models, <code>apply_patch</code> is enabled and <code>edit</code>/<code>write</code> are disabled.
+        This is controlled in <code>packages/nikcli/src/tool/registry.ts</code>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="default-permissions" class="doc-section" style="--delay: 140ms;">
+    <h2>Default Permissions</h2>
+    <p>Defaults are defined in <code>Agent.state()</code> and merged with user config.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Rule</th>
+          <th>Default</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>*</code></td>
+          <td>allow</td>
+          <td>Baseline allow, overridden by specific rules.</td>
+        </tr>
+        <tr>
+          <td><code>read</code></td>
+          <td>allow</td>
+          <td><code>*.env</code> prompts by default.</td>
+        </tr>
+        <tr>
+          <td><code>question</code></td>
+          <td>deny</td>
+          <td>Build/plan override to allow.</td>
+        </tr>
+        <tr>
+          <td><code>plan_enter</code></td>
+          <td>deny</td>
+          <td>Build overrides to allow.</td>
+        </tr>
+        <tr>
+          <td><code>plan_exit</code></td>
+          <td>deny</td>
+          <td>Plan overrides to allow.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="agent-config" class="doc-section" style="--delay: 160ms;">
+    <h2>Agent Config</h2>
+    <p>Agent config is defined by the <code>AgentConfig</code> schema in <code>packages/nikcli/src/config/config.ts</code>.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>model</code></td>
+          <td>Provider/model identifier (e.g., <code>anthropic/claude-sonnet-4-20250514</code>).</td>
+        </tr>
+        <tr>
+          <td><code>temperature</code>, <code>top_p</code></td>
+          <td>Sampling controls forwarded to the provider.</td>
+        </tr>
+        <tr>
+          <td><code>mode</code></td>
+          <td><code>primary</code>, <code>subagent</code>, or <code>all</code>.</td>
+        </tr>
+        <tr>
+          <td><code>permission</code></td>
+          <td>Overrides tool access via the Permission ruleset.</td>
+        </tr>
+        <tr>
+          <td><code>steps</code></td>
+          <td>Maximum agent loop iterations.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

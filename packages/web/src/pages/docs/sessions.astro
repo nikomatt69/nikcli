@@ -1,0 +1,60 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Session Model", href: "#session-model", depth: 2 },
+  { title: "Storage Layout", href: "#storage-layout", depth: 2 },
+  { title: "Sharing", href: "#sharing", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Sessions"
+  subtitle="Session lifecycle and storage defined in packages/nikcli/src/session."
+  toc={toc}
+>
+  <section id="session-model" class="doc-section" style="--delay: 40ms;">
+    <h2>Session Model</h2>
+    <p>
+      The <code>Session.Info</code> schema defines session metadata, timing, sharing, and permissions.
+      Sessions are stored under <code>Global.Path.data/storage</code>.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>id</code></td><td>Descending identifier.</td></tr>
+        <tr><td><code>slug</code></td><td>Human-friendly slug.</td></tr>
+        <tr><td><code>projectID</code></td><td>Project scope identifier.</td></tr>
+        <tr><td><code>directory</code></td><td>Working directory.</td></tr>
+        <tr><td><code>parentID</code></td><td>Parent session (forks).</td></tr>
+        <tr><td><code>summary</code></td><td>Diff stats and optional diffs list.</td></tr>
+        <tr><td><code>share</code></td><td>Share URL when shared.</td></tr>
+        <tr><td><code>title</code></td><td>Auto-generated when not set.</td></tr>
+        <tr><td><code>time</code></td><td>created/updated/compacting/archived timestamps.</td></tr>
+        <tr><td><code>permission</code></td><td>Optional per-session permission rules.</td></tr>
+        <tr><td><code>revert</code></td><td>Snapshot revert metadata.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="storage-layout" class="doc-section" style="--delay: 80ms;">
+    <h2>Storage Layout</h2>
+    <p>
+      Sessions, messages, parts, and diffs are stored as JSON files. See
+      <code>packages/nikcli/src/storage/storage.ts</code>.
+    </p>
+  </section>
+
+  <section id="sharing" class="doc-section" style="--delay: 120ms;">
+    <h2>Sharing</h2>
+    <DocCallout type="info" title="Auto share">
+      <p>Auto-share is enabled when <code>NIKCLI_AUTO_SHARE</code> or <code>config.share = "auto"</code>.</p>
+    </DocCallout>
+  </section>
+</DocsLayout>

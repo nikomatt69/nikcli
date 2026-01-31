@@ -1,0 +1,112 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Provider Stack", href: "#provider-stack", depth: 2 },
+  { title: "Bundled Providers", href: "#bundled-providers", depth: 2 },
+  { title: "Custom Loaders", href: "#custom-loaders", depth: 2 },
+  { title: "Model Catalog", href: "#model-catalog", depth: 2 },
+  { title: "Auth & Env", href: "#auth-env", depth: 2 },
+];
+
+const bundledProviders = [
+  { id: "@ai-sdk/amazon-bedrock", name: "Amazon Bedrock" },
+  { id: "@ai-sdk/anthropic", name: "Anthropic" },
+  { id: "@ai-sdk/azure", name: "Azure OpenAI" },
+  { id: "@ai-sdk/google", name: "Google Generative AI" },
+  { id: "@ai-sdk/google-vertex", name: "Google Vertex AI" },
+  { id: "@ai-sdk/google-vertex/anthropic", name: "Vertex Anthropic" },
+  { id: "@ai-sdk/openai", name: "OpenAI" },
+  { id: "@ai-sdk/openai-compatible", name: "OpenAI-Compatible" },
+  { id: "@openrouter/ai-sdk-provider", name: "OpenRouter" },
+  { id: "@ai-sdk/xai", name: "xAI" },
+  { id: "@ai-sdk/mistral", name: "Mistral" },
+  { id: "@ai-sdk/groq", name: "Groq" },
+  { id: "@ai-sdk/deepinfra", name: "DeepInfra" },
+  { id: "@ai-sdk/cerebras", name: "Cerebras" },
+  { id: "@ai-sdk/cohere", name: "Cohere" },
+  { id: "@ai-sdk/gateway", name: "AI Gateway" },
+  { id: "@ai-sdk/togetherai", name: "Together AI" },
+  { id: "@ai-sdk/perplexity", name: "Perplexity" },
+  { id: "@ai-sdk/vercel", name: "Vercel AI Gateway" },
+  { id: "@gitlab/gitlab-ai-provider", name: "GitLab AI Provider" },
+  { id: "@ai-sdk/github-copilot", name: "GitHub Copilot (compat)" },
+];
+---
+
+<DocsLayout
+  title="Providers"
+  subtitle="Provider orchestration and model loading as implemented in packages/nikcli/src/provider/provider.ts."
+  toc={toc}
+>
+  <section id="provider-stack" class="doc-section" style="--delay: 40ms;">
+    <h2>Provider Stack</h2>
+    <p>
+      Providers are loaded via <code>Provider.list()</code> using bundled SDKs plus optional plugins.
+      Custom loader rules are defined in <code>CUSTOM_LOADERS</code> and influence autoload and model resolution.
+    </p>
+    <DocCallout type="info" title="Responses vs Chat">
+      <p>OpenAI + GitHub Copilot routes use the Responses API for GPT-5+ models when available.</p>
+    </DocCallout>
+  </section>
+
+  <section id="bundled-providers" class="doc-section" style="--delay: 80ms;">
+    <h2>Bundled Providers</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Provider ID</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {bundledProviders.map((p) => (
+          <tr>
+            <td><code>{p.id}</code></td>
+            <td>{p.name}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="custom-loaders" class="doc-section" style="--delay: 100ms;">
+    <h2>Custom Loaders</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="anthropic" eyebrow="Headers">
+        <p>Injects Claude Code + interleaved thinking headers.</p>
+      </DocCard>
+      <DocCard title="openai / github-copilot" eyebrow="Responses API">
+        <p>Uses Responses API for GPT-5+ (except gpt-5-mini).</p>
+      </DocCard>
+      <DocCard title="azure" eyebrow="Responses/Chat">
+        <p>Chooses responses vs chat based on <code>useCompletionUrls</code>.</p>
+      </DocCard>
+      <DocCard title="amazon-bedrock" eyebrow="Credentials">
+        <p>Supports bearer tokens and AWS credential chain with region/profile overrides.</p>
+      </DocCard>
+      <DocCard title="nikcli" eyebrow="Public">
+        <p>Filters paid models when no API key is present.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="model-catalog" class="doc-section" style="--delay: 120ms;">
+    <h2>Model Catalog</h2>
+    <p>
+      Model metadata is sourced from <code>models.dev</code> and cached under
+      <code>Global.Path.cache/models.json</code>. Refresh via
+      <code>nikcli models --refresh</code>.
+    </p>
+  </section>
+
+  <section id="auth-env" class="doc-section" style="--delay: 160ms;">
+    <h2>Auth & Env</h2>
+    <p>Credential storage is handled by <code>packages/nikcli/src/auth</code> and surfaced by <code>nikcli auth</code>.</p>
+    <DocCallout type="warn" title="Bedrock credentials">
+      <p>Bedrock prioritizes bearer tokens, then AWS credential chain (profile, access keys, IAM roles).</p>
+    </DocCallout>
+  </section>
+</DocsLayout>

@@ -1,0 +1,155 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Tool Registry", href: "#tool-registry", depth: 2 },
+  { title: "File Ops", href: "#file-ops", depth: 2 },
+  { title: "Search & Context", href: "#search-context", depth: 2 },
+  { title: "Docs & RAG", href: "#docs-rag", depth: 2 },
+  { title: "System & Agent", href: "#system-agent", depth: 2 },
+  { title: "Full Tool Index", href: "#full-tool-index", depth: 2 },
+];
+
+const toolIndex = [
+  { id: "invalid", file: "src/tool/invalid.ts", desc: "Fallback for unknown tool ids." },
+  { id: "question", file: "src/tool/question.ts", desc: "Ask the user a question (CLI only)." },
+  { id: "bash", file: "src/tool/bash.ts", desc: "Run shell commands." },
+  { id: "read", file: "src/tool/read.ts", desc: "Read file contents." },
+  { id: "tree", file: "src/tool/tree.ts", desc: "Directory tree listing." },
+  { id: "glob", file: "src/tool/glob.ts", desc: "Glob file discovery." },
+  { id: "grep", file: "src/tool/grep.ts", desc: "Regex search in files." },
+  { id: "edit", file: "src/tool/edit.ts", desc: "Exact text replacements." },
+  { id: "write", file: "src/tool/write.ts", desc: "Write/overwrite files." },
+  { id: "subagents", file: "src/tool/subagents.ts", desc: "Discover or run subagents." },
+  { id: "task", file: "src/tool/task.ts", desc: "Run a subagent task." },
+  { id: "docs_add", file: "src/tool/docs_add.ts", desc: "Add documentation from URL." },
+  { id: "docs_search", file: "src/tool/docs_search.ts", desc: "Search local docs library." },
+  { id: "docs_load", file: "src/tool/docs_load.ts", desc: "Load docs into context." },
+  { id: "docs_unload", file: "src/tool/docs_unload.ts", desc: "Unload docs from context." },
+  { id: "docs_context", file: "src/tool/docs_context.ts", desc: "Show docs context." },
+  { id: "docs_request", file: "src/tool/docs_request.ts", desc: "Suggest docs when missing." },
+  { id: "docs_gap_report", file: "src/tool/docs_gap_report.ts", desc: "Report docs gaps." },
+  { id: "smart_docs", file: "src/tool/smart_docs.ts", desc: "Search + auto-load docs." },
+  { id: "context_collect", file: "src/tool/context_collect.ts", desc: "Collect workspace context." },
+  { id: "context_search", file: "src/tool/context_search.ts", desc: "Search workspace text." },
+  { id: "context_related", file: "src/tool/context_related.ts", desc: "Find related files." },
+  { id: "context_diagnostics", file: "src/tool/context_diagnostics.ts", desc: "LSP diagnostics." },
+  { id: "memory_search", file: "src/tool/memory_search.ts", desc: "Search stored memory." },
+  { id: "rag_index", file: "src/tool/rag_index.ts", desc: "Index content for RAG." },
+  { id: "rag_search", file: "src/tool/rag_search.ts", desc: "Vector search." },
+  { id: "rag_status", file: "src/tool/rag_status.ts", desc: "RAG status." },
+  { id: "rag_reset", file: "src/tool/rag_reset.ts", desc: "Reset RAG index." },
+  { id: "webfetch", file: "src/tool/webfetch.ts", desc: "Fetch URL content." },
+  { id: "todowrite", file: "src/tool/todo.ts", desc: "Write todo list." },
+  { id: "todoread", file: "src/tool/todo.ts", desc: "Read todo list." },
+  { id: "websearch", file: "src/tool/websearch.ts", desc: "Web search via Exa." },
+  { id: "codesearch", file: "src/tool/codesearch.ts", desc: "Code search via Exa." },
+  { id: "skill", file: "src/tool/skill.ts", desc: "Load skills." },
+  { id: "apply_patch", file: "src/tool/apply_patch.ts", desc: "Patch-based edits." },
+  { id: "lsp", file: "src/tool/lsp.ts", desc: "LSP tool (experimental flag)." },
+  { id: "batch", file: "src/tool/batch.ts", desc: "Batch tool calls (experimental)." },
+  { id: "plan_enter", file: "src/tool/plan.ts", desc: "Enter plan mode." },
+  { id: "plan_exit", file: "src/tool/plan.ts", desc: "Exit plan mode." },
+];
+---
+
+<DocsLayout
+  title="Tools"
+  subtitle="All tools registered in packages/nikcli/src/tool/registry.ts with descriptions in *.txt files."
+  toc={toc}
+>
+  <section id="tool-registry" class="doc-section" style="--delay: 40ms;">
+    <h2>Tool Registry</h2>
+    <p>
+      Tools are registered in <code>ToolRegistry.all()</code>. The registry filters tools depending on the model
+      (e.g., <code>apply_patch</code> vs <code>edit/write</code>) and experimental flags.
+    </p>
+    <DocCallout type="info" title="Custom tools">
+      <p>Custom tools can be injected from plugins or from <code>.nikcli/tool/*.ts</code>.</p>
+    </DocCallout>
+    <DocCallout type="note" title="Search tools">
+      <p><code>codesearch</code> and <code>websearch</code> are enabled only for the nikcli provider or when <code>NIKCLI_ENABLE_EXA</code> is set.</p>
+    </DocCallout>
+  </section>
+
+  <section id="file-ops" class="doc-section" style="--delay: 80ms;">
+    <h2>File Ops</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="read / write / edit" eyebrow="Core">
+        <p>Primary file I/O tools with strict validation in <code>Tool.define()</code>.</p>
+      </DocCard>
+      <DocCard title="glob / list / tree" eyebrow="Discovery">
+        <p>Filesystem enumeration utilities backed by ripgrep where applicable.</p>
+      </DocCard>
+      <DocCard title="apply_patch / multiedit" eyebrow="Atomic">
+        <p>Patch-based and atomic multi-edit workflows for complex changes.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="search-context" class="doc-section" style="--delay: 120ms;">
+    <h2>Search & Context</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="grep / codesearch / websearch" eyebrow="Search">
+        <p>Local regex search, Exa-backed code search, and web search.</p>
+      </DocCard>
+      <DocCard title="context_collect / context_search / context_related" eyebrow="Context">
+        <p>Workspace context extraction, symbol analysis, and dependency mapping.</p>
+      </DocCard>
+      <DocCard title="memory_search" eyebrow="Memory">
+        <p>Searches persisted memory for relevant prior context.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="docs-rag" class="doc-section" style="--delay: 160ms;">
+    <h2>Docs & RAG</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="docs_* tools" eyebrow="Docs">
+        <p>Docs load/search/add/unload are defined in <code>packages/nikcli/src/tool/docs_*.ts</code>.</p>
+      </DocCard>
+      <DocCard title="rag_* tools" eyebrow="RAG">
+        <p>Index/search/reset/status wrappers around <code>packages/nikcli/src/rag</code>.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="system-agent" class="doc-section" style="--delay: 200ms;">
+    <h2>System & Agent</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="bash / lsp" eyebrow="System">
+        <p>Shell execution and LSP intelligence (optional tool via flags).</p>
+      </DocCard>
+      <DocCard title="task / subagents / todo" eyebrow="Agentic">
+        <p>Subagent orchestration and todo tracking for multi-step tasks.</p>
+      </DocCard>
+      <DocCard title="plan_enter / plan_exit" eyebrow="Flow">
+        <p>Plan mode coordination when <code>NIKCLI_EXPERIMENTAL_PLAN_MODE</code> is enabled.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="full-tool-index" class="doc-section" style="--delay: 240ms;">
+    <h2>Full Tool Index</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Tool ID</th>
+          <th>Description</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        {toolIndex.map((tool) => (
+          <tr>
+            <td><code>{tool.id}</code></td>
+            <td>{tool.desc}</td>
+            <td><code>{tool.file}</code></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

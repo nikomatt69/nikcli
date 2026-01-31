@@ -1,0 +1,50 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Servers", href: "#servers", depth: 2 },
+  { title: "Diagnostics & Symbols", href: "#diagnostics-symbols", depth: 2 },
+  { title: "Config Fields", href: "#config-fields", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="LSP"
+  subtitle="Language server integration in packages/nikcli/src/lsp."
+  toc={toc}
+>
+  <section id="overview" class="doc-section" style="--delay: 40ms;">
+    <h2>Overview</h2>
+    <p>nikcli starts LSP servers on demand based on file extensions and config overrides.</p>
+  </section>
+
+  <section id="servers" class="doc-section" style="--delay: 80ms;">
+    <h2>Servers</h2>
+    <p>
+      Default servers live in <code>packages/nikcli/src/lsp/server.ts</code>. Custom servers can be
+      added in config with explicit extensions.
+    </p>
+  </section>
+
+  <section id="diagnostics-symbols" class="doc-section" style="--delay: 120ms;">
+    <h2>Diagnostics & Symbols</h2>
+    <p>
+      Workspace symbols, document symbols, and diagnostics are exposed via the LSP tool and debug
+      commands.
+    </p>
+  </section>
+
+  <section id="config-fields" class="doc-section" style="--delay: 160ms;">
+    <h2>Config Fields</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>command</code></td><td>Spawn command array.</td></tr>
+        <tr><td><code>extensions</code></td><td>Required for custom servers.</td></tr>
+        <tr><td><code>disabled</code></td><td>Disable server when true.</td></tr>
+        <tr><td><code>env</code></td><td>Environment overrides for the server process.</td></tr>
+        <tr><td><code>initialization</code></td><td>Initialization payload override.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

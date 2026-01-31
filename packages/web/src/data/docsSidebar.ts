@@ -1,0 +1,45 @@
+export type DocsNavGroup = {
+  title: string;
+  items: Array<{ title: string; href: string }>;
+};
+
+export const docsSidebar: DocsNavGroup[] = [
+  {
+    title: "Getting Started",
+    items: [
+      { title: "Overview", href: "/docs" },
+      { title: "Architecture", href: "/docs/architecture" },
+      { title: "CLI Quickstart", href: "/docs/cli" },
+    ],
+  },
+  {
+    title: "Core",
+    items: [
+      { title: "Configuration", href: "/docs/configuration" },
+      { title: "Agents", href: "/docs/agents" },
+      { title: "Tools", href: "/docs/tools" },
+      { title: "Providers", href: "/docs/providers" },
+      { title: "Sessions", href: "/docs/sessions" },
+      { title: "Permissions", href: "/docs/permissions" },
+      { title: "Plugins & Skills", href: "/docs/plugins" },
+    ],
+  },
+  {
+    title: "Systems",
+    items: [
+      { title: "Server & API", href: "/docs/server-api" },
+      { title: "MCP", href: "/docs/mcp" },
+      { title: "LSP", href: "/docs/lsp" },
+      { title: "RAG", href: "/docs/rag" },
+      { title: "Storage", href: "/docs/storage" },
+      { title: "TUI", href: "/docs/tui" },
+    ],
+  },
+  {
+    title: "Reference",
+    items: [
+      { title: "Source Map", href: "/docs/source-map" },
+      { title: "CLI Debug", href: "/docs/cli-debug" },
+    ],
+  },
+];

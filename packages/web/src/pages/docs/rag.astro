@@ -1,0 +1,51 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Indexing", href: "#indexing", depth: 2 },
+  { title: "Search", href: "#search", depth: 2 },
+  { title: "Defaults", href: "#defaults", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="RAG"
+  subtitle="RAG indexing and search in packages/nikcli/src/rag."
+  toc={toc}
+>
+  <section id="overview" class="doc-section" style="--delay: 40ms;">
+    <h2>Overview</h2>
+    <p>RAG uses local chunking + vector storage with configurable embedding models.</p>
+  </section>
+
+  <section id="indexing" class="doc-section" style="--delay: 80ms;">
+    <h2>Indexing</h2>
+    <p>
+      <code>Rag.index()</code> discovers files, chunks text, and stores vectors in
+      <code>RagStorage</code>.
+    </p>
+  </section>
+
+  <section id="search" class="doc-section" style="--delay: 120ms;">
+    <h2>Search</h2>
+    <DocCallout type="info" title="Defaults">
+      <p>Default embed model is <code>nvidia/llama-embed-nemotron-8b</code> with provider <code>nvidia</code>.</p>
+    </DocCallout>
+  </section>
+
+  <section id="defaults" class="doc-section" style="--delay: 160ms;">
+    <h2>Defaults</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>chunkLines</code></td><td>200</td></tr>
+        <tr><td><code>maxFiles</code></td><td>200</td></tr>
+        <tr><td><code>maxChunks</code></td><td>5000</td></tr>
+        <tr><td><code>maxFileBytes</code></td><td>1,000,000</td></tr>
+        <tr><td><code>model</code></td><td>nvidia/llama-embed-nemotron-8b</td></tr>
+        <tr><td><code>provider</code></td><td>nvidia</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

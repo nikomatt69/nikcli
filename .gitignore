@@ -3,6 +3,8 @@ node_modules
 .worktrees
 .sst
 .env
+.env.local
+.env.*.local
 .idea
 .vscode
 *~

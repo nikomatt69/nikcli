@@ -1,0 +1,17 @@
+{
+  "name": "@nikcli-ai/console-app",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --filter @nikcli-ai/console-app dev"
+  },
+  "dependencies": {
+    "@solidjs/router": "catalog:",
+    "@solidjs/start": "catalog:",
+    "solid-js": "catalog:",
+    "vinxi": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

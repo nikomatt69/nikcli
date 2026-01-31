@@ -1,0 +1,65 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Config", href: "#config", depth: 2 },
+  { title: "Auth", href: "#auth", depth: 2 },
+  { title: "CLI Commands", href: "#cli-commands", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="MCP"
+  subtitle="Model Context Protocol integration in packages/nikcli/src/mcp."
+  toc={toc}
+>
+  <section id="overview" class="doc-section" style="--delay: 40ms;">
+    <h2>Overview</h2>
+    <p>
+      MCP clients are instantiated per configured server. Tools are dynamically converted into
+      AI SDK tools.
+    </p>
+  </section>
+
+  <section id="config" class="doc-section" style="--delay: 80ms;">
+    <h2>Config</h2>
+    <p>Local MCP servers use <code>type: "local"</code>; remote servers use <code>type: "remote"</code>.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>type</code></td><td><code>local</code> or <code>remote</code>.</td></tr>
+        <tr><td><code>command</code></td><td>Local: command array to spawn server.</td></tr>
+        <tr><td><code>url</code></td><td>Remote: base URL for MCP server.</td></tr>
+        <tr><td><code>enabled</code></td><td>Disable with <code>false</code>.</td></tr>
+        <tr><td><code>oauth</code></td><td>Remote OAuth settings (clientId/clientSecret).</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="auth" class="doc-section" style="--delay: 120ms;">
+    <h2>Auth</h2>
+    <DocCallout type="info" title="OAuth">
+      <p>Remote MCP servers support OAuth via <code>McpOAuthProvider</code> and callback handlers.</p>
+    </DocCallout>
+  </section>
+
+  <section id="cli-commands" class="doc-section" style="--delay: 160ms;">
+    <h2>CLI Commands</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>mcp list</code></td><td>List MCP servers and status.</td></tr>
+        <tr><td><code>mcp auth [name]</code></td><td>Run OAuth auth for a server.</td></tr>
+        <tr><td><code>mcp logout [name]</code></td><td>Remove stored MCP credentials.</td></tr>
+        <tr><td><code>mcp add</code></td><td>Interactive MCP config generator.</td></tr>
+        <tr><td><code>mcp debug &lt;name&gt;</code></td><td>Connect and list tools/resources.</td></tr>
+      </tbody>
+    </table>
+  </section>
+</DocsLayout>

@@ -1,0 +1,125 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Top-Level Modules", href: "#top-level", depth: 2 },
+  { title: "CLI", href: "#cli", depth: 2 },
+  { title: "Core Runtime", href: "#runtime", depth: 2 },
+  { title: "Server", href: "#server", depth: 2 },
+  { title: "Provider & Models", href: "#providers", depth: 2 },
+  { title: "Tools & Docs", href: "#tools", depth: 2 },
+];
+
+const directories = [
+  { name: "acp", desc: "Agent Client Protocol implementation." },
+  { name: "agent", desc: "Agent definitions, prompts, and generation." },
+  { name: "auth", desc: "Credential storage and auth flows." },
+  { name: "bun", desc: "Bun process helpers." },
+  { name: "bus", desc: "Event bus and global bus." },
+  { name: "cli", desc: "CLI commands, UI, network, TUI." },
+  { name: "command", desc: "Command templates and execution." },
+  { name: "config", desc: "Config schema and parsing." },
+  { name: "docs", desc: "Local docs library and context." },
+  { name: "env", desc: "Environment access helpers." },
+  { name: "file", desc: "Filesystem utilities and watchers." },
+  { name: "flag", desc: "Environment flag parsing." },
+  { name: "format", desc: "Formatting utilities." },
+  { name: "global", desc: "Global paths and cache." },
+  { name: "id", desc: "Identifier helpers." },
+  { name: "ide", desc: "IDE integration hooks." },
+  { name: "installation", desc: "Installer detection + upgrades." },
+  { name: "lsp", desc: "Language server integration." },
+  { name: "mcp", desc: "Model Context Protocol integration." },
+  { name: "patch", desc: "Patch helpers for apply_patch." },
+  { name: "permission", desc: "Permission model and rules." },
+  { name: "plugin", desc: "Plugin loading and hooks." },
+  { name: "project", desc: "Project discovery and instance context." },
+  { name: "provider", desc: "Provider SDK adapters and models." },
+  { name: "pty", desc: "PTY integration." },
+  { name: "question", desc: "Question tooling." },
+  { name: "rag", desc: "RAG indexing/search/storage." },
+  { name: "scheduler", desc: "Scheduled tasks." },
+  { name: "server", desc: "HTTP server, routes, SSE." },
+  { name: "session", desc: "Session lifecycle and messages." },
+  { name: "share", desc: "Session sharing utilities." },
+  { name: "shell", desc: "Shell integration helpers." },
+  { name: "skill", desc: "Skill discovery and loading." },
+  { name: "snapshot", desc: "Snapshot/diff tracking." },
+  { name: "storage", desc: "Persistent storage layer." },
+  { name: "tool", desc: "Tool definitions + registry." },
+  { name: "util", desc: "Utility helpers." },
+  { name: "worktree", desc: "Worktree helpers." },
+];
+---
+
+<DocsLayout
+  title="Source Map"
+  subtitle="Complete high-level map of packages/nikcli/src with file-level entrypoints."
+  toc={toc}
+>
+  <section id="top-level" class="doc-section" style="--delay: 40ms;">
+    <h2>Top-Level Modules</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>src/index.ts</code></td><td>CLI entrypoint & command registration.</td></tr>
+        <tr><td><code>src/cli/</code></td><td>CLI commands, UI, networking, TUI.</td></tr>
+        <tr><td><code>src/session/</code></td><td>Session lifecycle, prompts, messages, compaction.</td></tr>
+        <tr><td><code>src/tool/</code></td><td>Tool definitions + registry.</td></tr>
+        <tr><td><code>src/server/</code></td><td>HTTP + SSE server and routes.</td></tr>
+      </tbody>
+    </table>
+    <h3>Directory Index</h3>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Directory</th>
+          <th>Responsibility</th>
+        </tr>
+      </thead>
+      <tbody>
+        {directories.map((dir) => (
+          <tr>
+            <td><code>{dir.name}</code></td>
+            <td>{dir.desc}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="cli" class="doc-section" style="--delay: 80ms;">
+    <h2>CLI</h2>
+    <p>Primary command implementations live in <code>src/cli/cmd</code>.</p>
+    <DocCallout type="info" title="TUI">
+      <p>Default command is <code>$0 [project]</code> from <code>src/cli/cmd/tui/thread.ts</code>.</p>
+    </DocCallout>
+  </section>
+
+  <section id="runtime" class="doc-section" style="--delay: 120ms;">
+    <h2>Core Runtime</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>src/agent/</code></td><td>Agent definitions and generation.</td></tr>
+        <tr><td><code>src/permission/</code></td><td>Permission prompts and rules.</td></tr>
+        <tr><td><code>src/project/</code></td><td>Project discovery + instance context.</td></tr>
+        <tr><td><code>src/storage/</code></td><td>Persistent JSON storage + migrations.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="server" class="doc-section" style="--delay: 160ms;">
+    <h2>Server</h2>
+    <p>Routes are organized by capability in <code>src/server/routes</code>.</p>
+  </section>
+
+  <section id="providers" class="doc-section" style="--delay: 200ms;">
+    <h2>Provider & Models</h2>
+    <p>Model metadata is cached from <code>models.dev</code> and merged with config.</p>
+  </section>
+
+  <section id="tools" class="doc-section" style="--delay: 240ms;">
+    <h2>Tools & Docs</h2>
+    <p>Tool descriptions live in <code>src/tool/*.txt</code> and are wired into the registry.</p>
+  </section>
+</DocsLayout>

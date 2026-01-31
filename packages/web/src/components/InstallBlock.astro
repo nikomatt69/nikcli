@@ -1,0 +1,61 @@
+<section class="section">
+  <div class="container">
+    <div class="max-w-2xl">
+      <h2 class="section-title">Installation</h2>
+
+      <div class="terminal-block">
+        <div class="install-actions">
+          <span class="eyebrow">Bash</span>
+          <button
+            id="copy-install"
+            class="btn btn-ghost btn-sm"
+            type="button"
+            aria-live="polite"
+            aria-label="Copy install command"
+          >
+            Copy
+          </button>
+        </div>
+        <pre class="code-block"><code id="install-command">curl -fsSL https://nikcli.store/install | bash</code></pre>
+      </div>
+
+      <p class="install-note">
+        For other installation methods, see the
+        <a href="/docs#installation" class="link">documentation</a>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+  const copyButton = document.getElementById('copy-install');
+  const commandText = 'curl -fsSL https://nikcli.store/install | bash';
+
+  async function copyCommand() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(commandText);
+        return true;
+      }
+      const textarea = document.createElement('textarea');
+      textarea.value = commandText;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  copyButton?.addEventListener('click', async () => {
+    const ok = await copyCommand();
+    copyButton.textContent = ok ? 'Copied' : 'Copy failed';
+    setTimeout(() => {
+      copyButton.textContent = 'Copy';
+    }, 2000);
+  });
+</script>

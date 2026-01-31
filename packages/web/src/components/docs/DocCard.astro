@@ -1,0 +1,9 @@
+---
+const { title, eyebrow } = Astro.props as { title?: string; eyebrow?: string };
+---
+
+<div class="doc-card">
+  {eyebrow && <div class="doc-badge">{eyebrow}</div>}
+  {title && <h3>{title}</h3>}
+  <slot />
+</div>

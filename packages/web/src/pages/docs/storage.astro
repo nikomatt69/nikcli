@@ -1,0 +1,34 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Layout", href: "#layout", depth: 2 },
+  { title: "Migrations", href: "#migrations", depth: 2 },
+  { title: "Locks", href: "#locks", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Storage"
+  subtitle="Persistent storage and migrations in packages/nikcli/src/storage."
+  toc={toc}
+>
+  <section id="layout" class="doc-section" style="--delay: 40ms;">
+    <h2>Layout</h2>
+    <p>Storage is rooted under <code>Global.Path.data/storage</code> with JSON files per entity.</p>
+  </section>
+
+  <section id="migrations" class="doc-section" style="--delay: 80ms;">
+    <h2>Migrations</h2>
+    <p>Migration logic lives in <code>Storage.MIGRATIONS</code> and runs once per storage version.</p>
+    <DocCallout type="warn" title="Destructive operations">
+      <p>Migrations can rewrite or move session data. Always back up before manual edits.</p>
+    </DocCallout>
+  </section>
+
+  <section id="locks" class="doc-section" style="--delay: 120ms;">
+    <h2>Locks</h2>
+    <p>Reads and writes use file locks to prevent concurrent corruption.</p>
+  </section>
+</DocsLayout>

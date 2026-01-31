@@ -1,0 +1,78 @@
+---
+import "../styles/global.css";
+import "../styles/docs.css";
+import Navbar from "../components/Navbar.astro";
+import DocToc from "../components/docs/DocToc.astro";
+import { docsSidebar } from "../data/docsSidebar";
+
+interface Props {
+  title?: string;
+  subtitle?: string;
+  toc?: { title: string; href: string; depth?: number }[];
+}
+
+const { title = "Documentation", subtitle, toc = [] } = Astro.props as Props;
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="nikcli documentation" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} - nikcli</title>
+    <script is:inline>
+      (() => {
+        const stored = localStorage.getItem("theme");
+        const prefersDark =
+          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const theme = stored || (prefersDark ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
+  </head>
+  <body class="docs-body">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <Navbar />
+    <div class="docs-shell">
+      <aside class="docs-sidebar" aria-label="Documentation navigation">
+        <div class="docs-sidebar-inner">
+          <div class="docs-search">
+            <span>⌕</span>
+            <input aria-label="Search docs" placeholder="Search docs (coming soon)" disabled />
+          </div>
+          {docsSidebar.map((group) => (
+            <div class="docs-nav-group">
+              <div class="docs-nav-title">{group.title}</div>
+              <nav>
+                {group.items.map((item) => (
+                  <a
+                    href={item.href}
+                    class={`docs-nav-link ${pathname === item.href ? "active" : ""}`}
+                  >
+                    {item.title}
+                  </a>
+                ))}
+              </nav>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <main id="main-content" class="docs-main" tabindex="-1">
+        <article class="docs-article">
+          <header class="docs-header">
+            <div class="docs-kicker">Nikcli Docs</div>
+            <h1 class="docs-title">{title}</h1>
+            {subtitle && <p class="docs-subtitle">{subtitle}</p>}
+          </header>
+          <slot />
+        </article>
+      </main>
+
+      {toc.length > 0 && <DocToc items={toc} />}
+    </div>
+  </body>
+</html>

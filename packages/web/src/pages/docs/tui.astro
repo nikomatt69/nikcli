@@ -1,0 +1,36 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Worker Model", href: "#worker-model", depth: 2 },
+  { title: "Remote Attach", href: "#remote-attach", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="TUI"
+  subtitle="Terminal UI entrypoint and worker model in packages/nikcli/src/cli/cmd/tui."
+  toc={toc}
+>
+  <section id="overview" class="doc-section" style="--delay: 40ms;">
+    <h2>Overview</h2>
+    <p>The TUI command is the default CLI route and supports local or server-backed sessions.</p>
+  </section>
+
+  <section id="worker-model" class="doc-section" style="--delay: 80ms;">
+    <h2>Worker Model</h2>
+    <p>
+      The TUI spawns a worker process and communicates over an RPC channel. When server flags are
+      present, the TUI starts an HTTP server and connects via events.
+    </p>
+  </section>
+
+  <section id="remote-attach" class="doc-section" style="--delay: 120ms;">
+    <h2>Remote Attach</h2>
+    <DocCallout type="info" title="Attach">
+      <p><code>nikcli attach &lt;url&gt;</code> connects a local TUI to a remote server.</p>
+    </DocCallout>
+  </section>
+</DocsLayout>

@@ -1,0 +1,8 @@
+---
+const { language } = Astro.props as { language?: string };
+---
+
+<pre class="doc-code">
+  {language && <span class="doc-badge">{language}</span>}
+  <code><slot /></code>
+</pre>

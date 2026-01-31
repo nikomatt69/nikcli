@@ -1,0 +1,43 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Permission Model", href: "#permission-model", depth: 2 },
+  { title: "Rules & Patterns", href: "#rules-patterns", depth: 2 },
+  { title: "Runtime Flow", href: "#runtime-flow", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Permissions"
+  subtitle="Runtime permission prompts and ruleset evaluation in packages/nikcli/src/permission."
+  toc={toc}
+>
+  <section id="permission-model" class="doc-section" style="--delay: 40ms;">
+    <h2>Permission Model</h2>
+    <p>
+      Permissions are evaluated per tool call. The ruleset merges defaults, agent permissions,
+      and session overrides. Core logic lives in <code>packages/nikcli/src/permission</code>.
+    </p>
+  </section>
+
+  <section id="rules-patterns" class="doc-section" style="--delay: 80ms;">
+    <h2>Rules & Patterns</h2>
+    <p>
+      Rules support wildcards for tools and file patterns. Legacy per-tool <code>tools</code> config
+      is converted into permissions during config parsing.
+    </p>
+    <DocCallout type="info" title="Edit permissions">
+      <p>Write/edit/patch/multiedit map to the single <code>edit</code> permission.</p>
+    </DocCallout>
+  </section>
+
+  <section id="runtime-flow" class="doc-section" style="--delay: 120ms;">
+    <h2>Runtime Flow</h2>
+    <p>
+      Permission requests are stored in an in-memory queue. Responses can be once/always/reject and
+      are broadcast on the Bus. See <code>packages/nikcli/src/permission/index.ts</code>.
+    </p>
+  </section>
+</DocsLayout>

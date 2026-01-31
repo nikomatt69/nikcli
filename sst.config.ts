@@ -8,10 +8,16 @@ export default $config({
       protect: ["production"].includes(input?.stage),
       home: "cloudflare",
       providers: {
+        cloudflare: {
+          apiToken: process.env.CLOUDFLARE_API_TOKEN,
+          accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+        },
         stripe: {
           apiKey: process.env.STRIPE_SECRET_KEY!,
         },
-        planetscale: "0.4.1",
+        supabase: {
+          accessToken: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        },
       },
     }
   },

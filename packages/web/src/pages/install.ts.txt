@@ -1,0 +1,42 @@
+---
+import type { APIRoute } from "astro"
+
+export const GET: APIRoute = async () => {
+  const installScript = `#!/usr/bin/env bash
+set -euo pipefail
+APP=nikcli
+
+MUTED='\\033[0;2m'
+RED='\\033[0;31m'
+ORANGE='\\033[38;5;214m'
+NC='\\033[0m'
+
+usage() {
+    cat <<EOF
+Nikcli Installer
+
+Usage: install.sh [options]
+
+Options:
+    -h, --help              Display this help message
+    -v, --version <version> Install a specific version (e.g., 1.0.180)
+    -b, --binary <path>     Install from a local binary instead of downloading
+        --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
+
+Examples:
+    curl -fsSL https://nikcli.store/install | bash
+    curl -fsSL https://nikcli.store/install | bash -s -- --version 1.0.180
+    ./install --binary /path/to/nikcli
+EOF
+}
+
+# ... rest of install script would be inline
+EOF
+
+  return new Response(installScript, {
+    headers: {
+      "Content-Type": "text/plain",
+      "Content-Disposition": "attachment; filename=\"install.sh\"",
+    },
+  })
+}

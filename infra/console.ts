@@ -5,38 +5,18 @@ import { EMAILOCTOPUS_API_KEY } from "./app"
 // DATABASE
 ////////////////
 
-const cluster = planetscale.getDatabaseOutput({
-  name: "nikcli",
-  organization: "nikomatt69",
-})
-
-const branch =
-  $app.stage === "production"
-    ? planetscale.getBranchOutput({
-      name: "production",
-      organization: cluster.organization,
-      database: cluster.name,
-    })
-    : new planetscale.Branch("DatabaseBranch", {
-      database: cluster.name,
-      organization: cluster.organization,
-      name: $app.stage,
-      parentBranch: "production",
-    })
-const password = new planetscale.Password("DatabasePassword", {
-  name: $app.stage,
-  database: cluster.name,
-  organization: cluster.organization,
-  branch: branch.name,
-})
+const SUPABASE_DB_HOST = process.env.SUPABASE_DB_HOST || "db.bopgyibjrbwaynegbska.supabase.co"
+const SUPABASE_DB_USER = process.env.SUPABASE_DB_USER || "postgres"
+const SUPABASE_DB_PASSWORD = process.env.SUPABASE_DB_PASSWORD || ""
+const SUPABASE_DB_NAME = process.env.SUPABASE_DB_NAME || "postgres"
 
 export const database = new sst.Linkable("Database", {
   properties: {
-    host: password.accessHostUrl,
-    database: cluster.name,
-    username: password.username,
-    password: password.plaintext,
-    port: 3306,
+    host: SUPABASE_DB_HOST,
+    database: SUPABASE_DB_NAME,
+    username: SUPABASE_DB_USER,
+    password: SUPABASE_DB_PASSWORD,
+    port: 5432,
   },
 })
 
@@ -136,9 +116,6 @@ const gatewayKv = new sst.cloudflare.Kv("GatewayKv")
 // CONSOLE
 ////////////////
 
-const bucket = new sst.cloudflare.Bucket("ZenData")
-const bucketNew = new sst.cloudflare.Bucket("ZenDataNew")
-
 const AWS_SES_ACCESS_KEY_ID = new sst.Secret("AWS_SES_ACCESS_KEY_ID")
 const AWS_SES_SECRET_ACCESS_KEY = new sst.Secret("AWS_SES_SECRET_ACCESS_KEY")
 
@@ -155,8 +132,6 @@ new sst.cloudflare.x.SolidStart("Console", {
   domain,
   path: "packages/console/app",
   link: [
-    bucket,
-    bucketNew,
     database,
     AUTH_API_URL,
     STRIPE_WEBHOOK_SECRET,

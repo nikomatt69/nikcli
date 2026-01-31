@@ -1,0 +1,74 @@
+---
+const navItems = [
+  { href: "/docs", label: "Docs" },
+  { href: "https://github.com/nikomatt69/nikcli", label: "GitHub", external: true },
+];
+const pathname = Astro.url.pathname;
+---
+
+<nav class="site-nav sticky top-0 z-50" aria-label="Primary">
+  <div class="container nav-inner">
+    <a href="/" class="nav-brand font-mono font-bold text-lg tracking-tight hover:text-terminal-accent transition-colors">
+      nikcli
+    </a>
+
+    <div class="nav-actions">
+      {navItems.map((item) => {
+        const isActive = !item.external && pathname.startsWith(item.href);
+        return (
+        <a
+          href={item.href}
+          class={`nav-link text-sm ${isActive ? "active" : ""}`}
+          aria-current={isActive ? "page" : undefined}
+          target={item.external ? "_blank" : undefined}
+          rel={item.external ? "noreferrer" : undefined}
+        >
+          {item.label}
+        </a>
+      );
+      })}
+      <button
+        id="theme-toggle"
+        class="theme-toggle"
+        type="button"
+        aria-label="Toggle theme"
+        aria-pressed="false"
+      >
+        <span class="theme-icon" data-theme-icon="sun" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.6" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="theme-icon" data-theme-icon="moon" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </button>
+      <a href="/docs#installation" class="btn btn-primary btn-sm">
+        Install
+      </a>
+    </div>
+  </div>
+</nav>
+
+<script>
+  const root = document.documentElement;
+  const toggle = document.getElementById("theme-toggle");
+  const stored = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const current = root.getAttribute("data-theme");
+  const initial = current || stored || (prefersDark ? "dark" : "light");
+  if (!current) {
+    root.setAttribute("data-theme", initial);
+  }
+  toggle?.setAttribute("aria-pressed", initial === "dark" ? "true" : "false");
+
+  toggle?.addEventListener("click", () => {
+    const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+    toggle.setAttribute("aria-pressed", next === "dark" ? "true" : "false");
+  });
+</script>

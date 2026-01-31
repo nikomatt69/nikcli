@@ -1,0 +1,16 @@
+{
+  "name": "@nikcli-ai/console-function",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/auth.ts",
+    "deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "hono": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "catalog:",
+    "wrangler": "^3.100.0"
+  }
+}

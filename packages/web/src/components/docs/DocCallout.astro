@@ -1,0 +1,13 @@
+---
+type CalloutType = "info" | "warn" | "success" | "note";
+
+const { type = "info", title } = Astro.props as { type?: CalloutType; title?: string };
+const classType = type === "note" ? "info" : type;
+---
+
+<div class={`doc-callout ${classType}`}>
+  {title && <strong>{title}</strong>}
+  <div>
+    <slot />
+  </div>
+</div>

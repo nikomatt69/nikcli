@@ -1,0 +1,310 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import { keybinds } from "../../data/keybinds";
+
+const toc = [
+  { title: "Resolution Order", href: "#resolution-order", depth: 2 },
+  { title: "Config Schema", href: "#config-schema", depth: 2 },
+  { title: "Top-Level Fields", href: "#top-level-fields", depth: 2 },
+  { title: "Agents & Permissions", href: "#agents-permissions", depth: 2 },
+  { title: "Providers", href: "#providers", depth: 2 },
+  { title: "MCP", href: "#mcp", depth: 2 },
+  { title: "LSP", href: "#lsp", depth: 2 },
+  { title: "RAG", href: "#rag", depth: 2 },
+  { title: "Keybinds", href: "#keybinds", depth: 2 },
+  { title: "Flags & Env", href: "#flags-env", depth: 2 },
+  { title: "Experimental", href: "#experimental", depth: 2 },
+];
+
+const flags = [
+  { key: "NIKCLI_AUTO_SHARE", desc: "Enable automatic sharing for new sessions." },
+  { key: "NIKCLI_GIT_BASH_PATH", desc: "Override Git Bash install path (Windows)." },
+  { key: "NIKCLI_CONFIG", desc: "Custom config file path." },
+  { key: "NIKCLI_CONFIG_DIR", desc: "Additional config directory to scan." },
+  { key: "NIKCLI_CONFIG_CONTENT", desc: "Inline JSON config content." },
+  { key: "NIKCLI_DISABLE_AUTOUPDATE", desc: "Disable automatic upgrades." },
+  { key: "NIKCLI_DISABLE_PRUNE", desc: "Disable pruning of old tool outputs." },
+  { key: "NIKCLI_DISABLE_TERMINAL_TITLE", desc: "Disable terminal title updates." },
+  { key: "NIKCLI_PERMISSION", desc: "Inline JSON permission overrides." },
+  { key: "NIKCLI_DISABLE_DEFAULT_PLUGINS", desc: "Skip built-in plugins." },
+  { key: "NIKCLI_DISABLE_LSP_DOWNLOAD", desc: "Disable automatic LSP downloads." },
+  { key: "NIKCLI_ENABLE_EXPERIMENTAL_MODELS", desc: "Allow experimental models from catalog." },
+  { key: "NIKCLI_DISABLE_AUTOCOMPACT", desc: "Disable auto compaction." },
+  { key: "NIKCLI_DISABLE_MODELS_FETCH", desc: "Disable models.dev fetch." },
+  { key: "NIKCLI_DISABLE_CLAUDE_CODE", desc: "Disable Claude Code integrations." },
+  { key: "NIKCLI_DISABLE_CLAUDE_CODE_PROMPT", desc: "Disable Claude Code prompt injection." },
+  { key: "NIKCLI_DISABLE_CLAUDE_CODE_SKILLS", desc: "Disable Claude Code skills discovery." },
+  { key: "NIKCLI_DISABLE_PROJECT_CONFIG", desc: "Disable project-level config discovery." },
+  { key: "NIKCLI_FAKE_VCS", desc: "Force fake VCS mode." },
+  { key: "NIKCLI_CLIENT", desc: "Client type (cli/app/desktop)." },
+  { key: "NIKCLI_SERVER_PASSWORD", desc: "Enable basic auth for server mode." },
+  { key: "NIKCLI_SERVER_USERNAME", desc: "Override basic auth username." },
+  { key: "NIKCLI_EXPERIMENTAL", desc: "Enable experimental features." },
+  { key: "NIKCLI_EXPERIMENTAL_FILEWATCHER", desc: "Enable experimental file watcher." },
+  { key: "NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER", desc: "Disable file watcher." },
+  { key: "NIKCLI_EXPERIMENTAL_ICON_DISCOVERY", desc: "Enable icon discovery." },
+  { key: "NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT", desc: "Disable copy-on-select." },
+  { key: "NIKCLI_ENABLE_EXA", desc: "Enable Exa-backed search tools." },
+  { key: "NIKCLI_EXPERIMENTAL_EXA", desc: "Enable Exa search in experimental mode." },
+  { key: "NIKCLI_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH", desc: "Max bash output length." },
+  { key: "NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS", desc: "Default bash timeout in ms." },
+  { key: "NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX", desc: "Max output tokens before truncation." },
+  { key: "NIKCLI_EXPERIMENTAL_OXFMT", desc: "Enable experimental formatter." },
+  { key: "NIKCLI_EXPERIMENTAL_LSP_TY", desc: "Enable experimental LSP server ty." },
+  { key: "NIKCLI_EXPERIMENTAL_LSP_TOOL", desc: "Enable LSP tool in registry." },
+  { key: "NIKCLI_DISABLE_FILETIME_CHECK", desc: "Disable file mtime checks." },
+  { key: "NIKCLI_EXPERIMENTAL_PLAN_MODE", desc: "Enable plan_enter/plan_exit tools." },
+  { key: "NIKCLI_EXPERIMENTAL_SECURITY_TOOL", desc: "Enable experimental security tool." },
+];
+
+const topFields = [
+  { key: "$schema", desc: "Schema URL for validation." },
+  { key: "theme", desc: "Theme name for UI." },
+  { key: "logLevel", desc: "Log level (DEBUG/INFO/WARN/ERROR)." },
+  { key: "tui", desc: "TUI settings (scroll, layout, etc.)." },
+  { key: "server", desc: "Server defaults for serve/web commands." },
+  { key: "command", desc: "Command templates and presets." },
+  { key: "watcher", desc: "File watcher ignore list." },
+  { key: "plugin", desc: "Plugin entrypoints to load." },
+  { key: "snapshot", desc: "Enable snapshot tracking." },
+  { key: "share", desc: "manual | auto | disabled." },
+  { key: "autoshare", desc: "Deprecated, use share." },
+  { key: "autoupdate", desc: "true | false | notify." },
+  { key: "disabled_providers", desc: "Disable providers by ID." },
+  { key: "enabled_providers", desc: "Enable only these providers." },
+  { key: "model", desc: "Default model in provider/model format." },
+  { key: "small_model", desc: "Small model for titles/summary." },
+  { key: "default_agent", desc: "Primary agent name (defaults to build)." },
+  { key: "username", desc: "Custom username label." },
+  { key: "agent", desc: "Agent configuration objects." },
+  { key: "provider", desc: "Provider config overrides." },
+  { key: "mcp", desc: "MCP server configs." },
+  { key: "formatter", desc: "Formatter config or false." },
+  { key: "lsp", desc: "LSP config or false." },
+  { key: "instructions", desc: "Extra instruction files/patterns." },
+  { key: "permission", desc: "Permission ruleset." },
+  { key: "tools", desc: "Legacy tool allow/deny map." },
+  { key: "enterprise", desc: "Enterprise settings." },
+  { key: "compaction", desc: "Auto compaction settings." },
+  { key: "experimental", desc: "Experimental flags and hooks." },
+  { key: "rag", desc: "RAG embedding config." },
+];
+---
+
+<DocsLayout
+  title="Configuration"
+  subtitle="Complete config reference derived from packages/nikcli/src/config/config.ts."
+  toc={toc}
+>
+  <section id="resolution-order" class="doc-section" style="--delay: 40ms;">
+    <h2>Resolution Order</h2>
+    <p>Configuration is merged in the following precedence order (lowest to highest):</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Layer</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Remote</td>
+          <td><code>/.well-known/nikcli</code> for OAuth providers (loaded via Auth)</td>
+        </tr>
+        <tr>
+          <td>Global</td>
+          <td><code>~/.config/nikcli/nikcli.jsonc</code> (or <code>nikcli.json</code>, <code>config.json</code>)</td>
+        </tr>
+        <tr>
+          <td>Custom path</td>
+          <td><code>NIKCLI_CONFIG</code> or <code>NIKCLI_CONFIG_CONTENT</code></td>
+        </tr>
+        <tr>
+          <td>Project</td>
+          <td><code>nikcli.jsonc</code> or <code>nikcli.json</code> discovered upward</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Config tokens">
+      <p>Values like <code>{`{env:VAR}`}</code> and <code>{`{file:path}`}</code> are expanded while parsing.</p>
+    </DocCallout>
+  </section>
+
+  <section id="config-schema" class="doc-section" style="--delay: 80ms;">
+    <h2>Config Schema</h2>
+    <DocCode language="json">
+{`{
+  "$schema": "https://nikcli.store/config.json",
+  "theme": "dark",
+  "model": "anthropic/claude-sonnet-4-20250514",
+  "small_model": "anthropic/claude-haiku-4-20250514",
+  "default_agent": "build",
+  "username": "dev",
+  "share": "manual",
+  "autoupdate": true,
+  "disabled_providers": [],
+  "enabled_providers": [],
+  "permission": {},
+  "agent": {},
+  "provider": {},
+  "mcp": {},
+  "lsp": {},
+  "rag": {},
+  "experimental": {}
+}`}
+    </DocCode>
+  </section>
+
+  <section id="top-level-fields" class="doc-section" style="--delay: 100ms;">
+    <h2>Top-Level Fields</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {topFields.map((field) => (
+          <tr>
+            <td><code>{field.key}</code></td>
+            <td>{field.desc}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="agents-permissions" class="doc-section" style="--delay: 120ms;">
+    <h2>Agents & Permissions</h2>
+    <p>Agents use the <code>AgentConfig</code> schema and merge permissions from config + defaults.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>agent</code></td>
+          <td>Primary/subagent definitions. Supports additional custom agents by name.</td>
+        </tr>
+        <tr>
+          <td><code>permission</code></td>
+          <td>Tool allow/deny/ask rules. Accepts per-tool rules and wildcard patterns.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="providers" class="doc-section" style="--delay: 160ms;">
+    <h2>Providers</h2>
+    <p>Provider configuration is scoped per provider ID under <code>provider</code>.</p>
+    <DocCode language="json">
+{`{
+  "provider": {
+    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
+    "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
+    "amazon-bedrock": { "options": { "region": "us-east-1" } }
+  }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="mcp" class="doc-section" style="--delay: 200ms;">
+    <h2>MCP</h2>
+    <p>MCP server entries live under <code>mcp</code> and support local or remote configurations.</p>
+    <DocCode language="json">
+{`{
+  "mcp": {
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    },
+    "remote-docs": {
+      "type": "remote",
+      "url": "https://example.com/mcp"
+    }
+  }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="lsp" class="doc-section" style="--delay: 240ms;">
+    <h2>LSP</h2>
+    <p>Built-in LSP servers can be disabled or overridden. Custom servers require explicit extensions.</p>
+    <DocCode language="json">
+{`{
+  "lsp": {
+    "pyright": { "disabled": true },
+    "custom-lua": {
+      "command": ["lua-language-server"],
+      "extensions": [".lua"]
+    }
+  }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="rag" class="doc-section" style="--delay: 280ms;">
+    <h2>RAG</h2>
+    <p>RAG embedding defaults are in <code>packages/nikcli/src/rag/index.ts</code>.</p>
+    <DocCode language="json">
+{`{
+  "rag": { "model": "nvidia/llama-embed-nemotron-8b", "provider": "nvidia" }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="keybinds" class="doc-section" style="--delay: 300ms;">
+    <h2>Keybinds</h2>
+    <p>Default keybinds are defined in <code>KeybindsConfig</code> and can be overridden under <code>keybinds</code>.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Key</th>
+          <th>Default</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {keybinds.map((item) => (
+          <tr>
+            <td><code>{item.key}</code></td>
+            <td><code>{item.default}</code></td>
+            <td>{item.describe}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="flags-env" class="doc-section" style="--delay: 320ms;">
+    <h2>Flags & Env</h2>
+    <p>Runtime flags are parsed from environment variables in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {flags.map((flag) => (
+          <tr>
+            <td><code>{flag.key}</code></td>
+            <td>{flag.desc}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="experimental" class="doc-section" style="--delay: 320ms;">
+    <h2>Experimental</h2>
+    <p>Experimental flags are defined under <code>experimental</code> and via env flags in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
+  </section>
+</DocsLayout>

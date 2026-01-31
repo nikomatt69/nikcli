@@ -8,7 +8,6 @@ const DISCORD_SUPPORT_BOT_TOKEN = new sst.Secret("DISCORD_SUPPORT_BOT_TOKEN")
 const DISCORD_SUPPORT_CHANNEL_ID = new sst.Secret("DISCORD_SUPPORT_CHANNEL_ID")
 const FEISHU_APP_ID = new sst.Secret("FEISHU_APP_ID")
 const FEISHU_APP_SECRET = new sst.Secret("FEISHU_APP_SECRET")
-const bucket = new sst.cloudflare.Bucket("Bucket")
 
 export const api = new sst.cloudflare.Worker("Api", {
   domain: `api.${domain}`,
@@ -18,7 +17,6 @@ export const api = new sst.cloudflare.Worker("Api", {
   },
   url: true,
   link: [
-    bucket,
     GITHUB_APP_ID,
     GITHUB_APP_PRIVATE_KEY,
     ADMIN_SECRET,
@@ -30,20 +28,6 @@ export const api = new sst.cloudflare.Worker("Api", {
   transform: {
     worker: (args) => {
       args.logpush = true
-      args.bindings = $resolve(args.bindings).apply((bindings) => [
-        ...bindings,
-        {
-          name: "SYNC_SERVER",
-          type: "durable_object_namespace",
-          className: "SyncServer",
-        },
-      ])
-      args.migrations = {
-        // Note: when releasing the next tag, make sure all stages use tag v2
-        oldTag: $app.stage === "production" || $app.stage === "thdxr" ? "" : "v1",
-        newTag: $app.stage === "production" || $app.stage === "thdxr" ? "" : "v1",
-        //newSqliteClasses: ["SyncServer"],
-      }
     },
   },
 })
@@ -51,10 +35,19 @@ export const api = new sst.cloudflare.Worker("Api", {
 new sst.cloudflare.x.Astro("Web", {
   domain: "docs." + domain,
   path: "packages/web",
+  buildCommand: "bun turbo build --filter=@nikcli-ai/web",
   environment: {
-    // For astro config
     SST_STAGE: $app.stage,
     VITE_API_URL: api.url.apply((url) => url!),
+  },
+})
+
+new sst.cloudflare.x.Astro("Website", {
+  domain,
+  path: "packages/web",
+  buildCommand: "bun turbo build --filter=@nikcli-ai/web",
+  environment: {
+    SST_STAGE: $app.stage,
   },
 })
 
@@ -62,7 +55,7 @@ new sst.cloudflare.StaticSite("WebApp", {
   domain: "app." + domain,
   path: "packages/app",
   build: {
-    command: "bun turbo build",
-    output: "./dist",
+    command: "bun run build",
+    output: "dist",
   },
 })

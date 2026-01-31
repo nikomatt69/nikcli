@@ -1,0 +1,50 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Runtime Flow", href: "#runtime-flow", depth: 2 },
+  { title: "Instance Bootstrap", href: "#instance-bootstrap", depth: 2 },
+  { title: "Core Modules", href: "#core-modules", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Architecture"
+  subtitle="High-level architecture derived from Instance, Session, Server, and Tool layers."
+  toc={toc}
+>
+  <section id="runtime-flow" class="doc-section" style="--delay: 40ms;">
+    <h2>Runtime Flow</h2>
+    <p>
+      The CLI initializes the Instance context, bootstraps subsystems (plugins, LSP, file watchers),
+      then executes commands through the session engine. Server mode exposes the same runtime via Hono.
+    </p>
+  </section>
+
+  <section id="instance-bootstrap" class="doc-section" style="--delay: 80ms;">
+    <h2>Instance Bootstrap</h2>
+    <p>
+      Instance bootstrap is defined in <code>packages/nikcli/src/project/bootstrap.ts</code> and
+      initializes plugins, share, formatters, LSP, file watchers, VCS, snapshots, and truncation.
+    </p>
+  </section>
+
+  <section id="core-modules" class="doc-section" style="--delay: 120ms;">
+    <h2>Core Modules</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="Session" eyebrow="State">
+        <p>Session storage, messages, tool parts, and sharing in <code>src/session</code>.</p>
+      </DocCard>
+      <DocCard title="Server" eyebrow="API">
+        <p>HTTP + SSE API surface in <code>src/server</code> and <code>src/server/routes</code>.</p>
+      </DocCard>
+      <DocCard title="Tools" eyebrow="Execution">
+        <p>Tool definitions and registry in <code>src/tool</code>.</p>
+      </DocCard>
+      <DocCard title="Providers" eyebrow="Models">
+        <p>Model loading, auth, and SDK adapters in <code>src/provider</code>.</p>
+      </DocCard>
+    </div>
+  </section>
+</DocsLayout>

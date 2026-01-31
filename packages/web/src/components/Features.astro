@@ -1,0 +1,52 @@
+---
+const features = [
+  {
+    title: 'Open Source',
+    description: '100% open source under MIT license. No lock-in, no hidden costs.',
+    icon: '○'
+  },
+  {
+    title: 'Provider Agnostic',
+    description: 'Use Claude, OpenAI, Gemini, or local models. Your choice.',
+    icon: '◉'
+  },
+  {
+    title: 'LSP Built-in',
+    description: 'Native language server support for intelligent code understanding.',
+    icon: '◇'
+  },
+  {
+    title: 'Terminal First',
+    description: 'Built by neovim users. Designed for the terminal ecosystem.',
+    icon: '▢'
+  },
+  {
+    title: 'Client/Server',
+    description: 'Run locally, control remotely. Mobile app compatible.',
+    icon: '◈'
+  },
+  {
+    title: 'MCP Support',
+    description: 'Model Context Protocol integration for extended capabilities.',
+    icon: '▣'
+  },
+];
+---
+
+<section class="section">
+  <div class="container">
+    <h2 class="section-title">Features</h2>
+
+    <div class="feature-grid">
+      {features.map((feature, index) => (
+        <div class="feature-card">
+          <div class="feature-icon">{feature.icon}</div>
+          <h3 class="feature-title">{feature.title}</h3>
+          <p class="feature-text">
+            {feature.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,58 @@
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <div class="terminal-block hero-terminal">
+        <div class="terminal-head">
+          <span class="terminal-dot bg-terminal-error"></span>
+          <span class="terminal-dot bg-terminal-warning"></span>
+          <span class="terminal-dot bg-terminal-accent"></span>
+          <span class="muted text-xs ml-2">nikcli — AI Development Agent</span>
+        </div>
+        <div class="hero-command font-mono text-base md:text-lg leading-relaxed">
+          <span class="text-terminal-accent">$</span> <span id="typewriter-text" class="hero-terminal-text"></span><span class="animate-cursor">█</span>
+        </div>
+      </div>
+
+      <h1 class="hero-title">
+        Your AI Development
+        <span class="text-terminal-accent">Partner</span>
+      </h1>
+
+      <p class="hero-lead">
+        Open source. Provider agnostic. Built for developers who love the terminal.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/docs#installation" class="btn btn-primary">
+          Install Now
+        </a>
+        <a href="/docs" class="btn btn-secondary">
+          Read Docs
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const text = "nikcli --agent=build --model=claude-sonnet-4 --context=fullstack";
+  const typewriterEl = document.getElementById("typewriter-text");
+  let i = 0;
+  const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function typeWriter() {
+    if (i < text.length && typewriterEl) {
+      typewriterEl.textContent = text.substring(0, i + 1);
+      i++;
+      setTimeout(typeWriter, 50);
+    }
+  }
+
+  if (typewriterEl) {
+    if (prefersReduced) {
+      typewriterEl.textContent = text;
+    } else {
+      setTimeout(typeWriter, 500);
+    }
+  }
+</script>

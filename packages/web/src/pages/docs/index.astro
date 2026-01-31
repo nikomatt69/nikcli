@@ -1,0 +1,132 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Install & Run", href: "#install-run", depth: 2 },
+  { title: "Architecture Snapshot", href: "#architecture-snapshot", depth: 2 },
+  { title: "Core Concepts", href: "#core-concepts", depth: 2 },
+  { title: "Codebase Roadmap", href: "#codebase-roadmap", depth: 2 },
+  { title: "Next Steps", href: "#next-steps", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Getting Started"
+  subtitle="A source-of-truth overview of nikcli, generated directly from the codebase in packages/nikcli."
+  toc={toc}
+>
+  <section id="install-run" class="doc-section" style="--delay: 40ms;">
+    <h2>Install & Run</h2>
+    <p>
+      nikcli ships as a CLI with a full TUI experience. The default entrypoint is the TUI command
+      defined in <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code>.
+    </p>
+    <DocCode language="bash">
+      curl -fsSL https://nikcli.store/install | bash
+    </DocCode>
+    <DocCode language="bash">
+      nikcli
+    </DocCode>
+    <DocCallout type="info" title="Runtime">
+      <p>
+        Local execution uses Bun. The CLI entrypoint is <code>packages/nikcli/src/index.ts</code>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="architecture-snapshot" class="doc-section" style="--delay: 80ms;">
+    <h2>Architecture Snapshot</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="CLI + TUI" eyebrow="Interface">
+        <p>
+          All CLI commands are registered in <code>packages/nikcli/src/index.ts</code>. The TUI is
+          powered by a worker model in <code>packages/nikcli/src/cli/cmd/tui/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Session Engine" eyebrow="Core">
+        <p>
+          Sessions, messages, tool parts, and sharing live under
+          <code>packages/nikcli/src/session/</code> and <code>packages/nikcli/src/share/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Tools & Permissions" eyebrow="Execution">
+        <p>
+          Tool registry and permission rules are defined in <code>packages/nikcli/src/tool/</code>
+          and <code>packages/nikcli/src/permission/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Server + API" eyebrow="Services">
+        <p>
+          HTTP + SSE endpoints are built on Hono in <code>packages/nikcli/src/server/</code> with
+          OpenAPI generation.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="core-concepts" class="doc-section" style="--delay: 120ms;">
+    <h2>Core Concepts</h2>
+    <div class="docs-grid cols-2">
+      <DocCard title="Agents">
+        <p>
+          Default agents (<code>build</code>, <code>plan</code>) and subagents
+          (<code>general</code>, <code>explore</code>, <code>code-reviewer</code>, etc.) are
+          configured in <code>packages/nikcli/src/agent/agent.ts</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Providers">
+        <p>
+          Provider orchestration lives in <code>packages/nikcli/src/provider/</code> with bundled
+          SDK loaders and model catalogs.
+        </p>
+      </DocCard>
+      <DocCard title="Config Stack">
+        <p>
+          Config resolution merges remote, global, project, and inline sources via
+          <code>packages/nikcli/src/config/config.ts</code>.
+        </p>
+      </DocCard>
+      <DocCard title="RAG + Docs">
+        <p>
+          Documentation indexing and vector search live in <code>packages/nikcli/src/docs/</code>
+          and <code>packages/nikcli/src/rag/</code>.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="codebase-roadmap" class="doc-section" style="--delay: 160ms;">
+    <h2>Codebase Roadmap</h2>
+    <p>
+      Every page in this docs section links directly to the source files that implement the
+      feature. The full file index is available in <a href="/docs/source-map">Source Map</a>.
+    </p>
+    <div class="docs-grid cols-2">
+      <DocCard title="CLI Reference" eyebrow="Command Surface">
+        <p>
+          All commands, flags, and flows. See <a href="/docs/cli">CLI Quickstart</a> and
+          <a href="/docs/cli-debug">CLI Debug</a>.
+        </p>
+      </DocCard>
+      <DocCard title="System Reference" eyebrow="Server + Infra">
+        <p>
+          Server routes, MCP, LSP, RAG, storage, and diagnostics. See
+          <a href="/docs/server-api">Server & API</a>.
+        </p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="next-steps" class="doc-section" style="--delay: 200ms;">
+    <h2>Next Steps</h2>
+    <DocCallout type="success" title="Start here">
+      <p>
+        Configure providers and agents in <a href="/docs/configuration">Configuration</a>, then
+        browse tools in <a href="/docs/tools">Tools</a>.
+      </p>
+    </DocCallout>
+  </section>
+</DocsLayout>

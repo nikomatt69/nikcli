@@ -1,0 +1,67 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "HTTP Server", href: "#http-server", depth: 2 },
+  { title: "Routes", href: "#routes", depth: 2 },
+  { title: "OpenAPI", href: "#openapi", depth: 2 },
+  { title: "Networking Flags", href: "#networking-flags", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Server & API"
+  subtitle="Hono server and route definitions in packages/nikcli/src/server."
+  toc={toc}
+>
+  <section id="http-server" class="doc-section" style="--delay: 40ms;">
+    <h2>HTTP Server</h2>
+    <p>
+      The server is implemented with Hono and SSE streaming. It supports CORS, optional basic auth,
+      and exposes REST + event APIs.
+    </p>
+    <DocCallout type="info" title="Auth">
+      <p>Basic auth is enabled when <code>NIKCLI_SERVER_PASSWORD</code> is set.</p>
+    </DocCallout>
+  </section>
+
+  <section id="routes" class="doc-section" style="--delay: 80ms;">
+    <h2>Routes</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Namespace</th>
+          <th>Route File</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>/project</td><td><code>src/server/routes/project.ts</code></td></tr>
+        <tr><td>/session</td><td><code>src/server/routes/session.ts</code></td></tr>
+        <tr><td>/provider</td><td><code>src/server/routes/provider.ts</code></td></tr>
+        <tr><td>/mcp</td><td><code>src/server/routes/mcp.ts</code></td></tr>
+        <tr><td>/tui</td><td><code>src/server/routes/tui.ts</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="openapi" class="doc-section" style="--delay: 120ms;">
+    <h2>OpenAPI</h2>
+    <p>OpenAPI specs are exposed at <code>/doc</code> and generated with <code>hono-openapi</code>.</p>
+  </section>
+
+  <section id="networking-flags" class="doc-section" style="--delay: 160ms;">
+    <h2>Networking Flags</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>--port</code></td><td>Port to listen on (default 0 = random).</td></tr>
+        <tr><td><code>--hostname</code></td><td>Hostname to bind (default 127.0.0.1).</td></tr>
+        <tr><td><code>--mdns</code></td><td>Enable mDNS; defaults hostname to 0.0.0.0.</td></tr>
+        <tr><td><code>--cors</code></td><td>Additional CORS origins.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="CORS">
+      <p>Localhost and <code>*.nikcli.store</code> are always allowed.</p>
+    </DocCallout>
+  </section>
+</DocsLayout>

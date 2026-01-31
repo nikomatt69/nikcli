@@ -1,0 +1,20 @@
+---
+interface TocItem {
+  title: string;
+  href: string;
+  depth?: number;
+}
+
+const { items = [] } = Astro.props as { items?: TocItem[] };
+---
+
+<div class="docs-toc">
+  <div class="docs-toc-title">On this page</div>
+  <nav aria-label="On this page">
+    {items.map((item) => (
+      <a class={`depth-${item.depth ?? 2}`} href={item.href}>
+        {item.title}
+      </a>
+    ))}
+  </nav>
+</div>
