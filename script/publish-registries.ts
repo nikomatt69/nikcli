@@ -42,8 +42,8 @@ if (!Script.preview) {
 
   // Source-based PKGBUILD for nikcli
   const sourcePkgbuild = [
-    "# Maintainer: dax",
-    "# Maintainer: adam",
+    "# Maintainer: nikcli",
+    "# Maintainer: nikomatt69",
     "",
     "pkgname='nikcli'",
     `pkgver=${pkgver}`,

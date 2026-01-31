@@ -22,7 +22,7 @@ Options:
 
 Examples:
     curl -fsSL https://nikcli.store/install | bash
-    curl -fsSL https://nikcli.store/install | bash -s -- --version 0.0.1
+    curl -fsSL https://nikcli.store/install | bash -s -- --version 0.0.2
     ./install --binary /path/to/nikcli
 EOF
 }
