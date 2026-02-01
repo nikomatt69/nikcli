@@ -11,19 +11,16 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { useToast } from "../ui/toast"
 import type { Config } from "@/config/config"
+import { Connectors } from "@/connectors"
 
 type ConnectorEntry = NonNullable<NonNullable<ReturnType<typeof useSync>["data"]["config"]>["connectors"]>[string]
 
-function isConnectorConfigured(entry: ConnectorEntry): entry is { type: Config.Connector["type"]; enabled?: boolean } {
-  return typeof entry === "object" && entry !== null && "type" in entry
-}
-
 const DEFAULT_CONNECTORS = [
-  { name: "figma", type: "figma", description: "Design files and components" },
-  { name: "slack", type: "slack", description: "Messages and channels" },
-  { name: "github", type: "github", description: "Repositories and issues" },
-  { name: "lovable", type: "lovable", description: "AI projects and chats" },
-] as const
+  { name: "figma", type: "figma" as const, description: "Design files and components" },
+  { name: "slack", type: "slack" as const, description: "Messages and channels" },
+  { name: "github", type: "github" as const, description: "Repositories and issues" },
+  { name: "lovable", type: "lovable" as const, description: "AI projects and chats" },
+]
 
 function Status(props: { enabled: boolean; configured: boolean; status?: string; loading: boolean }) {
   const { theme } = useTheme()
@@ -94,7 +91,7 @@ export function DialogConnectors() {
 
   async function openAuth(name: string, presetType?: string) {
     const entry = sync.data.config.connectors?.[name]
-    const resolvedType = entry && isConnectorConfigured(entry) ? entry.type : presetType
+    const resolvedType = entry && Connectors.isConnectorConfigured(entry) ? entry.type : presetType
     if (!resolvedType) {
       toast.show({
         variant: "warning",
@@ -118,7 +115,7 @@ export function DialogConnectors() {
       reopen()
       return
     }
-    if (!entry || !isConnectorConfigured(entry)) {
+    if (!entry || !Connectors.isConnectorConfigured(entry)) {
       await addConnectorWithPreset(name, resolvedType)
     }
     await local.connectors.auth(name, { [auth.field]: value })
@@ -128,7 +125,7 @@ export function DialogConnectors() {
 
   async function logout(name: string) {
     const entry = sync.data.config.connectors?.[name]
-    if (!entry || !isConnectorConfigured(entry)) {
+    if (!entry || !Connectors.isConnectorConfigured(entry)) {
       toast.show({
         variant: "warning",
         message: `Connector not found: ${name}`,
@@ -178,7 +175,7 @@ export function DialogConnectors() {
       return
     }
     const existing = sync.data.config.connectors?.[name]
-    if (existing && isConnectorConfigured(existing)) {
+    if (existing && Connectors.isConnectorConfigured(existing)) {
       toast.show({
         variant: "warning",
         message: `Connector already exists: ${name}`,
@@ -220,7 +217,7 @@ export function DialogConnectors() {
       entries(),
       sortBy(([name]) => name),
       map(([name, entry]) => {
-        if (!isConnectorConfigured(entry)) return undefined
+        if (!Connectors.isConnectorConfigured(entry)) return undefined
         const status = statusMap[name]
         const enabled = entry.enabled !== false
         const description = status?.status ?? (enabled ? "not initialized" : "disabled")
@@ -228,14 +225,7 @@ export function DialogConnectors() {
           value: name,
           title: name,
           description,
-          footer: (
-            <Status
-              enabled={enabled}
-              configured={true}
-              loading={loadingName === name}
-              status={status?.status}
-            />
-          ),
+          footer: <Status enabled={enabled} configured={true} loading={loadingName === name} status={status?.status} />,
           category: entry.type,
         } satisfies DialogSelectOption<string>
       }),
@@ -243,16 +233,14 @@ export function DialogConnectors() {
 
     const missingDefaults = DEFAULT_CONNECTORS.filter((item) => {
       const entry = config[item.name]
-      return !entry || !isConnectorConfigured(entry)
+      return !entry || !Connectors.isConnectorConfigured(entry)
     }).map(
       (item) =>
         ({
           value: item.name,
           title: item.name,
           description: item.description,
-          footer: (
-            <Status enabled={false} configured={false} loading={loadingName === item.name} status={undefined} />
-          ),
+          footer: <Status enabled={false} configured={false} loading={loadingName === item.name} status={undefined} />,
           category: item.type,
         }) satisfies DialogSelectOption<string>,
     )
@@ -267,7 +255,7 @@ export function DialogConnectors() {
       onTrigger: async (option: DialogSelectOption<string>) => {
         if (loading() !== null) return
         const entry = sync.data.config.connectors?.[option.value]
-        if (!entry || !isConnectorConfigured(entry)) {
+        if (!entry || !Connectors.isConnectorConfigured(entry)) {
           const preset = DEFAULT_CONNECTORS.find((item) => item.name === option.value)
           if (preset) {
             await openAuth(option.value, preset.type)

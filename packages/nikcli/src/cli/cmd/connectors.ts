@@ -9,12 +9,7 @@ import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "../../global"
 import path from "path"
 
-type ConnectorEntry = NonNullable<Config.Info["connectors"]>[string]
 type ConnectorConfigured = Config.Connector
-
-function isConnectorConfigured(entry: ConnectorEntry): entry is ConnectorConfigured {
-  return typeof entry === "object" && entry !== null && "type" in entry
-}
 
 function getConnectorIcon(status: Connectors.Status): string {
   switch (status.status) {
@@ -71,7 +66,7 @@ export const ConnectorsListCommand = cmd({
         const statuses = await Connectors.status()
 
         const items = Object.entries(connectors).filter((entry): entry is [string, ConnectorConfigured] =>
-          isConnectorConfigured(entry[1]),
+          Connectors.isConnectorConfigured(entry[1]),
         )
 
         if (items.length === 0) {
@@ -82,7 +77,7 @@ export const ConnectorsListCommand = cmd({
 
         for (const [name, connectorConfig] of items) {
           const status = statuses[name]
-          const hasStoredCredentials = await Connectors.hasStoredCredentials(name)
+          const hasStoredCredentials = await Connectors.hasStoredCredentials(name, connectorConfig.type)
 
           let statusIcon: string
           let statusText: string
@@ -141,7 +136,7 @@ export const ConnectorsAuthCommand = cmd({
         const connectors = config.connectors ?? {}
 
         const configuredConnectors = Object.entries(connectors).filter(
-          (entry): entry is [string, ConnectorConfigured] => isConnectorConfigured(entry[1]),
+          (entry): entry is [string, ConnectorConfigured] => Connectors.isConnectorConfigured(entry[1]),
         )
 
         if (configuredConnectors.length === 0) {
@@ -167,7 +162,7 @@ export const ConnectorsAuthCommand = cmd({
         }
 
         const connectorConfig = connectors[connectorName]
-        if (!connectorConfig || !isConnectorConfigured(connectorConfig)) {
+        if (!connectorConfig || !Connectors.isConnectorConfigured(connectorConfig)) {
           prompts.log.error(`Connector not found: ${connectorName}`)
           prompts.outro("Done")
           return
@@ -303,7 +298,7 @@ async function resolveConfigPath(baseDir: string, global = false) {
     }
   }
 
-  return candidates[0]
+  return path.join(baseDir, "nikcli.json")
 }
 
 async function addConnectorToConfig(name: string, connectorConfig: Config.Connector, configPath: string) {
@@ -396,6 +391,7 @@ export const ConnectorsAddCommand = cmd({
           case "figma": {
             const tokenResult = await prompts.text({
               message: "Enter Figma personal access token (or press enter to skip)",
+              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(tokenResult)) throw new UI.CancelledError()
 
@@ -403,8 +399,9 @@ export const ConnectorsAddCommand = cmd({
               type: "figma",
               enabled,
             }
-            if (tokenResult) {
-              await ConnectorAuth.updateToken(name, tokenResult)
+            if (tokenResult && tokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break
@@ -412,6 +409,7 @@ export const ConnectorsAddCommand = cmd({
           case "slack": {
             const botTokenResult = await prompts.text({
               message: "Enter Slack bot token (or press enter to skip)",
+              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
 
@@ -419,8 +417,9 @@ export const ConnectorsAddCommand = cmd({
               type: "slack",
               enabled,
             }
-            if (botTokenResult) {
-              await ConnectorAuth.updateBotToken(name, botTokenResult)
+            if (botTokenResult && botTokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break
@@ -428,6 +427,7 @@ export const ConnectorsAddCommand = cmd({
           case "github": {
             const tokenResult = await prompts.text({
               message: "Enter GitHub personal access token (or press enter to skip)",
+              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(tokenResult)) throw new UI.CancelledError()
 
@@ -435,8 +435,9 @@ export const ConnectorsAddCommand = cmd({
               type: "github",
               enabled,
             }
-            if (tokenResult) {
-              await ConnectorAuth.updateToken(name, tokenResult)
+            if (tokenResult && tokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break
@@ -444,6 +445,7 @@ export const ConnectorsAddCommand = cmd({
           case "lovable": {
             const apiKeyResult = await prompts.text({
               message: "Enter Lovable API key (or press enter to skip)",
+              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(apiKeyResult)) throw new UI.CancelledError()
 
@@ -451,8 +453,9 @@ export const ConnectorsAddCommand = cmd({
               type: "lovable",
               enabled,
             }
-            if (apiKeyResult) {
-              await ConnectorAuth.updateApiKey(name, apiKeyResult)
+            if (apiKeyResult && apiKeyResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateApiKey(name, apiKeyResult.trim())
               hasCredentials = true
             }
             break
@@ -463,11 +466,12 @@ export const ConnectorsAddCommand = cmd({
             return
         }
 
-        await addConnectorToConfig(name, connectorConfig, configPath)
-        prompts.log.success(`Connector "${name}" added to ${configPath}`)
-
         if (!hasCredentials) {
+          await addConnectorToConfig(name, connectorConfig, configPath)
+          prompts.log.success(`Connector "${name}" added to ${configPath}`)
           prompts.log.info(`Authenticate with: nikcli connectors auth ${name}`)
+        } else {
+          prompts.log.success(`Connector "${name}" added to ${configPath}`)
         }
 
         prompts.outro("Connector added successfully")

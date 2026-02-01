@@ -47,9 +47,10 @@ export const UseConnectorTool = Tool.define("use_connector", async () => {
         throw new Error(`Connector "${connector}" not found`)
       }
 
+      const connectorType = connectorConfig.type
       let result: any
 
-      switch (connectorConfig.type) {
+      switch (connectorType) {
         case "figma": {
           const token = Flag.NIKCLI_FIGMA_TOKEN || connectorConfig.token || (await getFigmaToken(connector))
           if (!token) throw new Error(`No token for connector "${connector}"`)
@@ -72,7 +73,8 @@ export const UseConnectorTool = Tool.define("use_connector", async () => {
           break
         }
         case "slack": {
-          const botToken = Flag.NIKCLI_SLACK_BOT_TOKEN || connectorConfig.botToken || (await getSlackBotToken(connector))
+          const botToken =
+            Flag.NIKCLI_SLACK_BOT_TOKEN || connectorConfig.botToken || (await getSlackBotToken(connector))
           if (!botToken) throw new Error(`No bot token for connector "${connector}"`)
           switch (operation) {
             case "slack_list_channels":
@@ -179,8 +181,13 @@ export const UseConnectorTool = Tool.define("use_connector", async () => {
             case "lovable_run_prompt":
               result = await LovableApi.runPrompt(apiKey, args.projectId as string, args.prompt as string)
               break
+            default:
+              throw new Error(`Unknown operation: ${operation}`)
           }
           break
+        }
+        default: {
+          throw new Error(`Unknown connector type: ${connectorType}`)
         }
       }
 

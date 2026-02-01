@@ -40,8 +40,22 @@ export namespace Connectors {
   export type Status = z.infer<typeof StatusSchema>
 
   type ConnectorEntry = NonNullable<Config.Info["connectors"]>[string]
-  function isConnectorConfigured(entry: ConnectorEntry): entry is Config.Connector {
-    return typeof entry === "object" && entry !== null && "type" in entry
+  export function isConnectorConfigured(entry: ConnectorEntry): entry is Config.Connector {
+    return typeof entry === "object" && entry !== null && "type" in entry && typeof entry.type === "string"
+  }
+
+  function getRequiredCredentialType(type: string): "token" | "botToken" | "apiKey" | null {
+    switch (type) {
+      case "figma":
+      case "github":
+        return "token"
+      case "slack":
+        return "botToken"
+      case "lovable":
+        return "apiKey"
+      default:
+        return null
+    }
   }
 
   async function resolveStatuses(): Promise<Record<string, Status>> {
@@ -110,9 +124,23 @@ export namespace Connectors {
     return resolveStatuses()
   }
 
-  export async function hasStoredCredentials(name: string): Promise<boolean> {
+  export async function hasStoredCredentials(name: string, type?: string): Promise<boolean> {
     const auth = await ConnectorAuth.get(name)
-    return !!auth?.token || !!auth?.botToken || !!auth?.apiKey
+    if (!auth) return false
+    if (!type) {
+      return !!auth.token || !!auth.botToken || !!auth.apiKey
+    }
+    const requiredType = getRequiredCredentialType(type)
+    if (!requiredType) return false
+    switch (requiredType) {
+      case "token":
+        return !!auth.token
+      case "botToken":
+        return !!auth.botToken
+      case "apiKey":
+        return !!auth.apiKey
+    }
+    return false
   }
 
   function figmaTools(name: string, token: string): Record<string, Tool> {

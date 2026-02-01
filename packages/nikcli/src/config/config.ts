@@ -78,7 +78,7 @@ export namespace Config {
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      for (const file of ["config.json", "nikcli.jsonc", "nikcli.json"]) {
+      for (const file of ["nikcli.jsonc", "nikcli.json", "config.json"]) {
         const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
         for (const resolved of found.toReversed()) {
           result = mergeConfigConcatArrays(result, await loadFile(resolved))
