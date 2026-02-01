@@ -374,6 +374,52 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       },
     }
 
+    const connectors = {
+      isEnabled(name: string) {
+        const entry = sync.data.config.connectors?.[name]
+        if (!entry || typeof entry !== "object" || !("type" in entry)) return false
+        return entry.enabled !== false
+      },
+      async toggle(name: string) {
+        const entry = sync.data.config.connectors?.[name]
+        if (!entry || typeof entry !== "object" || !("type" in entry)) {
+          toast.show({
+            variant: "warning",
+            message: `Connector not found: ${name}`,
+            duration: 3000,
+          })
+          return
+        }
+        const nextEnabled = entry.enabled === false
+        const nextConfig = {
+          ...sync.data.config,
+          connectors: {
+            ...(sync.data.config.connectors ?? {}),
+            [name]: {
+              ...entry,
+              enabled: nextEnabled,
+            },
+          },
+        }
+        await sdk.client.config.update({ config: { connectors: nextConfig.connectors } })
+        sync.set("config", nextConfig)
+      },
+      async auth(
+        name: string,
+        payload: {
+          token?: string
+          botToken?: string
+          apiKey?: string
+          teamId?: string
+        },
+      ) {
+        await sdk.client.connectors.auth.set({ name, ...payload })
+      },
+      async logout(name: string) {
+        await sdk.client.connectors.auth.remove({ name })
+      },
+    }
+
     // Automatically update model when agent changes
     createEffect(() => {
       const value = agent.current()
@@ -396,6 +442,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       model,
       agent,
       mcp,
+      connectors,
     }
     return result
   },

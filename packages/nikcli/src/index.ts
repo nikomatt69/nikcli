@@ -28,6 +28,7 @@ import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { RagModelCommand } from "./cli/cmd/rag-model"
 import { RemoteCommand } from "./cli/cmd/remote"
+import { ConnectorsCommand } from "./cli/cmd/connectors"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -81,6 +82,7 @@ const cli = yargs(hideBin(process.argv))
   .completion("completion", "generate shell completion script")
   .command(AcpCommand)
   .command(McpCommand)
+  .command(ConnectorsCommand)
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)

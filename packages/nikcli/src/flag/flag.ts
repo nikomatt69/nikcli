@@ -29,6 +29,12 @@ export namespace Flag {
   export const NIKCLI_SERVER_PASSWORD = process.env["NIKCLI_SERVER_PASSWORD"]
   export const NIKCLI_SERVER_USERNAME = process.env["NIKCLI_SERVER_USERNAME"]
 
+  // Connectors
+  export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]
+  export const NIKCLI_SLACK_BOT_TOKEN = process.env["NIKCLI_SLACK_BOT_TOKEN"]
+  export const NIKCLI_GITHUB_TOKEN = process.env["NIKCLI_GITHUB_TOKEN"]
+  export const NIKCLI_LOVABLE_API_KEY = process.env["NIKCLI_LOVABLE_API_KEY"]
+
   // Experimental
   export const NIKCLI_EXPERIMENTAL = truthy("NIKCLI_EXPERIMENTAL")
   export const NIKCLI_EXPERIMENTAL_FILEWATCHER = truthy("NIKCLI_EXPERIMENTAL_FILEWATCHER")

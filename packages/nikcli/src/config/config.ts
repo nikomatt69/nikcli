@@ -78,7 +78,7 @@ export namespace Config {
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      for (const file of ["nikcli.jsonc", "nikcli.json"]) {
+      for (const file of ["config.json", "nikcli.jsonc", "nikcli.json"]) {
         const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
         for (const resolved of found.toReversed()) {
           result = mergeConfigConcatArrays(result, await loadFile(resolved))
@@ -125,7 +125,7 @@ export namespace Config {
 
     for (const dir of unique(directories)) {
       if (dir.endsWith(".nikcli") || dir === Flag.NIKCLI_CONFIG_DIR) {
-        for (const file of ["nikcli.jsonc", "nikcli.json"]) {
+        for (const file of ["config.json", "nikcli.jsonc", "nikcli.json"]) {
           log.debug(`loading config from ${path.join(dir, file)}`)
           result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
           // to satisfy the type checker
@@ -479,6 +479,55 @@ export namespace Config {
 
   export const Mcp = z.discriminatedUnion("type", [McpLocal, McpRemote])
   export type Mcp = z.infer<typeof Mcp>
+
+  export const ConnectorFigma = z
+    .object({
+      type: z.literal("figma"),
+      token: z.string().optional().describe("Figma personal access token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorFigma" })
+  export type ConnectorFigma = z.infer<typeof ConnectorFigma>
+
+  export const ConnectorSlack = z
+    .object({
+      type: z.literal("slack"),
+      botToken: z.string().optional().describe("Slack bot token"),
+      teamId: z.string().optional().describe("Slack team ID"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorSlack" })
+  export type ConnectorSlack = z.infer<typeof ConnectorSlack>
+
+  export const ConnectorGithub = z
+    .object({
+      type: z.literal("github"),
+      token: z.string().optional().describe("GitHub personal access token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorGithub" })
+  export type ConnectorGithub = z.infer<typeof ConnectorGithub>
+
+  export const ConnectorLovable = z
+    .object({
+      type: z.literal("lovable"),
+      apiKey: z.string().optional().describe("Lovable API key"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorLovable" })
+  export type ConnectorLovable = z.infer<typeof ConnectorLovable>
+
+  export const Connector = z.discriminatedUnion("type", [
+    ConnectorFigma,
+    ConnectorSlack,
+    ConnectorGithub,
+    ConnectorLovable,
+  ])
+  export type Connector = z.infer<typeof Connector>
 
   export const PermissionAction = z.enum(["ask", "allow", "deny"]).meta({
     ref: "PermissionActionConfig",
@@ -1006,6 +1055,20 @@ export namespace Config {
         )
         .optional()
         .describe("MCP (Model Context Protocol) server configurations"),
+      connectors: z
+        .record(
+          z.string(),
+          z.union([
+            Connector,
+            z
+              .object({
+                enabled: z.boolean(),
+              })
+              .strict(),
+          ]),
+        )
+        .optional()
+        .describe("External service connectors (Figma, Slack, GitHub, Lovable)"),
       formatter: z
         .union([
           z.literal(false),

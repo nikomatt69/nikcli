@@ -1685,6 +1685,46 @@ export type McpRemoteConfig = {
   timeout?: number
 }
 
+export type ConnectorFigma = {
+  type: "figma"
+  /**
+   * Figma personal access token
+   */
+  token?: string
+  enabled?: boolean
+}
+
+export type ConnectorSlack = {
+  type: "slack"
+  /**
+   * Slack bot token
+   */
+  botToken?: string
+  /**
+   * Slack team ID
+   */
+  teamId?: string
+  enabled?: boolean
+}
+
+export type ConnectorGithub = {
+  type: "github"
+  /**
+   * GitHub personal access token
+   */
+  token?: string
+  enabled?: boolean
+}
+
+export type ConnectorLovable = {
+  type: "lovable"
+  /**
+   * Lovable API key
+   */
+  apiKey?: string
+  enabled?: boolean
+}
+
 /**
  * @deprecated Always uses stretch layout.
  */
@@ -1825,6 +1865,19 @@ export type Config = {
     [key: string]:
       | McpLocalConfig
       | McpRemoteConfig
+      | {
+          enabled: boolean
+        }
+  }
+  /**
+   * External service connectors (Figma, Slack, GitHub, Lovable)
+   */
+  connectors?: {
+    [key: string]:
+      | ConnectorFigma
+      | ConnectorSlack
+      | ConnectorGithub
+      | ConnectorLovable
       | {
           enabled: boolean
         }
@@ -2157,6 +2210,29 @@ export type File = {
   removed: number
   status: "added" | "deleted" | "modified"
 }
+
+export type ConnectorStatusConnected = {
+  status: "connected"
+}
+
+export type ConnectorStatusDisabled = {
+  status: "disabled"
+}
+
+export type ConnectorStatusFailed = {
+  status: "failed"
+  error: string
+}
+
+export type ConnectorStatusNeedsAuth = {
+  status: "needs_auth"
+}
+
+export type ConnectorStatus =
+  | ConnectorStatusConnected
+  | ConnectorStatusDisabled
+  | ConnectorStatusFailed
+  | ConnectorStatusNeedsAuth
 
 export type McpStatusConnected = {
   status: "connected"
@@ -4297,6 +4373,94 @@ export type FileStatusResponses = {
 }
 
 export type FileStatusResponse = FileStatusResponses[keyof FileStatusResponses]
+
+export type ConnectorsStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/connectors"
+}
+
+export type ConnectorsStatusResponses = {
+  /**
+   * Connector status
+   */
+  200: {
+    [key: string]: ConnectorStatus
+  }
+}
+
+export type ConnectorsStatusResponse = ConnectorsStatusResponses[keyof ConnectorsStatusResponses]
+
+export type ConnectorsAuthRemoveData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/connectors/{name}/auth"
+}
+
+export type ConnectorsAuthRemoveErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ConnectorsAuthRemoveError = ConnectorsAuthRemoveErrors[keyof ConnectorsAuthRemoveErrors]
+
+export type ConnectorsAuthRemoveResponses = {
+  /**
+   * Credentials removed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type ConnectorsAuthRemoveResponse = ConnectorsAuthRemoveResponses[keyof ConnectorsAuthRemoveResponses]
+
+export type ConnectorsAuthSetData = {
+  body?: {
+    token?: string
+    botToken?: string
+    apiKey?: string
+    teamId?: string
+    expiresAt?: number
+  }
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/connectors/{name}/auth"
+}
+
+export type ConnectorsAuthSetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ConnectorsAuthSetError = ConnectorsAuthSetErrors[keyof ConnectorsAuthSetErrors]
+
+export type ConnectorsAuthSetResponses = {
+  /**
+   * Credentials saved
+   */
+  200: {
+    success: true
+  }
+}
+
+export type ConnectorsAuthSetResponse = ConnectorsAuthSetResponses[keyof ConnectorsAuthSetResponses]
 
 export type McpStatusData = {
   body?: never

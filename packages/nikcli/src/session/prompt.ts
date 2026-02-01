@@ -818,6 +818,64 @@ export namespace SessionPrompt {
       tools[key] = item
     }
 
+    const { Connectors } = await import("@/connectors")
+    for (const [key, item] of Object.entries(await Connectors.tools())) {
+      const execute = item.execute
+      if (!execute) continue
+
+      item.execute = async (args, opts) => {
+        const ctx = context(args, opts)
+
+        await Plugin.trigger(
+          "tool.execute.before",
+          {
+            tool: key,
+            sessionID: ctx.sessionID,
+            callID: opts.toolCallId,
+          },
+          {
+            args,
+          },
+        )
+
+        await ctx.ask({
+          permission: key,
+          metadata: {},
+          patterns: ["*"],
+          always: ["*"],
+        })
+
+        const result = await execute(args, opts)
+
+        await Plugin.trigger(
+          "tool.execute.after",
+          {
+            tool: key,
+            sessionID: ctx.sessionID,
+            callID: opts.toolCallId,
+          },
+          result,
+        )
+
+        const textOutput = typeof result === "string" ? result : JSON.stringify(result, null, 2)
+        const truncated = await Truncate.output(textOutput, {}, input.agent)
+
+        return {
+          title: "",
+          metadata: { truncated: truncated.truncated },
+          output: truncated.content,
+          content: [{ type: "text", text: truncated.content }],
+        }
+      }
+      item.toModelOutput = (result) => {
+        return {
+          type: "text",
+          value: result.output,
+        }
+      }
+      tools[key] = item
+    }
+
     return tools
   }
 

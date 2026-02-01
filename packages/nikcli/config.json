@@ -1,7 +1,214 @@
 {
+  "$schema": "https://nikcli.store/config.json",
+  "keybinds": {
+    "leader": "ctrl+x",
+    "app_exit": "ctrl+c,ctrl+d,<leader>q",
+    "editor_open": "<leader>e",
+    "theme_list": "<leader>t",
+    "sidebar_toggle": "<leader>b",
+    "scrollbar_toggle": "none",
+    "username_toggle": "none",
+    "status_view": "<leader>s",
+    "session_export": "<leader>x",
+    "session_new": "<leader>n",
+    "session_list": "<leader>l",
+    "session_timeline": "<leader>g",
+    "session_fork": "none",
+    "session_rename": "ctrl+r",
+    "session_delete": "ctrl+d",
+    "stash_delete": "ctrl+d",
+    "model_provider_list": "ctrl+a",
+    "model_favorite_toggle": "ctrl+f",
+    "session_share": "none",
+    "session_unshare": "none",
+    "session_interrupt": "escape",
+    "session_compact": "<leader>c",
+    "messages_page_up": "pageup,ctrl+alt+b",
+    "messages_page_down": "pagedown,ctrl+alt+f",
+    "messages_line_up": "ctrl+alt+y",
+    "messages_line_down": "ctrl+alt+e",
+    "messages_half_page_up": "ctrl+alt+u",
+    "messages_half_page_down": "ctrl+alt+d",
+    "messages_first": "ctrl+g,home",
+    "messages_last": "ctrl+alt+g,end",
+    "messages_next": "none",
+    "messages_previous": "none",
+    "messages_last_user": "none",
+    "messages_copy": "<leader>y",
+    "messages_undo": "<leader>u",
+    "messages_redo": "<leader>r",
+    "messages_toggle_conceal": "<leader>h",
+    "tool_details": "none",
+    "model_list": "<leader>m",
+    "model_cycle_recent": "f2",
+    "model_cycle_recent_reverse": "shift+f2",
+    "model_cycle_favorite": "none",
+    "model_cycle_favorite_reverse": "none",
+    "command_list": "ctrl+p",
+    "agent_list": "<leader>a",
+    "agent_cycle": "tab",
+    "agent_cycle_reverse": "shift+tab",
+    "variant_cycle": "ctrl+t",
+    "input_clear": "ctrl+c",
+    "input_paste": "ctrl+v",
+    "input_submit": "return",
+    "input_newline": "shift+return,ctrl+return,alt+return,ctrl+j",
+    "input_move_left": "left,ctrl+b",
+    "input_move_right": "right,ctrl+f",
+    "input_move_up": "up",
+    "input_move_down": "down",
+    "input_select_left": "shift+left",
+    "input_select_right": "shift+right",
+    "input_select_up": "shift+up",
+    "input_select_down": "shift+down",
+    "input_line_home": "ctrl+a",
+    "input_line_end": "ctrl+e",
+    "input_select_line_home": "ctrl+shift+a",
+    "input_select_line_end": "ctrl+shift+e",
+    "input_visual_line_home": "alt+a",
+    "input_visual_line_end": "alt+e",
+    "input_select_visual_line_home": "alt+shift+a",
+    "input_select_visual_line_end": "alt+shift+e",
+    "input_buffer_home": "home",
+    "input_buffer_end": "end",
+    "input_select_buffer_home": "shift+home",
+    "input_select_buffer_end": "shift+end",
+    "input_delete_line": "ctrl+shift+d",
+    "input_delete_to_line_end": "ctrl+k",
+    "input_delete_to_line_start": "ctrl+u",
+    "input_backspace": "backspace,shift+backspace",
+    "input_delete": "ctrl+d,delete,shift+delete",
+    "input_undo": "ctrl+-,super+z",
+    "input_redo": "ctrl+.,super+shift+z",
+    "input_word_forward": "alt+f,alt+right,ctrl+right",
+    "input_word_backward": "alt+b,alt+left,ctrl+left",
+    "input_select_word_forward": "alt+shift+f,alt+shift+right",
+    "input_select_word_backward": "alt+shift+b,alt+shift+left",
+    "input_delete_word_forward": "alt+d,alt+delete,ctrl+delete",
+    "input_delete_word_backward": "ctrl+w,ctrl+backspace,alt+backspace",
+    "history_previous": "up",
+    "history_next": "down",
+    "session_child_cycle": "<leader>right",
+    "session_child_cycle_reverse": "<leader>left",
+    "session_parent": "<leader>up",
+    "terminal_suspend": "ctrl+z",
+    "terminal_title_toggle": "none",
+    "tips_toggle": "<leader>h"
+  },
+  "command": {
+    "rmslop": {
+      "template": "Check the diff against dev, and remove all AI generated slop introduced in this branch.\n\nThis includes:\n\n- Extra comments that a human wouldn't add or is inconsistent with the rest of the file\n- Extra defensive checks or try/catch blocks that are abnormal for that area of the codebase (especially if called by trusted / validated codepaths)\n- Casts to any to get around type issues\n- Any other style that is inconsistent with the file\n- Unnecessary emoji usage\n\nReport at the end with only a 1-3 sentence summary of what you changed",
+      "description": "Remove AI code slop"
+    },
+    "ai-deps": {
+      "template": "Please read @package.json and @packages/nikcli/package.json.\n\nYour job is to look into AI SDK dependencies, figure out if they have versions that can be upgraded (minor or patch versions ONLY no major ignore major changes).\n\nI want a report of every dependency and the version that can be upgraded to.\nWhat would be even better is if you can give me links to the changelog for each dependency, or at least some reference info so I can see what bugs were fixed or new features were added.\n\nConsider using subagents for each dep to save your context window.\n\nHere is a short list of some deps (please be comprehensive tho):\n\n- \"ai\"\n- \"@ai-sdk/openai\"\n- \"@ai-sdk/anthropic\"\n- \"@openrouter/ai-sdk-provider\"\n- etc, etc\n\nDO NOT upgrade the dependencies yet, just make a list of all dependencies and their versions that can be upgraded to minor or patch versions only.\n\nWrite up your findings to ai-sdk-updates.md",
+      "description": "Bump AI sdk dependencies minor / patch versions only"
+    },
+    "issues": {
+      "template": "Search through existing issues in nikomatt69/nikcli using the gh cli to find issues matching this query:\n\n$ARGUMENTS\n\nConsider:\n\n1. Similar titles or descriptions\n2. Same error messages or symptoms\n3. Related functionality or components\n4. Similar feature requests\n\nPlease list any matching issues with:\n\n- Issue number and title\n- Brief explanation of why it matches the query\n- Link to the issue\n\nIf no clear matches are found, say so.",
+      "description": "find issue(s) on github",
+      "model": "nikcli/claude-haiku-4-5"
+    },
+    "commit": {
+      "template": "commit and push\n\nmake sure it includes a prefix like\ndocs:\ntui:\ncore:\nci:\nignore:\nwip:\n\nFor anything in the packages/web use the docs: prefix.\n\nFor anything in the packages/app use the ignore: prefix.\n\nprefer to explain WHY something was done from an end user perspective instead of\nWHAT was done.\n\ndo not do generic messages like \"improved agent experience\" be very specific\nabout what user facing changes were made\n\nif there are changes do a git pull --rebase\nif there are conflicts DO NOT FIX THEM. notify me and I will fix them",
+      "description": "git commit and push",
+      "model": "nikcli/glm-4.6",
+      "subtask": true
+    },
+    "spellcheck": {
+      "template": "Look at all the unstaged changes to markdown (.md, .mdx) files, pull out the lines that have changed, and check for spelling and grammar errors.",
+      "description": "spellcheck all markdown file changes"
+    }
+  },
+  "plugin": [],
+  "username": "nikoemme",
+  "mode": {},
+  "agent": {
+    "triage": {
+      "model": "nikcli/claude-haiku-4-5",
+      "prompt": "You are a triage agent responsible for triaging github issues.\n\nUse your github-triage tool to triage issues.\n\n## Labels\n\n### windows\n\nUse for any issue that mentions Windows (the OS). Be sure they are saying that they are on Windows.\n\n- Use if they mention WSL too\n\n#### perf\n\nPerformance-related issues:\n\n- Slow performance\n- High RAM usage\n- High CPU usage\n\n**Only** add if it's likely a RAM or CPU issue. **Do not** add for LLM slowness.\n\n#### desktop\n\nDesktop app issues:\n\n- `nikcli web` command\n- The desktop app itself\n\n**Only** add if it's specifically about the Desktop application or `nikcli web` view. **Do not** add for terminal, TUI, or general nikcli issues.\n\n#### nix\n\n**Only** add if the issue explicitly mentions nix.\n\n#### zen\n\n**Only** add if the issue mentions \"zen\" or \"nikcli zen\" or \"nikcli black\".\n\nIf the issue doesn't have \"zen\" or \"nikcli black\" in it then don't add zen label\n\n#### docs\n\nAdd if the issue requests better documentation or docs updates.\n\n#### opentui\n\nTUI issues potentially caused by our underlying TUI library:\n\n- Keybindings not working\n- Scroll speed issues (too fast/slow/laggy)\n- Screen flickering\n- Crashes with opentui in the log\n\n**Do not** add for general TUI bugs.\n\nWhen assigning to people here are the following rules:\n\nadamdotdev:\nONLY assign adam if the issue will have the \"desktop\" label.\n\nfwang:\nONLY assign fwang if the issue will have the \"zen\" label.\n\njayair:\nONLY assign jayair if the issue will have the \"docs\" label.\n\nIn all other cases use best judgment. Avoid assigning to kommander needlessly, when in doubt assign to rekram1-node.",
+      "tools": {
+        "*": false,
+        "github-triage": true
+      },
+      "mode": "primary",
+      "hidden": true,
+      "options": {},
+      "color": "#44BA81",
+      "permission": {
+        "*": "deny",
+        "github-triage": "allow"
+      },
+      "name": "triage"
+    },
+    "docs": {
+      "prompt": "You are an expert technical documentation writer\n\nYou are not verbose\n\nUse a relaxed and friendly tone\n\nThe title of the page should be a word or a 2-3 word phrase\n\nThe description should be one short line, should not start with \"The\", should\navoid repeating the title of the page, should be 5-10 words long\n\nChunks of text should not be more than 2 sentences long\n\nEach section is separated by a divider of 3 dashes\n\nThe section titles are short with only the first letter of the word capitalized\n\nThe section titles are in the imperative mood\n\nThe section titles should not repeat the term used in the page title, for\nexample, if the page title is \"Models\", avoid using a section title like \"Add\nnew models\". This might be unavoidable in some cases, but try to avoid it.\n\nCheck out the /packages/web/src/content/docs/docs/index.mdx as an example.\n\nFor JS or TS code snippets remove trailing semicolons and any trailing commas\nthat might not be needed.\n\nIf you are making a commit prefix the commit message with `docs:`",
+      "description": "ALWAYS use this when writing docs",
+      "options": {},
+      "color": "#38A3EE",
+      "permission": {},
+      "name": "docs"
+    },
+    "duplicate-pr": {
+      "model": "nikcli/claude-haiku-4-5",
+      "prompt": "You are a duplicate PR detection agent. When a PR is opened, your job is to search for potentially duplicate or related open PRs.\n\nUse the github-pr-search tool to search for PRs that might be addressing the same issue or feature.\n\nIMPORTANT: The input will contain a line `CURRENT_PR_NUMBER: NNNN`. This is the current PR number, you should not mark that the current PR as a duplicate of itself.\n\nSearch using keywords from the PR title and description. Try multiple searches with different relevant terms.\n\nIf you find potential duplicates:\n\n- List them with their titles and URLs\n- Briefly explain why they might be related\n\nIf no duplicates are found, say so clearly. BUT ONLY SAY \"No duplicate PRs found\" (don't say anything else if no dups)\n\nKeep your response concise and actionable.",
+      "tools": {
+        "*": false,
+        "github-pr-search": true
+      },
+      "mode": "primary",
+      "hidden": true,
+      "options": {},
+      "color": "#E67E22",
+      "permission": {
+        "*": "deny",
+        "github-pr-search": "allow"
+      },
+      "name": "duplicate-pr"
+    }
+  },
+  "provider": {
+    "nikcli": {
+      "options": {}
+    }
+  },
+  "mcp": {
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  },
+  "connectors": {
+    "slack": {
+      "type": "slack",
+      "enabled": true
+    },
+    "github": {
+      "type": "github",
+      "enabled": true
+    },
+    "lovable": {
+      "type": "lovable",
+      "enabled": true
+    },
+    "figma": {
+      "type": "figma",
+      "enabled": true
+    }
+  },
+  "instructions": [
+    "STYLE_GUIDE.md"
+  ],
+  "permission": {
+    "github-triage": "deny",
+    "github-pr-search": "deny"
+  },
+  "tools": {
+    "github-triage": false,
+    "github-pr-search": false
+  },
   "rag": {
     "model": "nvidia/llama-embed-nemotron-8b",
     "provider": "nvidia"
-  },
-  "$schema": "https://nikcli.store/config.json"
+  }
 }

@@ -6,6 +6,7 @@ import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import { MCP } from "../mcp"
+import { Connectors } from "../connectors"
 
 export namespace Command {
   export const Event = {
@@ -108,6 +109,25 @@ export namespace Command {
                 .join("\n") || "",
             )
           })
+        },
+        hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+      }
+    }
+
+    for (const [name, prompt] of Object.entries(await Connectors.prompts())) {
+      const operationName = `${prompt.type}_${name.split("_").slice(2).join("_")}`
+      result[name] = {
+        name,
+        description: prompt.description,
+        get template() {
+          const argsEntries = prompt.arguments ? prompt.arguments.map((arg, i) => `${arg.name}: \$${i + 1}`) : []
+          const argsExample = prompt.arguments
+            ? JSON.stringify(Object.fromEntries(prompt.arguments.map((arg, i) => [arg.name, `$${i + 1}`])), null, 2)
+            : "{}"
+          return `Use the use_connector tool:
+- connector: ${prompt.client}
+- operation: ${operationName}
+- args: ${argsExample}${argsEntries.length > 0 ? `\n\nReplace the placeholder values ($$) with actual values:\n${argsEntries.join("\n")}` : ""}`
         },
         hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
       }

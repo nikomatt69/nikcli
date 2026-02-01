@@ -8,7 +8,7 @@ import type {
   AppLogErrors,
   AppLogResponses,
   AppSkillsResponses,
-  Auth as Auth3,
+  Auth as Auth4,
   AuthSetErrors,
   AuthSetResponses,
   CommandListResponses,
@@ -17,6 +17,11 @@ import type {
   ConfigProvidersResponses,
   ConfigUpdateErrors,
   ConfigUpdateResponses,
+  ConnectorsAuthRemoveErrors,
+  ConnectorsAuthRemoveResponses,
+  ConnectorsAuthSetErrors,
+  ConnectorsAuthSetResponses,
+  ConnectorsStatusResponses,
   DbeditListResponses,
   DbeditReplyErrors,
   DbeditReplyResponses,
@@ -2297,6 +2302,113 @@ export class File extends HeyApiClient {
 
 export class Auth extends HeyApiClient {
   /**
+   * Remove connector credentials
+   *
+   * Remove stored credentials for a connector.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      ConnectorsAuthRemoveResponses,
+      ConnectorsAuthRemoveErrors,
+      ThrowOnError
+    >({
+      url: "/connectors/{name}/auth",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Set connector credentials
+   *
+   * Store credentials for a connector.
+   */
+  public set<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      token?: string
+      botToken?: string
+      apiKey?: string
+      teamId?: string
+      expiresAt?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "body", key: "token" },
+            { in: "body", key: "botToken" },
+            { in: "body", key: "apiKey" },
+            { in: "body", key: "teamId" },
+            { in: "body", key: "expiresAt" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ConnectorsAuthSetResponses, ConnectorsAuthSetErrors, ThrowOnError>({
+      url: "/connectors/{name}/auth",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Connectors extends HeyApiClient {
+  /**
+   * Get connectors status
+   *
+   * Get the status of all configured external service connectors.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "query", key: "directory" }] }])
+    return (options?.client ?? this.client).get<ConnectorsStatusResponses, unknown, ThrowOnError>({
+      url: "/connectors",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _auth?: Auth
+  get auth(): Auth {
+    return (this._auth ??= new Auth({ client: this.client }))
+  }
+}
+
+export class Auth2 extends HeyApiClient {
+  /**
    * Remove MCP OAuth
    *
    * Remove OAuth credentials for an MCP server
@@ -2539,9 +2651,9 @@ export class Mcp extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth
-  get auth(): Auth {
-    return (this._auth ??= new Auth({ client: this.client }))
+  private _auth?: Auth2
+  get auth(): Auth2 {
+    return (this._auth ??= new Auth2({ client: this.client }))
   }
 }
 
@@ -3092,7 +3204,7 @@ export class Formatter extends HeyApiClient {
   }
 }
 
-export class Auth2 extends HeyApiClient {
+export class Auth3 extends HeyApiClient {
   /**
    * Set auth credentials
    *
@@ -3102,7 +3214,7 @@ export class Auth2 extends HeyApiClient {
     parameters: {
       providerID: string
       directory?: string
-      auth?: Auth3
+      auth?: Auth4
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -3235,6 +3347,11 @@ export class NikcliClient extends HeyApiClient {
     return (this._file ??= new File({ client: this.client }))
   }
 
+  private _connectors?: Connectors
+  get connectors(): Connectors {
+    return (this._connectors ??= new Connectors({ client: this.client }))
+  }
+
   private _mcp?: Mcp
   get mcp(): Mcp {
     return (this._mcp ??= new Mcp({ client: this.client }))
@@ -3280,9 +3397,9 @@ export class NikcliClient extends HeyApiClient {
     return (this._formatter ??= new Formatter({ client: this.client }))
   }
 
-  private _auth?: Auth2
-  get auth(): Auth2 {
-    return (this._auth ??= new Auth2({ client: this.client }))
+  private _auth?: Auth3
+  get auth(): Auth3 {
+    return (this._auth ??= new Auth3({ client: this.client }))
   }
 
   private _event?: Event

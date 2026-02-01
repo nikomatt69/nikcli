@@ -46,7 +46,7 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
-
+import { UseConnectorTool } from "./use-connector"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
@@ -152,6 +152,7 @@ export namespace ToolRegistry {
       ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
+      UseConnectorTool,
       ...custom,
     ]
   }
