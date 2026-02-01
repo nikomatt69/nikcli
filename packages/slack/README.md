@@ -1,241 +1,209 @@
-# @nikcli-ai/slack
+# nikcli Slack Integration
 
-Slack bot integration for nikcli that creates threaded conversations and supports voice messages.
+Deploy nikcli as a Slack bot using Cloudflare Workers.
 
-## Setup
+## Architecture
 
-### 1. Create Slack App
+```
+┌─────────────────┐     ┌──────────────────────────┐     ┌─────────────────┐
+│  Slack API      │────▶│  Cloudflare Worker       │────▶│  Nikcli Server  │
+│                 │     │  nikcli-slack            │     │  (localhost)    │
+└─────────────────┘     │  - Basic Auth            │     │  - Port 4096    │
+                        │  - KV Session Storage    │     │  - Basic Auth   │
+                        │  - Voice Transcription   │     └─────────────────┘
+                        └──────────────────────────┘
+                                      │
+                           ┌──────────▼──────────┐
+                           │  cloudflared tunnel │
+                           │  (esponi server)    │
+                           └─────────────────────┘
+```
 
-Go to https://api.slack.com/apps and click **"Create New App"**
+## Prerequisites
 
-- Choose "From an app manifest"
-- Select your workspace
-- Paste this manifest:
+- [Cloudflare Workers](https://workers.cloudflare.com/) account
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-update/) installed
+- Slack App with Bot Token and Signing Secret
+- nikcli server running with Basic Auth
+
+## Quick Start
+
+### 1. Setup nikcli Server
+
+```bash
+# Start nikcli server with external access
+export NIKCLI_SERVER_PASSWORD="your-secure-password"
+export NIKCLI_SERVER_USERNAME="slackbot"
+nikcli serve --port 4096 --hostname 0.0.0.0 --mdns
+```
+
+### 2. Expose Server to Internet
+
+```bash
+# Install cloudflared
+brew install cloudflare/cloudflare/cloudflared
+
+# Run tunnel (separate terminal)
+cloudflared tunnel --url http://localhost:4096
+
+# Output: https://random-name.trycloudflare.com
+# Save this URL for NIKCLI_URL
+```
+
+### 3. Create Slack App
+
+1. Go to [Slack API Apps](https://api.slack.com/apps)
+2. Click "Create New App" → "From an app manifest"
+3. Use the manifest below:
 
 ```yaml
 _metadata:
   major_version: 1
   minor_version: 1
 display_information:
-  name: NikCLI Bot
-  description: AI assistant powered by nikcli with voice message support
+  name: nikcli
+  description: AI coding assistant for Slack
   background_color: "#1a1a2e"
 features:
-  app_home:
-    home_tab_enabled: true
-    messages_tab_enabled: true
-    messages_tab_read_only_enabled: true
   bot_user:
-    display_name: NikCLI
+    display_name: nikcli
     always_online: true
-  slash_commands:
-    - command: /test
-      url: https://your-domain.com/slack/events
-      description: Test the bot
-      should_escape: false
+  event_subscriptions:
+    enabled: true
+    request_url: https://your-worker.workers.dev/slack/events
+  interactivity:
+    enabled: true
+    request_url: https://your-worker.workers.dev/slack/interactive
 oauth_config:
   scopes:
     bot:
-      - chat:write
       - app_mentions:read
+      - chat:write
       - channels:history
       - groups:history
       - files:read
-      - commands
 settings:
   event_subscriptions:
-    request_url: https://your-domain.com/slack/events
     bot_events:
-      - message.app_home
+      - app_mentions
       - message.channels
       - message.groups
-      - message.im
-      - message.mpim
   interactivity:
-    request_url: https://your-domain.com/slack/interactive
-  socket_mode:
-    enabled: false
+    placeholder_text: Ask nikcli...
+  org_deploy_enabled: false
+  socket_mode_enabled: false
 ```
 
-### 2. Install to Workspace
+4. Install to workspace
+5. Copy Bot Token (`xoxb-...`) and Signing Secret
 
-1. Go to **Settings > Install App**
-2. Click "Install to Workspace"
-3. Grant the required permissions
-
----
-
-## Deployment Options
-
-### Option 1: Cloudflare Workers (HTTP Mode) - Recommended for Serverless
+### 4. Deploy Worker
 
 ```bash
 cd packages/slack
 
-# Install dependencies
-bun install
-
-# Login to Cloudflare
-npx wrangler login
+# Create KV namespace for sessions
+bunx wrangler kv:namespace create "SESSIONS" --preview=false
 
 # Set secrets
-npx wrangler secret put SLACK_BOT_TOKEN
-npx wrangler secret put SLACK_SIGNING_SECRET
-npx wrangler secret put OPENAI_API_KEY
+bunx wrangler secret put SLACK_BOT_TOKEN
+bunx wrangler secret put SLACK_SIGNING_SECRET
+bunx wrangler secret put SLACK_CLIENT_ID
+bunx wrangler secret put SLACK_CLIENT_SECRET
+bunx wrangler secret put OPENAI_API_KEY
+bunx wrangler secret put NIKCLI_URL
+bunx wrangler secret put NIKCLI_USERNAME
+bunx wrangler secret put NIKCLI_PASSWORD
 
-# (Optional) Remote nikcli server
-npx wrangler secret put NIKCLI_URL
-npx wrangler secret put NIKCLI_API_KEY
+# Deploy with custom domain (optional)
+bunx wrangler deploy src/worker.ts --name nikcli-slack --routes 'slack.nikcli.store/*'
 
-# Deploy
-bun run deploy
-
-# Or for local testing
-bun run dev:worker
+# Or without custom domain
+# bunx wrangler deploy src/worker.ts --name nikcli-slack
 ```
 
-After deploy:
+### 5. Update Slack App URLs
 
-1. Copy your worker URL (e.g., `https://nikcli-slack.yourname.workers.dev`)
-2. Update Slack app manifest URLs
-3. Reinstall the app
+After deployment, update your Slack app:
 
-### Option 2: Local Development (Socket Mode)
+- **Event Subscriptions URL**: `https://slack.nikcli.store/slack/events`
+- **Interactivity URL**: `https://slack.nikcli.store/slack/interactive`
+
+Reinstall the app.
+
+## Environment Variables
+
+| Variable               | Required | Description                                    |
+| ---------------------- | -------- | ---------------------------------------------- |
+| `SLACK_BOT_TOKEN`      | Yes      | Bot OAuth Token (`xoxb-...`)                   |
+| `SLACK_SIGNING_SECRET` | Yes      | Slack signing secret                           |
+| `SLACK_CLIENT_ID`      | No       | Slack OAuth Client ID (for /slack/install)     |
+| `SLACK_CLIENT_SECRET`  | No       | Slack OAuth Client Secret (for /slack/install) |
+| `SLACK_APP_TOKEN`      | No       | Required only for Socket Mode (`bun run dev`)  |
+| `OPENAI_API_KEY`       | No       | OpenAI API for voice transcription             |
+| `NIKCLI_URL`           | Yes      | Your nikcli server URL                         |
+| `NIKCLI_USERNAME`      | No       | Basic Auth username (default: `nikcli`)        |
+| `NIKCLI_PASSWORD`      | Yes      | Basic Auth password (`NIKCLI_SERVER_PASSWORD`) |
+
+## Commands
+
+In Slack, mention the bot to start a conversation:
+
+```
+@nikcli Write a function to calculate fibonacci
+```
+
+Features:
+
+- Text messages
+- Voice message transcription (with `OPENAI_API_KEY`)
+- Thread-based sessions (continue conversations in threads)
+- Session sharing via URL
+
+## Development
 
 ```bash
-cd packages/slack
-
-# Install dependencies
-bun install
-
-# Create .env file
-cp .env.example .env
-
-# Edit .env with your credentials
-nano .env
-
 # Run locally
-bun dev
+bun run dev:worker
+
+# View logs
+bunx wrangler tail
+
+# Typecheck
+bun run typecheck
 ```
 
-### Option 3: Docker (Socket Mode)
+## Troubleshooting
 
-```bash
-cd packages/slack
+### Worker not receiving events
 
-# Build
-docker build -t nikcli-slack .
+- Verify Event Subscriptions URL is correct (`https://slack.nikcli.store/slack/events`) and uses HTTPS
+- Check Slack app has required bot scopes
+- Reinstall app after changing scopes
 
-# Run
-docker run -d \
-  --name nikcli-slack-bot \
-  -e SLACK_BOT_TOKEN=xoxb-... \
-  -e SLACK_SIGNING_SECRET=... \
-  -e SLACK_APP_TOKEN=xapp-... \
-  -e OPENAI_API_KEY=sk-... \
-  nikcli-slack
-```
+### 401 Unauthorized from nikcli server
 
-### Option 4: Railway (Socket Mode)
+- Verify `NIKCLI_USERNAME` and `NIKCLI_PASSWORD` match server config
+- Ensure server is running and accessible at `NIKCLI_URL`
 
-```bash
-cd packages/slack
+### Voice transcription not working
 
-# Install Railway CLI
-npm i -g @railway/cli
+- Verify `OPENAI_API_KEY` is set
+- Check audio file format (mp3, ogg, wav, m4a, webm)
 
-# Login and init
-railway login
-railway init
+### Sessions not persisting
 
-# Set environment variables
-railway variables set \
-  SLACK_BOT_TOKEN=xoxb-... \
-  SLACK_SIGNING_SECRET=... \
-  SLACK_APP_TOKEN=xapp-... \
-  OPENAI_API_KEY=sk-...
+- Verify KV namespace is created and bound in wrangler.toml
+- Check worker logs for KV errors
 
-# Deploy
-railway up
-```
-
----
-
-## File Structure
+## Files
 
 ```
 packages/slack/
 ├── src/
-│   ├── index.ts      # Socket Mode (local/server deployment)
-│   └── worker.ts     # HTTP Mode (Cloudflare Workers)
-├── wrangler.toml     # Cloudflare Workers config
-├── Dockerfile        # Docker image
-├── docker-compose.yml
-└── .env.example
+│   ├── index.ts      # Socket Mode (local/VM deployment)
+│   └── worker.ts     # Cloudflare Workers Mode
+├── wrangler.toml     # Workers configuration
+├── Dockerfile        # Socket Mode container
+└── README.md         # This file
 ```
-
----
-
-## Environment Variables
-
-| Variable               | Required    | Used By   | Description                                           |
-| ---------------------- | ----------- | --------- | ----------------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Yes         | Both      | Bot User OAuth Token (starts with `xoxb-`)            |
-| `SLACK_SIGNING_SECRET` | Yes         | Both      | Slack Signing Secret                                  |
-| `SLACK_APP_TOKEN`      | Socket Mode | index.ts  | App-Level Token (starts with `xapp-`)                 |
-| `OPENAI_API_KEY`       | No          | Both      | OpenAI API Key for voice transcription                |
-| `NIKCLI_URL`           | Workers     | worker.ts | URL of nikcli server (default: http://localhost:4000) |
-| `NIKCLI_API_KEY`       | Workers     | worker.ts | API key for authenticated nikcli server               |
-
----
-
-## Usage
-
-### Text Messages
-
-Send a message to the bot in a channel:
-
-```
-@NikCLI Come posso ottimizzare questo codice?
-```
-
-### Voice Messages
-
-1. Record a voice message in Slack (🎤 icon)
-2. Send it to a channel where NikCLI is present
-3. The bot transcribes and responds
-
-### Commands
-
-- `/test` - Test the bot is running
-
----
-
-## Troubleshooting
-
-### Bot not responding?
-
-**Cloudflare Workers:**
-
-1. Check Event Subscriptions URL in Slack dashboard
-2. Verify secrets: `npx wrangler secret list`
-3. Check logs: `npx wrangler tail`
-
-**Socket Mode:**
-
-1. Check the bot is running: `bun dev`
-2. Verify tokens are correct
-3. Check the bot is invited to channel: `/invite @NikCLI`
-
-### Voice transcription not working?
-
-1. Verify `OPENAI_API_KEY` is set
-2. Check audio format (MP3, OGG, WAV, M4A, WebM)
-3. Review logs for errors
-
-### Cloudflare Workers timeout?
-
-Voice transcription may timeout on free Workers plan. Consider:
-
-- Upgrading to Paid plan
-- Offloading transcription to a separate service

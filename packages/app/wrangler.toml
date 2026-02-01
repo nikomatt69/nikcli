@@ -1,6 +1,16 @@
 name = "nikcli-app"
-main = "src/entry.tsx"
 compatibility_date = "2025-01-25"
-compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
 
-route = { pattern = "app.nikcli.store/*", custom_domain = true }
+[vars]
+NODE_ENV = "production"
+CF_REGION = "us"
+
+[[pages_custom_domains]]
+domain = "app.nikcli.store"
+
+# Build environment variables (set via wrangler pages deploy or CI/CD)
+# VITE_API_URL          # API endpoint URL
+# VITE_AUTH_URL         # Auth service URL
+# VITE_STRIPE_KEY       # Stripe publishable key
+

@@ -1,4 +1,6 @@
-import { createContext, useContext, createSignal, type JSX } from "solid-js"
+import { createContext, useContext, createSignal, createEffect, onCleanup, type JSX } from "solid-js"
+import { useApi } from "./api"
+import { useApp } from "./app"
 
 interface ServerStatus {
   connected: boolean
@@ -16,6 +18,8 @@ interface ServerContextValue {
 const ServerContext = createContext<ServerContextValue>()
 
 export function ServerProvider(props: { children: JSX.Element }) {
+  const { sdk } = useApi()
+  const { setError } = useApp()
   const [status, setStatus] = createSignal<ServerStatus>({
     connected: false,
     latency: 0,
@@ -23,8 +27,7 @@ export function ServerProvider(props: { children: JSX.Element }) {
   })
 
   const connect = async () => {
-    // TODO: Implement WebSocket connection to nikcli server
-    setStatus((prev) => ({ ...prev, connected: true }))
+    await ping()
   }
 
   const disconnect = () => {
@@ -33,11 +36,31 @@ export function ServerProvider(props: { children: JSX.Element }) {
 
   const ping = async () => {
     const start = performance.now()
-    // TODO: Send ping
-    const latency = performance.now() - start
-    setStatus((prev) => ({ ...prev, latency, lastPing: new Date() }))
+    const result = await sdk().global.health()
+    const end = performance.now()
+    const latency = end - start
+
+    if (result.error) {
+      const code = result.response?.status
+      const message = code === 401 ? "Authentication required for Nikcli server." : "Unable to reach Nikcli server."
+      setError(message)
+      setStatus((prev) => ({ ...prev, connected: false, latency: 0, lastPing: new Date() }))
+      return 0
+    }
+
+    setError(null)
+    setStatus((prev) => ({ ...prev, connected: true, latency, lastPing: new Date() }))
     return latency
   }
+
+  createEffect(() => {
+    sdk()
+    void ping()
+    const timer = window.setInterval(() => {
+      void ping()
+    }, 15000)
+    onCleanup(() => window.clearInterval(timer))
+  })
 
   return <ServerContext.Provider value={{ status, connect, disconnect, ping }}>{props.children}</ServerContext.Provider>
 }

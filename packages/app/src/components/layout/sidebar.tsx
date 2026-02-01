@@ -31,11 +31,11 @@ export default function Sidebar() {
                       : "hover:bg-gray-100 dark:hover:bg-gray-800"
                   }`}
                 >
-                  <span class="truncate">{session.name}</span>
+                  <span class="truncate">{session.title}</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      closeSession(session.id)
+                      void closeSession(session.id)
                     }}
                     class="text-red-500 hover:text-red-700"
                   >
@@ -50,7 +50,9 @@ export default function Sidebar() {
 
       <div class="p-4 border-t">
         <button
-          onClick={() => createSession(t("sidebar.newSession"))}
+          onClick={() => {
+            void createSession()
+          }}
           class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
         >
           {t("sidebar.newSession")}

@@ -3,12 +3,24 @@ main = "src/worker.ts"
 compatibility_date = "2025-01-25"
 compatibility_flags = ["nodejs_compat"]
 
+route = "slack.nikcli.store/*"
+
 [vars]
 NODE_ENV = "production"
+CF_REGION = "us"
+WRANGLER_LOG_LEVEL = "info"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "9992e7ff32c94e69b14635fee32fff8e"
+preview_id = "9992e7ff32c94e69b14635fee32fff8e"
 
 # Secrets to set via wrangler secret put:
-# - SLACK_BOT_TOKEN
-# - SLACK_SIGNING_SECRET
-# - OPENAI_API_KEY (optional, for voice transcription)
-# - NIKCLI_URL (URL of your nikcli server, default: http://localhost:4000)
-# - NIKCLI_API_KEY (optional, for authenticated nikcli server)
+# - SLACK_BOT_TOKEN       # Bot User OAuth Token (xoxb-...)
+# - SLACK_SIGNING_SECRET  # Slack app signing secret
+# - SLACK_CLIENT_ID       # Slack App Client ID
+# - SLACK_CLIENT_SECRET   # Slack App Client Secret
+# - OPENAI_API_KEY        # OpenAI API key for voice transcription (optional)
+# - NIKCLI_URL            # URL of your nikcli server
+# - NIKCLI_USERNAME       # Username for Basic Auth (default: nikcli)
+# - NIKCLI_PASSWORD       # Password for Basic Auth (NIKCLI_SERVER_PASSWORD)

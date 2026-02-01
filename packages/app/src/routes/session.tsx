@@ -7,7 +7,6 @@ import StatusBar from "../components/layout/statusbar"
 import PromptInput from "../components/input/prompt-input"
 
 export default function Session() {
-  const { t } = useI18n()
   const { state } = useLayout()
 
   // Set title manually

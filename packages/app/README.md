@@ -27,8 +27,7 @@ src/
 ├── hooks/           # Custom hooks
 ├── lib/             # Utilities and API client
 ├── i18n/            # Internationalization (6 languages)
-├── pages/           # Route pages
-└── routes/          # Router configuration
+├── routes/          # Route pages (registered in app.tsx)
 ```
 
 ## Development
@@ -46,6 +45,22 @@ bun run build
 # Run type check
 bun run typecheck
 ```
+
+## Environment
+
+```bash
+VITE_NIKCLI_URL=http://localhost:4096
+VITE_NIKCLI_USERNAME=nikcli
+VITE_NIKCLI_PASSWORD=your-password
+VITE_NIKCLI_DIRECTORY=/path/to/project
+VITE_APP_VERSION=1.0.0
+```
+
+Notes:
+
+- `VITE_NIKCLI_URL` (or `VITE_API_URL`) points to the Nikcli server.
+- Username/password are optional and only used for auto-login. Credentials entered in Settings are saved in local storage.
+- `VITE_NIKCLI_DIRECTORY` sets the `x-nikcli-directory` header for server scope.
 
 ## Deployment
 

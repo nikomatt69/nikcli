@@ -12,10 +12,10 @@ import { ServerProvider } from "./context/server"
 import { I18nProvider } from "./i18n"
 
 import Layout from "./components/layout/layout"
-import Home from "./pages/home"
-import Session from "./pages/session"
-import Settings from "./pages/settings"
-import Error from "./pages/error"
+import Home from "./routes"
+import Session from "./routes/session"
+import Settings from "./routes/settings"
+import NotFound from "./routes/not-found"
 
 function App() {
   return (
@@ -34,7 +34,7 @@ function App() {
                             <Route path="/" component={Home} />
                             <Route path="/session" component={Session} />
                             <Route path="/settings" component={Settings} />
-                            <Route path="*" component={Error} />
+                            <Route path="*" component={NotFound} />
                           </Route>
                         </ServerProvider>
                       </SettingsProvider>

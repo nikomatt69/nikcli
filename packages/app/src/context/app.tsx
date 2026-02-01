@@ -1,4 +1,5 @@
 import { createContext, useContext, createSignal, type JSX } from "solid-js"
+import { APP_VERSION } from "../lib/constants"
 
 interface AppState {
   version: string
@@ -16,7 +17,7 @@ const AppContext = createContext<AppContextValue>()
 
 export function AppProvider(props: { children: JSX.Element }) {
   const [state, setState] = createSignal<AppState>({
-    version: "1.0.0",
+    version: APP_VERSION,
     isLoading: false,
     error: null,
   })

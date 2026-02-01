@@ -3,7 +3,7 @@ import { usePrompt } from "../../context"
 
 export default function PromptInput() {
   const { t } = useI18n()
-  const { input, setInput, submit, isProcessing, history } = usePrompt()
+  const { input, setInput, submit, isProcessing, messages } = usePrompt()
 
   const handleSubmit = (e: Event) => {
     e.preventDefault()
@@ -29,9 +29,9 @@ export default function PromptInput() {
           {isProcessing() ? t("prompt.processing") : t("prompt.send")}
         </button>
       </form>
-      {history().length > 0 && (
+      {messages().length > 0 && (
         <div class="mt-2 text-xs text-gray-500">
-          {t("prompt.history")}: {history().length} {t("prompt.messages")}
+          {t("prompt.history")}: {messages().length} {t("prompt.messages")}
         </div>
       )}
     </div>

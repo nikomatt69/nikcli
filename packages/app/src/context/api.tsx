@@ -1,30 +1,31 @@
-import { createContext, useContext, createSignal, type JSX } from "solid-js"
+import { createContext, useContext, createMemo, type JSX } from "solid-js"
+import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/v2"
+import { NIKCLI_DIRECTORY, NIKCLI_URL } from "../lib/constants"
+import { useAuth } from "./auth"
 
 interface ApiContextValue {
   baseUrl: () => string
-  fetch: (endpoint: string, options?: RequestInit) => Promise<Response>
+  directory: () => string | undefined
+  auth: () => string | null
+  sdk: () => NikcliClient
 }
 
 export const ApiContext = createContext<ApiContextValue>()
 
 export function ApiProvider(props: { children: JSX.Element }) {
-  const baseUrl = () => {
-    // Use API URL from env or default
-    return import.meta.env.VITE_API_URL || "https://api.nikcli.store"
-  }
+  const { token } = useAuth()
 
-  const fetchApi = async (endpoint: string, options: RequestInit = {}) => {
-    const url = `${baseUrl()}${endpoint}`
-    return fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
-    })
-  }
+  const baseUrl = () => NIKCLI_URL
+  const directory = () => (NIKCLI_DIRECTORY ? NIKCLI_DIRECTORY : undefined)
+  const auth = () => token()
 
-  return <ApiContext.Provider value={{ baseUrl, fetch: fetchApi }}>{props.children}</ApiContext.Provider>
+  const sdk = createMemo(() => {
+    const header = token()
+    const headers = header ? { Authorization: header } : undefined
+    return createNikcliClient({ baseUrl: baseUrl(), headers, directory: directory() })
+  })
+
+  return <ApiContext.Provider value={{ baseUrl, directory, auth, sdk }}>{props.children}</ApiContext.Provider>
 }
 
 export function useApi() {

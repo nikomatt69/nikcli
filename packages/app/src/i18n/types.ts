@@ -12,6 +12,7 @@ export interface Translations {
     editorPlaceholder: string
     noActiveSession: string
     createNewSession: string
+    startPrompt: string
   }
   settings: {
     title: string
@@ -24,6 +25,12 @@ export interface Translations {
     fontSize: string
     wordWrap: string
     showLineNumbers: string
+    server: string
+    serverUrl: string
+    serverDirectory: string
+    serverDefault: string
+    serverStatus: string
+    auth: string
   }
   sidebar: {
     sessions: string
@@ -45,6 +52,13 @@ export interface Translations {
   auth: {
     login: string
     logout: string
+    username: string
+    password: string
+    connect: string
+    connecting: string
+    invalid: string
+    connectedAs: string
+    loginHint: string
   }
   error: {
     title: string
@@ -65,6 +79,7 @@ export type TranslationKey =
   | "session.editorPlaceholder"
   | "session.noActiveSession"
   | "session.createNewSession"
+  | "session.startPrompt"
   | "settings.title"
   | "settings.appearance"
   | "settings.editor"
@@ -75,6 +90,12 @@ export type TranslationKey =
   | "settings.fontSize"
   | "settings.wordWrap"
   | "settings.showLineNumbers"
+  | "settings.server"
+  | "settings.serverUrl"
+  | "settings.serverDirectory"
+  | "settings.serverDefault"
+  | "settings.serverStatus"
+  | "settings.auth"
   | "sidebar.sessions"
   | "sidebar.noSessions"
   | "sidebar.newSession"
@@ -88,6 +109,13 @@ export type TranslationKey =
   | "status.sessions"
   | "auth.login"
   | "auth.logout"
+  | "auth.username"
+  | "auth.password"
+  | "auth.connect"
+  | "auth.connecting"
+  | "auth.invalid"
+  | "auth.connectedAs"
+  | "auth.loginHint"
   | "error.title"
   | "error.notFound"
   | "error.goHome"

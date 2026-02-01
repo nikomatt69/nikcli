@@ -1,37 +1,37 @@
-import { API_BASE_URL } from "./constants"
+import { NIKCLI_URL } from "./constants"
 
 class ApiClient {
   private baseUrl: string
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = NIKCLI_URL) {
     this.baseUrl = baseUrl
   }
 
-  async get(endpoint: string, options: RequestInit = {}) {
-    return this.request(endpoint, { ...options, method: "GET" })
+  async get<TResponse>(endpoint: string, options: RequestInit = {}): Promise<TResponse> {
+    return this.request<TResponse>(endpoint, { ...options, method: "GET" })
   }
 
-  async post(endpoint: string, body: any, options: RequestInit = {}) {
-    return this.request(endpoint, {
+  async post<TResponse, TBody = unknown>(endpoint: string, body: TBody, options: RequestInit = {}): Promise<TResponse> {
+    return this.request<TResponse>(endpoint, {
       ...options,
       method: "POST",
       body: JSON.stringify(body),
     })
   }
 
-  async put(endpoint: string, body: any, options: RequestInit = {}) {
-    return this.request(endpoint, {
+  async put<TResponse, TBody = unknown>(endpoint: string, body: TBody, options: RequestInit = {}): Promise<TResponse> {
+    return this.request<TResponse>(endpoint, {
       ...options,
       method: "PUT",
       body: JSON.stringify(body),
     })
   }
 
-  async delete(endpoint: string, options: RequestInit = {}) {
-    return this.request(endpoint, { ...options, method: "DELETE" })
+  async delete<TResponse>(endpoint: string, options: RequestInit = {}): Promise<TResponse> {
+    return this.request<TResponse>(endpoint, { ...options, method: "DELETE" })
   }
 
-  private async request(endpoint: string, options: RequestInit) {
+  private async request<TResponse>(endpoint: string, options: RequestInit): Promise<TResponse> {
     const url = `${this.baseUrl}${endpoint}`
     const response = await fetch(url, {
       ...options,
@@ -45,7 +45,7 @@ class ApiClient {
       throw new Error(`API error: ${response.status}`)
     }
 
-    return response.json()
+    return (await response.json()) as TResponse
   }
 }
 

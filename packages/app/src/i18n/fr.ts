@@ -10,9 +10,10 @@ export const fr: Translations = {
   },
   session: {
     title: "Session",
-    editorPlaceholder: "Tapez votre code ici...",
+    editorPlaceholder: "Aucun message pour l'instant.",
     noActiveSession: "Aucune session active",
     createNewSession: "Créez une nouvelle session pour commencer",
+    startPrompt: "Envoyez un message pour démarrer la session",
   },
   settings: {
     title: "Paramètres",
@@ -25,6 +26,12 @@ export const fr: Translations = {
     fontSize: "Taille de Police",
     wordWrap: "Retour à la Ligne",
     showLineNumbers: "Afficher les Numéros de Ligne",
+    server: "Serveur",
+    serverUrl: "URL du serveur",
+    serverDirectory: "Répertoire",
+    serverDefault: "Par défaut du serveur",
+    serverStatus: "Statut",
+    auth: "Authentification",
   },
   sidebar: {
     sessions: "Sessions",
@@ -46,6 +53,13 @@ export const fr: Translations = {
   auth: {
     login: "Connexion",
     logout: "Déconnexion",
+    username: "Nom d'utilisateur",
+    password: "Mot de passe",
+    connect: "Connecter",
+    connecting: "Connexion...",
+    invalid: "Identifiants invalides.",
+    connectedAs: "Connecté en tant que",
+    loginHint: "Connectez votre serveur Nikcli dans les paramètres.",
   },
   error: {
     title: "Erreur",

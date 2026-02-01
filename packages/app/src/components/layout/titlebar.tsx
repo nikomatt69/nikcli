@@ -1,3 +1,4 @@
+import { useNavigate } from "@solidjs/router"
 import { useI18n } from "../../i18n"
 import { useLayout, useSession, useServer, useAuth } from "../../context"
 
@@ -7,6 +8,7 @@ export default function TitleBar() {
   const { activeSession } = useSession()
   const { status } = useServer()
   const { user, isAuthenticated, logout } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <div class="h-12 border-b flex items-center justify-between px-4 bg-white dark:bg-gray-900">
@@ -16,7 +18,7 @@ export default function TitleBar() {
             ☰
           </button>
         )}
-        <span class="font-semibold">{activeSession() ? activeSession()?.name : "NikCLI"}</span>
+        <span class="font-semibold">{activeSession() ? activeSession()?.title : "NikCLI"}</span>
       </div>
 
       <div class="flex items-center gap-4">
@@ -35,7 +37,14 @@ export default function TitleBar() {
             </button>
           </div>
         ) : (
-          <button class="text-sm text-blue-600 hover:text-blue-800">{t("auth.login")}</button>
+          <button
+            class="text-sm text-blue-600 hover:text-blue-800"
+            onClick={() => {
+              navigate("/settings")
+            }}
+          >
+            {t("auth.login")}
+          </button>
         )}
       </div>
     </div>

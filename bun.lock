@@ -27,6 +27,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@kobalte/core": "^0.13.11",
+        "@nikcli-ai/sdk": "workspace:*",
         "@solidjs/meta": "^0.29.4",
         "@solidjs/router": "^0.15.4",
         "diff": "^8.0.2",
@@ -124,7 +125,7 @@
     },
     "packages/nikcli": {
       "name": "nikcli",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "bin": {
         "nikcli": "./bin/nikcli",
       },

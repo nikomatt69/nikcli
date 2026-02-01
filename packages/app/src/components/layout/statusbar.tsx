@@ -1,10 +1,12 @@
 import { useI18n } from "../../i18n"
-import { useServer, useSession } from "../../context"
+import { useServer, useSession, useApp } from "../../context"
+import { truncate } from "../../lib/utils"
 
 export default function StatusBar() {
   const { t } = useI18n()
   const { status } = useServer()
   const { sessions, activeSession } = useSession()
+  const { state } = useApp()
 
   return (
     <div class="h-6 border-t bg-gray-100 dark:bg-gray-900 flex items-center px-4 text-xs text-gray-600 dark:text-gray-400">
@@ -18,7 +20,13 @@ export default function StatusBar() {
         {activeSession() && (
           <>
             <span>|</span>
-            <span>{activeSession()?.name}</span>
+            <span>{activeSession()?.title}</span>
+          </>
+        )}
+        {state().error && (
+          <>
+            <span>|</span>
+            <span class="text-red-500">{truncate(state().error || "", 120)}</span>
           </>
         )}
       </div>
