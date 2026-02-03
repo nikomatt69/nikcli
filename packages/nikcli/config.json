@@ -181,7 +181,7 @@
   "connectors": {
     "slack": {
       "type": "slack",
-      "enabled": false
+      "enabled": true
     },
     "github": {
       "type": "github",
@@ -189,15 +189,15 @@
     },
     "lovable": {
       "type": "lovable",
-      "enabled": false
+      "enabled": true
     },
     "figma": {
       "type": "figma",
-      "enabled": false
+      "enabled": true
     },
     "nikcli": {
       "type": "lovable",
-      "enabled": false
+      "enabled": true
     }
   },
   "instructions": [

@@ -58,6 +58,7 @@ export const ConnectorsRoutes = lazy(() =>
         const payload = c.req.valid("json")
         const existing = await ConnectorAuth.get(name)
         await ConnectorAuth.set(name, { ...existing, ...payload })
+        Connectors.invalidateConnector(name)
         return c.json({ success: true as const })
       },
     )
@@ -82,6 +83,38 @@ export const ConnectorsRoutes = lazy(() =>
       async (c) => {
         const name = c.req.param("name")
         await ConnectorAuth.remove(name)
+        Connectors.invalidateConnector(name)
+        return c.json({ success: true as const })
+      },
+    )
+    .post(
+      "/invalidate",
+      describeRoute({
+        summary: "Invalidate connector cache",
+        description: "Clear connector status and tools cache. Optionally invalidate a specific connector.",
+        operationId: "connectors.invalidate",
+        responses: {
+          200: {
+            description: "Cache invalidated",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
+          },
+        },
+      }),
+      validator("json", z.object({
+        name: z.string().optional().describe("Connector name to invalidate (optional, invalidates all if not provided)"),
+      })),
+      async (c) => {
+        const { name } = c.req.valid("json")
+        if (name) {
+          Connectors.invalidateConnector(name)
+        } else {
+          Connectors.invalidateStatus()
+          Connectors.invalidateTools()
+        }
         return c.json({ success: true as const })
       },
     ),

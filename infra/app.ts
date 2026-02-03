@@ -8,6 +8,10 @@ const DISCORD_SUPPORT_BOT_TOKEN = new sst.Secret("DISCORD_SUPPORT_BOT_TOKEN")
 const DISCORD_SUPPORT_CHANNEL_ID = new sst.Secret("DISCORD_SUPPORT_CHANNEL_ID")
 const FEISHU_APP_ID = new sst.Secret("FEISHU_APP_ID")
 const FEISHU_APP_SECRET = new sst.Secret("FEISHU_APP_SECRET")
+const NIKCLI_FIGMA_TOKEN = new sst.Secret("NIKCLI_FIGMA_TOKEN")
+const NIKCLI_GITHUB_TOKEN = new sst.Secret("NIKCLI_GITHUB_TOKEN")
+const NIKCLI_LOVABLE_API_KEY = new sst.Secret("NIKCLI_LOVABLE_API_KEY")
+const NIKCLI_SLACK_BOT_TOKEN = new sst.Secret("NIKCLI_SLACK_BOT_TOKEN")
 
 export const api = new sst.cloudflare.Worker("Api", {
   domain: `api.${domain}`,
@@ -24,6 +28,10 @@ export const api = new sst.cloudflare.Worker("Api", {
     DISCORD_SUPPORT_CHANNEL_ID,
     FEISHU_APP_ID,
     FEISHU_APP_SECRET,
+    NIKCLI_FIGMA_TOKEN,
+    NIKCLI_GITHUB_TOKEN,
+    NIKCLI_LOVABLE_API_KEY,
+    NIKCLI_SLACK_BOT_TOKEN,
   ],
   transform: {
     worker: (args) => {
