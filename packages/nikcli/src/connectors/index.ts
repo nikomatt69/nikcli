@@ -124,7 +124,9 @@ export namespace Connectors {
     if (!requiredType) return false
     switch (requiredType) {
       case "token":
-        return !!auth.token
+        if (auth.token) return true
+        if (type === "lovable") return !!auth.apiKey
+        return false
       case "botToken":
         return !!auth.botToken
       case "apiKey":

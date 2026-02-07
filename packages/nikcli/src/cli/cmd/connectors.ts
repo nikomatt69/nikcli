@@ -210,14 +210,14 @@ export const ConnectorsAuthCommand = cmd({
               break
             }
             case "lovable": {
-              const apiKey = await prompts.text({
+              const token = await prompts.text({
                 message: "Enter Lovable API key",
                 validate: (x) => (x && x.length > 0 ? undefined : "Required"),
               })
-              if (prompts.isCancel(apiKey)) throw new UI.CancelledError()
+              if (prompts.isCancel(token)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateApiKey(connectorName, apiKey)
-              spinner.stop("Lovable API key saved!")
+              await ConnectorAuth.updateToken(connectorName, token)
+              spinner.stop("Lovable token saved!")
               break
             }
           }
@@ -391,7 +391,6 @@ export const ConnectorsAddCommand = cmd({
           case "figma": {
             const tokenResult = await prompts.text({
               message: "Enter Figma personal access token (or press enter to skip)",
-              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(tokenResult)) throw new UI.CancelledError()
 
@@ -409,7 +408,6 @@ export const ConnectorsAddCommand = cmd({
           case "slack": {
             const botTokenResult = await prompts.text({
               message: "Enter Slack bot token (or press enter to skip)",
-              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
 
@@ -427,7 +425,6 @@ export const ConnectorsAddCommand = cmd({
           case "github": {
             const tokenResult = await prompts.text({
               message: "Enter GitHub personal access token (or press enter to skip)",
-              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
             if (prompts.isCancel(tokenResult)) throw new UI.CancelledError()
 
@@ -443,19 +440,18 @@ export const ConnectorsAddCommand = cmd({
             break
           }
           case "lovable": {
-            const apiKeyResult = await prompts.text({
+            const tokenResult = await prompts.text({
               message: "Enter Lovable API key (or press enter to skip)",
-              validate: (x) => (x && x.trim().length > 0 ? undefined : "Required"),
             })
-            if (prompts.isCancel(apiKeyResult)) throw new UI.CancelledError()
+            if (prompts.isCancel(tokenResult)) throw new UI.CancelledError()
 
             connectorConfig = {
               type: "lovable",
               enabled,
             }
-            if (apiKeyResult && apiKeyResult.trim()) {
+            if (tokenResult && tokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateApiKey(name, apiKeyResult.trim())
+              await ConnectorAuth.updateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break

@@ -33,7 +33,19 @@ export namespace Flag {
   export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]
   export const NIKCLI_SLACK_BOT_TOKEN = process.env["NIKCLI_SLACK_BOT_TOKEN"]
   export const NIKCLI_GITHUB_TOKEN = process.env["NIKCLI_GITHUB_TOKEN"]
+  export const NIKCLI_LOVABLE_TOKEN = process.env["NIKCLI_LOVABLE_TOKEN"] ?? process.env["NIKCLI_LOVABLE_API_KEY"]
   export const NIKCLI_LOVABLE_API_KEY = process.env["NIKCLI_LOVABLE_API_KEY"]
+
+  // Notifications
+  export const NIKCLI_SLACK_CHANNEL =
+    process.env["NIKCLI_SLACK_CHANNEL"] ?? process.env["SLACK_DEFAULT_CHANNEL"] ?? process.env["SLACK_CHANNEL"]
+  export const NIKCLI_DISCORD_WEBHOOK_URL =
+    process.env["NIKCLI_DISCORD_WEBHOOK_URL"] ?? process.env["DISCORD_WEBHOOK_URL"]
+  export const NIKCLI_TODO_NOTIFICATIONS = truthy("NIKCLI_TODO_NOTIFICATIONS")
+  export const NIKCLI_SLACK_TASK_NOTIFICATIONS =
+    truthy("NIKCLI_SLACK_TASK_NOTIFICATIONS") || truthy("SLACK_TASK_NOTIFICATIONS")
+  export const NIKCLI_DISCORD_TASK_NOTIFICATIONS =
+    truthy("NIKCLI_DISCORD_TASK_NOTIFICATIONS") || truthy("DISCORD_TASK_NOTIFICATIONS")
 
   // Experimental
   export const NIKCLI_EXPERIMENTAL = truthy("NIKCLI_EXPERIMENTAL")

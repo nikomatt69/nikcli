@@ -1,10 +1,18 @@
-import { createMemo, createSignal, For } from "solid-js"
+import { createMemo, For } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
+import type { Config } from "@nikcli-ai/sdk/v2/client"
 
 const themeCount = Object.keys(DEFAULT_THEMES).length
 const themeTip = `Use {highlight}/theme{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${themeCount} built-in themes`
 
 type TipPart = { text: string; highlight: boolean }
+type TipEntry = { type: "tip"; text: string }
+type AdEntry = { type: "ad"; text: string }
+type Entry = TipEntry | AdEntry
+type AdsConfig = Config["ads"]
+type AdsItem = NonNullable<NonNullable<AdsConfig>["items"]>[number]
+
+const DEFAULT_RATIO = 0.3
 
 function parse(tip: string): TipPart[] {
   const parts: TipPart[] = []
@@ -30,22 +38,56 @@ function parse(tip: string): TipPart[] {
   return parts
 }
 
-export function Tips() {
+export function Tips(props: { ads?: AdsConfig }) {
   const theme = useTheme().theme
-  const parts = parse(TIPS[Math.floor(Math.random() * TIPS.length)])
+  const entry = createMemo(() => selectEntry(props.ads))
+  const parts = createMemo(() => parse(entry().text))
+  const label = createMemo(() => (entry().type === "ad" ? "Sponsored" : "Tip"))
 
   return (
     <box flexDirection="row" maxWidth="100%">
-      <text flexShrink={0} style={{ fg: theme.warning }}>
-        ● Tip{" "}
-      </text>
+      <text flexShrink={0} style={{ fg: theme.warning }}>{`● ${label()} `}</text>
       <text flexShrink={1}>
-        <For each={parts}>
+        <For each={parts()}>
           {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
         </For>
       </text>
     </box>
   )
+}
+
+function selectEntry(ads?: AdsConfig): Entry {
+  const items = (ads?.items ?? []).filter((item) => item.enabled !== false)
+  const enabled = ads?.enabled ?? true
+  const ratio = clampRatio(ads?.ratio)
+
+  if (!enabled || items.length === 0) {
+    return { type: "tip", text: randomTip() }
+  }
+
+  if (Math.random() >= ratio) {
+    return { type: "tip", text: randomTip() }
+  }
+
+  return { type: "ad", text: formatAd(items) }
+}
+
+function clampRatio(value: number | undefined) {
+  const ratio = value ?? DEFAULT_RATIO
+  return Math.min(1, Math.max(0, ratio))
+}
+
+function randomTip() {
+  return TIPS[Math.floor(Math.random() * TIPS.length)]
+}
+
+function formatAd(items: AdsItem[]) {
+  const item = items[Math.floor(Math.random() * items.length)]
+  if (!item) return randomTip()
+  const text = item.text
+  if (!item.url) return text
+  if (text.includes(item.url)) return text
+  return `${text} {highlight}${item.url}{/highlight}`
 }
 
 const TIPS = [

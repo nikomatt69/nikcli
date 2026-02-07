@@ -4,7 +4,6 @@ import type {
   Provider,
   Session,
   Part,
-  Config,
   Todo,
   Command,
   PermissionRequest,
@@ -20,6 +19,7 @@ import type {
   VcsInfo,
   FileDiff,
 } from "@nikcli-ai/sdk/v2"
+import type { Config } from "@nikcli-ai/sdk/v2/client"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { Binary } from "@nikcli-ai/util/binary"

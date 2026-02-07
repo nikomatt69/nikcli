@@ -3,7 +3,7 @@ import { Flag } from "../flag/flag"
 import { getToken as getFigmaToken } from "./api/figma"
 import { getToken as getGithubToken } from "./api/github"
 import { getBotToken as getSlackBotToken } from "./api/slack"
-import { getApiKey as getLovableApiKey } from "./api/lovable"
+import { getToken as getLovableToken } from "./api/lovable"
 
 type CredentialType = "token" | "botToken" | "apiKey"
 
@@ -11,7 +11,7 @@ const credentialTypeMap: Record<string, CredentialType> = {
   figma: "token",
   github: "token",
   slack: "botToken",
-  lovable: "apiKey",
+  lovable: "token",
 }
 
 function getCredentialType(type: string): CredentialType | null {
@@ -27,7 +27,7 @@ function getCredentialFlag(type: string): string | null {
     case "slack":
       return Flag.NIKCLI_SLACK_BOT_TOKEN ?? null
     case "lovable":
-      return Flag.NIKCLI_LOVABLE_API_KEY ?? null
+      return Flag.NIKCLI_LOVABLE_TOKEN ?? null
     default:
       return null
   }
@@ -42,7 +42,7 @@ function getCredentialFromAuth(name: string, type: string): Promise<string | nul
     case "slack":
       return getSlackBotToken(name)
     case "lovable":
-      return getLovableApiKey(name)
+      return getLovableToken(name)
     default:
       return Promise.resolve(null)
   }
@@ -57,7 +57,7 @@ function getCredentialFromConfig(connector: Config.Connector): string | null {
     case "slack":
       return connector.botToken ?? null
     case "lovable":
-      return connector.apiKey ?? null
+      return connector.token ?? connector.apiKey ?? null
     default:
       return null
   }

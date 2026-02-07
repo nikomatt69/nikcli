@@ -1,4 +1,5 @@
 import { createMemo, createSignal } from "solid-js"
+import open from "open"
 import { useLocal } from "@tui/context/local"
 import { useSync } from "@tui/context/sync"
 import { map, pipe, entries, sortBy } from "remeda"
@@ -10,10 +11,7 @@ import { useSDK } from "@tui/context/sdk"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { useToast } from "../ui/toast"
-import type { Config } from "@/config/config"
 import { Connectors } from "@/connectors"
-
-type ConnectorEntry = NonNullable<NonNullable<ReturnType<typeof useSync>["data"]["config"]>["connectors"]>[string]
 
 const DEFAULT_CONNECTORS = [
   { name: "figma", type: "figma" as const, description: "Design files and components" },
@@ -21,6 +19,33 @@ const DEFAULT_CONNECTORS = [
   { name: "github", type: "github" as const, description: "Repositories and issues" },
   { name: "lovable", type: "lovable" as const, description: "AI projects and chats" },
 ]
+
+const LOVABLE_BASE_URL = "https://lovable.dev/"
+const LOVABLE_PROMPT_MAX = 50000
+const LOVABLE_IMAGES_MAX = 10
+
+function buildLovableUrl(prompt: string, images: string[]) {
+  const url = new URL(LOVABLE_BASE_URL)
+  url.searchParams.set("autosubmit", "true")
+  const params = new URLSearchParams()
+  params.set("prompt", prompt)
+  for (const image of images) {
+    params.append("images", image)
+  }
+  url.hash = params.toString()
+  return url.toString()
+}
+
+function parseLovableImages(value: string) {
+  return value
+    .split(/[\n,]+/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+}
+
+function findInvalidLovableImage(images: string[]) {
+  return images.find((item) => !item.startsWith("http://") && !item.startsWith("https://"))
+}
 
 function Status(props: { enabled: boolean; configured: boolean; status?: string; loading: boolean }) {
   const { theme } = useTheme()
@@ -47,7 +72,7 @@ function authConfigForType(type: string) {
     case "slack":
       return { title: "Slack bot token", placeholder: "xoxb-...", field: "botToken" as const }
     case "lovable":
-      return { title: "Lovable API key", placeholder: "lvb_...", field: "apiKey" as const }
+      return { title: "Lovable API key", placeholder: "token", field: "token" as const }
     case "figma":
       return { title: "Figma personal access token", placeholder: "figma_...", field: "token" as const }
     case "github":
@@ -87,6 +112,92 @@ export function DialogConnectors() {
     await sdk.client.config.update({ config: { connectors: nextConfig.connectors } })
     sync.set("config", nextConfig)
     await refreshStatus()
+  }
+
+  async function openLovableBuild() {
+    const promptValue = await DialogPrompt.show(dialog, "Lovable prompt (required)")
+    if (promptValue === null) {
+      reopen()
+      return
+    }
+    const prompt = promptValue.trim()
+    if (!prompt) {
+      toast.show({
+        variant: "warning",
+        message: "Prompt is required",
+        duration: 4000,
+      })
+      reopen()
+      return
+    }
+    if (prompt.length > LOVABLE_PROMPT_MAX) {
+      toast.show({
+        variant: "warning",
+        message: `Prompt exceeds ${LOVABLE_PROMPT_MAX} characters`,
+        duration: 5000,
+      })
+      reopen()
+      return
+    }
+
+    const imagesValue = await DialogPrompt.show(dialog, "Lovable images (optional, comma-separated URLs)")
+    if (imagesValue === null) {
+      reopen()
+      return
+    }
+    const images = parseLovableImages(imagesValue)
+    if (images.length > LOVABLE_IMAGES_MAX) {
+      toast.show({
+        variant: "warning",
+        message: `Use up to ${LOVABLE_IMAGES_MAX} image URLs`,
+        duration: 5000,
+      })
+      reopen()
+      return
+    }
+    const invalid = findInvalidLovableImage(images)
+    if (invalid) {
+      toast.show({
+        variant: "warning",
+        message: `Invalid image URL: ${invalid}`,
+        duration: 5000,
+      })
+      reopen()
+      return
+    }
+
+    const url = buildLovableUrl(prompt, images)
+    toast.show({
+      variant: "warning",
+      message: "Do not paste API keys in the prompt. Lovable will warn about secrets.",
+      duration: 6000,
+    })
+    toast.show({
+      variant: "info",
+      message: "If you are not logged in, Lovable will ask you to sign in and choose a workspace.",
+      duration: 6000,
+    })
+
+    const opened = await open(url)
+      .then(() => true)
+      .catch(() => false)
+
+    if (!opened) {
+      toast.show({
+        variant: "warning",
+        message: `Open this URL to build: ${url}`,
+        duration: 8000,
+      })
+    }
+    if (opened) {
+      toast.show({
+        variant: "success",
+        message: "Lovable build opened in your browser.",
+        duration: 4000,
+      })
+    }
+
+    reopen()
   }
 
   async function openAuth(name: string, presetType?: string) {
@@ -276,10 +387,16 @@ export function DialogConnectors() {
     },
     {
       keybind: Keybind.parse("ctrl+a")[0],
-      title: "auth",
+      title: "auth/build",
       onTrigger: async (option: DialogSelectOption<string>) => {
+        const entry = sync.data.config.connectors?.[option.value]
         const preset = DEFAULT_CONNECTORS.find((item) => item.name === option.value)
-        await openAuth(option.value, preset?.type)
+        const type = entry && Connectors.isConnectorConfigured(entry) ? entry.type : preset?.type
+        if (type === "lovable") {
+          await openLovableBuild()
+          return
+        }
+        await openAuth(option.value, type)
       },
     },
     {

@@ -243,7 +243,7 @@ const CONNECTOR_SPECS: Record<string, ConnectorSpec> = {
   },
   lovable: {
     type: "lovable",
-    credentialType: "apiKey",
+    credentialType: "token",
     operations: LOVABLE_OPERATIONS,
     healthCheck: (cred) => LovableApi.getProjects(cred),
   },

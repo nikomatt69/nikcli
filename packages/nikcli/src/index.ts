@@ -29,6 +29,8 @@ import { SessionCommand } from "./cli/cmd/session"
 import { RagModelCommand } from "./cli/cmd/rag-model"
 import { RemoteCommand } from "./cli/cmd/remote"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
+import { AdsCommand } from "./cli/cmd/ads"
+import { LovableCommand } from "./cli/cmd/lovable"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -83,6 +85,8 @@ const cli = yargs(hideBin(process.argv))
   .command(AcpCommand)
   .command(McpCommand)
   .command(ConnectorsCommand)
+  .command(LovableCommand)
+  .command(AdsCommand)
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)

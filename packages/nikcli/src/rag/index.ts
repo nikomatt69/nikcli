@@ -201,7 +201,7 @@ export namespace Rag {
     const limit = options.limit ?? 8
     const minScore = options.minScore ?? 0.2
     const model = state?.model ?? config.rag?.model ?? DEFAULT_RAG_MODEL
-    const provider = options.provider ?? config.rag?.provider
+    const provider = options.provider ?? config.rag?.provider ?? DEFAULT_RAG_PROVIDER
 
     const chunks = await RagStorage.readJsonl<RagChunk>(RagStorage.chunksPath())
     const vectors = await RagStorage.readJsonl<RagVector>(RagStorage.vectorsPath())

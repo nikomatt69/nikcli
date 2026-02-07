@@ -8,8 +8,11 @@ import z from "zod"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import { SplitBorder } from "@/cli/cmd/tui/component/border"
 
+type ToastInput = z.input<typeof TuiEvent.ToastShow.properties>
+type ToastParsed = z.output<typeof TuiEvent.ToastShow.properties>
+type ToastCurrent = Omit<ToastParsed, "duration">
 
-export type ToastOptions = z.infer<typeof TuiEvent.ToastShow.properties>
+export type ToastOptions = ToastInput
 
 export function Toast() {
   const toast = useToast()
@@ -51,13 +54,13 @@ export function Toast() {
 
 function init() {
   const [store, setStore] = createStore({
-    currentToast: null as ToastOptions | null,
+    currentToast: null as ToastCurrent | null,
   })
 
   let timeoutHandle: NodeJS.Timeout | null = null
 
   const toast = {
-    show(options: ToastOptions) {
+    show(options: ToastInput) {
       const parsedOptions = TuiEvent.ToastShow.properties.parse(options)
       const { duration, ...currentToast } = parsedOptions
       setStore("currentToast", currentToast)
@@ -77,7 +80,7 @@ function init() {
         message: "An unknown error has occurred",
       })
     },
-    get currentToast(): ToastOptions | null {
+    get currentToast(): ToastCurrent | null {
       return store.currentToast
     },
   }

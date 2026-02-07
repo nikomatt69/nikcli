@@ -1,5 +1,6 @@
 import type { APICallError, ModelMessage } from "ai"
-import { unique } from "remeda"
+import { mergeDeep, unique } from "remeda"
+import type { JSONSchema7 } from "@ai-sdk/provider"
 import type { JSONSchema } from "zod/v4/core"
 import type { Provider } from "./provider"
 import type { ModelsDev } from "./models"
@@ -16,15 +17,18 @@ function mimeToModality(mime: string): Modality | undefined {
 }
 
 export namespace ProviderTransform {
+  // Maps npm package to the key the AI SDK expects for providerOptions
   function sdkKey(npm: string): string | undefined {
     switch (npm) {
       case "@ai-sdk/github-copilot":
+        return "copilot"
       case "@ai-sdk/openai":
       case "@ai-sdk/azure":
         return "openai"
       case "@ai-sdk/amazon-bedrock":
         return "bedrock"
       case "@ai-sdk/anthropic":
+      case "@ai-sdk/google-vertex/anthropic":
         return "anthropic"
       case "@ai-sdk/google-vertex":
       case "@ai-sdk/google":
@@ -42,6 +46,8 @@ export namespace ProviderTransform {
     model: Provider.Model,
     options: Record<string, unknown>,
   ): ModelMessage[] {
+    // Anthropic rejects messages with empty content - filter out empty string messages
+    // and remove empty text/reasoning parts from array content
     if (model.api.npm === "@ai-sdk/anthropic") {
       msgs = msgs
         .map((msg) => {
@@ -78,7 +84,11 @@ export namespace ProviderTransform {
         return msg
       })
     }
-    if (model.providerID === "mistral" || model.api.id.toLowerCase().includes("mistral")) {
+    if (
+      model.providerID === "mistral" ||
+      model.api.id.toLowerCase().includes("mistral") ||
+      model.api.id.toLowerCase().includes("devstral")
+    ) {
       const result: ModelMessage[] = []
       for (let i = 0; i < msgs.length; i++) {
         const msg = msgs[i]
@@ -87,10 +97,11 @@ export namespace ProviderTransform {
         if ((msg.role === "assistant" || msg.role === "tool") && Array.isArray(msg.content)) {
           msg.content = msg.content.map((part) => {
             if ((part.type === "tool-call" || part.type === "tool-result") && "toolCallId" in part) {
+              // Mistral requires alphanumeric tool call IDs with exactly 9 characters
               const normalizedId = part.toolCallId
-                .replace(/[^a-zA-Z0-9]/g, "")
-                .substring(0, 9)
-                .padEnd(9, "0")
+                .replace(/[^a-zA-Z0-9]/g, "") // Remove non-alphanumeric characters
+                .substring(0, 9) // Take first 9 characters
+                .padEnd(9, "0") // Pad with zeros if less than 9 characters
 
               return {
                 ...part,
@@ -103,6 +114,7 @@ export namespace ProviderTransform {
 
         result.push(msg)
 
+        // Fix message sequence: tool messages cannot be followed by user messages
         if (msg.role === "tool" && nextMsg?.role === "user") {
           result.push({
             role: "assistant",
@@ -125,8 +137,10 @@ export namespace ProviderTransform {
           const reasoningParts = msg.content.filter((part: any) => part.type === "reasoning")
           const reasoningText = reasoningParts.map((part: any) => part.text).join("")
 
+          // Filter out reasoning parts from content
           const filteredContent = msg.content.filter((part: any) => part.type !== "reasoning")
 
+          // Include reasoning_content | reasoning_details directly on the message for all assistant messages
           if (reasoningText) {
             return {
               ...msg,
@@ -166,31 +180,29 @@ export namespace ProviderTransform {
         cacheControl: { type: "ephemeral" },
       },
       bedrock: {
-        cachePoint: { type: "ephemeral" },
+        cachePoint: { type: "default" },
       },
       openaiCompatible: {
         cache_control: { type: "ephemeral" },
       },
+      copilot: {
+        copilot_cache_control: { type: "ephemeral" },
+      },
     }
 
     for (const msg of unique([...system, ...final])) {
-      const shouldUseContentOptions = providerID !== "anthropic" && Array.isArray(msg.content) && msg.content.length > 0
+      const useMessageLevelOptions = providerID === "anthropic" || providerID.includes("bedrock")
+      const shouldUseContentOptions = !useMessageLevelOptions && Array.isArray(msg.content) && msg.content.length > 0
 
       if (shouldUseContentOptions) {
         const lastContent = msg.content[msg.content.length - 1]
         if (lastContent && typeof lastContent === "object") {
-          lastContent.providerOptions = {
-            ...lastContent.providerOptions,
-            ...providerOptions,
-          }
+          lastContent.providerOptions = mergeDeep(lastContent.providerOptions ?? {}, providerOptions)
           continue
         }
       }
 
-      msg.providerOptions = {
-        ...msg.providerOptions,
-        ...providerOptions,
-      }
+      msg.providerOptions = mergeDeep(msg.providerOptions ?? {}, providerOptions)
     }
 
     return msgs
@@ -203,6 +215,7 @@ export namespace ProviderTransform {
       const filtered = msg.content.map((part) => {
         if (part.type !== "file" && part.type !== "image") return part
 
+        // Check for empty base64 image data
         if (part.type === "image") {
           const imageStr = part.image.toString()
           if (imageStr.startsWith("data:")) {
@@ -247,6 +260,7 @@ export namespace ProviderTransform {
       msgs = applyCaching(msgs, model.providerID)
     }
 
+    // Remap providerOptions keys from stored providerID to expected SDK key
     const key = sdkKey(model.api.npm)
     if (key && key !== model.providerID && model.api.npm !== "@ai-sdk/azure") {
       const remap = (opts: Record<string, any> | undefined) => {
@@ -280,7 +294,10 @@ export namespace ProviderTransform {
     if (id.includes("glm-4.7")) return 1.0
     if (id.includes("minimax-m2")) return 1.0
     if (id.includes("kimi-k2")) {
-      if (id.includes("thinking")) return 1.0
+      // kimi-k2-thinking & kimi-k2.5 && kimi-k2p5
+      if (id.includes("thinking") || id.includes("k2.") || id.includes("k2p")) {
+        return 1.0
+      }
       return 0.6
     }
     return undefined
@@ -289,10 +306,9 @@ export namespace ProviderTransform {
   export function topP(model: Provider.Model) {
     const id = model.id.toLowerCase()
     if (id.includes("qwen")) return 1
-    if (id.includes("minimax-m2")) {
+    if (id.includes("minimax-m2") || id.includes("kimi-k2.5") || id.includes("kimi-k2p5") || id.includes("gemini")) {
       return 0.95
     }
-    if (id.includes("gemini")) return 0.95
     return undefined
   }
 
@@ -313,8 +329,18 @@ export namespace ProviderTransform {
     if (!model.capabilities.reasoning) return {}
 
     const id = model.id.toLowerCase()
-    if (id.includes("deepseek") || id.includes("minimax") || id.includes("glm") || id.includes("mistral")) return {}
+    if (
+      id.includes("deepseek") ||
+      id.includes("minimax") ||
+      id.includes("glm") ||
+      id.includes("mistral") ||
+      id.includes("kimi") ||
+      // models.dev sometimes reports kimi-k2.5 as k2p5
+      id.includes("k2p5")
+    )
+      return {}
 
+    // see: https://docs.x.ai/docs/guides/reasoning#control-how-hard-the-model-thinks
     if (id.includes("grok") && id.includes("grok-3-mini")) {
       if (model.api.npm === "@openrouter/ai-sdk-provider") {
         return {
@@ -334,12 +360,27 @@ export namespace ProviderTransform {
         if (!model.id.includes("gpt") && !model.id.includes("gemini-3")) return {}
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
 
+      // Note: gateway reasoningEffort conflicts with max_tokens
       case "@ai-sdk/gateway":
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
 
       case "@ai-sdk/github-copilot":
+        if (model.id.includes("gemini")) {
+          // currently github copilot only returns thinking
+          return {}
+        }
+        if (model.id.includes("claude")) {
+          return {
+            thinking: { thinking_budget: 4000 },
+          }
+        }
+        const copilotEfforts = iife(() => {
+          if (id.includes("5.1-codex-max") || id.includes("5.2") || id.includes("5.3"))
+            return [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
+          return WIDELY_SUPPORTED_EFFORTS
+        })
         return Object.fromEntries(
-          WIDELY_SUPPORTED_EFFORTS.map((effort) => [
+          copilotEfforts.map((effort) => [
             effort,
             {
               reasoningEffort: effort,
@@ -350,13 +391,18 @@ export namespace ProviderTransform {
         )
 
       case "@ai-sdk/cerebras":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/cerebras
       case "@ai-sdk/togetherai":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/togetherai
       case "@ai-sdk/xai":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/xai
       case "@ai-sdk/deepinfra":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/deepinfra
       case "@ai-sdk/openai-compatible":
         return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
 
       case "@ai-sdk/azure":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/azure
         if (id === "o1-mini") return {}
         const azureEfforts = ["low", "medium", "high"]
         if (id.includes("gpt-5-") || id === "gpt-5") {
@@ -373,10 +419,11 @@ export namespace ProviderTransform {
           ]),
         )
       case "@ai-sdk/openai":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/openai
         if (id === "gpt-5-pro") return {}
         const openaiEfforts = iife(() => {
           if (id.includes("codex")) {
-            if (id.includes("5.2")) return [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
+            if (id.includes("5.2") || id.includes("5.3")) return [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
             return WIDELY_SUPPORTED_EFFORTS
           }
           const arr = [...WIDELY_SUPPORTED_EFFORTS]
@@ -403,22 +450,27 @@ export namespace ProviderTransform {
         )
 
       case "@ai-sdk/anthropic":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/anthropic
+      case "@ai-sdk/google-vertex/anthropic":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/google-vertex#anthropic-provider
         return {
           high: {
             thinking: {
               type: "enabled",
-              budgetTokens: 16000,
+              budgetTokens: Math.min(16_000, Math.floor(model.limit.output / 2 - 1)),
             },
           },
           max: {
             thinking: {
               type: "enabled",
-              budgetTokens: 31999,
+              budgetTokens: Math.min(31_999, model.limit.output - 1),
             },
           },
         }
 
       case "@ai-sdk/amazon-bedrock":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock
+        // For Anthropic models on Bedrock, use reasoningConfig with budgetTokens
         if (model.api.id.includes("anthropic")) {
           return {
             high: {
@@ -436,6 +488,7 @@ export namespace ProviderTransform {
           }
         }
 
+        // For Amazon Nova models, use reasoningConfig with maxReasoningEffort
         return Object.fromEntries(
           WIDELY_SUPPORTED_EFFORTS.map((effort) => [
             effort,
@@ -449,7 +502,9 @@ export namespace ProviderTransform {
         )
 
       case "@ai-sdk/google-vertex":
+      // https://v5.ai-sdk.dev/providers/ai-sdk-providers/google-vertex
       case "@ai-sdk/google":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/google-generative-ai
         if (id.includes("2.5")) {
           return {
             high: {
@@ -477,12 +532,15 @@ export namespace ProviderTransform {
         )
 
       case "@ai-sdk/mistral":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/mistral
         return {}
 
       case "@ai-sdk/cohere":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/cohere
         return {}
 
       case "@ai-sdk/groq":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/groq
         const groqEffort = ["none", ...WIDELY_SUPPORTED_EFFORTS]
         return Object.fromEntries(
           groqEffort.map((effort) => [
@@ -495,7 +553,28 @@ export namespace ProviderTransform {
         )
 
       case "@ai-sdk/perplexity":
+        // https://v5.ai-sdk.dev/providers/ai-sdk-providers/perplexity
         return {}
+
+      case "@mymediset/sap-ai-provider":
+      case "@jerome-benoit/sap-ai-provider-v2":
+        if (model.api.id.includes("anthropic")) {
+          return {
+            high: {
+              thinking: {
+                type: "enabled",
+                budgetTokens: 16000,
+              },
+            },
+            max: {
+              thinking: {
+                type: "enabled",
+                budgetTokens: 31999,
+              },
+            },
+          }
+        }
+        return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
     }
     return {}
   }
@@ -507,6 +586,7 @@ export namespace ProviderTransform {
   }): Record<string, any> {
     const result: Record<string, any> = {}
 
+    // openai and providers using openai package should set store to false by default.
     if (
       input.model.providerID === "openai" ||
       input.model.api.npm === "@ai-sdk/openai" ||
@@ -551,14 +631,29 @@ export namespace ProviderTransform {
       }
     }
 
+    // Enable thinking by default for kimi-k2.5/k2p5 models using anthropic SDK
+    const modelId = input.model.api.id.toLowerCase()
+    if (
+      (input.model.api.npm === "@ai-sdk/anthropic" || input.model.api.npm === "@ai-sdk/google-vertex/anthropic") &&
+      (modelId.includes("k2p5") || modelId.includes("kimi-k2.5") || modelId.includes("kimi-k2p5"))
+    ) {
+      result["thinking"] = {
+        type: "enabled",
+        budgetTokens: Math.min(16_000, Math.floor(input.model.limit.output / 2 - 1)),
+      }
+    }
+
     if (input.model.api.id.includes("gpt-5") && !input.model.api.id.includes("gpt-5-chat")) {
       if (!input.model.api.id.includes("gpt-5-pro")) {
         result["reasoningEffort"] = "medium"
       }
 
+      // Only set textVerbosity for non-chat gpt-5.x models
+      // Chat models (e.g. gpt-5.2-chat-latest) only support "medium" verbosity
       if (
         input.model.api.id.includes("gpt-5.") &&
         !input.model.api.id.includes("codex") &&
+        !input.model.api.id.includes("-chat") &&
         input.model.providerID !== "azure"
       ) {
         result["textVerbosity"] = "low"
@@ -570,17 +665,30 @@ export namespace ProviderTransform {
         result["reasoningSummary"] = "auto"
       }
     }
+
+    if (input.model.providerID === "venice") {
+      result["promptCacheKey"] = input.sessionID
+    }
+
     return result
   }
 
   export function smallOptions(model: Provider.Model) {
-    if (model.providerID === "openai" || model.api.id.includes("gpt-5")) {
-      if (model.api.id.includes("5.")) {
-        return { reasoningEffort: "low" }
+    if (
+      model.providerID === "openai" ||
+      model.api.npm === "@ai-sdk/openai" ||
+      model.api.npm === "@ai-sdk/github-copilot"
+    ) {
+      if (model.api.id.includes("gpt-5")) {
+        if (model.api.id.includes("5.")) {
+          return { store: false, reasoningEffort: "low" }
+        }
+        return { store: false, reasoningEffort: "minimal" }
       }
-      return { reasoningEffort: "minimal" }
+      return { store: false }
     }
     if (model.providerID === "google") {
+      // gemini-3 uses thinkingLevel, gemini-2.5 uses thinkingBudget
       if (model.api.id.includes("gemini-3")) {
         return { thinkingConfig: { thinkingLevel: "minimal" } }
       }
@@ -609,11 +717,12 @@ export namespace ProviderTransform {
     const modelCap = modelLimit || globalLimit
     const standardLimit = Math.min(modelCap, globalLimit)
 
-    if (npm === "@ai-sdk/anthropic") {
+    if (npm === "@ai-sdk/anthropic" || npm === "@ai-sdk/google-vertex/anthropic") {
       const thinking = options?.["thinking"]
       const budgetTokens = typeof thinking?.["budgetTokens"] === "number" ? thinking["budgetTokens"] : 0
       const enabled = thinking?.["type"] === "enabled"
       if (enabled && budgetTokens > 0) {
+        // Return text tokens so that text + thinking <= model cap, preferring 32k text when possible.
         if (budgetTokens + standardLimit <= modelCap) {
           return standardLimit
         }
@@ -624,7 +733,26 @@ export namespace ProviderTransform {
     return standardLimit
   }
 
-  export function schema(model: Provider.Model, schema: JSONSchema.BaseSchema) {
+  export function schema(model: Provider.Model, schema: JSONSchema.BaseSchema | JSONSchema7): JSONSchema7 {
+    /*
+    if (["openai", "azure"].includes(providerID)) {
+      if (schema.type === "object" && schema.properties) {
+        for (const [key, value] of Object.entries(schema.properties)) {
+          if (schema.required?.includes(key)) continue
+          schema.properties[key] = {
+            anyOf: [
+              value as JSONSchema.JSONSchema,
+              {
+                type: "null",
+              },
+            ],
+          }
+        }
+      }
+    }
+    */
+
+    // Convert integer enums to string enums for Google/Gemini
     if (model.providerID === "google" || model.api.id.includes("gemini")) {
       const sanitizeGemini = (obj: any): any => {
         if (obj === null || typeof obj !== "object") {
@@ -638,7 +766,9 @@ export namespace ProviderTransform {
         const result: any = {}
         for (const [key, value] of Object.entries(obj)) {
           if (key === "enum" && Array.isArray(value)) {
+            // Convert all enum values to strings
             result[key] = value.map((v) => String(v))
+            // If we have integer type with enum, change type to string
             if (result.type === "integer" || result.type === "number") {
               result.type = "string"
             }
@@ -649,12 +779,26 @@ export namespace ProviderTransform {
           }
         }
 
+        // Filter required array to only include fields that exist in properties
         if (result.type === "object" && result.properties && Array.isArray(result.required)) {
           result.required = result.required.filter((field: any) => field in result.properties)
         }
 
-        if (result.type === "array" && result.items == null) {
-          result.items = {}
+        if (result.type === "array") {
+          if (result.items == null) {
+            result.items = {}
+          }
+          // Ensure items has at least a type if it's an empty object
+          // This handles nested arrays like { type: "array", items: { type: "array", items: {} } }
+          if (typeof result.items === "object" && !Array.isArray(result.items) && !result.items.type) {
+            result.items.type = "string"
+          }
+        }
+
+        // Remove properties/required from non-object types (Gemini rejects these)
+        if (result.type && result.type !== "object") {
+          delete result.properties
+          delete result.required
         }
 
         return result
@@ -663,7 +807,7 @@ export namespace ProviderTransform {
       schema = sanitizeGemini(schema)
     }
 
-    return schema
+    return schema as JSONSchema7
   }
 
   export function error(providerID: string, error: APICallError) {

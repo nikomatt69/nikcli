@@ -514,7 +514,8 @@ export namespace Config {
   export const ConnectorLovable = z
     .object({
       type: z.literal("lovable"),
-      apiKey: z.string().optional().describe("Lovable API key"),
+      token: z.string().optional().describe("Lovable API key"),
+      apiKey: z.string().optional().describe("Legacy Lovable API key"),
       enabled: z.boolean().optional(),
     })
     .strict()
@@ -877,6 +878,31 @@ export namespace Config {
       .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
   })
 
+  export const AdsItem = z
+    .object({
+      id: z.string().describe("Unique ad identifier"),
+      text: z.string().describe("Ad message text"),
+      url: z.string().url().optional().describe("Optional URL to show with the ad"),
+      enabled: z.boolean().optional().describe("Enable this ad"),
+    })
+    .strict()
+    .meta({
+      ref: "AdsItemConfig",
+    })
+  export type AdsItem = z.infer<typeof AdsItem>
+
+  export const Ads = z
+    .object({
+      enabled: z.boolean().optional().describe("Enable ads in the TUI"),
+      ratio: z.number().min(0).max(1).optional().describe("Chance to show an ad instead of a tip (0-1)"),
+      items: z.array(AdsItem).optional().describe("User-defined ads"),
+    })
+    .strict()
+    .meta({
+      ref: "AdsConfig",
+    })
+  export type Ads = z.infer<typeof Ads>
+
   export const Server = z
     .object({
       port: z.number().int().positive().optional().describe("Port to listen on"),
@@ -965,6 +991,7 @@ export namespace Config {
       keybinds: Keybinds.optional().describe("Custom keybind configurations"),
       logLevel: Log.Level.optional().describe("Log level"),
       tui: TUI.optional().describe("TUI specific settings"),
+      ads: Ads.optional().describe("User-defined ads shown in the TUI tips area"),
       server: Server.optional().describe("Server configuration for nikcli serve and web commands"),
       command: z
         .record(z.string(), Command)
@@ -1179,6 +1206,101 @@ export namespace Config {
         })
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
+      notifications: z
+        .object({
+          todo: z
+            .object({
+              enabled: z.boolean().optional().describe("Enable todo notifications"),
+              macos: z.boolean().optional().describe("Enable macOS native notifications"),
+              slack: z
+                .object({
+                  enabled: z.boolean().optional(),
+                  connector: z.string().optional().describe("Name of the Slack connector to use"),
+                  channel: z.string().optional().describe("Slack channel ID or name"),
+                })
+                .optional(),
+              discord: z
+                .object({
+                  enabled: z.boolean().optional(),
+                  webhook: z.string().optional().describe("Discord webhook URL"),
+                })
+                .optional(),
+            })
+            .optional(),
+          icon: z
+            .object({
+              url: z.string().optional().describe("Icon image URL or file path for macOS notifications"),
+              alt: z.string().optional().describe("Alt text (unused for macOS)"),
+            })
+            .optional(),
+          notify: z
+            .object({
+              enabled: z.boolean().optional().describe("Enable native notifications"),
+              macos: z.boolean().optional().describe("Enable macOS native notifications"),
+              slack: z
+                .object({
+                  enabled: z.boolean().optional(),
+                  connector: z.string().optional().describe("Name of the Slack connector to use"),
+                  channel: z.string().optional().describe("Slack channel ID or name"),
+                })
+                .optional(),
+              discord: z
+                .object({
+                  enabled: z.boolean().optional(),
+                  webhook: z.string().optional().describe("Discord webhook URL"),
+                })
+                .optional(),
+              events: z
+                .object({
+                  sessionIdle: z.boolean().optional().describe("Notify when a session becomes idle"),
+                  sessionError: z.boolean().optional().describe("Notify when a session errors"),
+                  permissionAsked: z.boolean().optional().describe("Notify when permissions are requested"),
+                  questionAsked: z.boolean().optional().describe("Notify when questions are asked"),
+                })
+                .optional(),
+              idleMinMs: z
+                .number()
+                .int()
+                .positive()
+                .optional()
+                .describe("Minimum busy duration before idle notifications"),
+              rateLimit: z
+                .object({
+                  windowMs: z.number().int().positive().optional().describe("Rate limit window in ms"),
+                  maxPerWindow: z.number().int().positive().optional().describe("Max notifications per window"),
+                })
+                .optional(),
+              retry: z
+                .object({
+                  attempts: z.number().int().positive().optional(),
+                  delay: z.number().int().positive().optional().describe("Initial retry delay in ms"),
+                  factor: z.number().positive().optional().describe("Backoff multiplier"),
+                  maxDelay: z.number().int().positive().optional().describe("Max retry delay in ms"),
+                  timeoutMs: z.number().int().positive().optional().describe("Timeout per attempt in ms"),
+                })
+                .optional(),
+              breaker: z
+                .object({
+                  failures: z.number().int().positive().optional().describe("Failures before circuit opens"),
+                  cooldownMs: z.number().int().positive().optional().describe("Circuit breaker cooldown in ms"),
+                })
+                .optional(),
+              quietHours: z
+                .object({
+                  enabled: z.boolean().optional().describe("Enable quiet hours"),
+                  start: z.string().optional().describe("Quiet hours start (HH:MM)"),
+                  end: z.string().optional().describe("Quiet hours end (HH:MM)"),
+                  suppress: z
+                    .array(z.enum(["macos", "slack", "discord"]))
+                    .optional()
+                    .describe("Channels suppressed during quiet hours"),
+                })
+                .optional(),
+            })
+            .optional(),
+        })
+        .optional()
+        .describe("Notification settings for various events"),
     })
     .strict()
     .meta({

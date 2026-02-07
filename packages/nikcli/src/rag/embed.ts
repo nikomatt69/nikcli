@@ -3,8 +3,8 @@ import { Auth } from "@/auth"
 import { Env } from "@/env"
 import { Log } from "@/util/log"
 
-const DEFAULT_RAG_MODEL = "all-minilm"
-const DEFAULT_RAG_PROVIDER = "ollama"
+const DEFAULT_RAG_MODEL = "nvidia/llama-embed-nemotron-8b"
+const DEFAULT_RAG_PROVIDER = "nvidia"
 const BATCH_SIZE = 32
 
 type EmbeddingResponse = {

@@ -21,6 +21,7 @@ import type {
   ConnectorsAuthRemoveResponses,
   ConnectorsAuthSetErrors,
   ConnectorsAuthSetResponses,
+  ConnectorsInvalidateResponses,
   ConnectorsStatusResponses,
   DbeditListResponses,
   DbeditReplyErrors,
@@ -2398,6 +2399,41 @@ export class Connectors extends HeyApiClient {
       url: "/connectors",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Invalidate connector cache
+   *
+   * Clear connector status and tools cache. Optionally invalidate a specific connector.
+   */
+  public invalidate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      name?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "body", key: "name" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ConnectorsInvalidateResponses, unknown, ThrowOnError>({
+      url: "/connectors/invalidate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

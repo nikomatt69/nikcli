@@ -26,6 +26,7 @@ export function Home() {
   const promptRef = usePromptRef()
   const command = useCommandDialog()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
+  const ads = createMemo(() => sync.data.config.ads)
   const mcpError = createMemo(() => {
     return Object.values(sync.data.mcp).some((x) => x.status === "failed")
   })
@@ -107,7 +108,7 @@ export function Home() {
         </box>
         <box height={2} width="100%" maxWidth={75} alignItems="center" paddingTop={2}>
           <Show when={showTips()}>
-            <Tips />
+            <Tips ads={ads()} />
           </Show>
         </box>
         <Toast />

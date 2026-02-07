@@ -1399,6 +1399,43 @@ export type KeybindsConfig = {
  */
 export type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR"
 
+export type AdsItemConfig = {
+  /**
+   * Unique ad identifier
+   */
+  id: string
+  /**
+   * Ad message text
+   */
+  text: string
+  /**
+   * Optional URL to show with the ad
+   */
+  url?: string
+  /**
+   * Enable this ad
+   */
+  enabled?: boolean
+}
+
+/**
+ * User-defined ads shown in the TUI tips area
+ */
+export type AdsConfig = {
+  /**
+   * Enable ads in the TUI
+   */
+  enabled?: boolean
+  /**
+   * Chance to show an ad instead of a tip (0-1)
+   */
+  ratio?: number
+  /**
+   * User-defined ads
+   */
+  items?: Array<AdsItemConfig>
+}
+
 /**
  * Server configuration for nikcli serve and web commands
  */
@@ -1719,7 +1756,11 @@ export type ConnectorGithub = {
 export type ConnectorLovable = {
   type: "lovable"
   /**
-   * Lovable API key
+   * Lovable OAuth access token
+   */
+  token?: string
+  /**
+   * Legacy Lovable API key
    */
   apiKey?: string
   enabled?: boolean
@@ -1777,6 +1818,7 @@ export type Config = {
      */
     diff_style?: "auto" | "stacked"
   }
+  ads?: AdsConfig
   server?: ServerConfig
   /**
    * Command configuration, see https://nikcli.store/docs/commands
@@ -4461,6 +4503,31 @@ export type ConnectorsAuthSetResponses = {
 }
 
 export type ConnectorsAuthSetResponse = ConnectorsAuthSetResponses[keyof ConnectorsAuthSetResponses]
+
+export type ConnectorsInvalidateData = {
+  body?: {
+    /**
+     * Connector name to invalidate (optional, invalidates all if not provided)
+     */
+    name?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+  }
+  url: "/connectors/invalidate"
+}
+
+export type ConnectorsInvalidateResponses = {
+  /**
+   * Cache invalidated
+   */
+  200: {
+    success: true
+  }
+}
+
+export type ConnectorsInvalidateResponse = ConnectorsInvalidateResponses[keyof ConnectorsInvalidateResponses]
 
 export type McpStatusData = {
   body?: never
