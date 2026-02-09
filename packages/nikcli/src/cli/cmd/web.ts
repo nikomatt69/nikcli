@@ -29,10 +29,23 @@ export const WebCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "start nikcli server and open web interface",
   handler: async (args) => {
-    if (!Flag.NIKCLI_SERVER_PASSWORD) {
+    const opts = await resolveNetworkOptions(args)
+
+    const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
+    const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
+
+    if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && !loopback) {
+      UI.println(
+        UI.Style.TEXT_WARNING_BOLD +
+          "!  " +
+          "NIKCLI_SERVER_TAILSCALE_AUTH is set but hostname is not loopback; Tailscale identity headers will not be trusted.",
+      )
+    }
+
+    if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
       UI.println(UI.Style.TEXT_WARNING_BOLD + "!  " + "NIKCLI_SERVER_PASSWORD is not set; server is unsecured.")
     }
-    const opts = await resolveNetworkOptions(args)
+
     const server = Server.listen(opts)
     UI.empty()
     UI.println(UI.logo("  "))

@@ -28,6 +28,8 @@ export namespace Flag {
   export const NIKCLI_CLIENT = process.env["NIKCLI_CLIENT"] ?? "cli"
   export const NIKCLI_SERVER_PASSWORD = process.env["NIKCLI_SERVER_PASSWORD"]
   export const NIKCLI_SERVER_USERNAME = process.env["NIKCLI_SERVER_USERNAME"]
+  export const NIKCLI_SERVER_TAILSCALE_AUTH = truthy("NIKCLI_SERVER_TAILSCALE_AUTH")
+  export const NIKCLI_SERVER_TAILSCALE_USERS = process.env["NIKCLI_SERVER_TAILSCALE_USERS"]
 
   // Connectors
   export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]

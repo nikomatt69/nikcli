@@ -51,6 +51,34 @@ export namespace Server {
 
   let _url: URL | undefined
   let _corsWhitelist: string[] = []
+  let _listenHostname: string | undefined
+
+  function isLoopbackHostname(hostname: string | undefined) {
+    if (!hostname) return false
+    return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
+  }
+
+  function tailscaleUserLogin(c: any): string | undefined {
+    const value = c.req.header("Tailscale-User-Login")
+    const login = value?.trim()
+    return login ? login : undefined
+  }
+
+  function isTailscaleLoginAllowed(login: string) {
+    const configured = Flag.NIKCLI_SERVER_TAILSCALE_USERS?.trim()
+    if (!configured) return true
+
+    const items = configured
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean)
+
+    if (items.length === 0) return true
+    if (items.some((x) => x === "*" || x.toLowerCase() === "any")) return true
+
+    const normalized = login.toLowerCase()
+    return items.some((x) => x.toLowerCase() === normalized)
+  }
 
   export function url(): URL {
     return _url ?? new URL("http://localhost:4096")
@@ -79,10 +107,33 @@ export namespace Server {
             status: 500,
           })
         })
-        .use((c, next) => {
+        .use(async (c, next) => {
+          // Always allow CORS preflight to reach the CORS middleware.
+          if (c.req.method === "OPTIONS") return next()
+
           const password = Flag.NIKCLI_SERVER_PASSWORD
-          if (!password) return next()
           const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
+
+          const tailscaleAuthEnabled = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(_listenHostname)
+          if (tailscaleAuthEnabled) {
+            const login = tailscaleUserLogin(c)
+            if (login) {
+              if (!isTailscaleLoginAllowed(login)) {
+                log.warn("tailscale user not allowed", {
+                  login,
+                })
+                return c.text("Forbidden", 403)
+              }
+              return next()
+            }
+
+            // If Tailscale auth is enabled, require identity headers. Optionally allow falling back to Basic Auth.
+            if (!password) {
+              return c.text("Unauthorized", 401)
+            }
+          }
+
+          if (!password) return next()
           return basicAuth({ username, password })(c, next)
         })
         .use(async (c, next) => {
@@ -104,18 +155,41 @@ export namespace Server {
         })
         .use(
           cors({
+            credentials: true,
+            allowHeaders: ["Authorization", "Content-Type", "x-nikcli-directory"],
             origin(input) {
-              if (!input) return
+              // Allow all origins for local development
+              if (input) {
+                if (
+                  input.startsWith("http://localhost") ||
+                  input.startsWith("http://127.0.0.1") ||
+                  input.startsWith("http://*.local") ||
+                  input === "tauri://localhost" ||
+                  input.startsWith("http://tailscale")
+                ) {
+                  return input
+                }
+              }
 
-              if (input.startsWith("http://localhost:")) return input
-              if (input.startsWith("http://127.0.0.1:")) return input
-              if (input === "tauri://localhost" || input === "http://tauri.localhost") return input
+              // Allow Tailscale Serve origins when Tailscale auth is enabled.
+              if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(_listenHostname)) {
+                if (/^https:\/\/([a-z0-9-]+\.)*ts\.net(?::\d+)?$/.test(input ?? "")) {
+                  return input
+                }
+              }
 
-              // *.nikcli.store (https only, adjust if needed)
-              if (/^https:\/\/([a-z0-9-]+\.)*nikcli\.store$/.test(input)) {
+              // *.nikcli.store (https only)
+              if (/^https:\/\/([a-z0-9-]+\.)*nikcli\.store$/.test(input ?? "")) {
                 return input
               }
-              if (_corsWhitelist.includes(input)) {
+
+              // Allow whitelisted origins
+              if (_corsWhitelist.includes(input ?? "")) {
+                return input
+              }
+
+              // For local development, allow all (bypass CORS)
+              if (input?.startsWith("http://localhost") || input?.startsWith("http://127.0.0.1")) {
                 return input
               }
 
@@ -444,6 +518,36 @@ export namespace Server {
             return c.json(true)
           },
         )
+        .delete(
+          "/auth/:providerID",
+          describeRoute({
+            summary: "Remove auth credentials",
+            description: "Remove stored authentication credentials for a provider",
+            operationId: "auth.remove",
+            responses: {
+              200: {
+                description: "Successfully removed authentication credentials",
+                content: {
+                  "application/json": {
+                    schema: resolver(z.boolean()),
+                  },
+                },
+              },
+              ...errors(400),
+            },
+          }),
+          validator(
+            "param",
+            z.object({
+              providerID: z.string(),
+            }),
+          ),
+          async (c) => {
+            const providerID = c.req.valid("param").providerID
+            await Auth.remove(providerID)
+            return c.json(true)
+          },
+        )
         .get(
           "/event",
           describeRoute({
@@ -535,6 +639,13 @@ export namespace Server {
 
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     _corsWhitelist = opts.cors ?? []
+    _listenHostname = opts.hostname
+
+    if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && !isLoopbackHostname(opts.hostname)) {
+      log.warn("tailscale auth enabled but server is not bound to loopback; refusing to trust identity headers", {
+        hostname: opts.hostname,
+      })
+    }
 
     const args = {
       hostname: opts.hostname,

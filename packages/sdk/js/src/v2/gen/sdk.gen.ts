@@ -9,6 +9,8 @@ import type {
   AppLogResponses,
   AppSkillsResponses,
   Auth as Auth4,
+  AuthRemoveErrors,
+  AuthRemoveResponses,
   AuthSetErrors,
   AuthSetResponses,
   CommandListResponses,
@@ -3241,6 +3243,36 @@ export class Formatter extends HeyApiClient {
 }
 
 export class Auth3 extends HeyApiClient {
+  /**
+   * Remove auth credentials
+   *
+   * Remove stored authentication credentials for a provider
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      providerID: string
+      directory?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "providerID" },
+            { in: "query", key: "directory" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<AuthRemoveResponses, AuthRemoveErrors, ThrowOnError>({
+      url: "/auth/{providerID}",
+      ...options,
+      ...params,
+    })
+  }
+
   /**
    * Set auth credentials
    *

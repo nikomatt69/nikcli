@@ -1,6 +1,26 @@
-import solid from "vite-plugin-solid"
+import solidPlugin from "vite-plugin-solid"
 import tailwindcss from "@tailwindcss/vite"
+import { fileURLToPath } from "url"
 
-export default {
-  plugins: [solid(), tailwindcss()],
-}
+/**
+ * @type {import("vite").PluginOption}
+ */
+export default [
+  {
+    name: "nikcli-desktop:config",
+    config() {
+      return {
+        resolve: {
+          alias: {
+            "@": fileURLToPath(new URL("./src", import.meta.url)),
+          },
+        },
+        worker: {
+          format: "es",
+        },
+      }
+    },
+  },
+  tailwindcss(),
+  solidPlugin(),
+]

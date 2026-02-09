@@ -4,9 +4,9 @@ AI-powered development tool with a CLI and a TUI.
 
 Creator: nikomatt69 (GitHub: https://github.com/nikomatt69, X: https://x.com/nikomatt69)
 
-Fork notice: Nikcli is a fork of opencode.
+Upstream notice: Nikcli is based on an upstream open-source project.
 
-Credits: opencode project and repository https://github.com/anomalyco/opencode
+Credits: upstream project and contributors (see repository history).
 
 ## What it is
 

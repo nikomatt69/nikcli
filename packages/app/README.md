@@ -1,78 +1,51 @@
-# @nikcli-ai/app
+## Usage
 
-NikCLI Web Application - A SolidJS-based IDE interface inspired by OpenCode.
+Dependencies for these templates are managed with [pnpm](https://pnpm.io) using `pnpm up -Lri`.
 
-## Architecture
-
-This package implements a full-featured web IDE interface using:
-
-- **SolidJS** - Reactive UI framework
-- **Vite** - Build tool and dev server
-- **TailwindCSS** - Styling
-- **@kobalte/core** - UI component library
-- **@solidjs/router** - Client-side routing
-
-## Structure
-
-```
-src/
-├── components/
-│   ├── layout/      # Layout components (sidebar, titlebar, etc.)
-│   ├── editor/      # Code editor components
-│   ├── terminal/    # Terminal components
-│   ├── ui/          # Reusable UI components
-│   ├── dialogs/     # Modal dialogs
-│   └── input/       # Input components
-├── context/         # State management (20+ contexts)
-├── hooks/           # Custom hooks
-├── lib/             # Utilities and API client
-├── i18n/            # Internationalization (6 languages)
-├── routes/          # Route pages (registered in app.tsx)
-```
-
-## Development
+This is the reason you see a `pnpm-lock.yaml`. That said, any package manager will work. This file can safely be removed once you clone a template.
 
 ```bash
-# Install dependencies
-bun install
-
-# Start dev server
-bun run dev
-
-# Build for production
-bun run build
-
-# Run type check
-bun run typecheck
+$ npm install # or pnpm install or yarn install
 ```
 
-## Environment
+### Learn more on the [Solid Website](https://solidjs.com) and come chat with us on our [Discord](https://discord.com/invite/solidjs)
+
+## Available Scripts
+
+In the project directory, you can run:
+
+### `npm run dev` or `npm start`
+
+Runs the app in the development mode.<br>
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+
+The page will reload if you make edits.<br>
+
+### `npm run build`
+
+Builds the app for production to the `dist` folder.<br>
+It correctly bundles Solid in production mode and optimizes the build for the best performance.
+
+The build is minified and the filenames include the hashes.<br>
+Your app is ready to be deployed!
+
+## E2E Testing
+
+Playwright starts the Vite dev server automatically via `webServer`, and UI tests need a nikcli backend (defaults to `localhost:4096`).
+Use the local runner to create a temp sandbox, seed data, and run the tests.
 
 ```bash
-VITE_NIKCLI_URL=http://localhost:4096
-VITE_NIKCLI_USERNAME=nikcli
-VITE_NIKCLI_PASSWORD=your-password
-VITE_NIKCLI_DIRECTORY=/path/to/project
-VITE_APP_VERSION=1.0.0
+bunx playwright install
+bun run test:e2e:local
+bun run test:e2e:local -- --grep "settings"
 ```
 
-Notes:
+Environment options:
 
-- `VITE_NIKCLI_URL` (or `VITE_API_URL`) points to the Nikcli server.
-- Username/password are optional and only used for auto-login. Credentials entered in Settings are saved in local storage.
-- `VITE_NIKCLI_DIRECTORY` sets the `x-nikcli-directory` header for server scope.
+- `PLAYWRIGHT_SERVER_HOST` / `PLAYWRIGHT_SERVER_PORT` (backend address, default: `localhost:4096`)
+- `PLAYWRIGHT_PORT` (Vite dev server port, default: `3000`)
+- `PLAYWRIGHT_BASE_URL` (override base URL, default: `http://localhost:<PLAYWRIGHT_PORT>`)
 
 ## Deployment
 
-Deployed automatically via SST to `app.nikcli.store`.
-
-## Features
-
-- Multi-session support
-- Real-time collaboration
-- Command palette
-- Theme switching (light/dark/system)
-- Internationalization (EN, IT, ES, FR, DE)
-- Responsive layout
-- Terminal integration
-- Settings management
+You can deploy the `dist` folder to any static host provider (netlify, surge, now, etc.)

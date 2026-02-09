@@ -4,20 +4,6 @@ export type ClientOptions = {
   baseUrl: `${string}://${string}` | (string & {})
 }
 
-export type EventInstallationUpdated = {
-  type: "installation.updated"
-  properties: {
-    version: string
-  }
-}
-
-export type EventInstallationUpdateAvailable = {
-  type: "installation.update-available"
-  properties: {
-    version: string
-  }
-}
-
 export type Project = {
   id: string
   worktree: string
@@ -45,6 +31,20 @@ export type EventServerInstanceDisposed = {
   type: "server.instance.disposed"
   properties: {
     directory: string
+  }
+}
+
+export type EventInstallationUpdated = {
+  type: "installation.updated"
+  properties: {
+    version: string
+  }
+}
+
+export type EventInstallationUpdateAvailable = {
+  type: "installation.update-available"
+  properties: {
+    version: string
   }
 }
 
@@ -645,6 +645,10 @@ export type EventTodoUpdated = {
   properties: {
     sessionID: string
     todos: Array<Todo>
+    diff: {
+      added: Array<Todo>
+      completed: Array<Todo>
+    }
   }
 }
 
@@ -953,10 +957,10 @@ export type EventDbeditReplied = {
 }
 
 export type Event =
-  | EventInstallationUpdated
-  | EventInstallationUpdateAvailable
   | EventProjectUpdated
   | EventServerInstanceDisposed
+  | EventInstallationUpdated
+  | EventInstallationUpdateAvailable
   | EventServerConnected
   | EventGlobalDisposed
   | EventLspClientDiagnostics
@@ -1756,7 +1760,7 @@ export type ConnectorGithub = {
 export type ConnectorLovable = {
   type: "lovable"
   /**
-   * Lovable OAuth access token
+   * Lovable API key
    */
   token?: string
   /**
@@ -2024,6 +2028,156 @@ export type Config = {
     mcp_timeout?: number
   }
   rag?: RagConfig
+  /**
+   * Notification settings for various events
+   */
+  notifications?: {
+    todo?: {
+      /**
+       * Enable todo notifications
+       */
+      enabled?: boolean
+      /**
+       * Enable macOS native notifications
+       */
+      macos?: boolean
+      slack?: {
+        enabled?: boolean
+        /**
+         * Name of the Slack connector to use
+         */
+        connector?: string
+        /**
+         * Slack channel ID or name
+         */
+        channel?: string
+      }
+      discord?: {
+        enabled?: boolean
+        /**
+         * Discord webhook URL
+         */
+        webhook?: string
+      }
+    }
+    icon?: {
+      /**
+       * Icon image URL or file path for macOS notifications
+       */
+      url?: string
+      /**
+       * Alt text (unused for macOS)
+       */
+      alt?: string
+    }
+    notify?: {
+      /**
+       * Enable native notifications
+       */
+      enabled?: boolean
+      /**
+       * Enable macOS native notifications
+       */
+      macos?: boolean
+      slack?: {
+        enabled?: boolean
+        /**
+         * Name of the Slack connector to use
+         */
+        connector?: string
+        /**
+         * Slack channel ID or name
+         */
+        channel?: string
+      }
+      discord?: {
+        enabled?: boolean
+        /**
+         * Discord webhook URL
+         */
+        webhook?: string
+      }
+      events?: {
+        /**
+         * Notify when a session becomes idle
+         */
+        sessionIdle?: boolean
+        /**
+         * Notify when a session errors
+         */
+        sessionError?: boolean
+        /**
+         * Notify when permissions are requested
+         */
+        permissionAsked?: boolean
+        /**
+         * Notify when questions are asked
+         */
+        questionAsked?: boolean
+      }
+      /**
+       * Minimum busy duration before idle notifications
+       */
+      idleMinMs?: number
+      rateLimit?: {
+        /**
+         * Rate limit window in ms
+         */
+        windowMs?: number
+        /**
+         * Max notifications per window
+         */
+        maxPerWindow?: number
+      }
+      retry?: {
+        attempts?: number
+        /**
+         * Initial retry delay in ms
+         */
+        delay?: number
+        /**
+         * Backoff multiplier
+         */
+        factor?: number
+        /**
+         * Max retry delay in ms
+         */
+        maxDelay?: number
+        /**
+         * Timeout per attempt in ms
+         */
+        timeoutMs?: number
+      }
+      breaker?: {
+        /**
+         * Failures before circuit opens
+         */
+        failures?: number
+        /**
+         * Circuit breaker cooldown in ms
+         */
+        cooldownMs?: number
+      }
+      quietHours?: {
+        /**
+         * Enable quiet hours
+         */
+        enabled?: boolean
+        /**
+         * Quiet hours start (HH:MM)
+         */
+        start?: string
+        /**
+         * Quiet hours end (HH:MM)
+         */
+        end?: string
+        /**
+         * Channels suppressed during quiet hours
+         */
+        suppress?: Array<"macos" | "slack" | "discord">
+      }
+    }
+  }
 }
 
 export type Model = {
@@ -5248,6 +5402,35 @@ export type FormatterStatusResponses = {
 }
 
 export type FormatterStatusResponse = FormatterStatusResponses[keyof FormatterStatusResponses]
+
+export type AuthRemoveData = {
+  body?: never
+  path: {
+    providerID: string
+  }
+  query?: {
+    directory?: string
+  }
+  url: "/auth/{providerID}"
+}
+
+export type AuthRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AuthRemoveError = AuthRemoveErrors[keyof AuthRemoveErrors]
+
+export type AuthRemoveResponses = {
+  /**
+   * Successfully removed authentication credentials
+   */
+  200: boolean
+}
+
+export type AuthRemoveResponse = AuthRemoveResponses[keyof AuthRemoveResponses]
 
 export type AuthSetData = {
   body?: Auth

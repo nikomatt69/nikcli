@@ -1,21 +1,15 @@
 import { defineConfig } from "vite"
-import solidPlugin from "vite-plugin-solid"
-import tailwindcss from "@tailwindcss/vite"
+import desktopPlugin from "./vite"
 
 export default defineConfig({
-  plugins: [solidPlugin(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": "/src",
-    },
-  },
+  plugins: [desktopPlugin] as any,
   server: {
     host: "0.0.0.0",
     allowedHosts: true,
-    port: 3002,
+    port: 3000,
   },
   build: {
     target: "esnext",
-    outDir: "dist",
+    // sourcemap: true,
   },
 })
