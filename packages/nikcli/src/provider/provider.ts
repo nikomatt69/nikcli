@@ -690,6 +690,7 @@ export namespace Provider {
 
     const providers: { [providerID: string]: Info } = {}
     const languages = new Map<string, LanguageModelV2>()
+    const images = new Map<string, ReturnType<SDK["imageModel"]>>()
     const modelLoaders: {
       [providerID: string]: CustomModelLoader
     } = {}
@@ -946,6 +947,7 @@ export namespace Provider {
 
     return {
       models: languages,
+      images,
       providers,
       sdk,
       modelLoaders,
@@ -1097,6 +1099,30 @@ export namespace Provider {
         : sdk.languageModel(model.api.id)
       s.models.set(key, language)
       return language
+    } catch (e) {
+      if (e instanceof NoSuchModelError)
+        throw new ModelNotFoundError(
+          {
+            modelID: model.id,
+            providerID: model.providerID,
+          },
+          { cause: e },
+        )
+      throw e
+    }
+  }
+
+  export async function getImageModel(model: Model) {
+    const s = await state()
+    const key = `${model.providerID}/${model.id}`
+    if (s.images.has(key)) return s.images.get(key)!
+
+    const sdk = await getSDK(model)
+
+    try {
+      const image = sdk.imageModel(model.api.id)
+      s.images.set(key, image)
+      return image
     } catch (e) {
       if (e instanceof NoSuchModelError)
         throw new ModelNotFoundError(

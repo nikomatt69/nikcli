@@ -597,6 +597,7 @@ export namespace Config {
           rag_search: PermissionRule.optional(),
           rag_status: PermissionRule.optional(),
           rag_reset: PermissionRule.optional(),
+          generate_image: PermissionRule.optional(),
           external_directory: PermissionRule.optional(),
           todowrite: PermissionAction.optional(),
           todoread: PermissionAction.optional(),
@@ -604,6 +605,7 @@ export namespace Config {
           webfetch: PermissionAction.optional(),
           websearch: PermissionAction.optional(),
           codesearch: PermissionAction.optional(),
+          speak: PermissionRule.optional(),
           lsp: PermissionRule.optional(),
           doom_loop: PermissionAction.optional(),
         })
@@ -936,6 +938,22 @@ export namespace Config {
     })
   export type Rag = z.infer<typeof Rag>
 
+  export const Image = z
+    .object({
+      model: z
+        .string()
+        .optional()
+        .describe(
+          "Image generation model (e.g., openai/gpt-image-1.5, google/nano-banana-pro, google/gemini-3-pro-image)",
+        ),
+      provider: z.string().optional().describe("Provider for image generation (e.g., openai, poe, vercel)"),
+    })
+    .strict()
+    .meta({
+      ref: "ImageConfig",
+    })
+  export type Image = z.infer<typeof Image>
+
   export const Provider = ModelsDev.Provider.partial()
     .extend({
       whitelist: z.array(z.string()).optional(),
@@ -1211,6 +1229,7 @@ export namespace Config {
         })
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
+      image: Image.optional().describe("Image generation configuration"),
       notifications: z
         .object({
           todo: z

@@ -27,6 +27,7 @@ import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { RagModelCommand } from "./cli/cmd/rag-model"
+import { ImageModelCommand } from "./cli/cmd/image-model"
 import { RemoteCommand } from "./cli/cmd/remote"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
 import { AdsCommand } from "./cli/cmd/ads"
@@ -106,6 +107,7 @@ const cli = yargs(hideBin(process.argv))
   .command(PrCommand)
   .command(SessionCommand)
   .command(RagModelCommand)
+  .command(ImageModelCommand)
   .command(RemoteCommand)
   .fail((msg, err) => {
     if (

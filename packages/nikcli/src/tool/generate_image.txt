@@ -1,0 +1,12 @@
+Generate an image from a text prompt using an image model (e.g. GPT Image or Nano Banana).
+
+Usage:
+- prompt: text prompt for image generation
+- generator: preset image generator (optional)
+- provider: provider ID override (optional)
+- model: model ID override (optional)
+- n: number of images to generate (default: 1)
+- size: output size in "{width}x{height}" (optional)
+- aspectRatio: output aspect ratio in "{width}:{height}" (optional)
+- seed: deterministic seed (optional)
+- providerOptions: provider-specific options passed through to the underlying API (optional)

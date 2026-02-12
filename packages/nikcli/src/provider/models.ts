@@ -10,6 +10,96 @@ export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
   const filepath = path.join(Global.Path.cache, "models.json")
 
+  function ensureModel(database: Record<string, Provider>, providerID: string, modelID: string, model: Model) {
+    const provider = database[providerID]
+    if (!provider) return
+    if (!provider.models) return
+    if (provider.models[modelID]) return
+    provider.models[modelID] = model
+  }
+
+  function patch(database: Record<string, Provider>): Record<string, Provider> {
+    // MiniMax M2.5 (models.dev PR #875)
+    const releaseDate = "2026-02-12"
+    const limit = {
+      context: 204_800,
+      output: 131_072,
+    }
+    const modalities: NonNullable<Model["modalities"]> = {
+      input: ["text"],
+      output: ["text"],
+    }
+
+    const minimaxM25Paid: Model = {
+      id: "MiniMax-M2.5",
+      name: "MiniMax-M2.5",
+      family: "minimax",
+      release_date: releaseDate,
+      attachment: false,
+      reasoning: true,
+      tool_call: true,
+      temperature: true,
+      cost: {
+        input: 0.3,
+        output: 1.2,
+        cache_read: 0.03,
+        cache_write: 0.375,
+      },
+      limit,
+      modalities,
+      options: {},
+    }
+
+    const minimaxM25Free: Model = {
+      id: "MiniMax-M2.5",
+      name: "MiniMax-M2.5",
+      family: "minimax",
+      release_date: releaseDate,
+      attachment: false,
+      reasoning: true,
+      tool_call: true,
+      temperature: true,
+      cost: {
+        input: 0,
+        output: 0,
+        cache_read: 0,
+        cache_write: 0,
+      },
+      limit,
+      modalities,
+      options: {},
+    }
+
+    const openrouterM25: Model = {
+      id: "minimax/minimax-m2.5",
+      name: "MiniMax M2.5",
+      family: "minimax",
+      release_date: releaseDate,
+      attachment: false,
+      reasoning: true,
+      tool_call: true,
+      temperature: true,
+      interleaved: {
+        field: "reasoning_details",
+      },
+      cost: {
+        input: 0.3,
+        output: 1.2,
+      },
+      limit,
+      modalities,
+      options: {},
+    }
+
+    ensureModel(database, "minimax", "MiniMax-M2.5", minimaxM25Paid)
+    ensureModel(database, "minimax-cn", "MiniMax-M2.5", minimaxM25Paid)
+    ensureModel(database, "minimax-coding-plan", "MiniMax-M2.5", minimaxM25Free)
+    ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M2.5", minimaxM25Free)
+    ensureModel(database, "openrouter", "minimax/minimax-m2.5", openrouterM25)
+
+    return database
+  }
+
   export const Model = z.object({
     id: z.string(),
     name: z.string(),
@@ -82,11 +172,11 @@ export namespace ModelsDev {
     }
     const file = Bun.file(filepath)
     const result = await file.json().catch(() => {})
-    if (result) return result as Record<string, Provider>
+    if (result) return patch(result as Record<string, Provider>)
     if (typeof data === "function" && !Flag.NIKCLI_DISABLE_MODELS_FETCH) {
       try {
         const json = await data()
-        return JSON.parse(json) as Record<string, Provider>
+        return patch(JSON.parse(json) as Record<string, Provider>)
       } catch (error) {
         log.error("Failed to load embedded models data", { error })
       }
@@ -99,7 +189,7 @@ export namespace ModelsDev {
         log.error("Failed to fetch models.dev", { error })
         return "{}"
       })
-    return JSON.parse(json) as Record<string, Provider>
+    return patch(JSON.parse(json) as Record<string, Provider>)
   }
 
   export async function refresh() {

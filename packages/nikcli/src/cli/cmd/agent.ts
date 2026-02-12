@@ -18,6 +18,8 @@ const AVAILABLE_TOOLS = [
   "read",
   "write",
   "edit",
+  "generate_image",
+  "speak",
   "list",
   "glob",
   "grep",

@@ -40,6 +40,7 @@ import { RagIndexTool } from "./rag_index"
 import { RagSearchTool } from "./rag_search"
 import { RagStatusTool } from "./rag_status"
 import { RagResetTool } from "./rag_reset"
+import { GenerateImageTool } from "./generate_image"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
@@ -47,6 +48,7 @@ import { Truncate } from "./truncation"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
 import { UseConnectorTool } from "./use-connector"
+import { SpeakTool } from "./speak"
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
@@ -142,6 +144,7 @@ export namespace ToolRegistry {
       RagSearchTool,
       RagStatusTool,
       RagResetTool,
+      GenerateImageTool,
       WebFetchTool,
       TodoWriteTool,
       TodoReadTool,
@@ -153,6 +156,7 @@ export namespace ToolRegistry {
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
       UseConnectorTool,
+      SpeakTool,
       ...custom,
     ]
   }

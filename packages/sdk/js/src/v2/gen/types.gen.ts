@@ -1539,6 +1539,7 @@ export type PermissionConfig =
       rag_search?: PermissionRuleConfig
       rag_status?: PermissionRuleConfig
       rag_reset?: PermissionRuleConfig
+      generate_image?: PermissionRuleConfig
       external_directory?: PermissionRuleConfig
       todowrite?: PermissionActionConfig
       todoread?: PermissionActionConfig
@@ -1546,6 +1547,7 @@ export type PermissionConfig =
       webfetch?: PermissionActionConfig
       websearch?: PermissionActionConfig
       codesearch?: PermissionActionConfig
+      speak?: PermissionRuleConfig
       lsp?: PermissionRuleConfig
       doom_loop?: PermissionActionConfig
       [key: string]: PermissionRuleConfig | Array<string> | PermissionActionConfig | undefined
@@ -1834,6 +1836,20 @@ export type RagConfig = {
   provider?: string
 }
 
+/**
+ * Image generation configuration
+ */
+export type ImageConfig = {
+  /**
+   * Image generation model (e.g., openai/gpt-image-1.5, google/nano-banana-pro, google/gemini-3-pro-image)
+   */
+  model?: string
+  /**
+   * Provider for image generation (e.g., openai, poe, vercel)
+   */
+  provider?: string
+}
+
 export type Config = {
   /**
    * JSON schema reference for configuration validation
@@ -2073,6 +2089,7 @@ export type Config = {
     mcp_timeout?: number
   }
   rag?: RagConfig
+  image?: ImageConfig
   /**
    * Notification settings for various events
    */
