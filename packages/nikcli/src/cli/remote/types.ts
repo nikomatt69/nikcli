@@ -27,6 +27,14 @@ export interface SessionOptions {
   name?: string
   timeout?: number
   maxDevices?: number
+  cloud?: {
+    enabled: boolean
+    url: string
+    token: string
+    deviceID: string
+    sessionID?: string
+    publicKey?: string
+  }
 }
 
 export interface RemoteServiceConfig {
@@ -84,12 +92,7 @@ export interface RemoteSessionPersistence {
 }
 
 export interface SubagentRemoteEvent {
-  type:
-    | "subagent:start"
-    | "subagent:progress"
-    | "subagent:complete"
-    | "subagent:error"
-    | "subagent:input_required"
+  type: "subagent:start" | "subagent:progress" | "subagent:complete" | "subagent:error" | "subagent:input_required"
   payload: {
     agentName: string
     task?: string

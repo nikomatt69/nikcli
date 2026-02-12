@@ -2,10 +2,11 @@ import type { Argv } from "yargs"
 import { cmd } from "./cmd"
 import { Instance } from "../../project/instance"
 import { UI } from "../ui"
-import { remoteService, qrRenderer, type RemoteSession } from "../remote"
+import { remoteService, qrRenderer, type RemoteSession, type SessionOptions } from "../remote"
 import { createTunnel, checkTunnelAvailability, probeTunnel, type TunnelProvider } from "@nikcli-ai/remote"
 import readline from "node:readline"
 import clipboardy from "clipboardy"
+import os from "node:os"
 
 const RemoteStartCommand = cmd({
   command: "start",
@@ -31,6 +32,31 @@ const RemoteStartCommand = cmd({
       .option("provider", {
         describe: "tunnel provider (localtunnel, cloudflared, ngrok, remotosh)",
         type: "string",
+      })
+      .option("cloud", {
+        describe: "enable cloud relay mode",
+        type: "boolean",
+        default: false,
+      })
+      .option("cloud-url", {
+        describe: "cloud relay base URL",
+        type: "string",
+      })
+      .option("cloud-token", {
+        describe: "cloud relay bearer token",
+        type: "string",
+      })
+      .option("cloud-device-id", {
+        describe: "cloud relay device identifier",
+        type: "string",
+      })
+      .option("cloud-session-id", {
+        describe: "override cloud relay session ID",
+        type: "string",
+      })
+      .option("cloud-public-key", {
+        describe: "optional E2E public key to register with cloud",
+        type: "string",
       }),
   handler: async (args) => {
     await Instance.provide({
@@ -45,15 +71,21 @@ const RemoteStartCommand = cmd({
             return
           }
 
+          const cloud = resolveCloudOptions(args)
           const session = await remoteService.startSession({
             name: args.name as string | undefined,
             timeout: parseInt(args.timeout as string, 10) * 1000,
+            ...(cloud ? { cloud } : {}),
           })
 
           await maybeCreateTunnel(session, {
             enableTunnel: !args.noTunnel,
             provider: args.provider as TunnelProvider | undefined,
           })
+
+          if (cloud?.enabled) {
+            UI.println(`Cloud relay enabled: ${cloud.url}`)
+          }
 
           await qrRenderer.render(session)
           await setupKeyboardControl(session)
@@ -189,10 +221,49 @@ function showRemoteHelp(): void {
   UI.println("")
   UI.println("Commands:")
   UI.println("  start [--name <name>]   Start a new remote session")
+  UI.println("      --cloud             Enable cloud relay mode")
+  UI.println("      --cloud-url <url>   Cloud relay URL")
+  UI.println("      --cloud-token <t>   Cloud relay token")
   UI.println("  stop                    Stop the active session")
   UI.println("  status [--json]         Show session status and QR code")
   UI.println("  share                   Get shareable session link")
   UI.println("  attach <id>             Attach to an existing session")
+}
+
+function resolveCloudOptions(args: Record<string, unknown>): SessionOptions["cloud"] | undefined {
+  const enabled = Boolean(args.cloud)
+  if (!enabled) return undefined
+
+  const cloudUrl = String(args.cloudUrl || args["cloud-url"] || process.env.NIKCLI_CLOUD_URL || "").trim()
+  const cloudToken = String(args.cloudToken || args["cloud-token"] || process.env.NIKCLI_CLOUD_TOKEN || "").trim()
+  const cloudDeviceID = String(
+    args.cloudDeviceId || args["cloud-device-id"] || process.env.NIKCLI_CLOUD_DEVICE_ID || `nikcli-${os.hostname()}`,
+  ).trim()
+  const cloudSessionID = String(
+    args.cloudSessionId || args["cloud-session-id"] || process.env.NIKCLI_CLOUD_SESSION_ID || "",
+  ).trim()
+  const cloudPublicKey = String(
+    args.cloudPublicKey || args["cloud-public-key"] || process.env.NIKCLI_CLOUD_PUBLIC_KEY || "",
+  ).trim()
+
+  if (!cloudUrl) {
+    throw new Error("Cloud relay requires --cloud-url or NIKCLI_CLOUD_URL")
+  }
+  if (!cloudToken) {
+    throw new Error("Cloud relay requires --cloud-token or NIKCLI_CLOUD_TOKEN")
+  }
+  if (!cloudDeviceID) {
+    throw new Error("Cloud relay requires --cloud-device-id or NIKCLI_CLOUD_DEVICE_ID")
+  }
+
+  return {
+    enabled: true,
+    url: cloudUrl,
+    token: cloudToken,
+    deviceID: cloudDeviceID,
+    ...(cloudSessionID ? { sessionID: cloudSessionID } : {}),
+    ...(cloudPublicKey ? { publicKey: cloudPublicKey } : {}),
+  }
 }
 
 async function maybeCreateTunnel(

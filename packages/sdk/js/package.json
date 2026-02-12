@@ -12,6 +12,8 @@
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
     "./server": "./src/server.ts",
+    "./crypto": "./src/crypto/index.ts",
+    "./cloud": "./src/cloud/index.ts",
     "./v2": "./src/v2/index.ts",
     "./v2/client": "./src/v2/client.ts",
     "./v2/server": "./src/v2/server.ts"

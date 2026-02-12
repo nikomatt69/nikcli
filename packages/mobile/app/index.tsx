@@ -4,19 +4,20 @@ import { useTheme } from "react-native-paper"
 import { Redirect, Slot } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { ThemeProvider, QueryProvider } from "../src/providers"
-import { useConnectionStore } from "../src/stores"
 import { getStoredCredentials } from "../src/services/crypto"
 
 export default function RootLayout() {
   const theme = useTheme()
-  const connectionStore = useConnectionStore()
   const [isLoading, setIsLoading] = useState(true)
   const [needsAuth, setNeedsAuth] = useState(false)
 
   useEffect(() => {
     const init = async () => {
-      const { url, secret } = getStoredCredentials()
-      if (!url || !secret) {
+      const credentials = getStoredCredentials()
+      const hasLocal = Boolean(credentials.url && credentials.secret)
+      const hasCloud = Boolean(credentials.cloudUrl && credentials.cloudToken)
+
+      if (!hasLocal && !hasCloud) {
         setNeedsAuth(true)
       }
       setIsLoading(false)

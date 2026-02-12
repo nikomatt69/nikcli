@@ -11,9 +11,27 @@ import type {
 
 type RemoteServer = import("@nikcli-ai/remote").RemoteServer
 type NativeSession = import("@nikcli-ai/remote").RemoteSession
+type CloudAgent = import("@nikcli-ai/remote/cloud-agent").CloudAgent
+
+interface RelayTerminalMessage {
+  from?: {
+    userID?: string
+    deviceID?: string
+  }
+  sessionID?: string
+  body?: {
+    type?: string
+    payload?: {
+      data?: string
+      cols?: number
+      rows?: number
+    }
+  }
+}
 
 export class SessionManager extends EventEmitter {
   private server: RemoteServer | null = null
+  private cloudAgent: CloudAgent | null = null
   private session: RemoteSession | null = null
   private config: RemoteServiceConfig
 
@@ -72,6 +90,23 @@ export class SessionManager extends EventEmitter {
       this.emit("terminal:resize", cols, rows)
     })
 
+    this.server.on("terminal:output", (data: string) => {
+      // Server already broadcasts to WebSocket clients
+      // Just emit for other listeners, don't re-broadcast
+      this.emit("terminal:output", data)
+      if (this.cloudAgent?.isRelayConnected()) {
+        try {
+          this.cloudAgent.sendRelayMessage({
+            type: "terminal:output",
+            payload: { data },
+            timestamp: Date.now(),
+          })
+        } catch {
+          // relay may disconnect while terminal output is in-flight
+        }
+      }
+    })
+
     const nativeSession: NativeSession = await this.server.start({
       name: options?.name,
       processForStreaming: {
@@ -97,10 +132,25 @@ export class SessionManager extends EventEmitter {
       port: nativeSession.port,
     }
 
+    try {
+      await this.startCloudAgent(options)
+    } catch (error) {
+      await this.server.stop().catch(() => {})
+      this.server = null
+      this.session.status = "error"
+      throw error
+    }
+
     return this.session
   }
 
   async stop(): Promise<void> {
+    if (this.cloudAgent) {
+      await this.cloudAgent.disconnectRelay().catch(() => {})
+      this.cloudAgent.removeAllListeners()
+      this.cloudAgent = null
+    }
+
     if (this.server) {
       await this.server.stop()
       this.server = null
@@ -149,5 +199,67 @@ export class SessionManager extends EventEmitter {
 
   getConnectedCount(): number {
     return this.server?.getConnectedCount() ?? 0
+  }
+
+  private async startCloudAgent(options?: SessionOptions): Promise<void> {
+    if (!options?.cloud?.enabled || !this.session) return
+
+    const { CloudAgent } = await import("@nikcli-ai/remote/cloud-agent")
+    const sessionID = options.cloud.sessionID || this.session.id
+
+    const agent = new CloudAgent({
+      cloudUrl: options.cloud.url,
+      token: options.cloud.token,
+      deviceID: options.cloud.deviceID,
+    })
+
+    agent.on("connected", () => {
+      this.emit("cloud:connected", {
+        sessionID,
+        cloudUrl: options.cloud?.url,
+      })
+    })
+
+    agent.on("disconnected", (info: unknown) => {
+      this.emit("cloud:disconnected", info)
+    })
+
+    agent.on("message", (payload: unknown) => {
+      this.emit("cloud:message", payload)
+      if (this.server && payload && typeof payload === "object") {
+        const body = payload as RelayTerminalMessage
+
+        const messageType = body.body?.type
+        if (messageType === "terminal:input" || messageType === "terminal.input") {
+          const input = body.body?.payload?.data
+          if (typeof input === "string") {
+            this.server.sendInputToTerminal(input)
+          }
+        }
+
+        if (messageType === "terminal:resize" || messageType === "terminal.resize") {
+          const cols = body.body?.payload?.cols
+          const rows = body.body?.payload?.rows
+          if (typeof cols === "number" && typeof rows === "number") {
+            this.server.resizeTerminal(cols, rows)
+          }
+        }
+      }
+    })
+
+    agent.on("error", (error: unknown) => {
+      this.emit("cloud:error", error)
+    })
+
+    if (options.cloud.publicKey) {
+      await agent.registerDevice({
+        name: "nikcli-desktop",
+        platform: "desktop",
+        publicKey: options.cloud.publicKey,
+      })
+    }
+
+    this.cloudAgent = agent
+    await agent.connectRelay(sessionID)
   }
 }

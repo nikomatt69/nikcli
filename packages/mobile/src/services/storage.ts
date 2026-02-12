@@ -33,8 +33,13 @@ export function clearAll(): void {
 }
 
 export const STORAGE_KEYS = {
+  CONNECTION_MODE: "connection:mode",
   SERVER_URL: "connection:serverUrl",
   SESSION_SECRET: "connection:sessionSecret",
+  CLOUD_URL: "connection:cloudUrl",
+  CLOUD_TOKEN: "connection:cloudToken",
+  CLOUD_DEVICE_ID: "connection:cloudDeviceId",
+  CLOUD_PUBLIC_KEY: "connection:cloudPublicKey",
   RECENT_SERVERS: "connection:recentServers",
   LAST_EVENT_ID: "sse:lastEventId",
   OFFLINE_QUEUE: "offline:queue",

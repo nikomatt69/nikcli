@@ -1,3 +1,5 @@
+/// <reference path="../.sst/platform/config.d.ts" />
+
 import { domain } from "./stage"
 
 const GITHUB_APP_ID = new sst.Secret("GITHUB_APP_ID")
@@ -6,12 +8,13 @@ export const EMAILOCTOPUS_API_KEY = new sst.Secret("EMAILOCTOPUS_API_KEY")
 const ADMIN_SECRET = new sst.Secret("ADMIN_SECRET")
 const DISCORD_SUPPORT_BOT_TOKEN = new sst.Secret("DISCORD_SUPPORT_BOT_TOKEN")
 const DISCORD_SUPPORT_CHANNEL_ID = new sst.Secret("DISCORD_SUPPORT_CHANNEL_ID")
+const NIKCLI_DISCORD_WEBHOOK_URL = new sst.Secret("NIKCLI_DISCORD_WEBHOOK_URL")
 const FEISHU_APP_ID = new sst.Secret("FEISHU_APP_ID")
 const FEISHU_APP_SECRET = new sst.Secret("FEISHU_APP_SECRET")
 const NIKCLI_FIGMA_TOKEN = new sst.Secret("NIKCLI_FIGMA_TOKEN")
 const NIKCLI_GITHUB_TOKEN = new sst.Secret("NIKCLI_GITHUB_TOKEN")
-const NIKCLI_LOVABLE_API_KEY = new sst.Secret("NIKCLI_LOVABLE_API_KEY")
 const NIKCLI_SLACK_BOT_TOKEN = new sst.Secret("NIKCLI_SLACK_BOT_TOKEN")
+const NIKCLI_SLACK_CHANNEL = new sst.Secret("NIKCLI_SLACK_CHANNEL")
 
 export const api = new sst.cloudflare.Worker("Api", {
   domain: `api.${domain}`,
@@ -26,16 +29,19 @@ export const api = new sst.cloudflare.Worker("Api", {
     ADMIN_SECRET,
     DISCORD_SUPPORT_BOT_TOKEN,
     DISCORD_SUPPORT_CHANNEL_ID,
+    NIKCLI_DISCORD_WEBHOOK_URL,
     FEISHU_APP_ID,
     FEISHU_APP_SECRET,
     NIKCLI_FIGMA_TOKEN,
     NIKCLI_GITHUB_TOKEN,
-    NIKCLI_LOVABLE_API_KEY,
     NIKCLI_SLACK_BOT_TOKEN,
+    NIKCLI_SLACK_CHANNEL,
   ],
   transform: {
     worker: (args) => {
-      args.logpush = true
+      if (process.env.CLOUDFLARE_ENABLE_LOGPUSH === "1") {
+        args.logpush = true
+      }
     },
   },
 })

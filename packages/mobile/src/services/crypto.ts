@@ -8,6 +8,25 @@ export interface StoredServer {
   lastConnected: number
 }
 
+export type ConnectionMode = "local" | "cloud"
+
+export interface StoredCloudConfig {
+  url: string
+  token: string
+  deviceID: string
+  publicKey?: string
+}
+
+export interface StoredCredentials {
+  mode: ConnectionMode | null
+  url: string | null
+  secret: string | null
+  cloudUrl: string | null
+  cloudToken: string | null
+  cloudDeviceID: string | null
+  cloudPublicKey: string | null
+}
+
 export async function generateSecret(): Promise<string> {
   const randomBytes = await Crypto.getRandomBytesAsync(16)
   const hex = Array.from(randomBytes)
@@ -16,13 +35,28 @@ export async function generateSecret(): Promise<string> {
   return hex
 }
 
-export function getStoredCredentials(): { url: string | null; secret: string | null } {
+export function getStoredCredentials(): StoredCredentials {
+  const mode = getItem<ConnectionMode | null>(STORAGE_KEYS.CONNECTION_MODE, null)
   const url = getItem<string | null>(STORAGE_KEYS.SERVER_URL, null)
   const secret = getItem<string | null>(STORAGE_KEYS.SESSION_SECRET, null)
-  return { url, secret }
+  const cloudUrl = getItem<string | null>(STORAGE_KEYS.CLOUD_URL, null)
+  const cloudToken = getItem<string | null>(STORAGE_KEYS.CLOUD_TOKEN, null)
+  const cloudDeviceID = getItem<string | null>(STORAGE_KEYS.CLOUD_DEVICE_ID, null)
+  const cloudPublicKey = getItem<string | null>(STORAGE_KEYS.CLOUD_PUBLIC_KEY, null)
+
+  return {
+    mode,
+    url,
+    secret,
+    cloudUrl,
+    cloudToken,
+    cloudDeviceID,
+    cloudPublicKey,
+  }
 }
 
 export function setStoredCredentials(url: string, secret: string): void {
+  setItem(STORAGE_KEYS.CONNECTION_MODE, "local")
   setItem(STORAGE_KEYS.SERVER_URL, url)
   setItem(STORAGE_KEYS.SESSION_SECRET, secret)
 
@@ -30,8 +64,30 @@ export function setStoredCredentials(url: string, secret: string): void {
 }
 
 export function clearStoredCredentials(): void {
+  removeItem(STORAGE_KEYS.CONNECTION_MODE)
   removeItem(STORAGE_KEYS.SERVER_URL)
   removeItem(STORAGE_KEYS.SESSION_SECRET)
+  removeItem(STORAGE_KEYS.CLOUD_URL)
+  removeItem(STORAGE_KEYS.CLOUD_TOKEN)
+  removeItem(STORAGE_KEYS.CLOUD_DEVICE_ID)
+  removeItem(STORAGE_KEYS.CLOUD_PUBLIC_KEY)
+}
+
+export function setStoredCloudCredentials(config: StoredCloudConfig): void {
+  setItem(STORAGE_KEYS.CONNECTION_MODE, "cloud")
+  setItem(STORAGE_KEYS.CLOUD_URL, config.url)
+  setItem(STORAGE_KEYS.CLOUD_TOKEN, config.token)
+  setItem(STORAGE_KEYS.CLOUD_DEVICE_ID, config.deviceID)
+  if (config.publicKey) {
+    setItem(STORAGE_KEYS.CLOUD_PUBLIC_KEY, config.publicKey)
+  }
+}
+
+export async function generateDevicePublicKey(): Promise<string> {
+  const randomBytes = await Crypto.getRandomBytesAsync(32)
+  return Array.from(randomBytes)
+    .map((item) => item.toString(16).padStart(2, "0"))
+    .join("")
 }
 
 export function getRecentServers(): StoredServer[] {

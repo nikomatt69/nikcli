@@ -1,4 +1,5 @@
 /// <reference path="./.sst/platform/config.d.ts" />
+/// <reference path="./sst-env.d.ts" />
 
 export default $config({
   app(input) {
@@ -10,7 +11,6 @@ export default $config({
       providers: {
         cloudflare: {
           apiToken: process.env.CLOUDFLARE_API_TOKEN,
-          accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
         },
         stripe: {
           apiKey: process.env.STRIPE_SECRET_KEY!,

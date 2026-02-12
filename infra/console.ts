@@ -1,3 +1,5 @@
+/// <reference path="../.sst/platform/config.d.ts" />
+
 import { domain } from "./stage"
 import { EMAILOCTOPUS_API_KEY } from "./app"
 
@@ -35,13 +37,12 @@ new sst.x.DevCommand("Studio", {
 
 const GITHUB_CLIENT_ID_CONSOLE = new sst.Secret("GITHUB_CLIENT_ID_CONSOLE")
 const GITHUB_CLIENT_SECRET_CONSOLE = new sst.Secret("GITHUB_CLIENT_SECRET_CONSOLE")
-const GOOGLE_CLIENT_ID = new sst.Secret("GOOGLE_CLIENT_ID")
 const authStorage = new sst.cloudflare.Kv("AuthStorage")
 export const auth = new sst.cloudflare.Worker("AuthApi", {
   domain: `auth.${domain}`,
   handler: "packages/console/function/src/auth.ts",
   url: true,
-  link: [database, authStorage, GITHUB_CLIENT_ID_CONSOLE, GITHUB_CLIENT_SECRET_CONSOLE, GOOGLE_CLIENT_ID],
+  link: [database, authStorage, GITHUB_CLIENT_ID_CONSOLE, GITHUB_CLIENT_SECRET_CONSOLE],
 })
 
 ////////////////
@@ -81,7 +82,7 @@ export const stripeWebhook = new stripe.WebhookEndpoint("StripeWebhookEndpoint",
 const zenProduct = new stripe.Product("ZenBlack", {
   name: "Nikcli Black",
 })
-const zenPrice = new stripe.Price("ZenBlackPrice", {
+new stripe.Price("ZenBlackPrice", {
   product: zenProduct.id,
   unitAmount: 20000,
   currency: "usd",
@@ -121,10 +122,8 @@ const AWS_SES_SECRET_ACCESS_KEY = new sst.Secret("AWS_SES_SECRET_ACCESS_KEY")
 
 let logProcessor
 if ($app.stage === "production" || $app.stage === "frank") {
-  const HONEYCOMB_API_KEY = new sst.Secret("HONEYCOMB_API_KEY")
   logProcessor = new sst.cloudflare.Worker("LogProcessor", {
     handler: "packages/console/function/src/log-processor.ts",
-    link: [HONEYCOMB_API_KEY],
   })
 }
 
@@ -144,9 +143,9 @@ new sst.cloudflare.x.SolidStart("Console", {
     ...ZEN_MODELS,
     ...($dev
       ? [
-        new sst.Secret("CLOUDFLARE_DEFAULT_ACCOUNT_ID", process.env.CLOUDFLARE_DEFAULT_ACCOUNT_ID!),
-        new sst.Secret("CLOUDFLARE_API_TOKEN", process.env.CLOUDFLARE_API_TOKEN!),
-      ]
+          new sst.Secret("CLOUDFLARE_DEFAULT_ACCOUNT_ID", process.env.CLOUDFLARE_DEFAULT_ACCOUNT_ID!),
+          new sst.Secret("CLOUDFLARE_API_TOKEN", process.env.CLOUDFLARE_API_TOKEN!),
+        ]
       : []),
     gatewayKv,
   ],

@@ -84,6 +84,22 @@ export type EventFileEdited = {
   }
 }
 
+export type OutputFormatText = {
+  type: "text"
+}
+
+export type JsonSchema = {
+  [key: string]: unknown
+}
+
+export type OutputFormatJsonSchema = {
+  type: "json_schema"
+  schema: JsonSchema
+  retryCount?: number
+}
+
+export type OutputFormat = OutputFormatText | OutputFormatJsonSchema
+
 export type FileDiff = {
   file: string
   before: string
@@ -99,6 +115,7 @@ export type UserMessage = {
   time: {
     created: number
   }
+  format?: OutputFormat
   summary?: {
     title?: string
     body?: string
@@ -145,6 +162,14 @@ export type MessageAbortedError = {
   }
 }
 
+export type StructuredOutputError = {
+  name: "StructuredOutputError"
+  data: {
+    message: string
+    retries: number
+  }
+}
+
 export type ApiError = {
   name: "APIError"
   data: {
@@ -169,7 +194,13 @@ export type AssistantMessage = {
     created: number
     completed?: number
   }
-  error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | ApiError
+  error?:
+    | ProviderAuthError
+    | UnknownError
+    | MessageOutputLengthError
+    | MessageAbortedError
+    | StructuredOutputError
+    | ApiError
   parentID: string
   modelID: string
   providerID: string
@@ -190,6 +221,7 @@ export type AssistantMessage = {
       write: number
     }
   }
+  structured?: unknown
   finish?: string
 }
 
@@ -225,6 +257,21 @@ export type TextPart = {
   metadata?: {
     [key: string]: unknown
   }
+}
+
+export type SubtaskPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "subtask"
+  prompt: string
+  description: string
+  agent: string
+  model?: {
+    providerID: string
+    modelID: string
+  }
+  command?: string
 }
 
 export type ReasoningPart = {
@@ -443,20 +490,7 @@ export type CompactionPart = {
 
 export type Part =
   | TextPart
-  | {
-      id: string
-      sessionID: string
-      messageID: string
-      type: "subtask"
-      prompt: string
-      description: string
-      agent: string
-      model?: {
-        providerID: string
-        modelID: string
-      }
-      command?: string
-    }
+  | SubtaskPart
   | ReasoningPart
   | FilePart
   | ToolPart
@@ -814,7 +848,13 @@ export type EventSessionError = {
   type: "session.error"
   properties: {
     sessionID?: string
-    error?: ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | ApiError
+    error?:
+      | ProviderAuthError
+      | UnknownError
+      | MessageOutputLengthError
+      | MessageAbortedError
+      | StructuredOutputError
+      | ApiError
   }
 }
 
@@ -1514,6 +1554,10 @@ export type PermissionConfig =
 
 export type AgentConfig = {
   model?: string
+  /**
+   * Default model variant for this agent (applies only when using the agent's configured model).
+   */
+  variant?: string
   temperature?: number
   top_p?: number
   prompt?: string
@@ -1621,6 +1665,7 @@ export type ProviderConfig = {
       }
       provider?: {
         npm: string
+        api: string
       }
       /**
        * Variant-specific configuration
@@ -2496,6 +2541,7 @@ export type Agent = {
     modelID: string
     providerID: string
   }
+  variant?: string
   prompt?: string
   options: {
     [key: string]: unknown
@@ -3631,6 +3677,7 @@ export type SessionPromptData = {
     tools?: {
       [key: string]: boolean
     }
+    format?: OutputFormat
     system?: string
     variant?: string
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
@@ -3818,6 +3865,7 @@ export type SessionPromptAsyncData = {
     tools?: {
       [key: string]: boolean
     }
+    format?: OutputFormat
     system?: string
     variant?: string
     parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
@@ -4322,6 +4370,7 @@ export type ProviderListResponses = {
           }
           provider?: {
             npm: string
+            api: string
           }
           variants?: {
             [key: string]: {

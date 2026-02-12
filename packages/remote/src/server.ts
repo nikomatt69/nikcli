@@ -7,7 +7,6 @@ import fs from "node:fs"
 import path from "node:path"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
-import { getWebClient } from "./web-client"
 import type {
   ServerConfig,
   RemoteSession,
@@ -209,6 +208,7 @@ export class RemoteServer extends EventEmitter {
       const text = data instanceof Buffer ? data.toString() : data
       const formatted = this.formatOutput(String(text))
       this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
+      this.emit("terminal:output", formatted)
       return result
     }) as typeof stdout.write
 
@@ -274,6 +274,7 @@ export class RemoteServer extends EventEmitter {
       const text = data.toString()
       const formatted = this.formatOutput(text)
       this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
+      this.emit("terminal:output", formatted)
     })
 
     // Forward input from clients to PTY
@@ -281,6 +282,7 @@ export class RemoteServer extends EventEmitter {
       const text = data.toString()
       const formatted = this.formatOutput(text)
       this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
+      this.emit("terminal:output", formatted)
     })
 
     // Set up input handler
@@ -393,10 +395,18 @@ export class RemoteServer extends EventEmitter {
   writeToClients(data: string): void {
     const formatted = this.formatOutput(data)
     this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
+    this.emit("terminal:output", formatted)
   }
 
   writeToTerminal(data: string): void {
     this.writeToClients(data)
+  }
+
+  sendInputToTerminal(data: string): void {
+    if (!this.ptyInput) return
+    if (typeof data !== "string" || data.length === 0) return
+    this.ptyInput(Buffer.from(data))
+    this.emit("terminal:input", "cloud", data)
   }
 
   resizeTerminal(cols: number, rows: number): void {
@@ -535,7 +545,7 @@ export class RemoteServer extends EventEmitter {
 
   private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
     const url = new URL(req.url || "/", `http://${req.headers.host}`)
-    const path = url.pathname
+    const reqPath = url.pathname
 
     res.setHeader("Access-Control-Allow-Origin", "*")
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -547,7 +557,7 @@ export class RemoteServer extends EventEmitter {
       return
     }
 
-    if (path === "/ghostty-web.js") {
+    if (reqPath === "/ghostty-web.js") {
       const script = getGhosttyScript()
       if (!script) {
         res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
@@ -562,7 +572,7 @@ export class RemoteServer extends EventEmitter {
       return
     }
 
-    if (path === "/ghostty-vt.wasm") {
+    if (reqPath === "/ghostty-vt.wasm") {
       const wasm = getGhosttyWasm()
       if (!wasm) {
         res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
@@ -577,26 +587,86 @@ export class RemoteServer extends EventEmitter {
       return
     }
 
-    if (path === "/" || path === "/index.html") {
-      res.writeHead(200, {
-        "Content-Type": "text/html; charset=utf-8",
-        "Content-Security-Policy":
-          "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob: 'wasm-unsafe-eval'; " +
-          "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
-          "connect-src 'self' ws: wss: https: blob: data:;",
-      })
-      res.end(getWebClient())
+    if (reqPath === "/" || reqPath === "/index.html") {
+      const htmlPath = path.join(__dirname, "..", "dist", "client", "index.html")
+      if (fs.existsSync(htmlPath)) {
+        const html = fs.readFileSync(htmlPath, "utf-8")
+        res.writeHead(200, {
+          "Content-Type": "text/html; charset=utf-8",
+          "Content-Security-Policy":
+            "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
+            "style-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob: 'wasm-unsafe-eval'; " +
+            "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
+            "connect-src 'self' ws: wss: https: blob: data:;",
+        })
+        res.end(html)
+        return
+      }
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      res.end(this.getFallbackHtml())
       return
     }
 
-    if (path === "/health") {
+    if (reqPath === "/manifest.webmanifest") {
+      const manifestPath = path.join(__dirname, "..", "public", "manifest.webmanifest")
+      if (fs.existsSync(manifestPath)) {
+        const manifest = fs.readFileSync(manifestPath, "utf-8")
+        res.writeHead(200, {
+          "Content-Type": "application/manifest+json; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        })
+        res.end(manifest)
+        return
+      }
+      res.writeHead(200, { "Content-Type": "application/manifest+json" })
+      res.end(this.getManifest())
+      return
+    }
+
+    if (reqPath === "/sw.js") {
+      const swPath = path.join(__dirname, "..", "public", "sw.js")
+      if (fs.existsSync(swPath)) {
+        const sw = fs.readFileSync(swPath, "utf-8")
+        res.writeHead(200, {
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        })
+        res.end(sw)
+        return
+      }
+      res.writeHead(200, { "Content-Type": "application/javascript" })
+      res.end(this.getServiceWorker())
+      return
+    }
+
+    const clientDistPath = path.join(__dirname, "..", "dist", "client", reqPath)
+    if (fs.existsSync(clientDistPath) && fs.statSync(clientDistPath).isFile()) {
+      const ext = path.extname(reqPath)
+      const contentTypes: Record<string, string> = {
+        ".js": "application/javascript",
+        ".css": "text/css",
+        ".json": "application/json",
+        ".wasm": "application/wasm",
+        ".png": "image/png",
+        ".svg": "image/svg+xml",
+        ".ico": "image/x-icon",
+      }
+      res.writeHead(200, {
+        "Content-Type": contentTypes[ext] || "application/octet-stream",
+        "Cache-Control": "public, max-age=3600",
+      })
+      res.end(fs.readFileSync(clientDistPath))
+      return
+    }
+
+    if (reqPath === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ status: "ok", session: this.session?.id }))
       return
     }
 
-    if (path === "/api/session") {
+    if (reqPath === "/api/session") {
       res.writeHead(200, { "Content-Type": "application/json" })
       res.end(
         JSON.stringify({
@@ -683,5 +753,53 @@ export class RemoteServer extends EventEmitter {
         }),
       )
     }
+  }
+
+  private getFallbackHtml(): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NikCLI Remote</title>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: system-ui; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    p { color: #8b949e; }
+  </style>
+</head>
+<body><p>Run 'nikcli remote start' to start a session</p></body>
+</html>`
+  }
+
+  private getManifest(): string {
+    return JSON.stringify({
+      name: "NikCLI Remote",
+      short_name: "NikCLI",
+      description: "Control NikCLI from mobile",
+      start_url: "/",
+      display: "standalone",
+      background_color: "#0d1117",
+      theme_color: "#0d1117",
+    })
+  }
+
+  private getServiceWorker(): string {
+    return `const CACHE_NAME = 'nikcli-remote-v1'
+const STATIC_ASSETS = ['/', '/index.html', '/ghostty-web.js', '/ghostty-vt.wasm', '/manifest.webmanifest']
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {})))
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))))
+  event.waitUntil(self.clients.claim())
+})
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return
+  event.respondWith(fetch(event.request).catch(() => new Response('Offline', { status: 503 })))
+})`
   }
 }

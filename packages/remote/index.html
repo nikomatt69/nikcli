@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#0d1117" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>NikCLI Remote</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        background: #0d1117;
+        color: #e6edf3;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        overflow: hidden;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        height: 100dvh;
+      }
+      #loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 16px;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid #30363d;
+        border-top-color: #58a6ff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #loading-text {
+        color: #8b949e;
+        font-size: 14px;
+      }
+      #terminal-container {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        background: #0d1117;
+      }
+      #terminal {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+      #header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        flex-shrink: 0;
+      }
+      #header h1 {
+        font-size: 15px;
+        font-weight: 600;
+        color: #58a6ff;
+      }
+      #status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #8b949e;
+      }
+      #status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f85149;
+      }
+      #status-dot.connected {
+        background: #3fb950;
+      }
+      #status-dot.connecting {
+        background: #d29922;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      #quickkeys {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 4px;
+        padding: 8px;
+        background: #161b22;
+        border-top: 1px solid #30363d;
+        flex-shrink: 0;
+      }
+      .qkey {
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 10px 4px;
+        color: #e6edf3;
+        font-size: 11px;
+        font-family:
+          "SF Mono",
+          Fira Code,
+          Consolas,
+          monospace;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.1s;
+      }
+      .qkey:active {
+        background: #30363d;
+        transform: scale(0.95);
+      }
+      .qkey.wide {
+        grid-column: span 2;
+      }
+      .qkey.accent {
+        background: #58a6ff;
+        border-color: #58a6ff;
+        color: #fff;
+      }
+      #input-container {
+        padding: 10px;
+        background: #161b22;
+        border-top: 1px solid #30363d;
+        flex-shrink: 0;
+      }
+      #input-row {
+        display: flex;
+        gap: 8px;
+      }
+      #input {
+        flex: 1;
+        background: #0d1117;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 12px 14px;
+        color: #e6edf3;
+        font-family:
+          "SF Mono",
+          Fira Code,
+          Consolas,
+          monospace;
+        font-size: 14px;
+        outline: none;
+      }
+      #input:focus {
+        border-color: #58a6ff;
+      }
+      #send {
+        background: #58a6ff;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #send:active {
+        opacity: 0.8;
+      }
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <header id="header">
+        <h1>NikCLI</h1>
+        <div id="status">
+          <span id="status-dot" class="connecting"></span>
+          <span id="status-text">Connecting...</span>
+        </div>
+      </header>
+
+      <div id="loading">
+        <div class="spinner"></div>
+        <span id="loading-text">Loading terminal...</span>
+      </div>
+
+      <div id="terminal-container" class="hidden">
+        <canvas id="terminal"></canvas>
+      </div>
+
+      <div id="quickkeys">
+        <button class="qkey" data-key="&#9;">Tab</button>
+        <button class="qkey" data-key="&#27;">Esc</button>
+        <button class="qkey" data-key="&#3;">^C</button>
+        <button class="qkey" data-key="&#4;">^D</button>
+        <button class="qkey" data-key="&#26;">^Z</button>
+        <button class="qkey" data-key="&#12;">^L</button>
+        <button class="qkey wide accent" data-key="&#10;">Enter</button>
+      </div>
+
+      <div id="input-container">
+        <div id="input-row">
+          <input
+            type="text"
+            id="input"
+            placeholder="Type command..."
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          />
+          <button id="send">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

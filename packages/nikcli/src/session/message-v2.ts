@@ -16,6 +16,13 @@ import type { Provider } from "@/provider/provider"
 export namespace MessageV2 {
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
   export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
+  export const StructuredOutputError = NamedError.create(
+    "StructuredOutputError",
+    z.object({
+      message: z.string(),
+      retries: z.number(),
+    }),
+  )
   export const AuthError = NamedError.create(
     "ProviderAuthError",
     z.object({
@@ -35,6 +42,29 @@ export namespace MessageV2 {
     }),
   )
   export type APIError = z.infer<typeof APIError.Schema>
+
+  export const OutputFormatText = z
+    .object({
+      type: z.literal("text"),
+    })
+    .meta({
+      ref: "OutputFormatText",
+    })
+
+  export const OutputFormatJsonSchema = z
+    .object({
+      type: z.literal("json_schema"),
+      schema: z.record(z.string(), z.any()).meta({ ref: "JSONSchema" }),
+      retryCount: z.number().int().min(0).default(2),
+    })
+    .meta({
+      ref: "OutputFormatJsonSchema",
+    })
+
+  export const Format = z.discriminatedUnion("type", [OutputFormatText, OutputFormatJsonSchema]).meta({
+    ref: "OutputFormat",
+  })
+  export type OutputFormat = z.infer<typeof Format>
 
   const PartBase = z.object({
     id: z.string(),
@@ -176,6 +206,8 @@ export namespace MessageV2 {
       })
       .optional(),
     command: z.string().optional(),
+  }).meta({
+    ref: "SubtaskPart",
   })
   export type SubtaskPart = z.infer<typeof SubtaskPart>
 
@@ -307,6 +339,7 @@ export namespace MessageV2 {
     time: z.object({
       created: z.number(),
     }),
+    format: Format.optional(),
     summary: z
       .object({
         title: z.string().optional(),
@@ -359,12 +392,16 @@ export namespace MessageV2 {
         NamedError.Unknown.Schema,
         OutputLengthError.Schema,
         AbortedError.Schema,
+        StructuredOutputError.Schema,
         APIError.Schema,
       ])
       .optional(),
     parentID: z.string(),
     modelID: z.string(),
     providerID: z.string(),
+    /**
+     * @deprecated
+     */
     mode: z.string(),
     agent: z.string(),
     path: z.object({
@@ -382,6 +419,7 @@ export namespace MessageV2 {
         write: z.number(),
       }),
     }),
+    structured: z.any().optional(),
     finish: z.string().optional(),
   }).meta({
     ref: "AssistantMessage",
@@ -432,6 +470,60 @@ export namespace MessageV2 {
 
   export function toModelMessages(input: WithParts[], model: Provider.Model): ModelMessage[] {
     const result: UIMessage[] = []
+    const toolNames = new Set<string>()
+    // Track media from tool results that need to be injected as user messages
+    // for providers that don't support media in tool results.
+    //
+    // OpenAI-compatible APIs only support string content in tool results, so we need
+    // to extract media and inject as user messages. Other SDKs (anthropic, google,
+    // bedrock) handle type: "content" with media parts natively.
+    //
+    // Only apply this workaround if the model actually supports image input -
+    // otherwise there's no point extracting images.
+    const supportsMediaInToolResults = (() => {
+      if (model.api.npm === "@ai-sdk/anthropic") return true
+      if (model.api.npm === "@ai-sdk/openai") return true
+      if (model.api.npm === "@ai-sdk/amazon-bedrock") return true
+      if (model.api.npm === "@ai-sdk/google-vertex/anthropic") return true
+      if (model.api.npm === "@ai-sdk/google") {
+        const id = model.api.id.toLowerCase()
+        return id.includes("gemini-3") && !id.includes("gemini-2")
+      }
+      return false
+    })()
+
+    const toModelOutput = (output: unknown) => {
+      if (typeof output === "string") {
+        return { type: "text", value: output }
+      }
+
+      if (typeof output === "object") {
+        const outputObject = output as {
+          text: string
+          attachments?: Array<{ mime: string; url: string }>
+        }
+        const attachments = (outputObject.attachments ?? []).filter((attachment) => {
+          return attachment.url.startsWith("data:") && attachment.url.includes(",")
+        })
+
+        return {
+          type: "content",
+          value: [
+            { type: "text", text: outputObject.text },
+            ...attachments.map((attachment) => ({
+              type: "media",
+              mediaType: attachment.mime,
+              data: iife(() => {
+                const commaIndex = attachment.url.indexOf(",")
+                return commaIndex === -1 ? attachment.url : attachment.url.slice(commaIndex + 1)
+              }),
+            })),
+          ],
+        }
+      }
+
+      return { type: "json", value: output as never }
+    }
 
     for (const msg of input) {
       if (msg.parts.length === 0) continue
@@ -449,6 +541,7 @@ export namespace MessageV2 {
               type: "text",
               text: part.text,
             })
+          // text/plain and directory files are converted into text parts, ignore them
           if (part.type === "file" && part.mime !== "text/plain" && part.mime !== "application/x-directory")
             userMessage.parts.push({
               type: "file",
@@ -474,6 +567,7 @@ export namespace MessageV2 {
 
       if (msg.info.role === "assistant") {
         const differentModel = `${model.providerID}/${model.id}` !== `${msg.info.providerID}/${msg.info.modelID}`
+        const media: Array<{ mime: string; url: string }> = []
 
         if (
           msg.info.error &&
@@ -501,31 +595,36 @@ export namespace MessageV2 {
               type: "step-start",
             })
           if (part.type === "tool") {
+            toolNames.add(part.tool)
             if (part.state.status === "completed") {
-              if (part.state.attachments?.length) {
-                result.push({
-                  id: Identifier.ascending("message"),
-                  role: "user",
-                  parts: [
-                    {
-                      type: "text",
-                      text: `The tool ${part.tool} returned the following attachments:`,
-                    },
-                    ...part.state.attachments.map((attachment) => ({
-                      type: "file" as const,
-                      url: attachment.url,
-                      mediaType: attachment.mime,
-                      filename: attachment.filename,
-                    })),
-                  ],
-                })
+              const outputText = part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output
+              const attachments = part.state.time.compacted ? [] : (part.state.attachments ?? [])
+
+              // For providers that don't support media in tool results, extract media files
+              // (images, PDFs) to be sent as a separate user message
+              const isMediaAttachment = (a: { mime: string }) =>
+                a.mime.startsWith("image/") || a.mime === "application/pdf"
+              const mediaAttachments = attachments.filter(isMediaAttachment)
+              const nonMediaAttachments = attachments.filter((a) => !isMediaAttachment(a))
+              if (!supportsMediaInToolResults && mediaAttachments.length > 0) {
+                media.push(...mediaAttachments)
               }
+              const finalAttachments = supportsMediaInToolResults ? attachments : nonMediaAttachments
+
+              const output =
+                finalAttachments.length > 0
+                  ? {
+                      text: outputText,
+                      attachments: finalAttachments,
+                    }
+                  : outputText
+
               assistantMessage.parts.push({
                 type: ("tool-" + part.tool) as `tool-${string}`,
                 state: "output-available",
                 toolCallId: part.callID,
                 input: part.state.input,
-                output: part.state.time.compacted ? "[Old tool result content cleared]" : part.state.output,
+                output,
                 ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
               })
             }
@@ -538,6 +637,8 @@ export namespace MessageV2 {
                 errorText: part.state.error,
                 ...(differentModel ? {} : { callProviderMetadata: part.metadata }),
               })
+            // Handle pending/running tool calls to prevent dangling tool_use blocks
+            // Anthropic/Claude APIs require every tool_use to have a corresponding tool_result
             if (part.state.status === "pending" || part.state.status === "running")
               assistantMessage.parts.push({
                 type: ("tool-" + part.tool) as `tool-${string}`,
@@ -558,11 +659,38 @@ export namespace MessageV2 {
         }
         if (assistantMessage.parts.length > 0) {
           result.push(assistantMessage)
+          // Inject pending media as a user message for providers that don't support
+          // media (images, PDFs) in tool results
+          if (media.length > 0) {
+            result.push({
+              id: Identifier.ascending("message"),
+              role: "user",
+              parts: [
+                {
+                  type: "text" as const,
+                  text: "Attached image(s) from tool result:",
+                },
+                ...media.map((attachment) => ({
+                  type: "file" as const,
+                  url: attachment.url,
+                  mediaType: attachment.mime,
+                })),
+              ],
+            })
+          }
         }
       }
     }
 
-    return convertToModelMessages(result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")))
+    const tools = Object.fromEntries(Array.from(toolNames).map((toolName) => [toolName, { toModelOutput }]))
+
+    return convertToModelMessages(
+      result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
+      {
+        //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
+        tools,
+      },
+    )
   }
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
@@ -590,7 +718,7 @@ export namespace MessageV2 {
       sessionID: Identifier.schema("session"),
       messageID: Identifier.schema("message"),
     }),
-    async (input) => {
+    async (input): Promise<WithParts> => {
       return {
         info: await Storage.read<MessageV2.Info>(["message", input.sessionID, input.messageID]),
         parts: await parts(input.messageID),
@@ -613,6 +741,13 @@ export namespace MessageV2 {
     }
     result.reverse()
     return result
+  }
+
+  const isOpenAiErrorRetryable = (e: APICallError) => {
+    const status = e.statusCode
+    if (!status) return e.isRetryable
+    // openai sometimes returns 404 for models that are actually available
+    return status === 404 || e.isRetryable
   }
 
   export function fromError(e: unknown, ctx: { providerID: string }) {
@@ -668,6 +803,7 @@ export namespace MessageV2 {
 
           try {
             const body = JSON.parse(e.responseBody)
+            // try to extract common error message fields
             const errMsg = body.message || body.error || body.error?.message
             if (errMsg && typeof errMsg === "string") {
               return `${msg}: ${errMsg}`
@@ -682,7 +818,7 @@ export namespace MessageV2 {
           {
             message,
             statusCode: e.statusCode,
-            isRetryable: e.isRetryable,
+            isRetryable: ctx.providerID.startsWith("openai") ? isOpenAiErrorRetryable(e) : e.isRetryable,
             responseHeaders: e.responseHeaders,
             responseBody: e.responseBody,
             metadata,

@@ -11,8 +11,8 @@ import type * as SDK from "@nikcli-ai/sdk/v2"
 export namespace ShareNext {
   const log = Log.create({ service: "share-next" })
 
-  async function url() {
-    return Config.get().then((x) => x.enterprise?.url ?? "https://nikcli.store")
+  export async function url() {
+    return Config.get().then((x) => x.enterprise?.url ?? "https://s.nikcli.store")
   }
 
   const disabled = process.env["NIKCLI_DISABLE_SHARE"] === "true" || process.env["NIKCLI_DISABLE_SHARE"] === "1"

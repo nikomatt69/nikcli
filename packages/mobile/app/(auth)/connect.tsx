@@ -3,10 +3,11 @@ import { View, StyleSheet, ScrollView, Pressable } from "react-native"
 import { Text, useTheme } from "react-native-paper"
 import { useRouter } from "expo-router"
 import { MotiView } from "moti"
-import { Server, Key, History, Trash2, Wifi } from "lucide-react-native"
+import { Server, Key, History, Trash2, Wifi, Cloud, Smartphone } from "lucide-react-native"
 import { Button, Card, Input, EmptyState } from "@/components/ui"
 import { useSSE } from "@/hooks/useSSE"
 import { useHapticFeedback } from "@/hooks/useHaptics"
+import { useCloudStore } from "@/stores"
 import {
   normalizeUrl,
   validateUrl,
@@ -14,6 +15,7 @@ import {
   setStoredCredentials,
   getStoredCredentials,
   clearStoredCredentials,
+  type ConnectionMode,
 } from "@/services/crypto"
 import type { StoredServer } from "@/services/crypto"
 

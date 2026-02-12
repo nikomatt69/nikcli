@@ -1,0 +1,10 @@
+{
+  "name": "NikCLI Remote",
+  "short_name": "NikCLI",
+  "description": "Control NikCLI from mobile or desktop web",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "icons": []
+}

@@ -1,3 +1,5 @@
+/// <reference path="./localtunnel.d.ts" />
+
 import { spawn, type ChildProcess } from "node:child_process"
 import type { TunnelProvider } from "./types"
 

@@ -135,9 +135,8 @@ export class RemoteService extends EventEmitter {
   }
 
   private broadcastToClients(data: string): void {
-    if (!this.sessionManager?.isActive()) return
-    const sanitized = this.sanitizeForTunnel(data)
-    this.sessionManager.writeToTerminal(sanitized)
+    // The server already broadcasts to clients via WebSocket
+    // No action needed - this is just for receiving output from server
   }
 
   resizeTerminal(cols: number, rows: number): void {

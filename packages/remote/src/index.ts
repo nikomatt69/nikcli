@@ -4,6 +4,8 @@ import WebSocket, { type RawData } from "ws"
 
 export { RemoteServer } from "./server"
 export type { RemoteServerEvents } from "./server"
+export { CloudAgent } from "./cloud-agent"
+export type { CloudAgentConfig, CloudDeviceRegistration, CloudSyncOperation } from "./cloud-agent"
 export {
   TunnelManager,
   createTunnel,
@@ -12,7 +14,6 @@ export {
   probeTunnel,
   type TunnelResult,
 } from "./tunnel"
-export { getWebClient } from "./web-client"
 export { generateQR, generateQRDataURL, renderSessionCard, type QROptions } from "./qrcode"
 export type { RemoteSession, TunnelProvider } from "./types"
 

@@ -1,5 +1,17 @@
 import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, t, dim, fg } from "@opentui/core"
-import { createEffect, createMemo, type JSX, onMount, createSignal, onCleanup, Show, Switch, Match } from "solid-js"
+import {
+  createEffect,
+  createMemo,
+  type JSX,
+  onMount,
+  createSignal,
+  onCleanup,
+  on,
+  Show,
+  Switch,
+  Match,
+  For,
+} from "solid-js"
 import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
@@ -34,6 +46,7 @@ import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogRagModel } from "../dialog-rag-model"
 import { DialogRemote } from "../dialog-remote"
+import type { Config } from "@nikcli-ai/sdk/v2/client"
 
 export type PromptProps = {
   sessionID?: string
@@ -56,6 +69,7 @@ export type PromptRef = {
 }
 
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
+const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -76,6 +90,64 @@ export function Prompt(props: PromptProps) {
   const renderer = useRenderer()
   const { theme, syntax } = useTheme()
   const kv = useKV()
+  const ads = createMemo(() => sync.data.config.ads)
+  const [currentAd, setCurrentAd] = createSignal<string | null>(null)
+
+  const getAvailableAds = () => {
+    const adsConfig = ads()
+    const items = (adsConfig?.items ?? []).filter((item) => item.enabled !== false)
+    const enabled = adsConfig?.enabled ?? true
+    if (!enabled || items.length === 0) return []
+    return items
+  }
+
+  const selectNextAd = () => {
+    const items = getAvailableAds()
+    if (items.length === 0) {
+      setCurrentAd(null)
+      return
+    }
+
+    const adsConfig = ads()
+    const ratio = adsConfig?.ratio ?? 0.3
+    if (Math.random() >= ratio) {
+      setCurrentAd(null)
+      return
+    }
+
+    const index = store.currentAdIndex % items.length
+    const item = items[index]
+    setStore("currentAdIndex", (store.currentAdIndex + 1) % items.length)
+
+    if (item.url) setCurrentAd(`${item.text} {highlight}${item.url}{/highlight}`)
+    else setCurrentAd(item.text)
+  }
+
+  createEffect(() => {
+    const currentStatus = status()
+    if (currentStatus.type === "idle") {
+      selectNextAd()
+    }
+  })
+
+  const sponsoredTip = currentAd
+
+  const parseTipParts = (tip: string) => {
+    const parts: { text: string; highlight: boolean }[] = []
+    const regex = /\{highlight\}(.*?)\{\/highlight\}/g
+    let lastIndex = 0
+    for (const match of tip.matchAll(regex)) {
+      if (match.index! > lastIndex) {
+        parts.push({ text: tip.slice(lastIndex, match.index), highlight: false })
+      }
+      parts.push({ text: match[1], highlight: true })
+      lastIndex = match.index! + match[0].length
+    }
+    if (lastIndex < tip.length) {
+      parts.push({ text: tip.slice(lastIndex), highlight: false })
+    }
+    return parts
+  }
 
   function promptModelWarning() {
     toast.show({
@@ -122,6 +194,7 @@ export function Prompt(props: PromptProps) {
     extmarkToPartIndex: Map<number, number>
     interrupt: number
     placeholder: number
+    currentAdIndex: number
   }>({
     placeholder: Math.floor(Math.random() * PLACEHOLDERS.length),
     prompt: {
@@ -131,7 +204,18 @@ export function Prompt(props: PromptProps) {
     mode: "normal",
     extmarkToPartIndex: new Map(),
     interrupt: 0,
+    currentAdIndex: 0,
   })
+
+  createEffect(
+    on(
+      () => props.sessionID,
+      () => {
+        setStore("placeholder", Math.floor(Math.random() * PLACEHOLDERS.length))
+      },
+      { defer: true },
+    ),
+  )
 
   // Initialize agent/model/variant from last user message when session changes
   let syncedSessionID: string | undefined
@@ -763,6 +847,15 @@ export function Prompt(props: PromptProps) {
     }
   })
 
+  const placeholderText = createMemo(() => {
+    if (props.sessionID) return undefined
+    if (store.mode === "shell") {
+      const example = SHELL_PLACEHOLDERS[store.placeholder % SHELL_PLACEHOLDERS.length]
+      return `Run a command... "${example}"`
+    }
+    return `Ask anything... "${PLACEHOLDERS[store.placeholder % PLACEHOLDERS.length]}"`
+  })
+
   return (
     <>
       <Autocomplete
@@ -804,7 +897,7 @@ export function Prompt(props: PromptProps) {
             flexGrow={1}
           >
             <textarea
-              placeholder={props.sessionID ? undefined : `Ask anything... "${PLACEHOLDERS[store.placeholder]}"`}
+              placeholder={placeholderText()}
               textColor={keybind.leader ? theme.textMuted : theme.text}
               focusedTextColor={keybind.leader ? theme.textMuted : theme.text}
               minHeight={1}
@@ -857,6 +950,7 @@ export function Prompt(props: PromptProps) {
                   }
                 }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
+                  setStore("placeholder", Math.floor(Math.random() * SHELL_PLACEHOLDERS.length))
                   setStore("mode", "shell")
                   e.preventDefault()
                   return
@@ -1024,7 +1118,25 @@ export function Prompt(props: PromptProps) {
           />
         </box>
         <box flexDirection="row" justifyContent="space-between">
-          <Show when={status().type !== "idle"} fallback={<text />}>
+          <Show
+            when={status().type !== "idle"}
+            fallback={
+              <box flexDirection="row" gap={2} flexGrow={1}>
+                <text fg={theme.text}>
+                  esc <span style={{ fg: theme.textMuted }}>interrupt</span>
+                </text>
+                <Show when={sponsoredTip()}>
+                  <text fg={theme.warning}>·</text>
+                  <text fg={theme.textMuted}>Sponsored:</text>
+                  <text fg={theme.text}>
+                    <For each={parseTipParts(sponsoredTip()!)}>
+                      {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+                    </For>
+                  </text>
+                </Show>
+              </box>
+            }
+          >
             <box
               flexDirection="row"
               gap={1}
@@ -1096,12 +1208,23 @@ export function Prompt(props: PromptProps) {
                   })()}
                 </box>
               </box>
-              <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
-                esc{" "}
-                <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
-                  {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
-                </span>
-              </text>
+              <box flexDirection="row" gap={2} flexGrow={1}>
+                <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
+                  esc{" "}
+                  <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>
+                    {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
+                  </span>
+                </text>
+                <Show when={sponsoredTip()}>
+                  <text fg={theme.warning}>·</text>
+                  <text fg={theme.textMuted}>Sponsored:</text>
+                  <text fg={theme.text}>
+                    <For each={parseTipParts(sponsoredTip()!)}>
+                      {(part) => <span style={{ fg: part.highlight ? theme.text : theme.textMuted }}>{part.text}</span>}
+                    </For>
+                  </text>
+                </Show>
+              </box>
             </box>
           </Show>
           <Show when={status().type !== "retry"}>
