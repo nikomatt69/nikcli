@@ -51,7 +51,8 @@ export async function createNikcliServer(options?: ServerOptions) {
         if (line.startsWith("nikcli server listening")) {
           const match = line.match(/on\s+(https?:\/\/[^\s]+)/)
           if (!match) {
-            throw new Error(`Failed to parse server url from output: ${line}`)
+            reject(new Error(`Failed to parse server url from output: ${line}`))
+            return
           }
           clearTimeout(id)
           resolve(match[1]!)
@@ -78,7 +79,7 @@ export async function createNikcliServer(options?: ServerOptions) {
       options.signal.addEventListener("abort", () => {
         clearTimeout(id)
         reject(new Error("Aborted"))
-      })
+      }, { once: true })
     }
   })
 

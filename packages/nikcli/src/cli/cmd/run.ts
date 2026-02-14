@@ -104,17 +104,11 @@ export const RunCommand = cmd({
       for (const filePath of files) {
         const resolvedPath = path.resolve(process.cwd(), filePath)
         const file = Bun.file(resolvedPath)
-        const stats = await file.stat().catch(() => {})
-        if (!stats) {
+        const stat = await file.stat().catch(() => undefined)
+        if (!stat) {
           UI.error(`File not found: ${filePath}`)
           process.exit(1)
         }
-        if (!(await file.exists())) {
-          UI.error(`File not found: ${filePath}`)
-          process.exit(1)
-        }
-
-        const stat = await file.stat()
         const mime = stat.isDirectory() ? "application/x-directory" : "text/plain"
 
         fileParts.push({

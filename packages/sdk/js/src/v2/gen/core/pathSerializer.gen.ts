@@ -136,9 +136,9 @@ export const serializeObjectParam = ({
   }
 
   if (style !== "deepObject" && !explode) {
-    let values: string[] = []
+    const values: string[] = []
     Object.entries(value).forEach(([key, v]) => {
-      values = [...values, key, allowReserved ? (v as string) : encodeURIComponent(v as string)]
+      values.push(key, allowReserved ? (v as string) : encodeURIComponent(v as string))
     })
     const joinedValues = values.join(",")
     switch (style) {

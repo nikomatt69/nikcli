@@ -62,15 +62,19 @@ export namespace RagEmbed {
   }
 
   async function embedOllama(texts: string[], model: string) {
-    const results: number[][] = []
-    for (const text of texts) {
-      const truncated = text.slice(0, 500)
-      const response = await fetch("http://localhost:11434/api/embeddings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt: truncated }),
-      })
+    const responses = await Promise.all(
+      texts.map((text) => {
+        const truncated = text.slice(0, 500)
+        return fetch("http://localhost:11434/api/embeddings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model, prompt: truncated }),
+        })
+      }),
+    )
 
+    const results: number[][] = []
+    for (const response of responses) {
       if (!response.ok) {
         const body = await response.text().catch(() => "")
         throw new Error(`Ollama embedding failed (${response.status}): ${body}`)

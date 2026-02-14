@@ -42,6 +42,7 @@ export class TableRenderable extends BoxRenderable {
   private _onSort?: (column: TableColumn, direction: "asc" | "desc") => void
 
   private _tableEventListeners: Map<keyof TableEventMap, Set<(...args: any[]) => void>> = new Map()
+  private _cachedThemeColors: ReturnType<TableRenderable["_getThemeColors"]> | null = null
 
   constructor(ctx: RenderContext, options: TableRenderableOptions) {
     super(ctx, {
@@ -458,8 +459,9 @@ export class TableRenderable extends BoxRenderable {
     return RGBA.fromHex(color) || RGBA.fromHex(fallback) || undefined
   }
 
-  private _getThemeColors(): any {
-    return {
+  private _getThemeColors() {
+    if (this._cachedThemeColors) return this._cachedThemeColors
+    this._cachedThemeColors = {
       background: "#1a1b26",
       backgroundElement: "#1f2335",
       backgroundPanel: "#24283b",
@@ -472,5 +474,6 @@ export class TableRenderable extends BoxRenderable {
       border: "#414868",
       borderActive: "#7aa2f7",
     }
+    return this._cachedThemeColors
   }
 }

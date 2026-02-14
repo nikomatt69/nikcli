@@ -15,26 +15,18 @@ import { Global } from "../../global"
 import { modify, applyEdits } from "jsonc-parser"
 import { Bus } from "../../bus"
 
+const AUTH_STATUS: Record<MCP.AuthStatus, { icon: string; text: string }> = {
+  authenticated: { icon: "✓", text: "authenticated" },
+  expired: { icon: "⚠", text: "expired" },
+  not_authenticated: { icon: "✗", text: "not authenticated" },
+}
+
 function getAuthStatusIcon(status: MCP.AuthStatus): string {
-  switch (status) {
-    case "authenticated":
-      return "✓"
-    case "expired":
-      return "⚠"
-    case "not_authenticated":
-      return "✗"
-  }
+  return AUTH_STATUS[status].icon
 }
 
 function getAuthStatusText(status: MCP.AuthStatus): string {
-  switch (status) {
-    case "authenticated":
-      return "authenticated"
-    case "expired":
-      return "expired"
-    case "not_authenticated":
-      return "not authenticated"
-  }
+  return AUTH_STATUS[status].text
 }
 
 type McpEntry = NonNullable<Config.Info["mcp"]>[string]
@@ -493,10 +485,8 @@ export const McpAddCommand = cmd({
             message: "Enter MCP server URL",
             placeholder: "e.g., https://example.com/mcp",
             validate: (x) => {
-              if (!x) return "Required"
-              if (x.length === 0) return "Required"
-              const isValid = URL.canParse(x)
-              return isValid ? undefined : "Invalid URL"
+              if (!x || x.length === 0) return "Required"
+              return URL.canParse(x) ? undefined : "Invalid URL"
             },
           })
           if (prompts.isCancel(url)) throw new UI.CancelledError()

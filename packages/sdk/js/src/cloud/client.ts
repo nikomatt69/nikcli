@@ -109,7 +109,7 @@ export class NikcliCloudClient {
   }
 
   async listSessions(limit?: number): Promise<CloudSession[]> {
-    const query = limit ? `?limit=${encodeURIComponent(String(limit))}` : ""
+    const query = limit ? `?limit=${limit}` : ""
     const result = await this.request<{ sessions: CloudSession[] }>("GET", `/sessions${query}`)
     return result.sessions
   }
@@ -136,7 +136,8 @@ export class NikcliCloudClient {
     const params = new URLSearchParams()
     if (typeof options?.after === "number") params.set("after", String(options.after))
     if (typeof options?.limit === "number") params.set("limit", String(options.limit))
-    const query = params.toString() ? `?${params.toString()}` : ""
+    const queryStr = params.toString()
+    const query = queryStr ? `?${queryStr}` : ""
 
     const result = await this.request<{ messages: CloudMessage[] }>(
       "GET",

@@ -156,12 +156,11 @@ export class TableLayoutEngine {
   }
 
   getVisibleRowRange(viewportHeight: number, scrollY: number): [start: number, end: number] {
-    const contentHeight = this._headerHeight + this._rowHeight
     const availableHeight = viewportHeight - this._headerHeight
 
     const startRow = Math.floor(scrollY / this._rowHeight)
     const visibleRows = Math.ceil(availableHeight / this._rowHeight) + 1
-    const endRow = Math.min(startRow + visibleRows, Infinity)
+    const endRow = startRow + visibleRows
 
     return [startRow, endRow]
   }
