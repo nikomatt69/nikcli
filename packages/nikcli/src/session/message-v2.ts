@@ -237,6 +237,7 @@ export namespace MessageV2 {
     snapshot: z.string().optional(),
     cost: z.number(),
     tokens: z.object({
+      total: z.number().optional(),
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),
@@ -411,6 +412,7 @@ export namespace MessageV2 {
     summary: z.boolean().optional(),
     cost: z.number(),
     tokens: z.object({
+      total: z.number().optional(),
       input: z.number(),
       output: z.number(),
       reasoning: z.number(),

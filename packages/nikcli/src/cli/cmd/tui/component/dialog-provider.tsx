@@ -44,6 +44,10 @@ export function createDialogProviderOptions() {
           category: provider.id in PROVIDER_PRIORITY ? "Popular" : "Other",
           footer: isConnected ? "Connected" : undefined,
           async onSelect() {
+            if (isConnected) {
+              dialog.replace(() => <DialogModel providerID={provider.id} />)
+              return
+            }
             const methods = sync.data.provider_auth[provider.id] ?? [
               {
                 type: "api",

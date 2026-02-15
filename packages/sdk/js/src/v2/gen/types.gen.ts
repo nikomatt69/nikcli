@@ -213,6 +213,7 @@ export type AssistantMessage = {
   summary?: boolean
   cost: number
   tokens: {
+    total?: number
     input: number
     output: number
     reasoning: number
@@ -428,6 +429,7 @@ export type StepFinishPart = {
   snapshot?: string
   cost: number
   tokens: {
+    total?: number
     input: number
     output: number
     reasoning: number
@@ -1841,11 +1843,11 @@ export type RagConfig = {
  */
 export type ImageConfig = {
   /**
-   * Image generation model (e.g., openai/gpt-image-1.5, google/nano-banana-pro, google/gemini-3-pro-image)
+   * Image generation model (e.g., openai/gpt-5-image, google/nano-banana-pro-2.5)
    */
   model?: string
   /**
-   * Provider for image generation (e.g., openai, poe, vercel)
+   * Provider for image generation (e.g., openrouter, openai, vercel)
    */
   provider?: string
 }
@@ -2044,6 +2046,10 @@ export type Config = {
      * Enable pruning of old tool outputs (default: true)
      */
     prune?: boolean
+    /**
+     * Token buffer for compaction. Leaves enough window to avoid overflow during compaction.
+     */
+    reserved?: number
   }
   experimental?: {
     hook?: {

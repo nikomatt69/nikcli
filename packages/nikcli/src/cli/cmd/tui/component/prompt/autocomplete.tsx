@@ -1,7 +1,7 @@
 import type { BoxRenderable, TextareaRenderable, KeyEvent, ScrollBoxRenderable } from "@opentui/core"
 import fuzzysort from "fuzzysort"
 import { firstBy } from "remeda"
-import { createMemo, createResource, createEffect, onMount, onCleanup, Index, Show, createSignal } from "solid-js"
+import { createMemo, createResource, createEffect, onMount, onCleanup, Index, Show, createSignal, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { useSync } from "@tui/context/sync"
@@ -90,20 +90,25 @@ export function Autocomplete(props: {
 
   const [positionTick, setPositionTick] = createSignal(0)
 
-  createEffect(() => {
-    if (store.visible) {
-      let lastPos = { x: 0, y: 0, width: 0 }
-      const interval = setInterval(() => {
-        const anchor = props.anchor()
-        if (anchor.x !== lastPos.x || anchor.y !== lastPos.y || anchor.width !== lastPos.width) {
-          lastPos = { x: anchor.x, y: anchor.y, width: anchor.width }
-          setPositionTick((t) => t + 1)
-        }
-      }, 50)
+  createEffect(
+    on(
+      () => store.visible,
+      (visible) => {
+        if (!visible) return
+        let lastPos = { x: 0, y: 0, width: 0 }
+        const interval = setInterval(() => {
+          const anchor = props.anchor()
+          if (anchor.x !== lastPos.x || anchor.y !== lastPos.y || anchor.width !== lastPos.width) {
+            lastPos = { x: anchor.x, y: anchor.y, width: anchor.width }
+            setPositionTick((t) => t + 1)
+          }
+        }, 50)
 
-      onCleanup(() => clearInterval(interval))
-    }
-  })
+        onCleanup(() => clearInterval(interval))
+      },
+      { defer: true },
+    ),
+  )
 
   const position = createMemo(() => {
     if (!store.visible) return { x: 0, y: 0, width: 0 }
@@ -132,10 +137,15 @@ export function Autocomplete(props: {
   // When the filter changes due to how TUI works, the mousemove might still be triggered
   // via a synthetic event as the layout moves underneath the cursor. This is a workaround to make sure the input mode remains keyboard so
   // that the mouseover event doesn't trigger when filtering.
-  createEffect(() => {
-    filter()
-    setStore("input", "keyboard")
-  })
+  createEffect(
+    on(
+      () => filter(),
+      () => {
+        setStore("input", "keyboard")
+      },
+      { defer: true },
+    ),
+  )
 
   function insertPart(text: string, part: PromptInfo["parts"][number]) {
     const input = props.input()
@@ -322,7 +332,7 @@ export function Autocomplete(props: {
   const agents = createMemo(() => {
     const agents = sync.data.agent
     return agents
-      .filter((agent) => !agent.hidden && agent.mode !== "primary")
+      .filter((agent) => (!agent.hidden && agent.mode !== "primary") || agent.name === "ralph")
       .map(
         (agent): AutocompleteOption => ({
           display: "@" + agent.name,
@@ -407,10 +417,15 @@ export function Autocomplete(props: {
     return result.map((arr) => arr.obj)
   })
 
-  createEffect(() => {
-    filter()
-    setStore("selected", 0)
-  })
+  createEffect(
+    on(
+      () => filter(),
+      () => {
+        setStore("selected", 0)
+      },
+      { defer: true },
+    ),
+  )
 
   function move(direction: -1 | 1) {
     if (!store.visible) return

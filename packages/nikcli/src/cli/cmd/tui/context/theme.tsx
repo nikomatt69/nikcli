@@ -1,6 +1,6 @@
 import { SyntaxStyle, RGBA, type TerminalColors } from "@opentui/core"
 import path from "path"
-import { createEffect, createMemo, onMount } from "solid-js"
+import { createEffect, createMemo, on, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { createSimpleContext } from "./helper"
 import aura from "./theme/aura.json" with { type: "json" }
@@ -416,41 +416,52 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       ready: false,
     })
 
-    createEffect(() => {
-      const theme = sync.data.config.theme
-      if (theme) setStore("active", theme)
-    })
+    createEffect(
+      on(
+        () => sync.data.config.theme,
+        (theme) => {
+          if (theme) setStore("active", theme)
+        },
+        { defer: true },
+      ),
+    )
 
-    function init() {
+    async function reload() {
       resolveSystemTheme()
-      getCustomThemes()
-        .then((custom) => {
-          setStore(
-            produce((draft) => {
-              Object.assign(draft.themes, custom)
-            }),
-          )
-        })
-        .catch(() => {
-          setStore("active", "nikcli")
-        })
-        .finally(() => {
-          if (store.active !== "system") {
-            setStore("ready", true)
+      const custom = await getCustomThemes().catch(() => ({}) as Record<string, ThemeJson>)
+      setStore(
+        produce((draft) => {
+          const systemTheme = draft.themes.system
+          // Rebuild themes so deleted custom themes disappear.
+          draft.themes = { ...DEFAULT_THEMES } as any
+          if (systemTheme) {
+            draft.themes.system = systemTheme
           }
-        })
+          Object.assign(draft.themes, custom)
+          if (draft.themes[draft.active] === undefined) {
+            draft.active = "nikcli"
+          }
+        }),
+      )
+
+      if (store.active !== "system") {
+        setStore("ready", true)
+      }
     }
 
-    onMount(init)
+    onMount(() => {
+      reload().catch(() => {
+        setStore("active", "nikcli")
+        setStore("ready", true)
+      })
+    })
 
     function resolveSystemTheme() {
-      console.log("resolveSystemTheme")
       renderer
         .getPalette({
           size: 16,
         })
         .then((colors) => {
-          console.log(colors.palette)
           if (!colors.palette[0]) {
             if (store.active === "system") {
               setStore(
@@ -476,7 +487,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     const renderer = useRenderer()
     process.on("SIGUSR2", async () => {
       renderer.clearPaletteCache()
-      init()
+      await reload()
     })
 
     const values = createMemo(() => {
@@ -512,6 +523,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
         setStore("active", theme)
         kv.set("theme", theme)
       },
+      reload,
       get ready() {
         return store.ready
       },

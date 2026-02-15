@@ -33,6 +33,11 @@ export namespace Flag {
   export const NIKCLI_SERVER_TAILSCALE_AUTH = truthy("NIKCLI_SERVER_TAILSCALE_AUTH")
   export const NIKCLI_SERVER_TAILSCALE_USERS = process.env["NIKCLI_SERVER_TAILSCALE_USERS"]
 
+  // SSH Server
+  export const NIKCLI_SERVER_SSH_ENABLED = truthy("NIKCLI_SERVER_SSH_ENABLED")
+  export const NIKCLI_SERVER_SSH_PORT = parseInt(process.env["NIKCLI_SERVER_SSH_PORT"] ?? "2222")
+  export const NIKCLI_SERVER_SSH_HOST = process.env["NIKCLI_SERVER_SSH_HOST"] ?? "0.0.0.0"
+
   // Connectors
   export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]
   export const NIKCLI_SLACK_BOT_TOKEN = process.env["NIKCLI_SLACK_BOT_TOKEN"]

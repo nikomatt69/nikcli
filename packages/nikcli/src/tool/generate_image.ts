@@ -13,13 +13,13 @@ import { Instance } from "@/project/instance"
 import { Flag } from "@/flag/flag"
 
 const GPT_IMAGE_LATEST = {
-  provider: "poe",
-  model: "openai/gpt-image-1.5",
+  provider: "openrouter",
+  model: "openai/gpt-5-image",
 } as const
 
 const NANOBANANA_LATEST = {
-  provider: "poe",
-  model: "google/nano-banana-pro",
+  provider: "openrouter",
+  model: "google/nano-banana-pro-2.5",
 } as const
 
 function extFromMime(mime: string): string {

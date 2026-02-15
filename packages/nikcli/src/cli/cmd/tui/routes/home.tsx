@@ -15,7 +15,7 @@ import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
 
-// TODO: what is the best way to do this?
+// Used to avoid re-applying the initial prompt multiple times.
 let once = false
 
 export function Home() {

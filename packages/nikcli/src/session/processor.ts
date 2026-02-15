@@ -150,7 +150,8 @@ export namespace SessionProcessor {
                           p.type === "tool" &&
                           p.tool === value.toolName &&
                           p.state.status !== "pending" &&
-                          JSON.stringify(p.state.input) === JSON.stringify(value.input),
+                          // Avoid JSON.stringify in a hot path (and avoid crashes on non-JSON values).
+                          Bun.deepEquals(p.state.input, value.input),
                       )
                     ) {
                       const agent = await Agent.get(input.assistantMessage.agent)
@@ -342,6 +343,7 @@ export namespace SessionProcessor {
               stack: JSON.stringify(e.stack),
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
+            // TODO: Handle context overflow error
             const retry = SessionRetry.retryable(error)
             if (retry !== undefined) {
               attempt++

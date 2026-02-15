@@ -16,11 +16,14 @@ const MAX_BYTES = 50 * 1024
 export const ReadTool = Tool.define("read", {
   description: DESCRIPTION,
   parameters: z.object({
-    filePath: z.string().describe("The path to the file to read"),
-    offset: z.coerce.number().describe("The line number to start reading from (0-based)").optional(),
-    limit: z.coerce.number().describe("The number of lines to read (defaults to 2000)").optional(),
+    filePath: z.string().describe("The absolute path to the file or directory to read"),
+    offset: z.coerce.number().describe("The line number to start reading from (1-indexed)").optional(),
+    limit: z.coerce.number().describe("The maximum number of lines to read (defaults to 2000)").optional(),
   }),
   async execute(params, ctx) {
+    if (params.offset !== undefined && params.offset < 1) {
+      throw new Error("offset must be greater than or equal to 1")
+    }
     let filepath = params.filePath
     if (!path.isAbsolute(filepath)) {
       filepath = path.join(process.cwd(), filepath)
@@ -89,13 +92,15 @@ export const ReadTool = Tool.define("read", {
     if (isBinary) throw new Error(`Cannot read binary file: ${filepath}`)
 
     const limit = params.limit ?? DEFAULT_READ_LIMIT
-    const offset = params.offset || 0
+    const offset = params.offset ?? 1
+    const start = offset - 1
     const lines = await file.text().then((text) => text.split("\n"))
+    if (start >= lines.length) throw new Error(`Offset ${offset} is out of range for this file (${lines.length} lines)`)
 
     const raw: string[] = []
     let bytes = 0
     let truncatedByBytes = false
-    for (let i = offset; i < Math.min(lines.length, offset + limit); i++) {
+    for (let i = start; i < Math.min(lines.length, start + limit); i++) {
       const line = lines[i].length > MAX_LINE_LENGTH ? lines[i].substring(0, MAX_LINE_LENGTH) + "..." : lines[i]
       const size = Buffer.byteLength(line, "utf-8") + (raw.length > 0 ? 1 : 0)
       if (bytes + size > MAX_BYTES) {
@@ -107,7 +112,7 @@ export const ReadTool = Tool.define("read", {
     }
 
     const content = raw.map((line, index) => {
-      return `${(index + offset + 1).toString().padStart(5, "0")}| ${line}`
+      return `${index + offset}: ${line}`
     })
     const preview = raw.slice(0, 20).join("\n")
 
@@ -115,7 +120,7 @@ export const ReadTool = Tool.define("read", {
     output += content.join("\n")
 
     const totalLines = lines.length
-    const lastReadLine = offset + raw.length
+    const lastReadLine = offset + raw.length - 1
     const hasMoreLines = totalLines > lastReadLine
     const truncated = hasMoreLines || truncatedByBytes
 

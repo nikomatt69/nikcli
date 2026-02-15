@@ -2,9 +2,10 @@ import { ModelsDev } from "@/provider/models"
 import { Auth } from "@/auth"
 import { Env } from "@/env"
 import { Log } from "@/util/log"
+import { Config } from "@/config/config"
 
-const DEFAULT_RAG_MODEL = "nvidia/llama-embed-nemotron-8b"
-const DEFAULT_RAG_PROVIDER = "nvidia"
+const DEFAULT_RAG_MODEL = "openai/text-embedding-3-small"
+const DEFAULT_RAG_PROVIDER = "openrouter"
 const BATCH_SIZE = 32
 
 type EmbeddingResponse = {
@@ -17,6 +18,39 @@ type OllamaEmbeddingResponse = {
 
 export namespace RagEmbed {
   const log = Log.create({ service: "rag.embed" })
+
+  function normalizeBaseURL(baseURL: string): string {
+    return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
+  }
+
+  function normalizeOllamaV1BaseURL(baseURL: string): string {
+    const url = normalizeBaseURL(baseURL)
+    if (url.endsWith("/v1")) return url
+    return `${url}/v1`
+  }
+
+  function ollamaRootFromV1BaseURL(baseURL: string): string {
+    const url = normalizeBaseURL(baseURL)
+    if (url.endsWith("/v1")) return url.slice(0, -3)
+    return url
+  }
+
+  async function resolveOllama() {
+    const config = await Config.get().catch(() => undefined)
+    const baseURL =
+      normalizeOllamaV1BaseURL(
+        (config as any)?.provider?.ollama?.options?.baseURL ?? Env.get("OLLAMA_BASE_URL") ?? "http://127.0.0.1:11434/v1",
+      )
+
+    const auth = await Auth.get("ollama").catch(() => undefined)
+    const apiKey =
+      (config as any)?.provider?.ollama?.options?.apiKey ??
+      (auth && (auth as any).type === "api" ? (auth as any).key : undefined) ??
+      Env.get("OLLAMA_API_KEY") ??
+      "ollama"
+
+    return { baseURL, root: ollamaRootFromV1BaseURL(baseURL), apiKey }
+  }
 
   export async function embedAll(texts: string[], model?: string, provider?: string) {
     if (texts.length === 0) return [] as number[][]
@@ -62,10 +96,29 @@ export namespace RagEmbed {
   }
 
   async function embedOllama(texts: string[], model: string) {
+    const { baseURL, root, apiKey } = await resolveOllama()
+
+    // Prefer OpenAI-compatible embeddings when available (matches OpenCode docs).
+    const openAiResponse = await fetch(`${baseURL}/embeddings`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, input: texts }),
+    }).catch(() => undefined)
+
+    if (openAiResponse?.ok) {
+      const json = (await openAiResponse.json()) as EmbeddingResponse
+      const sorted = json.data.sort((a, b) => a.index - b.index)
+      return sorted.map((item) => item.embedding)
+    }
+
+    // Fallback to legacy Ollama embeddings endpoint.
     const results: number[][] = []
     for (const text of texts) {
       const truncated = text.slice(0, 500)
-      const response = await fetch("http://localhost:11434/api/embeddings", {
+      const response = await fetch(`${root}/api/embeddings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model, prompt: truncated }),

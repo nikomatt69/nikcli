@@ -8,8 +8,8 @@ import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
 
-const DEFAULT_IMAGE_PROVIDER = "poe"
-const DEFAULT_IMAGE_MODEL = "openai/gpt-image-1.5"
+const DEFAULT_IMAGE_PROVIDER = "openrouter"
+const DEFAULT_IMAGE_MODEL = "openai/gpt-5-image"
 
 export const ImageModelCommand = cmd({
   command: "image-model [provider] [model]",
@@ -17,11 +17,11 @@ export const ImageModelCommand = cmd({
   builder: (yargs: Argv) => {
     return yargs
       .positional("provider", {
-        describe: "provider ID to use for image generation (e.g., poe, openai, vercel)",
+        describe: "provider ID to use for image generation (e.g., openrouter, openai, vercel)",
         type: "string",
       })
       .positional("model", {
-        describe: "image model ID to use (e.g., openai/gpt-image-1.5, google/nano-banana-pro)",
+        describe: "image model ID to use (e.g., openai/gpt-5-image, google/nano-banana-pro-2.5)",
         type: "string",
       })
       .option("reset", {

@@ -22,6 +22,7 @@ export interface TableRenderableOptions extends BoxOptions {
 export class TableRenderable extends BoxRenderable {
   private _columns: TableColumn[]
   private _rows: TableRow[]
+  private _rowIndexMap: Map<TableRow, number> = new Map()
   private _selectionMode: "none" | "single" | "multiple"
   private _showHeader: boolean
   private _showRowNumbers: boolean
@@ -43,6 +44,13 @@ export class TableRenderable extends BoxRenderable {
 
   private _tableEventListeners: Map<keyof TableEventMap, Set<(...args: any[]) => void>> = new Map()
 
+  private _buildRowIndexMap(rows: TableRow[]): void {
+    this._rowIndexMap.clear()
+    for (let i = 0; i < rows.length; i++) {
+      this._rowIndexMap.set(rows[i], i)
+    }
+  }
+
   constructor(ctx: RenderContext, options: TableRenderableOptions) {
     super(ctx, {
       border: true,
@@ -52,6 +60,7 @@ export class TableRenderable extends BoxRenderable {
 
     this._columns = options.columns
     this._rows = options.rows
+    this._buildRowIndexMap(this._rows)
     this._selectionMode = options.selection || "single"
     this._showHeader = options.showHeader !== false
     this._showRowNumbers = options.showRowNumbers || false
@@ -118,6 +127,7 @@ export class TableRenderable extends BoxRenderable {
   setData(columns: TableColumn[], rows: TableRow[]): void {
     this._columns = columns
     this._rows = rows
+    this._buildRowIndexMap(rows)
     this._layoutEngine = new TableLayoutEngine(this._columns, this._compact ? 1 : 1, this._showHeader ? 1 : 0)
     this._layoutEngine.calculateColumnWidths(this.width)
     this._state.setData(rows)
@@ -252,7 +262,7 @@ export class TableRenderable extends BoxRenderable {
       const row = visibleRows[rowIdx]
       if (!row) continue
 
-      const globalRowIndex = this._rows.indexOf(row)
+      const globalRowIndex = this._rowIndexMap.get(row) ?? this._rows.indexOf(row)
       const isSelected = this._selectionManager.isSelected(globalRowIndex)
       const isFocused = this._selectionManager.isFocused(globalRowIndex)
       const isEven = globalRowIndex % 2 === 0

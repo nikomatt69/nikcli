@@ -5,6 +5,11 @@ import type { JSONSchema } from "zod/v4/core"
 import type { Provider } from "./provider"
 import type { ModelsDev } from "./models"
 import { iife } from "@/util/iife"
+import { Flag } from "@/flag/flag"
+
+const CLAUDE_TOOL_ID_REGEX = /[^a-zA-Z0-9_-]/g
+const MISTRAL_TOOL_ID_REGEX = /[^a-zA-Z0-9]/g
+const DATA_URL_BASE64_REGEX = /^data:([^;]+);base64,(.*)$/
 
 type Modality = NonNullable<ModelsDev.Model["modalities"]>["input"][number]
 
@@ -17,6 +22,8 @@ function mimeToModality(mime: string): Modality | undefined {
 }
 
 export namespace ProviderTransform {
+  export const OUTPUT_TOKEN_MAX = Flag.NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
+
   // Maps npm package to the key the AI SDK expects for providerOptions
   function sdkKey(npm: string): string | undefined {
     switch (npm) {
@@ -49,23 +56,35 @@ export namespace ProviderTransform {
     // Anthropic rejects messages with empty content - filter out empty string messages
     // and remove empty text/reasoning parts from array content
     if (model.api.npm === "@ai-sdk/anthropic") {
-      msgs = msgs
-        .map((msg) => {
-          if (typeof msg.content === "string") {
-            if (msg.content === "") return undefined
-            return msg
-          }
-          if (!Array.isArray(msg.content)) return msg
-          const filtered = msg.content.filter((part) => {
-            if (part.type === "text" || part.type === "reasoning") {
-              return part.text !== ""
+      const next: ModelMessage[] = []
+      for (const msg of msgs) {
+        if (typeof msg.content === "string") {
+          if (msg.content === "") continue
+          next.push(msg)
+          continue
+        }
+        if (!Array.isArray(msg.content)) {
+          next.push(msg)
+          continue
+        }
+
+        const content = msg.content
+        type Part = (typeof content)[number]
+        let changed = false
+        const filtered: Part[] = []
+        for (const part of content) {
+          if (part.type === "text" || part.type === "reasoning") {
+            if (part.text === "") {
+              changed = true
+              continue
             }
-            return true
-          })
-          if (filtered.length === 0) return undefined
-          return { ...msg, content: filtered }
-        })
-        .filter((msg): msg is ModelMessage => msg !== undefined && msg.content !== "")
+          }
+          filtered.push(part)
+        }
+        if (filtered.length === 0) continue
+        next.push(changed ? ({ ...msg, content: filtered } as ModelMessage) : msg)
+      }
+      msgs = next
     }
 
     if (model.api.id.includes("claude")) {
@@ -75,7 +94,7 @@ export namespace ProviderTransform {
             if ((part.type === "tool-call" || part.type === "tool-result") && "toolCallId" in part) {
               return {
                 ...part,
-                toolCallId: part.toolCallId.replace(/[^a-zA-Z0-9_-]/g, "_"),
+                toolCallId: part.toolCallId.replace(CLAUDE_TOOL_ID_REGEX, "_"),
               }
             }
             return part
@@ -99,7 +118,7 @@ export namespace ProviderTransform {
             if ((part.type === "tool-call" || part.type === "tool-result") && "toolCallId" in part) {
               // Mistral requires alphanumeric tool call IDs with exactly 9 characters
               const normalizedId = part.toolCallId
-                .replace(/[^a-zA-Z0-9]/g, "") // Remove non-alphanumeric characters
+                .replace(MISTRAL_TOOL_ID_REGEX, "") // Remove non-alphanumeric characters
                 .substring(0, 9) // Take first 9 characters
                 .padEnd(9, "0") // Pad with zeros if less than 9 characters
 
@@ -212,6 +231,7 @@ export namespace ProviderTransform {
     return msgs.map((msg) => {
       if (msg.role !== "user" || !Array.isArray(msg.content)) return msg
 
+      let changed = false
       const filtered = msg.content.map((part) => {
         if (part.type !== "file" && part.type !== "image") return part
 
@@ -219,8 +239,9 @@ export namespace ProviderTransform {
         if (part.type === "image") {
           const imageStr = part.image.toString()
           if (imageStr.startsWith("data:")) {
-            const match = imageStr.match(/^data:([^;]+);base64,(.*)$/)
+            const match = imageStr.match(DATA_URL_BASE64_REGEX)
             if (match && (!match[2] || match[2].length === 0)) {
+              changed = true
               return {
                 type: "text" as const,
                 text: "ERROR: Image file is empty or corrupted. Please provide a valid image.",
@@ -236,13 +257,14 @@ export namespace ProviderTransform {
         if (model.capabilities.input[modality]) return part
 
         const name = filename ? `"${filename}"` : modality
+        changed = true
         return {
           type: "text" as const,
           text: `ERROR: Cannot read ${name} (this model does not support ${modality} input). Inform the user.`,
         }
       })
 
-      return { ...msg, content: filtered }
+      return changed ? { ...msg, content: filtered } : msg
     })
   }
 
@@ -708,29 +730,8 @@ export namespace ProviderTransform {
     return { [key]: options }
   }
 
-  export function maxOutputTokens(
-    npm: string,
-    options: Record<string, any>,
-    modelLimit: number,
-    globalLimit: number,
-  ): number {
-    const modelCap = modelLimit || globalLimit
-    const standardLimit = Math.min(modelCap, globalLimit)
-
-    if (npm === "@ai-sdk/anthropic" || npm === "@ai-sdk/google-vertex/anthropic") {
-      const thinking = options?.["thinking"]
-      const budgetTokens = typeof thinking?.["budgetTokens"] === "number" ? thinking["budgetTokens"] : 0
-      const enabled = thinking?.["type"] === "enabled"
-      if (enabled && budgetTokens > 0) {
-        // Return text tokens so that text + thinking <= model cap, preferring 32k text when possible.
-        if (budgetTokens + standardLimit <= modelCap) {
-          return standardLimit
-        }
-        return modelCap - budgetTokens
-      }
-    }
-
-    return standardLimit
+  export function maxOutputTokens(model: Provider.Model): number {
+    return Math.min(model.limit.output, OUTPUT_TOKEN_MAX) || OUTPUT_TOKEN_MAX
   }
 
   export function schema(model: Provider.Model, schema: JSONSchema.BaseSchema | JSONSchema7): JSONSchema7 {

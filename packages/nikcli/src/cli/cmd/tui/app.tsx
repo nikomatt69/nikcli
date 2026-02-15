@@ -15,6 +15,7 @@ import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogConnectors } from "@tui/component/dialog-connectors"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
+import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
@@ -208,31 +209,38 @@ function App() {
   }
   const [terminalTitleEnabled, setTerminalTitleEnabled] = createSignal(kv.get("terminal_title_enabled", true))
 
-  createEffect(() => {
-    console.log(JSON.stringify(route.data))
-  })
-
   // Update terminal window title based on current route and session
-  createEffect(() => {
-    if (!terminalTitleEnabled() || Flag.NIKCLI_DISABLE_TERMINAL_TITLE) return
+  createEffect(
+    on(
+      () => ({
+        enabled: terminalTitleEnabled(),
+        type: route.data.type,
+        sessionID: route.data.type === "session" ? route.data.sessionID : null,
+      }),
+      (state) => {
+        if (!state.enabled || Flag.NIKCLI_DISABLE_TERMINAL_TITLE) {
+          renderer.setTerminalTitle("Nikcli")
+          return
+        }
 
-    if (route.data.type === "home") {
-      renderer.setTerminalTitle("Nikcli")
-      return
-    }
+        if (state.type === "home") {
+          renderer.setTerminalTitle("Nikcli")
+          return
+        }
 
-    if (route.data.type === "session") {
-      const session = sync.session.get(route.data.sessionID)
-      if (!session || SessionApi.isDefaultTitle(session.title)) {
-        renderer.setTerminalTitle("Nikcli")
-        return
-      }
-
-      // Truncate title to 40 chars max
-      const title = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
-      renderer.setTerminalTitle(`OC | ${title}`)
-    }
-  })
+        if (state.type === "session" && state.sessionID) {
+          const session = sync.session.get(state.sessionID)
+          if (!session || SessionApi.isDefaultTitle(session.title)) {
+            renderer.setTerminalTitle("Nikcli")
+            return
+          }
+          const title = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
+          renderer.setTerminalTitle(`OC | ${title}`)
+        }
+      },
+      { defer: true },
+    ),
+  )
 
   const args = useArgs()
   onMount(() => {
@@ -258,17 +266,22 @@ function App() {
   })
 
   let continued = false
-  createEffect(() => {
-    // When using -c, session list is loaded in blocking phase, so we can navigate at "partial"
-    if (continued || sync.status === "loading" || !args.continue) return
-    const match = sync.data.session
-      .toSorted((a, b) => b.time.updated - a.time.updated)
-      .find((x) => x.parentID === undefined)?.id
-    if (match) {
-      continued = true
-      route.navigate({ type: "session", sessionID: match })
-    }
-  })
+  createEffect(
+    on(
+      () => [continued, sync.status, args.continue],
+      () => {
+        if (continued || sync.status === "loading" || !args.continue) return
+        const match = sync.data.session
+          .toSorted((a, b) => b.time.updated - a.time.updated)
+          .find((x) => x.parentID === undefined)?.id
+        if (match) {
+          continued = true
+          route.navigate({ type: "session", sessionID: match })
+        }
+      },
+      { defer: true },
+    ),
+  )
 
   createEffect(
     on(
@@ -448,6 +461,15 @@ function App() {
       category: "Provider",
     },
     {
+      title: "Settings",
+      value: "settings.open",
+      slash: { name: "settings" },
+      onSelect: () => {
+        dialog.replace(() => <DialogSettings />)
+      },
+      category: "System",
+    },
+    {
       title: "View status",
       keybind: "status_view",
       value: "nikcli.status",
@@ -495,7 +517,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://nikcli.store/docs").catch(() => { })
+        open("https://nikcli.store/docs").catch(() => {})
         dialog.clear()
       },
       category: "System",
@@ -504,7 +526,7 @@ function App() {
       title: "Open WebUI",
       value: "webui.open",
       onSelect: () => {
-        open(sdk.url).catch(() => { })
+        open(sdk.url).catch(() => {})
         dialog.clear()
       },
       category: "System",
@@ -584,19 +606,24 @@ function App() {
     },
   ])
 
-  createEffect(() => {
-    const currentModel = local.model.current()
-    if (!currentModel) return
-    if (currentModel.providerID === "openrouter" && !kv.get("openrouter_warning", false)) {
-      untrack(() => {
-        DialogAlert.show(
-          dialog,
-          "Warning",
-          "While openrouter is a convenient way to access LLMs your request will often be routed to subpar providers that do not work well in our testing.\n\nFor reliable access to models check out Nikcli Zen\nhttps://nikcli.ai/zen",
-        ).then(() => kv.set("openrouter_warning", true))
-      })
-    }
-  })
+  createEffect(
+    on(
+      () => local.model.current(),
+      (currentModel) => {
+        if (!currentModel) return
+        if (currentModel.providerID === "openrouter" && !kv.get("openrouter_warning", false)) {
+          untrack(() => {
+            DialogAlert.show(
+              dialog,
+              "Warning",
+              "While openrouter is a convenient way to access LLMs your request will often be routed to subpar providers that do not work well in our testing.\n\nFor reliable access to models check out Nikcli Zen\nhttps://nikcli.ai/zen",
+            ).then(() => kv.set("openrouter_warning", true))
+          })
+        }
+      },
+      { defer: true },
+    ),
+  )
 
   sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
     command.trigger(evt.properties.command)

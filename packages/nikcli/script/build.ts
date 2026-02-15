@@ -132,6 +132,11 @@ for (const item of targets) {
     tsconfig: "./tsconfig.json",
     plugins: [solidPlugin],
     sourcemap: "external",
+    minify: true,
+    // `ssh2` optionally depends on `cpu-features` (native .node). When cross-compiling
+    // (e.g. building linux-* from macOS), bundling that addon can fail. `ssh2` wraps
+    // the require in try/catch, so keeping it external is safe.
+    external: ["cpu-features"],
     compile: {
       autoloadBunfig: false,
       autoloadDotenv: false,

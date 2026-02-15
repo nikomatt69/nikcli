@@ -943,10 +943,8 @@ export namespace Config {
       model: z
         .string()
         .optional()
-        .describe(
-          "Image generation model (e.g., openai/gpt-image-1.5, google/nano-banana-pro, google/gemini-3-pro-image)",
-        ),
-      provider: z.string().optional().describe("Provider for image generation (e.g., openai, poe, vercel)"),
+        .describe("Image generation model (e.g., openai/gpt-5-image, google/nano-banana-pro-2.5)"),
+      provider: z.string().optional().describe("Provider for image generation (e.g., openrouter, openai, vercel)"),
     })
     .strict()
     .meta({
@@ -1182,6 +1180,12 @@ export namespace Config {
         .object({
           auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),
           prune: z.boolean().optional().describe("Enable pruning of old tool outputs (default: true)"),
+          reserved: z
+            .number()
+            .int()
+            .min(0)
+            .optional()
+            .describe("Token buffer for compaction. Leaves enough window to avoid overflow during compaction."),
         })
         .optional(),
       experimental: z

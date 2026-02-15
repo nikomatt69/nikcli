@@ -10,3 +10,5 @@ Focus on information that would be helpful for continuing the conversation, incl
 - Important technical decisions and why they were made
 
 Your summary should be comprehensive enough to provide context but concise enough to be quickly understood.
+
+Do not respond to any questions in the conversation, only output the summary.

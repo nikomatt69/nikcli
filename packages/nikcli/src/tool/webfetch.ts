@@ -2,6 +2,7 @@ import z from "zod"
 import { Tool } from "./tool"
 import TurndownService from "turndown"
 import DESCRIPTION from "./webfetch.txt"
+import { Identifier } from "../id/id"
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
@@ -83,10 +84,32 @@ export const WebFetchTool = Tool.define("webfetch", {
       throw new Error("Response too large (exceeds 5MB limit)")
     }
 
-    const content = new TextDecoder().decode(arrayBuffer)
     const contentType = response.headers.get("content-type") || ""
-
+    const mime = contentType.split(";")[0]?.trim().toLowerCase() || ""
     const title = `${params.url} (${contentType})`
+
+    const isImage = mime.startsWith("image/") && mime !== "image/svg+xml" && mime !== "image/vnd.fastbidsheet"
+
+    if (isImage) {
+      const base64Content = Buffer.from(arrayBuffer).toString("base64")
+      return {
+        title,
+        output: "Image fetched successfully",
+        metadata: {},
+        attachments: [
+          {
+            id: Identifier.ascending("part"),
+            sessionID: ctx.sessionID,
+            messageID: ctx.messageID,
+            type: "file",
+            mime,
+            url: `data:${mime};base64,${base64Content}`,
+          },
+        ],
+      }
+    }
+
+    const content = new TextDecoder().decode(arrayBuffer)
 
     // Handle content based on requested format and actual content type
     switch (params.format) {

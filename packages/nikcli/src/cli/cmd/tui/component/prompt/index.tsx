@@ -37,6 +37,7 @@ import { iife } from "@/util/iife"
 import { Locale } from "@/util/locale"
 import { formatDuration } from "@/util/format"
 import { createColors, createFrames } from "../../ui/spinner.ts"
+import type { SpinnerStyle } from "../dialog-settings/spinner"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderConnect } from "../dialog-provider"
 import { DialogAlert } from "../../ui/dialog-alert"
@@ -45,6 +46,7 @@ import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogRagModel } from "../dialog-rag-model"
+import { DialogImageModel } from "../dialog-image-model"
 import { DialogRemote } from "../dialog-remote"
 import type { Config } from "@nikcli-ai/sdk/v2/client"
 
@@ -123,12 +125,17 @@ export function Prompt(props: PromptProps) {
     else setCurrentAd(item.text)
   }
 
-  createEffect(() => {
-    const currentStatus = status()
-    if (currentStatus.type === "idle") {
-      selectNextAd()
-    }
-  })
+  createEffect(
+    on(
+      () => status(),
+      (currentStatus) => {
+        if (currentStatus.type === "idle") {
+          selectNextAd()
+        }
+      },
+      { defer: true },
+    ),
+  )
 
   const sponsoredTip = currentAd
 
@@ -176,10 +183,16 @@ export function Prompt(props: PromptProps) {
     }, 0)
   })
 
-  createEffect(() => {
-    if (props.disabled) input.cursorColor = theme.backgroundElement
-    if (!props.disabled) input.cursorColor = theme.text
-  })
+  createEffect(
+    on(
+      () => [props.disabled, theme.backgroundElement, theme.text] as const,
+      ([disabled, bg, text]) => {
+        if (disabled) input.cursorColor = bg
+        if (!disabled) input.cursorColor = text
+      },
+      { defer: true },
+    ),
+  )
 
   const lastUserMessage = createMemo(() => {
     if (!props.sessionID) return undefined
@@ -219,24 +232,26 @@ export function Prompt(props: PromptProps) {
 
   // Initialize agent/model/variant from last user message when session changes
   let syncedSessionID: string | undefined
-  createEffect(() => {
-    const sessionID = props.sessionID
-    const msg = lastUserMessage()
+  createEffect(
+    on(
+      () => ({ sessionID: props.sessionID, msg: lastUserMessage() }),
+      ({ sessionID, msg }) => {
+        if (sessionID !== syncedSessionID) {
+          if (!sessionID || !msg) return
 
-    if (sessionID !== syncedSessionID) {
-      if (!sessionID || !msg) return
+          syncedSessionID = sessionID
 
-      syncedSessionID = sessionID
-
-      // Only set agent if it's a primary agent (not a subagent)
-      const isPrimaryAgent = local.agent.list().some((x) => x.name === msg.agent)
-      if (msg.agent && isPrimaryAgent) {
-        local.agent.set(msg.agent)
-        if (msg.model) local.model.set(msg.model)
-        if (msg.variant) local.model.variant.set(msg.variant)
-      }
-    }
-  })
+          const isPrimaryAgent = local.agent.list().some((x) => x.name === msg.agent)
+          if (msg.agent && isPrimaryAgent) {
+            local.agent.set(msg.agent)
+            if (msg.model) local.model.set(msg.model)
+            if (msg.variant) local.model.variant.set(msg.variant)
+          }
+        }
+      },
+      { defer: true },
+    ),
+  )
 
   command.register(() => {
     return [
@@ -435,10 +450,16 @@ export function Prompt(props: PromptProps) {
     },
   }
 
-  createEffect(() => {
-    if (props.visible !== false) input?.focus()
-    if (props.visible === false) input?.blur()
-  })
+  createEffect(
+    on(
+      () => props.visible,
+      (visible) => {
+        if (visible !== false) input?.focus()
+        if (visible === false) input?.blur()
+      },
+      { defer: true },
+    ),
+  )
 
   function restoreExtmarksFromParts(parts: PromptInfo["parts"]) {
     input.extmarks.clear()
@@ -584,12 +605,21 @@ export function Prompt(props: PromptProps) {
       },
     },
     {
-      title: "RAG Embedding Model",
+      title: "RAG Embedding Models",
       value: "rag-model",
       category: "Config",
-      slash: { name: "rag-model" },
+      slash: { name: "rag-models", aliases: ["rag-model"] },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogRagModel />)
+      },
+    },
+    {
+      title: "Image Models",
+      value: "image-models",
+      category: "Config",
+      slash: { name: "image-models" },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogImageModel />)
       },
     },
     {
@@ -828,20 +858,102 @@ export function Prompt(props: PromptProps) {
   })
 
   const spinnerDef = createMemo(() => {
+    const style = kv.get("settings.spinner.style", "knight_rider_blocks") as SpinnerStyle
+    const enabled = kv.get("settings.spinner.enabled", true)
+
+    if (!enabled) {
+      return null
+    }
+
     const color = local.agent.color(local.agent.current().name)
+
+    const brailleFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    const dotsFrames = ["·", "⠂", "⠄", "⠆", "⠖", "⠗", "⠞", "⠟", "⠿", "⠛"]
+    const lineFrames = ["│", "⠐", "⠔", "⠤", "⠄", "⠦"]
+    const bouncingFrames = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧"]
+    const pulseFrames = ["▖", "▗", "▘", "▙", "▚", "▛", "▜", "▝", "▞", "▟"]
+
+    if (style === "knight_rider_blocks") {
+      return {
+        frames: createFrames({
+          color,
+          style: "blocks",
+          inactiveFactor: 0.6,
+          minAlpha: 0.3,
+        }),
+        color: createColors({
+          color,
+          style: "blocks",
+          inactiveFactor: 0.6,
+          minAlpha: 0.3,
+        }),
+      }
+    }
+
+    if (style === "knight_rider_diamonds") {
+      return {
+        frames: createFrames({
+          color,
+          style: "diamonds",
+          inactiveFactor: 0.6,
+          minAlpha: 0.3,
+        }),
+        color: createColors({
+          color,
+          style: "diamonds",
+          inactiveFactor: 0.6,
+          minAlpha: 0.3,
+        }),
+      }
+    }
+
+    if (style === "braille") {
+      return {
+        frames: brailleFrames,
+        color: undefined,
+      }
+    }
+
+    if (style === "dots") {
+      return {
+        frames: dotsFrames,
+        color: undefined,
+      }
+    }
+
+    if (style === "line") {
+      return {
+        frames: lineFrames,
+        color: undefined,
+      }
+    }
+
+    if (style === "bouncing") {
+      return {
+        frames: bouncingFrames,
+        color: undefined,
+      }
+    }
+
+    if (style === "pulse") {
+      return {
+        frames: pulseFrames,
+        color: undefined,
+      }
+    }
+
+    // Default fallback
     return {
       frames: createFrames({
         color,
         style: "blocks",
         inactiveFactor: 0.6,
-        // enableFading: false,
         minAlpha: 0.3,
       }),
       color: createColors({
         color,
         style: "blocks",
         inactiveFactor: 0.6,
-        // enableFading: false,
         minAlpha: 0.3,
       }),
     }
@@ -1071,10 +1183,12 @@ export function Prompt(props: PromptProps) {
               syntaxStyle={syntax()}
             />
             <box flexDirection="row" flexShrink={0} paddingTop={1} gap={1}>
-              <text fg={highlight()}>
-                {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
-              </text>
-              <Show when={store.mode === "normal"}>
+              <Show when={kv.get("show_agent", true)}>
+                <text fg={highlight()}>
+                  {store.mode === "shell" ? "Shell" : Locale.titlecase(local.agent.current().name)}{" "}
+                </text>
+              </Show>
+              <Show when={store.mode === "normal" && kv.get("show_model", true)}>
                 <box flexDirection="row" gap={1}>
                   <text flexShrink={0} fg={keybind.leader ? theme.textMuted : theme.text}>
                     {local.model.parsed().model}
@@ -1125,7 +1239,7 @@ export function Prompt(props: PromptProps) {
                 <text fg={theme.text}>
                   esc <span style={{ fg: theme.textMuted }}>interrupt</span>
                 </text>
-                <Show when={sponsoredTip()}>
+                <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
                   <text fg={theme.warning}>·</text>
                   <text fg={theme.textMuted}>Sponsored:</text>
                   <text fg={theme.text}>
@@ -1145,8 +1259,11 @@ export function Prompt(props: PromptProps) {
             >
               <box flexShrink={0} flexDirection="row" gap={1}>
                 <box marginLeft={1}>
-                  <Show when={kv.get("animations_enabled", true)} fallback={<text fg={theme.textMuted}>[⋯]</text>}>
-                    <spinner color={spinnerDef().color} frames={spinnerDef().frames} interval={40} />
+                  <Show
+                    when={kv.get("animations_enabled", true) && spinnerDef()}
+                    fallback={<text fg={theme.textMuted}>[⋯]</text>}
+                  >
+                    <spinner color={spinnerDef()!.color} frames={spinnerDef()!.frames} interval={40} />
                   </Show>
                 </box>
                 <box flexDirection="row" gap={1} flexShrink={0}>
@@ -1215,7 +1332,7 @@ export function Prompt(props: PromptProps) {
                     {store.interrupt > 0 ? "again to interrupt" : "interrupt"}
                   </span>
                 </text>
-                <Show when={sponsoredTip()}>
+                <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
                   <text fg={theme.warning}>·</text>
                   <text fg={theme.textMuted}>Sponsored:</text>
                   <text fg={theme.text}>
@@ -1227,7 +1344,7 @@ export function Prompt(props: PromptProps) {
               </box>
             </box>
           </Show>
-          <Show when={status().type !== "retry"}>
+          <Show when={status().type !== "retry" && kv.get("show_shortcuts", true)}>
             <box gap={2} flexDirection="row">
               <Switch>
                 <Match when={store.mode === "normal"}>

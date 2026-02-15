@@ -60,7 +60,6 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
-  export const OUTPUT_TOKEN_MAX = Flag.NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX || 32_000
 
   const _state = Instance.state(
     () => {
@@ -973,14 +972,11 @@ export namespace SessionPrompt {
     const agent = await Agent.get(input.agent ?? (await Agent.defaultAgent()))
 
     const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
-    const variant =
-      input.variant ??
-      (agent.variant &&
-      agent.model &&
-      model.providerID === agent.model.providerID &&
-      model.modelID === agent.model.modelID
-        ? agent.variant
-        : undefined)
+    const full =
+      !input.variant && agent.variant
+        ? await Provider.getModel(model.providerID, model.modelID).catch(() => undefined)
+        : undefined
+    const variant = input.variant ?? (agent.variant && full?.variants?.[agent.variant] ? agent.variant : undefined)
 
     const info: MessageV2.Info = {
       id: input.messageID ?? Identifier.ascending("message"),
@@ -1135,9 +1131,9 @@ export namespace SessionPrompt {
                       }
                     }
                   }
-                  offset = Math.max(start - 1, 0)
+                  offset = Math.max(start, 1)
                   if (end) {
-                    limit = end - offset
+                    limit = end - (offset - 1)
                   }
                 }
                 const args = { filePath: filepath, offset, limit }

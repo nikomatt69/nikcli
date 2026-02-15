@@ -41,6 +41,118 @@ import { ProviderTransform } from "./transform"
 export namespace Provider {
   const log = Log.create({ service: "provider" })
 
+  function normalizeBaseURL(baseURL: string): string {
+    return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
+  }
+
+  function normalizeOllamaV1BaseURL(baseURL: string): string {
+    const url = normalizeBaseURL(baseURL)
+    if (url.endsWith("/v1")) return url
+    return `${url}/v1`
+  }
+
+  function isProbablyOllamaImageModel(modelID: string): boolean {
+    const id = modelID.toLowerCase()
+    if (id.includes("gpt-image")) return true
+    if (id.includes("dall-e")) return true
+    if (id.includes("image")) return true
+    if (id.startsWith("sd") || id.includes("stable-diffusion")) return true
+    return false
+  }
+
+  async function loadOllamaProvider(config: Awaited<ReturnType<typeof Config.get>>): Promise<Info | undefined> {
+    const configured = (config.provider as any)?.ollama
+    const configuredBaseURL =
+      (configured?.options?.baseURL as string | undefined) ?? (Env.get("OLLAMA_BASE_URL") as string | undefined)
+    const baseURL = normalizeOllamaV1BaseURL(configuredBaseURL ?? "http://127.0.0.1:11434/v1")
+
+    const apiKey = (configured?.options?.apiKey as string | undefined) ?? Env.get("OLLAMA_API_KEY") ?? "ollama"
+
+    // Avoid hitting external networks unless explicitly configured by the user.
+    const isLocal = baseURL.startsWith("http://127.0.0.1:11434") || baseURL.startsWith("http://localhost:11434")
+    const shouldProbe = isLocal || Boolean(configuredBaseURL)
+    if (!shouldProbe) return undefined
+
+    // Availability check + model listing via OpenAI compatibility.
+    const modelsUrl = `${baseURL}/models`
+    const modelsRes = await fetch(modelsUrl, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+      // Local Ollama can be slow on cold start; keep this lenient.
+      signal: AbortSignal.timeout(isLocal ? 1500 : 2000),
+    }).catch(() => undefined)
+    if (!modelsRes?.ok) return undefined
+
+    const listJson = (await modelsRes.json().catch(() => undefined)) as
+      | { data?: Array<{ id?: string; created?: number }> }
+      | undefined
+    const modelIDs = listJson?.data?.map((x) => x.id).filter(Boolean) as string[] | undefined
+
+    if (!modelIDs || modelIDs.length === 0) return undefined
+
+    const models: Record<string, Model> = {}
+    for (const modelID of modelIDs) {
+      const created = listJson?.data?.find((x) => x.id === modelID)?.created
+      const release_date =
+        typeof created === "number" && Number.isFinite(created)
+          ? new Date(created * 1000).toISOString().slice(0, 10)
+          : "1970-01-01"
+      models[modelID] = {
+        id: modelID,
+        providerID: "ollama",
+        name: modelID,
+        api: {
+          id: modelID,
+          url: baseURL,
+          npm: "@ai-sdk/openai-compatible",
+        },
+        status: "active",
+        headers: {},
+        options: {},
+        cost: {
+          input: 0,
+          output: 0,
+          cache: { read: 0, write: 0 },
+        },
+        limit: {
+          // Unknown; keep conservative defaults to avoid over-promising context.
+          context: 8192,
+          output: 2048,
+        },
+        capabilities: {
+          temperature: true,
+          reasoning: false,
+          attachment: false,
+          toolcall: false,
+          input: { text: true, audio: false, image: false, video: false, pdf: false },
+          output: {
+            text: true,
+            audio: false,
+            image: isProbablyOllamaImageModel(modelID),
+            video: false,
+            pdf: false,
+          },
+          interleaved: false,
+        },
+        release_date,
+        variants: {},
+      }
+    }
+
+    return {
+      id: "ollama",
+      name: configured?.name ?? (isLocal ? "Ollama (local)" : "Ollama"),
+      source: "custom",
+      env: [],
+      options: {
+        baseURL,
+        apiKey,
+      },
+      models,
+    }
+  }
+
   function isGpt5OrLater(modelID: string): boolean {
     const match = /^gpt-(\d+)/.exec(modelID)
     if (!match) {
@@ -698,6 +810,12 @@ export namespace Provider {
 
     log.info("init")
 
+    // Auto-detect local Ollama and expose it as a provider when available.
+    const ollama = await loadOllamaProvider(config).catch(() => undefined)
+    if (ollama && isProviderAllowed(ollama.id)) {
+      providers[ollama.id] = ollama
+    }
+
     const configProviders = Object.entries(config.provider ?? {})
 
     // Add GitHub Copilot Enterprise provider that inherits from GitHub Copilot
@@ -958,6 +1076,103 @@ export namespace Provider {
     return state().then((state) => state.providers)
   }
 
+  const sdkCacheFnIds = new WeakMap<Function, number>()
+  let sdkCacheFnSeq = 1
+  function sdkCacheFnId(fn: Function): number {
+    const existing = sdkCacheFnIds.get(fn)
+    if (existing) return existing
+    const next = sdkCacheFnSeq++
+    sdkCacheFnIds.set(fn, next)
+    return next
+  }
+
+  function isPlainObject(value: unknown): value is Record<string, unknown> {
+    if (!value || typeof value !== "object") return false
+    const proto = Object.getPrototypeOf(value)
+    return proto === Object.prototype || proto === null
+  }
+
+  function stableKey(value: unknown, seen: Map<object, number>): string {
+    if (value === null) return "null"
+    switch (typeof value) {
+      case "string":
+        return `s:${value}`
+      case "number":
+        return Number.isFinite(value) ? `n:${value}` : `n:${String(value)}`
+      case "boolean":
+        return value ? "b:1" : "b:0"
+      case "undefined":
+        return "u"
+      case "function":
+        return `f:${sdkCacheFnId(value)}`
+      case "bigint":
+        return `bi:${value.toString()}`
+      case "symbol":
+        return `sym:${String(value)}`
+      case "object": {
+        const obj = value as object
+        const existing = seen.get(obj)
+        if (existing !== undefined) return `ref:${existing}`
+        const id = seen.size + 1
+        seen.set(obj, id)
+
+        if (Array.isArray(value)) {
+          return `a:[${value.map((v) => stableKey(v, seen)).join(",")}]`
+        }
+        if (isPlainObject(value)) {
+          const keys = Object.keys(value).sort()
+          const rec = value as Record<string, unknown>
+          let out = "o:{"
+          for (const k of keys) {
+            out += `${k}:${stableKey(rec[k], seen)};`
+          }
+          out += "}"
+          return out
+        }
+        return `obj:${Object.prototype.toString.call(value)}#${id}`
+      }
+    }
+    return "unknown"
+  }
+
+  function stableHeadersKey(headers: unknown): string {
+    if (!headers || typeof headers !== "object") return ""
+    const obj = headers as Record<string, unknown>
+    const keys = Object.keys(obj).sort()
+    let out = ""
+    for (const k of keys) {
+      const v = obj[k]
+      // Headers are expected to be string-like.
+      out += `${k}\0${typeof v === "string" ? v : String(v)}\0`
+    }
+    return out
+  }
+
+  function sdkCacheKey(npm: string, options: Record<string, any>): number {
+    const baseURL = options["baseURL"] ?? ""
+    const apiKey = options["apiKey"] ?? ""
+    const includeUsage = options["includeUsage"] ?? ""
+    const timeout = options["timeout"] ?? ""
+    const headersKey = stableHeadersKey(options["headers"])
+    const fetchKey = typeof options["fetch"] === "function" ? `fetch:${sdkCacheFnId(options["fetch"])}` : ""
+
+    const seen = new Map<object, number>()
+    const restKeys = Object.keys(options)
+      .filter((k) => k !== "baseURL" && k !== "apiKey" && k !== "includeUsage" && k !== "timeout" && k !== "headers")
+      .sort()
+    let rest = ""
+    for (const k of restKeys) {
+      const v = options[k]
+      // Skip undefined to match common JSON-ish semantics, and avoid hashing huge transient objects.
+      if (v === undefined) continue
+      rest += `${k}=${stableKey(v, seen)}\n`
+    }
+
+    return Bun.hash.xxHash32(
+      `${npm}\n${baseURL}\n${apiKey}\n${includeUsage}\n${timeout}\n${headersKey}\n${fetchKey}\n${rest}`,
+    )
+  }
+
   async function getSDK(model: Model) {
     try {
       using _ = log.time("getSDK", {
@@ -979,7 +1194,7 @@ export namespace Provider {
           ...model.headers,
         }
 
-      const key = Bun.hash.xxHash32(JSON.stringify({ npm: model.api.npm, options }))
+      const key = sdkCacheKey(model.api.npm, options)
       const existing = s.sdk.get(key)
       if (existing) return existing
 
@@ -1116,6 +1331,26 @@ export namespace Provider {
     const s = await state()
     const key = `${model.providerID}/${model.id}`
     if (s.images.has(key)) return s.images.get(key)!
+
+    const providerID = model.providerID ?? ""
+    const apiNpm = model.api?.npm ?? ""
+
+    // OpenRouter or openai-compatible: use OpenAI SDK with the provider's endpoint
+    if (providerID.includes("openrouter") || apiNpm.includes("openrouter") || apiNpm.includes("openai-compatible")) {
+      const { createOpenAI } = await import("@ai-sdk/openai")
+      const s2 = await state()
+      const provider = s2.providers[providerID] || s2.providers["openrouter"]
+
+      const openaiSDK = createOpenAI({
+        name: providerID,
+        baseURL: model.api.url,
+        apiKey: provider?.key,
+      })
+
+      const image = openaiSDK.imageModel(model.api.id)
+      s.images.set(key, image)
+      return image
+    }
 
     const sdk = await getSDK(model)
 

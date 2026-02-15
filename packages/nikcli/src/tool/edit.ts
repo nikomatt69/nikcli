@@ -13,6 +13,11 @@ import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
+const WHITESPACE_RUN_REGEX = /\s+/g
+const WHITESPACE_SPLIT_REGEX = /\s+/
+const REGEX_ESCAPE_REGEX = /[.*+?^${}()|[\]\\]/g
+const LEADING_WHITESPACE_REGEX = /^(\s*)/
+const UNESCAPE_STRING_REGEX = /\\(n|t|r|'|"|`|\\|\n|\$)/g
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -32,7 +37,7 @@ export const EditTool = Tool.define("edit", {
     }
 
     if (params.oldString === params.newString) {
-      throw new Error("oldString and newString must be different")
+      throw new Error("No changes to apply: oldString and newString are identical.")
     }
 
     const filePath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
@@ -332,8 +337,19 @@ export const BlockAnchorReplacer: Replacer = function* (content, find) {
 }
 
 export const WhitespaceNormalizedReplacer: Replacer = function* (content, find) {
-  const normalizeWhitespace = (text: string) => text.replace(/\s+/g, " ").trim()
+  const normalizeWhitespace = (text: string) => text.replace(WHITESPACE_RUN_REGEX, " ").trim()
   const normalizedFind = normalizeWhitespace(find)
+  const trimmedFind = find.trim()
+  const words = trimmedFind ? trimmedFind.split(WHITESPACE_SPLIT_REGEX) : []
+  let wordsRegex: RegExp | undefined
+  if (words.length > 0) {
+    const pattern = words.map((word) => word.replace(REGEX_ESCAPE_REGEX, "\\$&")).join("\\s+")
+    try {
+      wordsRegex = new RegExp(pattern)
+    } catch {
+      wordsRegex = undefined
+    }
+  }
 
   const lines = content.split("\n")
   for (let i = 0; i < lines.length; i++) {
@@ -343,16 +359,9 @@ export const WhitespaceNormalizedReplacer: Replacer = function* (content, find) 
     } else {
       const normalizedLine = normalizeWhitespace(line)
       if (normalizedLine.includes(normalizedFind)) {
-        const words = find.trim().split(/\s+/)
-        if (words.length > 0) {
-          const pattern = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("\\s+")
-          try {
-            const regex = new RegExp(pattern)
-            const match = line.match(regex)
-            if (match) {
-              yield match[0]
-            }
-          } catch (e) {}
+        if (wordsRegex) {
+          const match = line.match(wordsRegex)
+          if (match) yield match[0]
         }
       }
     }
@@ -377,7 +386,7 @@ export const IndentationFlexibleReplacer: Replacer = function* (content, find) {
 
     const minIndent = Math.min(
       ...nonEmptyLines.map((line) => {
-        const match = line.match(/^(\s*)/)
+        const match = line.match(LEADING_WHITESPACE_REGEX)
         return match ? match[1].length : 0
       }),
     )
@@ -399,7 +408,7 @@ export const IndentationFlexibleReplacer: Replacer = function* (content, find) {
 
 export const EscapeNormalizedReplacer: Replacer = function* (content, find) {
   const unescapeString = (str: string): string => {
-    return str.replace(/\\(n|t|r|'|"|`|\\|\n|\$)/g, (match, capturedChar) => {
+    return str.replace(UNESCAPE_STRING_REGEX, (match, capturedChar) => {
       switch (capturedChar) {
         case "n":
           return "\n"
@@ -544,7 +553,7 @@ export function trimDiff(diff: string): string {
   for (const line of contentLines) {
     const content = line.slice(1)
     if (content.trim().length > 0) {
-      const match = content.match(/^(\s*)/)
+      const match = content.match(LEADING_WHITESPACE_REGEX)
       if (match) min = Math.min(min, match[1].length)
     }
   }
@@ -567,7 +576,7 @@ export function trimDiff(diff: string): string {
 
 export function replace(content: string, oldString: string, newString: string, replaceAll = false): string {
   if (oldString === newString) {
-    throw new Error("oldString and newString must be different")
+    throw new Error("No changes to apply: oldString and newString are identical.")
   }
 
   let notFound = true
@@ -597,9 +606,9 @@ export function replace(content: string, oldString: string, newString: string, r
   }
 
   if (notFound) {
-    throw new Error("oldString not found in content")
+    throw new Error(
+      "Could not find oldString in the file. It must match exactly, including whitespace, indentation, and line endings.",
+    )
   }
-  throw new Error(
-    "Found multiple matches for oldString. Provide more surrounding lines in oldString to identify the correct match.",
-  )
+  throw new Error("Found multiple matches for oldString. Provide more surrounding context to make the match unique.")
 }

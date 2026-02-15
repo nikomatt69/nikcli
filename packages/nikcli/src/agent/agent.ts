@@ -81,6 +81,22 @@ export namespace Agent {
     const user = PermissionNext.fromConfig(cfg.permission ?? {})
 
     const result: Record<string, Info> = {
+      ralph: {
+        name: "ralph",
+        description:
+          "Autonomous loop agent that iterates on a task until complete. Best for large refactors, migrations, and multi-step tasks with clear done criteria.",
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+          }),
+          user,
+        ),
+        mode: "primary",
+        native: true,
+        color: "#FF6B35",
+      },
       build: {
         name: "build",
         options: {},

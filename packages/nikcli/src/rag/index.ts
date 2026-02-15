@@ -10,8 +10,8 @@ import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"
 
 const VERSION = 1
-const DEFAULT_RAG_MODEL = "nvidia/llama-embed-nemotron-8b"
-const DEFAULT_RAG_PROVIDER = "nvidia"
+const DEFAULT_RAG_MODEL = "openai/text-embedding-3-small"
+const DEFAULT_RAG_PROVIDER = "openrouter"
 const DEFAULT_MAX_FILE_BYTES = 1_000_000
 
 export type RagIndexOptions = {

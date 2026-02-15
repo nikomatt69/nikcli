@@ -17,6 +17,7 @@ export interface RowLayout {
 export class TableLayoutEngine {
   private _columns: TableColumn[]
   private _columnLayouts: ColumnLayout[] = []
+  private _columnIdMap: Map<string, ColumnLayout> = new Map()
   private _totalWidth: number = 0
   private _contentWidth: number = 0
   private _rowHeight: number = 1
@@ -54,6 +55,7 @@ export class TableLayoutEngine {
 
   calculateColumnWidths(availableWidth: number): void {
     this._columnLayouts = []
+    this._columnIdMap.clear()
     this._totalWidth = 0
     this._contentWidth = 0
 
@@ -105,6 +107,7 @@ export class TableLayoutEngine {
           width: width,
           visibleWidth: width,
         })
+        this._columnIdMap.set(column.id, this._columnLayouts[this._columnLayouts.length - 1])
 
         currentX += width
         this._contentWidth += width
@@ -122,6 +125,7 @@ export class TableLayoutEngine {
           width: width,
           visibleWidth: width,
         })
+        this._columnIdMap.set(column.id, this._columnLayouts[this._columnLayouts.length - 1])
 
         currentX += width
         this._contentWidth += width
@@ -137,7 +141,7 @@ export class TableLayoutEngine {
   }
 
   getColumnById(columnId: string): ColumnLayout | null {
-    return this._columnLayouts.find((c) => c.id === columnId) || null
+    return this._columnIdMap.get(columnId) ?? null
   }
 
   getCellPosition(

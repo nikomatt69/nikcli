@@ -4,7 +4,9 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Decimal } from "decimal.js"
 import z from "zod"
-import { type LanguageModelUsage, type ProviderMetadata } from "ai"
+import { type LanguageModelV2Usage } from "@ai-sdk/provider"
+import type { ProviderMetadata } from "ai"
+import { iife } from "@/util/iife"
 import { Config } from "../config/config"
 import { Flag } from "../flag/flag"
 import { Identifier } from "../id/id"
@@ -28,15 +30,16 @@ export namespace Session {
 
   const parentTitlePrefix = "New session - "
   const childTitlePrefix = "Child session - "
+  const DEFAULT_TITLE_REGEX = new RegExp(
+    `^(${parentTitlePrefix}|${childTitlePrefix})\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$`,
+  )
 
   function createDefaultTitle(isChild = false) {
     return (isChild ? childTitlePrefix : parentTitlePrefix) + new Date().toISOString()
   }
 
   export function isDefaultTitle(title: string) {
-    return new RegExp(
-      `^(${parentTitlePrefix}|${childTitlePrefix})\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$`,
-    ).test(title)
+    return DEFAULT_TITLE_REGEX.test(title)
   }
 
   export const Info = z
@@ -422,32 +425,52 @@ export namespace Session {
   export const getUsage = fn(
     z.object({
       model: z.custom<Provider.Model>(),
-      usage: z.custom<LanguageModelUsage>(),
+      usage: z.custom<LanguageModelV2Usage>(),
       metadata: z.custom<ProviderMetadata>().optional(),
     }),
     (input) => {
-      const cachedInputTokens = input.usage.cachedInputTokens ?? 0
-      const excludesCachedTokens = !!(input.metadata?.["anthropic"] || input.metadata?.["bedrock"])
-      const adjustedInputTokens = excludesCachedTokens
-        ? (input.usage.inputTokens ?? 0)
-        : (input.usage.inputTokens ?? 0) - cachedInputTokens
       const safe = (value: number) => {
         if (!Number.isFinite(value)) return 0
         return value
       }
+      const inputTokens = safe(input.usage.inputTokens ?? 0)
+      const outputTokens = safe(input.usage.outputTokens ?? 0)
+      const reasoningTokens = safe(input.usage.reasoningTokens ?? 0)
+
+      const cacheReadInputTokens = safe(input.usage.cachedInputTokens ?? 0)
+      const cacheWriteInputTokens = safe(
+        (input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
+          // @ts-expect-error
+          input.metadata?.["bedrock"]?.["usage"]?.["cacheWriteInputTokens"] ??
+          // @ts-expect-error
+          input.metadata?.["venice"]?.["usage"]?.["cacheCreationInputTokens"] ??
+          0) as number,
+      )
+
+      const excludesCachedTokens = !!(input.metadata?.["anthropic"] || input.metadata?.["bedrock"])
+      const adjustedInputTokens = safe(
+        excludesCachedTokens ? inputTokens : inputTokens - cacheReadInputTokens - cacheWriteInputTokens,
+      )
+
+      const total = iife(() => {
+        if (
+          input.model.api.npm === "@ai-sdk/anthropic" ||
+          input.model.api.npm === "@ai-sdk/amazon-bedrock" ||
+          input.model.api.npm === "@ai-sdk/google-vertex/anthropic"
+        ) {
+          return adjustedInputTokens + outputTokens + cacheReadInputTokens + cacheWriteInputTokens
+        }
+        return input.usage.totalTokens
+      })
 
       const tokens = {
-        input: safe(adjustedInputTokens),
-        output: safe(input.usage.outputTokens ?? 0),
-        reasoning: safe(input.usage?.reasoningTokens ?? 0),
+        total,
+        input: adjustedInputTokens,
+        output: outputTokens,
+        reasoning: reasoningTokens,
         cache: {
-          write: safe(
-            (input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
-              // @ts-expect-error
-              input.metadata?.["bedrock"]?.["usage"]?.["cacheWriteInputTokens"] ??
-              0) as number,
-          ),
-          read: safe(cachedInputTokens),
+          write: cacheWriteInputTokens,
+          read: cacheReadInputTokens,
         },
       }
 

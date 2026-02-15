@@ -1,8 +1,0 @@
-Run or inspect available subagents.
-Use this tool to list subagents or invoke a specific subagent with a prompt.
-
-Usage:
-- Provide listAll=true to list all subagents (including hidden)
-- Provide agent=<name> to inspect a single subagent
-- Provide agent=<name> and prompt=<task> to run a subagent
-- Optional context object is added to the prompt when invoking

@@ -1,4 +1,4 @@
-import { createMemo, createSignal, Show, For, createEffect, onCleanup } from "solid-js"
+import { createMemo, createSignal, Show, For, createEffect, onCleanup, onMount } from "solid-js"
 import { pipe } from "remeda"
 import { TextAttributes } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
@@ -74,7 +74,7 @@ function TerminalView({ connection }: { connection: TerminalConnection }) {
   ])
   const [input, setInput] = createSignal("")
 
-  createEffect(() => {
+  onMount(() => {
     const run = async () => {
       for await (const chunk of connection.output) {
         setOutput((prev) => [...prev, chunk])
