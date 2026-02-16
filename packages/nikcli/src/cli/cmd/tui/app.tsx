@@ -165,7 +165,7 @@ export function tui(input: {
         )
       },
       {
-        targetFps: 60,
+        targetFps: 45,
         gatherStats: false,
         exitOnCtrlC: false,
         useKittyKeyboard: {},

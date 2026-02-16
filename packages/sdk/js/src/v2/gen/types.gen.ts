@@ -1151,6 +1151,14 @@ export type KeybindsConfig = {
    */
   session_interrupt?: string
   /**
+   * Background current subtask and return to parent session
+   */
+  subtask_background?: string
+  /**
+   * Open background subtask picker
+   */
+  subtask_picker?: string
+  /**
    * Compact the session
    */
   session_compact?: string

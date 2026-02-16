@@ -63,7 +63,7 @@ export function Header() {
   const { theme } = useTheme()
   const keybind = useKeybind()
   const command = useCommandDialog()
-  const [hover, setHover] = createSignal<"parent" | "prev" | "next" | null>(null)
+  const [hover, setHover] = createSignal<"parent" | "prev" | "next" | "close" | null>(null)
   const dimensions = useTerminalDimensions()
   const narrow = createMemo(() => dimensions().width < 80)
 
@@ -96,11 +96,11 @@ export function Header() {
                 <box
                   onMouseOver={() => setHover("parent")}
                   onMouseOut={() => setHover(null)}
-                  onMouseUp={() => command.trigger("session.parent")}
+                  onMouseUp={() => command.trigger("subtask.background")}
                   backgroundColor={hover() === "parent" ? theme.backgroundElement : theme.backgroundPanel}
                 >
                   <text fg={theme.text}>
-                    Parent <span style={{ fg: theme.textMuted }}>{keybind.print("session_parent")}</span>
+                    Parent <span style={{ fg: theme.textMuted }}>{keybind.print("subtask_background")}</span>
                   </text>
                 </box>
                 <box
@@ -121,6 +121,16 @@ export function Header() {
                 >
                   <text fg={theme.text}>
                     Next <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_cycle")}</span>
+                  </text>
+                </box>
+                <box
+                  onMouseOver={() => setHover("close")}
+                  onMouseOut={() => setHover(null)}
+                  onMouseUp={() => command.trigger("session.child.close")}
+                  backgroundColor={hover() === "close" ? theme.backgroundElement : theme.backgroundPanel}
+                >
+                  <text fg={theme.text}>
+                    Close <span style={{ fg: theme.textMuted }}>{keybind.print("session_child_close")}</span>
                   </text>
                 </box>
               </box>

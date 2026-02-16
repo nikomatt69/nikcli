@@ -48,6 +48,7 @@ import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogRagModel } from "../dialog-rag-model"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogRemote } from "../dialog-remote"
+import { DialogSubagent } from "@tui/routes/session/dialog-subagent"
 import type { Config } from "@nikcli-ai/sdk/v2/client"
 
 export type PromptProps = {
@@ -94,6 +95,71 @@ export function Prompt(props: PromptProps) {
   const kv = useKV()
   const ads = createMemo(() => sync.data.config.ads)
   const [currentAd, setCurrentAd] = createSignal<string | null>(null)
+
+  type BackgroundSubtasksMap = Record<string, string[]>
+
+  function getBackgroundSubtasksMap(): BackgroundSubtasksMap {
+    return (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
+  }
+
+  function setBackgroundSubtasksMap(next: BackgroundSubtasksMap) {
+    kv.set("background_subtasks", next)
+  }
+
+  function removeBackgroundSubtask(parentID: string, childID: string) {
+    const map = getBackgroundSubtasksMap()
+    const list = map[parentID] ?? []
+    if (!list.includes(childID)) return
+    setBackgroundSubtasksMap({ ...map, [parentID]: list.filter((x) => x !== childID) })
+  }
+
+  const backgroundedSubtaskIDs = createMemo(() => {
+    if (!props.sessionID) return [] as string[]
+    const map = getBackgroundSubtasksMap()
+    return map[props.sessionID] ?? []
+  })
+
+  const backgroundedSubtaskCount = createMemo(() => backgroundedSubtaskIDs().length)
+
+  function openBackgroundSubtasks() {
+    if (!props.sessionID) return
+    dialog.replace(() => <DialogSubagent sessionID={props.sessionID!} />)
+  }
+
+  function stripSubagentSuffix(title: string): string {
+    return title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
+  }
+
+  // Auto-resurface: when a backgrounded subtask finishes, reopen it in the foreground.
+  const previousSubtaskStatus = new Map<string, string>()
+  createEffect(() => {
+    if (!props.sessionID) return
+
+    const ids = backgroundedSubtaskIDs()
+    const live = new Set(ids)
+    for (const existing of previousSubtaskStatus.keys()) {
+      if (!live.has(existing)) previousSubtaskStatus.delete(existing)
+    }
+
+    // Resurface the first task that transitioned to idle.
+    for (const id of ids) {
+      const current = sync.data.session_status?.[id]?.type ?? "idle"
+      const prev = previousSubtaskStatus.get(id)
+      previousSubtaskStatus.set(id, current)
+      if (!prev) continue
+      if (prev !== "idle" && current === "idle") {
+        const title = sync.data.session.find((s) => s.id === id)?.title
+        toast.show({
+          variant: "success",
+          message: `${stripSubagentSuffix(title ?? "Subtask")} finished`,
+          duration: 3000,
+        })
+        removeBackgroundSubtask(props.sessionID, id)
+        route.navigate({ type: "session", sessionID: id })
+        break
+      }
+    }
+  })
 
   const getAvailableAds = () => {
     const adsConfig = ads()
@@ -1061,6 +1127,20 @@ export function Prompt(props: PromptProps) {
                     return
                   }
                 }
+
+                // Background subtasks picker (Down arrow when prompt is empty)
+                if (
+                  !autocomplete.visible &&
+                  store.mode === "normal" &&
+                  props.sessionID &&
+                  store.prompt.input === "" &&
+                  backgroundedSubtaskCount() > 0 &&
+                  keybind.match("subtask_picker", e)
+                ) {
+                  e.preventDefault()
+                  openBackgroundSubtasks()
+                  return
+                }
                 if (e.name === "!" && input.visualCursor.offset === 0) {
                   setStore("placeholder", Math.floor(Math.random() * SHELL_PLACEHOLDERS.length))
                   setStore("mode", "shell")
@@ -1236,6 +1316,19 @@ export function Prompt(props: PromptProps) {
             when={status().type !== "idle"}
             fallback={
               <box flexDirection="row" gap={2} flexGrow={1}>
+                <Show when={props.sessionID && backgroundedSubtaskCount() > 0}>
+                  <box
+                    onMouseUp={() => openBackgroundSubtasks()}
+                    backgroundColor={theme.primary}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    flexShrink={0}
+                  >
+                    <text fg={theme.background}>
+                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> subtasks
+                    </text>
+                  </box>
+                </Show>
                 <text fg={theme.text}>
                   esc <span style={{ fg: theme.textMuted }}>interrupt</span>
                 </text>
@@ -1326,6 +1419,19 @@ export function Prompt(props: PromptProps) {
                 </box>
               </box>
               <box flexDirection="row" gap={2} flexGrow={1}>
+                <Show when={props.sessionID && backgroundedSubtaskCount() > 0}>
+                  <box
+                    onMouseUp={() => openBackgroundSubtasks()}
+                    backgroundColor={theme.primary}
+                    paddingLeft={1}
+                    paddingRight={1}
+                    flexShrink={0}
+                  >
+                    <text fg={theme.background}>
+                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> subtasks
+                    </text>
+                  </box>
+                </Show>
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
                   <span style={{ fg: store.interrupt > 0 ? theme.primary : theme.textMuted }}>

@@ -16,7 +16,7 @@ import path from "path"
 import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
-import { useTheme, selectedForeground } from "@tui/context/theme"
+import { useTheme, selectedForeground, tint } from "@tui/context/theme"
 import {
   BoxRenderable,
   ScrollBoxRenderable,
@@ -208,10 +208,24 @@ export function Session() {
   )
 
   let lastSwitch: string | undefined = undefined
+  const autoBackgroundedTaskSessions = new Set<string>()
   sdk.event.on("message.part.updated", (evt) => {
     const part = evt.properties.part
     if (part.type !== "tool") return
     if (part.sessionID !== route.sessionID) return
+
+    // Auto-background newly launched subagent subtasks so they immediately show up
+    // in the prompt statusbar + Background Subtasks dialog (Claude Code-style).
+    if (part.tool === "task") {
+      const childSessionID = (part.state as any)?.metadata?.sessionId
+      if (typeof childSessionID === "string" && !autoBackgroundedTaskSessions.has(childSessionID)) {
+        autoBackgroundedTaskSessions.add(childSessionID)
+        const parentSessionID = part.sessionID
+        addToBackground(parentSessionID, childSessionID)
+      }
+      return
+    }
+
     if (part.state.status !== "completed") return
     if (part.id === lastSwitch) return
 
@@ -227,6 +241,21 @@ export function Session() {
   let scroll: ScrollBoxRenderable
   let prompt: PromptRef
   const keybind = useKeybind()
+  const status = createMemo(() => sync.data.session_status?.[route.sessionID] ?? { type: "idle" as const })
+
+  type BackgroundSubtasksMap = Record<string, string[]>
+  function addToBackground(parentID: string, childID: string) {
+    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
+    const next = Array.from(new Set([...(map[parentID] ?? []), childID]))
+    kv.set("background_subtasks", { ...map, [parentID]: next })
+  }
+
+  function removeFromBackground(parentID: string, childID: string) {
+    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
+    const list = map[parentID] ?? []
+    if (!list.includes(childID)) return
+    kv.set("background_subtasks", { ...map, [parentID]: list.filter((x) => x !== childID) })
+  }
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
@@ -237,35 +266,67 @@ export function Session() {
     }
   })
 
+  // Foreground/background behavior for subtasks (Claude Code-style)
+  // - When viewing a child session that is currently running, Ctrl+B backgrounds it and returns to the parent.
+  // - When a child session is opened in the foreground, remove it from the background list.
+  createEffect(
+    on(
+      () => ({ sessionID: route.sessionID, parentID: session()?.parentID }),
+      ({ parentID }) => {
+        if (!parentID) return
+        removeFromBackground(parentID, route.sessionID)
+      },
+      { defer: true },
+    ),
+  )
+
+  useKeyboard((evt) => {
+    const parentID = session()?.parentID
+    if (!parentID) return
+    if (!keybind.match("subtask_background", evt)) return
+
+    evt.preventDefault()
+    evt.stopPropagation()
+    addToBackground(parentID, route.sessionID)
+    navigate({ type: "session", sessionID: parentID })
+  })
+
+  // In subagent sessions, Esc should behave like Ctrl+B (background + return to parent).
+  useKeyboard((evt) => {
+    const parentID = session()?.parentID
+    if (!parentID) return
+    if (evt.name !== "escape") return
+
+    evt.preventDefault()
+    evt.stopPropagation()
+    addToBackground(parentID, route.sessionID)
+    navigate({ type: "session", sessionID: parentID })
+  })
+
   // Helper: Find next visible message boundary in direction
   const findNextVisibleMessage = (direction: "next" | "prev"): string | null => {
     const children = scroll.getChildren()
-    const messagesList = messages()
+    const messageSet = new Set(messages().map((m) => m.id))
     const scrollTop = scroll.y
 
-    // Get visible messages sorted by position, filtering for valid non-synthetic, non-ignored content
-    const visibleMessages = children
-      .filter((c) => {
-        if (!c.id) return false
-        const message = messagesList.find((m) => m.id === c.id)
-        if (!message) return false
-
-        // Check if message has valid non-synthetic, non-ignored text parts
-        const parts = sync.data.part[message.id]
-        if (!parts || !Array.isArray(parts)) return false
-
-        return parts.some((part) => part && part.type === "text" && !part.synthetic && !part.ignored)
-      })
-      .sort((a, b) => a.y - b.y)
-
-    if (visibleMessages.length === 0) return null
-
-    if (direction === "next") {
-      // Find first message below current position
-      return visibleMessages.find((c) => c.y > scrollTop + 10)?.id ?? null
+    const isValidMessage = (c: (typeof children)[0]) => {
+      if (!c.id || !messageSet.has(c.id)) return false
+      const parts = sync.data.part[c.id]
+      return parts?.some((part) => part && part.type === "text" && !part.synthetic && !part.ignored) ?? false
     }
-    // Find last message above current position
-    return [...visibleMessages].reverse().find((c) => c.y < scrollTop - 10)?.id ?? null
+
+    // Children are already in DOM order (sorted by y), no need to re-sort
+    if (direction === "next") {
+      for (const c of children) {
+        if (c.y > scrollTop + 10 && isValidMessage(c)) return c.id
+      }
+    } else {
+      for (let i = children.length - 1; i >= 0; i--) {
+        const c = children[i]
+        if (c.y < scrollTop - 10 && isValidMessage(c)) return c.id
+      }
+    }
+    return null
   }
 
   // Helper: Scroll to message in direction or fallback to page scroll
@@ -306,6 +367,20 @@ export function Session() {
 
   const command = useCommandDialog()
   command.register(() => [
+    {
+      title: "Background subtask",
+      value: "subtask.background",
+      keybind: "subtask_background",
+      category: "Session",
+      hidden: true,
+      onSelect: (dialog) => {
+        const parentID = session()?.parentID
+        if (!parentID) return
+        addToBackground(parentID, route.sessionID)
+        navigate({ type: "session", sessionID: parentID })
+        dialog.clear()
+      },
+    },
     {
       title: session()?.share?.url ? "Copy share link" : "Share session",
       value: "session.share",
@@ -897,6 +972,34 @@ export function Session() {
       onSelect: (dialog) => {
         const parentID = session()?.parentID
         if (parentID) {
+          navigate({
+            type: "session",
+            sessionID: parentID,
+          })
+        }
+        dialog.clear()
+      },
+    },
+    {
+      title: "Close subagent session",
+      value: "session.child.close",
+      keybind: "session_child_close",
+      category: "Session",
+      hidden: true,
+      onSelect: async (dialog) => {
+        const parentID = session()?.parentID
+        const currentID = route.sessionID
+        const status = sync.data.session_status[currentID]?.type
+
+        if (parentID && currentID) {
+          // If busy, kill the task (which also removes it from background)
+          if (status !== "idle") {
+            await sdk.client.session.abort({ sessionID: currentID }).catch(() => {})
+          } else {
+            // If idle, just remove from background tasks
+            removeFromBackground(parentID, currentID)
+          }
+
           navigate({
             type: "session",
             sessionID: parentID,
@@ -1589,11 +1692,36 @@ function InlineTool(props: {
   )
 }
 
-function BlockTool(props: { title: string; children: JSX.Element; onClick?: () => void; part?: ToolPart }) {
+function BlockTool(props: {
+  title: string
+  titleColor?: RGBA
+  accentColor?: RGBA
+  children: JSX.Element
+  onClick?: () => void
+  part?: ToolPart
+}) {
   const { theme } = useTheme()
   const renderer = useRenderer()
   const [hover, setHover] = createSignal(false)
   const error = createMemo(() => (props.part?.state.status === "error" ? props.part.state.error : undefined))
+
+  const backgroundColor = createMemo(() => {
+    const base = hover() ? theme.backgroundMenu : theme.backgroundPanel
+    const accent = props.accentColor
+    if (!accent) return base
+
+    // Adapt tint intensity for light vs dark panels.
+    const luminance = 0.299 * base.r + 0.587 * base.g + 0.114 * base.b
+    const isLight = luminance > 0.55
+    const alpha = hover() ? (isLight ? 0.1 : 0.16) : isLight ? 0.06 : 0.12
+
+    // Preserve the panel alpha channel (important for transparent themes).
+    const tinted = tint(base, accent, alpha)
+    const a = base.a <= 1 ? Math.round(base.a * 255) : Math.round(base.a)
+    return RGBA.fromInts(Math.round(tinted.r * 255), Math.round(tinted.g * 255), Math.round(tinted.b * 255), a)
+  })
+
+  const borderColor = createMemo(() => props.accentColor ?? theme.background)
   return (
     <box
       border={["left"]}
@@ -1602,9 +1730,9 @@ function BlockTool(props: { title: string; children: JSX.Element; onClick?: () =
       paddingLeft={2}
       marginTop={1}
       gap={1}
-      backgroundColor={hover() ? theme.backgroundMenu : theme.backgroundPanel}
+      backgroundColor={backgroundColor()}
       customBorderChars={SplitBorder.customBorderChars}
-      borderColor={theme.background}
+      borderColor={borderColor()}
       onMouseOver={() => props.onClick && setHover(true)}
       onMouseOut={() => setHover(false)}
       onMouseUp={() => {
@@ -1612,7 +1740,7 @@ function BlockTool(props: { title: string; children: JSX.Element; onClick?: () =
         props.onClick?.()
       }}
     >
-      <text paddingLeft={3} fg={theme.textMuted}>
+      <text paddingLeft={3} fg={props.titleColor ?? theme.textMuted}>
         {props.title}
       </text>
       {props.children}
@@ -1813,6 +1941,8 @@ function Task(props: ToolProps<typeof TaskTool>) {
       <Match when={props.metadata.summary?.length}>
         <BlockTool
           title={"# " + Locale.titlecase(props.input.subagent_type ?? "unknown") + " Task"}
+          titleColor={color()}
+          accentColor={color()}
           onClick={
             props.metadata.sessionId
               ? () => navigate({ type: "session", sessionID: props.metadata.sessionId! })

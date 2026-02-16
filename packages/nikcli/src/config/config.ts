@@ -737,6 +737,12 @@ export namespace Config {
       session_share: z.string().optional().default("none").describe("Share current session"),
       session_unshare: z.string().optional().default("none").describe("Unshare current session"),
       session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
+      subtask_background: z
+        .string()
+        .optional()
+        .default("ctrl+b")
+        .describe("Background current subtask and return to parent session"),
+      subtask_picker: z.string().optional().default("down").describe("Open background subtask picker"),
       session_compact: z.string().optional().default("<leader>c").describe("Compact the session"),
       messages_page_up: z.string().optional().default("pageup,ctrl+alt+b").describe("Scroll messages up by one page"),
       messages_page_down: z
@@ -861,7 +867,11 @@ export namespace Config {
       history_next: z.string().optional().default("down").describe("Next history item"),
       session_child_cycle: z.string().optional().default("<leader>right").describe("Next child session"),
       session_child_cycle_reverse: z.string().optional().default("<leader>left").describe("Previous child session"),
-      session_parent: z.string().optional().default("<leader>up").describe("Go to parent session"),
+      // NOTE: for subtasks we prefer `subtask_background` (ctrl+b) which also
+      // adds the child back to the background list. Keep this bound to ctrl+b
+      // so "Parent" in subagent sessions matches the behavior users expect.
+      session_parent: z.string().optional().default("ctrl+b").describe("Go to parent session"),
+      session_child_close: z.string().optional().default("<leader>c").describe("Close subagent session"),
       terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
       terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
       tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),

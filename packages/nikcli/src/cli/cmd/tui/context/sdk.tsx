@@ -62,24 +62,36 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
         return
       }
 
-      // Fall back to SSE
+      // Fall back to SSE with minimal backoff (fast reconnection)
+      let backoff = 60
       while (true) {
         if (abort.signal.aborted) break
-        const events = await sdk.event.subscribe(
-          {},
-          {
-            signal: abort.signal,
-          },
-        )
 
-        for await (const event of events.stream) {
-          handleEvent(event)
-        }
+        try {
+          const events = await sdk.event.subscribe(
+            {},
+            {
+              signal: abort.signal,
+            },
+          )
 
-        // Flush any remaining events
-        if (timer) clearTimeout(timer)
-        if (queue.length > 0) {
-          flush()
+          // Reset backoff on successful connection
+          backoff = 100
+
+          for await (const event of events.stream) {
+            handleEvent(event)
+          }
+
+          // Flush any remaining events
+          if (timer) clearTimeout(timer)
+          if (queue.length > 0) {
+            flush()
+          }
+        } catch (error) {
+          if (abort.signal.aborted) break
+
+          // Minimal backoff: 100ms → 100ms → 100ms (no exponential growth)
+          await new Promise(resolve => setTimeout(resolve, backoff))
         }
       }
     })
