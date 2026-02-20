@@ -32,6 +32,7 @@ import { RemoteCommand } from "./cli/cmd/remote"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
 import { AdsCommand } from "./cli/cmd/ads"
 import { LovableCommand } from "./cli/cmd/lovable"
+import { CompanionCommand } from "./cli/cmd/companion"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -109,6 +110,7 @@ const cli = yargs(hideBin(process.argv))
   .command(RagModelCommand)
   .command(ImageModelCommand)
   .command(RemoteCommand)
+  .command(CompanionCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

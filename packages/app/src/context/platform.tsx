@@ -4,10 +4,10 @@ import type { Accessor } from "solid-js"
 
 export type Platform = {
   /** Platform discriminator */
-  platform: "web" | "desktop"
+  platform: "web" | "desktop" | "mobile"
 
   /** Desktop OS (Tauri only) */
-  os?: "macos" | "windows" | "linux"
+  os?: "macos" | "windows" | "linux" | "ios" | "android"
 
   /** App version */
   version?: string

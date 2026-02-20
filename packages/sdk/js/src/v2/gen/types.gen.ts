@@ -1435,6 +1435,10 @@ export type KeybindsConfig = {
    */
   session_parent?: string
   /**
+   * Close subagent session
+   */
+  session_child_close?: string
+  /**
    * Suspend terminal
    */
   terminal_suspend?: string

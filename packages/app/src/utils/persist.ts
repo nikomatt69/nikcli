@@ -34,7 +34,7 @@ function cacheDelete(key: string) {
 }
 
 function cachePrune() {
-  for (; ;) {
+  for (;;) {
     if (cache.size <= CACHE_MAX_ENTRIES && cacheTotal.bytes <= CACHE_MAX_BYTES) return
     const oldest = cache.keys().next().value as string | undefined
     if (!oldest) return
@@ -299,9 +299,9 @@ export const Persist = {
 
 export function removePersisted(target: { storage?: string; key: string }) {
   const platform = usePlatform()
-  const isDesktop = platform.platform === "desktop" && !!platform.storage
+  const isNative = (platform.platform === "desktop" || platform.platform === "mobile") && !!platform.storage
 
-  if (isDesktop) {
+  if (isNative) {
     return platform.storage?.(target.storage)?.removeItem(target.key)
   }
 
@@ -323,22 +323,22 @@ export function persisted<T>(
   const defaults = snapshot(store[0])
   const legacy = config.legacy ?? []
 
-  const isDesktop = platform.platform === "desktop" && !!platform.storage
+  const isNative = (platform.platform === "desktop" || platform.platform === "mobile") && !!platform.storage
 
   const currentStorage = (() => {
-    if (isDesktop) return platform.storage?.(config.storage)
+    if (isNative) return platform.storage?.(config.storage)
     if (!config.storage) return localStorageDirect()
     return localStorageWithPrefix(config.storage)
   })()
 
   const legacyStorage = (() => {
-    if (!isDesktop) return localStorageDirect()
+    if (!isNative) return localStorageDirect()
     if (!config.storage) return platform.storage?.()
     return platform.storage?.(LEGACY_STORAGE)
   })()
 
   const storage = (() => {
-    if (!isDesktop) {
+    if (!isNative) {
       const current = currentStorage as SyncStorage
       const legacyStore = legacyStorage as SyncStorage
 

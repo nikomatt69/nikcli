@@ -4,11 +4,7 @@ import { $ } from "bun"
 import { createNikcli } from "@nikcli-ai/sdk"
 import { parseArgs } from "util"
 
-export const team = [
-  "actions-user",
-  "nikcli",
-  "nikcli-agent[bot]",
-]
+export const team = ["actions-user", "nikcli", "nikcli-agent[bot]"]
 
 export async function getLatestRelease() {
   return fetch("https://api.github.com/repos/nikomatt69/nikcli/releases/latest")
@@ -47,7 +43,7 @@ export async function getCommits(from: string, to: string): Promise<Commit[]> {
 
   // Get commits that touch the relevant packages
   const log =
-    await $`git log ${fromRef}..${toRef} --oneline --format="%H" -- packages/nikcli packages/sdk packages/plugin packages/desktop packages/app sdks/vscode packages/extensions github`.text()
+    await $`git log ${fromRef}..${toRef} --oneline --format="%H" -- packages/nikcli packages/sdk packages/plugin packages/desktop packages/mobile packages/app sdks/vscode packages/extensions github`.text()
   const hashes = log.split("\n").filter(Boolean)
 
   const commits: Commit[] = []
@@ -66,6 +62,7 @@ export async function getCommits(from: string, to: string): Promise<Commit[]> {
       else if (file.startsWith("packages/nikcli/")) areas.add("core")
       else if (file.startsWith("packages/desktop/src-tauri/")) areas.add("tauri")
       else if (file.startsWith("packages/desktop/")) areas.add("app")
+      else if (file.startsWith("packages/mobile/")) areas.add("mobile")
       else if (file.startsWith("packages/app/")) areas.add("app")
       else if (file.startsWith("packages/sdk/")) areas.add("sdk")
       else if (file.startsWith("packages/plugin/")) areas.add("plugin")
@@ -114,6 +111,7 @@ const sections = {
   tui: "TUI",
   app: "Desktop",
   tauri: "Desktop",
+  mobile: "Mobile",
   sdk: "SDK",
   plugin: "SDK",
   "extensions/zed": "Extensions",
@@ -123,7 +121,18 @@ const sections = {
 
 function getSection(areas: Set<string>): string {
   // Priority order for multi-area commits
-  const priority = ["core", "tui", "app", "tauri", "sdk", "plugin", "extensions/zed", "extensions/vscode", "github"]
+  const priority = [
+    "core",
+    "tui",
+    "app",
+    "tauri",
+    "mobile",
+    "sdk",
+    "plugin",
+    "extensions/zed",
+    "extensions/vscode",
+    "github",
+  ]
   for (const area of priority) {
     if (areas.has(area)) return sections[area as keyof typeof sections]
   }
@@ -177,7 +186,7 @@ export async function generateChangelog(commits: Commit[], nikcli: Awaited<Retur
     grouped.get(section)!.push(entry)
   }
 
-  const sectionOrder = ["Core", "TUI", "Desktop", "SDK", "Extensions"]
+  const sectionOrder = ["Core", "TUI", "Desktop", "Mobile", "SDK", "Extensions"]
   const lines: string[] = []
   for (const section of sectionOrder) {
     const entries = grouped.get(section)

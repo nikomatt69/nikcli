@@ -73,3 +73,9 @@ new sst.cloudflare.StaticSite("WebApp", {
     output: "dist",
   },
 })
+
+new sst.cloudflare.Worker("Companion", {
+  domain: `companion.${domain}`,
+  handler: "packages/companion/src/server/worker.ts",
+  url: true,
+})

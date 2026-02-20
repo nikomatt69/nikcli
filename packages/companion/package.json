@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/companion",
+  "version": "0.0.1",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "build": "tsc",
+    "dev": "bun run src/server/index.ts",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production"
+  },
+  "exports": {
+    ".": "./src/server/index.ts",
+    "./routes": "./src/server/routes.ts",
+    "./ws-routes": "./src/server/ws-routes.ts",
+    "./worker": "./src/server/worker.ts",
+    "./ui": "./src/ui/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@hono/node-server": "1.13.2",
+    "@nikcli-ai/sdk": "workspace:*",
+    "@nikcli-ai/util": "workspace:*",
+    "hono": "catalog:",
+    "ws": "8.18.0",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "@types/ws": "8.5.14",
+    "typescript": "catalog:",
+    "@typescript/native-preview": "catalog:",
+    "wrangler": "4.61.1"
+  }
+}

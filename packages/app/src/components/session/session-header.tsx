@@ -100,8 +100,8 @@ export function SessionHeader() {
     { id: "sublime-text", label: "Sublime Text", icon: "sublime-text", openWith: "Sublime Text" },
   ] as const
 
-  const os = createMemo<"macos" | "windows" | "linux" | "unknown">(() => {
-    if (platform.platform === "desktop" && platform.os) return platform.os
+  const os = createMemo(() => {
+    if ((platform.platform === "desktop" || platform.platform === "mobile") && platform.os) return platform.os
     if (typeof navigator !== "object") return "unknown"
     const value = navigator.platform || navigator.userAgent
     if (/Mac/i.test(value)) return "macos"

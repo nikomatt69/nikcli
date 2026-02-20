@@ -1,0 +1,6 @@
+name = "nikcli-companion"
+main = "./src/server/worker.ts"
+compatibility_date = "2025-01-25"
+
+[observability]
+enabled = true

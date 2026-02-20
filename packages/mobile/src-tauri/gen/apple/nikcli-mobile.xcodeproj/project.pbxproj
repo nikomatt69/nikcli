@@ -1,0 +1,472 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		263A2C1966CB241BC710EB84 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6A5833FD48AEBCCEFDF4B1E5 /* WebKit.framework */; };
+		33633FA5626A2AD467632D91 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1EFC489970FA203DF81B047D /* CoreGraphics.framework */; };
+		4F3250E948E732AA6DEF2074 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B3FF64DC303102F8B5808EFC /* libapp.a */; };
+		52DD82B7FD378D2F2F3FBF09 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 64F4DAEF9BD977333317E910 /* main.mm */; };
+		686BFF4F41F95717A2FE584E /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D456DB9BADCB1EC57CA2676 /* MetalKit.framework */; };
+		7C9B94CFD697CCD532B08AC3 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = B92EB78422ECDF1F013BBB52 /* assets */; };
+		92566E258C9348D425B4A3DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 458EEBC678D9C81736E20348 /* Assets.xcassets */; };
+		925C90E40516D2EF7301B486 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 706CB0B54E396566A63DCD3A /* Security.framework */; };
+		954FC7E64EB6D73ECFB7E850 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 0142EE6A5A2D50C785E722BA /* LaunchScreen.storyboard */; };
+		E0750D512131518A74E3D0D0 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = CE6B0B64EE070C77205CEE91 /* Metal.framework */; };
+		F0BFB040EF05C384B1EF0321 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B48CFBFE34BEBCC264A8FF95 /* UIKit.framework */; };
+		FDE823339FD6553E09F77209 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = DE597CC2919C8C584AA9642D /* QuartzCore.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0142EE6A5A2D50C785E722BA /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		0F5A41173308DFEC56E730D0 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		161160CC2E4A12A83B64080D /* nikcli-mobile_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "nikcli-mobile_iOS.entitlements"; sourceTree = "<group>"; };
+		1EFC489970FA203DF81B047D /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		20A9BAF35AEDCBFC7D982C78 /* constants.rs */ = {isa = PBXFileReference; path = constants.rs; sourceTree = "<group>"; };
+		223B904A694C1069EBAE0506 /* markdown.rs */ = {isa = PBXFileReference; path = markdown.rs; sourceTree = "<group>"; };
+		29B1C558A9B1BC217B01E517 /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		39B22986D9A56ED0D395A98A /* cli.rs */ = {isa = PBXFileReference; path = cli.rs; sourceTree = "<group>"; };
+		458EEBC678D9C81736E20348 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		45B8C5AE9009941594847F14 /* window_customizer.rs */ = {isa = PBXFileReference; path = window_customizer.rs; sourceTree = "<group>"; };
+		5A4A6BEFB4F219C0582A0273 /* job_object.rs */ = {isa = PBXFileReference; path = job_object.rs; sourceTree = "<group>"; };
+		5D456DB9BADCB1EC57CA2676 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		64F4DAEF9BD977333317E910 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		6A5833FD48AEBCCEFDF4B1E5 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		706CB0B54E396566A63DCD3A /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		AB94DE07B90EFDC81CF306EA /* nikcli-mobile_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "nikcli-mobile_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		B3FF64DC303102F8B5808EFC /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		B48CFBFE34BEBCC264A8FF95 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		B92EB78422ECDF1F013BBB52 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		C66F282119F1913CCB8DA001 /* server.rs */ = {isa = PBXFileReference; path = server.rs; sourceTree = "<group>"; };
+		CE6B0B64EE070C77205CEE91 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		DE597CC2919C8C584AA9642D /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		EFA0C227022466C0AC5601D7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		F6618660C33C5552628A1E13 /* windows.rs */ = {isa = PBXFileReference; path = windows.rs; sourceTree = "<group>"; };
+		FA75EB77231564239321F460 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B5E93C04CBE9B07D55026999 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4F3250E948E732AA6DEF2074 /* libapp.a in Frameworks */,
+				33633FA5626A2AD467632D91 /* CoreGraphics.framework in Frameworks */,
+				E0750D512131518A74E3D0D0 /* Metal.framework in Frameworks */,
+				686BFF4F41F95717A2FE584E /* MetalKit.framework in Frameworks */,
+				FDE823339FD6553E09F77209 /* QuartzCore.framework in Frameworks */,
+				925C90E40516D2EF7301B486 /* Security.framework in Frameworks */,
+				F0BFB040EF05C384B1EF0321 /* UIKit.framework in Frameworks */,
+				263A2C1966CB241BC710EB84 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0F7D1C5023ADA29ADF96C2B2 /* nikcli-mobile_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				EFA0C227022466C0AC5601D7 /* Info.plist */,
+				161160CC2E4A12A83B64080D /* nikcli-mobile_iOS.entitlements */,
+			);
+			path = "nikcli-mobile_iOS";
+			sourceTree = "<group>";
+		};
+		123D8A6B69CA03235479B9D3 /* nikcli-mobile */ = {
+			isa = PBXGroup;
+			children = (
+				64F4DAEF9BD977333317E910 /* main.mm */,
+				38C036D311214AAACE4B02F6 /* bindings */,
+			);
+			path = "nikcli-mobile";
+			sourceTree = "<group>";
+		};
+		38C036D311214AAACE4B02F6 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				0F5A41173308DFEC56E730D0 /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		5EA145C10192B96E7BCC24D2 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				39B22986D9A56ED0D395A98A /* cli.rs */,
+				20A9BAF35AEDCBFC7D982C78 /* constants.rs */,
+				5A4A6BEFB4F219C0582A0273 /* job_object.rs */,
+				FA75EB77231564239321F460 /* lib.rs */,
+				29B1C558A9B1BC217B01E517 /* main.rs */,
+				223B904A694C1069EBAE0506 /* markdown.rs */,
+				C66F282119F1913CCB8DA001 /* server.rs */,
+				45B8C5AE9009941594847F14 /* window_customizer.rs */,
+				F6618660C33C5552628A1E13 /* windows.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+		5F3B0DFF68CD90C520EFDF75 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				123D8A6B69CA03235479B9D3 /* nikcli-mobile */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		60CFD26865A9DF01F2BD3B6D = {
+			isa = PBXGroup;
+			children = (
+				B92EB78422ECDF1F013BBB52 /* assets */,
+				458EEBC678D9C81736E20348 /* Assets.xcassets */,
+				0142EE6A5A2D50C785E722BA /* LaunchScreen.storyboard */,
+				80EDDC487372D5DE9684668E /* Externals */,
+				0F7D1C5023ADA29ADF96C2B2 /* nikcli-mobile_iOS */,
+				5F3B0DFF68CD90C520EFDF75 /* Sources */,
+				5EA145C10192B96E7BCC24D2 /* src */,
+				8E96AB914CAFD4D75A039A4C /* Frameworks */,
+				E767EB2EF24D3EF1763C312F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		80EDDC487372D5DE9684668E /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		8E96AB914CAFD4D75A039A4C /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1EFC489970FA203DF81B047D /* CoreGraphics.framework */,
+				B3FF64DC303102F8B5808EFC /* libapp.a */,
+				CE6B0B64EE070C77205CEE91 /* Metal.framework */,
+				5D456DB9BADCB1EC57CA2676 /* MetalKit.framework */,
+				DE597CC2919C8C584AA9642D /* QuartzCore.framework */,
+				706CB0B54E396566A63DCD3A /* Security.framework */,
+				B48CFBFE34BEBCC264A8FF95 /* UIKit.framework */,
+				6A5833FD48AEBCCEFDF4B1E5 /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		E767EB2EF24D3EF1763C312F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AB94DE07B90EFDC81CF306EA /* nikcli-mobile_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		F7E435CBD3298883702DE432 /* nikcli-mobile_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 94A212FD58AA7606ABD44C3D /* Build configuration list for PBXNativeTarget "nikcli-mobile_iOS" */;
+			buildPhases = (
+				8F4F3B16CE2CF99FB3B9A82A /* Build Rust Code */,
+				1B1F0C630425E0EA998C24A8 /* Sources */,
+				C05CA138BCA30CDD9CD8F5A6 /* Resources */,
+				B5E93C04CBE9B07D55026999 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "nikcli-mobile_iOS";
+			packageProductDependencies = (
+			);
+			productName = "nikcli-mobile_iOS";
+			productReference = AB94DE07B90EFDC81CF306EA /* nikcli-mobile_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B0A261B1620420F9A193096F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+			};
+			buildConfigurationList = D4F40A076D71800942ECC8AC /* Build configuration list for PBXProject "nikcli-mobile" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 60CFD26865A9DF01F2BD3B6D;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				F7E435CBD3298883702DE432 /* nikcli-mobile_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C05CA138BCA30CDD9CD8F5A6 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				92566E258C9348D425B4A3DB /* Assets.xcassets in Resources */,
+				954FC7E64EB6D73ECFB7E850 /* LaunchScreen.storyboard in Resources */,
+				7C9B94CFD697CCD532B08AC3 /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		8F4F3B16CE2CF99FB3B9A82A /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "bun tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1B1F0C630425E0EA998C24A8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52DD82B7FD378D2F2F3FBF09 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2E56D731CB71CC04104D3480 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "nikcli-mobile_iOS/nikcli-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "nikcli-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.desktop.dev;
+				PRODUCT_NAME = "Nikcli Dev";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		636B0655F9AE99E92F329458 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "nikcli-mobile_iOS/nikcli-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "nikcli-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.desktop.dev;
+				PRODUCT_NAME = "Nikcli Dev";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+		87E8A65A201FBE511B56D8C8 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		C679E153FD86F0F3040C1FFC /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		94A212FD58AA7606ABD44C3D /* Build configuration list for PBXNativeTarget "nikcli-mobile_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				636B0655F9AE99E92F329458 /* debug */,
+				2E56D731CB71CC04104D3480 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		D4F40A076D71800942ECC8AC /* Build configuration list for PBXProject "nikcli-mobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				87E8A65A201FBE511B56D8C8 /* debug */,
+				C679E153FD86F0F3040C1FFC /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = B0A261B1620420F9A193096F /* Project object */;
+}

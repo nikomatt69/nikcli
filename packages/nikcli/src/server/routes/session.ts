@@ -202,9 +202,14 @@ export const SessionRoutes = lazy(() =>
       }),
       validator("json", Session.create.schema.optional()),
       async (c) => {
-        const body = c.req.valid("json") ?? {}
-        const session = await Session.create(body)
-        return c.json(session)
+        try {
+          const body = c.req.valid("json") ?? {}
+          const session = await Session.create(body)
+          return c.json(session)
+        } catch (err) {
+          console.error("Session creation error:", err)
+          return c.json({ error: err instanceof Error ? err.message : String(err) }, 400)
+        }
       },
     )
     .delete(
