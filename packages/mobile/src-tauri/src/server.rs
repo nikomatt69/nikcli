@@ -64,6 +64,7 @@ pub async fn get_saved_server_url(app: &tauri::AppHandle) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 pub fn spawn_local_server(
     app: AppHandle,
     hostname: String,
@@ -89,8 +90,10 @@ pub fn spawn_local_server(
     (child, health_check)
 }
 
+#[allow(dead_code)]
 pub struct HealthCheck(pub JoinHandle<()>);
 
+#[allow(dead_code)]
 pub async fn check_health(url: &str, password: Option<&str>) -> bool {
     let Ok(url) = reqwest::Url::parse(url) else {
         return false;
@@ -124,6 +127,7 @@ pub async fn check_health(url: &str, password: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
+#[allow(dead_code)]
 fn url_is_localhost(url: &reqwest::Url) -> bool {
     url.host_str().is_some_and(|host| {
         host.eq_ignore_ascii_case("localhost")
@@ -166,6 +170,7 @@ fn get_server_url_from_config(config: &cli::Config) -> Option<String> {
     Some(format!("http://{}:{}", hostname, port))
 }
 
+#[allow(dead_code)]
 pub async fn check_health_or_ask_retry(app: &AppHandle, url: &str) -> bool {
     println!("Checking health for {url}");
     loop {

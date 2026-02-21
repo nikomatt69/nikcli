@@ -32,7 +32,6 @@ use tokio::{
 };
 
 use crate::cli::sync_cli;
-use crate::constants::*;
 use crate::server::get_saved_server_url;
 use crate::windows::{LoadingWindow, MainWindow};
 
@@ -46,7 +45,6 @@ struct ServerReadyData {
 #[serde(tag = "phase", rename_all = "snake_case")]
 enum InitStep {
     ServerWaiting,
-    SqliteWaiting,
     Done,
 }
 
@@ -71,7 +69,7 @@ impl ServerState {
         }
     }
 
-    pub fn set_child(&self, child: Option<CommandChild>) {
+    pub fn _set_child(&self, child: Option<CommandChild>) {
         *self.child.lock().unwrap() = child;
     }
 }
@@ -102,6 +100,7 @@ fn kill_sidecar(app: AppHandle) {
     println!("Killed server");
 }
 
+#[allow(dead_code)]
 async fn get_logs(app: AppHandle) -> Result<String, String> {
     let log_state = app.try_state::<LogState>().ok_or("Log state not found")?;
 
@@ -123,8 +122,8 @@ async fn await_initialization(
     let mut rx = init_state.current.clone();
 
     let events = async {
-        let e = (*rx.borrow()).clone();
-        let _ = events.send(e).unwrap();
+        let e = *rx.borrow();
+        events.send(e).unwrap();
 
         while rx.changed().await.is_ok() {
             let step = *rx.borrow_and_update();
@@ -228,7 +227,7 @@ pub fn run() {
         .arg("nikcli-cli")
         .output();
 
-    let mut builder = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_store::Builder::new().build())
@@ -284,7 +283,7 @@ async fn initialize(app: AppHandle) {
     let sqlite_enabled = false;
 
     let loading_task = tokio::spawn({
-        let init_tx = init_tx.clone();
+        let _init_tx = init_tx.clone();
         let app = app.clone();
 
         async move {
@@ -366,11 +365,12 @@ fn spawn_cli_sync_task(app: AppHandle) {
     });
 }
 
+#[allow(dead_code)]
 enum ServerConnection {
     Existing {
         url: String,
     },
-    CLI {
+    Cli {
         url: String,
         password: Option<String>,
         child: CommandChild,
@@ -378,6 +378,7 @@ enum ServerConnection {
     },
 }
 
+#[allow(dead_code)]
 async fn setup_server_connection(app: AppHandle) -> ServerConnection {
     let custom_url = get_saved_server_url(&app).await;
 
@@ -406,7 +407,7 @@ async fn setup_server_connection(app: AppHandle) -> ServerConnection {
     let (child, health_check) =
         server::spawn_local_server(app, hostname.to_string(), local_port, password.clone());
 
-    ServerConnection::CLI {
+    ServerConnection::Cli {
         url: local_url,
         password: Some(password),
         child,
@@ -414,6 +415,7 @@ async fn setup_server_connection(app: AppHandle) -> ServerConnection {
     }
 }
 
+#[allow(dead_code)]
 fn get_sidecar_port() -> u32 {
     option_env!("NIKCLI_PORT")
         .map(|s| s.to_string())
@@ -428,6 +430,7 @@ fn get_sidecar_port() -> u32 {
         }) as u32
 }
 
+#[allow(dead_code)]
 fn sqlite_file_exists() -> bool {
     let Ok(path) = nikcli_db_path() else {
         return true;
@@ -436,6 +439,7 @@ fn sqlite_file_exists() -> bool {
     path.exists()
 }
 
+#[allow(dead_code)]
 fn nikcli_db_path() -> Result<PathBuf, &'static str> {
     let xdg_data_home = env::var_os("XDG_DATA_HOME").filter(|v| !v.is_empty());
 

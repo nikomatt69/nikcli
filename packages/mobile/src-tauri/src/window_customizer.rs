@@ -1,5 +1,6 @@
-use tauri::{Manager, Runtime, Window, plugin::Plugin};
+use tauri::{plugin::Plugin, Manager, Runtime, Window};
 
+#[allow(dead_code)]
 pub struct PinchZoomDisablePlugin;
 
 impl Default for PinchZoomDisablePlugin {
@@ -21,8 +22,8 @@ impl<R: Runtime> Plugin<R> for PinchZoomDisablePlugin {
         let _ = webview_window.with_webview(|_webview| {
             #[cfg(target_os = "linux")]
             unsafe {
-                use gtk::GestureZoom;
                 use gtk::glib::ObjectExt;
+                use gtk::GestureZoom;
                 use webkit2gtk::glib::gobject_ffi;
 
                 if let Some(data) = _webview.inner().data::<GestureZoom>("wk-view-zoom-gesture") {
