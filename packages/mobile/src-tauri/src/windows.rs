@@ -23,10 +23,12 @@ impl MainWindow {
         let window_builder = base_window_config(
             WebviewWindowBuilder::new(app, Self::LABEL, WebviewUrl::App("/".into())),
             app,
-        )
-        .title("Nikcli")
-        .visible(true)
-        .initialization_script(format!(
+        );
+
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+        let window_builder = window_builder.title("Nikcli").visible(true);
+
+        let window_builder = window_builder.initialization_script(format!(
             r#"
             window.__NIKCLI__ ??= {{}};
             window.__NIKCLI__.updaterEnabled = {UPDATER_ENABLED};
@@ -55,10 +57,23 @@ impl LoadingWindow {
         let window_builder = base_window_config(
             WebviewWindowBuilder::new(app, Self::LABEL, tauri::WebviewUrl::App("/loading".into())),
             app,
-        )
-        .visible(true);
+        );
+
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+        let window_builder = window_builder.visible(true);
 
         Ok(Self(window_builder.build()?))
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+    pub fn close(self) -> Result<(), tauri::Error> {
+        self.0.close()
+    }
+
+    #[cfg(any(target_os = "ios", target_os = "android"))]
+    pub fn close(self) -> Result<(), tauri::Error> {
+        drop(self);
+        Ok(())
     }
 }
 

@@ -135,7 +135,7 @@ function BottomNavbar() {
         if (m.message?.role === "user") return true
         return false
       })
-      
+
       if (firstUserMessage) {
         let content = ""
         if (typeof firstUserMessage.message?.content === "string") {
@@ -144,23 +144,23 @@ function BottomNavbar() {
           const textBlock = firstUserMessage.message.content.find((c: any) => c.type === "text" || c.text)
           content = textBlock?.text || textBlock?.content || ""
         } else if (firstUserMessage.content) {
-          content = typeof firstUserMessage.content === "string" 
-            ? firstUserMessage.content 
+          content = typeof firstUserMessage.content === "string"
+            ? firstUserMessage.content
             : firstUserMessage.content[0]?.text || ""
         }
-        
+
         if (content && content.trim()) {
           return content.trim().slice(0, 50) + (content.length > 50 ? "..." : "")
         }
       }
     }
-    
+
     // Fallback to session ID or created date
     if (session.createdAt) {
       const date = new Date(session.createdAt)
       return `Session - ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`
     }
-    
+
     return `Session ${session.id.slice(0, 8)}`
   }
 
@@ -233,13 +233,15 @@ export function App() {
     )
   }
 
-  return (
+  return (<>
     <div className="app">
       <main className="main">
         <PermissionBanner />
         <ChatView />
       </main>
-      <BottomNavbar />
+
     </div>
+    <BottomNavbar />
+  </>
   )
 }

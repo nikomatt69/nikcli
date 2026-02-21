@@ -12,6 +12,7 @@
 		4F3250E948E732AA6DEF2074 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B3FF64DC303102F8B5808EFC /* libapp.a */; };
 		52DD82B7FD378D2F2F3FBF09 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 64F4DAEF9BD977333317E910 /* main.mm */; };
 		686BFF4F41F95717A2FE584E /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D456DB9BADCB1EC57CA2676 /* MetalKit.framework */; };
+		6F9CD788D1CF284FB9304B7E /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 1B9DDDDF6BD3DD62E1971EF2 /* libapp.a */; };
 		7C9B94CFD697CCD532B08AC3 /* assets in Resources */ = {isa = PBXBuildFile; fileRef = B92EB78422ECDF1F013BBB52 /* assets */; };
 		92566E258C9348D425B4A3DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 458EEBC678D9C81736E20348 /* Assets.xcassets */; };
 		925C90E40516D2EF7301B486 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 706CB0B54E396566A63DCD3A /* Security.framework */; };
@@ -25,6 +26,7 @@
 		0142EE6A5A2D50C785E722BA /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		0F5A41173308DFEC56E730D0 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		161160CC2E4A12A83B64080D /* nikcli-mobile_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "nikcli-mobile_iOS.entitlements"; sourceTree = "<group>"; };
+		1B9DDDDF6BD3DD62E1971EF2 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		1EFC489970FA203DF81B047D /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		20A9BAF35AEDCBFC7D982C78 /* constants.rs */ = {isa = PBXFileReference; path = constants.rs; sourceTree = "<group>"; };
 		223B904A694C1069EBAE0506 /* markdown.rs */ = {isa = PBXFileReference; path = markdown.rs; sourceTree = "<group>"; };
@@ -94,6 +96,14 @@
 			path = bindings;
 			sourceTree = "<group>";
 		};
+		52499DFADCBD1B6C1CBD1205 /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				846B0FD05FBC3DF7C8251892 /* debug */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
 		5EA145C10192B96E7BCC24D2 /* src */ = {
 			isa = PBXGroup;
 			children = (
@@ -137,8 +147,17 @@
 		80EDDC487372D5DE9684668E /* Externals */ = {
 			isa = PBXGroup;
 			children = (
+				52499DFADCBD1B6C1CBD1205 /* arm64 */,
 			);
 			path = Externals;
+			sourceTree = "<group>";
+		};
+		846B0FD05FBC3DF7C8251892 /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				1B9DDDDF6BD3DD62E1971EF2 /* libapp.a */,
+			);
+			path = debug;
 			sourceTree = "<group>";
 		};
 		8E96AB914CAFD4D75A039A4C /* Frameworks */ = {
@@ -162,6 +181,13 @@
 				AB94DE07B90EFDC81CF306EA /* nikcli-mobile_iOS.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		"TEMP_4EB88374-5D46-4AF6-9E02-0520E4245FA2" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -223,6 +249,7 @@
 				92566E258C9348D425B4A3DB /* Assets.xcassets in Resources */,
 				954FC7E64EB6D73ECFB7E850 /* LaunchScreen.storyboard in Resources */,
 				7C9B94CFD697CCD532B08AC3 /* assets in Resources */,
+				6F9CD788D1CF284FB9304B7E /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -287,11 +314,12 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.desktop.dev;
-				PRODUCT_NAME = "Nikcli Dev";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.mobile.dev;
+				PRODUCT_NAME = "Nikcli Mobile Dev";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
+				DEVELOPMENT_TEAM = "5FAU2JSAM3";
 			};
 			name = release;
 		};
@@ -318,11 +346,12 @@
 				);
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(TOOLCHAIN_DIR)/usr/lib/swift/$(PLATFORM_NAME) $(TOOLCHAIN_DIR)/usr/lib/swift-5.0/$(PLATFORM_NAME)";
-				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.desktop.dev;
-				PRODUCT_NAME = "Nikcli Dev";
+				PRODUCT_BUNDLE_IDENTIFIER = ai.nikcli.mobile.dev;
+				PRODUCT_NAME = "Nikcli Mobile Dev";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
+				DEVELOPMENT_TEAM = "5FAU2JSAM3";
 			};
 			name = debug;
 		};

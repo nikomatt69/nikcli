@@ -40,5 +40,26 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>nikcli</string>
+			</array>
+			<key>CFBundleURLName</key>
+			<string>https</string>
+		</dict>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nikcli needs access to your microphone for voice input capabilities.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Nikcli needs access to your camera for image capture and analysis.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Nikcli needs access to your photo library to attach images to conversations.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Nikcli needs your location to provide relevant local context.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Nikcli Dev",
-  "identifier": "ai.nikcli.desktop.dev",
+  "productName": "Nikcli Mobile Dev",
+  "identifier": "ai.nikcli.mobile.dev",
   "mainBinaryName": "Nikcli",
   "version": "../package.json",
   "build": {
@@ -32,31 +32,24 @@
       "icons/dev/icon.ico"
     ],
     "active": true,
-    "targets": ["deb", "rpm", "dmg", "nsis", "app"],
-    "externalBin": ["sidecars/nikcli-cli"],
-    "linux": {
-      "rpm": {
-        "compression": {
-          "type": "none"
-        }
-      }
-    },
-    "macOS": {
-      "entitlements": "./entitlements.plist"
-    },
-    "windows": {
-      "nsis": {
-        "installerIcon": "icons/dev/icon.ico",
-        "headerImage": "assets/nsis-header.bmp",
-        "sidebarImage": "assets/nsis-sidebar.bmp"
-      }
+    "targets": ["dmg", "app"],
+    "iOS": {
+      "developmentTeam": "5FAU2JSAM3"
     }
   },
   "plugins": {
     "deep-link": {
       "desktop": {
         "schemes": ["nikcli"]
-      }
+      },
+      "mobile": [
+        {
+          "scheme": ["https", "http", "nikcli"],
+          "host": "nikcli.ai",
+          "pathPrefix": ["/open"],
+          "appLink": true
+        }
+      ]
     }
   }
 }

@@ -50,18 +50,20 @@ pub async fn set_default_server_url(app: AppHandle, url: Option<String>) -> Resu
 
 pub async fn get_saved_server_url(app: &tauri::AppHandle) -> Option<String> {
     if let Some(url) = get_default_server_url(app.clone()).ok().flatten() {
-        println!("Using desktop-specific custom URL: {url}");
-        return Some(url);
-    }
-
-    if let Some(cli_config) = cli::get_config(app).await
-        && let Some(url) = get_server_url_from_config(&cli_config)
-    {
-        println!("Using custom server URL from config: {url}");
+        println!("Using saved server URL: {url}");
         return Some(url);
     }
 
     None
+}
+
+pub fn default_server_url() -> String {
+    option_env!("NIKCLI_DEFAULT_SERVER_URL")
+        .map(str::to_string)
+        .or_else(|| std::env::var("NIKCLI_DEFAULT_SERVER_URL").ok())
+        .map(|value| value.trim().trim_end_matches('/').to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "http://127.0.0.1:4096".to_string())
 }
 
 #[allow(dead_code)]
@@ -140,6 +142,7 @@ fn url_is_localhost(url: &reqwest::Url) -> bool {
 /// Converts a bind address hostname to a valid URL hostname for connection.
 /// - `0.0.0.0` and `::` are wildcard bind addresses, not valid connect targets
 /// - IPv6 addresses need brackets in URLs (e.g., `::1` -> `[::1]`)
+#[allow(dead_code)]
 fn normalize_hostname_for_url(hostname: &str) -> String {
     // Wildcard bind addresses -> localhost equivalents
     if hostname == "0.0.0.0" {
@@ -157,6 +160,7 @@ fn normalize_hostname_for_url(hostname: &str) -> String {
     hostname.to_string()
 }
 
+#[allow(dead_code)]
 fn get_server_url_from_config(config: &cli::Config) -> Option<String> {
     let server = config.server.as_ref()?;
     let port = server.port?;

@@ -1,4 +1,5 @@
 import { createStore } from "zustand/vanilla"
+import { useState, useEffect } from "react"
 
 export interface Message {
   id: string
@@ -52,6 +53,8 @@ interface AppState {
   disconnect: () => void
   sendMessage: (content: string) => void
   respondToPermission: (requestId: string, allowed: boolean) => void
+  createSession: () => Promise<void>
+  deleteSession: (sessionId: string) => Promise<void>
 }
 
 export const store = createStore<AppState>((set, get) => ({
@@ -220,10 +223,47 @@ export const store = createStore<AppState>((set, get) => ({
     ws.send(JSON.stringify(msg))
     get().removePermission(requestId)
   },
+
+  createSession: async () => {
+    try {
+      const response = await fetch("/companion/api/sessions", { method: "POST" })
+      const data = await response.json()
+      if (data.sessionId) {
+        const { sessions } = get()
+        set({ sessions: [...sessions, { id: data.sessionId, status: "waiting", messages: [] }] })
+        get().connect(data.sessionId)
+      }
+    } catch (e) {
+      console.error("Failed to create session:", e)
+    }
+  },
+
+  deleteSession: async (sessionId: string) => {
+    try {
+      await fetch(`/companion/api/sessions/${sessionId}`, { method: "DELETE" })
+      const { sessions, sessionId: currentSession } = get()
+      set({ sessions: sessions.filter((s) => s.id !== sessionId) })
+      if (currentSession === sessionId) {
+        get().disconnect()
+      }
+    } catch (e) {
+      console.error("Failed to delete session:", e)
+    }
+  },
 }))
 
 export function useStore<T>(selector: (state: AppState) => T): T {
-  return selector(store.getState())
+  const [state, setState] = useState<T>(() => selector(store.getState()))
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe((state) => {
+      const newValue = selector(state)
+      setState(newValue)
+    })
+    return unsubscribe
+  }, [])
+
+  return state
 }
 
 export function useStoreSubscribe<T>(selector: (state: AppState) => T, callback: (value: T) => void) {

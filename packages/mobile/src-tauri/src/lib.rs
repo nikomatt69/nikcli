@@ -20,7 +20,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
     time::Duration,
-    process::Command,
 };
 use tauri::{AppHandle, Manager, RunEvent, State, ipc::Channel};
 #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
@@ -31,8 +30,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 
-use crate::cli::sync_cli;
-use crate::server::get_saved_server_url;
+use crate::server::{default_server_url, get_saved_server_url};
 use crate::windows::{LoadingWindow, MainWindow};
 
 #[derive(Clone, serde::Serialize, specta::Type, Debug)]
@@ -159,12 +157,35 @@ fn check_app_exists(app_name: &str) -> bool {
     {
         check_linux_app(app_name)
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    {
+        let _ = app_name;
+        false
+    }
+}
+
+fn check_command_exists(command: &str, app_name: &str) -> bool {
+    std::process::Command::new(command)
+        .arg(app_name)
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 #[cfg(target_os = "windows")]
 fn check_windows_app(app_name: &str) -> bool {
-    // Check if command exists in PATH, including .exe
-    return true;
+    let mut candidates = vec![app_name.to_string()];
+
+    if !app_name.contains('.') {
+        candidates.push(format!("{app_name}.exe"));
+        candidates.push(format!("{app_name}.cmd"));
+        candidates.push(format!("{app_name}.bat"));
+    }
+
+    candidates
+        .into_iter()
+        .any(|candidate| check_command_exists("where", &candidate))
 }
 
 #[cfg(target_os = "macos")]
@@ -186,16 +207,12 @@ fn check_macos_app(app_name: &str) -> bool {
     }
     
     // Also check if command exists in PATH
-    Command::new("which")
-        .arg(app_name)
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+    check_command_exists("which", app_name)
 }
 
 #[cfg(target_os = "linux")]
 fn check_linux_app(app_name: &str) -> bool {
-    return true;
+    check_command_exists("which", app_name)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -222,11 +239,6 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
-    #[cfg(all(target_os = "macos", not(debug_assertions)))]
-    let _ = std::process::Command::new("killall")
-        .arg("nikcli-cli")
-        .output();
-
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_os::init())
@@ -238,6 +250,8 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_log::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let app = app.handle().clone();
@@ -270,7 +284,6 @@ async fn initialize(app: AppHandle) {
     let (init_tx, init_rx) = watch::channel(InitStep::ServerWaiting);
 
     setup_app(&app, init_rx);
-    spawn_cli_sync_task(app.clone());
 
     let (server_ready_tx, server_ready_rx) = oneshot::channel();
     let server_ready_rx = server_ready_rx.shared();
@@ -288,7 +301,7 @@ async fn initialize(app: AppHandle) {
 
         async move {
             println!("Setting up server connection");
-            
+
             let custom_url = get_saved_server_url(&app).await;
 
             if let Some(url) = custom_url {
@@ -297,8 +310,10 @@ async fn initialize(app: AppHandle) {
                     password: None,
                 }));
             } else {
+                let fallback_url = default_server_url();
+                println!("No saved server URL found, using fallback URL: {fallback_url}");
                 let _ = server_ready_tx.send(Ok(ServerReadyData {
-                    url: "".to_string(),
+                    url: fallback_url,
                     password: None,
                 }));
             }
@@ -355,14 +370,6 @@ fn setup_app(app: &tauri::AppHandle, init_rx: watch::Receiver<InitStep>) {
     app.manage(JobObjectState::new());
 
     app.manage(InitState { current: init_rx });
-}
-
-fn spawn_cli_sync_task(app: AppHandle) {
-    tokio::spawn(async move {
-        if let Err(e) = sync_cli(app) {
-            eprintln!("Failed to sync CLI: {e}");
-        }
-    });
 }
 
 #[allow(dead_code)]

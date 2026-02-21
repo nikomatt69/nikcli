@@ -23,9 +23,7 @@ a.out
 target
 .scripts
 .direnv/
-ios
-android
-packages/mobile
+
 # Local dev files
 nikcli-dev
 logs/

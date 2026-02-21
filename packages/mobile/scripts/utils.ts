@@ -30,6 +30,14 @@ export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; ass
 
 export const RUST_TARGET = Bun.env.RUST_TARGET
 
+const RUST_TARGET_ALIASES: Record<string, string> = {
+  // iOS simulator/device builds still execute the macOS sidecar in local dev,
+  // so resolve them to the host-compatible binary artifact.
+  "aarch64-apple-ios": "aarch64-apple-darwin",
+  "aarch64-apple-ios-sim": "aarch64-apple-darwin",
+  "x86_64-apple-ios": "x86_64-apple-darwin",
+}
+
 function inferRustTargetFromHost() {
   // Bun/Node style platform+arch -> Rust target triple.
   const platform = process.platform
@@ -58,7 +66,8 @@ function resolveRustTarget(target?: string) {
 
 export function getCurrentSidecar(target?: string) {
   const rustTarget = resolveRustTarget(target)
-  const binaryConfig = SIDECAR_BINARIES.find((b) => b.rustTarget === rustTarget)
+  const resolvedTarget = RUST_TARGET_ALIASES[rustTarget] ?? rustTarget
+  const binaryConfig = SIDECAR_BINARIES.find((b) => b.rustTarget === resolvedTarget)
   if (!binaryConfig) throw new Error(`Sidecar configuration not available for Rust target '${rustTarget}'`)
   return binaryConfig
 }

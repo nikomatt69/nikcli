@@ -20,6 +20,7 @@ pub struct Config {
     pub server: Option<ServerConfig>,
 }
 
+#[allow(dead_code)]
 pub async fn get_config(app: &AppHandle) -> Option<Config> {
     create_command(app, "debug config")
         .output()
@@ -47,6 +48,7 @@ pub fn get_sidecar_path(app: &tauri::AppHandle) -> std::path::PathBuf {
         .join("nikcli-cli")
 }
 
+#[allow(dead_code)]
 fn is_cli_installed() -> bool {
     get_cli_install_path()
         .map(|path| path.exists())
@@ -97,6 +99,7 @@ pub fn install_cli(app: tauri::AppHandle) -> Result<String, String> {
     Ok(install_path.to_string_lossy().to_string())
 }
 
+#[allow(dead_code)]
 pub fn sync_cli(app: tauri::AppHandle) -> Result<(), String> {
     if cfg!(debug_assertions) {
         println!("Skipping CLI sync for debug build");

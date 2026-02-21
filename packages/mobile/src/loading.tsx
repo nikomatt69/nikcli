@@ -49,25 +49,6 @@ render(() => {
                   return "All done"
                 }}
               </Match>
-              <Match when={state()?.phase === "sqlite_waiting"}>
-                {(_) => {
-                  const textItems = [
-                    "Just a moment...",
-                    "Migrating your database",
-                    "This could take a couple of minutes",
-                  ]
-                  const [textIndex, setTextIndex] = createSignal(0)
-
-                  onMount(async () => {
-                    await new Promise((res) => setTimeout(res, 3000))
-                    setTextIndex(1)
-                    await new Promise((res) => setTimeout(res, 6000))
-                    setTextIndex(2)
-                  })
-
-                  return <>{textItems[textIndex()]}</>
-                }}
-              </Match>
             </Switch>
           </span>
         </div>

@@ -7,7 +7,6 @@ import { getCurrent, onOpenUrl } from "@tauri-apps/plugin-deep-link"
 import { openPath as openerOpenPath } from "@tauri-apps/plugin-opener"
 import { open as shellOpen } from "@tauri-apps/plugin-shell"
 import { type as ostype } from "@tauri-apps/plugin-os"
-import { check, Update } from "@tauri-apps/plugin-updater"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { isPermissionGranted, requestPermission } from "@tauri-apps/plugin-notification"
 import { relaunch } from "@tauri-apps/plugin-process"
@@ -17,7 +16,6 @@ import { Store } from "@tauri-apps/plugin-store"
 import { Splash } from "@nikcli-ai/ui/logo"
 import { createSignal, Show, Accessor, JSX, createResource, onMount, onCleanup } from "solid-js"
 
-import { UPDATER_ENABLED } from "./updater"
 import { initI18n, t } from "./i18n"
 import pkg from "../package.json"
 import "./styles.css"
@@ -31,8 +29,6 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 }
 
 void initI18n()
-
-let update: Update | null = null
 
 const deepLinkEvent = "nikcli:deep-link"
 
@@ -255,24 +251,9 @@ const createPlatform = (password: Accessor<string | null>): Platform => ({
     }
   })(),
 
-  checkUpdate: async () => {
-    if (!UPDATER_ENABLED) return { updateAvailable: false }
-    const next = await check().catch(() => null)
-    if (!next) return { updateAvailable: false }
-    const ok = await next
-      .download()
-      .then(() => true)
-      .catch(() => false)
-    if (!ok) return { updateAvailable: false }
-    update = next
-    return { updateAvailable: true, version: next.version }
-  },
+  checkUpdate: async () => ({ updateAvailable: false }),
 
-  update: async () => {
-    if (!UPDATER_ENABLED || !update) return
-    if (ostype() === "windows") await commands.killSidecar().catch(() => undefined)
-    await update.install().catch(() => undefined)
-  },
+  update: async () => undefined,
 
   restart: async () => {
     await commands.killSidecar().catch(() => undefined)
