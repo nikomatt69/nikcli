@@ -9,6 +9,11 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: "./index.html",
+      output: {
+        manualChunks: {
+          ghostty: ["ghostty-web"],
+        },
+      },
     },
     target: "es2020",
     minify: "terser",

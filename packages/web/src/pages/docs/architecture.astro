@@ -14,7 +14,7 @@ const toc = [
   subtitle="High-level architecture derived from Instance, Session, Server, and Tool layers."
   toc={toc}
 >
-  <section id="runtime-flow" class="doc-section" style="--delay: 40ms;">
+  <section id="runtime-flow" class="mb-16 scroll-mt-24">
     <h2>Runtime Flow</h2>
     <p>
       The CLI initializes the Instance context, bootstraps subsystems (plugins, LSP, file watchers),
@@ -22,7 +22,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="instance-bootstrap" class="doc-section" style="--delay: 80ms;">
+  <section id="instance-bootstrap" class="mb-16 scroll-mt-24">
     <h2>Instance Bootstrap</h2>
     <p>
       Instance bootstrap is defined in <code>packages/nikcli/src/project/bootstrap.ts</code> and
@@ -30,9 +30,9 @@ const toc = [
     </p>
   </section>
 
-  <section id="core-modules" class="doc-section" style="--delay: 120ms;">
+  <section id="core-modules" class="mb-16 scroll-mt-24">
     <h2>Core Modules</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="Session" eyebrow="State">
         <p>Session storage, messages, tool parts, and sharing in <code>src/session</code>.</p>
       </DocCard>

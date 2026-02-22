@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket, type RawData } from "ws"
 import crypto from "node:crypto"
 import os from "node:os"
 import fs from "node:fs"
+import { promises as fsAsync } from "node:fs"
 import path from "node:path"
 import { createRequire } from "node:module"
 import { fileURLToPath } from "node:url"
@@ -22,10 +23,11 @@ const require = createRequire(import.meta.url)
 let ghosttyScriptCache: string | null = null
 let ghosttyWasmCache: Buffer | null = null
 
+const ASSET_CACHE = new Map<string, { data: Buffer | string; type: string }>()
+
 function getGhosttyScript(): string | null {
   if (ghosttyScriptCache) return ghosttyScriptCache
   try {
-    // Use UMD build for browser - it uses IIFE format, not ESM
     const directPath = path.join(__dirname, "..", "node_modules", "ghostty-web", "dist", "ghostty-web.umd.cjs")
     if (fs.existsSync(directPath)) {
       ghosttyScriptCache = fs.readFileSync(directPath, "utf-8")
@@ -44,13 +46,11 @@ function getGhosttyScript(): string | null {
 function getGhosttyWasm(): Buffer | null {
   if (ghosttyWasmCache) return ghosttyWasmCache
   try {
-    // Direct path to WASM - more reliable than require.resolve
     const directPath = path.join(__dirname, "..", "node_modules", "ghostty-web", "dist", "ghostty-vt.wasm")
     if (fs.existsSync(directPath)) {
       ghosttyWasmCache = fs.readFileSync(directPath)
       return ghosttyWasmCache
     }
-    // Fallback to require.resolve
     const wasmPath = resolveGhosttyAsset("ghostty-vt.wasm")
     if (!wasmPath) return null
     ghosttyWasmCache = fs.readFileSync(wasmPath)
@@ -94,8 +94,8 @@ export interface RemoteServerEvents {
   "tunnel:error": (error: Error) => void
   message: (client: ClientConnection, message: ClientMessage) => void
   error: (error: Error) => void
-  "terminal:output": (data: string) => void
-  "terminal:input": (clientId: string, data: string) => void
+  "terminal:output": (data: string | Buffer) => void
+  "terminal:input": (clientId: string, data: string | Buffer) => void
   "terminal:resize": (cols: number, rows: number) => void
 }
 
@@ -104,14 +104,17 @@ export class RemoteServer extends EventEmitter {
   private httpServer: Server | null = null
   private wss: WebSocketServer | null = null
   private clients: Map<string, ClientConnection & { ws: WebSocket }> = new Map()
+  private pendingAuth: Set<WebSocket> = new Set()
   private session: RemoteSession | null = null
   private heartbeatTimer: NodeJS.Timeout | null = null
   private sessionTimeoutTimer: NodeJS.Timeout | null = null
   private isRunning = false
   private sessionSecret: string
   private ptyInput: ((data: Buffer) => void) | null = null
-  private terminalOutputBuffer: string[] = []
-  private terminalOutputBufferLimit = 200
+
+  // Redesigned buffer to cap by byte size rather than array length for safety
+  private terminalOutputBuffer: Buffer = Buffer.alloc(0)
+  private readonly MAX_BUFFER_BYTES = 500 * 1024 // 500KB cap
 
   constructor(config: Partial<ServerConfig> = {}) {
     super()
@@ -147,7 +150,9 @@ export class RemoteServer extends EventEmitter {
     const sessionId = this.generateSessionId()
 
     this.httpServer = createServer((req, res) => this.handleHttpRequest(req, res))
-    this.wss = new WebSocketServer({ server: this.httpServer })
+
+    // Add WebSocket payload limit (64KB) to prevent OOM DOS
+    this.wss = new WebSocketServer({ server: this.httpServer, maxPayload: 64 * 1024 })
     this.setupWebSocketHandlers()
 
     const port = await new Promise<number>((resolve, reject) => {
@@ -205,61 +210,15 @@ export class RemoteServer extends EventEmitter {
       cb?: (err?: Error | null) => void,
     ): boolean => {
       const result = originalWrite(data, encoding, cb)
-      const text = data instanceof Buffer ? data.toString() : data
-      const formatted = this.formatOutput(String(text))
-      this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
-      this.emit("terminal:output", formatted)
+      const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as string, encoding || "utf8")
+      this.broadcastTerminalData(buf)
+      this.emit("terminal:output", buf)
       return result
     }) as typeof stdout.write
 
     this.ptyInput = (data: Buffer) => {
       stdin.emit("data", data)
     }
-  }
-
-  private formatOutput(text: string): string {
-    if (this.config.outputMode === "clean") {
-      return this.cleanOutputForMobile(text)
-    }
-    return text
-  }
-
-  private cleanOutputForMobile(text: string): string {
-    let result = ""
-    for (let i = 0; i < text.length; i++) {
-      const ch = text[i]
-      if (!ch) continue
-      const nextCh = text[i + 1]
-
-      if (ch === "\x1b" && nextCh === "[") {
-        let j = i + 2
-        while (j < text.length) {
-          const charAtJ = text[j]
-          if (!charAtJ) break
-          if (/[A-Za-z]/.test(charAtJ)) break
-          j++
-        }
-        if (j < text.length) {
-          const params = text.slice(i + 2, j)
-          const final = text[j]
-          if (final && final === "m" && /^[0-9;]*$/.test(params)) {
-            result += text.slice(i, j + 1)
-          }
-          i = j
-          continue
-        }
-      }
-
-      if (ch === "\r") continue
-      const code = ch.charCodeAt(0)
-      if (code < 0x20 || code === 0x7f) {
-        if (ch === "\n" || ch === "\t") result += ch
-        continue
-      }
-      result += ch
-    }
-
-    return result
   }
 
   private setupPtyProxy(pty: {
@@ -269,29 +228,20 @@ export class RemoteServer extends EventEmitter {
     resize: (cols: number, rows: number) => void
     onData: (callback: (data: Buffer) => void) => void
   }): void {
-    // Catch output from PTY and broadcast to clients
     pty.stdout.on("data", (data: Buffer) => {
-      const text = data.toString()
-      const formatted = this.formatOutput(text)
-      this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
-      this.emit("terminal:output", formatted)
+      this.broadcastTerminalData(data)
+      this.emit("terminal:output", data)
     })
 
-    // Forward input from clients to PTY
     pty.onData((data: Buffer) => {
-      const text = data.toString()
-      const formatted = this.formatOutput(text)
-      this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
-      this.emit("terminal:output", formatted)
+      this.broadcastTerminalData(data)
+      this.emit("terminal:output", data)
     })
 
-    // Set up input handler
     this.ptyInput = (data: Buffer) => {
       pty.stdin.write(data)
     }
 
-    // Set up resize handler
-    const originalResize = this.resizeTerminal
     this.resizeTerminal = (cols: number, rows: number) => {
       pty.resize(cols, rows)
     }
@@ -317,6 +267,11 @@ export class RemoteServer extends EventEmitter {
     }
     this.clients.clear()
 
+    for (const ws of this.pendingAuth) {
+      ws.close(1000, "Server shutting down")
+    }
+    this.pendingAuth.clear()
+
     if (this.wss) {
       this.wss.close()
       this.wss = null
@@ -337,13 +292,6 @@ export class RemoteServer extends EventEmitter {
   }
 
   private broadcastToAll(message: BroadcastMessage): void {
-    if (message.type === MessageTypes.TERMINAL_OUTPUT) {
-      const payload = message.payload as { data?: string } | undefined
-      if (typeof payload?.data === "string" && payload.data.length > 0) {
-        this.cacheTerminalOutput(payload.data)
-      }
-    }
-
     const data = JSON.stringify({
       type: message.type,
       payload: message.payload,
@@ -355,6 +303,19 @@ export class RemoteServer extends EventEmitter {
         client.ws.send(data)
       }
     }
+  }
+
+  private broadcastTerminalData(data: Buffer): void {
+    this.cacheTerminalOutput(data)
+
+    // We send binary over WS for max performance, but currently the client expects string JSON.
+    // Converting to base64 or string is a fallback if client doesn't support binary frames yet.
+    // For now we keep JSON wrapper but send base64 if needed, or just string.
+    const textData = data.toString("utf8")
+    this.broadcastToAll({
+      type: MessageTypes.TERMINAL_OUTPUT,
+      payload: { data: textData },
+    })
   }
 
   broadcast(message: BroadcastMessage): void {
@@ -385,28 +346,25 @@ export class RemoteServer extends EventEmitter {
   }
 
   getConnectedCount(): number {
-    let count = 0
-    for (const client of this.clients.values()) {
-      if (client.authenticated) count++
-    }
-    return count
+    return this.clients.size
   }
 
-  writeToClients(data: string): void {
-    const formatted = this.formatOutput(data)
-    this.broadcastToAll({ type: MessageTypes.TERMINAL_OUTPUT, payload: { data: formatted } })
-    this.emit("terminal:output", formatted)
+  writeToClients(data: string | Buffer): void {
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, "utf8")
+    this.broadcastTerminalData(buf)
+    this.emit("terminal:output", buf)
   }
 
-  writeToTerminal(data: string): void {
+  writeToTerminal(data: string | Buffer): void {
     this.writeToClients(data)
   }
 
-  sendInputToTerminal(data: string): void {
+  sendInputToTerminal(data: string | Buffer): void {
     if (!this.ptyInput) return
-    if (typeof data !== "string" || data.length === 0) return
-    this.ptyInput(Buffer.from(data))
-    this.emit("terminal:input", "cloud", data)
+    if (!data || data.length === 0) return
+    const buf = Buffer.isBuffer(data) ? data : Buffer.from(data, "utf8")
+    this.ptyInput(buf)
+    this.emit("terminal:input", "cloud", buf)
   }
 
   resizeTerminal(cols: number, rows: number): void {
@@ -418,12 +376,90 @@ export class RemoteServer extends EventEmitter {
 
   private setupWebSocketHandlers(): void {
     this.wss!.on("connection", (ws, req) => {
+      // Pending Auth Timeout (DoS Protection)
+      this.pendingAuth.add(ws)
+      const authTimeout = setTimeout(() => {
+        if (this.pendingAuth.has(ws)) {
+          ws.close(1008, "Authentication timeout")
+          this.pendingAuth.delete(ws)
+        }
+      }, 5000)
+
+      ws.on("message", (data) => {
+        if (this.pendingAuth.has(ws)) {
+          try {
+            const message: ClientMessage = JSON.parse(data.toString())
+            if (message.type === MessageTypes.AUTH) {
+              clearTimeout(authTimeout)
+              this.handleAuth(ws, req, message.token as string)
+            } else {
+              ws.close(1008, "Authentication required")
+            }
+          } catch {
+            ws.close(1008, "Invalid payload")
+          }
+          return
+        }
+
+        // Authenticated client
+        const clientId = (ws as any).__clientId
+        const client = this.clients.get(clientId)
+        if (!client) return
+
+        try {
+          const message: ClientMessage = JSON.parse(data.toString())
+          this.handleClientMessage(client, message)
+        } catch (err) {
+          // Log parsing errors
+          console.error(`Malformed WS payload from ${clientId}:`, err)
+        }
+      })
+
+      ws.on("close", () => {
+        clearTimeout(authTimeout)
+        this.pendingAuth.delete(ws)
+
+        const clientId = (ws as any).__clientId
+        if (clientId && this.clients.has(clientId)) {
+          const client = this.clients.get(clientId)!
+          this.clients.delete(clientId)
+          if (this.session) {
+            this.session.connectedDevices = this.session.connectedDevices.filter((d) => d.id !== clientId)
+            if (this.session.connectedDevices.length === 0) {
+              this.session.status = "waiting"
+            }
+            this.emit("client:disconnected", client.device)
+          }
+        }
+      })
+
+      ws.on("error", (error) => {
+        const clientId = (ws as any).__clientId
+        if (clientId) {
+          this.emit("client:error", clientId, error)
+        }
+      })
+
+      ws.send(JSON.stringify({ type: MessageTypes.AUTH_REQUIRED, timestamp: Date.now() }))
+    })
+  }
+
+  private handleAuth(ws: WebSocket, req: IncomingMessage, token: string): void {
+    if (token === this.sessionSecret) {
+      if (this.clients.size >= this.config.maxConnections) {
+        ws.close(1013, "Max connections reached")
+        this.pendingAuth.delete(ws)
+        return
+      }
+
+      this.pendingAuth.delete(ws)
       const clientId = this.generateClientId()
+      ;(ws as any).__clientId = clientId
 
       const client: ClientConnection & { ws: WebSocket } = {
         id: clientId,
         ws,
-        authenticated: false,
+        authenticated: true,
         device: {
           id: clientId,
           userAgent: req.headers["user-agent"],
@@ -434,40 +470,33 @@ export class RemoteServer extends EventEmitter {
         lastPing: Date.now(),
       }
 
-      if (this.clients.size >= this.config.maxConnections) {
-        ws.close(1013, "Max connections reached")
-        return
+      this.clients.set(clientId, client)
+
+      if (this.session) {
+        this.session.connectedDevices.push(client.device)
+        this.session.status = "connected"
       }
 
-      this.clients.set(clientId, client)
-      ws.send(JSON.stringify({ type: MessageTypes.AUTH_REQUIRED, timestamp: Date.now() }))
+      client.ws.send(
+        JSON.stringify({
+          type: MessageTypes.AUTH_SUCCESS,
+          payload: { sessionId: this.session?.id },
+          timestamp: Date.now(),
+        }),
+      )
 
-      ws.on("message", (data) => {
-        try {
-          const message: ClientMessage = JSON.parse(data.toString())
-          this.handleClientMessage(client, message)
-        } catch {}
-      })
+      this.flushTerminalBuffer(client)
+      this.emit("client:connected", client.device)
 
-      ws.on("close", () => {
-        this.clients.delete(clientId)
-        if (this.session && client.authenticated) {
-          this.session.connectedDevices = this.session.connectedDevices.filter((d) => d.id !== clientId)
-          if (this.session.connectedDevices.length === 0) {
-            this.session.status = "waiting"
-          }
-          this.emit("client:disconnected", client.device)
-        }
-      })
-
-      ws.on("error", (error) => {
-        this.emit("client:error", clientId, error)
-      })
-
+      // Setup pong listener
       ws.on("pong", () => {
         client.lastPing = Date.now()
       })
-    })
+    } else {
+      ws.send(JSON.stringify({ type: MessageTypes.AUTH_FAILED, timestamp: Date.now() }))
+      setTimeout(() => ws.close(1008, "Authentication failed"), 100)
+      this.pendingAuth.delete(ws)
+    }
   }
 
   private handleClientMessage(client: ClientConnection & { ws: WebSocket }, message: ClientMessage): void {
@@ -481,9 +510,6 @@ export class RemoteServer extends EventEmitter {
     }
 
     switch (message.type) {
-      case MessageTypes.AUTH:
-        this.handleAuth(client, message.token as string)
-        break
       case MessageTypes.TERMINAL_INPUT:
         {
           const payload = message.payload as { data?: string } | undefined
@@ -518,38 +544,21 @@ export class RemoteServer extends EventEmitter {
     }
   }
 
-  private handleAuth(client: ClientConnection & { ws: WebSocket }, token: string): void {
-    if (token === this.sessionSecret) {
-      client.authenticated = true
-
-      if (this.session) {
-        this.session.connectedDevices.push(client.device)
-        this.session.status = "connected"
-      }
-
-      client.ws.send(
-        JSON.stringify({
-          type: MessageTypes.AUTH_SUCCESS,
-          payload: { sessionId: this.session?.id },
-          timestamp: Date.now(),
-        }),
-      )
-
-      this.flushTerminalBuffer(client)
-      this.emit("client:connected", client.device)
-    } else {
-      client.ws.send(JSON.stringify({ type: MessageTypes.AUTH_FAILED, timestamp: Date.now() }))
-      setTimeout(() => client.ws.close(1008, "Authentication failed"), 100)
-    }
-  }
-
-  private handleHttpRequest(req: IncomingMessage, res: ServerResponse): void {
+  private async handleHttpRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url || "/", `http://${req.headers.host}`)
     const reqPath = url.pathname
 
-    res.setHeader("Access-Control-Allow-Origin", "*")
+    // Hardened CORS
     res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type")
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+    // Security headers
+    res.setHeader("X-Content-Type-Options", "nosniff")
+    res.setHeader("X-Frame-Options", "DENY")
+    res.setHeader(
+      "Content-Security-Policy",
+      "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' wss: ws: https: data: blob:;",
+    )
 
     if (req.method === "OPTIONS") {
       res.writeHead(204)
@@ -557,130 +566,150 @@ export class RemoteServer extends EventEmitter {
       return
     }
 
-    if (reqPath === "/ghostty-web.js") {
-      const script = getGhosttyScript()
-      if (!script) {
-        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
-        res.end("ghostty-web not installed")
-        return
-      }
-      res.writeHead(200, {
-        "Content-Type": "application/javascript; charset=utf-8",
-        "Cache-Control": "public, max-age=3600",
-      })
-      res.end(script)
-      return
-    }
-
-    if (reqPath === "/ghostty-vt.wasm") {
-      const wasm = getGhosttyWasm()
-      if (!wasm) {
-        res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
-        res.end("ghostty wasm not installed")
-        return
-      }
-      res.writeHead(200, {
-        "Content-Type": "application/wasm",
-        "Cache-Control": "public, max-age=3600",
-      })
-      res.end(wasm)
-      return
-    }
-
-    if (reqPath === "/" || reqPath === "/index.html") {
-      const htmlPath = path.join(__dirname, "..", "dist", "client", "index.html")
-      if (fs.existsSync(htmlPath)) {
-        const html = fs.readFileSync(htmlPath, "utf-8")
-        res.writeHead(200, {
-          "Content-Type": "text/html; charset=utf-8",
-          "Content-Security-Policy":
-            "default-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
-            "style-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; " +
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob: 'wasm-unsafe-eval'; " +
-            "script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https: data: blob:; " +
-            "connect-src 'self' ws: wss: https: blob: data:;",
-        })
-        res.end(html)
-        return
-      }
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      res.end(this.getFallbackHtml())
-      return
-    }
-
-    if (reqPath === "/manifest.webmanifest") {
-      const manifestPath = path.join(__dirname, "..", "public", "manifest.webmanifest")
-      if (fs.existsSync(manifestPath)) {
-        const manifest = fs.readFileSync(manifestPath, "utf-8")
-        res.writeHead(200, {
-          "Content-Type": "application/manifest+json; charset=utf-8",
-          "Cache-Control": "public, max-age=3600",
-        })
-        res.end(manifest)
-        return
-      }
-      res.writeHead(200, { "Content-Type": "application/manifest+json" })
-      res.end(this.getManifest())
-      return
-    }
-
-    if (reqPath === "/sw.js") {
-      const swPath = path.join(__dirname, "..", "public", "sw.js")
-      if (fs.existsSync(swPath)) {
-        const sw = fs.readFileSync(swPath, "utf-8")
+    try {
+      if (reqPath === "/ghostty-web.js") {
+        const script = getGhosttyScript()
+        if (!script) {
+          res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
+          res.end("ghostty-web not installed")
+          return
+        }
         res.writeHead(200, {
           "Content-Type": "application/javascript; charset=utf-8",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Cache-Control": "public, max-age=86400",
         })
-        res.end(sw)
+        res.end(script)
         return
       }
-      res.writeHead(200, { "Content-Type": "application/javascript" })
-      res.end(this.getServiceWorker())
-      return
-    }
 
-    const clientDistPath = path.join(__dirname, "..", "dist", "client", reqPath)
-    if (fs.existsSync(clientDistPath) && fs.statSync(clientDistPath).isFile()) {
-      const ext = path.extname(reqPath)
-      const contentTypes: Record<string, string> = {
-        ".js": "application/javascript",
-        ".css": "text/css",
-        ".json": "application/json",
-        ".wasm": "application/wasm",
-        ".png": "image/png",
-        ".svg": "image/svg+xml",
-        ".ico": "image/x-icon",
+      if (reqPath === "/ghostty-vt.wasm") {
+        const wasm = getGhosttyWasm()
+        if (!wasm) {
+          res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" })
+          res.end("ghostty wasm not installed")
+          return
+        }
+        res.writeHead(200, {
+          "Content-Type": "application/wasm",
+          "Cache-Control": "public, max-age=86400",
+        })
+        res.end(wasm)
+        return
       }
-      res.writeHead(200, {
-        "Content-Type": contentTypes[ext] || "application/octet-stream",
-        "Cache-Control": "public, max-age=3600",
-      })
-      res.end(fs.readFileSync(clientDistPath))
-      return
-    }
 
-    if (reqPath === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" })
-      res.end(JSON.stringify({ status: "ok", session: this.session?.id }))
-      return
-    }
+      if (reqPath === "/health") {
+        res.writeHead(200, { "Content-Type": "application/json" })
+        res.end(JSON.stringify({ status: "ok", session: this.session?.id }))
+        return
+      }
 
-    if (reqPath === "/api/session") {
-      res.writeHead(200, { "Content-Type": "application/json" })
-      res.end(
-        JSON.stringify({
-          id: this.session?.id,
-          name: this.session?.name,
-          status: this.session?.status,
-          connectedDevices: this.session?.connectedDevices.length,
-        }),
-      )
-      return
-    }
+      if (reqPath === "/api/session") {
+        res.writeHead(200, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            id: this.session?.id,
+            name: this.session?.name,
+            status: this.session?.status,
+            connectedDevices: this.session?.connectedDevices.length,
+          }),
+        )
+        return
+      }
 
-    res.writeHead(404, { "Content-Type": "text/plain" })
-    res.end("Not Found")
+      // Safe Static File Serving
+      const basePath = path.resolve(__dirname, "..", "dist", "client")
+      let targetPath = path.normalize(path.join(basePath, reqPath === "/" ? "index.html" : reqPath))
+
+      // Path Traversal Protection
+      if (!targetPath.startsWith(basePath)) {
+        res.writeHead(403)
+        res.end("Forbidden")
+        return
+      }
+
+      // Serve from Cache if available
+      if (ASSET_CACHE.has(targetPath)) {
+        const cached = ASSET_CACHE.get(targetPath)!
+        res.writeHead(200, {
+          "Content-Type": cached.type,
+          "Cache-Control": "public, max-age=3600",
+        })
+        res.end(cached.data)
+        return
+      }
+
+      // Serve from Cache if available
+      if (ASSET_CACHE.has(targetPath)) {
+        const cached = ASSET_CACHE.get(targetPath)!
+        res.writeHead(200, {
+          "Content-Type": cached.type,
+          "Cache-Control": "public, max-age=3600",
+        })
+        res.end(cached.data)
+        return
+      }
+
+      // Check existence async
+      try {
+        const stats = await fsAsync.stat(targetPath)
+        if (stats.isFile()) {
+          const ext = path.extname(targetPath)
+          const contentTypes: Record<string, string> = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "application/javascript",
+            ".css": "text/css",
+            ".json": "application/json",
+            ".wasm": "application/wasm",
+            ".png": "image/png",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".webmanifest": "application/manifest+json",
+          }
+          const type = contentTypes[ext] || "application/octet-stream"
+          const content = await fsAsync.readFile(targetPath)
+
+          // Cache it
+          ASSET_CACHE.set(targetPath, { data: content, type })
+
+          res.writeHead(200, {
+            "Content-Type": type,
+            "Cache-Control": "public, max-age=3600",
+          })
+          res.end(content)
+          return
+        }
+      } catch (err: any) {
+        if (err.code !== "ENOENT") throw err
+      }
+
+      // Fallbacks for known paths if not found in dist
+      if (reqPath === "/" || reqPath === "/index.html") {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+        res.end(this.getFallbackHtml())
+        return
+      }
+
+      if (reqPath === "/manifest.webmanifest") {
+        res.writeHead(200, { "Content-Type": "application/manifest+json" })
+        res.end(this.getManifest())
+        return
+      }
+
+      if (reqPath === "/sw.js") {
+        res.writeHead(200, { "Content-Type": "application/javascript" })
+        res.end(this.getServiceWorker())
+        return
+      }
+
+      res.writeHead(404, { "Content-Type": "text/plain" })
+      res.end("Not Found")
+    } catch (error) {
+      console.error("HTTP Server Error:", error)
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "text/plain" })
+        res.end("Internal Server Error")
+      }
+    }
   }
 
   private startHeartbeat(): void {
@@ -734,25 +763,27 @@ export class RemoteServer extends EventEmitter {
     return "c_" + crypto.randomBytes(4).toString("hex")
   }
 
-  private cacheTerminalOutput(data: string): void {
-    this.terminalOutputBuffer.push(data)
-    if (this.terminalOutputBuffer.length > this.terminalOutputBufferLimit) {
-      this.terminalOutputBuffer.splice(0, this.terminalOutputBuffer.length - this.terminalOutputBufferLimit)
+  private cacheTerminalOutput(data: Buffer): void {
+    this.terminalOutputBuffer = Buffer.concat([this.terminalOutputBuffer, data])
+    if (this.terminalOutputBuffer.length > this.MAX_BUFFER_BYTES) {
+      this.terminalOutputBuffer = this.terminalOutputBuffer.subarray(
+        this.terminalOutputBuffer.length - this.MAX_BUFFER_BYTES,
+      )
     }
   }
 
   private flushTerminalBuffer(client: ClientConnection & { ws: WebSocket }): void {
     if (client.ws.readyState !== WebSocket.OPEN || this.terminalOutputBuffer.length === 0) return
     const timestamp = Date.now()
-    for (const chunk of this.terminalOutputBuffer) {
-      client.ws.send(
-        JSON.stringify({
-          type: MessageTypes.TERMINAL_OUTPUT,
-          payload: { data: chunk },
-          timestamp,
-        }),
-      )
-    }
+
+    // Send cached buffer to the new client
+    client.ws.send(
+      JSON.stringify({
+        type: MessageTypes.TERMINAL_OUTPUT,
+        payload: { data: this.terminalOutputBuffer.toString("utf8") },
+        timestamp,
+      }),
+    )
   }
 
   private getFallbackHtml(): string {
@@ -784,8 +815,8 @@ export class RemoteServer extends EventEmitter {
   }
 
   private getServiceWorker(): string {
-    return `const CACHE_NAME = 'nikcli-remote-v1'
-const STATIC_ASSETS = ['/', '/index.html', '/ghostty-web.js', '/ghostty-vt.wasm', '/manifest.webmanifest']
+    return `const CACHE_NAME = 'nikcli-remote-v2'
+const STATIC_ASSETS = ['/', '/index.html', '/ghostty-web.js', '/ghostty-vt.wasm']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {})))

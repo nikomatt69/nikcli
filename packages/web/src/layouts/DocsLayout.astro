@@ -4,75 +4,205 @@ import "../styles/docs.css";
 import Navbar from "../components/Navbar.astro";
 import DocToc from "../components/docs/DocToc.astro";
 import { docsSidebar } from "../data/docsSidebar";
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title?: string;
   subtitle?: string;
   toc?: { title: string; href: string; depth?: number }[];
+  description?: string;
 }
 
-const { title = "Documentation", subtitle, toc = [] } = Astro.props as Props;
+const { 
+  title = "Documentation", 
+  subtitle, 
+  toc = [],
+  description = "Official documentation for Nikcli. Learn how to install, configure, and use the terminal-native AI development agent."
+} = Astro.props;
+
 const pathname = Astro.url.pathname;
+const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
 ---
 
 <!doctype html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="nikcli documentation" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- SEO & Metadata -->
+    <title>{title} - Nikcli Docs</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Nikcli" />
+    <meta name="keywords" content="nikcli, ai agent, development agent, terminal, cli, lsp, mcp, open source, documentation" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={`https://nikcli.store${pathname}`} />
+    <meta property="og:title" content={`${title} - Nikcli Docs`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={`https://nikcli.store${pathname}`} />
+    <meta property="twitter:title" content={`${title} - Nikcli Docs`} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={ogImage} />
+    
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>{title} - nikcli</title>
+    <link rel="canonical" href={`https://nikcli.store${pathname}`} />
+    
+    <ClientRouter />
     <script is:inline>
-      (() => {
+      const initTheme = () => {
         const stored = localStorage.getItem("theme");
-        const prefersDark =
-          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
         const theme = stored || (prefersDark ? "dark" : "light");
         document.documentElement.setAttribute("data-theme", theme);
-      })();
+      };
+      initTheme();
+      document.addEventListener('astro:after-swap', initTheme);
     </script>
   </head>
-  <body class="docs-body">
-    <a class="skip-link" href="#main-content">Skip to content</a>
+  <body class="bg-terminal-bg text-terminal-text antialiased font-sans min-h-screen flex flex-col selection:bg-terminal-accent/30 selection:text-terminal-text transition-colors duration-300">
+    <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
     <Navbar />
-    <div class="docs-shell">
-      <aside class="docs-sidebar" aria-label="Documentation navigation">
-        <div class="docs-sidebar-inner">
-          <div class="docs-search">
-            <span>⌕</span>
-            <input aria-label="Search docs" placeholder="Search docs (coming soon)" disabled />
-          </div>
-          {docsSidebar.map((group) => (
-            <div class="docs-nav-group">
-              <div class="docs-nav-title">{group.title}</div>
-              <nav>
-                {group.items.map((item) => (
-                  <a
-                    href={item.href}
-                    class={`docs-nav-link ${pathname === item.href ? "active" : ""}`}
-                  >
-                    {item.title}
-                  </a>
-                ))}
-              </nav>
+    
+    <div class="flex-1 w-full max-w-[90rem] mx-auto flex flex-col md:flex-row relative">
+      
+      <!-- Mobile Docs Menu Toggle -->
+      <div class="md:hidden sticky top-16 z-40 bg-terminal-bg/90 dark:bg-terminal-bg/80 backdrop-blur-xl border-b border-terminal-border/60 dark:border-white/5 px-4 py-3 flex items-center justify-between shadow-sm">
+         <span class="font-semibold text-sm text-terminal-text">Docs Menu</span>
+         <button id="mobile-docs-toggle" class="p-1.5 rounded-md bg-surface-hover hover:bg-surface-active border border-terminal-border/50 text-terminal-text transition-all active:scale-95" aria-label="Toggle Docs Menu">
+           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+         </button>
+      </div>
+
+      <!-- Sidebar Navigation -->
+      <aside id="docs-sidebar" class="hidden md:block w-full md:w-64 lg:w-[280px] shrink-0 border-r border-terminal-border/60 dark:border-white/5 bg-terminal-bg md:bg-transparent overflow-y-auto h-[calc(100vh-4rem)] md:sticky md:top-16 custom-scrollbar z-30 transition-transform duration-300">
+        <div class="p-5 md:py-8 lg:py-10 flex flex-col gap-8">
+          
+          <!-- Search Bar -->
+          <div class="relative group cursor-not-allowed">
+            <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-terminal-muted group-hover:text-terminal-text transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
-          ))}
+            <input type="text" disabled class="block w-full py-2.5 pl-10 pr-3 text-sm text-terminal-text bg-surface-hover border border-terminal-border/60 dark:border-white/10 rounded-xl opacity-70 cursor-not-allowed placeholder-terminal-muted/80 shadow-inner" placeholder="Search (⌘K)" />
+          </div>
+
+          <!-- Navigation Links -->
+          <nav class="flex flex-col gap-8 text-sm">
+            {docsSidebar.map((group) => (
+              <div class="flex flex-col gap-3 docs-nav-group-anim">
+                <h4 class="font-bold text-terminal-text tracking-widest uppercase text-[11px] mb-1 opacity-90">{group.title}</h4>
+                <ul class="flex flex-col gap-1">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href;
+                    return (
+                      <li>
+                        <a
+                          href={item.href}
+                          class={`block px-3.5 py-2 rounded-lg transition-all duration-200 relative ${isActive ? "bg-surface-active text-terminal-accent font-semibold shadow-sm ring-1 ring-terminal-border/50 before:absolute before:inset-y-1.5 before:-left-0.5 before:w-1.5 before:bg-terminal-accent before:rounded-full" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-medium"}`}
+                        >
+                          {item.title}
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </nav>
         </div>
       </aside>
 
-      <main id="main-content" class="docs-main" tabindex="-1">
-        <article class="docs-article">
-          <header class="docs-header">
-            <div class="docs-kicker">Nikcli Docs</div>
-            <h1 class="docs-title">{title}</h1>
-            {subtitle && <p class="docs-subtitle">{subtitle}</p>}
+      <!-- Main Content Area -->
+      <main id="main-content" class="flex-1 min-w-0 px-5 md:px-10 lg:px-16 py-10 md:py-16 pb-32 outline-none" tabindex="-1">
+        <article class="prose max-w-3xl mx-auto prose-pre:bg-terminal-window-code prose-pre:border prose-pre:border-terminal-window-border prose-pre:shadow-sm prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight hover:prose-a:text-terminal-accent prose-a:underline-offset-4 prose-a:decoration-terminal-border hover:prose-a:decoration-terminal-accent prose-a:transition-colors docs-content-anim opacity-0">
+          <header class="mb-12 not-prose border-b border-terminal-border/60 pb-10">
+            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-terminal-accent/10 text-[11px] font-mono font-bold text-terminal-accent mb-5 uppercase tracking-widest border border-terminal-accent/20">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+              Documentation
+            </div>
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-terminal-text mb-6 tracking-tight leading-[1.1]">{title}</h1>
+            {subtitle && <p class="text-lg sm:text-xl text-terminal-muted leading-relaxed max-w-2xl font-medium">{subtitle}</p>}
           </header>
-          <slot />
+          <div class="content-body text-terminal-text font-sans relative z-10">
+             <slot />
+          </div>
         </article>
       </main>
 
-      {toc.length > 0 && <DocToc items={toc} />}
+      <!-- Table of Contents (Right Sidebar) -->
+      {toc.length > 0 && (
+        <div class="hidden xl:block w-72 shrink-0 pr-6">
+          <div class="sticky top-16 pt-16 pb-24 overflow-y-auto h-[calc(100vh-4rem)] custom-scrollbar">
+             <DocToc items={toc} />
+          </div>
+        </div>
+      )}
     </div>
+
+    <script>
+      import { animate, stagger } from "framer-motion";
+
+      const initDocs = () => {
+        // Mobile Sidebar Toggle
+        const mobileBtn = document.getElementById('mobile-docs-toggle');
+        const sidebar = document.getElementById('docs-sidebar');
+        let sidebarOpen = false;
+
+        const newBtn = mobileBtn?.cloneNode(true);
+        if (mobileBtn && newBtn && mobileBtn.parentNode) {
+            mobileBtn.parentNode.replaceChild(newBtn, mobileBtn);
+        }
+
+        newBtn?.addEventListener('click', () => {
+          sidebarOpen = !sidebarOpen;
+          if(sidebarOpen) {
+            sidebar?.classList.remove('hidden');
+            sidebar?.classList.add('absolute', 'inset-x-0', 'top-[3.25rem]', 'h-[calc(100vh-3.25rem)]', 'border-b', 'shadow-2xl', 'bg-terminal-bg', 'z-50');
+            document.body.style.overflow = 'hidden';
+            // Swap icon to close
+            newBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
+          } else {
+            sidebar?.classList.add('hidden');
+            sidebar?.classList.remove('absolute', 'inset-x-0', 'top-[3.25rem]', 'h-[calc(100vh-3.25rem)]', 'border-b', 'shadow-2xl', 'bg-terminal-bg', 'z-50');
+            document.body.style.overflow = '';
+            // Swap back to menu
+            newBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>`;
+          }
+        });
+
+        // Framer Motion Animations
+        animate(
+          ".docs-content-anim",
+          { opacity: [0, 1], y: [20, 0] },
+          { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+        );
+
+        const navGroups = document.querySelectorAll('.docs-nav-group-anim');
+        if(navGroups.length > 0 && window.innerWidth > 768) {
+           animate(
+             navGroups,
+             { opacity: [0, 1], x: [-15, 0] },
+             { delay: stagger(0.08), duration: 0.5, ease: "easeOut" }
+           );
+        }
+
+        const cards = document.querySelectorAll("a.block.p-6, div.block.p-6"); 
+        if(cards.length > 0) {
+           animate(
+             cards,
+             { opacity: [0, 1], y: [10, 0] },
+             { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.4, ease: "easeOut" }
+           );
+        }
+      };
+
+      initDocs();
+      document.addEventListener('astro:page-load', initDocs);
+    </script>
   </body>
 </html>

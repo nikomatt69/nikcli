@@ -5,16 +5,34 @@ interface TocItem {
   depth?: number;
 }
 
-const { items = [] } = Astro.props as { items?: TocItem[] };
+interface Props {
+  items?: TocItem[];
+}
+
+const { items = [] } = Astro.props;
+
+// Filter out h1s and anything deeper than h3
+const filteredItems = items.filter(item => (item.depth ?? 2) <= 3 && (item.depth ?? 2) >= 2);
 ---
 
-<div class="docs-toc">
-  <div class="docs-toc-title">On this page</div>
-  <nav aria-label="On this page">
-    {items.map((item) => (
-      <a class={`depth-${item.depth ?? 2}`} href={item.href}>
-        {item.title}
-      </a>
-    ))}
+<div class="flex flex-col gap-4 sticky top-24 pr-4">
+  <div class="font-bold text-[11px] text-terminal-accent uppercase tracking-widest pl-4 opacity-90">On this page</div>
+  <nav aria-label="On this page" class="flex flex-col gap-1 relative pl-4">
+    <div class="absolute left-0 top-0 bottom-0 w-px bg-gradient-to-b from-terminal-border/80 via-terminal-border/50 to-transparent"></div>
+    {filteredItems.map((item) => {
+      const depth = item.depth ?? 2;
+      const isH3 = depth === 3;
+      return (
+        <a 
+          class={`text-sm py-1.5 leading-snug text-terminal-muted hover:text-terminal-text transition-colors relative block truncate w-full group
+                 ${isH3 ? 'pl-4 text-[13px] opacity-80' : 'pl-0 font-medium'} 
+                 before:absolute before:inset-y-0 before:-left-4 before:w-[2px] before:bg-transparent hover:before:bg-terminal-accent before:transition-colors before:rounded-r-md`} 
+          href={item.href}
+          title={item.title}
+        >
+          <span class="inline-block transition-transform group-hover:translate-x-1">{item.title}</span>
+        </a>
+      );
+    })}
   </nav>
 </div>

@@ -16,6 +16,7 @@ import { DialogConnectors } from "@tui/component/dialog-connectors"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
+import { DialogConfig } from "@tui/component/dialog-config"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
@@ -466,6 +467,15 @@ function App() {
       slash: { name: "settings" },
       onSelect: () => {
         dialog.replace(() => <DialogSettings />)
+      },
+      category: "System",
+    },
+    {
+      title: "Edit config",
+      value: "config.edit",
+      slash: { name: "config" },
+      onSelect: () => {
+        dialog.replace(() => <DialogConfig />)
       },
       category: "System",
     },

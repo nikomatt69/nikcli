@@ -1,34 +1,52 @@
-<section class="section">
-  <div class="container">
-    <div class="max-w-2xl">
-      <h2 class="section-title">Installation</h2>
-
-      <div class="terminal-block">
-        <div class="install-actions">
-          <span class="eyebrow">Bash</span>
-          <button
-            id="copy-install"
-            class="btn btn-ghost btn-sm"
-            type="button"
-            aria-live="polite"
-            aria-label="Copy install command"
-          >
-            Copy
-          </button>
-        </div>
-        <pre class="code-block"><code id="install-command">curl -fsSL https://nikcli.store/install | bash</code></pre>
-      </div>
-
-      <p class="install-note">
-        For other installation methods, see the
-        <a href="/docs#installation" class="link">documentation</a>.
+---
+---
+<section class="py-32 relative" id="installation">
+  <!-- Subtle decorative background line -->
+  <div class="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-terminal-border to-transparent opacity-50"></div>
+  
+  <div class="container mx-auto px-4 flex flex-col items-center">
+    
+    <div class="max-w-2xl w-full text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold tracking-tight mb-4 text-terminal-text">Get Nikcli today</h2>
+      <p class="text-lg text-terminal-muted">
+        Install the CLI in seconds. No complex setup required.
       </p>
     </div>
+
+    <!-- Installation Terminal Snippet -->
+    <div class="w-full max-w-2xl bg-terminal-panel border border-terminal-border/80 dark:border-white/10 rounded-2xl p-2 pl-6 shadow-strong flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300 hover:border-terminal-accent/30 hover:shadow-glow relative overflow-hidden group">
+      
+      <!-- Subtle inset shadow/glow on hover -->
+      <div class="absolute inset-0 bg-gradient-to-r from-terminal-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+
+      <code class="font-mono text-[15px] text-terminal-text bg-transparent border-0 p-0 py-2 sm:py-0 overflow-x-auto whitespace-nowrap relative z-10">
+        <span class="text-terminal-accent mr-3 select-none">❯</span>curl -fsSL https://nikcli.store/install | bash
+      </code>
+      
+      <button
+        id="copy-install"
+        class="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-surface-active hover:bg-terminal-text text-terminal-text hover:text-terminal-bg font-semibold text-sm transition-all duration-300 border border-terminal-border hover:border-transparent active:scale-95 shadow-sm relative z-10 w-full sm:w-auto"
+        type="button"
+        aria-live="polite"
+      >
+        <svg id="copy-icon-idle" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+        <svg id="copy-icon-success" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+        <span id="copy-text">Copy</span>
+      </button>
+    </div>
+    
+    <p class="text-sm text-terminal-muted mt-8 text-center transition-colors">
+      Requires Node.js 18+. See <a href="/docs#installation" class="text-terminal-text underline underline-offset-4 decoration-terminal-border hover:decoration-terminal-accent transition-colors font-medium">documentation</a> for Windows and manual methods.
+    </p>
+
   </div>
 </section>
 
 <script>
   const copyButton = document.getElementById('copy-install');
+  const iconIdle = document.getElementById('copy-icon-idle');
+  const iconSuccess = document.getElementById('copy-icon-success');
+  const btnText = document.getElementById('copy-text');
   const commandText = 'curl -fsSL https://nikcli.store/install | bash';
 
   async function copyCommand() {
@@ -37,15 +55,7 @@
         await navigator.clipboard.writeText(commandText);
         return true;
       }
-      const textarea = document.createElement('textarea');
-      textarea.value = commandText;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      const ok = document.execCommand('copy');
-      document.body.removeChild(textarea);
-      return ok;
+      return false;
     } catch {
       return false;
     }
@@ -53,9 +63,18 @@
 
   copyButton?.addEventListener('click', async () => {
     const ok = await copyCommand();
-    copyButton.textContent = ok ? 'Copied' : 'Copy failed';
-    setTimeout(() => {
-      copyButton.textContent = 'Copy';
-    }, 2000);
+    if(ok && iconIdle && iconSuccess && btnText && copyButton) {
+      iconIdle.classList.add('hidden');
+      iconSuccess.classList.remove('hidden');
+      btnText.textContent = 'Copied!';
+      copyButton.classList.add('!bg-green-500', '!text-white', '!border-green-500');
+      
+      setTimeout(() => {
+        iconIdle.classList.remove('hidden');
+        iconSuccess.classList.add('hidden');
+        btnText.textContent = 'Copy';
+        copyButton.classList.remove('!bg-green-500', '!text-white', '!border-green-500');
+      }, 2000);
+    }
   });
 </script>

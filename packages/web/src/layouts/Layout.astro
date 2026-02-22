@@ -1,33 +1,89 @@
 ---
 import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
 
 interface Props {
   title?: string;
+  description?: string;
 }
 
-const { title = 'nikcli' } = Astro.props;
+const { 
+  title = 'nikcli', 
+  description = 'Nikcli is the ultimate AI development agent built for developers who demand perfection from their terminal tools.' 
+} = Astro.props;
+
+const ogImage = "https://nikcli.store/og.png";
+const pathname = Astro.url.pathname;
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="nikcli - AI-powered open source development agent" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    
+    <!-- SEO & Metadata -->
     <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Nikcli" />
+    <meta name="keywords" content="nikcli, ai agent, development agent, terminal, cli, open source" />
+    
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={`https://nikcli.store${pathname}`} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImage} />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={`https://nikcli.store${pathname}`} />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={ogImage} />
+    
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={`https://nikcli.store${pathname}`} />
+
+    <ClientRouter />
     <script is:inline>
-      (() => {
+      const initTheme = () => {
         const stored = localStorage.getItem("theme");
-        const prefersDark =
-          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
         const theme = stored || (prefersDark ? "dark" : "light");
         document.documentElement.setAttribute("data-theme", theme);
-      })();
+      };
+      initTheme();
+      document.addEventListener('astro:after-swap', initTheme);
     </script>
   </head>
-  <body class="min-h-screen bg-terminal-bg text-terminal-text">
-    <a class="skip-link" href="#main-content">Skip to content</a>
+  <body class="min-h-screen bg-terminal-bg text-terminal-text flex flex-col font-sans antialiased selection:bg-terminal-accent/30 selection:text-terminal-text transition-colors duration-300">
+    <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
     <slot />
+    
+    <!-- Global Framer Motion Page Transition Initialization -->
+    <script>
+      import { animate, stagger } from "framer-motion";
+      
+      const initAnimations = () => {
+        animate(
+          ".animate-fade-in-up",
+          { opacity: [0, 1], y: [25, 0] },
+          { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+        );
+        
+        const cards = document.querySelectorAll(".feature-card, .doc-card");
+        if(cards.length > 0) {
+           animate(
+             cards,
+             { opacity: [0, 1], y: [15, 0] },
+             { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.5, ease: "easeOut" }
+           );
+        }
+      };
+
+      initAnimations();
+      document.addEventListener('astro:page-load', initAnimations);
+    </script>
   </body>
 </html>

@@ -18,16 +18,16 @@ const toc = [
   subtitle="A source-of-truth overview of nikcli, generated directly from the codebase in packages/nikcli."
   toc={toc}
 >
-  <section id="install-run" class="doc-section" style="--delay: 40ms;">
+  <section id="install-run" class="mb-20 scroll-mt-28">
     <h2>Install & Run</h2>
     <p>
       nikcli ships as a CLI with a full TUI experience. The default entrypoint is the TUI command
       defined in <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code>.
     </p>
-    <DocCode language="bash">
+    <DocCode language="bash" title="Terminal">
       curl -fsSL https://nikcli.store/install | bash
     </DocCode>
-    <DocCode language="bash">
+    <DocCode language="bash" title="Terminal">
       nikcli
     </DocCode>
     <DocCallout type="info" title="Runtime">
@@ -37,9 +37,9 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="architecture-snapshot" class="doc-section" style="--delay: 80ms;">
+  <section id="architecture-snapshot" class="mb-20 scroll-mt-28">
     <h2>Architecture Snapshot</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
       <DocCard title="CLI + TUI" eyebrow="Interface">
         <p>
           All CLI commands are registered in <code>packages/nikcli/src/index.ts</code>. The TUI is
@@ -67,9 +67,9 @@ const toc = [
     </div>
   </section>
 
-  <section id="core-concepts" class="doc-section" style="--delay: 120ms;">
+  <section id="core-concepts" class="mb-20 scroll-mt-28">
     <h2>Core Concepts</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
       <DocCard title="Agents">
         <p>
           Default agents (<code>build</code>, <code>plan</code>) and subagents
@@ -98,31 +98,29 @@ const toc = [
     </div>
   </section>
 
-  <section id="codebase-roadmap" class="doc-section" style="--delay: 160ms;">
+  <section id="codebase-roadmap" class="mb-20 scroll-mt-28">
     <h2>Codebase Roadmap</h2>
     <p>
       Every page in this docs section links directly to the source files that implement the
       feature. The full file index is available in <a href="/docs/source-map">Source Map</a>.
     </p>
-    <div class="docs-grid cols-2">
-      <DocCard title="CLI Reference" eyebrow="Command Surface">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
+      <DocCard title="CLI Reference" eyebrow="Command Surface" href="/docs/cli">
         <p>
-          All commands, flags, and flows. See <a href="/docs/cli">CLI Quickstart</a> and
-          <a href="/docs/cli-debug">CLI Debug</a>.
+          All commands, flags, and flows. See CLI Quickstart and CLI Debug.
         </p>
       </DocCard>
-      <DocCard title="System Reference" eyebrow="Server + Infra">
+      <DocCard title="System Reference" eyebrow="Server + Infra" href="/docs/server-api">
         <p>
-          Server routes, MCP, LSP, RAG, storage, and diagnostics. See
-          <a href="/docs/server-api">Server & API</a>.
+          Server routes, MCP, LSP, RAG, storage, and diagnostics.
         </p>
       </DocCard>
     </div>
   </section>
 
-  <section id="next-steps" class="doc-section" style="--delay: 200ms;">
+  <section id="next-steps" class="mb-20 scroll-mt-28">
     <h2>Next Steps</h2>
-    <DocCallout type="success" title="Start here">
+    <DocCallout type="success" title="Ready to roll">
       <p>
         Configure providers and agents in <a href="/docs/configuration">Configuration</a>, then
         browse tools in <a href="/docs/tools">Tools</a>.

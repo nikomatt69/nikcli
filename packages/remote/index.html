@@ -2,47 +2,77 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#0d1117" />
+    <meta name="theme-color" content="#09090b" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>NikCLI Remote</title>
     <style>
+      :root {
+        --bg: #09090b;
+        --panel: #18181b;
+        --border: #27272a;
+        --text: #e4e4e7;
+        --muted: #a1a1aa;
+        --accent: #5eead4;
+        --error: #f87171;
+        --success: #34d399;
+      }
+
       * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
       }
+
       html,
       body {
         height: 100%;
-        background: #0d1117;
-        color: #e6edf3;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         overflow: hidden;
+        overscroll-behavior-y: none;
       }
+
       #app {
         display: flex;
         flex-direction: column;
         height: 100%;
         height: 100dvh;
+        position: relative;
       }
+
+      /* Loading State */
       #loading {
+        position: absolute;
+        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100%;
-        gap: 16px;
+        background: var(--bg);
+        z-index: 50;
+        gap: 20px;
+        transition: opacity 0.3s ease;
+      }
+      #loading.hidden {
+        opacity: 0;
+        pointer-events: none;
       }
       .spinner {
-        width: 40px;
-        height: 40px;
-        border: 3px solid #30363d;
-        border-top-color: #58a6ff;
+        width: 32px;
+        height: 32px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
         border-radius: 50%;
-        animation: spin 1s linear infinite;
+        animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
       }
       @keyframes spin {
         to {
@@ -50,144 +80,200 @@
         }
       }
       #loading-text {
-        color: #8b949e;
-        font-size: 14px;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
       }
+
+      /* Header */
+      #header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: env(safe-area-inset-top, 0px) 16px 0px 16px;
+        height: calc(44px + env(safe-area-inset-top, 0px));
+        background: rgba(9, 9, 11, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        z-index: 10;
+      }
+      #header h1 {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #header h1::before {
+        content: "";
+        display: block;
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+        mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 17l6-6-6-6M12 19h8" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+          center/contain no-repeat;
+        -webkit-mask: url('data:image/svg+xml;utf8,<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 17l6-6-6-6M12 19h8" stroke-linecap="round" stroke-linejoin="round"/></svg>')
+          center/contain no-repeat;
+      }
+      #status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      #status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--error);
+        box-shadow: 0 0 8px var(--error);
+      }
+      #status-dot.connected {
+        background: var(--success);
+        box-shadow: 0 0 8px var(--success);
+      }
+      #status-dot.connecting {
+        background: #fbbf24;
+        box-shadow: 0 0 8px #fbbf24;
+        animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.8);
+        }
+      }
+
+      /* Terminal Area */
       #terminal-container {
         flex: 1;
         position: relative;
         overflow: hidden;
-        background: #0d1117;
+        background: var(--bg);
+        transition: opacity 0.3s ease;
+      }
+      #terminal-container.hidden {
+        opacity: 0;
       }
       #terminal {
         position: absolute;
         inset: 0;
         width: 100%;
         height: 100%;
-      }
-      #header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 16px;
-        background: #161b22;
-        border-bottom: 1px solid #30363d;
-        flex-shrink: 0;
-      }
-      #header h1 {
-        font-size: 15px;
-        font-weight: 600;
-        color: #58a6ff;
-      }
-      #status {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        color: #8b949e;
-      }
-      #status-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #f85149;
-      }
-      #status-dot.connected {
-        background: #3fb950;
-      }
-      #status-dot.connecting {
-        background: #d29922;
-        animation: pulse 1s infinite;
-      }
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
-      #quickkeys {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 4px;
-        padding: 8px;
-        background: #161b22;
-        border-top: 1px solid #30363d;
-        flex-shrink: 0;
-      }
-      .qkey {
-        background: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        padding: 10px 4px;
-        color: #e6edf3;
-        font-size: 11px;
-        font-family:
-          "SF Mono",
-          Fira Code,
-          Consolas,
-          monospace;
-        cursor: pointer;
-        user-select: none;
-        transition: all 0.1s;
-      }
-      .qkey:active {
-        background: #30363d;
-        transform: scale(0.95);
-      }
-      .qkey.wide {
-        grid-column: span 2;
-      }
-      .qkey.accent {
-        background: #58a6ff;
-        border-color: #58a6ff;
-        color: #fff;
-      }
-      #input-container {
-        padding: 10px;
-        background: #161b22;
-        border-top: 1px solid #30363d;
-        flex-shrink: 0;
-      }
-      #input-row {
-        display: flex;
-        gap: 8px;
-      }
-      #input {
-        flex: 1;
-        background: #0d1117;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        padding: 12px 14px;
-        color: #e6edf3;
-        font-family:
-          "SF Mono",
-          Fira Code,
-          Consolas,
-          monospace;
-        font-size: 14px;
         outline: none;
       }
-      #input:focus {
-        border-color: #58a6ff;
+
+      /* Native Mobile Control Strip */
+      #mobile-controls {
+        display: flex;
+        padding: 8px 12px;
+        padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        gap: 6px;
+        flex-shrink: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
       }
-      #send {
-        background: #58a6ff;
-        color: #fff;
+      #mobile-controls::-webkit-scrollbar {
+        display: none;
+      }
+
+      /* Explicit Mobile Input Field */
+      #mobile-input-bar {
+        display: flex;
+        gap: 8px;
+        padding: 10px 12px;
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+        align-items: center;
+      }
+      #mobile-input-bar input {
+        flex: 1;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        color: var(--text);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px; /* Prevents iOS auto-zoom */
+        outline: none;
+      }
+      #mobile-input-bar input:focus {
+        border-color: var(--accent);
+      }
+      #mobile-input-bar button {
+        background: var(--accent);
+        color: var(--bg);
         border: none;
-        border-radius: 6px;
-        padding: 12px 20px;
+        border-radius: 8px;
+        padding: 10px 16px;
         font-size: 14px;
-        font-weight: 600;
+        font-weight: 700;
         cursor: pointer;
       }
-      #send:active {
+      #mobile-input-bar button:active {
         opacity: 0.8;
       }
-      .hidden {
-        display: none !important;
+
+      @media (min-width: 768px) {
+        #mobile-controls,
+        #mobile-input-bar {
+          display: none;
+        }
+      }
+      .m-key {
+        flex-shrink: 0;
+        min-width: 44px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: monospace;
+        font-size: 13px;
+        font-weight: 500;
+        user-select: none;
+        transition:
+          background 0.1s,
+          transform 0.1s;
+      }
+      .m-key:active {
+        background: var(--border);
+        transform: scale(0.95);
+      }
+      .m-key.special {
+        color: var(--accent);
+        border-color: rgba(94, 234, 212, 0.2);
+        background: rgba(94, 234, 212, 0.05);
+      }
+      .m-key.special:active {
+        background: rgba(94, 234, 212, 0.15);
+      }
+
+      @media (min-width: 768px) {
+        #mobile-controls {
+          display: none;
+        }
       }
     </style>
   </head>
@@ -197,41 +283,44 @@
         <h1>NikCLI</h1>
         <div id="status">
           <span id="status-dot" class="connecting"></span>
-          <span id="status-text">Connecting...</span>
+          <span id="status-text">Connecting</span>
         </div>
       </header>
-
-      <div id="loading">
-        <div class="spinner"></div>
-        <span id="loading-text">Loading terminal...</span>
-      </div>
 
       <div id="terminal-container" class="hidden">
         <canvas id="terminal"></canvas>
       </div>
 
-      <div id="quickkeys">
-        <button class="qkey" data-key="&#9;">Tab</button>
-        <button class="qkey" data-key="&#27;">Esc</button>
-        <button class="qkey" data-key="&#3;">^C</button>
-        <button class="qkey" data-key="&#4;">^D</button>
-        <button class="qkey" data-key="&#26;">^Z</button>
-        <button class="qkey" data-key="&#12;">^L</button>
-        <button class="qkey wide accent" data-key="&#10;">Enter</button>
+      <!-- Native Mobile Control Strip -->
+      <div id="mobile-controls">
+        <div class="m-key special qkey" data-key="Esc">ESC</div>
+        <div class="m-key qkey" data-key="Tab">TAB</div>
+        <div class="m-key special qkey" data-key="Ctrl-C">^C</div>
+        <div class="m-key special qkey" data-key="Ctrl-D">^D</div>
+        <div class="m-key qkey" data-key="Ctrl-L">^L</div>
+        <div class="m-key qkey" data-key="-">-</div>
+        <div class="m-key qkey" data-key="/">/</div>
+        <div class="m-key qkey" data-key="|">|</div>
+        <div class="m-key special qkey" data-key="Enter">⏎</div>
       </div>
 
-      <div id="input-container">
-        <div id="input-row">
-          <input
-            type="text"
-            id="input"
-            placeholder="Type command..."
-            autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-          />
-          <button id="send">Send</button>
-        </div>
+      <!-- Explicit Mobile Input Bar -->
+      <div id="mobile-input-bar">
+        <input
+          type="text"
+          id="visible-input"
+          placeholder="Type command..."
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          autocapitalize="off"
+        />
+        <button id="send-btn">Send</button>
+      </div>
+
+      <div id="loading">
+        <div class="spinner"></div>
+        <span id="loading-text">Waking up terminal...</span>
       </div>
     </div>
 

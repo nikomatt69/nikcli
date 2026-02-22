@@ -41,7 +41,7 @@ const bundledProviders = [
   subtitle="Provider orchestration and model loading as implemented in packages/nikcli/src/provider/provider.ts."
   toc={toc}
 >
-  <section id="provider-stack" class="doc-section" style="--delay: 40ms;">
+  <section id="provider-stack" class="mb-16 scroll-mt-24">
     <h2>Provider Stack</h2>
     <p>
       Providers are loaded via <code>Provider.list()</code> using bundled SDKs plus optional plugins.
@@ -52,7 +52,7 @@ const bundledProviders = [
     </DocCallout>
   </section>
 
-  <section id="bundled-providers" class="doc-section" style="--delay: 80ms;">
+  <section id="bundled-providers" class="mb-16 scroll-mt-24">
     <h2>Bundled Providers</h2>
     <table class="doc-table">
       <thead>
@@ -72,9 +72,9 @@ const bundledProviders = [
     </table>
   </section>
 
-  <section id="custom-loaders" class="doc-section" style="--delay: 100ms;">
+  <section id="custom-loaders" class="mb-16 scroll-mt-24">
     <h2>Custom Loaders</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="anthropic" eyebrow="Headers">
         <p>Injects Claude Code + interleaved thinking headers.</p>
       </DocCard>
@@ -93,7 +93,7 @@ const bundledProviders = [
     </div>
   </section>
 
-  <section id="model-catalog" class="doc-section" style="--delay: 120ms;">
+  <section id="model-catalog" class="mb-16 scroll-mt-24">
     <h2>Model Catalog</h2>
     <p>
       Model metadata is sourced from <code>models.dev</code> and cached under
@@ -102,7 +102,7 @@ const bundledProviders = [
     </p>
   </section>
 
-  <section id="auth-env" class="doc-section" style="--delay: 160ms;">
+  <section id="auth-env" class="mb-16 scroll-mt-24">
     <h2>Auth & Env</h2>
     <p>Credential storage is handled by <code>packages/nikcli/src/auth</code> and surfaced by <code>nikcli auth</code>.</p>
     <DocCallout type="warn" title="Bedrock credentials">

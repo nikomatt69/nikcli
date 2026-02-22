@@ -583,7 +583,7 @@ export async function NotifyPlugin(_input: PluginInput): Promise<Hooks> {
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
-  const BUILTIN = ["nikcli-anthropic-auth@0.0.9", "@gitlab/nikcli-gitlab-auth@1.3.2"]
+  const BUILTIN = ["@gitlab/nikcli-gitlab-auth@1.3.2"]
 
   // Built-in plugins that are directly imported (not installed from npm)
   const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, NotifyPlugin]

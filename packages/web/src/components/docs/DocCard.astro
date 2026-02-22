@@ -1,9 +1,31 @@
 ---
-const { title, eyebrow } = Astro.props as { title?: string; eyebrow?: string };
+interface Props {
+  title?: string;
+  eyebrow?: string;
+  href?: string;
+}
+const { title, eyebrow, href } = Astro.props;
+
+const Element = href ? 'a' : 'div';
 ---
 
-<div class="doc-card">
-  {eyebrow && <div class="doc-badge">{eyebrow}</div>}
-  {title && <h3>{title}</h3>}
-  <slot />
-</div>
+<Element 
+  href={href} 
+  class={`doc-card block p-8 rounded-3xl border border-terminal-border/80 dark:border-white/5 bg-terminal-panel hover:bg-surface-hover hover:shadow-strong transition-all duration-500 shadow-soft group not-prose mb-8 relative overflow-hidden z-10 ${href ? 'cursor-pointer hover:border-terminal-accent/50 hover:-translate-y-1' : ''}`}
+>
+  <!-- Background Glow on hover -->
+  {href && <div class="absolute inset-0 bg-gradient-to-br from-terminal-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>}
+
+  {eyebrow && <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-terminal-accent/10 text-[10px] font-mono font-bold text-terminal-accent mb-4 uppercase tracking-[0.2em] border border-terminal-accent/20">
+    {eyebrow}
+  </div>}
+  
+  <div class="flex items-center justify-between gap-4 mb-3">
+    {title && <h3 class="text-2xl font-bold tracking-tight text-terminal-text group-hover:text-terminal-accent transition-colors duration-300">{title}</h3>}
+    {href && <svg class="w-5 h-5 text-terminal-muted group-hover:text-terminal-accent transform group-hover:translate-x-1 group-hover:-translate-y-1 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>}
+  </div>
+  
+  <div class="text-terminal-muted text-[17px] leading-[1.7] font-medium">
+    <slot />
+  </div>
+</Element>

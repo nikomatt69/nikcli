@@ -81,11 +81,15 @@ export class CloudAgent extends EventEmitter {
 
     const relay = this.buildURL(`/relay/${encodeURIComponent(sessionID)}`)
     relay.protocol = relay.protocol === "https:" ? "wss:" : "ws:"
-    relay.searchParams.set("token", this.config.token)
-    relay.searchParams.set("deviceID", this.config.deviceID)
 
     await new Promise<void>((resolve, reject) => {
-      const ws = new WebSocket(relay.toString())
+      // Token passed safely in headers to prevent URL leakage
+      const ws = new WebSocket(relay.toString(), {
+        headers: {
+          Authorization: `Bearer ${this.config.token}`,
+          "X-Device-ID": this.config.deviceID,
+        },
+      })
       let settled = false
       const timeout = setTimeout(() => {
         if (settled) return

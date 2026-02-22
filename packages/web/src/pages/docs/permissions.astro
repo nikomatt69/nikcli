@@ -14,7 +14,7 @@ const toc = [
   subtitle="Runtime permission prompts and ruleset evaluation in packages/nikcli/src/permission."
   toc={toc}
 >
-  <section id="permission-model" class="doc-section" style="--delay: 40ms;">
+  <section id="permission-model" class="mb-16 scroll-mt-24">
     <h2>Permission Model</h2>
     <p>
       Permissions are evaluated per tool call. The ruleset merges defaults, agent permissions,
@@ -22,7 +22,7 @@ const toc = [
     </p>
   </section>
 
-  <section id="rules-patterns" class="doc-section" style="--delay: 80ms;">
+  <section id="rules-patterns" class="mb-16 scroll-mt-24">
     <h2>Rules & Patterns</h2>
     <p>
       Rules support wildcards for tools and file patterns. Legacy per-tool <code>tools</code> config
@@ -33,7 +33,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="runtime-flow" class="doc-section" style="--delay: 120ms;">
+  <section id="runtime-flow" class="mb-16 scroll-mt-24">
     <h2>Runtime Flow</h2>
     <p>
       Permission requests are stored in an in-memory queue. Responses can be once/always/reject and

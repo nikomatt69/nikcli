@@ -14,12 +14,12 @@ const toc = [
   subtitle="Persistent storage and migrations in packages/nikcli/src/storage."
   toc={toc}
 >
-  <section id="layout" class="doc-section" style="--delay: 40ms;">
+  <section id="layout" class="mb-16 scroll-mt-24">
     <h2>Layout</h2>
     <p>Storage is rooted under <code>Global.Path.data/storage</code> with JSON files per entity.</p>
   </section>
 
-  <section id="migrations" class="doc-section" style="--delay: 80ms;">
+  <section id="migrations" class="mb-16 scroll-mt-24">
     <h2>Migrations</h2>
     <p>Migration logic lives in <code>Storage.MIGRATIONS</code> and runs once per storage version.</p>
     <DocCallout type="warn" title="Destructive operations">
@@ -27,7 +27,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="locks" class="doc-section" style="--delay: 120ms;">
+  <section id="locks" class="mb-16 scroll-mt-24">
     <h2>Locks</h2>
     <p>Reads and writes use file locks to prevent concurrent corruption.</p>
   </section>

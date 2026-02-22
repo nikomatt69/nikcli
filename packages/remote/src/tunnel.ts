@@ -29,6 +29,22 @@ export class TunnelManager {
 
   constructor(provider: TunnelProvider) {
     this.provider = provider
+
+    const cleanup = () => {
+      if (this.process && !this.process.killed) {
+        this.process.kill("SIGKILL")
+      }
+    }
+
+    process.on("exit", cleanup)
+    process.on("SIGINT", () => {
+      cleanup()
+      process.exit(0)
+    })
+    process.on("SIGTERM", () => {
+      cleanup()
+      process.exit(0)
+    })
   }
 
   async create(port: number): Promise<string> {
@@ -81,7 +97,7 @@ export class TunnelManager {
     return new Promise((resolve, reject) => {
       this.process = spawn("npx", ["localtunnel", "--port", port.toString(), "--print-requests", "false"], {
         stdio: ["pipe", "pipe", "pipe"],
-        shell: true,
+        shell: false,
       })
 
       let output = ""
@@ -208,7 +224,7 @@ export class TunnelManager {
           .map((arg) => arg.trim())
           .filter((arg) => Boolean(arg) && !arg.includes("{port}")) ?? []
 
-      this.process = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: true })
+      this.process = spawn(cmd, args, { stdio: ["pipe", "pipe", "pipe"], shell: false })
 
       if (process.env.NODE_DEBUG?.includes("nikcli:remotosh")) {
         process.stderr.write(`[nikcli:remotosh] Spawning: ${cmd} ${args.join(" ")}\n`)

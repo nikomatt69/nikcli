@@ -60,7 +60,7 @@ const toolIndex = [
   subtitle="All tools registered in packages/nikcli/src/tool/registry.ts with descriptions in *.txt files."
   toc={toc}
 >
-  <section id="tool-registry" class="doc-section" style="--delay: 40ms;">
+  <section id="tool-registry" class="mb-16 scroll-mt-24">
     <h2>Tool Registry</h2>
     <p>
       Tools are registered in <code>ToolRegistry.all()</code>. The registry filters tools depending on the model
@@ -74,9 +74,9 @@ const toolIndex = [
     </DocCallout>
   </section>
 
-  <section id="file-ops" class="doc-section" style="--delay: 80ms;">
+  <section id="file-ops" class="mb-16 scroll-mt-24">
     <h2>File Ops</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="read / write / edit" eyebrow="Core">
         <p>Primary file I/O tools with strict validation in <code>Tool.define()</code>.</p>
       </DocCard>
@@ -89,9 +89,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="search-context" class="doc-section" style="--delay: 120ms;">
+  <section id="search-context" class="mb-16 scroll-mt-24">
     <h2>Search & Context</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="grep / codesearch / websearch" eyebrow="Search">
         <p>Local regex search, Exa-backed code search, and web search.</p>
       </DocCard>
@@ -104,9 +104,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="docs-rag" class="doc-section" style="--delay: 160ms;">
+  <section id="docs-rag" class="mb-16 scroll-mt-24">
     <h2>Docs & RAG</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="docs_* tools" eyebrow="Docs">
         <p>Docs load/search/add/unload are defined in <code>packages/nikcli/src/tool/docs_*.ts</code>.</p>
       </DocCard>
@@ -116,9 +116,9 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="system-agent" class="doc-section" style="--delay: 200ms;">
+  <section id="system-agent" class="mb-16 scroll-mt-24">
     <h2>System & Agent</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="bash / lsp" eyebrow="System">
         <p>Shell execution and LSP intelligence (optional tool via flags).</p>
       </DocCard>
@@ -131,7 +131,7 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="full-tool-index" class="doc-section" style="--delay: 240ms;">
+  <section id="full-tool-index" class="mb-16 scroll-mt-24">
     <h2>Full Tool Index</h2>
     <table class="doc-table">
       <thead>

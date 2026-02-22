@@ -17,9 +17,9 @@ const toc = [
   subtitle="Agents are defined in packages/nikcli/src/agent/agent.ts and configured via nikcli.jsonc."
   toc={toc}
 >
-  <section id="default-agents" class="doc-section" style="--delay: 40ms;">
+  <section id="default-agents" class="mb-16 scroll-mt-24">
     <h2>Default Agents</h2>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="build" eyebrow="Primary">
         <p>Default agent with full permissions. Enables <code>question</code> and <code>plan_enter</code>.</p>
       </DocCard>
@@ -35,10 +35,10 @@ const toc = [
     </div>
   </section>
 
-  <section id="subagents" class="doc-section" style="--delay: 80ms;">
+  <section id="subagents" class="mb-16 scroll-mt-24">
     <h2>Subagents</h2>
     <p>Subagents are declared in <code>Agent.SUBAGENT_TOOLSETS</code> and can be invoked with <code>@name</code>.</p>
-    <div class="docs-grid cols-2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="@fast-explore" eyebrow="Read-only">
         <p>Minimal toolset for quick scans: <code>read</code>, <code>grep</code>, <code>glob</code>, <code>list</code>, <code>tree</code>.</p>
       </DocCard>
@@ -60,7 +60,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="toolsets" class="doc-section" style="--delay: 120ms;">
+  <section id="toolsets" class="mb-16 scroll-mt-24">
     <h2>Toolsets</h2>
     <p>The tool registry dynamically filters tools based on model and flags in <code>ToolRegistry.tools()</code>.</p>
     <DocCallout type="info" title="Apply Patch vs Edit/Write">
@@ -71,7 +71,7 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="default-permissions" class="doc-section" style="--delay: 140ms;">
+  <section id="default-permissions" class="mb-16 scroll-mt-24">
     <h2>Default Permissions</h2>
     <p>Defaults are defined in <code>Agent.state()</code> and merged with user config.</p>
     <table class="doc-table">
@@ -112,7 +112,7 @@ const toc = [
     </table>
   </section>
 
-  <section id="agent-config" class="doc-section" style="--delay: 160ms;">
+  <section id="agent-config" class="mb-16 scroll-mt-24">
     <h2>Agent Config</h2>
     <p>Agent config is defined by the <code>AgentConfig</code> schema in <code>packages/nikcli/src/config/config.ts</code>.</p>
     <table class="doc-table">

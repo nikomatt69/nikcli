@@ -22,14 +22,19 @@ class TerminalApp {
   private lastRows = 0
   private reconnectAttempts = 0
   private maxReconnectAttempts = 10
+  private resizeTimeout?: ReturnType<typeof setTimeout>
+  private offlineQueue: string[] = []
+  private lastPong = Date.now()
+  private heartbeatInterval?: ReturnType<typeof setInterval>
 
   private loadingEl = document.getElementById("loading")!
   private terminalContainer = document.getElementById("terminal-container")!
   private terminalEl = document.getElementById("terminal") as HTMLCanvasElement
   private statusDot = document.getElementById("status-dot")!
   private statusText = document.getElementById("status-text")!
-  private inputEl = document.getElementById("input") as HTMLInputElement
-  private sendBtn = document.getElementById("send")!
+  private hiddenInput = document.getElementById("hidden-input-overlay") as HTMLTextAreaElement
+  private visibleInput = document.getElementById("visible-input") as HTMLInputElement
+  private sendBtn = document.getElementById("send-btn")!
   private loadingText = document.getElementById("loading-text")!
 
   constructor() {
@@ -51,19 +56,30 @@ class TerminalApp {
 
       this.updateLoading("Connecting...")
       this.connect()
-      this.setupEventListeners()
+      this.setupKeyboardEvents()
+
+      const observer = new ResizeObserver(() => {
+        clearTimeout(this.resizeTimeout)
+        this.resizeTimeout = setTimeout(() => this.resize(), 100)
+      })
+      observer.observe(this.terminalContainer)
     } catch (err) {
       this.showError(err instanceof Error ? err.message : "Failed to initialize")
     }
   }
 
   private async initGhostty() {
-    const GhosttyModule = await import("ghostty-web")
-    const Ghostty = GhosttyModule.Ghostty
-
-    this.ghostty = await Ghostty.load("/ghostty-vt.wasm")
+    try {
+      const GhosttyModule = await import("ghostty-web")
+      const GhosttyClass = GhosttyModule.Ghostty
+      this.ghostty = await GhosttyClass.load("/ghostty-vt.wasm")
+    } catch (e) {
+      console.error("Failed to load Ghostty WASM.", e)
+      throw new Error("Browser does not support the terminal engine.")
+    }
 
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    const pixelRatio = window.devicePixelRatio || 1
 
     const config: GhosttyTerminalConfig = {
       scrollbackLimit: 10000,
@@ -72,11 +88,11 @@ class TerminalApp {
       cursorColor: 0x58a6ff,
     }
 
-    this.terminal = this.ghostty.createTerminal(80, 24, config)
+    this.terminal = this.ghostty!.createTerminal(80, 24, config)
 
     const rendererOptions = {
-      fontSize: isMobile ? 16 : 14,
-      fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace",
+      fontSize: (isMobile ? 15 : 14) * pixelRatio,
+      fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace",
       cursorStyle: "block" as const,
       cursorBlink: true,
       theme: {
@@ -90,17 +106,14 @@ class TerminalApp {
     this.renderer = new CanvasRenderer(this.terminalEl, rendererOptions)
 
     const metrics = this.renderer.getMetrics()
-    this.cellWidth = metrics.width
-    this.cellHeight = metrics.height
+    this.cellWidth = metrics.width / pixelRatio
+    this.cellHeight = metrics.height / pixelRatio
+
+    this.terminalEl.style.width = "100%"
+    this.terminalEl.style.height = "100%"
 
     this.resize()
     this.render()
-
-    window.addEventListener("resize", () => this.resize())
-
-    if ("serviceWorker" in navigator && window.location.protocol === "https:") {
-      navigator.serviceWorker.register("/sw.js").catch(() => {})
-    }
   }
 
   private render = () => {
@@ -117,8 +130,12 @@ class TerminalApp {
   private resize() {
     if (!this.terminal || !this.renderer) return
 
-    const width = this.terminalEl.clientWidth || window.innerWidth
-    const height = this.terminalEl.clientHeight || window.innerHeight
+    const pixelRatio = window.devicePixelRatio || 1
+    const width = this.terminalContainer.clientWidth
+    const height = this.terminalContainer.clientHeight
+
+    this.terminalEl.width = width * pixelRatio
+    this.terminalEl.height = height * pixelRatio
 
     const cols = Math.floor(width / this.cellWidth) || 80
     const rows = Math.floor(height / this.cellHeight) || 24
@@ -141,6 +158,11 @@ class TerminalApp {
   }
 
   private connect() {
+    if (this.ws) {
+      this.ws.onclose = null
+      this.ws.close()
+    }
+
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
     this.ws = new WebSocket(`${protocol}//${window.location.host}`)
 
@@ -150,6 +172,7 @@ class TerminalApp {
     }
 
     this.ws.onmessage = (event) => {
+      this.lastPong = Date.now()
       try {
         const msg: ServerMessage = JSON.parse(event.data)
         this.handleMessage(msg)
@@ -157,18 +180,39 @@ class TerminalApp {
     }
 
     this.ws.onclose = () => {
-      this.setStatus("disconnected", "Disconnected")
-
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        this.reconnectAttempts++
-        const delay = Math.min(500 * this.reconnectAttempts, 5000)
-        setTimeout(() => this.connect(), delay)
-      } else {
-        this.showError("Connection failed. Refresh to retry.")
-      }
+      this.handleDisconnect()
     }
 
     this.ws.onerror = () => {}
+
+    this.startHeartbeat()
+  }
+
+  private startHeartbeat() {
+    clearInterval(this.heartbeatInterval)
+    this.heartbeatInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        if (Date.now() - this.lastPong > 15000) {
+          this.ws.close()
+          this.handleDisconnect()
+        } else {
+          this.ws.send(JSON.stringify({ type: "ping" }))
+        }
+      }
+    }, 5000)
+  }
+
+  private handleDisconnect() {
+    this.setStatus("disconnected", "Offline")
+    this.terminalEl.style.opacity = "0.5"
+
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++
+      const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 10000)
+      setTimeout(() => this.connect(), delay)
+    } else {
+      this.showError("Connection lost. Refresh page to reconnect.")
+    }
   }
 
   private handleMessage(msg: ServerMessage) {
@@ -176,10 +220,15 @@ class TerminalApp {
       case "auth:success":
         this.loadingEl.classList.add("hidden")
         this.terminalContainer.classList.remove("hidden")
+        this.terminalEl.style.opacity = "1"
         this.setStatus("connected", "Connected")
         this.reconnectAttempts = 0
-        this.terminal?.write("\x1b[32mConnected!\x1b[0m\r\n")
         this.resize()
+
+        while (this.offlineQueue.length > 0) {
+          const queued = this.offlineQueue.shift()
+          if (queued) this.send(queued, true)
+        }
         break
 
       case "auth:failed":
@@ -189,22 +238,36 @@ class TerminalApp {
       case "terminal:output":
         const data = msg.payload?.data ?? msg.data
         if (data && this.terminal) {
-          this.terminal.write(data)
+          try {
+            this.terminal.write(data)
+          } catch (e) {
+            console.error("Render error", e)
+          }
         }
+        break
+
+      case "pong":
+        this.lastPong = Date.now()
         break
 
       case "session:end":
         this.terminal?.write("\r\n\x1b[31m[Session ended]\x1b[0m\r\n")
         this.setStatus("disconnected", "Session ended")
+        if (this.ws) {
+          this.ws.onclose = null
+          this.ws.close()
+        }
+        clearInterval(this.heartbeatInterval)
         break
     }
   }
 
-  public send(data: string) {
+  public send(data: string, bypassQueue = false) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: "terminal:input", payload: { data } }))
+    } else if (!bypassQueue) {
+      this.offlineQueue.push(data)
     }
-    this.terminal?.write(data)
   }
 
   private setStatus(state: "connected" | "connecting" | "disconnected", text: string) {
@@ -213,69 +276,111 @@ class TerminalApp {
   }
 
   private updateLoading(text: string) {
-    this.loadingText.textContent = text
+    if (this.loadingText) this.loadingText.textContent = text
   }
 
   private showError(message: string) {
-    this.loadingEl.innerHTML = `
-      <div style="color: #f85149; font-family: monospace; padding: 20px; text-align: center;">
-        ${message}
-      </div>
-    `
+    if (this.loadingEl) {
+      this.loadingEl.classList.remove("hidden")
+      this.loadingEl.innerHTML = `
+        <div style="color: #f85149; font-family: monospace; padding: 20px; text-align: center; background: #161b22; border: 1px solid #f85149; border-radius: 8px;">
+          ${message}
+        </div>
+      `
+    }
   }
 
-  private setupEventListeners() {
+  private setupKeyboardEvents() {
+    window.addEventListener("keydown", (e) => {
+      // Don't double send if typing in the overlay
+      if (document.activeElement === this.hiddenInput) return
+
+      let keyData = ""
+
+      if (e.key === "Enter") keyData = "\r"
+      else if (e.key === "Backspace") keyData = "\x7f"
+      else if (e.key === "Tab") keyData = "\t"
+      else if (e.key === "Escape") keyData = "\x1b"
+      else if (e.key === "ArrowUp") keyData = "\x1b[A"
+      else if (e.key === "ArrowDown") keyData = "\x1b[B"
+      else if (e.key === "ArrowRight") keyData = "\x1b[C"
+      else if (e.key === "ArrowLeft") keyData = "\x1b[D"
+      else if (e.ctrlKey && e.key.length === 1) {
+        const charCode = e.key.toUpperCase().charCodeAt(0)
+        if (charCode >= 65 && charCode <= 90) {
+          keyData = String.fromCharCode(charCode - 64)
+        }
+      } else if (e.key.length === 1 && !e.altKey && !e.metaKey) {
+        keyData = e.key
+      }
+
+      if (keyData) {
+        e.preventDefault()
+        this.send(keyData)
+      }
+    })
+
+    // Native mobile input capture
+    this.hiddenInput.addEventListener("input", () => {
+      const val = this.hiddenInput.value
+      if (val) {
+        this.send(val)
+        this.hiddenInput.value = ""
+      }
+    })
+
+    if (this.visibleInput && this.sendBtn) {
+      this.sendBtn.addEventListener("click", () => {
+        const val = this.visibleInput.value
+        if (val) {
+          this.send(val + "\r")
+          this.visibleInput.value = ""
+        }
+        this.visibleInput.focus()
+      })
+
+      this.visibleInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault()
+          this.sendBtn.click()
+        }
+      })
+    }
+
+    // Fallbacks for special keys on soft keyboard
+    this.hiddenInput.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace") {
+        this.send("\x7f")
+      } else if (e.key === "Enter") {
+        e.preventDefault()
+        this.send("\r")
+      }
+    })
+
+    window.addEventListener("paste", (e) => {
+      const text = e.clipboardData?.getData("text")
+      if (text) {
+        e.preventDefault()
+        this.send(text)
+      }
+    })
+
     document.querySelectorAll(".qkey").forEach((btn) => {
       btn.addEventListener("click", () => {
         const key = (btn as HTMLButtonElement).dataset.key
-        if (key) this.send(key)
-        this.inputEl.focus()
+        if (key) {
+          if (key === "Enter") this.send("\r")
+          else if (key === "Ctrl-C") this.send("\x03")
+          else if (key === "Ctrl-D") this.send("\x04")
+          else if (key === "Esc") this.send("\x1b")
+          else this.send(key)
+        }
+        this.hiddenInput.focus()
       })
-    })
-
-    this.sendBtn.addEventListener("click", () => {
-      if (this.inputEl.value) {
-        this.send(this.inputEl.value + "\r")
-        this.inputEl.value = ""
-      }
-      this.inputEl.focus()
-    })
-
-    this.inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
-        e.preventDefault()
-        this.sendBtn.click()
-      }
-    })
-
-    this.inputEl.addEventListener("paste", (e) => {
-      e.preventDefault()
-      const text = e.clipboardData?.getData("text")
-      if (text) {
-        document.execCommand("insertText", false, text)
-      }
     })
   }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const app = new TerminalApp()
-
-  const inputEl = document.getElementById("input") as HTMLInputElement
-  const sendBtn = document.getElementById("send")!
-
-  sendBtn.addEventListener("click", () => {
-    if (inputEl.value) {
-      app.send(inputEl.value + "\r")
-      inputEl.value = ""
-    }
-    inputEl.focus()
-  })
-
-  inputEl.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault()
-      sendBtn.click()
-    }
-  })
+  new TerminalApp()
 })

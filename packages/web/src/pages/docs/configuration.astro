@@ -98,7 +98,7 @@ const topFields = [
   subtitle="Complete config reference derived from packages/nikcli/src/config/config.ts."
   toc={toc}
 >
-  <section id="resolution-order" class="doc-section" style="--delay: 40ms;">
+  <section id="resolution-order" class="mb-16 scroll-mt-24">
     <h2>Resolution Order</h2>
     <p>Configuration is merged in the following precedence order (lowest to highest):</p>
     <table class="doc-table">
@@ -132,7 +132,7 @@ const topFields = [
     </DocCallout>
   </section>
 
-  <section id="config-schema" class="doc-section" style="--delay: 80ms;">
+  <section id="config-schema" class="mb-16 scroll-mt-24">
     <h2>Config Schema</h2>
     <DocCode language="json">
 {`{
@@ -157,7 +157,7 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="top-level-fields" class="doc-section" style="--delay: 100ms;">
+  <section id="top-level-fields" class="mb-16 scroll-mt-24">
     <h2>Top-Level Fields</h2>
     <table class="doc-table">
       <thead>
@@ -177,7 +177,7 @@ const topFields = [
     </table>
   </section>
 
-  <section id="agents-permissions" class="doc-section" style="--delay: 120ms;">
+  <section id="agents-permissions" class="mb-16 scroll-mt-24">
     <h2>Agents & Permissions</h2>
     <p>Agents use the <code>AgentConfig</code> schema and merge permissions from config + defaults.</p>
     <table class="doc-table">
@@ -200,7 +200,7 @@ const topFields = [
     </table>
   </section>
 
-  <section id="providers" class="doc-section" style="--delay: 160ms;">
+  <section id="providers" class="mb-16 scroll-mt-24">
     <h2>Providers</h2>
     <p>Provider configuration is scoped per provider ID under <code>provider</code>.</p>
     <DocCode language="json">
@@ -214,7 +214,7 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="mcp" class="doc-section" style="--delay: 200ms;">
+  <section id="mcp" class="mb-16 scroll-mt-24">
     <h2>MCP</h2>
     <p>MCP server entries live under <code>mcp</code> and support local or remote configurations.</p>
     <DocCode language="json">
@@ -233,7 +233,7 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="lsp" class="doc-section" style="--delay: 240ms;">
+  <section id="lsp" class="mb-16 scroll-mt-24">
     <h2>LSP</h2>
     <p>Built-in LSP servers can be disabled or overridden. Custom servers require explicit extensions.</p>
     <DocCode language="json">
@@ -249,7 +249,7 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="rag" class="doc-section" style="--delay: 280ms;">
+  <section id="rag" class="mb-16 scroll-mt-24">
     <h2>RAG</h2>
     <p>RAG embedding defaults are in <code>packages/nikcli/src/rag/index.ts</code>.</p>
     <DocCode language="json">
@@ -259,7 +259,7 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="keybinds" class="doc-section" style="--delay: 300ms;">
+  <section id="keybinds" class="mb-16 scroll-mt-24">
     <h2>Keybinds</h2>
     <p>Default keybinds are defined in <code>KeybindsConfig</code> and can be overridden under <code>keybinds</code>.</p>
     <table class="doc-table">
@@ -282,7 +282,7 @@ const topFields = [
     </table>
   </section>
 
-  <section id="flags-env" class="doc-section" style="--delay: 320ms;">
+  <section id="flags-env" class="mb-16 scroll-mt-24">
     <h2>Flags & Env</h2>
     <p>Runtime flags are parsed from environment variables in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
     <table class="doc-table">
@@ -303,7 +303,7 @@ const topFields = [
     </table>
   </section>
 
-  <section id="experimental" class="doc-section" style="--delay: 320ms;">
+  <section id="experimental" class="mb-16 scroll-mt-24">
     <h2>Experimental</h2>
     <p>Experimental flags are defined under <code>experimental</code> and via env flags in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
   </section>
