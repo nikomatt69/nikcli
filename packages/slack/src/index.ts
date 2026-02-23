@@ -38,6 +38,9 @@ console.log("- App token present:", !!process.env.SLACK_APP_TOKEN)
 console.log("Starting nikcli server...")
 const nikcli = await createNikcli({
   port: 0,
+  config: {
+    model: "minimax-coding-plan/MiniMax-M2.5",
+  },
 })
 console.log("Nikcli server ready")
 

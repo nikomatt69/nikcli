@@ -12,8 +12,8 @@ const parameters = z.object({
   maxFiles: z.number().int().min(1).max(2000).optional().describe("Maximum files to index"),
   maxChunks: z.number().int().min(1).max(20000).optional().describe("Maximum chunks to store"),
   maxFileBytes: z.number().int().min(1).optional().describe("Maximum file size in bytes"),
-  model: z.string().optional().describe("Embedding model (default: nvidia/llama-embed-nemotron-8b)"),
-  provider: z.string().optional().describe("Embedding provider (default: nvidia)"),
+  model: z.string().optional().describe("Embedding model (default: openai/text-embedding-3-small)"),
+  provider: z.string().optional().describe("Embedding provider (default: openrouter)"),
 })
 
 export const RagIndexTool = Tool.define("rag_index", {

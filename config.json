@@ -1,0 +1,16 @@
+{
+  "$schema": "https://nikcli.store/config.json",
+  "rag": {
+    "model": "qwen/qwen3-embedding-8b",
+    "provider": "openrouter"
+  },
+  "image": {
+    "model": "black-forest-labs/flux.2-flex",
+    "provider": "openrouter"
+  },
+  "speak": {
+    "provider": "openrouter",
+    "model": "alloy",
+    "modelId": "openai/gpt-audio-mini"
+  }
+}

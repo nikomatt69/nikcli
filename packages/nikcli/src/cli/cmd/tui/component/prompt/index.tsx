@@ -1,4 +1,4 @@
-import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent, t, dim, fg } from "@opentui/core"
+import { BoxRenderable, TextareaRenderable, MouseEvent, PasteEvent } from "@opentui/core"
 import {
   createEffect,
   createMemo,
@@ -47,9 +47,13 @@ import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
 import { DialogRagModel } from "../dialog-rag-model"
 import { DialogImageModel } from "../dialog-image-model"
+import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
 import { DialogSubagent } from "@tui/routes/session/dialog-subagent"
-import type { Config } from "@nikcli-ai/sdk/v2/client"
+import os from "os"
+import path from "path"
+import { rmSync } from "fs"
+import { Auth } from "@/auth"
 
 export type PromptProps = {
   sessionID?: string
@@ -73,6 +77,79 @@ export type PromptRef = {
 
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
+const VOICE_TRANSCRIBE_MODEL = "openai/gpt-audio-mini"
+const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+const SWIFT_MIC_PERMISSION_ERROR = "__NIKCLI_MIC_PERMISSION_DENIED__"
+
+const SWIFT_RECORDER_SOURCE = String.raw`
+import Foundation
+import AVFoundation
+
+let permissionMarker = "__NIKCLI_MIC_PERMISSION_DENIED__"
+
+guard CommandLine.arguments.count >= 2 else {
+  fputs("missing output path\n", stderr)
+  exit(2)
+}
+
+let outputPath = CommandLine.arguments[1]
+let outputURL = URL(fileURLWithPath: outputPath)
+
+let semaphore = DispatchSemaphore(value: 0)
+var granted = false
+
+AVCaptureDevice.requestAccess(for: .audio) { allowed in
+  granted = allowed
+  semaphore.signal()
+}
+
+_ = semaphore.wait(timeout: .now() + 30)
+
+if !granted {
+  fputs(permissionMarker + "\n", stderr)
+  exit(13)
+}
+
+let settings: [String: Any] = [
+  AVFormatIDKey: Int(kAudioFormatLinearPCM),
+  AVSampleRateKey: 16000,
+  AVNumberOfChannelsKey: 1,
+  AVLinearPCMBitDepthKey: 16,
+  AVLinearPCMIsBigEndianKey: false,
+  AVLinearPCMIsFloatKey: false,
+]
+
+do {
+  let recorder = try AVAudioRecorder(url: outputURL, settings: settings)
+  recorder.prepareToRecord()
+
+  if !recorder.record() {
+    fputs("failed to start recording\n", stderr)
+    exit(14)
+  }
+
+  signal(SIGINT, SIG_IGN)
+  signal(SIGTERM, SIG_IGN)
+
+  let stop: () -> Void = {
+    recorder.stop()
+    exit(0)
+  }
+
+  let sigintSource = DispatchSource.makeSignalSource(signal: SIGINT, queue: .main)
+  sigintSource.setEventHandler(handler: stop)
+  sigintSource.resume()
+
+  let sigtermSource = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+  sigtermSource.setEventHandler(handler: stop)
+  sigtermSource.resume()
+
+  RunLoop.main.run()
+} catch {
+  fputs("recorder error: \(error)\n", stderr)
+  exit(15)
+}
+`
 
 export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
@@ -95,6 +172,560 @@ export function Prompt(props: PromptProps) {
   const kv = useKV()
   const ads = createMemo(() => sync.data.config.ads)
   const [currentAd, setCurrentAd] = createSignal<string | null>(null)
+  const [voiceStatus, setVoiceStatus] = createSignal<"idle" | "recording" | "transcribing">("idle")
+
+  let voiceRecorder: ReturnType<typeof Bun.spawn> | null = null
+  let voiceAudioPath: string | null = null
+  let voiceAutoStopTimer: ReturnType<typeof setTimeout> | undefined
+  let voicePressStartedAt = 0
+  let swiftRecorderScriptPath: string | null = null
+  let hasShownMicHint = false
+
+  function cleanupVoiceAudio(filePath: string | null) {
+    if (!filePath) return
+    try {
+      rmSync(filePath, { force: true })
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+
+  async function ensureSwiftRecorderScriptPath(): Promise<string | null> {
+    if (process.platform !== "darwin") return null
+    if (swiftRecorderScriptPath) return swiftRecorderScriptPath
+
+    const swift = Bun.which("swift")
+    if (!swift) return null
+
+    const scriptPath = path.join(os.tmpdir(), "nikcli-mic-recorder.swift")
+    const file = Bun.file(scriptPath)
+    const exists = await file.exists()
+
+    if (!exists) {
+      await Bun.write(scriptPath, SWIFT_RECORDER_SOURCE)
+    } else {
+      const current = await file.text().catch(() => "")
+      if (current !== SWIFT_RECORDER_SOURCE) {
+        await Bun.write(scriptPath, SWIFT_RECORDER_SOURCE)
+      }
+    }
+
+    swiftRecorderScriptPath = scriptPath
+    return swiftRecorderScriptPath
+  }
+
+  async function detectVoiceRecorder(filePath: string): Promise<{ command: string[]; name: string } | null> {
+    const ffmpeg = Bun.which("ffmpeg")
+    if (ffmpeg) {
+      if (process.platform === "darwin") {
+        return {
+          name: "ffmpeg",
+          command: [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "avfoundation",
+            "-i",
+            "none:0",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-c:a",
+            "pcm_s16le",
+            "-y",
+            filePath,
+          ],
+        }
+      }
+
+      if (process.platform === "linux") {
+        return {
+          name: "ffmpeg",
+          command: [
+            ffmpeg,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "pulse",
+            "-i",
+            "default",
+            "-ac",
+            "1",
+            "-ar",
+            "16000",
+            "-c:a",
+            "pcm_s16le",
+            "-y",
+            filePath,
+          ],
+        }
+      }
+    }
+
+    const rec = Bun.which("rec")
+    if (rec) {
+      return {
+        name: "rec",
+        command: [rec, "-q", "-c", "1", "-r", "16000", filePath],
+      }
+    }
+
+    if (process.platform === "darwin") {
+      const swift = Bun.which("swift")
+      const scriptPath = await ensureSwiftRecorderScriptPath()
+      if (swift && scriptPath) {
+        return {
+          name: "swift-avfoundation",
+          command: [swift, scriptPath, filePath],
+        }
+      }
+    }
+
+    return null
+  }
+
+  function looksLikeMicPermissionError(message: string): boolean {
+    const value = message.toLowerCase()
+    return (
+      value.includes(SWIFT_MIC_PERMISSION_ERROR.toLowerCase()) ||
+      value.includes("permission denied") ||
+      value.includes("not permitted") ||
+      value.includes("not authorized") ||
+      value.includes("operation not permitted")
+    )
+  }
+
+  function currentTerminalName(): string {
+    return (
+      process.env.TERM_PROGRAM ||
+      process.env.TERMINAL_EMULATOR ||
+      process.env.TERM ||
+      "terminal"
+    )
+  }
+
+  function isLikelyIntegratedTerminal(): boolean {
+    const value = currentTerminalName().toLowerCase()
+    return value.includes("vscode") || value.includes("zed") || value.includes("warp") || value.includes("jetbrains")
+  }
+
+  function extractTranscriptContent(content: unknown): string {
+    if (typeof content === "string") return content.trim()
+    if (!Array.isArray(content)) return ""
+
+    const merged = content
+      .map((part) => {
+        if (typeof part === "string") return part
+        if (part && typeof part === "object" && "text" in part && typeof (part as any).text === "string") {
+          return (part as any).text
+        }
+        return ""
+      })
+      .join(" ")
+      .trim()
+
+    return merged
+  }
+
+  function openRouterEndpoint(baseURL: string, endpoint: string): string {
+    return `${baseURL.replace(/\/+$/, "")}${endpoint}`
+  }
+
+  function normalizeOpenRouterBaseURL(value: string | undefined): string {
+    if (!value) return OPENROUTER_BASE_URL
+    try {
+      const parsed = new URL(value)
+      if (!parsed.hostname.endsWith("openrouter.ai")) {
+        return OPENROUTER_BASE_URL
+      }
+      return `${parsed.origin}/api/v1`
+    } catch {
+      return OPENROUTER_BASE_URL
+    }
+  }
+
+  async function openRouterErrorDetail(response: Response): Promise<string> {
+    const text = await response.text().catch(() => "")
+    if (!text) return response.statusText
+    try {
+      const parsed = JSON.parse(text) as { error?: { message?: string }; message?: string }
+      return parsed.error?.message ?? parsed.message ?? text
+    } catch {
+      return text
+    }
+  }
+
+  async function resolveOpenRouterConfig(): Promise<{ apiKey: string; baseURL: string }> {
+    const auth = await Auth.get("openrouter").catch(() => undefined)
+    const providerOptions = (sync.data.config as any)?.provider?.openrouter?.options ?? {}
+    const optionApiKey = typeof providerOptions.apiKey === "string" ? providerOptions.apiKey : undefined
+
+    const apiKey =
+      process.env.NIKCLI_OPENROUTER_API_KEY ??
+      process.env.OPENROUTER_API_KEY ??
+      (auth?.type === "api" ? auth.key : undefined) ??
+      optionApiKey
+
+    if (!apiKey || !apiKey.trim()) {
+      throw new Error("OpenRouter API key not configured")
+    }
+
+    const baseURL = normalizeOpenRouterBaseURL(
+      process.env.NIKCLI_OPENROUTER_BASE_URL ??
+      process.env.OPENROUTER_BASE_URL ??
+      (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
+    )
+
+    return {
+      apiKey: apiKey.trim(),
+      baseURL,
+    }
+  }
+
+  async function transcribeVoiceAudioViaResponses(
+    base64Audio: string,
+    config: { apiKey: string; baseURL: string },
+    signal: AbortSignal,
+  ): Promise<string> {
+    const response = await fetch(openRouterEndpoint(config.baseURL, "/responses"), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${config.apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://nikcli.store/",
+        "X-Title": "nikcli",
+      },
+      body: JSON.stringify({
+        model: process.env.NIKCLI_VOICE_TRANSCRIBE_MODEL ?? VOICE_TRANSCRIBE_MODEL,
+        temperature: 0,
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Transcribe this audio. Return only the transcript text without extra commentary.",
+              },
+              {
+                type: "input_audio",
+                input_audio: {
+                  data: base64Audio,
+                  format: "wav",
+                },
+              },
+            ],
+          },
+        ],
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const detail = await openRouterErrorDetail(response)
+      throw new Error(`OpenRouter transcription failed (${response.status}): ${detail}`)
+    }
+
+    const result = (await response.json()) as {
+      output_text?: string
+      output?: Array<{
+        content?: Array<{
+          type?: string
+          text?: string
+        }>
+      }>
+    }
+
+    const fromOutputText = (result.output_text ?? "").trim()
+    if (fromOutputText) return fromOutputText
+
+    const fromContent =
+      result.output
+        ?.flatMap((x) => x.content ?? [])
+        .map((x) => (x.type === "output_text" && x.text ? x.text : ""))
+        .join(" ")
+        .trim() ?? ""
+
+    if (!fromContent) {
+      throw new Error("No transcript returned")
+    }
+
+    return fromContent
+  }
+
+  async function transcribeVoiceAudio(filePath: string): Promise<string> {
+    const audio = await Bun.file(filePath).arrayBuffer()
+    if (audio.byteLength === 0) {
+      throw new Error("Recorded audio is empty")
+    }
+
+    const config = await resolveOpenRouterConfig()
+    const base64Audio = Buffer.from(audio).toString("base64")
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60_000)
+
+    try {
+      const response = await fetch(openRouterEndpoint(config.baseURL, "/chat/completions"), {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://nikcli.store/",
+          "X-Title": "nikcli",
+        },
+        body: JSON.stringify({
+          model: process.env.NIKCLI_VOICE_TRANSCRIBE_MODEL ?? VOICE_TRANSCRIBE_MODEL,
+          temperature: 0,
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: "Transcribe this audio. Return only the transcript text without extra commentary.",
+                },
+                {
+                  type: "input_audio",
+                  input_audio: {
+                    data: base64Audio,
+                    format: "wav",
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        if (response.status === 402) {
+          const detail = await openRouterErrorDetail(response)
+          throw new Error(`OpenRouter audio credits required: ${detail}`)
+        }
+        const detail = await openRouterErrorDetail(response)
+        throw new Error(`OpenRouter transcription failed (${response.status}): ${detail}`)
+      }
+
+      const result = (await response.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: unknown
+          }
+        }>
+      }
+
+      const content = result.choices?.[0]?.message?.content
+      const transcript = extractTranscriptContent(content)
+      if (!transcript) {
+        throw new Error("No transcript returned")
+      }
+      return transcript
+    } catch (error) {
+      const message = error instanceof Error ? error.message : ""
+      if (message.includes("credits required") || message.includes("(402)")) {
+        throw error
+      }
+
+      return transcribeVoiceAudioViaResponses(base64Audio, config, controller.signal)
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  let isStartingRecording = false
+  async function startVoiceRecording() {
+    if (voiceStatus() !== "idle") return
+    if (isStartingRecording) return
+    isStartingRecording = true
+
+    try {
+      const filePath = path.join(os.tmpdir(), `nikcli-voice-${Date.now()}-${Math.random().toString(16).slice(2)}.wav`)
+      const recorder = await detectVoiceRecorder(filePath)
+
+      if (!recorder) {
+        toast.show({
+          variant: "error",
+          message:
+            process.platform === "darwin"
+              ? "Voice mode requires ffmpeg, sox, or macOS Command Line Tools (swift)"
+              : "Voice mode requires ffmpeg or sox (rec) installed",
+          duration: 4000,
+        })
+        return
+      }
+
+      if (!hasShownMicHint) {
+        hasShownMicHint = true
+        const message =
+          process.platform === "darwin"
+            ? "If prompted, allow microphone access for your terminal"
+            : "Allow microphone access when prompted by your operating system"
+        toast.show({ variant: "info", message, duration: 3500 })
+      }
+
+      try {
+        voiceAudioPath = filePath
+        voiceRecorder = Bun.spawn(recorder.command, {
+          stdout: "ignore",
+          stderr: "pipe",
+        })
+        voiceAutoStopTimer = setTimeout(() => {
+          void stopVoiceRecording()
+        }, 90_000)
+        setVoiceStatus("recording")
+        toast.show({
+          variant: "info",
+          message: `Recording started (${recorder.name}). Hold to talk, or click again to stop`,
+          duration: 2500,
+        })
+      } catch {
+        cleanupVoiceAudio(filePath)
+        voiceAudioPath = null
+        voiceRecorder = null
+        if (voiceAutoStopTimer) {
+          clearTimeout(voiceAutoStopTimer)
+          voiceAutoStopTimer = undefined
+        }
+        setVoiceStatus("idle")
+        toast.show({ variant: "error", message: "Failed to start voice recording", duration: 3000 })
+      }
+    } finally {
+      isStartingRecording = false
+    }
+  }
+
+  async function stopVoiceRecording() {
+    if (!voiceRecorder || !voiceAudioPath) {
+      setVoiceStatus("idle")
+      return
+    }
+
+    const recorder = voiceRecorder
+    const filePath = voiceAudioPath
+    voiceRecorder = null
+    voiceAudioPath = null
+    if (voiceAutoStopTimer) {
+      clearTimeout(voiceAutoStopTimer)
+      voiceAutoStopTimer = undefined
+    }
+    setVoiceStatus("transcribing")
+
+    try {
+      try {
+        recorder.kill("SIGINT")
+      } catch {
+        recorder.kill()
+      }
+
+      await Promise.race([recorder.exited, new Promise((resolve) => setTimeout(resolve, 4000))])
+
+      const stderrText =
+        recorder.stderr && typeof recorder.stderr !== "number"
+          ? await new Response(recorder.stderr).text().catch(() => "")
+          : ""
+      if (looksLikeMicPermissionError(stderrText)) {
+        const detail = stderrText
+          .split("\n")
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .at(-1)
+        const terminalName = currentTerminalName()
+        const message =
+          process.platform === "darwin"
+            ? isLikelyIntegratedTerminal()
+              ? `Microphone denied for ${terminalName}. Allow it in System Settings > Privacy & Security > Microphone, or run nikcli in Terminal.app/iTerm2`
+              : `Microphone access denied for ${terminalName}. Enable it in System Settings > Privacy & Security > Microphone`
+            : "Microphone access denied. Allow microphone permission for your terminal"
+        toast.show({
+          variant: "error",
+          message: detail ? `${message} (${detail})` : message,
+          duration: 8000,
+        })
+        return
+      }
+
+      const recordedBytes = await Bun.file(filePath)
+        .arrayBuffer()
+        .then((x) => x.byteLength)
+        .catch(() => 0)
+
+      if (recordedBytes < 1024) {
+        const detail = stderrText.trim().split("\n").at(-1)
+        toast.show({
+          variant: "error",
+          message: detail ? `No audio captured: ${detail}` : "No audio captured. Try holding the button longer",
+          duration: 5000,
+        })
+        return
+      }
+
+      const transcript = await transcribeVoiceAudio(filePath)
+      const withSpacing = input.plainText.length > 0 && !input.plainText.endsWith(" ") ? ` ${transcript}` : transcript
+      const nextInput = `${input.plainText}${withSpacing}`
+
+      input.focus()
+      input.setText(nextInput)
+      setStore("prompt", "input", nextInput)
+      autocomplete.onInput(nextInput)
+      await Clipboard.copy(transcript).catch(() => { })
+
+      setTimeout(() => {
+        input.cursorOffset = nextInput.length
+        renderer.requestRender()
+      }, 0)
+
+      toast.show({ variant: "success", message: "Voice transcript inserted and copied", duration: 2000 })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Voice transcription failed"
+      toast.show({ variant: "error", message, duration: 4000 })
+    } finally {
+      cleanupVoiceAudio(filePath)
+      setVoiceStatus("idle")
+    }
+  }
+
+  async function handleVoiceButtonDown() {
+    if (props.disabled) return
+    if (voiceStatus() === "transcribing") return
+    if (voiceStatus() === "recording") {
+      await stopVoiceRecording()
+      return
+    }
+    voicePressStartedAt = Date.now()
+    await startVoiceRecording()
+  }
+
+  async function handleVoiceButtonUp() {
+    if (props.disabled) return
+    if (Date.now() - voicePressStartedAt < 220) return
+    if (voiceStatus() !== "recording") return
+    await stopVoiceRecording()
+  }
+
+  onCleanup(() => {
+    if (voiceAutoStopTimer) {
+      clearTimeout(voiceAutoStopTimer)
+      voiceAutoStopTimer = undefined
+    }
+    if (voiceRecorder) {
+      try {
+        voiceRecorder.kill("SIGINT")
+      } catch {
+        try {
+          voiceRecorder.kill()
+        } catch {
+          // ignore
+        }
+      }
+      voiceRecorder = null
+    }
+    cleanupVoiceAudio(voiceAudioPath)
+    voiceAudioPath = null
+  })
 
   type BackgroundSubtasksMap = Record<string, string[]>
 
@@ -689,6 +1320,15 @@ export function Prompt(props: PromptProps) {
       },
     },
     {
+      title: "TTS Voice",
+      value: "speak-model",
+      category: "Config",
+      slash: { name: "speak-model" },
+      onSelect: (dialog) => {
+        dialog.replace(() => <DialogSpeakModel />)
+      },
+    },
+    {
       title: "Remote Access",
       value: "remote",
       category: "Config",
@@ -716,9 +1356,9 @@ export function Prompt(props: PromptProps) {
     const sessionID = props.sessionID
       ? props.sessionID
       : await (async () => {
-          const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
-          return sessionID
-        })()
+        const sessionID = await sdk.client.session.create({}).then((x) => x.data!.id)
+        return sessionID
+      })()
     const messageID = Identifier.ascending("message")
     let inputText = store.prompt.input
 
@@ -807,7 +1447,7 @@ export function Prompt(props: PromptProps) {
             })),
           ],
         })
-        .catch(() => {})
+        .catch(() => { })
     }
     history.append({
       ...store.prompt,
@@ -1109,6 +1749,7 @@ export function Prompt(props: PromptProps) {
                   }
                   // If no image, let the default paste behavior continue
                 }
+
                 if (keybind.match("input_clear", e) && store.prompt.input !== "") {
                   input.clear()
                   input.extmarks.clear()
@@ -1178,6 +1819,13 @@ export function Prompt(props: PromptProps) {
                   if (keybind.match("history_previous", e) && input.visualCursor.visualRow === 0) input.cursorOffset = 0
                   if (keybind.match("history_next", e) && input.visualCursor.visualRow === input.height - 1)
                     input.cursorOffset = input.plainText.length
+
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  if (keybind.match("voice_record" as any, e)) {
+                    e.preventDefault()
+                    void handleVoiceButtonDown()
+                    return
+                  }
                 }
               }}
               onSubmit={submit}
@@ -1207,7 +1855,7 @@ export function Prompt(props: PromptProps) {
                     // Handle SVG as raw text content, not as base64 image
                     if (file.type === "image/svg+xml") {
                       event.preventDefault()
-                      const content = await file.text().catch(() => {})
+                      const content = await file.text().catch(() => { })
                       if (content) {
                         pasteText(content, `[SVG: ${file.name ?? "image"}]`)
                         return
@@ -1218,7 +1866,7 @@ export function Prompt(props: PromptProps) {
                       const content = await file
                         .arrayBuffer()
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => {})
+                        .catch(() => { })
                       if (content) {
                         await pasteImage({
                           filename: file.name,
@@ -1228,7 +1876,7 @@ export function Prompt(props: PromptProps) {
                         return
                       }
                     }
-                  } catch {}
+                  } catch { }
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1301,13 +1949,13 @@ export function Prompt(props: PromptProps) {
             customBorderChars={
               theme.backgroundElement.a !== 0
                 ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
+                  ...EmptyBorder,
+                  horizontal: "▀",
+                }
                 : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
+                  ...EmptyBorder,
+                  horizontal: " ",
+                }
             }
           />
         </box>
@@ -1450,28 +2098,61 @@ export function Prompt(props: PromptProps) {
               </box>
             </box>
           </Show>
-          <Show when={status().type !== "retry" && kv.get("show_shortcuts", true)}>
+          <Show when={status().type !== "retry"}>
             <box gap={2} flexDirection="row">
-              <Switch>
-                <Match when={store.mode === "normal"}>
-                  <Show when={local.model.variant.list().length > 0}>
-                    <text fg={theme.text}>
-                      {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
-                    </text>
-                  </Show>
-                  <text fg={theme.text}>
-                    {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                  </text>
-                  <text fg={theme.text}>
-                    {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
-                  </text>
-                </Match>
-                <Match when={store.mode === "shell"}>
-                  <text fg={theme.text}>
-                    esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
-                  </text>
-                </Match>
-              </Switch>
+              <box
+                onMouseDown={() => {
+                  void handleVoiceButtonDown()
+                }}
+                onMouseUp={() => {
+                  void handleVoiceButtonUp()
+                }}
+                backgroundColor={theme.error}
+                paddingLeft={1}
+                paddingRight={1}
+                flexShrink={0}
+              >
+                <text fg={theme.background}>
+                  <span style={{ bold: voiceStatus() === "recording" }}>
+                    {voiceStatus() === "recording"
+                      ? "release to send"
+                      : voiceStatus() === "transcribing"
+                        ? "transcribing..."
+                        : (() => {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const shortcut = keybind.print("voice_record" as any)
+                          return shortcut
+                            ? <>⏺ <span style={{ fg: theme.textMuted }}>rec</span></>
+                            : "⏺"
+                        })()}
+                  </span>
+                </text>
+              </box>
+
+              <Show when={kv.get("show_shortcuts", true)}>
+                <box gap={2} flexDirection="row">
+                  <Switch>
+                    <Match when={store.mode === "normal"}>
+                      <Show when={local.model.variant.list().length > 0}>
+                        <text fg={theme.text}>
+                          {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
+                        </text>
+                      </Show>
+                      <text fg={theme.text}>
+                        {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
+                      </text>
+                      <text fg={theme.text}>
+                        {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
+                      </text>
+                    </Match>
+                    <Match when={store.mode === "shell"}>
+                      <text fg={theme.text}>
+                        esc <span style={{ fg: theme.textMuted }}>exit shell mode</span>
+                      </text>
+                    </Match>
+                  </Switch>
+                </box>
+              </Show>
             </box>
           </Show>
         </box>

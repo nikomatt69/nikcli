@@ -22,6 +22,7 @@
         --accent: #5eead4;
         --error: #f87171;
         --success: #34d399;
+        --available-height: 100%;
       }
 
       * {
@@ -46,6 +47,7 @@
         flex-direction: column;
         height: 100%;
         height: 100dvh;
+        height: var(--available-height, 100dvh);
         position: relative;
       }
 
@@ -165,6 +167,9 @@
         overflow: hidden;
         background: var(--bg);
         transition: opacity 0.3s ease;
+        min-height: 0;
+        /* Mobile: account for safe area bottom (keyboard area on some devices) */
+        height: calc(100% - env(safe-area-inset-bottom, 0px));
       }
       #terminal-container.hidden {
         opacity: 0;
@@ -175,6 +180,60 @@
         width: 100%;
         height: 100%;
         outline: none;
+        touch-action: manipulation;
+      }
+
+      /* Mobile keyboard active state - resize terminal when virtual keyboard shows */
+      body.keyboard-visible #terminal-container {
+        height: calc(100% - env(safe-area-inset-bottom, 0px));
+      }
+
+      /* Desktop: no safe area adjustments */
+      @media (min-width: 768px) {
+        #terminal-container {
+          height: 100%;
+        }
+      }
+
+      /* Hidden input overlay for mobile keyboard capture (desktop only) */
+      #hidden-input-overlay {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        z-index: 5;
+        resize: none;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: transparent;
+        caret-color: transparent;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 16px;
+        line-height: 1.5;
+        padding: 0;
+        margin: 0;
+        pointer-events: auto;
+        -webkit-appearance: none;
+        appearance: none;
+        touch-action: manipulation;
+      }
+
+      /* On mobile, disable pointer events on hidden overlay so mobile input bar works */
+      @media (max-width: 767px) {
+        #hidden-input-overlay {
+          pointer-events: none;
+        }
+      }
+
+      #hidden-input-overlay::placeholder,
+      #hidden-input-overlay::-webkit-input-placeholder {
+        color: transparent;
+      }
+
+      #hidden-input-overlay::-moz-placeholder {
+        color: transparent;
       }
 
       /* Native Mobile Control Strip */
@@ -199,21 +258,32 @@
         display: flex;
         gap: 8px;
         padding: 10px 12px;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
         background: var(--panel);
         border-top: 1px solid var(--border);
         flex-shrink: 0;
         align-items: center;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 100;
+        pointer-events: auto;
       }
       #mobile-input-bar input {
         flex: 1;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 8px;
-        padding: 10px 14px;
+        padding: 12px 14px;
         color: var(--text);
         font-family: "JetBrains Mono", monospace;
-        font-size: 16px; /* Prevents iOS auto-zoom */
+        font-size: 16px;
         outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+        touch-action: manipulation;
+        pointer-events: auto;
       }
       #mobile-input-bar input:focus {
         border-color: var(--accent);
@@ -223,19 +293,35 @@
         color: var(--bg);
         border: none;
         border-radius: 8px;
-        padding: 10px 16px;
+        padding: 12px 20px;
         font-size: 14px;
         font-weight: 700;
         cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
       }
       #mobile-input-bar button:active {
         opacity: 0.8;
       }
 
+      /* Hide mobile input bar on desktop */
       @media (min-width: 768px) {
         #mobile-controls,
         #mobile-input-bar {
           display: none;
+        }
+      }
+
+      /* Mobile-only: ensure terminal container leaves space for input bar */
+      @media (max-width: 767px) {
+        #terminal-container {
+          /* Base padding for fixed input bar - account for safe-area-inset-bottom */
+          padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* When keyboard is visible, reduce padding to allow terminal to use more space */
+        body.keyboard-visible #terminal-container {
+          padding-bottom: 20px;
         }
       }
       .m-key {
@@ -289,6 +375,15 @@
 
       <div id="terminal-container" class="hidden">
         <canvas id="terminal"></canvas>
+        <!-- Hidden input overlay for capturing mobile keyboard input -->
+        <textarea
+          id="hidden-input-overlay"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+          spellcheck="false"
+          aria-hidden="true"
+        ></textarea>
       </div>
 
       <!-- Native Mobile Control Strip -->
@@ -307,13 +402,15 @@
       <!-- Explicit Mobile Input Bar -->
       <div id="mobile-input-bar">
         <input
-          type="text"
+          type="search"
           id="visible-input"
           placeholder="Type command..."
           autocomplete="off"
           autocorrect="off"
           spellcheck="false"
           autocapitalize="off"
+          enterkeyhint="send"
+          inputmode="text"
         />
         <button id="send-btn">Send</button>
       </div>

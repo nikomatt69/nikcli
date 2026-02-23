@@ -1,0 +1,7 @@
+name = "nikcli-slack-bot"
+app = "nikcli-slack-bot"
+primaryRegion = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+  context = "."

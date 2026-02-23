@@ -1341,9 +1341,12 @@ export namespace Provider {
       const s2 = await state()
       const provider = s2.providers[providerID] || s2.providers["openrouter"]
 
+      const OPENROUTER_API = "https://openrouter.ai/api/v1"
+      const baseURL = model.api?.url || (providerID.includes("openrouter") ? OPENROUTER_API : undefined)
+
       const openaiSDK = createOpenAI({
         name: providerID,
-        baseURL: model.api.url,
+        baseURL,
         apiKey: provider?.key,
       })
 

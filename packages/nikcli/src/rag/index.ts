@@ -10,8 +10,6 @@ import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"
 
 const VERSION = 1
-const DEFAULT_RAG_MODEL = "openai/text-embedding-3-small"
-const DEFAULT_RAG_PROVIDER = "openrouter"
 const DEFAULT_MAX_FILE_BYTES = 1_000_000
 
 export type RagIndexOptions = {
@@ -28,6 +26,7 @@ export type RagSearchOptions = {
   query: string
   limit?: number
   minScore?: number
+  model?: string
   provider?: string
 }
 
@@ -79,10 +78,14 @@ export namespace Rag {
 
   export async function index(options: RagIndexOptions) {
     const state = await Config.state()
-    const existingState = await RagStorage.readState()
     const config = state.config
-    const model = options.model ?? config.rag?.model ?? existingState?.model ?? DEFAULT_RAG_MODEL
-    const provider = options.provider ?? config.rag?.provider ?? DEFAULT_RAG_PROVIDER
+    const model = options.model ?? config.rag?.model
+    const provider = options.provider ?? config.rag?.provider
+    if (!model || !provider) {
+      throw new Error(
+        `RAG model or provider not configured. Run 'nikcli rag-model <provider> <model>' to set embedding model.`,
+      )
+    }
     const chunkLines = options.chunkLines ?? 200
     const maxFiles = options.maxFiles ?? 200
     const maxChunks = options.maxChunks ?? 5000
@@ -200,8 +203,13 @@ export namespace Rag {
     const state = await RagStorage.readState()
     const limit = options.limit ?? 8
     const minScore = options.minScore ?? 0.2
-    const model = state?.model ?? config.rag?.model ?? DEFAULT_RAG_MODEL
-    const provider = options.provider ?? config.rag?.provider ?? DEFAULT_RAG_PROVIDER
+    const model = options.model ?? state?.model ?? config.rag?.model
+    const provider = options.provider ?? config.rag?.provider
+    if (!model || !provider) {
+      throw new Error(
+        `RAG model or provider not configured. Run 'nikcli rag-model <provider> <model>' to set embedding model.`,
+      )
+    }
 
     const chunks = await RagStorage.readJsonl<RagChunk>(RagStorage.chunksPath())
     const vectors = await RagStorage.readJsonl<RagVector>(RagStorage.vectorsPath())

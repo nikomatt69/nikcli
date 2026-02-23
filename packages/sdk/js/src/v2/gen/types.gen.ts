@@ -1864,6 +1864,28 @@ export type ImageConfig = {
   provider?: string
 }
 
+/**
+ * Text-to-speech configuration
+ */
+export type SpeakConfig = {
+  /**
+   * TTS provider (e.g., elevenlabs, openrouter)
+   */
+  provider?: string
+  /**
+   * TTS voice ID (e.g., ElevenLabs voice ID, OpenRouter voice name)
+   */
+  model?: string
+  /**
+   * TTS model ID (e.g., eleven_v3, openai/gpt-audio-mini)
+   */
+  modelId?: string
+  /**
+   * TTS output format (e.g., mp3_44100_128, mp3, wav)
+   */
+  outputFormat?: string
+}
+
 export type Config = {
   /**
    * JSON schema reference for configuration validation
@@ -2108,6 +2130,7 @@ export type Config = {
   }
   rag?: RagConfig
   image?: ImageConfig
+  speak?: SpeakConfig
   /**
    * Notification settings for various events
    */

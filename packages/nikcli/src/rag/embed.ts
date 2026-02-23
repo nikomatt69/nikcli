@@ -4,8 +4,6 @@ import { Env } from "@/env"
 import { Log } from "@/util/log"
 import { Config } from "@/config/config"
 
-const DEFAULT_RAG_MODEL = "openai/text-embedding-3-small"
-const DEFAULT_RAG_PROVIDER = "openrouter"
 const BATCH_SIZE = 32
 
 type EmbeddingResponse = {
@@ -37,10 +35,9 @@ export namespace RagEmbed {
 
   async function resolveOllama() {
     const config = await Config.get().catch(() => undefined)
-    const baseURL =
-      normalizeOllamaV1BaseURL(
-        (config as any)?.provider?.ollama?.options?.baseURL ?? Env.get("OLLAMA_BASE_URL") ?? "http://127.0.0.1:11434/v1",
-      )
+    const baseURL = normalizeOllamaV1BaseURL(
+      (config as any)?.provider?.ollama?.options?.baseURL ?? Env.get("OLLAMA_BASE_URL") ?? "http://127.0.0.1:11434/v1",
+    )
 
     const auth = await Auth.get("ollama").catch(() => undefined)
     const apiKey =
@@ -54,8 +51,14 @@ export namespace RagEmbed {
 
   export async function embedAll(texts: string[], model?: string, provider?: string) {
     if (texts.length === 0) return [] as number[][]
-    const chosen = model ?? DEFAULT_RAG_MODEL
-    const chosenProvider = provider ?? DEFAULT_RAG_PROVIDER
+    const config = await Config.get().catch(() => undefined)
+    const chosen = model ?? config?.rag?.model
+    const chosenProvider = provider ?? config?.rag?.provider
+    if (!chosen || !chosenProvider) {
+      throw new Error(
+        `RAG model or provider not configured. Run 'nikcli rag-model <provider> <model>' to set embedding model.`,
+      )
+    }
     const batches = Array.from({ length: Math.ceil(texts.length / BATCH_SIZE) }, (_, index) => {
       const start = index * BATCH_SIZE
       const end = start + BATCH_SIZE
@@ -66,6 +69,9 @@ export namespace RagEmbed {
     for (const batch of batches) {
       const embedded = await embedBatch(batch, chosen, chosenProvider)
       results.push(...embedded)
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
     }
     return results
   }
@@ -91,6 +97,9 @@ export namespace RagEmbed {
     }
 
     const json = (await response.json()) as EmbeddingResponse
+    if (!Array.isArray(json.data)) {
+      throw new Error(`Unexpected embedding response shape: ${JSON.stringify(json)}`)
+    }
     const sorted = json.data.sort((a, b) => a.index - b.index)
     return sorted.map((item) => item.embedding)
   }
@@ -110,8 +119,10 @@ export namespace RagEmbed {
 
     if (openAiResponse?.ok) {
       const json = (await openAiResponse.json()) as EmbeddingResponse
-      const sorted = json.data.sort((a, b) => a.index - b.index)
-      return sorted.map((item) => item.embedding)
+      if (Array.isArray(json.data)) {
+        const sorted = json.data.sort((a, b) => a.index - b.index)
+        return sorted.map((item) => item.embedding)
+      }
     }
 
     // Fallback to legacy Ollama embeddings endpoint.
@@ -135,6 +146,19 @@ export namespace RagEmbed {
     return results
   }
 
+  const KNOWN_PROVIDER_APIS: Record<string, string> = {
+    openrouter: "https://openrouter.ai/api/v1",
+    openai: "https://api.openai.com/v1",
+    anthropic: "https://api.anthropic.com/v1",
+    google: "https://generativelanguage.googleapis.com/v1beta/openai",
+    mistral: "https://api.mistral.ai/v1",
+    together: "https://api.together.xyz/v1",
+    groq: "https://api.groq.com/openai/v1",
+    cohere: "https://api.cohere.ai/v1",
+    nvidia: "https://integrate.api.nvidia.com/v1",
+    voyage: "https://api.voyageai.com/v1",
+  }
+
   async function resolveProvider(providerID: string) {
     const auth = await Auth.get(providerID)
     const key = auth?.type === "api" ? auth.key : Env.get(`${providerID.toUpperCase()}_API_KEY`)
@@ -144,14 +168,12 @@ export namespace RagEmbed {
 
     const database = await ModelsDev.get()
     const provider = database[providerID]
-    if (!provider?.api) {
+    const api = provider?.api ?? KNOWN_PROVIDER_APIS[providerID]
+    if (!api) {
       log.error("provider missing api", { provider: providerID })
-      throw new Error(`${providerID} provider configuration not found.`)
+      throw new Error(`${providerID} provider configuration not found. Set rag.provider to a supported provider.`)
     }
 
-    return {
-      api: provider.api,
-      key,
-    }
+    return { api, key }
   }
 }

@@ -875,6 +875,7 @@ export namespace Config {
       terminal_suspend: z.string().optional().default("ctrl+z").describe("Suspend terminal"),
       terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
       tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),
+      voice_record: z.string().optional().default("ctrl+alt+v").describe("Toggle voice recording (push to talk)"),
     })
     .strict()
     .meta({
@@ -961,6 +962,19 @@ export namespace Config {
       ref: "ImageConfig",
     })
   export type Image = z.infer<typeof Image>
+
+  export const Speak = z
+    .object({
+      provider: z.string().optional().describe("TTS provider (e.g., elevenlabs, openrouter)"),
+      model: z.string().optional().describe("TTS voice ID (e.g., ElevenLabs voice ID, OpenRouter voice name)"),
+      modelId: z.string().optional().describe("TTS model ID (e.g., eleven_v3, openai/gpt-audio-mini)"),
+      outputFormat: z.string().optional().describe("TTS output format (e.g., mp3_44100_128, mp3, wav)"),
+    })
+    .strict()
+    .meta({
+      ref: "SpeakConfig",
+    })
+  export type Speak = z.infer<typeof Speak>
 
   export const Provider = ModelsDev.Provider.partial()
     .extend({
@@ -1244,6 +1258,7 @@ export namespace Config {
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
+      speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z
         .object({
           todo: z

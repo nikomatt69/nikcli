@@ -51,6 +51,7 @@ function parseConnectionString(connStr: string): { type: DbType; config: any } {
 
 export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
   return {
+    tool: {
     db_connect: tool({
         description: "Connect to a database and store the connection for future use",
         args: {
@@ -73,9 +74,8 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
             }
 
             if (type === "postgres") {
-              const { Client } = await import("postgres")
-              const client = new Client(config)
-              await client.connect()
+              const postgres = await import("postgres")
+              const client = postgres.default(config)
               connections.set(args.name, { type, client })
               return `Connected to PostgreSQL: ${config.host}/${config.database}`
             }
@@ -111,8 +111,7 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
               const stmt = conn.db.prepare(args.query)
               result = stmt.all()
             } else if (conn.type === "postgres") {
-              result = await conn.client.query(args.query)
-              result = result.rows
+              result = await conn.client.unsafe(args.query)
             } else if (conn.type === "mysql") {
               const [rows] = await conn.client.query(args.query)
               result = rows
@@ -155,8 +154,8 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
               const stmt = conn.db.prepare(args.sql)
               result = { changes: stmt.run(), lastInsertRowid: conn.db.lastInsertRowid }
             } else if (conn.type === "postgres") {
-              result = await conn.client.query(args.sql)
-              result = { rowCount: result.rowCount }
+              const res = await conn.client.unsafe(args.sql)
+              result = { rowCount: res.count }
             } else if (conn.type === "mysql") {
               const [resultSet] = await conn.client.query(args.sql)
               result = { affectedRows: resultSet.affectedRows, insertId: resultSet.insertId }
@@ -187,8 +186,8 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
               )
               tables = stmt.all().map((r: any) => r.name)
             } else if (conn.type === "postgres") {
-              const result = await conn.client.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
-              tables = result.rows.map((r: any) => r.tablename)
+              const result = await conn.client.unsafe("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
+              tables = result.map((r: any) => r.tablename)
             } else if (conn.type === "mysql") {
               const [rows] = await conn.client.query("SHOW TABLES")
               tables = rows.map((r: any) => Object.values(r)[0])
@@ -226,21 +225,18 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
                 pk: r.pk ? "YES" : "NO",
               }))
             } else if (conn.type === "postgres") {
-              const result = await conn.client.query(
-                `
+              const result = await conn.client`
                 SELECT column_name, data_type, is_nullable, column_default, is_primary
                 FROM information_schema.columns c
                 LEFT JOIN (
                   SELECT kcu.column_name as is_primary
                   FROM information_schema.table_constraints tc
                   JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-                  WHERE tc.table_name = $1 AND tc.constraint_type = 'PRIMARY KEY'
+                  WHERE tc.table_name = ${args.table} AND tc.constraint_type = 'PRIMARY KEY'
                 ) p ON c.column_name = p.is_primary
-                WHERE c.table_name = $1
-              `,
-                [args.table],
-              )
-              columns = result.rows
+                WHERE c.table_name = ${args.table}
+              `
+              columns = result
             } else if (conn.type === "mysql") {
               const [rows] = await conn.client.query(`DESCRIBE \`${args.table}\``)
               columns = rows.map((r: any) => ({
@@ -293,6 +289,7 @@ export const DatabasePlugin: Plugin = async (_input: PluginInput) => {
           }
         },
       }),
+    },
   }
 }
 

@@ -93,8 +93,8 @@ export const RagModelCommand = cmd({
         const current = config.rag
 
         UI.println("Current RAG config:")
-        UI.println(`  model: ${current?.model ?? "(default: nvidia/llama-embed-nemotron-8b)"}`)
-        UI.println(`  provider: ${current?.provider ?? "(default: nvidia)"}`)
+        UI.println(`  model: ${current?.model ?? "(not set)"}`)
+        UI.println(`  provider: ${current?.provider ?? "(not set)"}`)
         UI.println("")
 
         const embedProviders = Object.entries(providers).filter(([, p]) =>

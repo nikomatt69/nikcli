@@ -6,4 +6,5 @@ Usage:
 - maxFiles: maximum files to index (default: 200)
 - maxChunks: maximum chunks to store (default: 5000)
 - maxFileBytes: maximum file size in bytes (default: 1000000)
-- model: embedding model override
+- model: embedding model (must be configured via nikcli rag-model)
+- provider: embedding provider (must be configured via nikcli rag-model)

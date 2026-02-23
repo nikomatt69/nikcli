@@ -57,15 +57,138 @@ class TerminalApp {
       this.updateLoading("Connecting...")
       this.connect()
       this.setupKeyboardEvents()
+      this.setupMobileKeyboardHandling()
 
+      // Set up resize observer for terminal container
       const observer = new ResizeObserver(() => {
         clearTimeout(this.resizeTimeout)
         this.resizeTimeout = setTimeout(() => this.resize(), 100)
       })
       observer.observe(this.terminalContainer)
+
+      // Also listen to window resize for better mobile handling with 100dvh
+      window.addEventListener("resize", () => {
+        clearTimeout(this.resizeTimeout)
+        this.resizeTimeout = setTimeout(() => this.resize(), 100)
+      })
+
+      // Handle orientation change on mobile
+      window.addEventListener("orientationchange", () => {
+        setTimeout(() => this.resize(), 100)
+      })
     } catch (err) {
       this.showError(err instanceof Error ? err.message : "Failed to initialize")
     }
+  }
+
+  private setupMobileKeyboardHandling() {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    if (!isMobile) return
+
+    // Set up visualViewport API for keyboard detection
+    if (visualViewport) {
+      let pendingResize = false
+      let lastViewportHeight = visualViewport.height
+
+      const handleViewportResize = () => {
+        if (pendingResize) return
+        pendingResize = true
+
+        requestAnimationFrame(() => {
+          this.handleVisualViewportChange(lastViewportHeight)
+          lastViewportHeight = visualViewport!.height
+          pendingResize = false
+        })
+      }
+
+      visualViewport.addEventListener("resize", handleViewportResize)
+      visualViewport.addEventListener("scroll", handleViewportResize)
+
+      // Initial calculation
+      this.handleVisualViewportChange(lastViewportHeight)
+    } else {
+      // Fallback for browsers without visualViewport API
+      // Use window resize event and compare heights
+      let lastHeight = window.innerHeight
+      window.addEventListener("resize", () => {
+        const currentHeight = window.innerHeight
+        const heightDiff = lastHeight - currentHeight
+
+        // If height decreased significantly (more than 100px), keyboard likely appeared
+        if (heightDiff > 100) {
+          document.body.classList.add("keyboard-visible")
+          this.resize()
+        } else if (heightDiff < -50) {
+          // Height increased, keyboard disappeared
+          document.body.classList.remove("keyboard-visible")
+          setTimeout(() => this.resize(), 100)
+        }
+
+        lastHeight = currentHeight
+      })
+    }
+
+    // Touch-to-focus: tap on terminal to focus hidden input
+    this.terminalContainer.addEventListener("click", (e) => {
+      // Don't steal focus if clicking on interactive elements
+      if ((e.target as HTMLElement).closest(".qkey, #send-btn, #visible-input")) {
+        return
+      }
+      this.hiddenInput.focus()
+    })
+
+    this.terminalContainer.addEventListener("touchstart", (e) => {
+      // Don't steal focus if touching interactive elements
+      if ((e.target as HTMLElement).closest(".qkey, #send-btn, #visible-input")) {
+        return
+      }
+      // Small delay to let any built-in focus behavior complete
+      setTimeout(() => {
+        this.hiddenInput.focus()
+      }, 10)
+    }, { passive: true })
+
+    // Listen for focus/blur on hidden input to detect keyboard state
+    this.hiddenInput.addEventListener("focus", () => {
+      // Keyboard is about to show
+    })
+
+    this.hiddenInput.addEventListener("blur", () => {
+      // Keyboard is hidden
+      document.body.classList.remove("keyboard-visible")
+      setTimeout(() => this.resize(), 100)
+    })
+  }
+
+  private handleVisualViewportChange(lastHeight: number) {
+    if (!visualViewport) return
+
+    const viewport = visualViewport
+    const windowHeight = window.innerHeight
+    const viewportHeight = viewport.height
+
+    // Detect keyboard show/hide by comparing viewport height changes
+    // If viewport height decreased significantly, keyboard is showing
+    const heightDiff = lastHeight - viewportHeight
+    const keyboardThreshold = windowHeight * 0.25 // 25% of window height as threshold
+
+    if (heightDiff > keyboardThreshold) {
+      // Keyboard showing - add class
+      document.body.classList.add("keyboard-visible")
+    } else if (heightDiff < -keyboardThreshold / 2) {
+      // Keyboard hiding - remove class
+      document.body.classList.remove("keyboard-visible")
+    }
+
+    // Calculate the available height for the terminal
+    // Use 100dvh for mobile to handle dynamic viewport properly
+    const dvh = windowHeight
+
+    // Update CSS custom property for terminal container
+    document.documentElement.style.setProperty("--available-height", `${dvh}px`)
+
+    // Trigger resize
+    this.resize()
   }
 
   private async initGhostty() {
@@ -330,6 +453,25 @@ class TerminalApp {
     })
 
     if (this.visibleInput && this.sendBtn) {
+      // Ensure input receives focus on touch
+      this.visibleInput.addEventListener("touchstart", (e) => {
+        e.stopPropagation()
+      }, { passive: true })
+
+      this.visibleInput.addEventListener("focus", () => {
+        // On mobile, when input is focused, disable the hidden overlay
+        if (this.hiddenInput) {
+          this.hiddenInput.style.pointerEvents = "none"
+        }
+      })
+
+      this.visibleInput.addEventListener("blur", () => {
+        // Restore hidden overlay pointer events on blur
+        if (this.hiddenInput) {
+          this.hiddenInput.style.pointerEvents = "auto"
+        }
+      })
+
       this.sendBtn.addEventListener("click", () => {
         const val = this.visibleInput.value
         if (val) {
