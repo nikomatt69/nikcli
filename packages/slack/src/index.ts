@@ -1,6 +1,18 @@
 import { App, type SayFn } from "@slack/bolt"
 import { createNikcli, type Part, type TextPart, type ToolPart, type ToolStateCompleted } from "@nikcli-ai/sdk"
 
+const NIKCLI_MODEL = process.env.NIKCLI_MODEL ?? "minimax-coding-plan/MiniMax-M2.5"
+const allowedChannels = new Set(
+  (process.env.SLACK_ALLOWED_CHANNELS ?? "").split(/[\s,]+/).filter(Boolean)
+)
+const taskNotificationsEnabled =
+  process.env.NIKCLI_SLACK_TASK_NOTIFICATIONS !== "false" &&
+  process.env.SLACK_TASK_NOTIFICATIONS !== "false" &&
+  process.env.SLACK_TASK_NOTIFICATIONS !== "0"
+const rateLimitPerUser = Math.max(1, Number(process.env.SLACK_RATE_LIMIT_PER_USER ?? "200"))
+const BOT_USERNAME = process.env.SLACK_USERNAME
+const RATE_WINDOW_MS = 60_000
+
 type Session = {
   sessionId: string
   channel: string
@@ -14,6 +26,7 @@ type SlackMessage = {
   text?: string
   subtype?: string
   channel_type?: string
+  user?: string
 }
 
 const app = new App({
@@ -27,17 +40,29 @@ console.log("Bot configuration:")
 console.log("- Bot token present:", !!process.env.SLACK_BOT_TOKEN)
 console.log("- Signing secret present:", !!process.env.SLACK_SIGNING_SECRET)
 console.log("- App token present:", !!process.env.SLACK_APP_TOKEN)
+console.log("- Model:", NIKCLI_MODEL)
+console.log("- Allowed channels:", allowedChannels.size > 0 ? [...allowedChannels].join(", ") : "all")
+console.log("- Task notifications:", taskNotificationsEnabled)
+console.log("- Rate limit:", rateLimitPerUser, "req/min")
 
 console.log("Starting nikcli server...")
 const nikcli = await createNikcli({
   port: 0,
-  config: {
-    model: "minimax-coding-plan/MiniMax-M2.5",
-  },
+  config: { model: NIKCLI_MODEL },
 })
 console.log("Nikcli server ready")
 
 const sessions = new Map<string, Session>()
+
+const userRateLimit = new Map<string, number[]>()
+function isRateLimited(userId: string): boolean {
+  const now = Date.now()
+  const timestamps = (userRateLimit.get(userId) ?? []).filter((t) => now - t < RATE_WINDOW_MS)
+  if (timestamps.length >= rateLimitPerUser) return true
+  timestamps.push(now)
+  userRateLimit.set(userId, timestamps)
+  return false
+}
 
 const raw = Number(process.env.HEALTH_PORT ?? "3000")
 const port = Number.isFinite(raw) ? raw : 3000
@@ -57,31 +82,41 @@ Bun.serve({
 
 console.log("Health endpoint ready on port", port)
 
-// Background event subscription — posts tool completion updates into the thread
-;(async () => {
-  const events = await nikcli.client.event.subscribe()
-  for await (const event of events.stream) {
-    if (event.type === "message.part.updated") {
-      const part = event.properties.part
-      if (part.type === "tool" && part.state.status === "completed") {
-        const toolPart = part as ToolPart
-        const state = toolPart.state as ToolStateCompleted
-        for (const session of sessions.values()) {
-          if (session.sessionId === toolPart.sessionID) {
-            app.client.chat
-              .postMessage({
-                channel: session.channel,
-                thread_ts: session.thread,
-                text: `*${toolPart.tool}* — ${state.title}`,
-              })
-              .catch(() => {})
-            break
+// Background event subscription with infinite retry — posts tool completion updates into the thread
+async function subscribeToEvents(): Promise<void> {
+  while (true) {
+    try {
+      const events = await nikcli.client.event.subscribe()
+      for await (const event of events.stream) {
+        if (event.type === "message.part.updated") {
+          const part = event.properties.part
+          if (part.type === "tool" && part.state.status === "completed") {
+            const toolPart = part as ToolPart
+            const state = toolPart.state as ToolStateCompleted
+            if (taskNotificationsEnabled) {
+              for (const session of sessions.values()) {
+                if (session.sessionId === toolPart.sessionID) {
+                  app.client.chat
+                    .postMessage({
+                      channel: session.channel,
+                      thread_ts: session.thread,
+                      text: `*${toolPart.tool}* — ${state.title}`,
+                      ...(BOT_USERNAME ? { username: BOT_USERNAME } : {}),
+                    })
+                    .catch(() => {})
+                  break
+                }
+              }
+            }
           }
         }
       }
+    } catch {
+      await Bun.sleep(5000)
     }
   }
-})()
+}
+;(async () => { await subscribeToEvents() })()
 
 app.message(async (args) => {
   const message = args.message as SlackMessage
@@ -97,9 +132,17 @@ app.message(async (args) => {
 
   if (!direct && !mention) return
 
+  if (allowedChannels.size > 0 && !allowedChannels.has(channel)) return
+
+  const userId = message.user ?? ""
+  if (userId && isRateLimited(userId)) {
+    await args.say({ text: "Rate limit exceeded. Please wait.", thread_ts: thread })
+    return
+  }
+
   const prompt = stripMention(text, botId)
   if (!prompt) {
-    await args.say({ text: "Please include a prompt after mentioning me.", thread_ts: thread })
+    await args.say({ text: "Please include a prompt after mentioning me.", thread_ts: thread, ...(BOT_USERNAME ? { username: BOT_USERNAME } : {}) })
     return
   }
 
@@ -111,7 +154,7 @@ app.message(async (args) => {
 
   // Post a "Thinking…" placeholder while the AI works
   const thinkingMsg = await app.client.chat
-    .postMessage({ channel, thread_ts: thread, text: "Thinking…" })
+    .postMessage({ channel, thread_ts: thread, text: "Thinking…", ...(BOT_USERNAME ? { username: BOT_USERNAME } : {}) })
     .catch(() => undefined)
 
   let responseText: string
@@ -140,7 +183,7 @@ app.message(async (args) => {
     await app.client.chat.delete({ channel, ts: thinkingMsg.ts }).catch(() => {})
   }
 
-  await args.say({ text: responseText, thread_ts: thread })
+  await args.say({ text: responseText, thread_ts: thread, ...(BOT_USERNAME ? { username: BOT_USERNAME } : {}) })
 })
 
 app.command("/test", async (args) => {
@@ -201,7 +244,12 @@ async function getSession(sessionKey: string, channel: string, thread: string, s
   if (!shareResult.error && shareResult.data?.share?.url) {
     const sessionUrl = shareResult.data.share.url
     console.log("Session shared:", sessionUrl)
-    await app.client.chat.postMessage({ channel, thread_ts: thread, text: sessionUrl })
+    await app.client.chat.postMessage({
+      channel,
+      thread_ts: thread,
+      text: sessionUrl,
+      ...(BOT_USERNAME ? { username: BOT_USERNAME } : {}),
+    })
   }
 
   return session

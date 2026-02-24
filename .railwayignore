@@ -1,0 +1,12 @@
+node_modules
+.git
+.worktrees
+.sst
+dist
+ts-dist
+.turbo
+tmp
+logs
+playground
+infra
+github
