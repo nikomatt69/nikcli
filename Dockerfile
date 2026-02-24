@@ -14,8 +14,9 @@ COPY packages packages
 # Install dependencies (resolves workspace:*)
 RUN bun install
 
-# Create nikcli wrapper — runs the TS source via bun (no compiled binary needed)
-RUN printf '#!/bin/sh\nexec bun run --conditions=browser /app/packages/nikcli/src/index.ts "$@"\n' > /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
+# Build nikcli binary for the current platform (linux-x64)
+RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
+    cp dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
 # Run the bot from slack package
 CMD ["bun", "run", "--cwd", "packages/slack", "src/index.ts"]
