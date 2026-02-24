@@ -342,7 +342,7 @@ export const RunCommand = cmd({
         const request = new Request(input, init)
         return Server.App().fetch(request)
       }) as typeof globalThis.fetch
-      const sdk = createNikcliClient({ baseUrl: "http://nikcli.internal", fetch: fetchFn })
+      const sdk = createNikcliClient({ baseUrl: "http://nikcli.local", fetch: fetchFn })
 
       if (args.command) {
         const exists = await Command.get(args.command)

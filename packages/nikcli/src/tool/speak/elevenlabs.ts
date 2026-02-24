@@ -20,7 +20,6 @@ const ELEVENLABS_VOICES: TTSVoice[] = [
   { id: "rpGA7VF8a1eY2Ayt7iM6", name: "Dorothy" },
   { id: "tw1kZhNv6T3jtsJCJSt4", name: "Fin" },
   { id: "wbJZE5tDdP3V3uKPYb1W", name: "Freya" },
-  { id: "x2下部E5J3xKf7PhZGmK", name: "Gigi" },
   { id: "xQ8P86CzPvXP2Y4QxYOq", name: "Grace" },
   { id: "xR4vQ8J3tN2YwZcKfDm6", name: "James" },
   { id: "yHAj8S3qP5RwN7YvXtZ1", name: "Jenny" },
@@ -132,7 +131,11 @@ export class ElevenLabsProvider implements TTSProvider {
         /* ignore */
       }
 
-      const errorDetail = parsedError.detail ?? parsedError.message ?? errorText
+      const rawDetail = parsedError.detail
+      const errorDetail =
+        rawDetail !== null && rawDetail !== undefined && typeof rawDetail === "object"
+          ? (rawDetail as any).message ?? JSON.stringify(rawDetail)
+          : rawDetail ?? parsedError.message ?? errorText
 
       switch (response.status) {
         case 401:
@@ -195,4 +198,4 @@ export const elevenLabsProvider = new ElevenLabsProvider()
 // Export voice list for easy access
 export const ELEVENLABS_VOICES_LIST = ELEVENLABS_VOICES
 // Backward-compatible alias (kept intentionally)
-export const ELEVENTLABS_VOICES_LIST = ELEVENLABS_VOICES_LIST
+export const ELEVENTLABS_VOICES_LIST = ELEVENLABS_VOICES

@@ -135,7 +135,7 @@ export const TuiThreadCommand = cmd({
       url = server.url
     } else {
       // Use direct RPC communication (no HTTP)
-      url = "http://nikcli.internal"
+      url = "http://nikcli.local"
       customFetch = createWorkerFetch(client)
       events = createEventSource(client)
     }
@@ -154,6 +154,10 @@ export const TuiThreadCommand = cmd({
       onExit: async () => {
         await client.call("shutdown", undefined)
       },
+      startServer: !shouldStartServer ? async () => {
+        const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })
+        return result.url
+      } : undefined,
     })
 
     setTimeout(() => {

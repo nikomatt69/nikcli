@@ -1450,6 +1450,10 @@ export type KeybindsConfig = {
    * Toggle tips on home screen
    */
   tips_toggle?: string
+  /**
+   * Toggle voice recording (push to talk)
+   */
+  voice_record?: string
 }
 
 /**

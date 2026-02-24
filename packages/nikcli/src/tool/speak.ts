@@ -19,7 +19,7 @@ const DEFAULT_OUTPUT_FORMAT = "mp3_44100_128"
 const OPENROUTER_DEFAULT_VOICE_ID = "alloy"
 const OPENROUTER_DEFAULT_MODEL_ID = "openai/gpt-audio-mini"
 const OPENROUTER_DEFAULT_OUTPUT_FORMAT = "mp3"
-const DEFAULT_PROVIDER = "elevenlabs"
+const DEFAULT_PROVIDER = "openrouter"
 
 // Register built-in providers
 ttsRegistry.register(elevenLabsProvider)
@@ -61,23 +61,26 @@ function envOutputFormatForProvider(providerId: string): string | undefined {
   return process.env.NIKCLI_ELEVENLABS_OUTPUT_FORMAT
 }
 
-// Helper to resolve provider from config/env/params
-async function resolveProvider(
+// Helper to resolve providers list to try, starting with the primary choice
+async function resolveProvidersToTry(
   providerParam?: string,
   configProvider?: string,
-): Promise<{ provider: TTSProvider; id: string }> {
-  const providerId = providerParam ?? configProvider ?? process.env.NIKCLI_SPEAK_PROVIDER ?? DEFAULT_PROVIDER
+): Promise<{ provider: TTSProvider; id: string }[]> {
+  const primaryId = providerParam ?? configProvider ?? process.env.NIKCLI_SPEAK_PROVIDER ?? DEFAULT_PROVIDER
 
-  const provider = ttsRegistry.get(providerId)
-  if (!provider) {
+  const primary = ttsRegistry.get(primaryId)
+  if (!primary) {
     const available = ttsRegistry
       .list()
       .map((p) => p.id)
       .join(", ")
-    throw new Error(`Unknown TTS provider: ${providerId}. Available providers: ${available}`)
+    throw new Error(`Unknown TTS provider: ${primaryId}. Available providers: ${available}`)
   }
 
-  return { provider, id: providerId }
+  // Determine fallback order: primary first, then others
+  const others = ttsRegistry.list().filter((p) => p.id !== primaryId)
+
+  return [{ provider: primary, id: primaryId }, ...others.map((p) => ({ provider: p, id: p.id }))]
 }
 
 // Voice validation - currently only validates ElevenLabs voices
@@ -282,127 +285,153 @@ export const SpeakTool = Tool.define("speak", {
       )
     }
 
-    // Resolve provider
-    const { provider: ttsProvider, id: providerId } = await resolveProvider(params.provider, speakConfig.provider)
+    // Resolve providers list
+    const providersToTry = await resolveProvidersToTry(params.provider, speakConfig.provider)
+    const failureLogs: string[] = []
 
-    const voiceId = resolveVoiceId(params.voiceId, speakConfig.model, envVoiceIdForProvider(providerId), providerId)
-    const modelId =
-      params.modelId ??
-      speakConfig.modelId ??
-      envModelIdForProvider(providerId) ??
-      defaultModelIdForProvider(providerId)
-    const outputFormat =
-      params.outputFormat ??
-      speakConfig.outputFormat ??
-      envOutputFormatForProvider(providerId) ??
-      defaultOutputFormatForProvider(providerId)
+    for (const { provider: ttsProvider, id: providerId } of providersToTry) {
+      const voiceId = resolveVoiceId(params.voiceId, speakConfig.model, envVoiceIdForProvider(providerId), providerId)
+      const modelId =
+        params.modelId ??
+        speakConfig.modelId ??
+        envModelIdForProvider(providerId) ??
+        defaultModelIdForProvider(providerId)
+      const outputFormat =
+        params.outputFormat ??
+        speakConfig.outputFormat ??
+        envOutputFormatForProvider(providerId) ??
+        defaultOutputFormatForProvider(providerId)
 
-    const stability = params.stability ?? 0.5
-    const similarityBoost = params.similarityBoost ?? 0.75
-    const speed = params.speed ?? 1.0
-    const volume = params.volume ?? 1.0
-    const timeoutMs = clampNumber(params.timeoutMs ?? DEFAULT_TIMEOUT_MS, 1000, MAX_TIMEOUT_MS)
+      const stability = params.stability ?? 0.5
+      const similarityBoost = params.similarityBoost ?? 0.75
+      const speed = params.speed ?? 1.0
+      const volume = params.volume ?? 1.0
+      const timeoutMs = clampNumber(params.timeoutMs ?? DEFAULT_TIMEOUT_MS, 1000, MAX_TIMEOUT_MS)
 
-    const normalized = normalizeText(params.text)
+      const normalized = normalizeText(params.text)
 
-    await ctx.ask({
-      permission: "speak",
-      patterns: [`${providerId}:${voiceId}`],
-      always: [`${providerId}*`],
-      metadata: {
-        provider: providerId,
-        voiceId,
-        modelId,
-        outputFormat,
-        player: player.name,
-        timeoutMs,
-      },
-    })
+      // Optionally check if provider is valid (auth keys present)
+      // This helps quickly skip providers that are unconfigured
+      const validation = await ttsProvider.validate().catch((e) => ({ valid: false, error: e.message }))
+      if (!validation.valid) {
+        log.warn(`Provider ${providerId} validation failed, skipping`, { error: validation.error })
+        failureLogs.push(`[${providerId}] Skipped: Configuration invalid or missing API key (${validation.error})`)
+        continue
+      }
 
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
-
-    try {
-      const ttsResponse = await ttsProvider
-        .speak(
-          {
-            text: normalized.text,
+      try {
+        await ctx.ask({
+          permission: "speak",
+          patterns: [`${providerId}:${voiceId}`],
+          always: [`${providerId}*`],
+          metadata: {
+            provider: providerId,
             voiceId,
             modelId,
             outputFormat,
-            stability,
-            similarityBoost,
-            speed,
+            player: player.name,
+            timeoutMs,
           },
-          { signal: AbortSignal.any([controller.signal, ctx.abort]) },
+        })
+      } catch (askError: any) {
+        // If the user rejects the permission, we must throw immediately
+        throw askError
+      }
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+      try {
+        const ttsResponse = await ttsProvider
+          .speak(
+            {
+              text: normalized.text,
+              voiceId,
+              modelId,
+              outputFormat,
+              stability,
+              similarityBoost,
+              speed,
+            },
+            { signal: AbortSignal.any([controller.signal, ctx.abort]) },
+          )
+          .finally(() => clearTimeout(timeoutId))
+
+        const ext = extensionFromContentType(ttsResponse.contentType)
+        const tempFile = path.join(
+          os.tmpdir(),
+          `nikcli-speak-${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`,
         )
-        .finally(() => clearTimeout(timeoutId))
 
-      const ext = extensionFromContentType(ttsResponse.contentType)
-      const tempFile = path.join(
-        os.tmpdir(),
-        `nikcli-speak-${Date.now()}-${Math.random().toString(16).slice(2)}.${ext}`,
-      )
+        await Bun.write(tempFile, ttsResponse.audio)
+        playAudioNonBlocking(player, tempFile, volume)
 
-      await Bun.write(tempFile, ttsResponse.audio)
-      playAudioNonBlocking(player, tempFile, volume)
+        const preview = normalized.text.length > 80 ? normalized.text.slice(0, 80) + "..." : normalized.text
+        const truncated = normalized.truncated ? " (text truncated)" : ""
 
-      const preview = normalized.text.length > 80 ? normalized.text.slice(0, 80) + "..." : normalized.text
-      const truncated = normalized.truncated ? " (text truncated)" : ""
-
-      return {
-        title: "Speak",
-        output: [
+        const outputText = [
           `Playing speech (non-blocking): "${preview}"${truncated}`,
           `Provider: ${ttsProvider.name} (${modelId})`,
           `Voice: ${voiceId}`,
           `Player: ${player.name}`,
-        ].join("\n"),
-        metadata: {
-          provider: providerId,
+        ]
+
+        if (failureLogs.length > 0) {
+          outputText.push(`\nFallback sequence:`)
+          outputText.push(...failureLogs)
+          outputText.push(`[${providerId}] Success!`)
+        }
+
+        return {
+          title: "Speak",
+          output: outputText.join("\n"),
+          metadata: {
+            provider: providerId,
+            voiceId,
+            modelId,
+            outputFormat,
+            player: player.name,
+            textTruncated: normalized.truncated,
+            fallbacks: failureLogs.length,
+          },
+        }
+      } catch (fetchError: any) {
+        const errorMessage = fetchError.cause?.message ?? fetchError.message
+
+        if (fetchError.name === "AbortError") {
+          if (ctx.abort.aborted) {
+            log.warn("request cancelled by user", { timeoutMs })
+            throw new Error("Speech request was cancelled")
+          }
+          log.error("request timed out", { timeoutMs, voiceId, modelId, provider: providerId })
+          failureLogs.push(`[${providerId}] Failed: Request timed out after ${timeoutMs}ms`)
+          continue
+        }
+
+        log.error(`network error calling ${ttsProvider.name} API`, {
+          error: errorMessage,
           voiceId,
           modelId,
-          outputFormat,
-          player: player.name,
-          textTruncated: normalized.truncated,
-        },
-      }
-    } catch (fetchError: any) {
-      const errorMessage = fetchError.cause?.message ?? fetchError.message
+          provider: providerId,
+        })
 
-      if (fetchError.name === "AbortError") {
-        if (ctx.abort.aborted) {
-          log.warn("request cancelled by user", { timeoutMs })
-          throw new Error("Speech request was cancelled")
+        if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("dns")) {
+          failureLogs.push(`[${providerId}] Failed: DNS/Network error. Check internet connection.`)
+        } else if (errorMessage.includes("ECONNREFUSED")) {
+          failureLogs.push(`[${providerId}] Failed: Connection refused. Service may be unavailable.`)
+        } else {
+          failureLogs.push(`[${providerId}] Failed: ${errorMessage}`)
         }
-        log.error("request timed out", { timeoutMs, voiceId, modelId, provider: providerId })
-        throw new Error(
-          `${ttsProvider.name} request timed out after ${timeoutMs}ms. Try increasing the timeout with the timeoutMs parameter.`,
-        )
+
+        // Loop continues to next provider
       }
+    }
 
-      log.error(`network error calling ${ttsProvider.name} API`, {
-        error: errorMessage,
-        voiceId,
-        modelId,
-        provider: providerId,
-      })
-
-      if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("dns")) {
-        throw new Error(
-          `Unable to connect to ${ttsProvider.name} API. Please check your internet connection and try again.`,
-        )
-      }
-
-      if (errorMessage.includes("ECONNREFUSED")) {
-        throw new Error(
-          `Connection refused when contacting ${ttsProvider.name} API. The service may be unavailable. Please try again later.`,
-        )
-      }
-
-      throw new Error(
-        `Network error calling ${ttsProvider.name} API: ${errorMessage}. Please check your internet connection and try again.`,
-      )
+    // If we reach here, all providers failed
+    if (failureLogs.length > 0) {
+      throw new Error(`All TTS providers failed to speak:\n${failureLogs.join("\n")}`)
+    } else {
+      throw new Error("No available TTS providers could be used.")
     }
   },
 })

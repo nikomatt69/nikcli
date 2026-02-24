@@ -57,7 +57,7 @@ const startEventStream = (directory: string) => {
   }) as typeof globalThis.fetch
 
   const sdk = createNikcliClient({
-    baseUrl: "http://nikcli.internal",
+    baseUrl: "http://nikcli.local",
     directory,
     fetch: fetchFn,
     signal,
