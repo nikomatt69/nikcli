@@ -15,8 +15,9 @@ COPY packages packages
 RUN bun install
 
 # Build nikcli binary for the current platform (linux-x64)
-RUN apk add --no-cache git && \
-    cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
+# NIKCLI_CHANNEL avoids git branch lookup in build script (no .git in Docker context)
+ENV NIKCLI_CHANNEL=latest
+RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
     cp dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
 # Run the bot from slack package
