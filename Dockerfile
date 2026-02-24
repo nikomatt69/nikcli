@@ -15,7 +15,8 @@ COPY packages packages
 RUN bun install
 
 # Build nikcli binary for the current platform (linux-x64)
-RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
+RUN apk add --no-cache git && \
+    cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
     cp dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
 # Run the bot from slack package
