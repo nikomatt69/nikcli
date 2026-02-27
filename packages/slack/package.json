@@ -5,13 +5,15 @@
   "license": "MIT",
   "scripts": {
     "dev": "bun run src/index.ts",
+    "start": "./start.sh",
+    "start:ngrok": "./start.sh ngrok",
     "dev:worker": "wrangler dev src/worker.ts",
     "deploy": "wrangler deploy src/worker.ts",
     "typecheck": "tsgo --noEmit"
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
-    "@slack/bolt": "^3.17.1"
+    "@slack/bolt": "^4.6.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250122.0",
@@ -21,6 +23,6 @@
     "wrangler": "^3.110.0"
   },
   "peerDependencies": {
-    "@slack/bolt": "^3.17.1"
+    "@slack/bolt": "^4.6.0"
   }
 }
