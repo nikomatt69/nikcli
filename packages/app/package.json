@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@nikcli-ai/app",
   "version": "1.1.53",
   "description": "NikCLI web application",
