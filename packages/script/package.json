@@ -1,7 +1,10 @@
 {
-  "$schema": "https://json.schemastore.org/package",
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "@nikcli-ai/script",
+  "version": "0.0.1",
+  "type": "module",
   "license": "MIT",
+  "scripts": {},
   "devDependencies": {
     "@types/bun": "catalog:"
   },
