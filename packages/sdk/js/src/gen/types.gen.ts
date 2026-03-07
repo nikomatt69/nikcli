@@ -535,6 +535,7 @@ export type Session = {
   projectID: string
   directory: string
   parentID?: string
+  workspaceID?: string
   summary?: {
     additions: number
     deletions: number
@@ -2063,6 +2064,7 @@ export type SessionListData = {
   path?: never
   query?: {
     directory?: string
+    workspace?: string
   }
   url: "/session"
 }
