@@ -24,6 +24,7 @@ import { Snapshot } from "@/snapshot"
 import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
+import { WorkspaceContext } from "../workspace/workspace-context"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -49,6 +50,7 @@ export namespace Session {
       projectID: z.string(),
       directory: z.string(),
       parentID: Identifier.schema("session").optional(),
+      workspaceID: z.string().optional(),
       summary: z
         .object({
           additions: z.number(),
@@ -206,6 +208,7 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       parentID: input.parentID,
+      workspaceID: WorkspaceContext.workspaceID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
       time: {
@@ -320,8 +323,11 @@ export namespace Session {
 
   export async function* list() {
     const project = Instance.project
+    const activeWorkspaceID = WorkspaceContext.workspaceID
     for (const item of await Storage.list(["session", project.id])) {
-      yield Storage.read<Info>(item)
+      const session = await Storage.read<Info>(item)
+      if (activeWorkspaceID && session.workspaceID !== activeWorkspaceID) continue
+      yield session
     }
   }
 
