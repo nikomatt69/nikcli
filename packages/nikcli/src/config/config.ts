@@ -522,11 +522,55 @@ export namespace Config {
     .meta({ ref: "ConnectorLovable" })
   export type ConnectorLovable = z.infer<typeof ConnectorLovable>
 
+  export const ConnectorDiscord = z
+    .object({
+      type: z.literal("discord"),
+      botToken: z.string().optional().describe("Discord bot token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorDiscord" })
+  export type ConnectorDiscord = z.infer<typeof ConnectorDiscord>
+
+  export const ConnectorTeams = z
+    .object({
+      type: z.literal("teams"),
+      botToken: z.string().optional().describe("Microsoft Teams bot token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorTeams" })
+  export type ConnectorTeams = z.infer<typeof ConnectorTeams>
+
+  export const ConnectorGChat = z
+    .object({
+      type: z.literal("gchat"),
+      botToken: z.string().optional().describe("Google Chat bot token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorGChat" })
+  export type ConnectorGChat = z.infer<typeof ConnectorGChat>
+
+  export const ConnectorLinear = z
+    .object({
+      type: z.literal("linear"),
+      botToken: z.string().optional().describe("Linear bot token"),
+      enabled: z.boolean().optional(),
+    })
+    .strict()
+    .meta({ ref: "ConnectorLinear" })
+  export type ConnectorLinear = z.infer<typeof ConnectorLinear>
+
   export const Connector = z.discriminatedUnion("type", [
     ConnectorFigma,
     ConnectorSlack,
     ConnectorGithub,
     ConnectorLovable,
+    ConnectorDiscord,
+    ConnectorTeams,
+    ConnectorGChat,
+    ConnectorLinear,
   ])
   export type Connector = z.infer<typeof Connector>
 
@@ -933,6 +977,25 @@ export namespace Config {
       ref: "ServerConfig",
     })
 
+  export const Remote = z
+    .object({
+      enabled: z.boolean().optional().describe("Enable Remote Control automatically for all TUI sessions"),
+      enableTunnel: z.boolean().optional().describe("Enable public tunnel by default for Remote Control"),
+      provider: z
+        .enum(["localtunnel", "cloudflared", "ngrok", "remotosh", "none"])
+        .optional()
+        .describe("Preferred tunnel provider for Remote Control"),
+      askOnExistingSession: z
+        .boolean()
+        .optional()
+        .describe("Prompt to continue existing remote session or start a new one"),
+    })
+    .strict()
+    .meta({
+      ref: "RemoteConfig",
+    })
+  export type Remote = z.infer<typeof Remote>
+
   export const Layout = z.enum(["auto", "stretch"]).meta({
     ref: "LayoutConfig",
   })
@@ -1038,6 +1101,7 @@ export namespace Config {
       tui: TUI.optional().describe("TUI specific settings"),
       ads: Ads.optional().describe("User-defined ads shown in the TUI tips area"),
       server: Server.optional().describe("Server configuration for nikcli serve and web commands"),
+      remote: Remote.optional().describe("Remote Control defaults and behavior"),
       command: z
         .record(z.string(), Command)
         .optional()

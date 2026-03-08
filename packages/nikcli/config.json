@@ -1,0 +1,7 @@
+{
+  "$schema": "https://nikcli.store/config.json",
+  "remote": {
+    "enableTunnel": true,
+    "provider": "cloudflared"
+  }
+}

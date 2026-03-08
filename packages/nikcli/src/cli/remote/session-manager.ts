@@ -34,6 +34,7 @@ export class SessionManager extends EventEmitter {
   private cloudAgent: CloudAgent | null = null
   private session: RemoteSession | null = null
   private config: RemoteServiceConfig
+  private stopEmitted = false
 
   constructor(config: RemoteServiceConfig) {
     super()
@@ -42,6 +43,7 @@ export class SessionManager extends EventEmitter {
 
   async start(options?: SessionOptions): Promise<RemoteSession> {
     const { RemoteServer } = await import("@nikcli-ai/remote")
+    this.stopEmitted = false
 
     this.server = new RemoteServer({
       port: 0,
@@ -86,19 +88,30 @@ export class SessionManager extends EventEmitter {
       this.emit("error", error)
     })
 
+    this.server.on("stopped", () => {
+      if (this.stopEmitted) return
+      this.stopEmitted = true
+      if (this.session) {
+        this.session.status = "stopped"
+        this.session.lastActivity = new Date()
+      }
+      this.emit("stopped", this.session)
+    })
+
     this.server.on("terminal:resize", (cols: number, rows: number) => {
       this.emit("terminal:resize", cols, rows)
     })
 
-    this.server.on("terminal:output", (data: string) => {
+    this.server.on("terminal:output", (data: string | Buffer) => {
+      const output = typeof data === "string" ? data : data.toString("utf8")
       // Server already broadcasts to WebSocket clients
       // Just emit for other listeners, don't re-broadcast
-      this.emit("terminal:output", data)
+      this.emit("terminal:output", output)
       if (this.cloudAgent?.isRelayConnected()) {
         try {
           this.cloudAgent.sendRelayMessage({
             type: "terminal:output",
-            payload: { data },
+            payload: { data: output },
             timestamp: Date.now(),
           })
         } catch {
@@ -158,6 +171,11 @@ export class SessionManager extends EventEmitter {
 
     if (this.session) {
       this.session.status = "stopped"
+    }
+
+    if (!this.stopEmitted) {
+      this.stopEmitted = true
+      this.emit("stopped", this.session)
     }
   }
 
@@ -228,6 +246,7 @@ export class SessionManager extends EventEmitter {
       this.emit("cloud:message", payload)
       if (this.server && payload && typeof payload === "object") {
         const body = payload as RelayTerminalMessage
+        if (body.sessionID && body.sessionID !== sessionID) return
 
         const messageType = body.body?.type
         if (messageType === "terminal:input" || messageType === "terminal.input") {

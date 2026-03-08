@@ -48,7 +48,8 @@ Core commands (see `packages/nikcli/src/cli/cmd/`):
 - `models`
 - `serve`
 - `web`
-- `remote start` / `remote status`
+- `remote-control`
+- `remote start` / `remote status` (compat)
 - `attach <url>`
 - `upgrade` / `uninstall`
 - `github install`

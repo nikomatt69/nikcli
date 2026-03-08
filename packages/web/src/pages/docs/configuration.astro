@@ -65,6 +65,7 @@ const topFields = [
   { key: "logLevel", desc: "Log level (DEBUG/INFO/WARN/ERROR)." },
   { key: "tui", desc: "TUI settings (scroll, layout, etc.)." },
   { key: "server", desc: "Server defaults for serve/web commands." },
+  { key: "remote", desc: "Remote Control defaults (auto-enable, tunnel provider)." },
   { key: "command", desc: "Command templates and presets." },
   { key: "watcher", desc: "File watcher ignore list." },
   { key: "plugin", desc: "Plugin entrypoints to load." },
@@ -144,6 +145,12 @@ const topFields = [
   "username": "dev",
   "share": "manual",
   "autoupdate": true,
+  "remote": {
+    "enabled": false,
+    "enableTunnel": true,
+    "provider": "localtunnel",
+    "askOnExistingSession": true
+  },
   "disabled_providers": [],
   "enabled_providers": [],
   "permission": {},

@@ -247,6 +247,30 @@ const CONNECTOR_SPECS: Record<string, ConnectorSpec> = {
     operations: LOVABLE_OPERATIONS,
     healthCheck: (cred) => LovableApi.getProjects(cred),
   },
+  discord: {
+    type: "discord",
+    credentialType: "botToken",
+    operations: [],
+    healthCheck: async () => {},
+  },
+  teams: {
+    type: "teams",
+    credentialType: "botToken",
+    operations: [],
+    healthCheck: async () => {},
+  },
+  gchat: {
+    type: "gchat",
+    credentialType: "botToken",
+    operations: [],
+    healthCheck: async () => {},
+  },
+  linear: {
+    type: "linear",
+    credentialType: "botToken",
+    operations: [],
+    healthCheck: async () => {},
+  },
 }
 
 export function getConnectorSpec(type: string): ConnectorSpec | undefined {

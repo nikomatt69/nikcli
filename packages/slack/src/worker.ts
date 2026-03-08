@@ -1,4 +1,6 @@
 interface Env {
+  GITHUB_TOKEN: string
+  GITHUB_REPO: string
   SLACK_BOT_TOKEN: string
   SLACK_SIGNING_SECRET: string
   SLACK_CLIENT_ID: string
@@ -8,7 +10,12 @@ interface Env {
   NIKCLI_USERNAME: string
   NIKCLI_PASSWORD: string
   SESSIONS: KVNamespace
+  GITHUB_ACTIONS_MODE: string
+  WHISPER_LANGUAGE?: string
+  NIKCLI_TIMEOUT_MS?: string
 }
+
+const REQUEST_TIMEOUT_MS = 120_000
 
 interface SlackEventPayload {
   type?: string
@@ -78,9 +85,9 @@ type TranscriptionResult =
     }
 
 const PROCESSING_FILES = new Set<string>()
-const ACTIVE_SESSIONS = new Map<string, SessionData>()
-const bot = { id: "" }
+const bot = { id: "", cachedAt: 0 }
 const encoder = new TextEncoder()
+const BOT_ID_CACHE_TTL_MS = 60 * 60 * 1000
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -185,31 +192,94 @@ async function processEvent(event: SlackEvent, env: Env): Promise<void> {
     return
   }
 
-  await handlePrompt(event, env, prompt)
+  const sessionKey = `${channel}-${thread}`
+  let session = await getFromKv(env, sessionKey)
+
+  if (!session) {
+    session = await createSession(env, sessionKey, channel, thread)
+    if (!session) return
+  }
+
+  const useGitHubActions = env.GITHUB_ACTIONS_MODE === "true" && env.GITHUB_TOKEN && env.GITHUB_REPO
+
+  if (useGitHubActions) {
+    await handlePromptGitHub(event, env, prompt)
+  } else {
+    await handlePromptNikcli(env, session, prompt, channel, thread)
+  }
 }
 
-async function handlePrompt(event: SlackEvent, env: Env, text: string): Promise<void> {
+async function handlePromptGitHub(event: SlackEvent, env: Env, text: string): Promise<void> {
   const channel = event.channel
   const thread = event.thread_ts || event.ts
-  const sessionKey = `${channel}-${thread}`
 
-  const cached = ACTIVE_SESSIONS.get(sessionKey)
-  if (cached) {
-    await sendPrompt(env, cached, text, channel, thread)
-    return
+  await postMessage(
+    env.SLACK_BOT_TOKEN,
+    channel,
+    thread,
+    "⏳ *Cloud Agent*: Ricevuto! Sto avviando un container GitHub Actions per completare il tuo task in autonomia...",
+  )
+
+  const success = await triggerGitHubAction(env, text, channel, thread)
+  if (!success) {
+    await postMessage(
+      env.SLACK_BOT_TOKEN,
+      channel,
+      thread,
+      "❌ Errore durante l'avvio dell'agent su GitHub Actions. Verifica che GITHUB_TOKEN e GITHUB_REPO siano configurati nel Worker.",
+    )
+  }
+}
+
+async function handlePromptNikcli(
+  env: Env,
+  session: SessionData,
+  text: string,
+  channel: string,
+  thread: string,
+): Promise<void> {
+  await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Thinking...")
+
+  const response = await sendPrompt(env, session, text, channel, thread)
+
+  if (response.error) {
+    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, `Error: ${response.error}`)
+  }
+}
+
+async function triggerGitHubAction(env: Env, prompt: string, channel: string, thread_ts: string): Promise<boolean> {
+  if (!env.GITHUB_TOKEN || !env.GITHUB_REPO) {
+    console.error("Missing GITHUB_TOKEN or GITHUB_REPO")
+    return false
   }
 
-  const stored = await getFromKv(env, sessionKey)
-  if (stored) {
-    ACTIVE_SESSIONS.set(sessionKey, stored)
-    await sendPrompt(env, stored, text, channel, thread)
-    return
+  const url = `https://api.github.com/repos/${env.GITHUB_REPO}/dispatches`
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      Accept: "application/vnd.github.v3+json",
+      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+      "User-Agent": "nikcli-slack-bot",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+    body: JSON.stringify({
+      event_type: "slack_command",
+      client_payload: {
+        prompt: prompt,
+        channel: channel,
+        thread_ts: thread_ts,
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    console.error("Failed to trigger GitHub Action:", err)
+    return false
   }
 
-  const created = await createSession(env, sessionKey, channel, thread)
-  if (!created) return
-
-  await sendPrompt(env, created, text, channel, thread)
+  return true
 }
 
 async function createSession(
@@ -225,56 +295,70 @@ async function createSession(
   }
 
   const auth = getAuthHeader(env)
+  const timeout = Number(env.NIKCLI_TIMEOUT_MS) || REQUEST_TIMEOUT_MS
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-  const createResult = await fetch(`${nikcliUrl}/session`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...auth,
-    },
-    body: JSON.stringify({ title: `Slack thread ${thread}` }),
-  })
+  try {
+    const createResult = await fetch(`${nikcliUrl}/session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...auth,
+      },
+      body: JSON.stringify({ title: `Slack thread ${thread}` }),
+      signal: controller.signal,
+    })
 
-  if (!createResult.ok) {
-    console.error("Failed to create session:", await createResult.text())
-    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Failed to create session")
-    return null
-  }
-
-  const createData = unwrapNikcliResponse((await createResult.json()) as NikcliResponse<NikcliSessionInfo>)
-
-  if (createData.error || !createData.data?.id) {
-    console.error("Failed to create session:", createData.error)
-    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Failed to create session")
-    return null
-  }
-
-  const session: SessionData = {
-    sessionId: createData.data.id,
-    channel,
-    thread,
-    createdAt: Date.now(),
-  }
-
-  ACTIVE_SESSIONS.set(sessionKey, session)
-  await saveToKv(env, sessionKey, session)
-
-  const shareResult = await fetch(`${nikcliUrl}/session/${createData.data.id}/share`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...auth,
-    },
-  })
-
-  if (shareResult.ok) {
-    const shareData = unwrapNikcliResponse((await shareResult.json()) as NikcliResponse<NikcliSessionInfo>)
-    if (!shareData.error && shareData.data?.share?.url) {
-      await postMessage(env.SLACK_BOT_TOKEN, channel, thread, `Session: ${shareData.data.share.url}`)
+    if (!createResult.ok) {
+      console.error("Failed to create session:", await createResult.text())
+      await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Failed to create session")
+      return null
     }
-  }
 
-  return session
+    const createData = unwrapNikcliResponse((await createResult.json()) as NikcliResponse<NikcliSessionInfo>)
+
+    if (createData.error || !createData.data?.id) {
+      console.error("Failed to create session:", createData.error)
+      await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Failed to create session")
+      return null
+    }
+
+    const session: SessionData = {
+      sessionId: createData.data.id,
+      channel,
+      thread,
+      createdAt: Date.now(),
+    }
+
+    await saveToKv(env, sessionKey, session)
+
+    const shareResult = await fetch(`${nikcliUrl}/session/${createData.data.id}/share`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...auth,
+      },
+      signal: controller.signal,
+    })
+
+    if (shareResult.ok) {
+      const shareData = unwrapNikcliResponse((await shareResult.json()) as NikcliResponse<NikcliSessionInfo>)
+      if (!shareData.error && shareData.data?.share?.url) {
+        await postMessage(env.SLACK_BOT_TOKEN, channel, thread, `Session: ${shareData.data.share.url}`)
+      }
+    }
+
+    return session
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error && err.name === "AbortError" ? "Request timed out" : "Error creating session"
+    console.error("Create session error:", err)
+    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, errorMessage)
+    return null
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 async function sendPrompt(
@@ -283,46 +367,61 @@ async function sendPrompt(
   text: string,
   channel: string,
   thread: string,
-): Promise<void> {
+): Promise<{ error?: string }> {
   const nikcliUrl = getNikcliUrl(env)
   if (!nikcliUrl) {
     await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "NIKCLI_URL is not configured")
-    return
+    return { error: "NIKCLI_URL not configured" }
   }
 
   const auth = getAuthHeader(env)
+  const timeout = Number(env.NIKCLI_TIMEOUT_MS) || REQUEST_TIMEOUT_MS
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
 
-  const result = await fetch(`${nikcliUrl}/session/${session.sessionId}/message`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...auth,
-    },
-    body: JSON.stringify({ parts: [{ type: "text", text }] }),
-  })
+  try {
+    const result = await fetch(`${nikcliUrl}/session/${session.sessionId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...auth,
+      },
+      body: JSON.stringify({ parts: [{ type: "text", text }] }),
+      signal: controller.signal,
+    })
 
-  if (!result.ok) {
-    console.error("Prompt error:", await result.text())
-    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Error processing request")
-    return
+    if (!result.ok) {
+      console.error("Prompt error:", await result.text())
+      await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Error processing request")
+      return { error: "Failed to send prompt" }
+    }
+
+    const resultData = unwrapNikcliResponse(
+      (await result.json()) as NikcliResponse<{
+        info?: { content: string }
+        content?: string
+        parts?: NikcliMessagePart[]
+      }>,
+    )
+
+    if (resultData.error) {
+      console.error("Prompt error:", resultData.error)
+      await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Error processing request")
+      return { error: resultData.error }
+    }
+
+    const responseText = extractResponseText(resultData.data)
+    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, responseText)
+    return {}
+  } catch (err) {
+    const errorMessage =
+      err instanceof Error && err.name === "AbortError" ? "Request timed out" : "Error processing request"
+    console.error("Prompt error:", err)
+    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, errorMessage)
+    return { error: errorMessage }
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  const resultData = unwrapNikcliResponse(
-    (await result.json()) as NikcliResponse<{
-      info?: { content: string }
-      content?: string
-      parts?: NikcliMessagePart[]
-    }>,
-  )
-
-  if (resultData.error) {
-    console.error("Prompt error:", resultData.error)
-    await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Error processing request")
-    return
-  }
-
-  const responseText = extractResponseText(resultData.data)
-  await postMessage(env.SLACK_BOT_TOKEN, channel, thread, responseText)
 }
 
 function extractResponseText(data?: {
@@ -361,7 +460,7 @@ function stripMention(text: string, botId: string | null): string {
 }
 
 async function getBotId(env: Env): Promise<string | null> {
-  if (bot.id) return bot.id
+  if (bot.id && Date.now() - bot.cachedAt < BOT_ID_CACHE_TTL_MS) return bot.id
   if (!env.SLACK_BOT_TOKEN) return null
 
   const response = await fetch("https://slack.com/api/auth.test", {
@@ -377,6 +476,7 @@ async function getBotId(env: Env): Promise<string | null> {
   if (!id) return null
 
   bot.id = id
+  bot.cachedAt = Date.now()
   return bot.id
 }
 
@@ -398,13 +498,14 @@ async function handleFileShare(event: SlackEvent, env: Env): Promise<void> {
   PROCESSING_FILES.add(fileId)
 
   try {
-    const audioExtensions = [".mp3", ".ogg", ".wav", ".m4a", ".webm", ".mp4"]
+    const audioExtensions = [".mp3", ".ogg", ".wav", ".m4a", ".webm", ".mp4", ".flac", ".aac"]
     const filetype = file.filetype || ""
     const filename = file.name || "voice"
     const mimetype = file.mimetype || ""
     const isAudio =
       mimetype.startsWith("audio/") ||
-      audioExtensions.some((ext) => filetype.includes(ext.replace(".", "")) || filename.endsWith(ext))
+      mimetype.startsWith("video/") ||
+      audioExtensions.some((ext) => filetype === ext.slice(1) || filename.toLowerCase().endsWith(ext))
 
     if (!isAudio) return
 
@@ -413,7 +514,14 @@ async function handleFileShare(event: SlackEvent, env: Env): Promise<void> {
 
     await postMessage(env.SLACK_BOT_TOKEN, channel, thread, "Downloading and transcribing audio...")
 
-    const result = await transcribeAudio(urlPrivate, env.SLACK_BOT_TOKEN, env.OPENAI_API_KEY, filename, mimetype)
+    const result = await transcribeAudio(
+      urlPrivate,
+      env.SLACK_BOT_TOKEN,
+      env.OPENAI_API_KEY,
+      filename,
+      mimetype,
+      env.WHISPER_LANGUAGE,
+    )
 
     if ("error" in result) {
       await postMessage(env.SLACK_BOT_TOKEN, channel, thread, result.error)
@@ -424,7 +532,21 @@ async function handleFileShare(event: SlackEvent, env: Env): Promise<void> {
 
     await postMessage(env.SLACK_BOT_TOKEN, channel, thread, `Transcription:\n${transcript}`)
 
-    await handlePrompt(event, env, transcript)
+    const sessionKey = `${channel}-${thread}`
+    let session = await getFromKv(env, sessionKey)
+
+    if (!session) {
+      session = await createSession(env, sessionKey, channel, thread)
+      if (!session) return
+    }
+
+    const useGitHubActions = env.GITHUB_ACTIONS_MODE === "true" && env.GITHUB_TOKEN && env.GITHUB_REPO
+
+    if (useGitHubActions) {
+      await handlePromptGitHub(event, env, transcript)
+    } else {
+      await handlePromptNikcli(env, session, transcript, channel, thread)
+    }
   } finally {
     PROCESSING_FILES.delete(fileId)
   }
@@ -436,6 +558,7 @@ async function transcribeAudio(
   apiKey: string,
   filename: string,
   mimetype: string,
+  language?: string,
 ): Promise<TranscriptionResult> {
   if (!apiKey) {
     return { error: "Voice transcription is disabled. Set OPENAI_API_KEY to enable it." }
@@ -456,7 +579,9 @@ async function transcribeAudio(
   const formData = new FormData()
   formData.append("file", audioBlob, filename)
   formData.append("model", "whisper-1")
-  formData.append("language", "en")
+  if (language) {
+    formData.append("language", language)
+  }
 
   const whisperResponse = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -478,7 +603,13 @@ async function transcribeAudio(
   return { text: whisperResult.text }
 }
 
-async function postMessage(token: string, channel: string, threadTs: string | undefined, text: string): Promise<void> {
+async function postMessage(
+  token: string,
+  channel: string,
+  threadTs: string | undefined,
+  text: string,
+  retries = 3,
+): Promise<void> {
   const response = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
@@ -496,6 +627,10 @@ async function postMessage(token: string, channel: string, threadTs: string | un
 
   const data = (await response.json()) as SlackPostResponse
   if (!data.ok) {
+    if (data.error === "rate_limited" && retries > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      return postMessage(token, channel, threadTs, text, retries - 1)
+    }
     console.error("Slack API response error:", data.error)
   }
 }
@@ -606,10 +741,18 @@ async function verifySlackRequest(request: Request, body: string, signingSecret:
   return timingSafeEqual(expected, signature)
 }
 
-function timingSafeEqual(a: string, b: string): boolean {
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
   if (a.length !== b.length) return false
-  const diff = Array.from(a).reduce((acc, char, index) => acc | (char.charCodeAt(0) ^ b.charCodeAt(index)), 0)
-  return diff === 0
+  const aBytes = encoder.encode(a)
+  const bBytes = encoder.encode(b)
+  const len = Math.max(aBytes.length, bBytes.length)
+  let result = 0
+  for (let i = 0; i < len; i++) {
+    const ax = i < aBytes.length ? aBytes[i] : 0
+    const bx = i < bBytes.length ? bBytes[i] : 0
+    result |= ax ^ bx
+  }
+  return result === 0
 }
 
 function toHex(bytes: Uint8Array): string {

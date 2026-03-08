@@ -10,9 +10,11 @@ import { useSDK } from "../context/sdk"
 import { DialogSessionRename } from "./dialog-session-rename"
 import { useKV } from "../context/kv"
 import { createDebouncedSignal } from "../util/signal"
+import { createNikcliClient } from "@nikcli-ai/sdk/v2"
+import { useToast } from "../ui/toast"
 import "opentui-spinner/solid"
 
-export function DialogSessionList() {
+export function DialogSessionList(props: { workspaceID?: string; localOnly?: boolean } = {}) {
   const dialog = useDialog()
   const route = useRoute()
   const sync = useSync()
@@ -20,13 +22,37 @@ export function DialogSessionList() {
   const { theme } = useTheme()
   const sdk = useSDK()
   const kv = useKV()
+  const toast = useToast()
 
   const [toDelete, setToDelete] = createSignal<string>()
   const [search, setSearch] = createDebouncedSignal("", 150)
 
+  const workspaceClient = () => {
+    if (!props.workspaceID) return sdk.client
+    return createNikcliClient({
+      baseUrl: sdk.url,
+      fetch: sdk.fetch,
+      directory: sync.data.path.directory || sdk.directory,
+      workspace: props.workspaceID,
+    })
+  }
+
+  const [listed, { mutate: mutateListed }] = createResource(
+    () => props.workspaceID,
+    async (workspaceID) => {
+      if (!workspaceID) return undefined
+      const result = await workspaceClient().session.list({ roots: true })
+      return result.data ?? []
+    },
+  )
+
   const [searchResults] = createResource(search, async (query) => {
-    if (!query) return undefined
-    const result = await sdk.client.session.list({ search: query, limit: 30 })
+    if (!query || props.localOnly) return undefined
+    const result = await workspaceClient().session.list({
+      search: query,
+      limit: 30,
+      ...(props.workspaceID ? { roots: true } : {}),
+    })
     return result.data ?? []
   })
 
@@ -34,12 +60,23 @@ export function DialogSessionList() {
 
   const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-  const sessions = createMemo(() => searchResults() ?? sync.data.session)
+  const sessions = createMemo(() => {
+    if (searchResults()) return searchResults()!
+    if (props.workspaceID) return listed() ?? []
+    if (props.localOnly) return sync.data.session.filter((session) => !session.workspaceID)
+    return sync.data.session
+  })
 
   const options = createMemo(() => {
     const today = new Date().toDateString()
     return sessions()
-      .filter((x) => x.parentID === undefined)
+      .filter((x) => {
+        if (x.parentID !== undefined) return false
+        if (props.workspaceID && listed()) return true
+        if (props.workspaceID) return x.workspaceID === props.workspaceID
+        if (props.localOnly) return !x.workspaceID
+        return true
+      })
       .toSorted((a, b) => b.time.updated - a.time.updated)
       .map((x) => {
         const date = new Date(x.time.updated)
@@ -71,9 +108,9 @@ export function DialogSessionList() {
 
   return (
     <DialogSelect
-      title="Sessions"
+      title={props.workspaceID ? "Workspace Sessions" : props.localOnly ? "Local Sessions" : "Sessions"}
       options={options()}
-      skipFilter={true}
+      skipFilter={!!props.localOnly}
       current={currentSessionID()}
       onFilter={setSearch}
       onMove={() => {
@@ -92,10 +129,28 @@ export function DialogSessionList() {
           title: "delete",
           onTrigger: async (option) => {
             if (toDelete() === option.value) {
-              sdk.client.session.delete({
-                sessionID: option.value,
-              })
+              const deleted = await sdk.client.session
+                .delete({
+                  sessionID: option.value,
+                })
+                .then(() => true)
+                .catch(() => false)
               setToDelete(undefined)
+              if (!deleted) {
+                toast.show({
+                  message: "Failed to delete session",
+                  variant: "error",
+                })
+                return
+              }
+              if (props.workspaceID) {
+                mutateListed((sessions) => sessions?.filter((session) => session.id !== option.value))
+                return
+              }
+              sync.set(
+                "session",
+                sync.data.session.filter((session) => session.id !== option.value),
+              )
               return
             }
             setToDelete(option.value)

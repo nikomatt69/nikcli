@@ -13,6 +13,7 @@ import { Installation } from "./installation"
 import { NamedError } from "@nikcli-ai/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
+import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
 import { DebugCommand } from "./cli/cmd/debug"
 import { StatsCommand } from "./cli/cmd/stats"
 import { McpCommand } from "./cli/cmd/mcp"
@@ -31,6 +32,7 @@ import { ImageModelCommand } from "./cli/cmd/image-model"
 import { SpeakModelCommand } from "./cli/cmd/speak-model"
 import { RemoteCommand } from "./cli/cmd/remote"
 import { ConnectorsCommand } from "./cli/cmd/connectors"
+import { BotCommand } from "./cli/cmd/chatbot"
 import { AdsCommand } from "./cli/cmd/ads"
 import { LovableCommand } from "./cli/cmd/lovable"
 import { CompanionCommand } from "./cli/cmd/companion"
@@ -88,6 +90,7 @@ const cli = yargs(hideBin(process.argv))
   .command(AcpCommand)
   .command(McpCommand)
   .command(ConnectorsCommand)
+  .command(BotCommand)
   .command(LovableCommand)
   .command(AdsCommand)
   .command(TuiThreadCommand)
@@ -100,6 +103,7 @@ const cli = yargs(hideBin(process.argv))
   .command(UpgradeCommand)
   .command(UninstallCommand)
   .command(ServeCommand)
+  .command(WorkspaceServeCommand)
   .command(WebCommand)
   .command(ModelsCommand)
   .command(StatsCommand)

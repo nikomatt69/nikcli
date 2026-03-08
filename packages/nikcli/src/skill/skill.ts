@@ -17,6 +17,9 @@ export namespace Skill {
     name: z.string(),
     description: z.string(),
     location: z.string(),
+    category: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    version: z.string().optional(),
   })
   export type Info = z.infer<typeof Info>
 
@@ -62,7 +65,7 @@ export namespace Skill {
 
       if (!md) return
 
-      const parsed = Info.pick({ name: true, description: true }).safeParse(md.data)
+      const parsed = Info.safeParse(md.data)
       if (!parsed.success) return
 
       if (skills[parsed.data.name]) {
@@ -77,6 +80,9 @@ export namespace Skill {
         name: parsed.data.name,
         description: parsed.data.description,
         location: match,
+        category: parsed.data.category,
+        tags: parsed.data.tags,
+        version: parsed.data.version,
       }
     }
 

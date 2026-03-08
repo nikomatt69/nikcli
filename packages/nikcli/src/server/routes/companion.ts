@@ -418,7 +418,6 @@ function setTab(tab) {
   $$('.topbar-tab').forEach(t => t.classList.remove('active'));
   event.target.classList.add('active');
   
-  $('#chat').style.display = tab === 'chat' ? 'block' : 'none';
   $('#diffPanel').style.display = tab === 'diff' ? 'flex' : 'none';
   $('#messages').style.display = tab === 'chat' ? 'block' : 'none';
   

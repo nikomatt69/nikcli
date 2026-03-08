@@ -30,6 +30,17 @@ const ContextInfo = (props: { context: Accessor<string | undefined>; cost: Acces
   )
 }
 
+const WorkspaceInfo = (props: { workspace: Accessor<string | undefined> }) => {
+  const { theme } = useTheme()
+  return (
+    <Show when={props.workspace()}>
+      <text fg={theme.textMuted} wrapMode="none" flexShrink={0}>
+        {props.workspace()}
+      </text>
+    </Show>
+  )
+}
+
 export function Header() {
   const route = useRouteData("session")
   const sync = useSync()
@@ -60,6 +71,14 @@ export function Header() {
     return result
   })
 
+  const workspace = createMemo(() => {
+    const id = session()?.workspaceID
+    if (!id) return "Workspace local"
+    const info = sync.workspace.get(id)
+    if (!info) return `Workspace ${id}`
+    return `Workspace ${id} (${info.config.type})`
+  })
+
   const { theme } = useTheme()
   const keybind = useKeybind()
   const command = useCommandDialog()
@@ -84,9 +103,12 @@ export function Header() {
           <Match when={session()?.parentID}>
             <box flexDirection="column" gap={1}>
               <box flexDirection={narrow() ? "column" : "row"} justifyContent="space-between" gap={narrow() ? 1 : 0}>
-                <text fg={theme.text}>
-                  <b>Subagent session</b>
-                </text>
+                <box flexDirection="column">
+                  <text fg={theme.text}>
+                    <b>Subagent session</b>
+                  </text>
+                  <WorkspaceInfo workspace={workspace} />
+                </box>
                 <box flexDirection="row" gap={1} flexShrink={0}>
                   <ContextInfo context={context} cost={cost} />
                   <text fg={theme.textMuted}>v{Installation.VERSION}</text>
@@ -138,7 +160,10 @@ export function Header() {
           </Match>
           <Match when={true}>
             <box flexDirection={narrow() ? "column" : "row"} justifyContent="space-between" gap={1}>
-              <Title session={session} />
+              <box flexDirection="column">
+                <Title session={session} />
+                <WorkspaceInfo workspace={workspace} />
+              </box>
               <box flexDirection="row" gap={1} flexShrink={0}>
                 <ContextInfo context={context} cost={cost} />
                 <text fg={theme.textMuted}>v{Installation.VERSION}</text>

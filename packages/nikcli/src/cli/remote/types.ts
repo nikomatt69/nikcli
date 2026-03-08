@@ -84,11 +84,19 @@ export interface RemoteSessionPersistence {
   sessionId: string
   name: string
   qrUrl: string
+  localUrl?: string
+  tunnelUrl?: string
   tunnelPassword?: string
   port?: number
   startedAt: string
   lastActivity: string
   status: SessionStatus
+}
+
+export interface ResolvedRemoteSession {
+  source: "memory" | "persisted"
+  session: RemoteSession
+  persisted?: RemoteSessionPersistence
 }
 
 export interface SubagentRemoteEvent {

@@ -133,17 +133,20 @@ Reinstall the app.
 
 ## Environment Variables
 
-| Variable               | Required | Description                                    |
-| ---------------------- | -------- | ---------------------------------------------- |
-| `SLACK_BOT_TOKEN`      | Yes      | Bot OAuth Token (`xoxb-...`)                   |
-| `SLACK_SIGNING_SECRET` | Yes      | Slack signing secret                           |
-| `SLACK_CLIENT_ID`      | No       | Slack OAuth Client ID (for /slack/install)     |
-| `SLACK_CLIENT_SECRET`  | No       | Slack OAuth Client Secret (for /slack/install) |
-| `SLACK_APP_TOKEN`      | No       | Required only for Socket Mode (`bun run dev`)  |
-| `OPENAI_API_KEY`       | No       | OpenAI API for voice transcription             |
-| `NIKCLI_URL`           | Yes      | Your nikcli server URL                         |
-| `NIKCLI_USERNAME`      | No       | Basic Auth username (default: `nikcli`)        |
-| `NIKCLI_PASSWORD`      | Yes      | Basic Auth password (`NIKCLI_SERVER_PASSWORD`) |
+| Variable               | Required | Description                                                 |
+| ---------------------- | -------- | ----------------------------------------------------------- |
+| `SLACK_BOT_TOKEN`      | Yes      | Bot OAuth Token (`xoxb-...`)                                |
+| `SLACK_SIGNING_SECRET` | Yes      | Slack signing secret                                        |
+| `SLACK_CLIENT_ID`      | No       | Slack OAuth Client ID (for /slack/install)                  |
+| `SLACK_CLIENT_SECRET`  | No       | Slack OAuth Client Secret (for /slack/install)              |
+| `SLACK_APP_TOKEN`      | No       | Required only for Socket Mode (`bun run dev`)               |
+| `OPENAI_API_KEY`       | No       | OpenAI API for voice transcription                          |
+| `NIKCLI_URL`           | Yes      | Your nikcli server URL                                      |
+| `NIKCLI_USERNAME`      | No       | Basic Auth username (default: `nikcli`)                     |
+| `NIKCLI_PASSWORD`      | Yes      | Basic Auth password (`NIKCLI_SERVER_PASSWORD`)              |
+| `GITHUB_TOKEN`         | No       | GitHub token for GitHub Actions mode                        |
+| `GITHUB_REPO`          | No       | GitHub repo (e.g., `owner/repo`) for Actions                |
+| `GITHUB_ACTIONS_MODE`  | No       | Set to `"true"` to use GitHub Actions instead of direct API |
 
 ## Commands
 

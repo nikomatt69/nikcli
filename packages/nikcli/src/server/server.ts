@@ -26,6 +26,7 @@ import { SessionRoutes } from "./routes/session"
 import { PtyRoutes } from "./routes/pty"
 import { McpRoutes } from "./routes/mcp"
 import { ConnectorsRoutes } from "./routes/connectors"
+import { ChatBotRoutes } from "./routes/chatbot"
 import { FileRoutes } from "./routes/file"
 import { ConfigRoutes } from "./routes/config"
 import { ExperimentalRoutes } from "./routes/experimental"
@@ -43,6 +44,7 @@ import { DBEditRoutes } from "./routes/dbedit"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
+import { WorkspaceContext } from "../workspace/workspace-context"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -157,7 +159,7 @@ export namespace Server {
         .use(
           cors({
             credentials: true,
-            allowHeaders: ["Authorization", "Content-Type", "x-nikcli-directory"],
+            allowHeaders: ["Authorization", "Content-Type", "x-nikcli-directory", "x-nikcli-workspace"],
             origin(input) {
               // Allow all origins for local development
               if (input) {
@@ -206,11 +208,17 @@ export namespace Server {
           } catch {
             // fallback to original value
           }
-          return Instance.provide({
-            directory,
-            init: InstanceBootstrap,
+          const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace")
+          return WorkspaceContext.provide({
+            workspaceID,
             async fn() {
-              return next()
+              return Instance.provide({
+                directory,
+                init: InstanceBootstrap,
+                async fn() {
+                  return next()
+                },
+              })
             },
           })
         })
@@ -227,7 +235,7 @@ export namespace Server {
             },
           }),
         )
-        .use(validator("query", z.object({ directory: z.string().optional() })))
+        .use(validator("query", z.object({ directory: z.string().optional(), workspace: z.string().optional() })))
         .route("/project", ProjectRoutes())
         .route("/pty", PtyRoutes())
         .route("/config", ConfigRoutes())
@@ -240,6 +248,7 @@ export namespace Server {
         .route("/companion", CompanionRoutes())
         .route("/", FileRoutes())
         .route("/connectors", ConnectorsRoutes())
+        .route("/chatbot", ChatBotRoutes())
         .route("/mcp", McpRoutes())
         .route("/tui", TuiRoutes())
         .post(

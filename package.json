@@ -4,7 +4,7 @@
   "description": "AI-powered development tool",
   "private": false,
   "type": "module",
-  "packageManager": "bun@1.3.9",
+  "packageManager": "bun@1.3.10",
   "scripts": {
     "dev": "bun run --cwd packages/nikcli --conditions=browser src/index.ts",
     "typecheck": "bun turbo typecheck",
@@ -80,6 +80,7 @@
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/script": "workspace:*",
     "@nikcli-ai/sdk": "workspace:*",
+    "@slack/bolt": "4.6.0",
     "typescript": "5.9.3"
   },
   "repository": {

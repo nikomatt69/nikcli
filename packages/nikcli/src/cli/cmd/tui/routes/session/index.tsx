@@ -194,6 +194,16 @@ export function Session() {
   const toast = useToast()
   const sdk = useSDK()
 
+  createEffect(
+    on(
+      () => session()?.workspaceID,
+      (workspaceID) => {
+        sdk.setWorkspace(workspaceID)
+      },
+      { defer: true },
+    ),
+  )
+
   // Handle initial prompt from fork
   createEffect(
     on(

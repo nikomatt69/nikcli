@@ -1,21 +1,12 @@
-import { createMemo, createSignal, Show, For, createEffect, onCleanup, onMount } from "solid-js"
+import { createMemo, createSignal, Show, For, onCleanup, onMount } from "solid-js"
 import { pipe } from "remeda"
 import { TextAttributes } from "@opentui/core"
-import { useRenderer } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import { useSync } from "@tui/context/sync"
-import { DialogSelect, type DialogSelectRef } from "@tui/ui/dialog-select"
+import { DialogSelect } from "@tui/ui/dialog-select"
 import { useSDK } from "@tui/context/sdk"
 import { useToast } from "@tui/ui/toast"
-import {
-  checkTunnelAvailability,
-  createTunnel,
-  connectToTerminal,
-  generateQR,
-  probeTunnel,
-  type TunnelProvider,
-  type TerminalConnection,
-  type TunnelResult,
-} from "@nikcli-ai/remote"
+import { connectToTerminal, generateQR, type TunnelProvider, type TerminalConnection } from "@nikcli-ai/remote"
 import { remoteService, type RemoteSession } from "@/cli/remote"
 
 interface RemoteConfig {
@@ -26,6 +17,8 @@ interface RemoteConfig {
 interface ConfigWithRemote {
   remote?: RemoteConfig
 }
+
+const REMOTE_BRIDGE_MARKER = "__nikcliRemoteBridge"
 
 interface Device {
   id: string
@@ -97,6 +90,21 @@ function TerminalView({ connection }: { connection: TerminalConnection }) {
     }
   }
 
+  useKeyboard((evt) => {
+    if (evt.ctrl || evt.meta) return
+    if (evt.name === "return") {
+      handleKey("\r")
+      return
+    }
+    if (evt.name === "backspace") {
+      handleKey("\x7f")
+      return
+    }
+    if (evt.sequence && evt.sequence.length === 1) {
+      handleKey(evt.sequence)
+    }
+  })
+
   return (
     <box flexDirection="column">
       <box border={["top", "bottom", "left", "right"]} borderColor="blue" padding={1} flexGrow={1}>
@@ -121,14 +129,12 @@ export function DialogRemote() {
   const sdk = useSDK()
   const toast = useToast()
   const renderer = useRenderer()
-  const [ref, setRef] = createSignal<DialogSelectRef<{ providerID: string }>>()
   const [query, setQuery] = createSignal("")
   const [qrData, setQrData] = createSignal<string>("")
   const [sessionInfo, setSessionInfo] = createSignal<{ url: string; localUrl: string; port: number } | null>(null)
   const [isStarting, setIsStarting] = createSignal(false)
   const [devices, setDevices] = createSignal<Device[]>([])
   const [terminalConnection, setTerminalConnection] = createSignal<TerminalConnection | null>(null)
-  const [tunnel, setTunnel] = createSignal<TunnelResult | null>(null)
   let cleanupListeners: (() => void) | null = null
   let detachRendererBridge: (() => void) | null = null
 
@@ -175,57 +181,15 @@ export function DialogRemote() {
       let sessionUrl = buildSessionUrl(session, session.localUrl || session.qrUrl)
 
       if (useTunnel) {
-        const providers = await (async () => {
-          if (configuredProvider) return [tunnelProvider]
+        const provider = await remoteService.createSessionTunnel({
+          enableTunnel: true,
+          provider: configuredProvider,
+        })
 
-          const candidates: TunnelProvider[] = ["localtunnel", "cloudflared", "ngrok", "remotosh"]
-          const available: TunnelProvider[] = []
-
-          for (const candidate of candidates) {
-            if (await checkTunnelAvailability(candidate)) {
-              available.push(candidate)
-            }
-          }
-
-          if (!available.includes(tunnelProvider)) return available
-
-          return [tunnelProvider, ...available.filter((candidate) => candidate !== tunnelProvider)]
-        })()
-
-        if (providers.length === 0) {
+        if (!provider) {
           toast.show({ message: "No tunnel providers available; using local network only", variant: "warning" })
-        }
-
-        if (providers.length > 0) {
-          const port = session.port ?? remoteService.getServerPort()
-          if (!port) {
-            toast.show({ message: "Tunnel unavailable; missing server port", variant: "error" })
-          }
-
-          if (port) {
-            for (const provider of providers) {
-              const result = await createTunnel(port, provider).catch((error) => {
-                const message = error instanceof Error ? error.message : String(error)
-                toast.show({ message: `Tunnel failed (${provider}): ${message}`, variant: "error" })
-                return null
-              })
-
-              if (!result) continue
-
-              const url = buildSessionUrl(session, result.url)
-              const ok = await probeTunnel(url)
-              if (!ok) {
-                await result.close().catch(() => {})
-                toast.show({ message: `Tunnel unreachable (${provider})`, variant: "warning" })
-                continue
-              }
-
-              setTunnel(result)
-              session.tunnelUrl = url
-              sessionUrl = url
-              break
-            }
-          }
+        } else {
+          sessionUrl = session.tunnelUrl || session.qrUrl
         }
       }
 
@@ -254,12 +218,6 @@ export function DialogRemote() {
     }
     detachRendererBridge?.()
     detachRendererBridge = null
-    if (tunnel()) {
-      void tunnel()!
-        .close()
-        .catch(() => {})
-      setTunnel(null)
-    }
     if (remoteService.hasActiveSession()) {
       remoteService.stopSession().catch(() => {})
     }
@@ -273,7 +231,7 @@ export function DialogRemote() {
     }
   }
 
-  const viewDeviceTerminal = async (device: Device) => {
+  const viewDeviceTerminal = async () => {
     const info = sessionInfo()
     if (!info?.localUrl) return
 
@@ -312,7 +270,7 @@ export function DialogRemote() {
         title: device.name,
         description: `Connected at ${device.connectedAt.toLocaleTimeString()}`,
         category: "Devices",
-        onSelect: () => viewDeviceTerminal(device),
+        onSelect: () => viewDeviceTerminal(),
       })),
       ...pipe(
         providers,
@@ -354,13 +312,7 @@ export function DialogRemote() {
         <TerminalView connection={terminalConnection()!} />
       </Show>
       <Show when={!terminalConnection() && !qrData()}>
-        <DialogSelect
-          ref={(r) => setRef(r as any)}
-          onFilter={setQuery}
-          skipFilter={true}
-          title="Remote Access"
-          options={options() as any}
-        />
+        <DialogSelect onFilter={setQuery} skipFilter={true} title="Remote Control" options={options() as any} />
       </Show>
       <Show when={!terminalConnection() && qrData()}>
         <box border={["top", "bottom", "left", "right"]} borderColor="green" padding={1}>
@@ -438,8 +390,11 @@ export function DialogRemote() {
       const text = typeof data === "string" ? data : Buffer.from(data).toString()
       remoteService.writeToTerminal(text)
     }
-    const original = target.realStdoutWrite?.bind(stdout)
-    if (original) {
+
+    const originalReal = target.realStdoutWrite
+    if (originalReal) {
+      if ((originalReal as any)[REMOTE_BRIDGE_MARKER]) return
+
       const bridge = ((
         data: string | Uint8Array,
         encoding?: BufferEncoding | ((err?: Error | null) => void),
@@ -447,31 +402,37 @@ export function DialogRemote() {
       ) => {
         const result =
           typeof encoding === "function"
-            ? original(data, encoding)
-            : original(data, encoding as BufferEncoding | undefined, cb)
+            ? (originalReal as any).call(stdout, data, encoding)
+            : (originalReal as any).call(stdout, data, encoding, cb)
         forward(data)
         return result
       }) as typeof stdout.write
+      ;(bridge as any)[REMOTE_BRIDGE_MARKER] = true
       target.realStdoutWrite = bridge
 
       detachRendererBridge = () => {
-        target.realStdoutWrite = original
+        target.realStdoutWrite = originalReal
         detachRendererBridge = null
       }
       return
     }
 
-    const base = stdout.write.bind(stdout)
+    const base = stdout.write
+    if ((base as any)[REMOTE_BRIDGE_MARKER]) return
+
     const bridge = ((
       data: string | Uint8Array,
       encoding?: BufferEncoding | ((err?: Error | null) => void),
       cb?: (err?: Error | null) => void,
     ) => {
       const result =
-        typeof encoding === "function" ? base(data, encoding) : base(data, encoding as BufferEncoding | undefined, cb)
+        typeof encoding === "function"
+          ? (base as any).call(stdout, data, encoding)
+          : (base as any).call(stdout, data, encoding, cb)
       forward(data)
       return result
     }) as typeof stdout.write
+    ;(bridge as any)[REMOTE_BRIDGE_MARKER] = true
     stdout.write = bridge
 
     detachRendererBridge = () => {

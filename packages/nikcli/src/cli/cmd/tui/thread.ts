@@ -37,6 +37,9 @@ function createWorkerFetch(client: RpcClient): typeof fetch {
 function createEventSource(client: RpcClient): EventSource {
   return {
     on: (handler) => client.on<Event>("event", handler),
+    setWorkspace: (workspaceID) => {
+      void client.call("setWorkspace", { workspaceID })
+    },
   }
 }
 
@@ -154,10 +157,12 @@ export const TuiThreadCommand = cmd({
       onExit: async () => {
         await client.call("shutdown", undefined)
       },
-      startServer: !shouldStartServer ? async () => {
-        const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })
-        return result.url
-      } : undefined,
+      startServer: !shouldStartServer
+        ? async () => {
+            const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })
+            return result.url
+          }
+        : undefined,
     })
 
     setTimeout(() => {

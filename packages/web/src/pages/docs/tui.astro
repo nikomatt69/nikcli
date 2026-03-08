@@ -5,6 +5,7 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
   { title: "Worker Model", href: "#worker-model", depth: 2 },
+  { title: "Remote Control", href: "#remote-control", depth: 2 },
   { title: "Remote Attach", href: "#remote-attach", depth: 2 },
 ];
 ---
@@ -24,6 +25,20 @@ const toc = [
     <p>
       The TUI spawns a worker process and communicates over an RPC channel. When server flags are
       present, the TUI starts an HTTP server and connects via events.
+    </p>
+  </section>
+
+  <section id="remote-control" class="mb-16 scroll-mt-24">
+    <h2>Remote Control</h2>
+    <DocCallout type="info" title="Slash commands">
+      <p>
+        Use <code>/remote-control</code> (or alias <code>/rc</code>) inside a TUI session to open the
+        Remote Control dialog. Legacy alias <code>/remote</code> is still supported.
+      </p>
+    </DocCallout>
+    <p>
+      If a remote session already exists for the running instance, Nikcli reuses it and keeps the QR
+      URL in sync. Remote defaults can be configured under <code>config.remote</code>.
     </p>
   </section>
 

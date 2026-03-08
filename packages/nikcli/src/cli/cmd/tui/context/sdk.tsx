@@ -5,18 +5,27 @@ import { batch, onCleanup, onMount } from "solid-js"
 
 export type EventSource = {
   on: (handler: (event: Event) => void) => () => void
+  setWorkspace?: (workspaceID?: string) => void
 }
 
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   name: "SDK",
   init: (props: { url: string; directory?: string; fetch?: typeof fetch; events?: EventSource }) => {
     const abort = new AbortController()
-    const sdk = createNikcliClient({
-      baseUrl: props.url,
-      signal: abort.signal,
-      directory: props.directory,
-      fetch: props.fetch,
-    })
+    let workspaceID: string | undefined
+    let sse: AbortController | undefined
+
+    function createSDK() {
+      return createNikcliClient({
+        baseUrl: props.url,
+        signal: abort.signal,
+        directory: props.directory,
+        workspace: workspaceID,
+        fetch: props.fetch,
+      })
+    }
+
+    let sdk = createSDK()
 
     const emitter = createGlobalEmitter<{
       [key in Event["type"]]: Extract<Event, { type: key }>
@@ -54,53 +63,63 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       flush()
     }
 
+    function startSSE() {
+      sse?.abort()
+      const ctrl = new AbortController()
+      sse = ctrl
+      ;(async () => {
+        while (true) {
+          if (abort.signal.aborted || ctrl.signal.aborted) break
+
+          const events = await sdk.event.subscribe(
+            {},
+            {
+              signal: ctrl.signal,
+            },
+          )
+
+          for await (const event of events.stream) {
+            if (ctrl.signal.aborted) break
+            handleEvent(event)
+          }
+
+          if (timer) clearTimeout(timer)
+          if (queue.length > 0) flush()
+        }
+      })().catch(() => {})
+    }
+
     onMount(async () => {
-      // If an event source is provided, use it instead of SSE
       if (props.events) {
         const unsub = props.events.on(handleEvent)
         onCleanup(unsub)
         return
       }
 
-      // Fall back to SSE with minimal backoff (fast reconnection)
-      let backoff = 60
-      while (true) {
-        if (abort.signal.aborted) break
-
-        try {
-          const events = await sdk.event.subscribe(
-            {},
-            {
-              signal: abort.signal,
-            },
-          )
-
-          // Reset backoff on successful connection
-          backoff = 100
-
-          for await (const event of events.stream) {
-            handleEvent(event)
-          }
-
-          // Flush any remaining events
-          if (timer) clearTimeout(timer)
-          if (queue.length > 0) {
-            flush()
-          }
-        } catch (error) {
-          if (abort.signal.aborted) break
-
-          // Minimal backoff: 100ms → 100ms → 100ms (no exponential growth)
-          await new Promise(resolve => setTimeout(resolve, backoff))
-        }
-      }
+      startSSE()
     })
 
     onCleanup(() => {
       abort.abort()
+      sse?.abort()
       if (timer) clearTimeout(timer)
     })
 
-    return { client: sdk, event: emitter, url: props.url }
+    return {
+      get client() {
+        return sdk
+      },
+      directory: props.directory,
+      event: emitter,
+      fetch: props.fetch ?? fetch,
+      setWorkspace(next?: string) {
+        if (workspaceID === next) return
+        workspaceID = next
+        sdk = createSDK()
+        props.events?.setWorkspace?.(next)
+        if (!props.events) startSSE()
+      },
+      url: props.url,
+    }
   },
 })

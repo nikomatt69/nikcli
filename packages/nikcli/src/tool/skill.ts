@@ -6,16 +6,15 @@ import { ConfigMarkdown } from "../config/markdown"
 import { PermissionNext } from "../permission/next"
 
 export const SkillTool = Tool.define("skill", async (ctx) => {
-  const skills = await Skill.all()
+  const allSkills = await Skill.all()
 
-  // Filter skills by agent permissions if agent provided
   const agent = ctx?.agent
   const accessibleSkills = agent
-    ? skills.filter((skill) => {
+    ? allSkills.filter((skill) => {
         const rule = PermissionNext.evaluate("skill", skill.name, agent.permission)
         return rule.action !== "deny"
       })
-    : skills
+    : allSkills
 
   const description =
     accessibleSkills.length === 0
@@ -26,12 +25,15 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
           "Use this when a task matches an available skill's description.",
           "Only the skills listed here are available:",
           "<available_skills>",
-          ...accessibleSkills.flatMap((skill) => [
-            `  <skill>`,
-            `    <name>${skill.name}</name>`,
-            `    <description>${skill.description}</description>`,
-            `  </skill>`,
-          ]),
+          ...accessibleSkills.flatMap((skill) =>
+            [
+              `  <skill>`,
+              `    <name>${skill.name}</name>`,
+              `    <description>${skill.description}</description>`,
+              skill.category ? `    <category>${skill.category}</category>` : null,
+              skill.tags?.length ? `    <tags>${skill.tags.join(", ")}</tags>` : null,
+            ].filter(Boolean),
+          ),
           "</available_skills>",
         ].join(" ")
 
@@ -42,39 +44,107 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
   const hint = examples.length > 0 ? ` (e.g., ${examples}, ...)` : ""
 
   const parameters = z.object({
-    name: z.string().describe(`The skill identifier from available_skills${hint}`),
+    name: z.string().optional().describe(`The skill identifier from available_skills${hint}`),
+    search: z.string().optional().describe("Filter skills by name or description"),
+    category: z.string().optional().describe("Filter skills by category"),
+    tags: z.string().optional().describe("Filter by comma-separated tags"),
   })
 
   return {
     description,
     parameters,
-    async execute(params: z.infer<typeof parameters>, ctx) {
-      const skill = await Skill.get(params.name)
+    formatValidationError(error) {
+      const formattedErrors = error.issues
+        .map((issue) => {
+          const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : ""
+          return `  - ${path}${issue.message}`
+        })
+        .join("\n")
+      return `Invalid parameters for skill tool:\n${formattedErrors}`
+    },
+    async execute(
+      params: z.infer<typeof parameters>,
+      ctx: Tool.Context,
+    ): Promise<{ title: string; output: string; metadata: Record<string, any> }> {
+      let skills = accessibleSkills
 
-      if (!skill) {
-        const available = await Skill.all().then((x) => Object.keys(x).join(", "))
-        throw new Error(`Skill "${params.name}" not found. Available skills: ${available || "none"}`)
+      if (params.search) {
+        const searchLower = params.search.toLowerCase()
+        skills = skills.filter(
+          (s) => s.name.toLowerCase().includes(searchLower) || s.description.toLowerCase().includes(searchLower),
+        )
       }
 
-      await ctx.ask({
-        permission: "skill",
-        patterns: [params.name],
-        always: [params.name],
-        metadata: {},
-      })
-      // Load and parse skill content
-      const parsed = await ConfigMarkdown.parse(skill.location)
-      const dir = path.dirname(skill.location)
+      if (params.category) {
+        skills = skills.filter((s) => s.category === params.category)
+      }
 
-      // Format output similar to plugin pattern
-      const output = [`## Skill: ${skill.name}`, "", `**Base directory**: ${dir}`, "", parsed.content.trim()].join("\n")
+      if (params.tags) {
+        const tagList = params.tags.split(",").map((t) => t.trim().toLowerCase())
+        skills = skills.filter((s) => s.tags?.some((t) => tagList.includes(t.toLowerCase())))
+      }
+
+      if (params.name) {
+        const skill = await Skill.get(params.name)
+        if (!skill) {
+          const available = await Skill.all().then((x) => Object.keys(x).join(", "))
+          throw new Error(`Skill "${params.name}" not found. Available skills: ${available || "none"}`)
+        }
+
+        await ctx.ask({
+          permission: "skill",
+          patterns: [params.name],
+          always: [params.name],
+          metadata: {},
+        })
+
+        const parsed = await ConfigMarkdown.parse(skill.location)
+        const dir = path.dirname(skill.location)
+
+        const meta = [
+          `**Base directory**: ${dir}`,
+          skill.category ? `**Category**: ${skill.category}` : null,
+          skill.tags?.length ? `**Tags**: ${skill.tags.join(", ")}` : null,
+          skill.version ? `**Version**: ${skill.version}` : null,
+        ].filter(Boolean)
+
+        const output = [`## Skill: ${skill.name}`, "", meta.join("\n"), "", parsed.content.trim()].join("\n")
+
+        return {
+          title: `Loaded skill: ${skill.name}`,
+          output,
+          metadata: {
+            name: skill.name,
+            dir,
+            category: skill.category,
+            tags: skill.tags,
+            version: skill.version,
+          },
+        }
+      }
+
+      if (skills.length === 0) {
+        return {
+          title: "No skills found",
+          output: "No skills match the specified filters.",
+          metadata: { count: 0 },
+        }
+      }
 
       return {
-        title: `Loaded skill: ${skill.name}`,
-        output,
+        title: `Found ${skills.length} skill(s)`,
+        output: [
+          "## Matching Skills",
+          "",
+          ...skills.map((s) => `- **${s.name}**: ${s.description}${s.category ? ` (${s.category})` : ""}`),
+        ].join("\n"),
         metadata: {
-          name: skill.name,
-          dir,
+          count: skills.length,
+          skills: skills.map((s) => ({
+            name: s.name,
+            category: s.category,
+            tags: s.tags,
+          })),
         },
       }
     },

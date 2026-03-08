@@ -220,6 +220,50 @@ export const ConnectorsAuthCommand = cmd({
               spinner.stop("Lovable token saved!")
               break
             }
+            case "discord": {
+              const botToken = await prompts.text({
+                message: "Enter Discord bot token",
+                validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+              })
+              if (prompts.isCancel(botToken)) throw new UI.CancelledError()
+
+              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              spinner.stop("Discord bot token saved!")
+              break
+            }
+            case "teams": {
+              const botToken = await prompts.text({
+                message: "Enter Microsoft Teams bot token",
+                validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+              })
+              if (prompts.isCancel(botToken)) throw new UI.CancelledError()
+
+              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              spinner.stop("Teams bot token saved!")
+              break
+            }
+            case "gchat": {
+              const botToken = await prompts.text({
+                message: "Enter Google Chat bot token",
+                validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+              })
+              if (prompts.isCancel(botToken)) throw new UI.CancelledError()
+
+              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              spinner.stop("Google Chat bot token saved!")
+              break
+            }
+            case "linear": {
+              const botToken = await prompts.text({
+                message: "Enter Linear bot token",
+                validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+              })
+              if (prompts.isCancel(botToken)) throw new UI.CancelledError()
+
+              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              spinner.stop("Linear bot token saved!")
+              break
+            }
           }
 
           prompts.log.success(`Credentials saved for ${connectorName}`)
@@ -374,6 +418,10 @@ export const ConnectorsAddCommand = cmd({
             { label: "Slack", value: "slack", hint: "Messages and channels" },
             { label: "GitHub", value: "github", hint: "Repositories and issues" },
             { label: "Lovable", value: "lovable", hint: "AI projects and chats" },
+            { label: "Discord Bot", value: "discord", hint: "Discord server bot" },
+            { label: "Microsoft Teams", value: "teams", hint: "Teams bot" },
+            { label: "Google Chat", value: "gchat", hint: "Google Chat bot" },
+            { label: "Linear", value: "linear", hint: "Linear issue bot" },
           ],
         })
         if (prompts.isCancel(type)) throw new UI.CancelledError()
@@ -452,6 +500,74 @@ export const ConnectorsAddCommand = cmd({
             if (tokenResult && tokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
               await ConnectorAuth.updateToken(name, tokenResult.trim())
+              hasCredentials = true
+            }
+            break
+          }
+          case "discord": {
+            const botTokenResult = await prompts.text({
+              message: "Enter Discord bot token (or press enter to skip)",
+            })
+            if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
+
+            connectorConfig = {
+              type: "discord",
+              enabled,
+            }
+            if (botTokenResult && botTokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              hasCredentials = true
+            }
+            break
+          }
+          case "teams": {
+            const botTokenResult = await prompts.text({
+              message: "Enter Microsoft Teams bot token (or press enter to skip)",
+            })
+            if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
+
+            connectorConfig = {
+              type: "teams",
+              enabled,
+            }
+            if (botTokenResult && botTokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              hasCredentials = true
+            }
+            break
+          }
+          case "gchat": {
+            const botTokenResult = await prompts.text({
+              message: "Enter Google Chat bot token (or press enter to skip)",
+            })
+            if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
+
+            connectorConfig = {
+              type: "gchat",
+              enabled,
+            }
+            if (botTokenResult && botTokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              hasCredentials = true
+            }
+            break
+          }
+          case "linear": {
+            const botTokenResult = await prompts.text({
+              message: "Enter Linear bot token (or press enter to skip)",
+            })
+            if (prompts.isCancel(botTokenResult)) throw new UI.CancelledError()
+
+            connectorConfig = {
+              type: "linear",
+              enabled,
+            }
+            if (botTokenResult && botTokenResult.trim()) {
+              await addConnectorToConfig(name, connectorConfig, configPath)
+              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break

@@ -5,7 +5,7 @@ import { type Config } from "./gen/client/types.gen.js"
 import { NikcliClient } from "./gen/sdk.gen.js"
 export { type Config as NikcliClientConfig, NikcliClient }
 
-export function createNikcliClient(config?: Config & { directory?: string }) {
+export function createNikcliClient(config?: Config & { directory?: string; workspace?: string }) {
   if (!config?.fetch) {
     const customFetch: any = (req: any) => {
       // @ts-ignore
@@ -24,6 +24,13 @@ export function createNikcliClient(config?: Config & { directory?: string }) {
     config.headers = {
       ...config.headers,
       "x-nikcli-directory": encodedDirectory,
+    }
+  }
+
+  if (config?.workspace) {
+    config.headers = {
+      ...config.headers,
+      "x-nikcli-workspace": config.workspace,
     }
   }
 

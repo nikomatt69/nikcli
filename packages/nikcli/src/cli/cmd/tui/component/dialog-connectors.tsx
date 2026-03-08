@@ -18,6 +18,10 @@ const DEFAULT_CONNECTORS = [
   { name: "slack", type: "slack" as const, description: "Messages and channels" },
   { name: "github", type: "github" as const, description: "Repositories and issues" },
   { name: "lovable", type: "lovable" as const, description: "AI projects and chats" },
+  { name: "discord", type: "discord" as const, description: "Discord server bot" },
+  { name: "teams", type: "teams" as const, description: "Microsoft Teams bot" },
+  { name: "gchat", type: "gchat" as const, description: "Google Chat bot" },
+  { name: "linear", type: "linear" as const, description: "Linear issue bot" },
 ]
 
 const LOVABLE_BASE_URL = "https://lovable.dev/"

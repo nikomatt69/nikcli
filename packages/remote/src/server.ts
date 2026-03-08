@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events"
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http"
-import { WebSocketServer, WebSocket, type RawData } from "ws"
+import { WebSocketServer, WebSocket } from "ws"
 import crypto from "node:crypto"
 import os from "node:os"
 import fs from "node:fs"
@@ -111,6 +111,7 @@ export class RemoteServer extends EventEmitter {
   private isRunning = false
   private sessionSecret: string
   private ptyInput: ((data: Buffer) => void) | null = null
+  private restoreStdoutWrite: (() => void) | null = null
 
   // Redesigned buffer to cap by byte size rather than array length for safety
   private terminalOutputBuffer: Buffer = Buffer.alloc(0)
@@ -202,19 +203,32 @@ export class RemoteServer extends EventEmitter {
   }
 
   private setupStdioProxy(stdout: NodeJS.WriteStream, stdin: NodeJS.ReadStream): void {
-    const originalWrite = stdout.write.bind(stdout)
+    if (this.restoreStdoutWrite) {
+      this.restoreStdoutWrite()
+      this.restoreStdoutWrite = null
+    }
+
+    const originalWrite = stdout.write
 
     stdout.write = ((
       data: string | Uint8Array,
       encoding?: BufferEncoding | undefined,
       cb?: (err?: Error | null) => void,
     ): boolean => {
-      const result = originalWrite(data, encoding, cb)
+      const result =
+        typeof encoding === "function"
+          ? (originalWrite as any).call(stdout, data, encoding)
+          : (originalWrite as any).call(stdout, data, encoding, cb)
       const buf = Buffer.isBuffer(data) ? data : Buffer.from(data as string, encoding || "utf8")
       this.broadcastTerminalData(buf)
       this.emit("terminal:output", buf)
       return result
     }) as typeof stdout.write
+
+    this.restoreStdoutWrite = () => {
+      stdout.write = originalWrite
+      this.restoreStdoutWrite = null
+    }
 
     this.ptyInput = (data: Buffer) => {
       stdin.emit("data", data)
@@ -260,12 +274,20 @@ export class RemoteServer extends EventEmitter {
       this.sessionTimeoutTimer = null
     }
 
+    if (this.restoreStdoutWrite) {
+      this.restoreStdoutWrite()
+    }
+
     this.broadcastToAll({ type: MessageTypes.SESSION_END, payload: {} })
 
     for (const client of this.clients.values()) {
       client.ws.close(1000, "Server shutting down")
     }
     this.clients.clear()
+
+    if (this.session) {
+      this.session.connectedDevices = []
+    }
 
     for (const ws of this.pendingAuth) {
       ws.close(1000, "Server shutting down")
@@ -374,6 +396,62 @@ export class RemoteServer extends EventEmitter {
     this.emit("terminal:resize", cols, rows)
   }
 
+  private disconnectClient(
+    clientId: string,
+    options?: {
+      closeSocket?: boolean
+      terminate?: boolean
+      closeCode?: number
+      reason?: string
+    },
+  ): void {
+    const client = this.clients.get(clientId)
+    if (!client) return
+
+    this.clients.delete(clientId)
+
+    if (this.session) {
+      this.session.connectedDevices = this.session.connectedDevices.filter((d) => d.id !== clientId)
+      if (this.session.connectedDevices.length === 0) {
+        this.session.status = "waiting"
+      }
+      this.emit("client:disconnected", client.device)
+    }
+
+    if (options?.closeSocket === false) return
+
+    try {
+      if (options?.terminate) {
+        client.ws.terminate()
+      } else if (client.ws.readyState === WebSocket.OPEN || client.ws.readyState === WebSocket.CONNECTING) {
+        client.ws.close(options?.closeCode ?? 1000, options?.reason ?? "Disconnected")
+      }
+    } catch {
+      // ignore close errors
+    }
+  }
+
+  private isControlRequestAuthorized(req: IncomingMessage, url: URL): boolean {
+    const authHeader = req.headers.authorization
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : undefined
+    const queryToken = url.searchParams.get("t") ?? undefined
+    const token = bearerToken || queryToken
+    if (!token) return false
+    return token === this.sessionSecret
+  }
+
+  private currentSessionPayload() {
+    return {
+      id: this.session?.id,
+      name: this.session?.name,
+      status: this.session?.status,
+      connectedDevices: this.session?.connectedDevices.length ?? 0,
+      startedAt: this.session?.startedAt,
+      lastActivity: this.session?.lastActivity,
+      port: this.session?.port,
+    }
+  }
+
   private setupWebSocketHandlers(): void {
     this.wss!.on("connection", (ws, req) => {
       // Pending Auth Timeout (DoS Protection)
@@ -420,16 +498,8 @@ export class RemoteServer extends EventEmitter {
         this.pendingAuth.delete(ws)
 
         const clientId = (ws as any).__clientId
-        if (clientId && this.clients.has(clientId)) {
-          const client = this.clients.get(clientId)!
-          this.clients.delete(clientId)
-          if (this.session) {
-            this.session.connectedDevices = this.session.connectedDevices.filter((d) => d.id !== clientId)
-            if (this.session.connectedDevices.length === 0) {
-              this.session.status = "waiting"
-            }
-            this.emit("client:disconnected", client.device)
-          }
+        if (clientId) {
+          this.disconnectClient(clientId, { closeSocket: false })
         }
       })
 
@@ -549,7 +619,7 @@ export class RemoteServer extends EventEmitter {
     const reqPath = url.pathname
 
     // Hardened CORS
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
     // Security headers
@@ -616,6 +686,61 @@ export class RemoteServer extends EventEmitter {
         return
       }
 
+      if (reqPath === "/api/control/status") {
+        if (!this.isControlRequestAuthorized(req, url)) {
+          res.writeHead(401, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: "unauthorized",
+            }),
+          )
+          return
+        }
+
+        res.writeHead(200, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            ok: true,
+            session: this.currentSessionPayload(),
+          }),
+        )
+        return
+      }
+
+      if (reqPath === "/api/control/stop") {
+        if (!this.isControlRequestAuthorized(req, url)) {
+          res.writeHead(401, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: "unauthorized",
+            }),
+          )
+          return
+        }
+
+        if (req.method !== "POST") {
+          res.writeHead(405, { "Content-Type": "application/json" })
+          res.end(
+            JSON.stringify({
+              error: "method_not_allowed",
+            }),
+          )
+          return
+        }
+
+        res.writeHead(202, { "Content-Type": "application/json" })
+        res.end(
+          JSON.stringify({
+            ok: true,
+          }),
+        )
+
+        setTimeout(() => {
+          void this.stop()
+        }, 10)
+        return
+      }
+
       // Safe Static File Serving
       const basePath = path.resolve(__dirname, "..", "dist", "client")
       let targetPath = path.normalize(path.join(basePath, reqPath === "/" ? "index.html" : reqPath))
@@ -627,18 +752,7 @@ export class RemoteServer extends EventEmitter {
         return
       }
 
-      // Serve from Cache if available
-      if (ASSET_CACHE.has(targetPath)) {
-        const cached = ASSET_CACHE.get(targetPath)!
-        res.writeHead(200, {
-          "Content-Type": cached.type,
-          "Cache-Control": "public, max-age=3600",
-        })
-        res.end(cached.data)
-        return
-      }
-
-      // Serve from Cache if available
+      // Serve from cache if available
       if (ASSET_CACHE.has(targetPath)) {
         const cached = ASSET_CACHE.get(targetPath)!
         res.writeHead(200, {
@@ -717,8 +831,11 @@ export class RemoteServer extends EventEmitter {
       const now = Date.now()
       for (const [id, client] of this.clients) {
         if (now - client.lastPing > this.config.heartbeatInterval * 2) {
-          client.ws.terminate()
-          this.clients.delete(id)
+          this.disconnectClient(id, {
+            terminate: true,
+            closeCode: 1001,
+            reason: "Heartbeat timeout",
+          })
         } else if (client.ws.readyState === WebSocket.OPEN) {
           client.ws.ping()
         }
@@ -798,7 +915,7 @@ export class RemoteServer extends EventEmitter {
     p { color: #8b949e; }
   </style>
 </head>
-<body><p>Run 'nikcli remote start' to start a session</p></body>
+<body><p>Run 'nikcli remote-control' to start a session</p></body>
 </html>`
   }
 
