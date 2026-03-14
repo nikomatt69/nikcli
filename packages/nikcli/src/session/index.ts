@@ -89,7 +89,9 @@ export namespace Session {
 
   export const ShareInfo = z
     .object({
-      secret: z.string(),
+      id: z.string().optional(),
+      mode: z.enum(["remote", "local"]).optional(),
+      secret: z.string().optional(),
       url: z.string(),
     })
     .meta({
@@ -251,7 +253,7 @@ export namespace Session {
   })
 
   export const getShare = fn(Identifier.schema("session"), async (id) => {
-    return Storage.read<ShareInfo>(["share", id])
+    return Storage.read<ShareInfo>(["session_share", id])
   })
 
   export const share = fn(Identifier.schema("session"), async (id) => {

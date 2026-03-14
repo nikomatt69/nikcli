@@ -27,7 +27,15 @@ import {
   RGBA,
 } from "@opentui/core"
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import type { AssistantMessage, Part, ToolPart, UserMessage, TextPart, ReasoningPart } from "@nikcli-ai/sdk/v2"
+import {
+  createNikcliClient,
+  type AssistantMessage,
+  type Part,
+  type ToolPart,
+  type UserMessage,
+  type TextPart,
+  type ReasoningPart,
+} from "@nikcli-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
 import type { Tool } from "@/tool/tool"
@@ -63,6 +71,7 @@ import parsers from "../../../../../../parsers-config.ts"
 import { Clipboard } from "../../util/clipboard"
 import { Toast, useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv.tsx"
+import { useServer } from "../../context/server"
 import { Editor } from "../../util/editor"
 import stripAnsi from "strip-ansi"
 import { Footer } from "./footer.tsx"
@@ -77,6 +86,16 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 
 addDefaultParsers(parsers.parsers)
+
+function shareErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  if (error && typeof error === "object") {
+    const value = error as any
+    const message = value?.error?.message ?? value?.data?.message ?? value?.message
+    if (typeof message === "string" && message.trim()) return message.trim()
+  }
+  return "Failed to share session"
+}
 
 class CustomSpeedScroll implements ScrollAcceleration {
   constructor(private speed: number) {}
@@ -110,6 +129,7 @@ export function Session() {
   const { navigate } = useRoute()
   const sync = useSync()
   const kv = useKV()
+  const server = useServer()
   const { theme } = useTheme()
   const promptRef = usePromptRef()
   const session = createMemo(() => sync.session.get(route.sessionID))
@@ -407,19 +427,53 @@ export function Session() {
             .then(() => toast.show({ message: "Share URL copied to clipboard!", variant: "success" }))
             .catch(() => toast.show({ message: "Failed to copy URL to clipboard", variant: "error" }))
 
+        const shareSession = async (client = sdk.client) => {
+          const result = await client.session.share(
+            {
+              sessionID: route.sessionID,
+            },
+            { throwOnError: true },
+          )
+          const next = result.data?.share?.url
+          if (!next) throw new Error("Share URL missing from session response")
+          await copy(next)
+        }
+
         const url = session()?.share?.url
-        if (url) {
+        const shouldRefreshLocalShare =
+          !!url &&
+          /^https?:\/\/(?:127\.0\.0\.1|localhost|nikcli\.local)(?::\d+)?\//i.test(url) &&
+          /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(sdk.url)
+
+        if (url && !shouldRefreshLocalShare) {
           await copy(url)
           dialog.clear()
           return
         }
 
-        await sdk.client.session
-          .share({
-            sessionID: route.sessionID,
-          })
-          .then((res) => copy(res.data!.share!.url))
-          .catch(() => toast.show({ message: "Failed to share session", variant: "error" }))
+        try {
+          await shareSession()
+        } catch (error) {
+          const canStartLocalServer = /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(sdk.url) && !!server.startServer
+          if (!canStartLocalServer) {
+            toast.show({ message: shareErrorMessage(error), variant: "error", duration: 5000 })
+            dialog.clear()
+            return
+          }
+
+          try {
+            const baseUrl = await server.startServer?.()
+            if (!baseUrl) throw new Error("Failed to start local share server")
+            const client = createNikcliClient({
+              baseUrl,
+              directory: sdk.directory,
+              fetch: sdk.fetch,
+            })
+            await shareSession(client)
+          } catch (retryError) {
+            toast.show({ message: shareErrorMessage(retryError), variant: "error", duration: 5000 })
+          }
+        }
         dialog.clear()
       },
     },
@@ -522,7 +576,7 @@ export function Session() {
             sessionID: route.sessionID,
           })
           .then(() => toast.show({ message: "Session unshared successfully", variant: "success" }))
-          .catch(() => toast.show({ message: "Failed to unshare session", variant: "error" }))
+          .catch((error) => toast.show({ message: shareErrorMessage(error), variant: "error", duration: 5000 }))
         dialog.clear()
       },
     },

@@ -36,6 +36,7 @@ import { BotCommand } from "./cli/cmd/chatbot"
 import { AdsCommand } from "./cli/cmd/ads"
 import { LovableCommand } from "./cli/cmd/lovable"
 import { CompanionCommand } from "./cli/cmd/companion"
+import { MobileCommand } from "./cli/cmd/mobile"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -117,6 +118,7 @@ const cli = yargs(hideBin(process.argv))
   .command(SpeakModelCommand)
   .command(RemoteCommand)
   .command(CompanionCommand)
+  .command(MobileCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

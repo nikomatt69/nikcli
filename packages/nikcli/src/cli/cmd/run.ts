@@ -11,6 +11,10 @@ import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/v2"
 import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
+import { Storage } from "../../storage/storage"
+import { Instance } from "../../project/instance"
+import { Config } from "../../config/config"
+import { ShareNext } from "../../share/share-next"
 
 const TOOL: Record<string, [string, string]> = {
   todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
@@ -23,6 +27,188 @@ const TOOL: Record<string, [string, string]> = {
   read: ["Read", UI.Style.TEXT_HIGHLIGHT_BOLD],
   write: ["Write", UI.Style.TEXT_SUCCESS_BOLD],
   websearch: ["Search", UI.Style.TEXT_DIM_BOLD],
+}
+
+const SHARE_ID = /^[0-9a-z]{26}$/i
+
+function shareErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) return error.message
+  if (error && typeof error === "object") {
+    const value = error as any
+    const message = value?.error?.message ?? value?.data?.message ?? value?.message
+    if (typeof message === "string" && message.trim()) return message.trim()
+  }
+  return "Failed to share session"
+}
+
+function invalidSessionReference() {
+  UI.error("Invalid --session value. Use a `ses_...` session ID or a share URL/ID.")
+  process.exit(1)
+}
+
+function resolveEnterpriseOrigin(hostname: string) {
+  if (hostname === "nikcli.store") return "https://s.nikcli.store"
+  if (hostname === "dev.nikcli.store") return "https://dev.s.nikcli.store"
+  if (hostname.endsWith(".dev.nikcli.store")) {
+    const stage = hostname.slice(0, -".dev.nikcli.store".length)
+    if (stage) return `https://${stage}.dev.s.nikcli.store`
+  }
+}
+
+function parseShareReference(input: string) {
+  if (SHARE_ID.test(input)) {
+    return {
+      shareID: input,
+      origins: [] as string[],
+    }
+  }
+
+  if (!input.startsWith("http://") && !input.startsWith("https://")) return
+
+  let parsed: URL
+  try {
+    parsed = new URL(input)
+  } catch {
+    return
+  }
+
+  const parts = parsed.pathname.split("/").filter(Boolean)
+  if (parts.length !== 2) return
+
+  const [prefix, shareID] = parts
+  if (prefix !== "share" && prefix !== "s") return
+  if (!SHARE_ID.test(shareID)) return
+
+  const origins = new Set<string>()
+  const enterpriseOrigin = resolveEnterpriseOrigin(parsed.hostname)
+  if (enterpriseOrigin) origins.add(enterpriseOrigin)
+  origins.add(parsed.origin)
+
+  return {
+    shareID,
+    origins: Array.from(origins),
+  }
+}
+
+async function fetchSharePayload(origins: string[], shareID: string) {
+  const urls = origins.flatMap((origin) => [`${origin}/api/share/${shareID}/data`, `${origin}/api/share/${shareID}`])
+
+  for (const url of urls) {
+    const response = await fetch(url).catch(() => undefined)
+    if (!response?.ok) continue
+    return response.json().catch(() => undefined)
+  }
+}
+
+function normalizeSharePayload(payload: any):
+  | {
+      info: any
+      messages: Array<{
+        info: any
+        parts: any[]
+      }>
+      diff?: any[]
+    }
+  | undefined {
+  if (Array.isArray(payload)) {
+    let info: any
+    let diff: any[] | undefined
+    const messages = new Map<string, { info?: any; parts: any[] }>()
+
+    for (const item of payload) {
+      if (!item || typeof item !== "object") continue
+      if (item.type === "session") {
+        info = item.data
+        continue
+      }
+      if (item.type === "session_diff" && Array.isArray(item.data)) {
+        diff = item.data
+        continue
+      }
+      if (item.type === "message") {
+        const messageID = item.data?.id
+        if (!messageID) continue
+        const existing = messages.get(messageID)
+        messages.set(messageID, {
+          info: item.data,
+          parts: existing?.parts ?? [],
+        })
+        continue
+      }
+      if (item.type === "part") {
+        const messageID = item.data?.messageID
+        if (!messageID) continue
+        const existing = messages.get(messageID)
+        if (existing) {
+          existing.parts.push(item.data)
+        } else {
+          messages.set(messageID, {
+            parts: [item.data],
+          })
+        }
+      }
+    }
+
+    if (!info) return
+
+    return {
+      info,
+      diff,
+      messages: Array.from(messages.values())
+        .filter((item): item is { info: any; parts: any[] } => Boolean(item.info))
+        .sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0))
+        .map((item) => ({
+          info: item.info,
+          parts: item.parts,
+        })),
+    }
+  }
+
+  if (!payload?.info || !payload?.messages) return
+
+  return {
+    info: payload.info,
+    diff: Array.isArray(payload.diff) ? payload.diff : undefined,
+    messages: Object.values(payload.messages).map((msg: any) => {
+      const { parts, ...info } = msg
+      return {
+        info,
+        parts,
+      }
+    }),
+  }
+}
+
+async function importShareReference(input: string) {
+  const parsed = parseShareReference(input)
+  if (!parsed) return
+
+  let payload = await ShareNext.publicData(parsed.shareID).catch(() => undefined)
+  if (!payload) {
+    const configOrigin = await Config.get()
+      .then((config) => config.enterprise?.url ?? "https://s.nikcli.store")
+      .catch(() => "https://s.nikcli.store")
+    payload = await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)
+  }
+
+  const normalized = normalizeSharePayload(payload)
+  if (!normalized) {
+    throw new Error(`Share not found: ${parsed.shareID}`)
+  }
+
+  await Storage.write(["session", Instance.project.id, normalized.info.id], normalized.info)
+  if (normalized.diff) {
+    await Storage.write(["session_diff", normalized.info.id], normalized.diff)
+  }
+
+  for (const msg of normalized.messages) {
+    await Storage.write(["message", normalized.info.id, msg.info.id], msg.info)
+    for (const part of msg.parts) {
+      await Storage.write(["part", msg.info.id, part.id], part)
+    }
+  }
+
+  return normalized.info.id as string
 }
 
 export const RunCommand = cmd({
@@ -282,7 +468,15 @@ export const RunCommand = cmd({
           const result = await sdk.session.list()
           return result.data?.find((s) => !s.parentID)?.id
         }
-        if (args.session) return args.session
+        if (args.session) {
+          const share = parseShareReference(args.session)
+          if (share) {
+            UI.error("Share IDs/URLs are not supported with --attach yet. Import the share locally first.")
+            process.exit(1)
+          }
+          if (!args.session.startsWith("ses_")) invalidSessionReference()
+          return args.session
+        }
 
         const title =
           args.title !== undefined
@@ -323,13 +517,11 @@ export const RunCommand = cmd({
 
       const cfgResult = await sdk.config.get()
       if (cfgResult.data && (cfgResult.data.share === "auto" || Flag.NIKCLI_AUTO_SHARE || args.share)) {
-        const shareResult = await sdk.session.share({ sessionID }).catch((error) => {
-          if (error instanceof Error && error.message.includes("disabled")) {
-            UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + error.message)
-          }
+        const shareResult = await sdk.session.share({ sessionID }, { throwOnError: true }).catch((error) => {
+          UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + shareErrorMessage(error))
           return { error }
         })
-        if (!shareResult.error && "data" in shareResult && shareResult.data?.share?.url) {
+        if (!("error" in shareResult) && shareResult.data?.share?.url) {
           UI.println(UI.Style.TEXT_INFO_BOLD + "~  " + shareResult.data.share.url)
         }
       }
@@ -357,7 +549,12 @@ export const RunCommand = cmd({
           const result = await sdk.session.list()
           return result.data?.find((s) => !s.parentID)?.id
         }
-        if (args.session) return args.session
+        if (args.session) {
+          if (args.session.startsWith("ses_")) return args.session
+          const imported = await importShareReference(args.session)
+          if (!imported) invalidSessionReference()
+          return imported
+        }
 
         const title =
           args.title !== undefined
@@ -377,13 +574,11 @@ export const RunCommand = cmd({
 
       const cfgResult = await sdk.config.get()
       if (cfgResult.data && (cfgResult.data.share === "auto" || Flag.NIKCLI_AUTO_SHARE || args.share)) {
-        const shareResult = await sdk.session.share({ sessionID }).catch((error) => {
-          if (error instanceof Error && error.message.includes("disabled")) {
-            UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + error.message)
-          }
+        const shareResult = await sdk.session.share({ sessionID }, { throwOnError: true }).catch((error) => {
+          UI.println(UI.Style.TEXT_DANGER_BOLD + "!  " + shareErrorMessage(error))
           return { error }
         })
-        if (!shareResult.error && "data" in shareResult && shareResult.data?.share?.url) {
+        if (!("error" in shareResult) && shareResult.data?.share?.url) {
           UI.println(UI.Style.TEXT_INFO_BOLD + "~  " + shareResult.data.share.url)
         }
       }

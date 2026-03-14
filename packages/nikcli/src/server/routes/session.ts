@@ -17,6 +17,8 @@ import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { SessionProxyMiddleware } from "../../workspace/session-proxy-middleware"
+import { ShareNext } from "@/share/share-next"
+import { Config } from "@/config/config"
 
 const log = Log.create({ service: "server" })
 
@@ -416,7 +418,24 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        await Session.share(sessionID)
+        const config = await Config.get()
+        if (config.share === "disabled") {
+          throw new Error("Sharing is disabled in configuration")
+        }
+        const origin = new URL(c.req.url).origin
+        const share = await ShareNext.create(
+          sessionID,
+          /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(origin) ? undefined : { baseUrl: origin },
+        )
+        await Session.update(
+          sessionID,
+          (draft) => {
+            draft.share = {
+              url: share.url,
+            }
+          },
+          { touch: false },
+        )
         const session = await Session.get(sessionID)
         return c.json(session)
       },

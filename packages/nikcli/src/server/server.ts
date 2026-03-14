@@ -44,7 +44,10 @@ import { DBEditRoutes } from "./routes/dbedit"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
+import { MobileRoutes } from "./routes/mobile"
 import { WorkspaceContext } from "../workspace/workspace-context"
+import { ShareNext } from "@/share/share-next"
+import { MobileAuth } from "@/mobile/auth"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -110,12 +113,42 @@ export namespace Server {
             status: 500,
           })
         })
+        .get("/s/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
+          const { shareID } = c.req.valid("param")
+          return c.redirect(`/share/${encodeURIComponent(shareID)}`, 308)
+        })
+        .get("/share/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
+          const { shareID } = c.req.valid("param")
+          const data = await ShareNext.publicData(shareID)
+          if (!data) return c.text("Share not found", 404)
+          return c.json(data)
+        })
+        .get("/api/share/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
+          const { shareID } = c.req.valid("param")
+          const data = await ShareNext.publicData(shareID)
+          if (!data) return c.text("Share not found", 404)
+          return c.json(data)
+        })
+        .get("/api/share/:shareID/data", validator("param", z.object({ shareID: z.string() })), async (c) => {
+          const { shareID } = c.req.valid("param")
+          const data = await ShareNext.publicData(shareID)
+          if (!data) return c.text("Share not found", 404)
+          return c.json(data)
+        })
         .use(async (c, next) => {
           // Always allow CORS preflight to reach the CORS middleware.
           if (c.req.method === "OPTIONS") return next()
 
           const password = Flag.NIKCLI_SERVER_PASSWORD
           const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
+
+          const bearer = MobileAuth.bearer(c.req.raw)
+          if (bearer) {
+            const token = await MobileAuth.verify(bearer)
+            if (!token) return c.text("Unauthorized", 401)
+            ;(c as any).set("mobileAuth", token)
+            return next()
+          }
 
           const tailscaleAuthEnabled = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && isLoopbackHostname(_listenHostname)
           if (tailscaleAuthEnabled) {
@@ -168,7 +201,11 @@ export namespace Server {
                   input.startsWith("http://127.0.0.1") ||
                   input.startsWith("http://*.local") ||
                   input === "tauri://localhost" ||
-                  input.startsWith("http://tailscale")
+                  input.startsWith("http://tailscale") ||
+                  input.startsWith("http://localhost:8081") ||
+                  input === "capacitor://localhost" ||
+                  input.startsWith("exp://") ||
+                  input.startsWith("nikcli://")
                 ) {
                   return input
                 }
@@ -246,6 +283,7 @@ export namespace Server {
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
         .route("/companion", CompanionRoutes())
+        .route("/mobile", MobileRoutes())
         .route("/", FileRoutes())
         .route("/connectors", ConnectorsRoutes())
         .route("/chatbot", ChatBotRoutes())

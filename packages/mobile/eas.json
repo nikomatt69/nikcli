@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 18.3.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "personal": {
+      "distribution": "internal",
+      "environment": "preview",
+      "bun": "1.3.10",
+      "node": "20.19.4",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.1"
+      }
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
