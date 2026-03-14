@@ -78,7 +78,7 @@ export default function SessionsScreen() {
                 Track active runs, approvals, and diffs.
               </Text>
               <Text className="mt-3 text-sm leading-6 text-soft">
-                Your recent Nikcli workflows are optimized here for quick triage and mobile follow-up.
+                GitHub-backed flows now start from Repos so every branch session can own its worktree and PR lifecycle.
               </Text>
               <View className="mt-4 flex-row items-center justify-between">
                 <View className="rounded-full bg-background/70 px-3 py-2">
@@ -92,7 +92,7 @@ export default function SessionsScreen() {
                   {creating ? (
                     <ActivityIndicator color="#082f49" />
                   ) : (
-                    <Text className="font-semibold text-slate-950">New session</Text>
+                    <Text className="font-semibold text-slate-950">New local session</Text>
                   )}
                 </Pressable>
               </View>

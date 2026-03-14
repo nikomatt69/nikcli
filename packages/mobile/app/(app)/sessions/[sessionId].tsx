@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   Text,
@@ -39,11 +40,13 @@ function upsertPart(messages: MessageWithParts[], part: MessageWithParts["parts"
 
 export default function SessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
-  const { client, config } = useServer()
+  const { client, config, save } = useServer()
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({})
 
@@ -112,9 +115,11 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
+  const sessionBlocked = detail?.status?.type !== "idle"
+  const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
 
   async function send() {
-    if (!client || !sessionId || !input.trim()) return
+    if (!client || !sessionId || !input.trim() || cleaned) return
     try {
       setSending(true)
       await client.sendMessage(sessionId, input.trim())
@@ -140,6 +145,40 @@ export default function SessionScreen() {
   async function abort() {
     if (!client || !sessionId) return
     await client.abortSession(sessionId)
+  }
+
+  async function publish() {
+    if (!client || !sessionId || !detail?.info.github || sessionBlocked || cleaned) return
+    try {
+      setPublishing(true)
+      setError(null)
+      await client.publishGithubSession(sessionId, {
+        title: detail.info.github.pullRequest?.title || detail.info.title,
+        commitMessage: detail.info.title,
+      })
+      await load()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setPublishing(false)
+    }
+  }
+
+  async function cleanup() {
+    if (!client || !sessionId || !detail?.info.github || sessionBlocked || cleaned) return
+    try {
+      setCleaning(true)
+      setError(null)
+      await client.cleanupGithubSession(sessionId)
+      if (config && detail.info.github.repositoryDirectory) {
+        await save({ ...config, directory: detail.info.github.repositoryDirectory })
+      }
+      await load()
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setCleaning(false)
+    }
   }
 
   if (loading && !detail) {
@@ -174,7 +213,60 @@ export default function SessionScreen() {
             <View className="rounded-full bg-background/70 px-3 py-2">
               <Text className="text-[11px] font-semibold text-ink">{detail?.permissions.length ?? 0} approvals</Text>
             </View>
+            {detail?.info.github ? (
+              <View className="rounded-full bg-accent/10 px-3 py-2">
+                <Text className="text-[11px] font-semibold text-accent-light">{detail.info.github.fullName}</Text>
+              </View>
+            ) : null}
           </View>
+          {detail?.info.github ? (
+            <View className="mt-4 rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">GitHub flow</Text>
+              <Text className="mt-2 text-sm leading-6 text-soft">
+                {`Base ${detail.info.github.baseBranch} -> head ${detail.info.github.headBranch}`}
+              </Text>
+              {detail.info.github.pullRequest ? (
+                <Text className="mt-2 text-sm leading-6 text-soft">PR ready: {detail.info.github.pullRequest.url}</Text>
+              ) : null}
+              {detail.info.github.worktree.cleanedAt ? (
+                <Text className="mt-2 text-sm leading-6 text-soft">Worktree cleaned</Text>
+              ) : null}
+              <View className="mt-4 flex-row gap-2">
+                <Pressable
+                  disabled={publishing || sessionBlocked || Boolean(detail.info.github.worktree.cleanedAt)}
+                  onPress={() => void publish()}
+                  className="flex-1 rounded-2xl bg-accent px-4 py-3"
+                >
+                  {publishing ? (
+                    <ActivityIndicator color="#082f49" />
+                  ) : (
+                    <Text className="text-center font-semibold text-slate-950">
+                      {detail.info.github.pullRequest ? "Push updates" : "Publish PR"}
+                    </Text>
+                  )}
+                </Pressable>
+                {detail.info.github.pullRequest ? (
+                  <Pressable
+                    onPress={() => void Linking.openURL(detail.info.github!.pullRequest!.url)}
+                    className="flex-1 rounded-2xl border border-border bg-background px-4 py-3"
+                  >
+                    <Text className="text-center font-semibold text-ink">Open PR</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Pressable
+                disabled={cleaning || sessionBlocked || Boolean(detail.info.github.worktree.cleanedAt)}
+                onPress={() => void cleanup()}
+                className="mt-3 rounded-2xl border border-border bg-background/70 px-4 py-3"
+              >
+                {cleaning ? (
+                  <ActivityIndicator color="#7dd3fc" />
+                ) : (
+                  <Text className="text-center font-semibold text-ink">Cleanup worktree</Text>
+                )}
+              </Pressable>
+            </View>
+          ) : null}
         </View>
         {error ? <Text className="mt-3 text-sm text-rose-300">{error}</Text> : null}
       </View>
@@ -202,12 +294,17 @@ export default function SessionScreen() {
             value={input}
             onChangeText={setInput}
             multiline
-            placeholder="Ask Nikcli to inspect, edit, review, or commit..."
+            editable={!cleaned}
+            placeholder={
+              cleaned
+                ? "This GitHub worktree has been cleaned up."
+                : "Ask Nikcli to inspect, edit, review, or commit..."
+            }
             placeholderTextColor="#6d84a0"
             className="max-h-32 flex-1 text-base leading-6 text-ink"
           />
           <Pressable
-            disabled={sending || !input.trim()}
+            disabled={sending || sessionBlocked || cleaned || !input.trim()}
             onPress={() => void send()}
             className="rounded-full bg-accent px-4 py-3"
           >

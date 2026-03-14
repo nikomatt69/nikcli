@@ -5,9 +5,7 @@ import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Global } from "../global"
 import { Instance } from "../project/instance"
-import { Project } from "../project/project"
 import { fn } from "../util/fn"
-import { Config } from "@/config/config"
 
 export namespace Worktree {
   export const Info = z
@@ -25,6 +23,10 @@ export namespace Worktree {
   export const CreateInput = z
     .object({
       name: z.string().optional(),
+      branch: z.string().optional(),
+      branchPrefix: z.string().optional(),
+      baseBranch: z.string().optional(),
+      remote: z.string().optional(),
       startCommand: z.string().optional(),
     })
     .meta({
@@ -178,6 +180,14 @@ export namespace Worktree {
     return `${pick(ADJECTIVES)}-${pick(NOUNS)}`
   }
 
+  function branchName(input: string) {
+    return input
+      .split("/")
+      .map((part) => slug(part))
+      .filter(Boolean)
+      .join("/")
+  }
+
   async function exists(target: string) {
     return fs
       .stat(target)
@@ -194,10 +204,33 @@ export namespace Worktree {
     return [outputText(result.stderr), outputText(result.stdout)].filter(Boolean).join("\n")
   }
 
-  async function candidate(root: string, base?: string) {
+  async function remotes() {
+    const remoteList = await $`git remote`.quiet().nothrow().cwd(Instance.worktree)
+    if (remoteList.exitCode !== 0) return [] as string[]
+    return outputText(remoteList.stdout)
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+  }
+
+  async function detectRemote(preferred?: string) {
+    const values = await remotes()
+    if (preferred && values.includes(preferred)) return preferred
+    if (values.includes("origin")) return "origin"
+    if (values.length === 1) return values[0]
+    if (values.includes("upstream")) return "upstream"
+    return ""
+  }
+
+  async function candidate(root: string, input?: { name?: string; branch?: string; branchPrefix?: string }) {
     for (const attempt of Array.from({ length: 26 }, (_, i) => i)) {
+      const base = input?.name
       const name = base ? (attempt === 0 ? base : `${base}-${randomName()}`) : randomName()
-      const branch = `nikcli/${name}`
+      const branch = input?.branch
+        ? attempt === 0
+          ? input.branch
+          : `${input.branch}-${attempt}`
+        : `${input?.branchPrefix || "nikcli"}/${name}`
       const directory = path.join(root, name)
 
       if (await exists(directory)) continue
@@ -228,12 +261,32 @@ export namespace Worktree {
     await fs.mkdir(root, { recursive: true })
 
     const base = input?.name ? slug(input.name) : ""
-    const info = await candidate(root, base || undefined)
+    const explicitBranch = input?.branch ? branchName(input.branch) : ""
+    const branchPrefix = input?.branchPrefix
+      ?.split("/")
+      .map((part) => slug(part))
+      .filter(Boolean)
+      .join("/")
+    const info = await candidate(root, {
+      name: base || undefined,
+      branch: explicitBranch || undefined,
+      branchPrefix: branchPrefix || undefined,
+    })
 
-    const created = await $`git worktree add -b ${info.branch} ${info.directory}`
-      .quiet()
-      .nothrow()
-      .cwd(Instance.worktree)
+    const remote = await detectRemote(input?.remote)
+    const baseBranch = input?.baseBranch?.trim()
+    const target = baseBranch ? (remote ? `${remote}/${baseBranch}` : baseBranch) : undefined
+
+    if (baseBranch && remote) {
+      const fetch = await $`git fetch ${remote} ${baseBranch}`.quiet().nothrow().cwd(Instance.worktree)
+      if (fetch.exitCode !== 0) {
+        throw new CreateFailedError({ message: errorText(fetch) || `Failed to fetch ${target}` })
+      }
+    }
+
+    const created = target
+      ? await $`git worktree add -b ${info.branch} ${info.directory} ${target}`.quiet().nothrow().cwd(Instance.worktree)
+      : await $`git worktree add -b ${info.branch} ${info.directory}`.quiet().nothrow().cwd(Instance.worktree)
     if (created.exitCode !== 0) {
       throw new CreateFailedError({ message: errorText(created) || "Failed to create git worktree" })
     }

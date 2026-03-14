@@ -29,6 +29,38 @@ import { WorkspaceContext } from "../workspace/workspace-context"
 export namespace Session {
   const log = Log.create({ service: "session" })
 
+  const GithubInfo = z
+    .object({
+      owner: z.string(),
+      repo: z.string(),
+      fullName: z.string(),
+      baseBranch: z.string(),
+      headBranch: z.string(),
+      repositoryDirectory: z.string().optional(),
+      cloneUrl: z.string().optional(),
+      htmlUrl: z.string().optional(),
+      private: z.boolean().optional(),
+      worktree: z.object({
+        name: z.string(),
+        branch: z.string(),
+        directory: z.string(),
+        cleanedAt: z.number().optional(),
+      }),
+      pullRequest: z
+        .object({
+          number: z.number(),
+          url: z.string(),
+          title: z.string(),
+        })
+        .optional(),
+      lastCommitSha: z.string().optional(),
+      publishedAt: z.number().optional(),
+      publishError: z.string().optional(),
+    })
+    .meta({
+      ref: "SessionGithub",
+    })
+
   const parentTitlePrefix = "New session - "
   const childTitlePrefix = "Child session - "
   const DEFAULT_TITLE_REGEX = new RegExp(
@@ -64,6 +96,7 @@ export namespace Session {
           url: z.string(),
         })
         .optional(),
+      github: GithubInfo.optional(),
       title: z.string(),
       version: z.string(),
       time: z.object({
@@ -140,6 +173,7 @@ export namespace Session {
         parentID: Identifier.schema("session").optional(),
         title: z.string().optional(),
         permission: Info.shape.permission,
+        github: GithubInfo.optional(),
       })
       .optional(),
     async (input) => {
@@ -148,6 +182,7 @@ export namespace Session {
         directory: Instance.directory,
         title: input?.title,
         permission: input?.permission,
+        github: input?.github,
       })
     },
   )
@@ -202,6 +237,7 @@ export namespace Session {
     parentID?: string
     directory: string
     permission?: PermissionNext.Ruleset
+    github?: z.infer<typeof GithubInfo>
   }) {
     const result: Info = {
       id: Identifier.descending("session", input.id),
@@ -213,6 +249,7 @@ export namespace Session {
       workspaceID: WorkspaceContext.workspaceID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
+      github: input.github,
       time: {
         created: Date.now(),
         updated: Date.now(),

@@ -19,6 +19,31 @@ export type Session = {
   share?: {
     url: string
   }
+  github?: {
+    owner: string
+    repo: string
+    fullName: string
+    baseBranch: string
+    headBranch: string
+    repositoryDirectory?: string
+    cloneUrl?: string
+    htmlUrl?: string
+    private?: boolean
+    worktree: {
+      name: string
+      branch: string
+      directory: string
+      cleanedAt?: number
+    }
+    pullRequest?: {
+      number: number
+      url: string
+      title: string
+    }
+    lastCommitSha?: string
+    publishedAt?: number
+    publishError?: string
+  }
 }
 
 export type SessionStatus =
@@ -250,6 +275,34 @@ export type ManagedGithubImport = {
   importedAt: number
   updatedAt: number
   projectID?: string
+}
+
+export type GitHubBranch = {
+  name: string
+  protected?: boolean
+  commit: {
+    sha: string
+  }
+}
+
+export type GitHubSessionCreateResult = {
+  session: Session
+  worktree: {
+    name: string
+    branch: string
+    directory: string
+  }
+  project: ProjectInfo
+}
+
+export type GitHubPublishResult = {
+  commitSha: string
+  branch: string
+  pullRequest: {
+    number: number
+    url: string
+    title: string
+  }
 }
 
 export type SessionStreamEvent =

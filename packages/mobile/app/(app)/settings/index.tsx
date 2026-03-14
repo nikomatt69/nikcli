@@ -4,7 +4,7 @@ import { useFocusEffect } from "expo-router"
 import { useServer } from "@/lib/server-provider"
 
 export default function SettingsScreen() {
-  const { client, config, save, clear } = useServer()
+  const { client, config, bootstrap, refreshBootstrap, save, clear } = useServer()
   const [url, setUrl] = useState(config?.url ?? "")
   const [token, setToken] = useState(config?.token ?? "")
   const [directory, setDirectory] = useState(config?.directory ?? "")
@@ -42,6 +42,7 @@ export default function SettingsScreen() {
       setSaving(true)
       await client.setGithubToken(githubToken.trim())
       setGithubToken("")
+      await refreshBootstrap().catch(() => null)
       setMessage("GitHub token saved on host")
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
     try {
       setSaving(true)
       await client.clearGithubToken()
+      await refreshBootstrap().catch(() => null)
       setMessage("GitHub token removed")
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
@@ -132,6 +134,21 @@ export default function SettingsScreen() {
           For now, save a GitHub token directly to the Nikcli host so mobile repo browsing can work outside the tailnet
           too.
         </Text>
+        {bootstrap?.github.connected ? (
+          <View className="mt-4 rounded-2xl border border-success/25 bg-success/10 px-4 py-4">
+            <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-emerald-200">
+              Connected account
+            </Text>
+            <Text className="mt-2 text-base font-semibold text-ink">{bootstrap.github.user?.login}</Text>
+            {bootstrap.github.user?.name ? (
+              <Text className="mt-1 text-sm text-soft">{bootstrap.github.user.name}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <View className="mt-4 rounded-2xl border border-border bg-background/60 px-4 py-4">
+            <Text className="text-sm leading-6 text-soft">No GitHub account connected on this host yet.</Text>
+          </View>
+        )}
         <TextInput
           value={githubToken}
           onChangeText={setGithubToken}

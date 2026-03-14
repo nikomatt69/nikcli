@@ -78,7 +78,7 @@ export namespace MobileGithubRepo {
     }
   }
 
-  async function runGit(args: string[], options: { cwd?: string; token: string }) {
+  export async function runGit(args: string[], options: { cwd?: string; token: string }) {
     const proc = Bun.spawn(["git", ...args], {
       cwd: options.cwd,
       env: Object.fromEntries(
@@ -103,7 +103,7 @@ export namespace MobileGithubRepo {
     return stdout.trim()
   }
 
-  async function prepareManagedClone(input: ImportRequest, token: string) {
+  export async function prepareManagedClone(input: ImportRequest, token: string) {
     const directory = target(input.owner, input.repo)
     await fs.mkdir(path.dirname(directory), { recursive: true })
     const gitDir = path.join(directory, ".git")

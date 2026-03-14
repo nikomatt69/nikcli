@@ -1,6 +1,9 @@
 import type {
   FileDiff,
+  GitHubBranch,
+  GitHubPublishResult,
   GitHubRepo,
+  GitHubSessionCreateResult,
   ManagedGithubImport,
   MobileBootstrap,
   ProjectInfo,
@@ -103,6 +106,12 @@ export class MobileClient {
     return this.request<GitHubRepo[]>("/mobile/github/repos")
   }
 
+  listGithubBranches(owner: string, repo: string) {
+    return this.request<GitHubBranch[]>(
+      `/mobile/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches`,
+    )
+  }
+
   listGithubImports() {
     return this.request<ManagedGithubImport[]>("/mobile/github/imports")
   }
@@ -122,6 +131,35 @@ export class MobileClient {
     return this.request<{ import: ManagedGithubImport; project: ProjectInfo }>("/mobile/github/import", {
       method: "POST",
       body: JSON.stringify(input),
+    })
+  }
+
+  createGithubSession(input: {
+    owner: string
+    repo: string
+    cloneUrl: string
+    htmlUrl?: string
+    defaultBranch: string
+    baseBranch: string
+    private: boolean
+    title?: string
+  }) {
+    return this.request<GitHubSessionCreateResult>("/mobile/github/session", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  publishGithubSession(sessionID: string, input?: { title?: string; body?: string; commitMessage?: string }) {
+    return this.request<GitHubPublishResult>(`/mobile/session/${encodeURIComponent(sessionID)}/publish`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
+    })
+  }
+
+  cleanupGithubSession(sessionID: string) {
+    return this.request<{ success: true }>(`/mobile/session/${encodeURIComponent(sessionID)}/cleanup`, {
+      method: "POST",
     })
   }
 

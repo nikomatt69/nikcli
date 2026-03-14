@@ -67,25 +67,57 @@ const MobileSessionDetail = z
 
 const GithubAuthInput = z.object({ token: z.string().min(1) })
 
-const MobileGithubRepoInfo = z
+const MobileGithubBranch = z
   .object({
-    id: z.number(),
     name: z.string(),
-    full_name: z.string(),
-    description: z.string().nullable(),
-    private: z.boolean(),
-    html_url: z.string(),
-    clone_url: z.string(),
-    default_branch: z.string(),
-    updated_at: z.string(),
-    stargazers_count: z.number(),
-    language: z.string().nullable(),
-    topics: z.string().array(),
-    imported: z.boolean().optional(),
-    imported_directory: z.string().optional(),
-    imported_project_id: z.string().optional(),
+    protected: z.boolean().optional(),
+    commit: z.object({
+      sha: z.string(),
+    }),
   })
-  .meta({ ref: "MobileGithubRepoInfo" })
+  .meta({ ref: "MobileGithubBranch" })
+
+const MobileGithubSessionCreateInput = z
+  .object({
+    owner: z.string().min(1),
+    repo: z.string().min(1),
+    cloneUrl: z.string().url(),
+    htmlUrl: z.string().url().optional(),
+    defaultBranch: z.string().min(1),
+    baseBranch: z.string().min(1),
+    private: z.boolean().default(false),
+    title: z.string().optional(),
+  })
+  .meta({ ref: "MobileGithubSessionCreateInput" })
+
+const MobileGithubSessionCreateResult = z
+  .object({
+    session: Session.Info,
+    worktree: Worktree.Info,
+    project: Project.Info,
+  })
+  .meta({ ref: "MobileGithubSessionCreateResult" })
+
+const MobileGithubPublishInput = z
+  .object({
+    title: z.string().optional(),
+    body: z.string().optional(),
+    commitMessage: z.string().optional(),
+  })
+  .optional()
+  .meta({ ref: "MobileGithubPublishInput" })
+
+const MobileGithubPublishResult = z
+  .object({
+    commitSha: z.string(),
+    branch: z.string(),
+    pullRequest: z.object({
+      number: z.number(),
+      url: z.string(),
+      title: z.string(),
+    }),
+  })
+  .meta({ ref: "MobileGithubPublishResult" })
 
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
@@ -145,6 +177,28 @@ async function githubUser() {
 async function githubImports() {
   const imports = await MobileGithubRepo.list()
   return new Map(imports.map((item) => [item.fullName.toLowerCase(), item] as const))
+}
+
+function slug(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
+}
+
+function sessionSeed() {
+  return Math.random().toString(36).slice(2, 8)
+}
+
+function defaultPullRequestBody(session: Session.Info) {
+  return [
+    `Generated from mobile session \`${session.id}\`.`,
+    session.share?.url ? `Session share: ${session.share.url}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 }
 
 export const MobileRoutes = lazy(() =>
@@ -316,6 +370,29 @@ export const MobileRoutes = lazy(() =>
       },
     )
     .get(
+      "/github/repos/:owner/:repo/branches",
+      describeRoute({
+        summary: "List GitHub branches for mobile",
+        description: "List branches for a GitHub repository available to the stored mobile GitHub token.",
+        operationId: "mobile.github.branches",
+        responses: {
+          200: {
+            description: "GitHub branches",
+            content: { "application/json": { schema: resolver(MobileGithubBranch.array()) } },
+          },
+          ...errors(401),
+        },
+      }),
+      validator("param", z.object({ owner: z.string(), repo: z.string() })),
+      async (c) => {
+        const token = await githubToken()
+        if (!token) return c.json({ error: "GitHub token not configured" }, 401)
+        const params = c.req.valid("param")
+        const branches = await GithubApi.listBranches(token, params.owner, params.repo)
+        return c.json(branches)
+      },
+    )
+    .get(
       "/github/imports",
       describeRoute({
         summary: "List imported GitHub repos for mobile",
@@ -404,6 +481,77 @@ export const MobileRoutes = lazy(() =>
         return c.json(result)
       },
     )
+    .post(
+      "/github/session",
+      describeRoute({
+        summary: "Create GitHub-backed mobile session",
+        description:
+          "Import a GitHub repo if needed, create an isolated worktree from a base branch, and start a session there.",
+        operationId: "mobile.github.session.create",
+        responses: {
+          200: {
+            description: "GitHub mobile session",
+            content: { "application/json": { schema: resolver(MobileGithubSessionCreateResult) } },
+          },
+          ...errors(400, 401),
+        },
+      }),
+      validator("json", MobileGithubSessionCreateInput),
+      async (c) => {
+        const token = await githubToken()
+        if (!token) return c.json({ error: "GitHub token not configured" }, 401)
+
+        const body = c.req.valid("json")
+        const baseBranch = body.baseBranch.trim() || body.defaultBranch
+        const imported = await MobileGithubRepo.importRepo(
+          {
+            owner: body.owner,
+            repo: body.repo,
+            cloneUrl: body.cloneUrl,
+            defaultBranch: body.defaultBranch,
+            private: body.private,
+          },
+          token,
+        )
+
+        const seed = sessionSeed()
+        const headBranch = `nikcli/mobile/${slug(body.repo)}/${seed}`
+        const worktree = await Instance.provide({
+          directory: imported.import.directory,
+          async fn() {
+            return Worktree.create({
+              name: `${slug(body.repo)}-${slug(baseBranch)}-${seed}`,
+              branch: headBranch,
+              baseBranch,
+              remote: "origin",
+            })
+          },
+        })
+
+        const session = await Instance.provide({
+          directory: worktree.directory,
+          async fn() {
+            return Session.create({
+              title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
+              github: {
+                owner: body.owner,
+                repo: body.repo,
+                fullName: `${body.owner}/${body.repo}`,
+                baseBranch,
+                headBranch,
+                repositoryDirectory: imported.import.directory,
+                cloneUrl: body.cloneUrl,
+                htmlUrl: body.htmlUrl,
+                private: body.private,
+                worktree,
+              },
+            })
+          },
+        })
+
+        return c.json({ session, worktree, project: imported.project })
+      },
+    )
     .get(
       "/session",
       describeRoute({
@@ -488,14 +636,20 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const [info, messages, permissions] = await Promise.all([
-          getSessionAnyProject(sessionID),
-          Session.messages({ sessionID }),
-          PermissionNext.list().then((items) => items.filter((item) => item.sessionID === sessionID)),
-        ])
+        const info = await getSessionAnyProject(sessionID)
+        const { messages, permissions, status } = await Instance.provide({
+          directory: info.directory,
+          async fn() {
+            const [messages, permissions] = await Promise.all([
+              Session.messages({ sessionID }),
+              PermissionNext.list().then((items) => items.filter((item) => item.sessionID === sessionID)),
+            ])
+            return { messages, permissions, status: SessionStatus.get(sessionID) }
+          },
+        })
         return c.json({
           info,
-          status: SessionStatus.list()[sessionID],
+          status,
           messages,
           permissions,
         })
@@ -540,7 +694,16 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        void SessionPrompt.prompt({ ...body, sessionID }).catch((error) => {
+        const session = await getSessionAnyProject(sessionID)
+        if (session.github?.worktree.cleanedAt) {
+          return c.json({ error: "Session worktree has been cleaned up" }, 400)
+        }
+        void Instance.provide({
+          directory: session.directory,
+          async fn() {
+            return SessionPrompt.prompt({ ...body, sessionID })
+          },
+        }).catch((error) => {
           log.error("mobile session prompt failed", {
             sessionID,
             error: error instanceof Error ? error.message : String(error),
@@ -586,6 +749,194 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         PermissionNext.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
+        return c.json({ success: true as const })
+      },
+    )
+    .post(
+      "/session/:sessionID/publish",
+      describeRoute({
+        summary: "Publish GitHub session",
+        description: "Commit the current worktree, push the session branch, and create or reuse a pull request.",
+        operationId: "mobile.github.session.publish",
+        responses: {
+          200: {
+            description: "Published pull request",
+            content: { "application/json": { schema: resolver(MobileGithubPublishResult) } },
+          },
+          ...errors(400, 401, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      validator("json", MobileGithubPublishInput),
+      async (c) => {
+        const token = await githubToken()
+        if (!token) return c.json({ error: "GitHub token not configured" }, 401)
+
+        const body = c.req.valid("json") ?? {}
+        const sessionInfo = await getSessionAnyProject(c.req.valid("param").sessionID)
+        if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
+        if (sessionInfo.github.worktree.cleanedAt)
+          return c.json({ error: "Session worktree has already been cleaned" }, 400)
+
+        return Instance.provide({
+          directory: sessionInfo.directory,
+          async fn() {
+            const session = await Session.get(sessionInfo.id)
+            const github = session.github
+            if (!github) return c.json({ error: "Session is not linked to GitHub" }, 400)
+            if (SessionStatus.get(session.id).type !== "idle") {
+              return c.json({ error: "Wait for the session to become idle before publishing" }, 400)
+            }
+
+            await MobileGithubRepo.runGit(["fetch", "origin", github.baseBranch, "--prune"], {
+              cwd: session.directory,
+              token,
+            })
+
+            const dirty = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+              cwd: session.directory,
+              token,
+            })
+
+            if (dirty.trim()) {
+              await MobileGithubRepo.runGit(["add", "-A"], { cwd: session.directory, token })
+              await MobileGithubRepo.runGit(
+                ["commit", "-m", body.commitMessage?.trim() || session.title.trim() || `Update ${github.fullName}`],
+                {
+                  cwd: session.directory,
+                  token,
+                },
+              )
+            }
+
+            await MobileGithubRepo.runGit(["push", "--set-upstream", "origin", github.headBranch], {
+              cwd: session.directory,
+              token,
+            })
+
+            const ahead = await MobileGithubRepo.runGit(
+              ["rev-list", "--left-right", "--count", `origin/${github.baseBranch}...HEAD`],
+              {
+                cwd: session.directory,
+                token,
+              },
+            )
+            const [, aheadCountText = "0"] = ahead.trim().split(/\s+/)
+            const aheadCount = Number.parseInt(aheadCountText, 10) || 0
+
+            const commitSha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], {
+              cwd: session.directory,
+              token,
+            })
+
+            const existingPullRequest =
+              github.pullRequest ||
+              (await GithubApi.findPullRequestByHead(
+                token,
+                github.owner,
+                github.repo,
+                `${github.owner}:${github.headBranch}`,
+              )
+                .then((value) =>
+                  value
+                    ? {
+                        number: value.number,
+                        url: value.html_url,
+                        title: value.title,
+                      }
+                    : undefined,
+                )
+                .catch(() => undefined))
+
+            const pullRequest =
+              existingPullRequest ||
+              (aheadCount > 0
+                ? await GithubApi.createPullRequest(
+                    token,
+                    github.owner,
+                    github.repo,
+                    body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
+                    github.headBranch,
+                    github.baseBranch,
+                    body.body?.trim() || defaultPullRequestBody(session),
+                  ).then((value) => ({
+                    number: value.number,
+                    url: value.html_url,
+                    title: value.title,
+                  }))
+                : undefined)
+
+            if (!pullRequest) {
+              return c.json({ error: "Create changes in the worktree before publishing a pull request" }, 400)
+            }
+
+            await Session.update(session.id, (draft) => {
+              if (!draft.github) return
+              draft.github.pullRequest = pullRequest
+              draft.github.lastCommitSha = commitSha.trim()
+              draft.github.publishedAt = Date.now()
+              draft.github.publishError = undefined
+            })
+
+            return c.json({
+              commitSha: commitSha.trim(),
+              branch: github.headBranch,
+              pullRequest,
+            })
+          },
+        })
+      },
+    )
+    .post(
+      "/session/:sessionID/cleanup",
+      describeRoute({
+        summary: "Cleanup GitHub session worktree",
+        description: "Remove the isolated worktree created for a GitHub-backed mobile session.",
+        operationId: "mobile.github.session.cleanup",
+        responses: {
+          200: {
+            description: "Worktree cleaned",
+            content: {
+              "application/json": { schema: resolver(z.object({ success: z.literal(true) })) },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      async (c) => {
+        const sessionInfo = await getSessionAnyProject(c.req.valid("param").sessionID)
+        if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
+        if (sessionInfo.github.worktree.cleanedAt) return c.json({ success: true as const })
+
+        const repositoryDirectory = sessionInfo.github.repositoryDirectory || sessionInfo.github.worktree.directory
+        const idle = await Instance.provide({
+          directory: sessionInfo.directory,
+          async fn() {
+            return SessionStatus.get(sessionInfo.id).type === "idle"
+          },
+        })
+        if (!idle) {
+          return c.json({ error: "Wait for the session to become idle before cleaning up the worktree" }, 400)
+        }
+
+        await Instance.provide({
+          directory: repositoryDirectory,
+          async fn() {
+            await Worktree.remove({ directory: sessionInfo.github!.worktree.directory })
+          },
+        })
+
+        await Instance.provide({
+          directory: repositoryDirectory,
+          async fn() {
+            await Session.update(sessionInfo.id, (draft) => {
+              if (!draft.github) return
+              draft.github.worktree.cleanedAt = Date.now()
+            })
+          },
+        })
+
         return c.json({ success: true as const })
       },
     )

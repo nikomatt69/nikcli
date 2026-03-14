@@ -158,6 +158,42 @@ export namespace GithubApi {
     return response.json()
   }
 
+  export async function listBranches(token: string, owner: string, repo: string): Promise<any> {
+    const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/branches?per_page=100`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    })
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+    }
+    return response.json()
+  }
+
+  export async function findPullRequestByHead(
+    token: string,
+    owner: string,
+    repo: string,
+    head: string,
+    state: "open" | "closed" | "all" = "open",
+  ): Promise<any | undefined> {
+    const response = await fetch(
+      `${GITHUB_API_BASE}/repos/${owner}/${repo}/pulls?head=${encodeURIComponent(head)}&state=${state}&per_page=1`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    )
+    if (!response.ok) {
+      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+    }
+    const pulls = (await response.json()) as any[]
+    return pulls[0]
+  }
+
   export async function createPullRequest(
     token: string,
     owner: string,
