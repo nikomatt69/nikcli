@@ -48,6 +48,9 @@ import { MobileRoutes } from "./routes/mobile"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { ShareNext } from "@/share/share-next"
 import { MobileAuth } from "@/mobile/auth"
+import { Installation } from "@/installation"
+import { Project } from "@/project/project"
+import { Workspace } from "@/workspace"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -726,9 +729,20 @@ export namespace Server {
       log.warn("mDNS enabled but hostname is loopback; skipping mDNS publish")
     }
 
+    if (Installation.isLocal()) {
+      void Project.list()
+        .then((projects) => {
+          projects.forEach((project) => Workspace.startSyncing(project))
+        })
+        .catch((error) => {
+          log.warn("failed to start workspace syncing", { error })
+        })
+    }
+
     const originalStop = server.stop.bind(server)
     server.stop = async (closeActiveConnections?: boolean) => {
       if (shouldPublishMDNS) MDNS.unpublish()
+      Workspace.stopAllSyncing()
       return originalStop(closeActiveConnections)
     }
 

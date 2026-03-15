@@ -1,14 +1,6 @@
 import { useState } from "react"
-import { Pressable, Text, View } from "react-native"
-import {
-  FileCode2,
-  Folder,
-  Globe,
-  Search,
-  SquareTerminal,
-  Wrench,
-  type LucideIcon,
-} from "lucide-react-native"
+import { Pressable, ScrollView, Text, View } from "react-native"
+import { FileCode2, Folder, Globe, Search, SquareTerminal, Wrench, type LucideIcon } from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
 
 function toolIcon(toolName: string): LucideIcon {
@@ -52,22 +44,29 @@ export function ToolCallView(props: { part: ToolPart }) {
 
   const title = status === "running" || status === "completed" ? state.title : undefined
   const timing =
-    status === "completed" || status === "error"
-      ? `${Math.max(0, state.time.end - state.time.start)}ms`
-      : undefined
+    status === "completed" || status === "error" ? `${Math.max(0, state.time.end - state.time.start)}ms` : undefined
   const rawOutput = status === "completed" ? state.output : status === "error" ? state.error : undefined
   const output = rawOutput ?? ""
   const inputEntries = Object.entries(state.input ?? {})
 
   return (
-    <View className="mt-3 rounded-[22px] border border-border bg-background/75">
-      <Pressable className="flex-row items-center justify-between px-3 py-3" onPress={() => setOpen((value) => !value)}>
+    <View className="min-w-0 overflow-hidden rounded-[18px] border border-border bg-background/75">
+      <Pressable
+        className="flex-row items-center justify-between gap-3 px-3 py-2.5"
+        onPress={() => setOpen((value) => !value)}
+      >
         <View className="flex-1 flex-row items-center gap-2">
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusDotColor(status) }} />
           <Icon size={15} color="#7dd3fc" strokeWidth={2.1} />
-          <View className="flex-1">
-            <Text className="text-sm font-semibold text-ink">{props.part.tool || "Unknown tool"}</Text>
-            {title ? <Text className="mt-0.5 text-[11px] text-soft">{title}</Text> : null}
+          <View className="min-w-0 flex-1">
+            <Text className="text-sm font-semibold text-ink" numberOfLines={1}>
+              {props.part.tool || "Unknown tool"}
+            </Text>
+            {title ? (
+              <Text className="mt-0.5 text-[11px] leading-4 text-soft" numberOfLines={2}>
+                {title}
+              </Text>
+            ) : null}
           </View>
           {timing ? (
             <View className="mr-2 rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
@@ -78,22 +77,45 @@ export function ToolCallView(props: { part: ToolPart }) {
         <Text className="text-[11px] font-semibold uppercase tracking-[1.7px] text-soft">{open ? "Hide" : "Show"}</Text>
       </Pressable>
       {open ? (
-        <View className="gap-3 border-t border-border px-3 py-3">
+        <View className="gap-3 border-t border-border px-3 py-2.5">
           {inputEntries.length > 0 ? (
             <View>
               <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Input</Text>
               {inputEntries.map(([key, value]) => (
-                <View key={key} className="mb-1 flex-row gap-2">
+                <View key={key} className="mb-1 min-w-0 flex-row gap-2">
                   <Text className="shrink-0 font-mono text-xs text-soft">{key}:</Text>
-                  <Text className="flex-1 font-mono text-xs leading-5 text-soft">{stringifyValue(value)}</Text>
+                  <ScrollView
+                    horizontal
+                    nestedScrollEnabled
+                    showsHorizontalScrollIndicator
+                    className="flex-1"
+                    style={{ flexGrow: 0 }}
+                    contentContainerStyle={{ alignSelf: "flex-start" }}
+                  >
+                    <Text selectable className="font-mono text-xs leading-5 text-soft">
+                      {stringifyValue(value)}
+                    </Text>
+                  </ScrollView>
                 </View>
               ))}
             </View>
           ) : null}
           {rawOutput !== undefined ? (
             <View>
-              <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Output</Text>
-              <Text className="font-mono text-xs leading-5 text-soft">{showAllOutput ? output : output.slice(0, 400)}</Text>
+              <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
+                Output
+              </Text>
+              <ScrollView
+                horizontal
+                nestedScrollEnabled
+                showsHorizontalScrollIndicator
+                style={{ flexGrow: 0 }}
+                contentContainerStyle={{ alignSelf: "flex-start" }}
+              >
+                <Text selectable className="font-mono text-xs leading-5 text-soft">
+                  {showAllOutput ? output : output.slice(0, 400)}
+                </Text>
+              </ScrollView>
               {output.length > 400 ? (
                 <Pressable onPress={() => setShowAllOutput((value) => !value)} className="mt-2">
                   <Text className="text-[11px] font-semibold text-accent-light">

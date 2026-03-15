@@ -8,6 +8,7 @@ import type {
   GitHubRepo,
   GitHubSessionCreateResult,
   ManagedGithubImport,
+  MobileExecutionTarget,
   ModelRef,
   MobileBootstrap,
   ProviderCatalog,
@@ -59,7 +60,13 @@ export class MobileClient {
     return this.request<SessionSummary[]>(`/mobile/session${query}`)
   }
 
-  createSession(input?: Record<string, unknown>) {
+  createSession(input?: {
+    title?: string
+    parentID?: string
+    permission?: unknown
+    github?: Session["github"]
+    executionTarget?: MobileExecutionTarget
+  }) {
     return this.request<Session>("/mobile/session", {
       method: "POST",
       body: JSON.stringify(input ?? {}),
@@ -186,6 +193,7 @@ export class MobileClient {
     baseBranch: string
     private: boolean
     title?: string
+    executionTarget?: MobileExecutionTarget
   }) {
     return this.request<GitHubSessionCreateResult>("/mobile/github/session", {
       method: "POST",

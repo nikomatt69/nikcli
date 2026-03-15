@@ -107,7 +107,10 @@ export default function ConnectScreen() {
       setError(null)
       const client = new MobileClient(form)
       await client.bootstrap()
-      await save(form)
+      await save({
+        ...config,
+        ...form,
+      })
       setConnected(true)
       router.replace("/sessions")
     } catch (nextError) {
@@ -129,6 +132,7 @@ export default function ConnectScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
+      contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: top + 16, paddingBottom: 28, gap: 18 }}
     >
       <SurfaceCard

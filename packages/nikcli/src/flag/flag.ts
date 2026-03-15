@@ -42,7 +42,7 @@ export namespace Flag {
   export const NIKCLI_FIGMA_TOKEN = process.env["NIKCLI_FIGMA_TOKEN"]
   export const NIKCLI_SLACK_BOT_TOKEN = process.env["NIKCLI_SLACK_BOT_TOKEN"]
   export const NIKCLI_GITHUB_TOKEN = process.env["NIKCLI_GITHUB_TOKEN"]
-  export declare const NIKCLI_GITHUB_OAUTH_CLIENT_ID: string | undefined
+  export const NIKCLI_GITHUB_OAUTH_CLIENT_ID = process.env["NIKCLI_GITHUB_OAUTH_CLIENT_ID"] ?? process.env["GITHUB_CLIENT_ID_CONSOLE"] ?? process.env["GITHUB_CLIENT_ID"] ?? undefined
   export const NIKCLI_LOVABLE_TOKEN = process.env["NIKCLI_LOVABLE_TOKEN"] ?? process.env["NIKCLI_LOVABLE_API_KEY"]
   export const NIKCLI_LOVABLE_API_KEY = process.env["NIKCLI_LOVABLE_API_KEY"]
 

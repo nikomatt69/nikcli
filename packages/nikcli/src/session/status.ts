@@ -73,4 +73,12 @@ export namespace SessionStatus {
     }
     state()[sessionID] = status
   }
+
+  export function hydrate(sessionID: string, status: Info) {
+    if (status.type === "idle") {
+      delete state()[sessionID]
+      return
+    }
+    state()[sessionID] = status
+  }
 }

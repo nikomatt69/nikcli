@@ -2,7 +2,11 @@ import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Identifier } from "@/id/id"
+import { PermissionNext } from "@/permission/next"
 import { Project } from "@/project/project"
+import { InstanceBootstrap } from "@/project/bootstrap"
+import { Instance } from "@/project/instance"
+import { SessionStatus } from "@/session/status"
 import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
@@ -45,6 +49,66 @@ export namespace Workspace {
     })
   }
 
+  const syncControllers = new Map<string, AbortController>()
+
+  function syncDirectory(space: Info) {
+    if (space.config.type === "worktree") return
+    return space.config.directory
+  }
+
+  async function mirrorWorkspaceEvent(space: Info, event: { type?: string; properties?: any }) {
+    const directory = syncDirectory(space)
+    if (!directory || !event?.type) return
+
+    await Instance.provide({
+      directory,
+      init: InstanceBootstrap,
+      async fn() {
+        if (event.type === "session.status" && event.properties?.sessionID && event.properties?.status) {
+          SessionStatus.hydrate(event.properties.sessionID, event.properties.status)
+        }
+
+        if (event.type === "session.idle" && event.properties?.sessionID) {
+          SessionStatus.hydrate(event.properties.sessionID, { type: "idle" })
+        }
+
+        if (event.type === "permission.asked" && event.properties?.id) {
+          await PermissionNext.hydrateAsk(event.properties)
+        }
+
+        if (event.type === "permission.replied" && event.properties?.requestID) {
+          await PermissionNext.hydrateReply(event.properties.requestID)
+        }
+      },
+    })
+  }
+
+  function startSpaceSync(space: Info) {
+    if (space.config.type === "worktree") return
+    if (syncControllers.has(space.id)) return
+
+    const stop = new AbortController()
+    syncControllers.set(space.id, stop)
+
+    void workspaceEventLoop(space, stop.signal)
+      .catch((error) => {
+        log.warn("workspace sync listener failed", {
+          workspaceID: space.id,
+          error,
+        })
+      })
+      .finally(() => {
+        if (syncControllers.get(space.id) === stop) syncControllers.delete(space.id)
+      })
+  }
+
+  function stopSpaceSync(id: string) {
+    const controller = syncControllers.get(id)
+    if (!controller) return
+    controller.abort()
+    syncControllers.delete(id)
+  }
+
   export const create = fn(
     z.object({
       id: Identifier.schema("workspace").optional(),
@@ -55,7 +119,7 @@ export namespace Workspace {
     async (input) => {
       const id = Identifier.ascending("workspace", input.id)
 
-      const { config, init } = await getAdaptor(input.config).create(input.config, input.branch)
+      const { config, init } = await getAdaptor(input.config).create(input.config, input.branch, id)
 
       const info: Info = {
         id,
@@ -64,19 +128,17 @@ export namespace Workspace {
         config,
       }
 
-      setTimeout(async () => {
-        await init()
+      await init()
+      await Storage.write(["workspace", info.projectID, info.id], info)
+      startSpaceSync(info)
 
-        await Storage.write(["workspace", info.projectID, info.id], info)
-
-        GlobalBus.emit("event", {
-          directory: id,
-          payload: {
-            type: Event.Ready.type,
-            properties: {},
-          },
-        })
-      }, 0)
+      GlobalBus.emit("event", {
+        directory: id,
+        payload: {
+          type: Event.Ready.type,
+          properties: {},
+        },
+      })
 
       return info
     },
@@ -104,6 +166,7 @@ export namespace Workspace {
   export const remove = fn(Identifier.schema("workspace"), async (id) => {
     const info = await get(id)
     if (info) {
+      stopSpaceSync(id)
       await getAdaptor(info.config).remove(info.config)
       await Storage.remove(["workspace", info.projectID, id])
       return info
@@ -121,9 +184,17 @@ export namespace Workspace {
         continue
       }
       await parseSSE(res.body, stop, (event) => {
+        const payload = event as { type?: string; properties?: any }
+        void mirrorWorkspaceEvent(space, payload).catch((error) => {
+          log.warn("workspace event mirror failed", {
+            workspaceID: space.id,
+            error,
+            type: payload?.type,
+          })
+        })
         GlobalBus.emit("event", {
           directory: space.id,
-          payload: event,
+          payload,
         })
       })
       await Bun.sleep(250)
@@ -131,25 +202,22 @@ export namespace Workspace {
   }
 
   export function startSyncing(project: Project.Info) {
-    const stop = new AbortController()
-
     void (async () => {
       const spaces = (await list(project)).filter((space) => space.config.type !== "worktree")
-
-      spaces.forEach((space) => {
-        void workspaceEventLoop(space, stop.signal).catch((error) => {
-          log.warn("workspace sync listener failed", {
-            workspaceID: space.id,
-            error,
-          })
-        })
-      })
+      spaces.forEach(startSpaceSync)
     })()
 
     return {
       async stop() {
-        stop.abort()
+        const spaces = await list(project)
+        spaces.forEach((space) => stopSpaceSync(space.id))
       },
+    }
+  }
+
+  export function stopAllSyncing() {
+    for (const id of [...syncControllers.keys()]) {
+      stopSpaceSync(id)
     }
   }
 }

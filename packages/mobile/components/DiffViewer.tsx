@@ -41,17 +41,17 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
   }
 
   return (
-    <View className="mt-4 gap-3">
+    <View className="mt-3 gap-2">
       {props.diffs.map((diff) => {
         const status = fileStatus(diff)
         const isExpanded = expandedFiles.has(diff.file)
         return (
-          <View key={diff.file} className="overflow-hidden rounded-[24px] border border-border bg-surface">
+          <View key={diff.file} className="overflow-hidden rounded-[18px] border border-border bg-surface">
             <Pressable
-              className="flex-row items-center justify-between border-b border-border px-4 py-3"
+              className="flex-row items-center justify-between gap-3 border-b border-border px-3 py-2.5"
               onPress={() => toggle(diff.file)}
             >
-              <Text className="flex-1 text-sm font-semibold text-ink" numberOfLines={1}>
+              <Text className="flex-1 text-sm font-semibold text-ink" numberOfLines={2}>
                 {diff.file}
               </Text>
               <View className="flex-row items-center gap-2">
@@ -64,17 +64,27 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
               </View>
             </Pressable>
             {isExpanded ? (
-              <ScrollView horizontal className="max-h-72 px-4 py-3">
-                <View className="gap-1">
-                  {renderLines(diff.before, diff.after).map((line, index) => (
-                    <Text
-                      key={`${diff.file}-${index}`}
-                      className={`font-mono text-xs leading-5 ${line.kind === "add" ? "text-emerald-300" : line.kind === "remove" ? "text-rose-300" : "text-muted"}`}
-                    >
-                      {line.text || " "}
-                    </Text>
-                  ))}
-                </View>
+              <ScrollView className="max-h-72" nestedScrollEnabled style={{ flexGrow: 0 }}>
+                <ScrollView
+                  horizontal
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator
+                  className="px-3 py-2.5"
+                  style={{ flexGrow: 0 }}
+                  contentContainerStyle={{ alignSelf: "flex-start" }}
+                >
+                  <View className="gap-1">
+                    {renderLines(diff.before, diff.after).map((line, index) => (
+                      <Text
+                        key={`${diff.file}-${index}`}
+                        selectable
+                        className={`font-mono text-xs leading-5 ${line.kind === "add" ? "text-emerald-300" : line.kind === "remove" ? "text-rose-300" : "text-muted"}`}
+                      >
+                        {line.text || " "}
+                      </Text>
+                    ))}
+                  </View>
+                </ScrollView>
               </ScrollView>
             ) : null}
           </View>

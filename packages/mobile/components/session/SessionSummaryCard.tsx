@@ -42,15 +42,11 @@ export function SessionSummaryCard({
   const additions = detail?.info.summary?.additions ?? 0
   const deletions = detail?.info.summary?.deletions ?? 0
   const updatedAt = detail?.info.time.updated
+  const executionLabel = detail?.info.workspaceID ? "Container sandbox" : "Local worktree"
 
   return (
     <View className="pb-4">
-      <SurfaceCard
-        eyebrow="Execution timeline"
-        title={title}
-        description={location}
-        className="px-5 py-5"
-      >
+      <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="px-5 py-5">
         <View className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-accent/15" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={status} tone={currentStatusTone(status)} />
@@ -58,13 +54,16 @@ export function SessionSummaryCard({
           <InfoChip label={`${approvalCount} approvals`} tone={approvalCount ? "warn" : "neutral"} />
           <InfoChip label={`${fileCount} files`} />
           <InfoChip label={`+${additions} / -${deletions}`} tone={additions || deletions ? "accent" : "neutral"} />
+          <InfoChip label={executionLabel} tone={detail?.info.workspaceID ? "accent" : "neutral"} />
           {github?.headBranch ? <InfoChip label={github.headBranch} /> : null}
           {updatedAt ? <InfoChip label={`Updated ${relativeTime(updatedAt)}`} /> : null}
         </View>
 
         {github ? (
           <View className="mt-4 rounded-[24px] border border-border bg-background/65 px-4 py-4">
-            <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">GitHub publish path</Text>
+            <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+              GitHub publish path
+            </Text>
             <Text className="mt-2 text-sm leading-6 text-soft">
               {github.pullRequest
                 ? `This session already tracks PR #${github.pullRequest.number}. You can update the branch or reopen the PR directly from mobile.`

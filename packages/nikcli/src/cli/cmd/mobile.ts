@@ -5,8 +5,6 @@ import { Flag } from "@/flag/flag"
 import { MobileAuth } from "@/mobile/auth"
 import { generateQR } from "@nikcli-ai/remote"
 import { Installation } from "@/installation"
-import { Workspace } from "@/workspace"
-import { Project } from "@/project/project"
 import { Ssh } from "@/server/ssh"
 import { networkInterfaces } from "os"
 
@@ -128,11 +126,6 @@ export const MobileCommand = cmd({
             }
           }
 
-          let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
-          if (Installation.isLocal()) {
-            workspaceSync = (await Project.list()).map((project) => Workspace.startSyncing(project))
-          }
-
           const sshServer = Ssh.start()
           if (sshServer) {
             console.log(
@@ -143,7 +136,6 @@ export const MobileCommand = cmd({
           await new Promise(() => {})
 
           await server.stop()
-          await Promise.all(workspaceSync.map((item) => item.stop()))
           if (sshServer) await Ssh.stop()
         },
       })

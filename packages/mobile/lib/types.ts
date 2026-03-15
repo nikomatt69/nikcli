@@ -2,6 +2,7 @@ export type Session = {
   id: string
   projectID: string
   directory: string
+  workspaceID?: string
   parentID?: string
   title: string
   version: string
@@ -45,6 +46,8 @@ export type Session = {
     publishError?: string
   }
 }
+
+export type MobileExecutionTarget = "local" | "container"
 
 export type SessionStatus =
   | { type: "idle" }
@@ -198,6 +201,7 @@ export type ServerConfig = {
   directory?: string
   modelProviderID?: string
   modelID?: string
+  executionTarget?: MobileExecutionTarget
 }
 
 export type ProviderModel = {
@@ -264,6 +268,13 @@ export type MobileBootstrap = {
   }
   currentProject: ProjectInfo
   projects: ProjectInfo[]
+  execution: {
+    container: {
+      available: boolean
+      runtime?: "docker" | "podman"
+      image: string
+    }
+  }
   github: {
     connected: boolean
     oauthDeviceEnabled: boolean
@@ -342,6 +353,15 @@ export type GitHubSessionCreateResult = {
     directory: string
   }
   project: ProjectInfo
+  workspace?: {
+    id: string
+    projectID: string
+    branch: string | null
+    config: {
+      type: "container" | "worktree"
+      [key: string]: unknown
+    }
+  }
 }
 
 export type GitHubPublishResult = {

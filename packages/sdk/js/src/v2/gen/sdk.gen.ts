@@ -8,7 +8,7 @@ import type {
   AppLogErrors,
   AppLogResponses,
   AppSkillsResponses,
-  Auth as Auth6,
+  Auth as Auth7,
   AuthRemoveErrors,
   AuthRemoveResponses,
   AuthSetErrors,
@@ -103,6 +103,7 @@ import type {
   MobileProjectListResponses,
   MobileSessionAbortResponses,
   MobileSessionCreateErrors,
+  MobileSessionCreateInput,
   MobileSessionCreateResponses,
   MobileSessionDetailErrors,
   MobileSessionDetailResponses,
@@ -132,6 +133,9 @@ import type {
   ProjectListResponses,
   ProjectUpdateErrors,
   ProjectUpdateResponses,
+  ProviderApiSetErrors,
+  ProviderApiSetResponses,
+  ProviderAuthRemoveResponses,
   ProviderAuthResponses,
   ProviderListResponses,
   ProviderOauthAuthorizeErrors,
@@ -998,10 +1002,20 @@ export class Workspace extends HeyApiClient {
       directory?: string
       workspace?: string
       branch?: string | null
-      config?: {
-        directory: string
-        type: "worktree"
-      }
+      config?:
+        | {
+            directory: string
+            type: "worktree"
+          }
+        | {
+            directory: string
+            type: "container"
+            runtime: "docker" | "podman"
+            image: string
+            containerName: string
+            port: number
+            serverUrl: string
+          }
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -2385,6 +2399,81 @@ export class Question extends HeyApiClient {
   }
 }
 
+export class Api extends HeyApiClient {
+  /**
+   * Set provider API key
+   *
+   * Store an API key for a provider and refresh the current instance cache.
+   */
+  public set<ThrowOnError extends boolean = false>(
+    parameters: {
+      providerID: string
+      directory?: string
+      workspace?: string
+      key?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "providerID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "key" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ProviderApiSetResponses, ProviderApiSetErrors, ThrowOnError>({
+      url: "/provider/{providerID}/api",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Auth extends HeyApiClient {
+  /**
+   * Remove provider credentials
+   *
+   * Remove stored credentials for a provider and refresh the current instance cache.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      providerID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "providerID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<ProviderAuthRemoveResponses, unknown, ThrowOnError>({
+      url: "/provider/{providerID}/auth",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Oauth extends HeyApiClient {
   /**
    * OAuth authorize
@@ -2536,6 +2625,16 @@ export class Provider extends HeyApiClient {
     })
   }
 
+  private _api?: Api
+  get api(): Api {
+    return (this._api ??= new Api({ client: this.client }))
+  }
+
+  private _auth?: Auth
+  get auth2(): Auth {
+    return (this._auth ??= new Auth({ client: this.client }))
+  }
+
   private _oauth?: Oauth
   get oauth(): Oauth {
     return (this._oauth ??= new Oauth({ client: this.client }))
@@ -2645,7 +2744,7 @@ export class Token extends HeyApiClient {
   }
 }
 
-export class Auth extends HeyApiClient {
+export class Auth2 extends HeyApiClient {
   private _token?: Token
   get token(): Token {
     return (this._token ??= new Token({ client: this.client }))
@@ -2768,7 +2867,7 @@ export class Oauth2 extends HeyApiClient {
   }
 }
 
-export class Auth2 extends HeyApiClient {
+export class Auth3 extends HeyApiClient {
   /**
    * Remove stored GitHub token for mobile
    *
@@ -3098,9 +3197,9 @@ export class Github extends HeyApiClient {
     return (this._oauth ??= new Oauth2({ client: this.client }))
   }
 
-  private _auth?: Auth2
-  get auth(): Auth2 {
-    return (this._auth ??= new Auth2({ client: this.client }))
+  private _auth?: Auth3
+  get auth(): Auth3 {
+    return (this._auth ??= new Auth3({ client: this.client }))
   }
 
   private _session?: Session2
@@ -3153,10 +3252,7 @@ export class Session3 extends HeyApiClient {
     parameters?: {
       directory?: string
       workspace?: string
-      parentID?: string
-      title?: string
-      permission?: PermissionRuleset
-      github?: SessionGithub
+      mobileSessionCreateInput?: MobileSessionCreateInput
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -3167,10 +3263,7 @@ export class Session3 extends HeyApiClient {
           args: [
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
-            { in: "body", key: "parentID" },
-            { in: "body", key: "title" },
-            { in: "body", key: "permission" },
-            { in: "body", key: "github" },
+            { key: "mobileSessionCreateInput", map: "body" },
           ],
         },
       ],
@@ -3575,9 +3668,9 @@ export class Mobile extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth
-  get auth(): Auth {
-    return (this._auth ??= new Auth({ client: this.client }))
+  private _auth?: Auth2
+  get auth(): Auth2 {
+    return (this._auth ??= new Auth2({ client: this.client }))
   }
 
   private _project?: Project2
@@ -3806,7 +3899,7 @@ export class File extends HeyApiClient {
   }
 }
 
-export class Auth3 extends HeyApiClient {
+export class Auth4 extends HeyApiClient {
   /**
    * Remove connector credentials
    *
@@ -3959,13 +4052,13 @@ export class Connectors extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth3
-  get auth(): Auth3 {
-    return (this._auth ??= new Auth3({ client: this.client }))
+  private _auth?: Auth4
+  get auth(): Auth4 {
+    return (this._auth ??= new Auth4({ client: this.client }))
   }
 }
 
-export class Auth4 extends HeyApiClient {
+export class Auth5 extends HeyApiClient {
   /**
    * Remove MCP OAuth
    *
@@ -4234,9 +4327,9 @@ export class Mcp extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth4
-  get auth(): Auth4 {
-    return (this._auth ??= new Auth4({ client: this.client }))
+  private _auth?: Auth5
+  get auth(): Auth5 {
+    return (this._auth ??= new Auth5({ client: this.client }))
   }
 }
 
@@ -4970,7 +5063,7 @@ export class Formatter extends HeyApiClient {
   }
 }
 
-export class Auth5 extends HeyApiClient {
+export class Auth6 extends HeyApiClient {
   /**
    * Remove auth credentials
    *
@@ -5013,7 +5106,7 @@ export class Auth5 extends HeyApiClient {
       providerID: string
       directory?: string
       workspace?: string
-      auth?: Auth6
+      auth?: Auth7
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -5269,9 +5362,9 @@ export class NikcliClient extends HeyApiClient {
     return (this._formatter ??= new Formatter({ client: this.client }))
   }
 
-  private _auth?: Auth5
-  get auth(): Auth5 {
-    return (this._auth ??= new Auth5({ client: this.client }))
+  private _auth?: Auth6
+  get auth(): Auth6 {
+    return (this._auth ??= new Auth6({ client: this.client }))
   }
 
   private _event?: Event

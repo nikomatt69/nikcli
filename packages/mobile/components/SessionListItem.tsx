@@ -42,6 +42,7 @@ export function SessionListItem(props: {
   const translateY = useRef(new Animated.Value(10)).current
   const opacity = useRef(new Animated.Value(0)).current
   const badge = repoBadge(props.item)
+  const containerBacked = Boolean(props.item.info.workspaceID)
 
   useEffect(() => {
     const delay = (props.index ?? 0) * 30
@@ -90,6 +91,11 @@ export function SessionListItem(props: {
               +{summary?.additions ?? 0} / -{summary?.deletions ?? 0}
             </Text>
           </View>
+          {containerBacked ? (
+            <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
+              <Text className="text-[11px] font-semibold text-accent-light">container</Text>
+            </View>
+          ) : null}
           {badge ? (
             <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
               <Text className="text-[11px] font-semibold text-accent-light">{badge}</Text>

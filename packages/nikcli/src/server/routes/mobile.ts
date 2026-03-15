@@ -26,6 +26,9 @@ import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
 import { Config } from "@/config/config"
+import { Workspace } from "@/workspace"
+import { WorkspaceContext } from "@/workspace/workspace-context"
+import { getAdaptor, getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { errors } from "../error"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
@@ -33,6 +36,8 @@ import { Log } from "@/util/log"
 const log = Log.create({ service: "mobile-routes" })
 
 const MobileProject = Project.Info.extend({ current: z.boolean() }).meta({ ref: "MobileProject" })
+const MobileExecutionTarget = z.enum(["local", "container"]).meta({ ref: "MobileExecutionTarget" })
+
 const MobileBootstrap = z
   .object({
     version: z.string(),
@@ -42,6 +47,13 @@ const MobileBootstrap = z
     }),
     currentProject: MobileProject,
     projects: MobileProject.array(),
+    execution: z.object({
+      container: z.object({
+        available: z.boolean(),
+        runtime: z.enum(["docker", "podman"]).optional(),
+        image: z.string(),
+      }),
+    }),
     github: z.object({
       connected: z.boolean(),
       oauthDeviceEnabled: z.boolean(),
@@ -94,14 +106,27 @@ const MobileGithubSessionCreateInput = z
     baseBranch: z.string().min(1),
     private: z.boolean().default(false),
     title: z.string().optional(),
+    executionTarget: MobileExecutionTarget.default("local"),
   })
   .meta({ ref: "MobileGithubSessionCreateInput" })
+
+const MobileSessionCreateInput = z
+  .object({
+    parentID: Session.Info.shape.parentID,
+    title: Session.Info.shape.title.optional(),
+    permission: Session.Info.shape.permission,
+    github: Session.Info.shape.github.optional(),
+    executionTarget: MobileExecutionTarget.default("local"),
+  })
+  .optional()
+  .meta({ ref: "MobileSessionCreateInput" })
 
 const MobileGithubSessionCreateResult = z
   .object({
     session: Session.Info,
     worktree: Worktree.Info,
     project: Project.Info,
+    workspace: Workspace.Info.optional(),
   })
   .meta({ ref: "MobileGithubSessionCreateResult" })
 
@@ -195,33 +220,38 @@ async function latestPromptDefaults(sessionID: string) {
 }
 
 async function resolveMobilePromptDefaults(session: Session.Info) {
-  const current = await latestPromptDefaults(session.id)
-  if (current.agent && current.model) return current
+  return Instance.provide({
+    directory: session.directory,
+    async fn() {
+      const current = await latestPromptDefaults(session.id)
+      if (current.agent && current.model) return current
 
-  const allKeys = await Storage.list(["session"])
-  const sessions: Session.Info[] = []
-  for (const key of allKeys) {
-    if (key.length !== 3 || key[2] === session.id) continue
-    const candidate = await Storage.read<Session.Info>(key).catch(() => undefined)
-    if (!candidate || candidate.projectID !== session.projectID) continue
-    sessions.push(candidate)
-  }
+      const allKeys = await Storage.list(["session"])
+      const sessions: Session.Info[] = []
+      for (const key of allKeys) {
+        if (key.length !== 3 || key[2] === session.id) continue
+        const candidate = await Storage.read<Session.Info>(key).catch(() => undefined)
+        if (!candidate || candidate.projectID !== session.projectID) continue
+        sessions.push(candidate)
+      }
 
-  sessions.sort((a, b) => b.time.updated - a.time.updated)
+      sessions.sort((a, b) => b.time.updated - a.time.updated)
 
-  for (const session of sessions) {
-    const fallback = await latestPromptDefaults(session.id)
-    if (!fallback.agent || !fallback.model) continue
-    return {
-      agent: current.agent ?? fallback.agent,
-      model: current.model ?? fallback.model,
-    }
-  }
+      for (const candidate of sessions) {
+        const fallback = await latestPromptDefaults(candidate.id)
+        if (!fallback.agent || !fallback.model) continue
+        return {
+          agent: current.agent ?? fallback.agent,
+          model: current.model ?? fallback.model,
+        }
+      }
 
-  return {
-    agent: current.agent ?? (await Agent.defaultAgent()),
-    model: current.model ?? (await Provider.defaultModel()),
-  }
+      return {
+        agent: current.agent ?? (await Agent.defaultAgent()),
+        model: current.model ?? (await Provider.defaultModel()),
+      }
+    },
+  })
 }
 
 function extractSessionIDs(value: unknown): string[] {
@@ -393,6 +423,78 @@ function defaultPullRequestBody(session: Session.Info) {
     .join("\n\n")
 }
 
+function toHeadersObject(headers: Headers) {
+  return Object.fromEntries(headers.entries())
+}
+
+async function createExecutionWorkspace(input: {
+  directory: string
+  branch?: string | null
+  target: z.infer<typeof MobileExecutionTarget>
+}) {
+  if (input.target !== "container") return undefined
+  const runtimeInfo = await getContainerRuntimeInfo()
+  if (!runtimeInfo.available || !runtimeInfo.runtime) {
+    throw new Error(
+      "Container sandbox is unavailable. Check Docker or Podman and the Nikcli workspace image on the host.",
+    )
+  }
+  const runtime: "docker" | "podman" = runtimeInfo.runtime
+  const project = await Project.fromDirectory(input.directory)
+  return Workspace.create({
+    projectID: project.project.id,
+    branch: input.branch ?? null,
+    config: {
+      type: "container",
+      directory: input.directory,
+      runtime,
+      image: runtimeInfo.image,
+      containerName: "pending",
+      port: 1,
+      serverUrl: "http://127.0.0.1:1",
+    },
+  })
+}
+
+async function proxyWorkspaceRequest(input: {
+  workspaceID: string
+  method: string
+  url: string
+  body?: BodyInit
+  headers?: HeadersInit
+  signal?: AbortSignal
+}) {
+  const workspace = await Workspace.get(input.workspaceID)
+  if (!workspace) {
+    return new Response(`Workspace not found: ${input.workspaceID}`, {
+      status: 404,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+      },
+    })
+  }
+
+  const response = await getAdaptor(workspace.config).request(
+    workspace.config,
+    input.method,
+    input.url,
+    input.body,
+    input.signal,
+    input.headers,
+  )
+
+  return response
+}
+
+async function statusForSession(session: Session.Info) {
+  return Instance.provide({
+    directory: session.directory,
+    async fn() {
+      return SessionStatus.get(session.id)
+    },
+  })
+}
+
 export const MobileRoutes = lazy(() =>
   new Hono()
     .post(
@@ -480,6 +582,7 @@ export const MobileRoutes = lazy(() =>
         const projects = await Project.list()
         const token = currentToken(c)
         const user = await githubUser()
+        const container = await getContainerRuntimeInfo()
         return c.json({
           version: Installation.VERSION,
           auth: {
@@ -494,6 +597,9 @@ export const MobileRoutes = lazy(() =>
             ...project,
             current: project.id === Instance.project.id,
           })),
+          execution: {
+            container,
+          },
           github: {
             connected: Boolean(user),
             oauthDeviceEnabled: Boolean(await githubOAuthClientID()),
@@ -754,6 +860,7 @@ export const MobileRoutes = lazy(() =>
 
         const seed = sessionSeed()
         const headBranch = `nikcli/mobile/${slug(body.repo)}/${seed}`
+        let workspace: Workspace.Info | undefined
         const worktree = await Instance.provide({
           directory: imported.import.directory,
           async fn() {
@@ -766,28 +873,52 @@ export const MobileRoutes = lazy(() =>
           },
         })
 
-        const session = await Instance.provide({
-          directory: worktree.directory,
-          async fn() {
-            return Session.create({
-              title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
-              github: {
-                owner: body.owner,
-                repo: body.repo,
-                fullName: `${body.owner}/${body.repo}`,
-                baseBranch,
-                headBranch,
-                repositoryDirectory: imported.import.directory,
-                cloneUrl: body.cloneUrl,
-                htmlUrl: body.htmlUrl,
-                private: body.private,
-                worktree,
-              },
-            })
-          },
-        })
+        try {
+          workspace = await createExecutionWorkspace({
+            directory: worktree.directory,
+            branch: headBranch,
+            target: body.executionTarget,
+          })
 
-        return c.json({ session, worktree, project: imported.project })
+          const session = await Instance.provide({
+            directory: worktree.directory,
+            async fn() {
+              return WorkspaceContext.provide({
+                workspaceID: workspace?.id,
+                async fn() {
+                  return Session.create({
+                    title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
+                    github: {
+                      owner: body.owner,
+                      repo: body.repo,
+                      fullName: `${body.owner}/${body.repo}`,
+                      baseBranch,
+                      headBranch,
+                      repositoryDirectory: imported.import.directory,
+                      cloneUrl: body.cloneUrl,
+                      htmlUrl: body.htmlUrl,
+                      private: body.private,
+                      worktree,
+                    },
+                  })
+                },
+              })
+            },
+          })
+
+          return c.json({ session, worktree, project: imported.project, workspace })
+        } catch (error) {
+          if (workspace) {
+            await Workspace.remove(workspace.id).catch(() => undefined)
+          }
+          await Instance.provide({
+            directory: imported.import.directory,
+            async fn() {
+              await Worktree.remove({ directory: worktree.directory }).catch(() => undefined)
+            },
+          }).catch(() => undefined)
+          throw error
+        }
       },
     )
     .get(
@@ -813,7 +944,6 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const query = c.req.valid("query")
         const term = query.search?.toLowerCase()
-        const statuses = SessionStatus.list()
         const sessions: z.infer<typeof MobileSessionSummary>[] = []
         // List sessions across all projects for mobile (cross-project view)
         const allKeys = await Storage.list(["session"])
@@ -837,7 +967,7 @@ export const MobileRoutes = lazy(() =>
                 .toLowerCase()
               if (!haystack.includes(term)) continue
             }
-            sessions.push({ info: session, status: statuses[session.id] })
+            sessions.push({ info: session, status: await statusForSession(session) })
           } catch {
             continue
           }
@@ -861,11 +991,38 @@ export const MobileRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("json", Session.create.schema.optional()),
+      validator("json", MobileSessionCreateInput),
       async (c) => {
-        const body = c.req.valid("json") ?? {}
-        const session = await Session.create(body)
-        return c.json(session)
+        const body = c.req.valid("json") as Record<string, unknown> | undefined
+        const executionTarget = body?.executionTarget === "container" ? "container" : "local"
+        let workspace: Workspace.Info | undefined
+        const sessionInput = body
+          ? {
+              parentID: typeof body.parentID === "string" ? body.parentID : undefined,
+              title: typeof body.title === "string" ? body.title : undefined,
+              permission: body.permission as Session.Info["permission"],
+              github: body.github as Session.Info["github"],
+            }
+          : undefined
+
+        try {
+          workspace = await createExecutionWorkspace({
+            directory: Instance.directory,
+            target: executionTarget,
+          })
+          const session = await WorkspaceContext.provide({
+            workspaceID: workspace?.id,
+            async fn() {
+              return Session.create(sessionInput)
+            },
+          })
+          return c.json(session)
+        } catch (error) {
+          if (workspace) {
+            await Workspace.remove(workspace.id).catch(() => undefined)
+          }
+          throw error
+        }
       },
     )
     .get(
@@ -920,7 +1077,13 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string(), messageID: z.string() })),
       async (c) => {
         const params = c.req.valid("param")
-        const result = await SessionSummary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+        const session = await getSessionAnyProject(params.sessionID)
+        const result = await Instance.provide({
+          directory: session.directory,
+          async fn() {
+            return SessionSummary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+          },
+        })
         return c.json(result)
       },
     )
@@ -947,15 +1110,40 @@ export const MobileRoutes = lazy(() =>
         if (session.github?.worktree.cleanedAt) {
           return c.json({ error: "Session worktree has been cleaned up" }, 400)
         }
+
+        const defaults = !body.agent || !body.model ? await resolveMobilePromptDefaults(session) : undefined
+        const promptBody = {
+          ...body,
+          agent: body.agent ?? defaults?.agent,
+          model: body.model ?? defaults?.model,
+        }
+
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "POST",
+            url: `/session/${encodeURIComponent(sessionID)}/prompt_async`,
+            body: JSON.stringify(promptBody),
+            headers: {
+              "content-type": "application/json",
+            },
+            signal: c.req.raw.signal,
+          })
+          if (!response?.ok) {
+            return new Response(response?.body, {
+              status: response?.status ?? 502,
+              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
+            })
+          }
+          return c.json({ accepted: true as const }, 202)
+        }
+
         void Instance.provide({
           directory: session.directory,
           async fn() {
-            const defaults = !body.agent || !body.model ? await resolveMobilePromptDefaults(session) : undefined
             return SessionPrompt.prompt({
-              ...body,
+              ...promptBody,
               sessionID,
-              agent: body.agent ?? defaults?.agent,
-              model: body.model ?? defaults?.model,
             })
           },
         }).catch((error) => {
@@ -988,7 +1176,24 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
-        SessionPrompt.cancel(c.req.valid("param").sessionID)
+        const sessionID = c.req.valid("param").sessionID
+        const session = await getSessionAnyProject(sessionID)
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "POST",
+            url: `/session/${encodeURIComponent(sessionID)}/abort`,
+            signal: c.req.raw.signal,
+          })
+          if (!response?.ok) {
+            return new Response(response?.body, {
+              status: response?.status ?? 502,
+              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
+            })
+          }
+          return c.json({ success: true as const })
+        }
+        SessionPrompt.cancel(sessionID)
         return c.json({ success: true as const })
       },
     )
@@ -1009,6 +1214,26 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ response: PermissionNext.Reply })),
       async (c) => {
         const params = c.req.valid("param")
+        const session = await getSessionAnyProject(params.sessionID)
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "POST",
+            url: `/session/${encodeURIComponent(params.sessionID)}/permissions/${encodeURIComponent(params.permissionID)}`,
+            body: JSON.stringify({ response: c.req.valid("json").response }),
+            headers: {
+              "content-type": "application/json",
+            },
+            signal: c.req.raw.signal,
+          })
+          if (!response?.ok) {
+            return new Response(response?.body, {
+              status: response?.status ?? 502,
+              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
+            })
+          }
+          return c.json({ success: true as const })
+        }
         PermissionNext.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
         return c.json({ success: true as const })
       },
@@ -1184,6 +1409,9 @@ export const MobileRoutes = lazy(() =>
         await Instance.provide({
           directory: repositoryDirectory,
           async fn() {
+            if (sessionInfo.workspaceID) {
+              await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
+            }
             await Worktree.remove({ directory: sessionInfo.github!.worktree.directory })
           },
         })

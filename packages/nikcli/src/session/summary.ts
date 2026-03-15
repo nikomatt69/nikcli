@@ -16,6 +16,28 @@ import { Agent } from "@/agent/agent"
 export namespace SessionSummary {
   const log = Log.create({ service: "session.summary" })
 
+  async function messagesForSummary(input: { sessionID: string; messageID: string }) {
+    const all = await Session.messages({ sessionID: input.sessionID })
+    const anchor = all.find((message) => message.info.id === input.messageID)
+    if (!anchor) {
+      return {
+        all,
+        focus: [] as MessageV2.WithParts[],
+        rootID: input.messageID,
+      }
+    }
+
+    const rootID = anchor.info.role === "assistant" ? anchor.info.parentID : anchor.info.id
+    return {
+      all,
+      rootID,
+      focus: all.filter(
+        (message) =>
+          message.info.id === rootID || (message.info.role === "assistant" && message.info.parentID === rootID),
+      ),
+    }
+  }
+
   export const summarize = fn(
     z.object({
       sessionID: z.string(),
@@ -58,10 +80,15 @@ export namespace SessionSummary {
   }
 
   async function summarizeMessage(input: { messageID: string; messages: MessageV2.WithParts[] }) {
+    const anchor = input.messages.find((message) => message.info.id === input.messageID)
+    if (!anchor) return
+    const rootID = anchor.info.role === "assistant" ? anchor.info.parentID : anchor.info.id
     const messages = input.messages.filter(
-      (m) => m.info.id === input.messageID || (m.info.role === "assistant" && m.info.parentID === input.messageID),
+      (message) =>
+        message.info.id === rootID || (message.info.role === "assistant" && message.info.parentID === rootID),
     )
-    const msgWithParts = messages.find((m) => m.info.id === input.messageID)!
+    const msgWithParts = messages.find((message) => message.info.id === rootID)
+    if (!msgWithParts || msgWithParts.info.role !== "user") return
     const userMsg = msgWithParts.info as MessageV2.User
     const diffs = await computeDiff({ messages })
     userMsg.summary = {
@@ -112,7 +139,20 @@ export namespace SessionSummary {
       messageID: Identifier.schema("message").optional(),
     }),
     async (input) => {
-      return Storage.read<Snapshot.FileDiff[]>(["session_diff", input.sessionID]).catch(() => [])
+      if (!input.messageID) {
+        return Storage.read<Snapshot.FileDiff[]>(["session_diff", input.sessionID]).catch(() => [])
+      }
+
+      const { focus, rootID } = await messagesForSummary({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+      })
+      const root = focus.find((message) => message.info.id === rootID)
+      if (root?.info.role === "user" && root.info.summary?.diffs) {
+        return root.info.summary.diffs
+      }
+      if (!focus.length) return []
+      return computeDiff({ messages: focus })
     },
   )
 

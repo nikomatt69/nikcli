@@ -41,6 +41,8 @@ export default function ReposScreen() {
   const [repoSearch, setRepoSearch] = useState("")
 
   const selectedDirectory = config?.directory
+  const executionTarget = config?.executionTarget ?? "local"
+  const containerReady = Boolean(bootstrap?.execution?.container?.available)
 
   const load = useCallback(async () => {
     if (!client) {
@@ -147,6 +149,10 @@ export default function ReposScreen() {
 
   async function importRepo(repo: GitHubRepo) {
     if (!client || !config || !repo.clone_url) return
+    if (executionTarget === "container" && !containerReady) {
+      setError("Container sandbox requires Docker or Podman on the host. Switch back to local in Settings.")
+      return
+    }
     const owner = safeOwner(repo.full_name)
     if (!owner) {
       setError("Invalid repository owner")
@@ -222,6 +228,7 @@ export default function ReposScreen() {
         baseBranch,
         private: repo.private,
         title: sessionTitleByRepo[repo.full_name]?.trim() || `${repo.full_name} ${baseBranch}`,
+        executionTarget,
       })
       await save({ ...config, directory: result.worktree.directory })
       router.push(`/sessions/${result.session.id}`)
@@ -235,6 +242,7 @@ export default function ReposScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
+      contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 28 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor="#7dd3fc" />}
     >
@@ -248,6 +256,7 @@ export default function ReposScreen() {
           <InfoChip label={`${projects.length} local repos`} tone="accent" />
           <InfoChip label={`${repos.length} GitHub repos`} />
           <InfoChip label={currentProjectLabel(selectedProject)} />
+          <InfoChip label={executionTarget === "container" ? "GitHub target: container" : "GitHub target: local"} />
           {bootstrap?.github?.user?.login ? <InfoChip label={`@${bootstrap.github.user.login}`} tone="good" /> : null}
         </View>
       </SurfaceCard>
@@ -314,6 +323,13 @@ export default function ReposScreen() {
               placeholder="Search repositories, languages, or descriptions"
               autoCapitalize="none"
             />
+            <Text className="mt-3 text-xs leading-5 text-soft">
+              {executionTarget === "container"
+                ? containerReady
+                  ? "New GitHub sessions will keep the same host worktree flow but execute inside a same-host container sandbox."
+                  : "Container mode is selected, but the host has no Docker or Podman runtime available right now."
+                : "New GitHub sessions use the current local worktree flow for execution and publish."}
+            </Text>
           </SurfaceCard>
         )}
 
@@ -328,6 +344,7 @@ export default function ReposScreen() {
               <InfoChip label="1. Repo selected" tone="accent" />
               <InfoChip label="2. Choose branch" />
               <InfoChip label="3. Launch session" />
+              <InfoChip label={executionTarget === "container" ? "Container sandbox" : "Local worktree"} />
             </View>
 
             <View className="mt-4 gap-3">
@@ -396,6 +413,10 @@ export default function ReposScreen() {
                 Session title:{" "}
                 {sessionTitleByRepo[selectedRepo.full_name] ??
                   `${selectedRepo.full_name} ${selectedRepo.default_branch || "main"}`}
+              </Text>
+              <Text className="mt-1 text-sm leading-6 text-soft">
+                Execution target:{" "}
+                {executionTarget === "container" ? "same-host container sandbox" : "local host worktree"}.
               </Text>
             </View>
 

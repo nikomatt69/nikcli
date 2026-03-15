@@ -75,10 +75,17 @@ export default function SessionsScreen() {
 
   async function createSession() {
     if (!client || creating) return
+    const executionTarget = config?.executionTarget ?? "local"
+    if (executionTarget === "container" && !bootstrap?.execution?.container?.available) {
+      setError(
+        "Container sandbox is unavailable on the host. Switch back to local in Settings or restore Docker/Podman.",
+      )
+      return
+    }
     try {
       setCreating(true)
       setError(null)
-      const session = await client.createSession({ title: "Mobile session" })
+      const session = await client.createSession({ title: "Mobile session", executionTarget })
       router.push(`/sessions/${session.id}`)
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : String(nextError))
@@ -89,6 +96,7 @@ export default function SessionsScreen() {
 
   const busyCount = useMemo(() => sessions.filter((item) => item.status?.type === "busy").length, [sessions])
   const githubCount = useMemo(() => sessions.filter((item) => item.info.github).length, [sessions])
+  const containerCount = useMemo(() => sessions.filter((item) => item.info.workspaceID).length, [sessions])
   const retryCount = useMemo(() => sessions.filter((item) => item.status?.type === "retry").length, [sessions])
   const sessionModel = useMemo(
     () => currentSessionModelLabel(config?.modelProviderID, config?.modelID),
@@ -108,6 +116,7 @@ export default function SessionsScreen() {
           <InfoChip label={`${busyCount} busy`} tone={busyCount ? "accent" : "neutral"} />
           <InfoChip label={`${retryCount} retry`} tone={retryCount ? "warn" : "neutral"} />
           <InfoChip label={`${githubCount} GitHub-linked`} />
+          <InfoChip label={`${containerCount} container`} tone={containerCount ? "accent" : "neutral"} />
           <InfoChip label={sessionModel.providerID} />
           <InfoChip label={sessionModel.modelID} tone="accent" />
           <InfoChip label={currentProjectLabel(bootstrap?.currentProject?.name, bootstrap?.currentProject?.worktree)} />
@@ -146,6 +155,7 @@ export default function SessionsScreen() {
   return (
     <View className="flex-1 bg-background px-4 pt-4">
       <FlatList
+        contentInsetAdjustmentBehavior="automatic"
         data={sessions}
         keyExtractor={(item) => item.info.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor="#7dd3fc" />}

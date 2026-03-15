@@ -3,5 +3,5 @@ app = "nikcli-slack-bot"
 primaryRegion = "iad"
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = "Dockerfile.serve"
   context = "."

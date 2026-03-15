@@ -59,6 +59,8 @@ export default function SessionScreen() {
   const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({})
+  const [diffLoading, setDiffLoading] = useState<Record<string, boolean>>({})
+  const [diffLoaded, setDiffLoaded] = useState<Record<string, boolean>>({})
   const [publishOpen, setPublishOpen] = useState(false)
   const [publishTitle, setPublishTitle] = useState("")
   const [publishBody, setPublishBody] = useState("")
@@ -180,9 +182,18 @@ export default function SessionScreen() {
   }
 
   async function loadDiff(messageID: string) {
-    if (!client || !sessionId || diffs[messageID]) return
-    const next = await client.getDiff(sessionId, messageID)
-    setDiffs((current) => ({ ...current, [messageID]: next }))
+    if (!client || !sessionId || diffLoaded[messageID] || diffLoading[messageID]) return
+    try {
+      setDiffLoading((current) => ({ ...current, [messageID]: true }))
+      setError(null)
+      const next = await client.getDiff(sessionId, messageID)
+      setDiffs((current) => ({ ...current, [messageID]: next }))
+      setDiffLoaded((current) => ({ ...current, [messageID]: true }))
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setDiffLoading((current) => ({ ...current, [messageID]: false }))
+    }
   }
 
   async function respond(permissionID: string, response: "once" | "always" | "reject") {
@@ -259,9 +270,18 @@ export default function SessionScreen() {
 
       <FlatList
         className="flex-1 px-4 pt-4"
+        contentInsetAdjustmentBehavior="automatic"
         data={messages}
         keyExtractor={(item) => item.info.id}
-        renderItem={({ item }) => <MessageBubble message={item} diffs={diffs[item.info.id]} onLoadDiff={loadDiff} />}
+        renderItem={({ item }) => (
+          <MessageBubble
+            message={item}
+            diffs={diffs[item.info.id]}
+            diffLoaded={Boolean(diffLoaded[item.info.id])}
+            diffLoading={Boolean(diffLoading[item.info.id])}
+            onLoadDiff={loadDiff}
+          />
+        )}
         ListHeaderComponent={
           <>
             <SessionSummaryCard

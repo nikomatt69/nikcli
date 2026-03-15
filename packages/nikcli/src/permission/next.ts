@@ -224,6 +224,20 @@ export namespace PermissionNext {
     },
   )
 
+  export async function hydrateAsk(request: Request) {
+    const s = await state()
+    s.pending[request.id] = {
+      info: request,
+      resolve: () => {},
+      reject: () => {},
+    }
+  }
+
+  export async function hydrateReply(requestID: string) {
+    const s = await state()
+    delete s.pending[requestID]
+  }
+
   export function evaluate(permission: string, pattern: string, ...rulesets: Ruleset[]): Rule {
     const merged = merge(...rulesets)
     log.info("evaluate", { permission, pattern, ruleset: merged })

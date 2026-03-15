@@ -12,6 +12,7 @@ import {
   MOBILE_DEFAULT_MODEL_ID,
   MOBILE_DEFAULT_PROVIDER_ID,
   type GitHubDeviceAuthStart,
+  type MobileExecutionTarget,
   type ProviderCatalog,
 } from "@/lib/types"
 
@@ -55,6 +56,9 @@ export default function SettingsScreen() {
   const [url, setUrl] = useState(config?.url ?? "")
   const [token, setToken] = useState(config?.token ?? "")
   const [directory, setDirectory] = useState(config?.directory ?? "")
+  const [selectedExecutionTarget, setSelectedExecutionTarget] = useState<MobileExecutionTarget>(
+    config?.executionTarget ?? "local",
+  )
   const [providerCatalog, setProviderCatalog] = useState<ProviderCatalog | null>(null)
   const [providerSearch, setProviderSearch] = useState("")
   const [modelSearch, setModelSearch] = useState("")
@@ -76,6 +80,7 @@ export default function SettingsScreen() {
     setUrl(config?.url ?? "")
     setToken(config?.token ?? "")
     setDirectory(config?.directory ?? "")
+    setSelectedExecutionTarget(config?.executionTarget ?? "local")
     setSelectedProviderID(config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID)
     setSelectedModelID(config?.modelID ?? MOBILE_DEFAULT_MODEL_ID)
   }, [config])
@@ -133,6 +138,11 @@ export default function SettingsScreen() {
       return
     }
 
+    if (selectedExecutionTarget === "container" && !bootstrap?.execution?.container?.available) {
+      setMessage("Container sandbox requires Docker or Podman on the Nikcli host")
+      return
+    }
+
     try {
       setSaving(true)
       setMessage(null)
@@ -143,6 +153,7 @@ export default function SettingsScreen() {
         directory: directory.trim() || undefined,
         modelProviderID: selectedProviderID,
         modelID: selectedModelID,
+        executionTarget: selectedExecutionTarget,
       })
       setMessage("Host connection updated")
     } catch (error) {
@@ -273,6 +284,8 @@ export default function SettingsScreen() {
   }
 
   const githubConnected = Boolean(bootstrap?.github?.connected)
+  const containerReady = Boolean(bootstrap?.execution?.container?.available)
+  const containerRuntime = bootstrap?.execution?.container?.runtime
 
   async function forgetHost() {
     authRun.current = 0
@@ -388,7 +401,11 @@ export default function SettingsScreen() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-background" contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 36 }}>
+    <ScrollView
+      className="flex-1 bg-background"
+      contentInsetAdjustmentBehavior="automatic"
+      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 36 }}
+    >
       <SurfaceCard
         eyebrow="Operator trust"
         title="Harden host access and GitHub identity."
@@ -403,6 +420,10 @@ export default function SettingsScreen() {
               githubConnected ? `GitHub @${bootstrap?.github?.user?.login || "connected"}` : "GitHub not connected"
             }
             tone={githubConnected ? "good" : "warn"}
+          />
+          <InfoChip
+            label={selectedExecutionTarget === "container" ? "GitHub target: container" : "GitHub target: local"}
+            tone={selectedExecutionTarget === "container" ? "accent" : "neutral"}
           />
           <InfoChip label={bootstrapLoading ? "Refreshing control plane" : "Control plane ready"} />
         </View>
@@ -452,6 +473,62 @@ export default function SettingsScreen() {
             </View>
           </View>
         </View>
+      </SurfaceCard>
+
+      <SurfaceCard
+        eyebrow="GitHub execution"
+        title="Choose where GitHub sessions run"
+        description="Keep the current local worktree flow or launch GitHub sessions inside a same-host container sandbox while preserving the existing mobile structure."
+      >
+        <View className="flex-row flex-wrap gap-2">
+          <InfoChip
+            label={
+              containerReady
+                ? `Container ready${containerRuntime ? ` (${containerRuntime})` : ""}`
+                : "Container unavailable"
+            }
+            tone={containerReady ? "good" : "warn"}
+          />
+          <InfoChip
+            label={selectedExecutionTarget === "container" ? "Container sandbox" : "Local worktree"}
+            tone="accent"
+          />
+        </View>
+
+        <View className="mt-4 flex-row gap-2">
+          <Pressable
+            onPress={() => setSelectedExecutionTarget("local")}
+            className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(selectedExecutionTarget === "local")}`}
+          >
+            <Text className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "local")}`}>
+              Local worktree
+            </Text>
+            <Text className="mt-1 text-xs leading-5 text-soft">
+              Same behavior as now: host repo, host git, fastest path to publish.
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              if (containerReady) setSelectedExecutionTarget("container")
+            }}
+            disabled={!containerReady}
+            className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(selectedExecutionTarget === "container")}`}
+          >
+            <Text className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "container")}`}>
+              Container sandbox
+            </Text>
+            <Text className="mt-1 text-xs leading-5 text-soft">
+              Runs GitHub session execution inside a same-host container while keeping the worktree publish flow.
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text className="mt-3 text-xs leading-5 text-soft">
+          {containerReady
+            ? "Recommended when you want stronger execution isolation without changing how PRs and cleanup work."
+            : "Install Docker or Podman on the host to unlock container-backed GitHub sessions."}
+        </Text>
       </SurfaceCard>
 
       <SurfaceCard

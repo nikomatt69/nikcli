@@ -29,6 +29,7 @@ async function proxySessionRequest(req: Request) {
     `${url.pathname}${url.search}`,
     body,
     req.signal,
+    req.headers,
   )
 }
 

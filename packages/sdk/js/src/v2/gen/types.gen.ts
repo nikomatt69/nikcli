@@ -2516,10 +2516,20 @@ export type Workspace = {
   id: string
   branch: string | null
   projectID: string
-  config: {
-    directory: string
-    type: "worktree"
-  }
+  config:
+    | {
+        directory: string
+        type: "worktree"
+      }
+    | {
+        directory: string
+        type: "container"
+        runtime: "docker" | "podman"
+        image: string
+        containerName: string
+        port: number
+        serverUrl: string
+      }
 }
 
 export type WorktreeRemoveInput = {
@@ -2632,6 +2642,13 @@ export type MobileBootstrap = {
   }
   currentProject: MobileProject
   projects: Array<MobileProject>
+  execution: {
+    container: {
+      available: boolean
+      runtime?: "docker" | "podman"
+      image: string
+    }
+  }
   github: {
     connected: boolean
     oauthDeviceEnabled: boolean
@@ -2699,7 +2716,10 @@ export type MobileGithubSessionCreateResult = {
   session: Session
   worktree: Worktree
   project: Project
+  workspace?: Workspace
 }
+
+export type MobileExecutionTarget = "local" | "container"
 
 export type MobileGithubSessionCreateInput = {
   owner: string
@@ -2710,11 +2730,20 @@ export type MobileGithubSessionCreateInput = {
   baseBranch: string
   private?: boolean
   title?: string
+  executionTarget?: MobileExecutionTarget
 }
 
 export type MobileSessionSummary = {
   info: Session
   status?: SessionStatus
+}
+
+export type MobileSessionCreateInput = {
+  parentID?: string
+  title?: string
+  permission?: PermissionRuleset
+  github?: SessionGithub
+  executionTarget?: MobileExecutionTarget
 }
 
 export type MobileSessionDetail = {
@@ -3523,10 +3552,20 @@ export type ExperimentalWorkspaceRemoveResponse =
 export type ExperimentalWorkspaceCreateData = {
   body?: {
     branch: string | null
-    config: {
-      directory: string
-      type: "worktree"
-    }
+    config:
+      | {
+          directory: string
+          type: "worktree"
+        }
+      | {
+          directory: string
+          type: "container"
+          runtime: "docker" | "podman"
+          image: string
+          containerName: string
+          port: number
+          serverUrl: string
+        }
   }
   path: {
     id: string
@@ -4943,6 +4982,72 @@ export type ProviderAuthResponses = {
 
 export type ProviderAuthResponse = ProviderAuthResponses[keyof ProviderAuthResponses]
 
+export type ProviderApiSetData = {
+  body?: {
+    /**
+     * Provider API key
+     */
+    key: string
+  }
+  path: {
+    /**
+     * Provider ID
+     */
+    providerID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/provider/{providerID}/api"
+}
+
+export type ProviderApiSetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ProviderApiSetError = ProviderApiSetErrors[keyof ProviderApiSetErrors]
+
+export type ProviderApiSetResponses = {
+  /**
+   * API key saved
+   */
+  200: {
+    success: true
+  }
+}
+
+export type ProviderApiSetResponse = ProviderApiSetResponses[keyof ProviderApiSetResponses]
+
+export type ProviderAuthRemoveData = {
+  body?: never
+  path: {
+    /**
+     * Provider ID
+     */
+    providerID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/provider/{providerID}/auth"
+}
+
+export type ProviderAuthRemoveResponses = {
+  /**
+   * Credentials removed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type ProviderAuthRemoveResponse = ProviderAuthRemoveResponses[keyof ProviderAuthRemoveResponses]
+
 export type ProviderOauthAuthorizeData = {
   body?: {
     /**
@@ -5383,12 +5488,7 @@ export type MobileSessionListResponses = {
 export type MobileSessionListResponse = MobileSessionListResponses[keyof MobileSessionListResponses]
 
 export type MobileSessionCreateData = {
-  body?: {
-    parentID?: string
-    title?: string
-    permission?: PermissionRuleset
-    github?: SessionGithub
-  }
+  body?: MobileSessionCreateInput
   path?: never
   query?: {
     directory?: string
