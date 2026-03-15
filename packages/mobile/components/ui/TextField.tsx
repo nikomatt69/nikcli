@@ -1,4 +1,4 @@
-import { forwardRef } from "react"
+import { forwardRef, useState } from "react"
 import { Text, TextInput, type TextInputProps, View } from "react-native"
 import { cn } from "@/lib/cn"
 
@@ -11,6 +11,8 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   { label, className, placeholderTextColor = "#6d84a0", ...props },
   ref,
 ) {
+  const [focused, setFocused] = useState(false)
+
   return (
     <View>
       {label ? (
@@ -19,9 +21,19 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       <TextInput
         ref={ref}
         placeholderTextColor={placeholderTextColor}
+        selectionColor="#7dd3fc"
+        keyboardAppearance="dark"
+        onFocus={(event) => {
+          setFocused(true)
+          props.onFocus?.(event)
+        }}
+        onBlur={(event) => {
+          setFocused(false)
+          props.onBlur?.(event)
+        }}
         className={cn(
-          "rounded-[24px] border border-border bg-background px-4 py-4 text-base text-ink",
-          props.multiline ? "min-h-[140px] leading-6" : undefined,
+          `rounded-[22px] border px-4 py-3.5 text-base text-ink ${focused ? "border-accent/40 bg-surface" : "border-border bg-background"}`,
+          props.multiline ? "min-h-[132px] leading-6" : undefined,
           className,
         )}
         {...props}

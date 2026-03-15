@@ -4,9 +4,10 @@ type StatusPillProps = {
   label: string
   value: string
   tone?: "neutral" | "good" | "warn"
+  compact?: boolean
 }
 
-export function StatusPill({ label, value, tone = "neutral" }: StatusPillProps) {
+export function StatusPill({ label, value, tone = "neutral", compact = false }: StatusPillProps) {
   const toneClass =
     tone === "good"
       ? "border-success/20 bg-success/10"
@@ -15,9 +16,16 @@ export function StatusPill({ label, value, tone = "neutral" }: StatusPillProps) 
         : "border-border bg-background/60"
 
   return (
-    <View className={`rounded-full border px-3 py-2 ${toneClass}`}>
-      <Text className="text-[10px] font-semibold uppercase tracking-[1.7px] text-soft">{label}</Text>
-      <Text className="mt-1 text-[11px] font-semibold text-ink">{value}</Text>
+    <View className={`rounded-[16px] border ${compact ? "px-2 py-1.5" : "px-3 py-2.5"} ${toneClass}`}>
+      <Text
+        selectable
+        className={`font-semibold uppercase tracking-[1.3px] text-soft ${compact ? "text-[8px]" : "text-[10px]"}`}
+      >
+        {label}
+      </Text>
+      <Text selectable className={`mt-0.5 font-semibold text-ink ${compact ? "text-[10px]" : "text-[12px]"}`}>
+        {value}
+      </Text>
     </View>
   )
 }

@@ -29,13 +29,17 @@ export function ActionButton({
   return (
     <Pressable
       disabled={disabled || loading}
+      style={({ pressed }) => ({
+        opacity: disabled || loading ? 0.58 : pressed ? 0.84 : 1,
+        transform: [{ scale: pressed ? 0.985 : 1 }],
+      })}
       className={cn("items-center justify-center rounded-[24px] px-4 py-4", buttonClass, className)}
       {...props}
     >
       {loading ? (
         <ActivityIndicator color={variant === "primary" ? "#082f49" : "#7dd3fc"} />
       ) : (
-        <Text className={cn("text-center font-semibold", textClass)}>{label}</Text>
+        <Text className={cn("text-center text-[15px] font-semibold", textClass)}>{label}</Text>
       )}
     </Pressable>
   )
