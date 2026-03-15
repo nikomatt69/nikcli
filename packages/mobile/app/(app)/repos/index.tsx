@@ -1,12 +1,30 @@
 import { useCallback, useMemo, useState } from "react"
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from "react-native"
+import { RefreshControl, ScrollView, Text, View } from "react-native"
 import { router, useFocusEffect } from "expo-router"
 import { GithubRepoCard, LocalRepoCard } from "@/components/RepoCard"
+import { RepoCardSkeleton } from "@/components/Skeleton"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { EmptyState } from "@/components/ui/EmptyState"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
+import { InfoChip } from "@/components/ui/InfoChip"
+import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
 
+function safeOwner(fullName?: string): string | null {
+  if (!fullName) return null
+  const owner = fullName.split("/")[0]?.trim()
+  return owner || null
+}
+
+function currentProjectLabel(project: ProjectInfo | undefined) {
+  if (!project) return "No repo selected"
+  return project.name || project.worktree.split("/").filter(Boolean).pop() || project.worktree
+}
+
 export default function ReposScreen() {
-  const { client, config, bootstrap, save } = useServer()
+  const { client, config, bootstrap, save, loading, bootstrapLoading } = useServer()
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -19,11 +37,19 @@ export default function ReposScreen() {
   const [startingSessionRepo, setStartingSessionRepo] = useState<string | null>(null)
   const [branchOptions, setBranchOptions] = useState<Record<string, GitHubBranch[]>>({})
   const [baseBranchByRepo, setBaseBranchByRepo] = useState<Record<string, string>>({})
+  const [sessionTitleByRepo, setSessionTitleByRepo] = useState<Record<string, string>>({})
+  const [repoSearch, setRepoSearch] = useState("")
 
   const selectedDirectory = config?.directory
 
   const load = useCallback(async () => {
-    if (!client) return
+    if (!client) {
+      setProjects([])
+      setRepos([])
+      setError(null)
+      return
+    }
+
     try {
       setRefreshing(true)
       setError(null)
@@ -36,12 +62,21 @@ export default function ReposScreen() {
       setBaseBranchByRepo((current) => {
         const next = { ...current }
         for (const repo of githubRepos) {
-          if (!next[repo.full_name]) next[repo.full_name] = repo.default_branch
+          const fullName = repo.full_name || repo.name
+          if (!next[fullName]) next[fullName] = repo.default_branch || "main"
         }
         return next
       })
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
+      setSessionTitleByRepo((current) => {
+        const next = { ...current }
+        for (const repo of githubRepos) {
+          const fullName = repo.full_name || repo.name
+          if (!next[fullName]) next[fullName] = `${fullName} ${repo.default_branch || "main"}`
+        }
+        return next
+      })
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setRefreshing(false)
     }
@@ -49,14 +84,39 @@ export default function ReposScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (loading) return
+      if (!config) {
+        setProjects([])
+        setRepos([])
+        router.replace("/")
+        return
+      }
       void load()
-    }, [load]),
+    }, [config, load, loading]),
   )
 
   const selectedProject = useMemo(
     () =>
-      projects.find((item) => item.worktree === selectedDirectory || item.sandboxes.includes(selectedDirectory || "")),
+      projects.find((item) => {
+        const sandboxes = Array.isArray(item.sandboxes) ? item.sandboxes : []
+        return item.worktree === selectedDirectory || sandboxes.includes(selectedDirectory || "")
+      }),
     [projects, selectedDirectory],
+  )
+
+  const visibleRepos = useMemo(() => {
+    const term = repoSearch.trim().toLowerCase()
+    if (!term) return repos
+    return repos.filter((repo) =>
+      [repo.full_name || repo.name || "", repo.language || "", repo.description || ""].some((value) =>
+        value.toLowerCase().includes(term),
+      ),
+    )
+  }, [repoSearch, repos])
+
+  const selectedRepo = useMemo(
+    () => repos.find((repo) => (repo.full_name || repo.name) === branchRepo) ?? null,
+    [branchRepo, repos],
   )
 
   async function selectProject(project: ProjectInfo) {
@@ -68,12 +128,13 @@ export default function ReposScreen() {
     if (!client) return
     try {
       setBusy(true)
+      setError(null)
       const worktree = await client.createWorktree(sandboxName.trim() || undefined)
       if (config) await save({ ...config, directory: worktree.directory })
       setSandboxName("")
       await load()
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setBusy(false)
     }
@@ -86,20 +147,26 @@ export default function ReposScreen() {
 
   async function importRepo(repo: GitHubRepo) {
     if (!client || !config || !repo.clone_url) return
+    const owner = safeOwner(repo.full_name)
+    if (!owner) {
+      setError("Invalid repository owner")
+      return
+    }
+
     try {
       setImportingRepo(repo.full_name)
       setError(null)
       const result = await client.importGithubRepo({
-        owner: repo.full_name.split("/")[0],
+        owner,
         repo: repo.name,
         cloneUrl: repo.clone_url,
-        defaultBranch: repo.default_branch,
+        defaultBranch: repo.default_branch || "main",
         private: repo.private,
       })
       await save({ ...config, directory: result.import.directory })
       await load()
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setImportingRepo(null)
     }
@@ -107,19 +174,28 @@ export default function ReposScreen() {
 
   async function loadBranches(repo: GitHubRepo) {
     if (!client) return
+    const owner = safeOwner(repo.full_name)
+    if (!owner) {
+      setError("Invalid repository owner")
+      return
+    }
+
     try {
       setBranchLoading(repo.full_name)
       setError(null)
-      const owner = repo.full_name.split("/")[0]
       const branches = await client.listGithubBranches(owner, repo.name)
       setBranchOptions((current) => ({ ...current, [repo.full_name]: branches }))
       setBaseBranchByRepo((current) => ({
         ...current,
-        [repo.full_name]: current[repo.full_name] || branches[0]?.name || repo.default_branch,
+        [repo.full_name]: current[repo.full_name] || branches[0]?.name || repo.default_branch || "main",
+      }))
+      setSessionTitleByRepo((current) => ({
+        ...current,
+        [repo.full_name]: current[repo.full_name] || `${repo.full_name} ${repo.default_branch || "main"}`,
       }))
       setBranchRepo(repo.full_name)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setBranchLoading(null)
     }
@@ -127,25 +203,30 @@ export default function ReposScreen() {
 
   async function startGithubSession(repo: GitHubRepo) {
     if (!client || !config || !repo.clone_url) return
+    const owner = safeOwner(repo.full_name)
+    if (!owner) {
+      setError("Invalid repository owner")
+      return
+    }
+
     try {
       setStartingSessionRepo(repo.full_name)
       setError(null)
-      const owner = repo.full_name.split("/")[0]
-      const baseBranch = baseBranchByRepo[repo.full_name]?.trim() || repo.default_branch
+      const baseBranch = baseBranchByRepo[repo.full_name]?.trim() || repo.default_branch || "main"
       const result = await client.createGithubSession({
         owner,
         repo: repo.name,
         cloneUrl: repo.clone_url,
         htmlUrl: repo.html_url,
-        defaultBranch: repo.default_branch,
+        defaultBranch: repo.default_branch || "main",
         baseBranch,
         private: repo.private,
-        title: `${repo.full_name} ${baseBranch}`,
+        title: sessionTitleByRepo[repo.full_name]?.trim() || `${repo.full_name} ${baseBranch}`,
       })
       await save({ ...config, directory: result.worktree.directory })
       router.push(`/sessions/${result.session.id}`)
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : String(nextError))
     } finally {
       setStartingSessionRepo(null)
     }
@@ -154,69 +235,54 @@ export default function ReposScreen() {
   return (
     <ScrollView
       className="flex-1 bg-background"
-      contentContainerStyle={{ padding: 16, gap: 20 }}
+      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 28 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor="#7dd3fc" />}
     >
-      <View className="overflow-hidden rounded-[32px] border border-border bg-surface px-5 py-5">
+      <SurfaceCard
+        eyebrow="Workspace portfolio"
+        title="Direct sandboxes and source repos from your phone."
+        description="Create disposable worktrees, import GitHub repos into the host, pick a base branch, and launch a PR-ready execution session without leaving the mobile control plane."
+      >
         <View className="absolute -right-8 top-0 h-28 w-28 rounded-full bg-accent/15" />
-        <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
-          Workspace portfolio
-        </Text>
-        <Text className="mt-2 text-[30px] font-semibold leading-[34px] text-ink">
-          Direct sandboxes and source repos from your phone.
-        </Text>
-        <Text className="mt-3 text-sm leading-6 text-soft">
-          Pick a GitHub repo, choose the base branch, create an isolated worktree session, then publish a PR when it is
-          ready.
-        </Text>
-        <View className="mt-4 flex-row gap-2">
-          <View className="rounded-full bg-background/70 px-3 py-2">
-            <Text className="text-[11px] font-semibold text-ink">{projects.length} local repos</Text>
-          </View>
-          <View className="rounded-full bg-background/70 px-3 py-2">
-            <Text className="text-[11px] font-semibold text-ink">{repos.length} GitHub repos</Text>
-          </View>
-          {bootstrap?.github.user?.login ? (
-            <View className="rounded-full bg-background/70 px-3 py-2">
-              <Text className="text-[11px] font-semibold text-ink">@{bootstrap.github.user.login}</Text>
-            </View>
-          ) : null}
+        <View className="flex-row flex-wrap gap-2">
+          <InfoChip label={`${projects.length} local repos`} tone="accent" />
+          <InfoChip label={`${repos.length} GitHub repos`} />
+          <InfoChip label={currentProjectLabel(selectedProject)} />
+          {bootstrap?.github?.user?.login ? <InfoChip label={`@${bootstrap.github.user.login}`} tone="good" /> : null}
         </View>
-      </View>
+      </SurfaceCard>
 
-      {error ? <Text className="text-sm text-rose-300">{error}</Text> : null}
+      {error ? <ErrorBanner message={error} /> : null}
 
-      <View className="rounded-[32px] border border-border bg-panel px-4 py-4">
-        <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">New sandbox</Text>
-        <Text className="mt-2 text-lg font-semibold text-ink">Create a disposable execution branch</Text>
-        <Text className="mt-2 text-sm leading-6 text-soft">
-          Create a disposable worktree on the host before you start a new mobile task.
-        </Text>
-        <TextInput
+      <SurfaceCard
+        eyebrow="New sandbox"
+        title="Create a disposable execution branch"
+        description="Provision a fresh host worktree before you start a new mobile task so session history and publish flow stay isolated."
+        tone="panel"
+      >
+        <TextField
           value={sandboxName}
           onChangeText={setSandboxName}
           placeholder="Optional sandbox name"
-          placeholderTextColor="#6d84a0"
-          className="mt-4 rounded-2xl border border-border bg-background px-4 py-4 text-base text-ink"
+          label="Sandbox name"
         />
-        <Pressable
-          disabled={busy}
-          onPress={() => void createSandbox()}
-          className="mt-3 rounded-2xl bg-accent px-4 py-4"
-        >
-          {busy ? (
-            <ActivityIndicator color="#082f49" />
-          ) : (
-            <Text className="text-center font-semibold text-slate-950">Create sandbox</Text>
-          )}
-        </Pressable>
+        <View className="mt-3">
+          <ActionButton label="Create sandbox" loading={busy} onPress={() => void createSandbox()} />
+        </View>
         {selectedProject ? (
           <Text className="mt-3 text-xs text-soft">Current repo: {selectedProject.worktree}</Text>
         ) : null}
-      </View>
+      </SurfaceCard>
 
       <View className="gap-3">
         <Text className="text-lg font-semibold text-ink">Local host repos</Text>
+        {loading || bootstrapLoading ? <RepoCardSkeleton count={2} /> : null}
+        {!loading && !bootstrapLoading && projects.length === 0 ? (
+          <EmptyState
+            title="No local repos yet"
+            description="Point the host at a workspace, import a repository, or create a sandbox to seed the local portfolio."
+          />
+        ) : null}
         {projects.map((project) => (
           <LocalRepoCard
             key={project.id}
@@ -229,121 +295,164 @@ export default function ReposScreen() {
 
       <View className="gap-3 pb-10">
         <Text className="text-lg font-semibold text-ink">GitHub account</Text>
-        {repos.length ? (
-          repos.slice(0, 20).map((repo) => (
-            <View key={repo.id} className="gap-3 rounded-[30px] border border-border bg-surface p-3">
-              <GithubRepoCard repo={repo} />
-              <View className="flex-row gap-2">
-                <Pressable
-                  disabled={Boolean(importingRepo) || branchLoading === repo.full_name}
-                  onPress={() => void loadBranches(repo)}
-                  className="flex-1 rounded-2xl bg-accent px-4 py-3"
-                >
-                  {branchLoading === repo.full_name ? (
-                    <ActivityIndicator color="#082f49" />
-                  ) : (
-                    <Text className="text-center font-semibold text-slate-950">Choose branch</Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  disabled={Boolean(importingRepo)}
-                  onPress={() => void importRepo(repo)}
-                  className="flex-1 rounded-2xl border border-border bg-background/60 px-4 py-3"
-                >
-                  {importingRepo === repo.full_name ? (
-                    <ActivityIndicator color="#7dd3fc" />
-                  ) : (
-                    <Text className="text-center font-semibold text-ink">
-                      {repo.imported ? "Refresh import" : "Import only"}
-                    </Text>
-                  )}
-                </Pressable>
-                {repo.imported_directory ? (
-                  <Pressable
-                    onPress={() => void useImportedRepo(repo)}
-                    className="flex-1 rounded-2xl border border-border bg-background/60 px-4 py-3"
-                  >
-                    <Text className="text-center font-semibold text-ink">Use repo</Text>
-                  </Pressable>
-                ) : null}
+        {!bootstrap?.github?.connected ? (
+          <EmptyState
+            title="Connect GitHub first"
+            description="Open Settings to enable OAuth or install a host token, then come back here to browse repositories and launch branch-native sessions."
+            action={<ActionButton label="Open GitHub controls" onPress={() => router.push("/settings")} />}
+          />
+        ) : (
+          <SurfaceCard
+            eyebrow="Source control"
+            title="Browse and launch branch sessions"
+            description="Search your GitHub inventory, choose the base branch, and create an isolated worktree session that is ready to publish back as a pull request."
+            tone="panel"
+          >
+            <TextField
+              value={repoSearch}
+              onChangeText={setRepoSearch}
+              placeholder="Search repositories, languages, or descriptions"
+              autoCapitalize="none"
+            />
+          </SurfaceCard>
+        )}
+
+        {selectedRepo ? (
+          <SurfaceCard
+            eyebrow="Guided launch"
+            title={selectedRepo.full_name}
+            description="Lock the base branch, name the execution track, and launch a GitHub session with a dedicated worktree and publish path."
+            tone="panel"
+          >
+            <View className="flex-row flex-wrap gap-2">
+              <InfoChip label="1. Repo selected" tone="accent" />
+              <InfoChip label="2. Choose branch" />
+              <InfoChip label="3. Launch session" />
+            </View>
+
+            <View className="mt-4 gap-3">
+              <TextField
+                label="Session title"
+                value={
+                  sessionTitleByRepo[selectedRepo.full_name] ??
+                  `${selectedRepo.full_name} ${selectedRepo.default_branch || "main"}`
+                }
+                onChangeText={(value) =>
+                  setSessionTitleByRepo((current) => ({
+                    ...current,
+                    [selectedRepo.full_name]: value,
+                  }))
+                }
+                autoCapitalize="sentences"
+                placeholder="Session title"
+              />
+
+              <TextField
+                label="Base branch"
+                value={baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")}
+                onChangeText={(value) =>
+                  setBaseBranchByRepo((current) => ({
+                    ...current,
+                    [selectedRepo.full_name]: value,
+                  }))
+                }
+                autoCapitalize="none"
+                placeholder="Base branch"
+              />
+            </View>
+
+            {branchOptions[selectedRepo.full_name]?.length ? (
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {branchOptions[selectedRepo.full_name].slice(0, 10).map((branch) => {
+                  const active =
+                    (baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")) ===
+                    branch.name
+                  return (
+                    <ActionButton
+                      key={branch.name}
+                      label={branch.name}
+                      variant={active ? "primary" : "secondary"}
+                      className="px-3 py-2"
+                      onPress={() =>
+                        setBaseBranchByRepo((current) => ({
+                          ...current,
+                          [selectedRepo.full_name]: branch.name,
+                        }))
+                      }
+                    />
+                  )
+                })}
               </View>
-              {branchRepo === repo.full_name ? (
-                <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
-                  <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
-                    GitHub session
-                  </Text>
-                  <Text className="mt-2 text-sm leading-6 text-soft">
-                    The session branch starts from the selected base branch, gets its own worktree, and can be published
-                    as a pull request.
-                  </Text>
-                  <TextInput
-                    value={baseBranchByRepo[repo.full_name] ?? repo.default_branch}
-                    onChangeText={(value) =>
-                      setBaseBranchByRepo((current) => ({
-                        ...current,
-                        [repo.full_name]: value,
-                      }))
-                    }
-                    autoCapitalize="none"
-                    placeholder="Base branch"
-                    placeholderTextColor="#6d84a0"
-                    className="mt-4 rounded-2xl border border-border bg-surface px-4 py-4 text-base text-ink"
-                  />
-                  {branchOptions[repo.full_name]?.length ? (
-                    <View className="mt-3 flex-row flex-wrap gap-2">
-                      {branchOptions[repo.full_name].slice(0, 8).map((branch) => (
-                        <Pressable
-                          key={branch.name}
-                          onPress={() =>
-                            setBaseBranchByRepo((current) => ({
-                              ...current,
-                              [repo.full_name]: branch.name,
-                            }))
-                          }
-                          className={`rounded-full px-3 py-2 ${
-                            (baseBranchByRepo[repo.full_name] ?? repo.default_branch) === branch.name
-                              ? "bg-accent/15"
-                              : "bg-surface"
-                          }`}
-                        >
-                          <Text
-                            className={`text-[11px] font-semibold ${
-                              (baseBranchByRepo[repo.full_name] ?? repo.default_branch) === branch.name
-                                ? "text-accent-light"
-                                : "text-ink"
-                            }`}
-                          >
-                            {branch.name}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                  <Pressable
-                    disabled={startingSessionRepo === repo.full_name}
-                    onPress={() => void startGithubSession(repo)}
-                    className="mt-4 rounded-2xl bg-accent px-4 py-4"
-                  >
-                    {startingSessionRepo === repo.full_name ? (
-                      <ActivityIndicator color="#082f49" />
-                    ) : (
-                      <Text className="text-center font-semibold text-slate-950">Start GitHub session</Text>
-                    )}
-                  </Pressable>
+            ) : null}
+
+            <View className="mt-4 rounded-[24px] border border-border bg-background/70 px-4 py-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+                Launch summary
+              </Text>
+              <Text className="mt-2 text-sm leading-6 text-soft">
+                {`Worktree source: ${selectedRepo.full_name} from ${baseBranchByRepo[selectedRepo.full_name] ?? (selectedRepo.default_branch || "main")}.`}
+              </Text>
+              <Text className="mt-1 text-sm leading-6 text-soft">
+                Session title:{" "}
+                {sessionTitleByRepo[selectedRepo.full_name] ??
+                  `${selectedRepo.full_name} ${selectedRepo.default_branch || "main"}`}
+              </Text>
+            </View>
+
+            <View className="mt-4 flex-row gap-2">
+              <View className="flex-1">
+                <ActionButton label="Close wizard" variant="secondary" onPress={() => setBranchRepo(null)} />
+              </View>
+              <View className="flex-1">
+                <ActionButton
+                  label="Launch GitHub session"
+                  loading={startingSessionRepo === selectedRepo.full_name}
+                  onPress={() => void startGithubSession(selectedRepo)}
+                />
+              </View>
+            </View>
+          </SurfaceCard>
+        ) : null}
+
+        {loading || bootstrapLoading ? <RepoCardSkeleton count={3} /> : null}
+        {!loading && !bootstrapLoading && bootstrap?.github?.connected && visibleRepos.length === 0 ? (
+          <EmptyState
+            title="No repositories matched"
+            description="Adjust your search, reconnect GitHub if needed, or refresh the control plane from Settings."
+          />
+        ) : null}
+        {visibleRepos.slice(0, 20).map((repo) => (
+          <View key={repo.id} className="gap-3 rounded-[30px] border border-border bg-surface p-3">
+            <GithubRepoCard repo={repo} />
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <ActionButton
+                  label={branchRepo === repo.full_name ? "Wizard open" : "Configure session"}
+                  loading={branchLoading === repo.full_name}
+                  onPress={() => void loadBranches(repo)}
+                  disabled={Boolean(importingRepo) || branchLoading === repo.full_name}
+                />
+              </View>
+              <View className="flex-1">
+                <ActionButton
+                  label={repo.imported ? "Refresh import" : "Import only"}
+                  variant="secondary"
+                  loading={importingRepo === repo.full_name}
+                  onPress={() => void importRepo(repo)}
+                  disabled={Boolean(importingRepo)}
+                />
+              </View>
+              {repo.imported_directory ? (
+                <View className="flex-1">
+                  <ActionButton label="Use repo" variant="secondary" onPress={() => void useImportedRepo(repo)} />
                 </View>
               ) : null}
-              {repo.imported_directory ? (
-                <Text className="text-xs text-soft">Imported at {repo.imported_directory}</Text>
-              ) : null}
             </View>
-          ))
-        ) : (
-          <View className="rounded-3xl border border-dashed border-border bg-surface px-5 py-6">
-            <Text className="text-sm leading-6 text-soft">
-              Add a GitHub token in Settings to browse repositories from your phone.
-            </Text>
+            {repo.imported_directory ? (
+              <Text className="text-xs text-soft">Imported at {repo.imported_directory}</Text>
+            ) : null}
           </View>
-        )}
+        ))}
       </View>
     </ScrollView>
   )

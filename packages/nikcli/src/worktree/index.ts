@@ -278,7 +278,10 @@ export namespace Worktree {
     const target = baseBranch ? (remote ? `${remote}/${baseBranch}` : baseBranch) : undefined
 
     if (baseBranch && remote) {
-      const fetch = await $`git fetch ${remote} ${baseBranch}`.quiet().nothrow().cwd(Instance.worktree)
+      const remoteHead = `refs/heads/${baseBranch}`
+      const remoteTracking = `refs/remotes/${remote}/${baseBranch}`
+      const fetchRefspec = `+${remoteHead}:${remoteTracking}`
+      const fetch = await $`git fetch ${remote} ${fetchRefspec}`.quiet().nothrow().cwd(Instance.worktree)
       if (fetch.exitCode !== 0) {
         throw new CreateFailedError({ message: errorText(fetch) || `Failed to fetch ${target}` })
       }

@@ -29,7 +29,7 @@ export namespace MobileGithubRepo {
     .object({
       owner: z.string().min(1),
       repo: z.string().min(1),
-      cloneUrl: z.string().url(),
+      cloneUrl: z.url(),
       defaultBranch: z.string().min(1),
       private: z.boolean().default(false),
     })

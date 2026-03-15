@@ -17,6 +17,11 @@ async function getChatBot() {
   return mod.ChatBot
 }
 
+async function getBotHandlers() {
+  const mod = await import("../../chatbot/handlers")
+  return mod.BotHandlers
+}
+
 function isChatPlatform(type: string): boolean {
   return ["discord", "slack", "teams", "gchat", "linear", "github"].includes(type)
 }
@@ -272,7 +277,8 @@ export const BotStartCommand = cmd({
         spinner.start(`Starting bot "${botName}"...`)
 
         try {
-          const bot = await ChatBot.createBot(botName, connectorConfig)
+          const BotHandlers = await getBotHandlers()
+          const bot = await BotHandlers.ensureAiBot(botName, connectorConfig)
           if (!bot) {
             spinner.stop("Failed to create bot", 1)
             prompts.log.error("Check credentials: nikcli connectors auth " + botName)
@@ -280,8 +286,12 @@ export const BotStartCommand = cmd({
             return
           }
 
+          const webhookPath = ChatBot.getWebhookPath(
+            connectorConfig.type as "discord" | "slack" | "teams" | "gchat" | "linear" | "github",
+            botName,
+          )
           spinner.stop(`Bot "${botName}" started!`)
-          prompts.log.info(`Webhook URL: ${Server.url().origin}/chatbot/${connectorConfig.type}/${botName}`)
+          prompts.log.info(`Webhook URL: ${Server.url().origin}${webhookPath}`)
         } catch (error) {
           spinner.stop("Failed to start bot", 1)
           prompts.log.error(error instanceof Error ? error.message : String(error))

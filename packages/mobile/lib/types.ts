@@ -94,6 +94,16 @@ export type ReasoningPart = {
   text: string
 }
 
+export type FilePart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: "file"
+  mime: string
+  filename?: string
+  url: string
+}
+
 export type ToolState =
   | { status: "pending"; input: Record<string, unknown>; raw: string }
   | { status: "running"; input: Record<string, unknown>; title?: string; time: { start: number } }
@@ -144,6 +154,7 @@ export type StepFinishPart = {
 
 export type Part =
   | TextPart
+  | FilePart
   | ReasoningPart
   | ToolPart
   | PatchPart
@@ -168,6 +179,14 @@ export type SSEEvent =
   | { type: "server.heartbeat"; properties: Record<string, never> }
   | { type: string; properties: unknown }
 
+export const MOBILE_DEFAULT_PROVIDER_ID = "minimax-coding-plan"
+export const MOBILE_DEFAULT_MODEL_ID = "MiniMax-M2.5"
+
+export type ModelRef = {
+  providerID: string
+  modelID: string
+}
+
 export type ServerConfig = {
   url: string
   /** Bearer token — takes precedence over username/password */
@@ -177,6 +196,35 @@ export type ServerConfig = {
   /** Basic auth password */
   password?: string
   directory?: string
+  modelProviderID?: string
+  modelID?: string
+}
+
+export type ProviderModel = {
+  id: string
+  providerID: string
+  name: string
+  status: "alpha" | "beta" | "deprecated" | "active"
+  api: {
+    id: string
+    url: string
+    npm: string
+  }
+}
+
+export type ProviderInfo = {
+  id: string
+  name: string
+  source: "env" | "config" | "custom" | "api"
+  env: string[]
+  key?: string
+  models: Record<string, ProviderModel>
+}
+
+export type ProviderCatalog = {
+  all: ProviderInfo[]
+  default: Record<string, string>
+  connected: string[]
 }
 
 export type PermissionRequest = {
@@ -218,6 +266,7 @@ export type MobileBootstrap = {
   projects: ProjectInfo[]
   github: {
     connected: boolean
+    oauthDeviceEnabled: boolean
     user?: {
       login: string
       name?: string | null
@@ -302,6 +351,25 @@ export type GitHubPublishResult = {
     number: number
     url: string
     title: string
+  }
+}
+
+export type GitHubDeviceAuthStart = {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  verificationUriComplete?: string
+  expiresAt: number
+  interval: number
+}
+
+export type GitHubDeviceAuthPollResult = {
+  status: "pending" | "approved" | "denied" | "expired"
+  interval?: number
+  user?: {
+    login: string
+    name?: string | null
+    avatar_url?: string
   }
 }
 

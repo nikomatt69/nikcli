@@ -505,6 +505,8 @@ export namespace Config {
     .object({
       type: z.literal("github"),
       token: z.string().optional().describe("GitHub personal access token"),
+      oauthClientId: z.string().optional().describe("GitHub OAuth client ID for mobile device flow"),
+      clientId: z.string().optional().describe("Alias for GitHub OAuth client ID"),
       enabled: z.boolean().optional(),
     })
     .strict()

@@ -13,6 +13,7 @@ const log = Log.create({ service: "chatbot-handlers" })
 
 export namespace BotHandlers {
   const DEFAULT_PROMPT = `You are nikcli, an AI coding assistant. You help users with software engineering tasks including writing code, debugging, answering questions, and more. Be concise and helpful.`
+  const registeredBots = new WeakSet<Chat>()
 
   export async function handleMention(
     thread: Thread,
@@ -96,6 +97,8 @@ export namespace BotHandlers {
   }
 
   export function registerAiHandler(bot: Chat, opts?: { prompt?: string; tools?: Record<string, any> }): void {
+    if (registeredBots.has(bot)) return
+
     // Capture the current Instance directory so async handlers can re-establish context
     const directory = Instance.directory
 
@@ -114,6 +117,14 @@ export namespace BotHandlers {
     })
 
     log.info("AI handler registered for bot")
+    registeredBots.add(bot)
+  }
+
+  export async function ensureAiBot(name: string, config: Config.Connector): Promise<Chat | null> {
+    const bot = await ChatBot.createBot(name, config)
+    if (!bot) return null
+    registerAiHandler(bot)
+    return bot
   }
 
   export async function initializeAllBots(): Promise<void> {
@@ -127,9 +138,8 @@ export namespace BotHandlers {
       if (connector.enabled === false) continue
 
       try {
-        const bot = await ChatBot.createBot(name, connector as Config.Connector)
+        const bot = await ensureAiBot(name, connector as Config.Connector)
         if (bot) {
-          registerAiHandler(bot)
           log.info("Bot initialized with AI handler", { name, platform: connector.type })
         }
       } catch (error) {

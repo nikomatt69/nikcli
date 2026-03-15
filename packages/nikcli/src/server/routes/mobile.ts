@@ -1,7 +1,9 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
+import { NamedError } from "@nikcli-ai/util/error"
 import z from "zod"
+import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
 import { Project } from "@/project/project"
 import { Session } from "@/session"
@@ -9,7 +11,9 @@ import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
 import { SessionSummary } from "@/session/summary"
 import { MessageV2 } from "@/session/message-v2"
+import { Agent } from "@/agent/agent"
 import { PermissionNext } from "@/permission/next"
+import { Provider } from "@/provider/provider"
 import { GlobalBus } from "@/bus/global"
 import { Snapshot } from "@/snapshot"
 import { Worktree } from "@/worktree"
@@ -20,6 +24,8 @@ import { Installation } from "@/installation"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Storage } from "@/storage/storage"
+import { Flag } from "@/flag/flag"
+import { Config } from "@/config/config"
 import { errors } from "../error"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
@@ -38,6 +44,7 @@ const MobileBootstrap = z
     projects: MobileProject.array(),
     github: z.object({
       connected: z.boolean(),
+      oauthDeviceEnabled: z.boolean(),
       user: z
         .object({
           login: z.string(),
@@ -81,8 +88,8 @@ const MobileGithubSessionCreateInput = z
   .object({
     owner: z.string().min(1),
     repo: z.string().min(1),
-    cloneUrl: z.string().url(),
-    htmlUrl: z.string().url().optional(),
+    cloneUrl: z.url(),
+    htmlUrl: z.url().optional(),
     defaultBranch: z.string().min(1),
     baseBranch: z.string().min(1),
     private: z.boolean().default(false),
@@ -119,6 +126,37 @@ const MobileGithubPublishResult = z
   })
   .meta({ ref: "MobileGithubPublishResult" })
 
+const MobileGithubDeviceAuthStart = z
+  .object({
+    deviceCode: z.string(),
+    userCode: z.string(),
+    verificationUri: z.string(),
+    verificationUriComplete: z.string().optional(),
+    expiresAt: z.number(),
+    interval: z.number(),
+  })
+  .meta({ ref: "MobileGithubDeviceAuthStart" })
+
+const MobileGithubDeviceAuthPollInput = z
+  .object({
+    deviceCode: z.string().min(1),
+  })
+  .meta({ ref: "MobileGithubDeviceAuthPollInput" })
+
+const MobileGithubDeviceAuthPollResult = z
+  .object({
+    status: z.enum(["pending", "approved", "denied", "expired"]),
+    interval: z.number().optional(),
+    user: z
+      .object({
+        login: z.string(),
+        name: z.string().nullable().optional(),
+        avatar_url: z.string().optional(),
+      })
+      .optional(),
+  })
+  .meta({ ref: "MobileGithubDeviceAuthPollResult" })
+
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
 }
@@ -141,6 +179,49 @@ async function getSessionAnyProject(sessionID: string): Promise<Session.Info> {
     }
   }
   throw new Storage.NotFoundError({ message: `Session not found: ${sessionID}` })
+}
+
+async function latestPromptDefaults(sessionID: string) {
+  const messages = await Session.messages({ sessionID, limit: 24 }).catch(() => [])
+  for (let index = messages.length - 1; index >= 0; index--) {
+    const info = messages[index]?.info
+    if (!info || info.role !== "user") continue
+    return {
+      agent: info.agent,
+      model: info.model,
+    }
+  }
+  return {}
+}
+
+async function resolveMobilePromptDefaults(session: Session.Info) {
+  const current = await latestPromptDefaults(session.id)
+  if (current.agent && current.model) return current
+
+  const allKeys = await Storage.list(["session"])
+  const sessions: Session.Info[] = []
+  for (const key of allKeys) {
+    if (key.length !== 3 || key[2] === session.id) continue
+    const candidate = await Storage.read<Session.Info>(key).catch(() => undefined)
+    if (!candidate || candidate.projectID !== session.projectID) continue
+    sessions.push(candidate)
+  }
+
+  sessions.sort((a, b) => b.time.updated - a.time.updated)
+
+  for (const session of sessions) {
+    const fallback = await latestPromptDefaults(session.id)
+    if (!fallback.agent || !fallback.model) continue
+    return {
+      agent: current.agent ?? fallback.agent,
+      model: current.model ?? fallback.model,
+    }
+  }
+
+  return {
+    agent: current.agent ?? (await Agent.defaultAgent()),
+    model: current.model ?? (await Provider.defaultModel()),
+  }
 }
 
 function extractSessionIDs(value: unknown): string[] {
@@ -166,6 +247,117 @@ function extractSessionIDs(value: unknown): string[] {
 async function githubToken() {
   const auth = await ConnectorAuth.get("github")
   return auth?.token
+}
+
+async function githubOAuthClientID() {
+  const config = await Config.get().catch(() => undefined)
+  const githubConnector = Object.values(config?.connectors ?? {}).find(
+    (connector): connector is Config.ConnectorGithub =>
+      typeof connector === "object" && connector !== null && "type" in connector && connector.type === "github",
+  )
+
+  return (
+    Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID ||
+    githubConnector?.oauthClientId ||
+    githubConnector?.clientId ||
+    process.env.NIKCLI_GITHUB_OAUTH_CLIENT_ID ||
+    process.env.GITHUB_CLIENT_ID_CONSOLE ||
+    process.env.GITHUB_CLIENT_ID
+  )
+}
+
+async function startGithubDeviceAuth() {
+  const clientID = await githubOAuthClientID()
+  if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
+  const response = await fetch("https://github.com/login/device/code", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "nikcli-mobile",
+    },
+    body: JSON.stringify({
+      client_id: clientID,
+      scope: "repo read:user user:email",
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`GitHub device auth failed: ${response.status} ${response.statusText}`)
+  }
+  const payload = (await response.json()) as {
+    device_code: string
+    user_code: string
+    verification_uri: string
+    verification_uri_complete?: string
+    expires_in: number
+    interval?: number
+  }
+  return {
+    deviceCode: payload.device_code,
+    userCode: payload.user_code,
+    verificationUri: payload.verification_uri,
+    verificationUriComplete: payload.verification_uri_complete,
+    expiresAt: Date.now() + payload.expires_in * 1000,
+    interval: payload.interval ?? 5,
+  }
+}
+
+async function pollGithubDeviceAuth(deviceCode: string) {
+  const clientID = await githubOAuthClientID()
+  if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
+  const response = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "User-Agent": "nikcli-mobile",
+    },
+    body: JSON.stringify({
+      client_id: clientID,
+      device_code: deviceCode,
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`GitHub auth polling failed: ${response.status} ${response.statusText}`)
+  }
+  const payload = (await response.json()) as {
+    access_token?: string
+    error?: string
+    interval?: number
+  }
+  if (payload.access_token) {
+    const user = await GithubApi.getUser(payload.access_token)
+    await ConnectorAuth.set("github", { token: payload.access_token })
+    Connectors.invalidateConnector("github")
+    return {
+      status: "approved" as const,
+      user: {
+        login: user.login,
+        name: user.name,
+        avatar_url: user.avatar_url,
+      },
+    }
+  }
+  if (payload.error === "authorization_pending") {
+    return {
+      status: "pending" as const,
+      interval: payload.interval ?? 5,
+    }
+  }
+  if (payload.error === "slow_down") {
+    return {
+      status: "pending" as const,
+      interval: Math.max(payload.interval ?? 5, 10),
+    }
+  }
+  if (payload.error === "access_denied") {
+    return { status: "denied" as const }
+  }
+  if (payload.error === "expired_token") {
+    return { status: "expired" as const }
+  }
+  throw new Error(payload.error || "GitHub auth polling failed")
 }
 
 async function githubUser() {
@@ -304,6 +496,7 @@ export const MobileRoutes = lazy(() =>
           })),
           github: {
             connected: Boolean(user),
+            oauthDeviceEnabled: Boolean(await githubOAuthClientID()),
             user: user
               ? {
                   login: user.login,
@@ -407,6 +600,51 @@ export const MobileRoutes = lazy(() =>
       }),
       async (c) => {
         return c.json(await MobileGithubRepo.list())
+      },
+    )
+    .post(
+      "/github/oauth/device",
+      describeRoute({
+        summary: "Start GitHub OAuth device flow",
+        description: "Start a GitHub device authorization flow and return the verification code for mobile sign-in.",
+        operationId: "mobile.github.oauth.device.start",
+        responses: {
+          200: {
+            description: "GitHub device flow started",
+            content: { "application/json": { schema: resolver(MobileGithubDeviceAuthStart) } },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        try {
+          return c.json(await startGithubDeviceAuth())
+        } catch (error) {
+          return c.json({ error: error instanceof Error ? error.message : String(error) }, 400)
+        }
+      },
+    )
+    .post(
+      "/github/oauth/device/poll",
+      describeRoute({
+        summary: "Poll GitHub OAuth device flow",
+        description: "Poll GitHub device authorization status and persist the approved token on the host.",
+        operationId: "mobile.github.oauth.device.poll",
+        responses: {
+          200: {
+            description: "GitHub device flow status",
+            content: { "application/json": { schema: resolver(MobileGithubDeviceAuthPollResult) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", MobileGithubDeviceAuthPollInput),
+      async (c) => {
+        try {
+          return c.json(await pollGithubDeviceAuth(c.req.valid("json").deviceCode))
+        } catch (error) {
+          return c.json({ error: error instanceof Error ? error.message : String(error) }, 400)
+        }
       },
     )
     .post(
@@ -587,7 +825,18 @@ export const MobileRoutes = lazy(() =>
           seen.add(sessionID)
           try {
             const session = await Storage.read<Session.Info>(key)
-            if (term && !session.title.toLowerCase().includes(term)) continue
+            if (term) {
+              const haystack = [
+                session.title,
+                session.github?.fullName,
+                session.github?.baseBranch,
+                session.github?.headBranch,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase()
+              if (!haystack.includes(term)) continue
+            }
             sessions.push({ info: session, status: statuses[session.id] })
           } catch {
             continue
@@ -701,12 +950,24 @@ export const MobileRoutes = lazy(() =>
         void Instance.provide({
           directory: session.directory,
           async fn() {
-            return SessionPrompt.prompt({ ...body, sessionID })
+            const defaults = !body.agent || !body.model ? await resolveMobilePromptDefaults(session) : undefined
+            return SessionPrompt.prompt({
+              ...body,
+              sessionID,
+              agent: body.agent ?? defaults?.agent,
+              model: body.model ?? defaults?.model,
+            })
           },
         }).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error)
+          SessionStatus.set(sessionID, { type: "idle" })
+          Bus.publish(Session.Event.Error, {
+            sessionID,
+            error: new NamedError.Unknown({ message }).toObject(),
+          })
           log.error("mobile session prompt failed", {
             sessionID,
-            error: error instanceof Error ? error.message : String(error),
+            error: message,
           })
         })
         return c.json({ accepted: true as const }, 202)

@@ -5,9 +5,9 @@ import { lazy } from "../../util/lazy"
 
 const log = Log.create({ service: "chatbot-routes" })
 
-async function getChatBot() {
-  const mod = await import("../../chatbot")
-  return mod.ChatBot
+async function getBotHandlers() {
+  const mod = await import("../../chatbot/handlers")
+  return mod.BotHandlers
 }
 
 export const ChatBotRoutes = lazy(() => {
@@ -30,15 +30,14 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("Discord webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {
-      const body = await c.req.json()
       const webhooks = bot.webhooks
       const discordWebhook = webhooks.discord
       if (discordWebhook) {
@@ -61,11 +60,11 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("Slack webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {
@@ -91,11 +90,11 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("Teams webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {
@@ -121,11 +120,11 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("GChat webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {
@@ -151,11 +150,11 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("Linear webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {
@@ -181,11 +180,11 @@ export const ChatBotRoutes = lazy(() => {
       return c.text("Connector not found", 404)
     }
 
-    const ChatBot = await getChatBot()
-    const bot = ChatBot.getBot(name)
+    const BotHandlers = await getBotHandlers()
+    const bot = await BotHandlers.ensureAiBot(name, connector)
     if (!bot) {
       log.warn("GitHub webhook: bot not initialized", { name })
-      return c.text("Bot not initialized", 404)
+      return c.text("Bot unavailable", 503)
     }
 
     try {

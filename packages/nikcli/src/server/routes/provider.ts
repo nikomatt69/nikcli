@@ -2,6 +2,8 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Config } from "../../config/config"
+import { Auth } from "../../auth"
+import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
 import { ProviderAuth } from "../../provider/auth"
@@ -78,6 +80,74 @@ export const ProviderRoutes = lazy(() =>
       }),
       async (c) => {
         return c.json(await ProviderAuth.methods())
+      },
+    )
+    .post(
+      "/:providerID/api",
+      describeRoute({
+        summary: "Set provider API key",
+        description: "Store an API key for a provider and refresh the current instance cache.",
+        operationId: "provider.api.set",
+        responses: {
+          200: {
+            description: "API key saved",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          providerID: z.string().meta({ description: "Provider ID" }),
+        }),
+      ),
+      validator(
+        "json",
+        z.object({
+          key: z.string().min(1).meta({ description: "Provider API key" }),
+        }),
+      ),
+      async (c) => {
+        const providerID = c.req.valid("param").providerID
+        const { key } = c.req.valid("json")
+        await ProviderAuth.api({ providerID, key })
+        await Instance.dispose()
+        return c.json({ success: true as const })
+      },
+    )
+    .delete(
+      "/:providerID/auth",
+      describeRoute({
+        summary: "Remove provider credentials",
+        description: "Remove stored credentials for a provider and refresh the current instance cache.",
+        operationId: "provider.auth.remove",
+        responses: {
+          200: {
+            description: "Credentials removed",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true) })),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          providerID: z.string().meta({ description: "Provider ID" }),
+        }),
+      ),
+      async (c) => {
+        const providerID = c.req.valid("param").providerID
+        await Auth.remove(providerID)
+        await Instance.dispose()
+        return c.json({ success: true as const })
       },
     )
     .post(

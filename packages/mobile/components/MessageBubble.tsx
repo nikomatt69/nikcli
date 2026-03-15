@@ -1,8 +1,16 @@
-import { LayoutAnimation, Pressable, Text, View } from "react-native"
 import { useMemo, useState } from "react"
+import { LayoutAnimation, Pressable, Text, View } from "react-native"
+import { ChevronDown, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import Markdown from "react-native-markdown-display"
-import Ionicons from "@expo/vector-icons/Ionicons"
-import type { AssistantMessage, FileDiff, MessageWithParts, PatchPart, ReasoningPart, TextPart, ToolPart } from "@/lib/types"
+import type {
+  AssistantMessage,
+  FileDiff,
+  MessageWithParts,
+  PatchPart,
+  ReasoningPart,
+  TextPart,
+  ToolPart,
+} from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
@@ -24,6 +32,24 @@ function patchPart(parts: MessageWithParts["parts"]) {
 
 function toolParts(parts: MessageWithParts["parts"]) {
   return parts.filter((part): part is ToolPart => part.type === "tool")
+}
+
+function patchFileList(files: string[]): string {
+  return files.map((file) => file || "Unknown file").join("\n")
+}
+
+function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; muted?: boolean }) {
+  const Icon = props.icon
+
+  return (
+    <Pressable
+      onPress={props.onPress}
+      className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
+    >
+      <Icon size={13} color={props.muted ? "#6f90ac" : "#7dd3fc"} strokeWidth={2.1} />
+      <Text className={`text-[11px] font-semibold ${props.muted ? "text-soft" : "text-ink"}`}>{props.label}</Text>
+    </Pressable>
+  )
 }
 
 export function MessageBubble(props: {
@@ -49,14 +75,19 @@ export function MessageBubble(props: {
 
   function toggleReasoning() {
     LayoutAnimation.easeInEaseOut()
-    setShowReasoning((v) => !v)
+    setShowReasoning((value) => !value)
   }
 
   return (
     <View className={`mb-4 ${isUser ? "items-end" : "items-start"}`}>
       <View
-        className={`max-w-[94%] rounded-[28px] border px-4 py-4 ${isUser ? "border-accent/40 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
-        style={{ shadowColor: "#020617", shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 8 } }}
+        className={`max-w-[94%] rounded-[30px] border px-4 py-4 ${isUser ? "border-accent/40 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
+        style={{
+          shadowColor: "#020617",
+          shadowOpacity: 0.14,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+        }}
       >
         <Text className="mb-2 text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
           {isUser ? "You" : "Nikcli"}
@@ -75,9 +106,13 @@ export function MessageBubble(props: {
         ) : null}
 
         {reasoning ? (
-          <View className="mt-3 rounded-2xl border border-border bg-background/50 px-3 py-3">
+          <View className="mt-3 rounded-[22px] border border-border bg-background/55 px-3 py-3">
             <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
-              <Ionicons name={showReasoning ? "chevron-down" : "chevron-forward"} size={12} color="#7dd3fc" />
+              {showReasoning ? (
+                <ChevronDown size={13} color="#7dd3fc" strokeWidth={2.1} />
+              ) : (
+                <ChevronRight size={13} color="#7dd3fc" strokeWidth={2.1} />
+              )}
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Reasoning ({wordCount.toLocaleString()} words)
               </Text>
@@ -91,7 +126,7 @@ export function MessageBubble(props: {
         ))}
 
         {patch ? (
-          <View className="mt-3 rounded-2xl border border-border bg-background/50 px-3 py-3">
+          <View className="mt-3 rounded-[22px] border border-border bg-background/55 px-3 py-3">
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-semibold text-ink">Patch preview</Text>
               {props.diffs?.length ? null : (
@@ -102,7 +137,7 @@ export function MessageBubble(props: {
                 </Pressable>
               )}
             </View>
-            <Text className="mt-2 text-sm text-soft">{patch.files.join("\n")}</Text>
+            <Text className="mt-2 text-sm text-soft">{patchFileList(patch.files)}</Text>
             {props.diffs?.length ? <DiffViewer diffs={props.diffs} /> : null}
           </View>
         ) : null}
@@ -114,35 +149,11 @@ export function MessageBubble(props: {
         ) : null}
         <Text className="mt-1 text-[10px] text-muted">{relativeTime(props.message.info.time.created)}</Text>
 
-        {props.isActive && (props.onCopy || props.onFork) ? (
-          <View className="mt-3 flex-row gap-2 border-t border-border pt-3">
-            {props.onCopy ? (
-              <Pressable
-                onPress={props.onCopy}
-                className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
-              >
-                <Ionicons name="copy-outline" size={13} color="#7dd3fc" />
-                <Text className="text-[11px] font-semibold text-ink">Copy</Text>
-              </Pressable>
-            ) : null}
-            {props.onFork ? (
-              <Pressable
-                onPress={props.onFork}
-                className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
-              >
-                <Ionicons name="git-branch-outline" size={13} color="#7dd3fc" />
-                <Text className="text-[11px] font-semibold text-ink">Fork</Text>
-              </Pressable>
-            ) : null}
-            {props.onDismiss ? (
-              <Pressable
-                onPress={props.onDismiss}
-                className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
-              >
-                <Ionicons name="close-outline" size={13} color="#4a6a85" />
-                <Text className="text-[11px] font-semibold text-soft">Dismiss</Text>
-              </Pressable>
-            ) : null}
+        {props.isActive && (props.onCopy || props.onFork || props.onDismiss) ? (
+          <View className="mt-3 flex-row flex-wrap gap-2 border-t border-border pt-3">
+            {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
+            {props.onFork ? <ActionChip label="Fork" onPress={props.onFork} icon={GitBranch} /> : null}
+            {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
           </View>
         ) : null}
       </View>

@@ -2,6 +2,25 @@ import { useEffect, useRef } from "react"
 import EventSource from "react-native-sse"
 import type { ServerConfig, SessionStreamEvent } from "@/lib/types"
 
+function extractErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error
+
+  if (error && typeof error === "object") {
+    const maybeMessage = Reflect.get(error, "message")
+    if (typeof maybeMessage === "string" && maybeMessage.trim()) return maybeMessage
+
+    const maybeData = Reflect.get(error, "data")
+    if (typeof maybeData === "string" && maybeData.trim()) return maybeData
+
+    if (maybeData && typeof maybeData === "object") {
+      const nestedMessage = Reflect.get(maybeData, "message")
+      if (typeof nestedMessage === "string" && nestedMessage.trim()) return nestedMessage
+    }
+  }
+
+  return "Session stream disconnected"
+}
+
 export function useSessionStream(input: {
   config: ServerConfig | null
   sessionID: string | undefined
@@ -11,12 +30,19 @@ export function useSessionStream(input: {
 }) {
   const onEventRef = useRef(input.onEvent)
   const onErrorRef = useRef(input.onError)
-  onEventRef.current = input.onEvent
-  onErrorRef.current = input.onError
+
+  useEffect(() => {
+    onEventRef.current = input.onEvent
+  }, [input.onEvent])
+
+  useEffect(() => {
+    onErrorRef.current = input.onError
+  }, [input.onError])
 
   useEffect(() => {
     if (!input.enabled || !input.config || !input.sessionID) return
 
+    let active = true
     const url = new URL(`/mobile/session/${encodeURIComponent(input.sessionID)}/stream`, input.config.url).toString()
     const es = new EventSource(url, {
       headers: {
@@ -25,27 +51,36 @@ export function useSessionStream(input: {
       },
     })
 
+    const reportError = (error: unknown) => {
+      if (!active) return
+      onErrorRef.current?.(extractErrorMessage(error))
+    }
+
     const onMessage = (message: { data?: string }) => {
-      if (!message.data) return
+      if (!active || !message.data) return
+
       try {
         onEventRef.current(JSON.parse(message.data) as SessionStreamEvent)
       } catch (error) {
-        onErrorRef.current?.(error instanceof Error ? error.message : String(error))
+        reportError(error)
       }
     }
 
-    const onError = (event: any) => {
-      onErrorRef.current?.(typeof event?.message === "string" ? event.message : "Session stream disconnected")
+    const onError = (event: unknown) => {
+      reportError(event)
     }
 
     es.addEventListener("message", onMessage)
     es.addEventListener("error", onError)
 
     return () => {
-      es.removeAllEventListeners()
-      es.close()
+      active = false
+
+      try {
+        es.removeAllEventListeners?.()
+      } finally {
+        es.close()
+      }
     }
-    // Re-connect only when the stream target itself changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [input.enabled, input.config?.url, input.config?.token, input.config?.directory, input.sessionID])
+  }, [input.enabled, input.config?.directory, input.config?.token, input.config?.url, input.sessionID])
 }

@@ -20,6 +20,21 @@ module.exports = {
         success: "#22c55e",
         danger: "#ef4444",
       },
+      borderRadius: {
+        xl: "20px",
+        "2xl": "24px",
+        "3xl": "30px",
+        "4xl": "34px",
+      },
+      boxShadow: {
+        "space-sm": "0 10px 18px rgba(2, 6, 23, 0.16)",
+        "space-md": "0 18px 30px rgba(2, 6, 23, 0.22)",
+        "glow-accent": "0 0 0 1px rgba(56, 189, 248, 0.14), 0 16px 30px rgba(56, 189, 248, 0.12)",
+      },
+      spacing: {
+        18: "4.5rem",
+        22: "5.5rem",
+      },
     },
   },
   plugins: [],

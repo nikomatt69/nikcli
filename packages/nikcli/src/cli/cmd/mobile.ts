@@ -114,12 +114,11 @@ export const MobileCommand = cmd({
 
             const localIPs = getLocalIPs()
             const isAllInterfaces = opts.hostname === "0.0.0.0" || opts.hostname === "::"
-            const pairingIPs =
-              args.publicUrl
-                ? [serverUrl]
-                : isAllInterfaces && localIPs.length > 0
-                  ? localIPs.map((ip) => `http://${ip}:${port}`)
-                  : [serverUrl]
+            const pairingIPs = args.publicUrl
+              ? [serverUrl]
+              : isAllInterfaces && localIPs.length > 0
+                ? localIPs.map((ip) => `http://${ip}:${port}`)
+                : [serverUrl]
 
             for (let i = 0; i < pairingIPs.length; i++) {
               const url = pairingIPs[i]

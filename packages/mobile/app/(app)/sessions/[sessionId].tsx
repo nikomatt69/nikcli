@@ -1,20 +1,23 @@
 import { useCallback, useMemo, useState } from "react"
-import {
-  ActivityIndicator,
-  FlatList,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from "react-native"
-import { useFocusEffect, useLocalSearchParams } from "expo-router"
+import { ArrowLeft } from "lucide-react-native"
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native"
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
+import { SessionComposer } from "@/components/session/SessionComposer"
+import { PublishSheet } from "@/components/session/PublishSheet"
+import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
+import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
-import type { FileDiff, MessageWithParts, SessionDetail, SessionStreamEvent } from "@/lib/types"
+import {
+  MOBILE_DEFAULT_MODEL_ID,
+  MOBILE_DEFAULT_PROVIDER_ID,
+  type FileDiff,
+  type MessageWithParts,
+  type SessionDetail,
+  type SessionStreamEvent,
+} from "@/lib/types"
 import { useSessionStream } from "@/hooks/use-session-stream"
 
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
@@ -38,8 +41,15 @@ function upsertPart(messages: MessageWithParts[], part: MessageWithParts["parts"
   return next
 }
 
+function sessionErrorMessage(event: SessionStreamEvent) {
+  if (event.type !== "session.error") return null
+  const message = event.properties?.error?.data?.message ?? event.properties?.error?.message
+  return typeof message === "string" && message.trim() ? message : "Session failed"
+}
+
 export default function SessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
+  const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -49,6 +59,11 @@ export default function SessionScreen() {
   const [cleaning, setCleaning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [diffs, setDiffs] = useState<Record<string, FileDiff[]>>({})
+  const [publishOpen, setPublishOpen] = useState(false)
+  const [publishTitle, setPublishTitle] = useState("")
+  const [publishBody, setPublishBody] = useState("")
+  const [commitMessage, setCommitMessage] = useState("")
+  const [mode, setMode] = useState<"plan" | "code">("code")
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -74,6 +89,12 @@ export default function SessionScreen() {
     sessionID: sessionId,
     enabled: Boolean(config && sessionId),
     onEvent(event: SessionStreamEvent) {
+      const nextError = sessionErrorMessage(event)
+      if (nextError) {
+        setError(nextError)
+        return
+      }
+
       setDetail((current) => {
         if (!current) return current
         if (event.type === "message.updated")
@@ -115,14 +136,41 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
-  const sessionBlocked = detail?.status?.type !== "idle"
+  const hasUserPrompt = useMemo(() => messages.some((item) => item.info.role === "user"), [messages])
+  const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
+  const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
+  const preferredModel = useMemo(
+    () => ({
+      providerID: config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID,
+      modelID: config?.modelID ?? MOBILE_DEFAULT_MODEL_ID,
+    }),
+    [config?.modelID, config?.modelProviderID],
+  )
+
+  function openPublishModal() {
+    if (!detail?.info.github) return
+    setPublishTitle(detail.info.github.pullRequest?.title || detail.info.title)
+    setCommitMessage(detail.info.title)
+    setPublishBody(
+      detail.info.github.pullRequest
+        ? `Updated from mobile session ${detail.info.id}.`
+        : `## Summary\n- Generated from mobile session \`${detail.info.id}\`\n- Base branch: \`${detail.info.github.baseBranch}\`\n- Head branch: \`${detail.info.github.headBranch}\``,
+    )
+    setPublishOpen(true)
+  }
 
   async function send() {
     if (!client || !sessionId || !input.trim() || cleaned) return
     try {
       setSending(true)
-      await client.sendMessage(sessionId, input.trim())
+      setError(null)
+      const text = input.trim()
+      const payload =
+        mode === "plan"
+          ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${text}`
+          : text
+      await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
       setInput("")
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
@@ -153,9 +201,11 @@ export default function SessionScreen() {
       setPublishing(true)
       setError(null)
       await client.publishGithubSession(sessionId, {
-        title: detail.info.github.pullRequest?.title || detail.info.title,
-        commitMessage: detail.info.title,
+        title: publishTitle.trim() || detail.info.github.pullRequest?.title || detail.info.title,
+        body: publishBody.trim() || undefined,
+        commitMessage: commitMessage.trim() || detail.info.title,
       })
+      setPublishOpen(false)
       await load()
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
@@ -191,84 +241,20 @@ export default function SessionScreen() {
 
   return (
     <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View className="border-b border-border px-4 pb-4 pt-4">
-        <View className="rounded-[28px] border border-border bg-surface px-4 py-4">
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="flex-1">
-              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">Live session</Text>
-              <Text className="mt-2 text-xl font-semibold text-ink">{detail?.info.title || "Session"}</Text>
-              <Text className="mt-1 text-sm text-soft">{detail?.status?.type ?? "idle"}</Text>
-            </View>
-            <Pressable
-              onPress={() => void abort()}
-              className="rounded-full border border-border bg-background/70 px-4 py-2.5"
-            >
-              <Text className="text-sm font-semibold text-ink">Abort</Text>
-            </Pressable>
+      <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
+        <View className="flex-row items-center gap-3">
+          <Pressable onPress={() => router.back()} className="rounded-full border border-border bg-surface p-3">
+            <ArrowLeft size={18} color="#e6eef8" strokeWidth={2.2} />
+          </Pressable>
+          <View className="flex-1">
+            <Text className="text-base font-semibold text-ink" numberOfLines={1}>
+              {detail?.info.title || "Session"}
+            </Text>
+            <Text className="mt-1 text-sm text-soft" numberOfLines={1}>
+              {sessionLocation}
+            </Text>
           </View>
-          <View className="mt-4 flex-row flex-wrap gap-2">
-            <View className="rounded-full bg-background/70 px-3 py-2">
-              <Text className="text-[11px] font-semibold text-ink">{messages.length} messages</Text>
-            </View>
-            <View className="rounded-full bg-background/70 px-3 py-2">
-              <Text className="text-[11px] font-semibold text-ink">{detail?.permissions.length ?? 0} approvals</Text>
-            </View>
-            {detail?.info.github ? (
-              <View className="rounded-full bg-accent/10 px-3 py-2">
-                <Text className="text-[11px] font-semibold text-accent-light">{detail.info.github.fullName}</Text>
-              </View>
-            ) : null}
-          </View>
-          {detail?.info.github ? (
-            <View className="mt-4 rounded-[22px] border border-border bg-background/60 px-4 py-4">
-              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">GitHub flow</Text>
-              <Text className="mt-2 text-sm leading-6 text-soft">
-                {`Base ${detail.info.github.baseBranch} -> head ${detail.info.github.headBranch}`}
-              </Text>
-              {detail.info.github.pullRequest ? (
-                <Text className="mt-2 text-sm leading-6 text-soft">PR ready: {detail.info.github.pullRequest.url}</Text>
-              ) : null}
-              {detail.info.github.worktree.cleanedAt ? (
-                <Text className="mt-2 text-sm leading-6 text-soft">Worktree cleaned</Text>
-              ) : null}
-              <View className="mt-4 flex-row gap-2">
-                <Pressable
-                  disabled={publishing || sessionBlocked || Boolean(detail.info.github.worktree.cleanedAt)}
-                  onPress={() => void publish()}
-                  className="flex-1 rounded-2xl bg-accent px-4 py-3"
-                >
-                  {publishing ? (
-                    <ActivityIndicator color="#082f49" />
-                  ) : (
-                    <Text className="text-center font-semibold text-slate-950">
-                      {detail.info.github.pullRequest ? "Push updates" : "Publish PR"}
-                    </Text>
-                  )}
-                </Pressable>
-                {detail.info.github.pullRequest ? (
-                  <Pressable
-                    onPress={() => void Linking.openURL(detail.info.github!.pullRequest!.url)}
-                    className="flex-1 rounded-2xl border border-border bg-background px-4 py-3"
-                  >
-                    <Text className="text-center font-semibold text-ink">Open PR</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <Pressable
-                disabled={cleaning || sessionBlocked || Boolean(detail.info.github.worktree.cleanedAt)}
-                onPress={() => void cleanup()}
-                className="mt-3 rounded-2xl border border-border bg-background/70 px-4 py-3"
-              >
-                {cleaning ? (
-                  <ActivityIndicator color="#7dd3fc" />
-                ) : (
-                  <Text className="text-center font-semibold text-ink">Cleanup worktree</Text>
-                )}
-              </Pressable>
-            </View>
-          ) : null}
         </View>
-        {error ? <Text className="mt-3 text-sm text-rose-300">{error}</Text> : null}
       </View>
 
       <FlatList
@@ -277,41 +263,61 @@ export default function SessionScreen() {
         keyExtractor={(item) => item.info.id}
         renderItem={({ item }) => <MessageBubble message={item} diffs={diffs[item.info.id]} onLoadDiff={loadDiff} />}
         ListHeaderComponent={
-          detail?.permissions.length ? (
-            <View className="mb-2">
-              {detail.permissions.map((item) => (
-                <PermissionCard key={item.id} item={item} onRespond={(response) => void respond(item.id, response)} />
-              ))}
-            </View>
-          ) : null
+          <>
+            <SessionSummaryCard
+              detail={detail}
+              sessionBlocked={sessionBlocked}
+              cleaned={cleaned}
+              cleaning={cleaning}
+              error={error}
+              onPublish={openPublishModal}
+              onAbort={() => void abort()}
+              onCleanup={() => void cleanup()}
+            />
+            {detail?.permissions.length ? (
+              <View className="mb-2">
+                {detail.permissions.map((item) => (
+                  <PermissionCard key={item.id} item={item} onRespond={(response) => void respond(item.id, response)} />
+                ))}
+              </View>
+            ) : null}
+          </>
         }
-        contentContainerStyle={{ paddingBottom: 28 }}
+        ListEmptyComponent={
+          <EmptyState
+            title="No transcript yet"
+            description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
+          />
+        }
+        contentContainerStyle={{ paddingBottom: 12, paddingTop: 10 }}
       />
 
-      <View className="border-t border-border px-4 pb-6 pt-3">
-        <View className="flex-row items-end gap-3 rounded-[28px] border border-border bg-surface px-4 py-3">
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            multiline
-            editable={!cleaned}
-            placeholder={
-              cleaned
-                ? "This GitHub worktree has been cleaned up."
-                : "Ask Nikcli to inspect, edit, review, or commit..."
-            }
-            placeholderTextColor="#6d84a0"
-            className="max-h-32 flex-1 text-base leading-6 text-ink"
-          />
-          <Pressable
-            disabled={sending || sessionBlocked || cleaned || !input.trim()}
-            onPress={() => void send()}
-            className="rounded-full bg-accent px-4 py-3"
-          >
-            <Text className="font-semibold text-slate-950">Send</Text>
-          </Pressable>
-        </View>
-      </View>
+      <SessionComposer
+        mode={mode}
+        setMode={setMode}
+        input={input}
+        setInput={setInput}
+        sending={sending}
+        sessionBlocked={sessionBlocked}
+        cleaned={cleaned}
+        onSend={() => void send()}
+      />
+
+      <PublishSheet
+        visible={publishOpen}
+        detail={detail}
+        publishTitle={publishTitle}
+        setPublishTitle={setPublishTitle}
+        publishBody={publishBody}
+        setPublishBody={setPublishBody}
+        commitMessage={commitMessage}
+        setCommitMessage={setCommitMessage}
+        publishing={publishing}
+        sessionBlocked={sessionBlocked}
+        cleaned={cleaned}
+        onClose={() => setPublishOpen(false)}
+        onPublish={() => void publish()}
+      />
     </KeyboardAvoidingView>
   )
 }

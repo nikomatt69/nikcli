@@ -1,11 +1,16 @@
 import type {
+  FilePart,
   FileDiff,
   GitHubBranch,
+  GitHubDeviceAuthPollResult,
+  GitHubDeviceAuthStart,
   GitHubPublishResult,
   GitHubRepo,
   GitHubSessionCreateResult,
   ManagedGithubImport,
+  ModelRef,
   MobileBootstrap,
+  ProviderCatalog,
   ProjectInfo,
   ServerConfig,
   Session,
@@ -65,10 +70,18 @@ export class MobileClient {
     return this.request<SessionDetail>(`/mobile/session/${encodeURIComponent(sessionID)}`)
   }
 
-  sendMessage(sessionID: string, text: string) {
+  sendMessage(sessionID: string, text: string, options?: { model?: ModelRef; agent?: string }) {
+    return this.sendParts(sessionID, [{ type: "text", text }], options)
+  }
+
+  sendParts(
+    sessionID: string,
+    parts: Array<Pick<FilePart, "type" | "mime" | "filename" | "url"> | { type: "text"; text: string }>,
+    options?: { model?: ModelRef; agent?: string },
+  ) {
     return this.request<{ accepted: true }>(`/mobile/session/${encodeURIComponent(sessionID)}/message`, {
       method: "POST",
-      body: JSON.stringify({ parts: [{ type: "text", text }] }),
+      body: JSON.stringify({ parts, ...options }),
     })
   }
 
@@ -102,6 +115,23 @@ export class MobileClient {
     return this.request<ProjectInfo[]>("/mobile/project")
   }
 
+  listProviders() {
+    return this.request<ProviderCatalog>("/provider")
+  }
+
+  setProviderApiKey(providerID: string, key: string) {
+    return this.request<{ success: true }>(`/provider/${encodeURIComponent(providerID)}/api`, {
+      method: "POST",
+      body: JSON.stringify({ key }),
+    })
+  }
+
+  removeProviderAuth(providerID: string) {
+    return this.request<{ success: true }>(`/provider/${encodeURIComponent(providerID)}/auth`, {
+      method: "DELETE",
+    })
+  }
+
   listGithubRepos() {
     return this.request<GitHubRepo[]>("/mobile/github/repos")
   }
@@ -114,6 +144,19 @@ export class MobileClient {
 
   listGithubImports() {
     return this.request<ManagedGithubImport[]>("/mobile/github/imports")
+  }
+
+  startGithubDeviceAuth() {
+    return this.request<GitHubDeviceAuthStart>("/mobile/github/oauth/device", {
+      method: "POST",
+    })
+  }
+
+  pollGithubDeviceAuth(deviceCode: string) {
+    return this.request<GitHubDeviceAuthPollResult>("/mobile/github/oauth/device/poll", {
+      method: "POST",
+      body: JSON.stringify({ deviceCode }),
+    })
   }
 
   setGithubToken(token: string) {

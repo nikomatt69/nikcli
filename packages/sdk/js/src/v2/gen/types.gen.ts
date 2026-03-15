@@ -775,6 +775,32 @@ export type EventCommandExecuted = {
   }
 }
 
+export type SessionGithub = {
+  owner: string
+  repo: string
+  fullName: string
+  baseBranch: string
+  headBranch: string
+  repositoryDirectory?: string
+  cloneUrl?: string
+  htmlUrl?: string
+  private?: boolean
+  worktree: {
+    name: string
+    branch: string
+    directory: string
+    cleanedAt?: number
+  }
+  pullRequest?: {
+    number: number
+    url: string
+    title: string
+  }
+  lastCommitSha?: string
+  publishedAt?: number
+  publishError?: string
+}
+
 export type PermissionAction = "allow" | "deny" | "ask"
 
 export type PermissionRule = {
@@ -801,6 +827,7 @@ export type Session = {
   share?: {
     url: string
   }
+  github?: SessionGithub
   title: string
   version: string
   time: {
@@ -1858,6 +1885,14 @@ export type ConnectorGithub = {
    * GitHub personal access token
    */
   token?: string
+  /**
+   * GitHub OAuth client ID for mobile device flow
+   */
+  oauthClientId?: string
+  /**
+   * Alias for GitHub OAuth client ID
+   */
+  clientId?: string
   enabled?: boolean
 }
 
@@ -2470,6 +2505,10 @@ export type Worktree = {
 
 export type WorktreeCreateInput = {
   name?: string
+  branch?: string
+  branchPrefix?: string
+  baseBranch?: string
+  remote?: string
   startCommand?: string
 }
 
@@ -2556,6 +2595,152 @@ export type ProviderAuthAuthorization = {
   url: string
   method: "auto" | "code"
   instructions: string
+}
+
+export type MobileAuthTokenPublic = {
+  id: string
+  name: string
+  createdAt: number
+  lastUsedAt?: number
+  expiresAt?: number
+}
+
+export type MobileProject = {
+  id: string
+  worktree: string
+  vcs?: "git"
+  name?: string
+  icon?: {
+    url?: string
+    override?: string
+    color?: string
+  }
+  time: {
+    created: number
+    updated: number
+    initialized?: number
+  }
+  sandboxes: Array<string>
+  current: boolean
+}
+
+export type MobileBootstrap = {
+  version: string
+  auth: {
+    bearerEnabled: boolean
+    currentToken?: MobileAuthTokenPublic
+  }
+  currentProject: MobileProject
+  projects: Array<MobileProject>
+  github: {
+    connected: boolean
+    oauthDeviceEnabled: boolean
+    user?: {
+      login: string
+      name?: string | null
+      avatar_url?: string
+    }
+  }
+}
+
+export type MobileGithubBranch = {
+  name: string
+  protected?: boolean
+  commit: {
+    sha: string
+  }
+}
+
+export type MobileGithubImport = {
+  owner: string
+  repo: string
+  fullName: string
+  directory: string
+  cloneUrl: string
+  defaultBranch: string
+  private: boolean
+  importedAt: number
+  updatedAt: number
+  projectID?: string
+}
+
+export type MobileGithubDeviceAuthStart = {
+  deviceCode: string
+  userCode: string
+  verificationUri: string
+  verificationUriComplete?: string
+  expiresAt: number
+  interval: number
+}
+
+export type MobileGithubDeviceAuthPollResult = {
+  status: "pending" | "approved" | "denied" | "expired"
+  interval?: number
+  user?: {
+    login: string
+    name?: string | null
+    avatar_url?: string
+  }
+}
+
+export type MobileGithubDeviceAuthPollInput = {
+  deviceCode: string
+}
+
+export type MobileGithubImportRequest = {
+  owner: string
+  repo: string
+  cloneUrl: string
+  defaultBranch: string
+  private?: boolean
+}
+
+export type MobileGithubSessionCreateResult = {
+  session: Session
+  worktree: Worktree
+  project: Project
+}
+
+export type MobileGithubSessionCreateInput = {
+  owner: string
+  repo: string
+  cloneUrl: string
+  htmlUrl?: string
+  defaultBranch: string
+  baseBranch: string
+  private?: boolean
+  title?: string
+}
+
+export type MobileSessionSummary = {
+  info: Session
+  status?: SessionStatus
+}
+
+export type MobileSessionDetail = {
+  info: Session
+  status?: SessionStatus
+  messages: Array<{
+    info: Message
+    parts: Array<Part>
+  }>
+  permissions: Array<PermissionRequest>
+}
+
+export type MobileGithubPublishResult = {
+  commitSha: string
+  branch: string
+  pullRequest: {
+    number: number
+    url: string
+    title: string
+  }
+}
+
+export type MobileGithubPublishInput = {
+  title?: string
+  body?: string
+  commitMessage?: string
 }
 
 export type Symbol = {
@@ -2735,6 +2920,58 @@ export type WellKnownAuth = {
 }
 
 export type Auth = OAuth | ApiAuth | WellKnownAuth
+
+export type GetSShareIdData = {
+  body?: never
+  path: {
+    shareID: string
+  }
+  query?: never
+  url: "/s/{shareID}"
+}
+
+export type GetSShareIdResponses = {
+  200: unknown
+}
+
+export type GetShareShareIdData = {
+  body?: never
+  path: {
+    shareID: string
+  }
+  query?: never
+  url: "/share/{shareID}"
+}
+
+export type GetShareShareIdResponses = {
+  200: unknown
+}
+
+export type GetApiShareShareIdData = {
+  body?: never
+  path: {
+    shareID: string
+  }
+  query?: never
+  url: "/api/share/{shareID}"
+}
+
+export type GetApiShareShareIdResponses = {
+  200: unknown
+}
+
+export type GetApiShareShareIdDataData = {
+  body?: never
+  path: {
+    shareID: string
+  }
+  query?: never
+  url: "/api/share/{shareID}/data"
+}
+
+export type GetApiShareShareIdDataResponses = {
+  200: unknown
+}
 
 export type GlobalHealthData = {
   body?: never
@@ -3434,6 +3671,7 @@ export type SessionCreateData = {
     parentID?: string
     title?: string
     permission?: PermissionRuleset
+    github?: SessionGithub
   }
   path?: never
   query?: {
@@ -4784,6 +5022,714 @@ export type ProviderOauthCallbackResponses = {
 }
 
 export type ProviderOauthCallbackResponse = ProviderOauthCallbackResponses[keyof ProviderOauthCallbackResponses]
+
+export type MobileAuthTokenListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/auth/token"
+}
+
+export type MobileAuthTokenListResponses = {
+  /**
+   * Token list
+   */
+  200: Array<MobileAuthTokenPublic>
+}
+
+export type MobileAuthTokenListResponse = MobileAuthTokenListResponses[keyof MobileAuthTokenListResponses]
+
+export type MobileAuthTokenCreateData = {
+  body?: {
+    name?: string
+    expiresInDays?: number
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/auth/token"
+}
+
+export type MobileAuthTokenCreateResponses = {
+  /**
+   * Mobile token
+   */
+  200: {
+    token: string
+    info: MobileAuthTokenPublic
+  }
+}
+
+export type MobileAuthTokenCreateResponse = MobileAuthTokenCreateResponses[keyof MobileAuthTokenCreateResponses]
+
+export type MobileAuthTokenRevokeData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/auth/token/{id}"
+}
+
+export type MobileAuthTokenRevokeResponses = {
+  /**
+   * Token revoked
+   */
+  200: {
+    revoked: boolean
+  }
+}
+
+export type MobileAuthTokenRevokeResponse = MobileAuthTokenRevokeResponses[keyof MobileAuthTokenRevokeResponses]
+
+export type MobileBootstrapData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/bootstrap"
+}
+
+export type MobileBootstrapResponses = {
+  /**
+   * Bootstrap payload
+   */
+  200: MobileBootstrap
+}
+
+export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
+
+export type MobileProjectListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/project"
+}
+
+export type MobileProjectListResponses = {
+  /**
+   * Projects
+   */
+  200: Array<MobileProject>
+}
+
+export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
+
+export type MobileGithubReposData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/repos"
+}
+
+export type MobileGithubReposResponses = {
+  /**
+   * GitHub repositories
+   */
+  200: Array<unknown>
+}
+
+export type MobileGithubReposResponse = MobileGithubReposResponses[keyof MobileGithubReposResponses]
+
+export type MobileGithubBranchesData = {
+  body?: never
+  path: {
+    owner: string
+    repo: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/repos/{owner}/{repo}/branches"
+}
+
+export type MobileGithubBranchesResponses = {
+  /**
+   * GitHub branches
+   */
+  200: Array<MobileGithubBranch>
+}
+
+export type MobileGithubBranchesResponse = MobileGithubBranchesResponses[keyof MobileGithubBranchesResponses]
+
+export type MobileGithubImportsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/imports"
+}
+
+export type MobileGithubImportsResponses = {
+  /**
+   * Imported repos
+   */
+  200: Array<MobileGithubImport>
+}
+
+export type MobileGithubImportsResponse = MobileGithubImportsResponses[keyof MobileGithubImportsResponses]
+
+export type MobileGithubOauthDeviceStartData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/oauth/device"
+}
+
+export type MobileGithubOauthDeviceStartErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubOauthDeviceStartError =
+  MobileGithubOauthDeviceStartErrors[keyof MobileGithubOauthDeviceStartErrors]
+
+export type MobileGithubOauthDeviceStartResponses = {
+  /**
+   * GitHub device flow started
+   */
+  200: MobileGithubDeviceAuthStart
+}
+
+export type MobileGithubOauthDeviceStartResponse =
+  MobileGithubOauthDeviceStartResponses[keyof MobileGithubOauthDeviceStartResponses]
+
+export type MobileGithubOauthDevicePollData = {
+  body?: MobileGithubDeviceAuthPollInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/oauth/device/poll"
+}
+
+export type MobileGithubOauthDevicePollErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubOauthDevicePollError =
+  MobileGithubOauthDevicePollErrors[keyof MobileGithubOauthDevicePollErrors]
+
+export type MobileGithubOauthDevicePollResponses = {
+  /**
+   * GitHub device flow status
+   */
+  200: MobileGithubDeviceAuthPollResult
+}
+
+export type MobileGithubOauthDevicePollResponse =
+  MobileGithubOauthDevicePollResponses[keyof MobileGithubOauthDevicePollResponses]
+
+export type MobileGithubAuthRemoveData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/auth"
+}
+
+export type MobileGithubAuthRemoveResponses = {
+  /**
+   * GitHub auth removed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGithubAuthRemoveResponse = MobileGithubAuthRemoveResponses[keyof MobileGithubAuthRemoveResponses]
+
+export type MobileGithubAuthSetData = {
+  body?: {
+    token: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/auth"
+}
+
+export type MobileGithubAuthSetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubAuthSetError = MobileGithubAuthSetErrors[keyof MobileGithubAuthSetErrors]
+
+export type MobileGithubAuthSetResponses = {
+  /**
+   * GitHub auth status
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGithubAuthSetResponse = MobileGithubAuthSetResponses[keyof MobileGithubAuthSetResponses]
+
+export type MobileGithubImportData = {
+  body?: MobileGithubImportRequest
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/import"
+}
+
+export type MobileGithubImportErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubImportError = MobileGithubImportErrors[keyof MobileGithubImportErrors]
+
+export type MobileGithubImportResponses = {
+  /**
+   * Imported repository
+   */
+  200: {
+    import: MobileGithubImport
+    project: Project
+  }
+}
+
+export type MobileGithubImportResponse = MobileGithubImportResponses[keyof MobileGithubImportResponses]
+
+export type MobileGithubSessionCreateData = {
+  body?: MobileGithubSessionCreateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/session"
+}
+
+export type MobileGithubSessionCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubSessionCreateError = MobileGithubSessionCreateErrors[keyof MobileGithubSessionCreateErrors]
+
+export type MobileGithubSessionCreateResponses = {
+  /**
+   * GitHub mobile session
+   */
+  200: MobileGithubSessionCreateResult
+}
+
+export type MobileGithubSessionCreateResponse =
+  MobileGithubSessionCreateResponses[keyof MobileGithubSessionCreateResponses]
+
+export type MobileSessionListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+    search?: string
+  }
+  url: "/mobile/session"
+}
+
+export type MobileSessionListResponses = {
+  /**
+   * Sessions
+   */
+  200: Array<MobileSessionSummary>
+}
+
+export type MobileSessionListResponse = MobileSessionListResponses[keyof MobileSessionListResponses]
+
+export type MobileSessionCreateData = {
+  body?: {
+    parentID?: string
+    title?: string
+    permission?: PermissionRuleset
+    github?: SessionGithub
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session"
+}
+
+export type MobileSessionCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileSessionCreateError = MobileSessionCreateErrors[keyof MobileSessionCreateErrors]
+
+export type MobileSessionCreateResponses = {
+  /**
+   * Created session
+   */
+  200: Session
+}
+
+export type MobileSessionCreateResponse = MobileSessionCreateResponses[keyof MobileSessionCreateResponses]
+
+export type MobileSessionDetailData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}"
+}
+
+export type MobileSessionDetailErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionDetailError = MobileSessionDetailErrors[keyof MobileSessionDetailErrors]
+
+export type MobileSessionDetailResponses = {
+  /**
+   * Session detail
+   */
+  200: MobileSessionDetail
+}
+
+export type MobileSessionDetailResponse = MobileSessionDetailResponses[keyof MobileSessionDetailResponses]
+
+export type MobileSessionDiffData = {
+  body?: never
+  path: {
+    sessionID: string
+    messageID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/diff/{messageID}"
+}
+
+export type MobileSessionDiffResponses = {
+  /**
+   * Message diff
+   */
+  200: Array<FileDiff>
+}
+
+export type MobileSessionDiffResponse = MobileSessionDiffResponses[keyof MobileSessionDiffResponses]
+
+export type MobileSessionMessageData = {
+  body?: {
+    messageID?: string
+    model?: {
+      providerID: string
+      modelID: string
+    }
+    agent?: string
+    noReply?: boolean
+    /**
+     * @deprecated tools and permissions have been merged, you can set permissions on the session itself now
+     */
+    tools?: {
+      [key: string]: boolean
+    }
+    format?: OutputFormat
+    system?: string
+    variant?: string
+    parts: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/message"
+}
+
+export type MobileSessionMessageErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionMessageError = MobileSessionMessageErrors[keyof MobileSessionMessageErrors]
+
+export type MobileSessionMessageResponses = {
+  /**
+   * Message accepted
+   */
+  202: {
+    accepted: true
+  }
+}
+
+export type MobileSessionMessageResponse = MobileSessionMessageResponses[keyof MobileSessionMessageResponses]
+
+export type MobileSessionAbortData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/abort"
+}
+
+export type MobileSessionAbortResponses = {
+  /**
+   * Session aborted
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionAbortResponse = MobileSessionAbortResponses[keyof MobileSessionAbortResponses]
+
+export type MobilePermissionRespondData = {
+  body?: {
+    response: "once" | "always" | "reject"
+  }
+  path: {
+    sessionID: string
+    permissionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/permissions/{permissionID}"
+}
+
+export type MobilePermissionRespondResponses = {
+  /**
+   * Permission processed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobilePermissionRespondResponse = MobilePermissionRespondResponses[keyof MobilePermissionRespondResponses]
+
+export type MobileGithubSessionPublishData = {
+  body?: MobileGithubPublishInput
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/publish"
+}
+
+export type MobileGithubSessionPublishErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileGithubSessionPublishError = MobileGithubSessionPublishErrors[keyof MobileGithubSessionPublishErrors]
+
+export type MobileGithubSessionPublishResponses = {
+  /**
+   * Published pull request
+   */
+  200: MobileGithubPublishResult
+}
+
+export type MobileGithubSessionPublishResponse =
+  MobileGithubSessionPublishResponses[keyof MobileGithubSessionPublishResponses]
+
+export type MobileGithubSessionCleanupData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/cleanup"
+}
+
+export type MobileGithubSessionCleanupErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileGithubSessionCleanupError = MobileGithubSessionCleanupErrors[keyof MobileGithubSessionCleanupErrors]
+
+export type MobileGithubSessionCleanupResponses = {
+  /**
+   * Worktree cleaned
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGithubSessionCleanupResponse =
+  MobileGithubSessionCleanupResponses[keyof MobileGithubSessionCleanupResponses]
+
+export type MobileSessionStreamData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/stream"
+}
+
+export type MobileSessionStreamResponses = {
+  /**
+   * Session event stream
+   */
+  200: unknown
+}
+
+export type MobileWorktreeRemoveData = {
+  body?: WorktreeRemoveInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/worktree"
+}
+
+export type MobileWorktreeRemoveResponses = {
+  /**
+   * Worktree removed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileWorktreeRemoveResponse = MobileWorktreeRemoveResponses[keyof MobileWorktreeRemoveResponses]
+
+export type MobileWorktreeCreateData = {
+  body?: WorktreeCreateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/worktree"
+}
+
+export type MobileWorktreeCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileWorktreeCreateError = MobileWorktreeCreateErrors[keyof MobileWorktreeCreateErrors]
+
+export type MobileWorktreeCreateResponses = {
+  /**
+   * Worktree created
+   */
+  200: Worktree
+}
+
+export type MobileWorktreeCreateResponse = MobileWorktreeCreateResponses[keyof MobileWorktreeCreateResponses]
+
+export type MobileWorktreeResetData = {
+  body?: WorktreeResetInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/worktree/reset"
+}
+
+export type MobileWorktreeResetResponses = {
+  /**
+   * Worktree reset
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
 
 export type FindTextData = {
   body?: never

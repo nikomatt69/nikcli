@@ -15,12 +15,16 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "verbatimModuleSyntax": true,
-    "types": [],
+    "types": [
+      "node",
+      "react-native"
+    ],
     "paths": {
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "baseUrl": "."
   },
   "include": [
     "**/*.ts",

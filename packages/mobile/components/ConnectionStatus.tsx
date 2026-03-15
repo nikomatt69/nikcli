@@ -1,10 +1,25 @@
 import { Text, View } from "react-native"
 
 export function ConnectionStatus(props: { connected: boolean; label: string }) {
+  const label = props.label || (props.connected ? "Online" : "Offline")
+  const tone = props.connected
+    ? {
+        border: "border-success/20",
+        background: "bg-success/10",
+        text: "text-emerald-200",
+        dot: "#34d399",
+      }
+    : {
+        border: "border-danger/20",
+        background: "bg-danger/10",
+        text: "text-rose-200",
+        dot: "#fb7185",
+      }
+
   return (
-    <View className="flex-row items-center gap-3 rounded-full border border-border bg-panel/85 px-4 py-2.5">
-      <View className={`h-2.5 w-2.5 rounded-full ${props.connected ? "bg-success" : "bg-danger"}`} />
-      <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">{props.label}</Text>
+    <View className={`flex-row items-center gap-3 rounded-full border px-4 py-2.5 ${tone.border} ${tone.background}`}>
+      <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: tone.dot }} />
+      <Text className={`text-[11px] font-semibold uppercase tracking-[2px] ${tone.text}`}>{label}</Text>
     </View>
   )
 }

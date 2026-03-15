@@ -127,6 +127,6 @@ export namespace ChatBot {
   }
 
   export function getWebhookPath(platform: ChatPlatform, connectorName: string): string {
-    return `/webhooks/chatbot/${platform}/${connectorName}`
+    return `/chatbot/${platform}/${connectorName}`
   }
 }

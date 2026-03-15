@@ -8,7 +8,7 @@ import type {
   AppLogErrors,
   AppLogResponses,
   AppSkillsResponses,
-  Auth as Auth4,
+  Auth as Auth6,
   AuthRemoveErrors,
   AuthRemoveResponses,
   AuthSetErrors,
@@ -49,6 +49,10 @@ import type {
   FindSymbolsResponses,
   FindTextResponses,
   FormatterStatusResponses,
+  GetApiShareShareIdDataResponses,
+  GetApiShareShareIdResponses,
+  GetShareShareIdResponses,
+  GetSShareIdResponses,
   GlobalDisposeResponses,
   GlobalEventResponses,
   GlobalHealthResponses,
@@ -69,6 +73,48 @@ import type {
   McpLocalConfig,
   McpRemoteConfig,
   McpStatusResponses,
+  MobileAuthTokenCreateResponses,
+  MobileAuthTokenListResponses,
+  MobileAuthTokenRevokeResponses,
+  MobileBootstrapResponses,
+  MobileGithubAuthRemoveResponses,
+  MobileGithubAuthSetErrors,
+  MobileGithubAuthSetResponses,
+  MobileGithubBranchesResponses,
+  MobileGithubDeviceAuthPollInput,
+  MobileGithubImportErrors,
+  MobileGithubImportRequest,
+  MobileGithubImportResponses,
+  MobileGithubImportsResponses,
+  MobileGithubOauthDevicePollErrors,
+  MobileGithubOauthDevicePollResponses,
+  MobileGithubOauthDeviceStartErrors,
+  MobileGithubOauthDeviceStartResponses,
+  MobileGithubPublishInput,
+  MobileGithubReposResponses,
+  MobileGithubSessionCleanupErrors,
+  MobileGithubSessionCleanupResponses,
+  MobileGithubSessionCreateErrors,
+  MobileGithubSessionCreateInput,
+  MobileGithubSessionCreateResponses,
+  MobileGithubSessionPublishErrors,
+  MobileGithubSessionPublishResponses,
+  MobilePermissionRespondResponses,
+  MobileProjectListResponses,
+  MobileSessionAbortResponses,
+  MobileSessionCreateErrors,
+  MobileSessionCreateResponses,
+  MobileSessionDetailErrors,
+  MobileSessionDetailResponses,
+  MobileSessionDiffResponses,
+  MobileSessionListResponses,
+  MobileSessionMessageErrors,
+  MobileSessionMessageResponses,
+  MobileSessionStreamResponses,
+  MobileWorktreeCreateErrors,
+  MobileWorktreeCreateResponses,
+  MobileWorktreeRemoveResponses,
+  MobileWorktreeResetResponses,
   OutputFormat,
   Part as Part2,
   PartDeleteErrors,
@@ -123,6 +169,7 @@ import type {
   SessionForkResponses,
   SessionGetErrors,
   SessionGetResponses,
+  SessionGithub,
   SessionInitErrors,
   SessionInitResponses,
   SessionListResponses,
@@ -1114,6 +1161,7 @@ export class Session extends HeyApiClient {
       parentID?: string
       title?: string
       permission?: PermissionRuleset
+      github?: SessionGithub
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1127,6 +1175,7 @@ export class Session extends HeyApiClient {
             { in: "body", key: "parentID" },
             { in: "body", key: "title" },
             { in: "body", key: "permission" },
+            { in: "body", key: "github" },
           ],
         },
       ],
@@ -2493,6 +2542,1070 @@ export class Provider extends HeyApiClient {
   }
 }
 
+export class Token extends HeyApiClient {
+  /**
+   * List mobile auth tokens
+   *
+   * List all active mobile Bearer tokens.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileAuthTokenListResponses, unknown, ThrowOnError>({
+      url: "/mobile/auth/token",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create mobile auth token
+   *
+   * Exchange valid Basic auth credentials for a long-lived mobile Bearer token.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      expiresInDays?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "expiresInDays" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileAuthTokenCreateResponses, unknown, ThrowOnError>({
+      url: "/mobile/auth/token",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Revoke mobile auth token
+   *
+   * Revoke a previously issued mobile Bearer token.
+   */
+  public revoke<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobileAuthTokenRevokeResponses, unknown, ThrowOnError>({
+      url: "/mobile/auth/token/{id}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Auth extends HeyApiClient {
+  private _token?: Token
+  get token(): Token {
+    return (this._token ??= new Token({ client: this.client }))
+  }
+}
+
+export class Project2 extends HeyApiClient {
+  /**
+   * List local projects for mobile
+   *
+   * Return local projects and sandboxes visible to the connected Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
+      url: "/mobile/project",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Device extends HeyApiClient {
+  /**
+   * Start GitHub OAuth device flow
+   *
+   * Start a GitHub device authorization flow and return the verification code for mobile sign-in.
+   */
+  public start<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubOauthDeviceStartResponses,
+      MobileGithubOauthDeviceStartErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/github/oauth/device",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Poll GitHub OAuth device flow
+   *
+   * Poll GitHub device authorization status and persist the approved token on the host.
+   */
+  public poll<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileGithubDeviceAuthPollInput?: MobileGithubDeviceAuthPollInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileGithubDeviceAuthPollInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubOauthDevicePollResponses,
+      MobileGithubOauthDevicePollErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/github/oauth/device/poll",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Oauth2 extends HeyApiClient {
+  private _device?: Device
+  get device(): Device {
+    return (this._device ??= new Device({ client: this.client }))
+  }
+}
+
+export class Auth2 extends HeyApiClient {
+  /**
+   * Remove stored GitHub token for mobile
+   *
+   * Delete the mobile GitHub token from the Nikcli host.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobileGithubAuthRemoveResponses, unknown, ThrowOnError>({
+      url: "/mobile/github/auth",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Store GitHub token for mobile
+   *
+   * Persist a GitHub token on the Nikcli host for mobile repo access.
+   */
+  public set<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      token?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "token" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGithubAuthSetResponses, MobileGithubAuthSetErrors, ThrowOnError>(
+      {
+        url: "/mobile/github/auth",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+}
+
+export class Session2 extends HeyApiClient {
+  /**
+   * Create GitHub-backed mobile session
+   *
+   * Import a GitHub repo if needed, create an isolated worktree from a base branch, and start a session there.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileGithubSessionCreateInput?: MobileGithubSessionCreateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileGithubSessionCreateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubSessionCreateResponses,
+      MobileGithubSessionCreateErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/github/session",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Publish GitHub session
+   *
+   * Commit the current worktree, push the session branch, and create or reuse a pull request.
+   */
+  public publish<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      mobileGithubPublishInput?: MobileGithubPublishInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileGithubPublishInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubSessionPublishResponses,
+      MobileGithubSessionPublishErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/publish",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Cleanup GitHub session worktree
+   *
+   * Remove the isolated worktree created for a GitHub-backed mobile session.
+   */
+  public cleanup<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubSessionCleanupResponses,
+      MobileGithubSessionCleanupErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/cleanup",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Github extends HeyApiClient {
+  /**
+   * List GitHub repositories for mobile
+   *
+   * List repositories available to the stored GitHub connector token.
+   */
+  public repos<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGithubReposResponses, unknown, ThrowOnError>({
+      url: "/mobile/github/repos",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List GitHub branches for mobile
+   *
+   * List branches for a GitHub repository available to the stored mobile GitHub token.
+   */
+  public branches<ThrowOnError extends boolean = false>(
+    parameters: {
+      owner: string
+      repo: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "owner" },
+            { in: "path", key: "repo" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGithubBranchesResponses, unknown, ThrowOnError>({
+      url: "/mobile/github/repos/{owner}/{repo}/branches",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List imported GitHub repos for mobile
+   *
+   * List GitHub repositories that have already been cloned into the Nikcli host cache.
+   */
+  public imports<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGithubImportsResponses, unknown, ThrowOnError>({
+      url: "/mobile/github/imports",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Import GitHub repo into Nikcli host
+   *
+   * Clone or refresh a repository from the connected GitHub account into the managed host cache.
+   */
+  public import<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileGithubImportRequest?: MobileGithubImportRequest
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileGithubImportRequest", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGithubImportResponses, MobileGithubImportErrors, ThrowOnError>({
+      url: "/mobile/github/import",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  private _oauth?: Oauth2
+  get oauth(): Oauth2 {
+    return (this._oauth ??= new Oauth2({ client: this.client }))
+  }
+
+  private _auth?: Auth2
+  get auth(): Auth2 {
+    return (this._auth ??= new Auth2({ client: this.client }))
+  }
+
+  private _session?: Session2
+  get session(): Session2 {
+    return (this._session ??= new Session2({ client: this.client }))
+  }
+}
+
+export class Session3 extends HeyApiClient {
+  /**
+   * List mobile sessions
+   *
+   * Return mobile-friendly session summaries with current status.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+      search?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+            { in: "query", key: "search" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileSessionListResponses, unknown, ThrowOnError>({
+      url: "/mobile/session",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create mobile session
+   *
+   * Create a new session for the mobile app.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      parentID?: string
+      title?: string
+      permission?: PermissionRuleset
+      github?: SessionGithub
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "parentID" },
+            { in: "body", key: "title" },
+            { in: "body", key: "permission" },
+            { in: "body", key: "github" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileSessionCreateResponses, MobileSessionCreateErrors, ThrowOnError>(
+      {
+        url: "/mobile/session",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Get mobile session detail
+   *
+   * Return a session, its messages, status, and pending permissions.
+   */
+  public detail<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileSessionDetailResponses, MobileSessionDetailErrors, ThrowOnError>({
+      url: "/mobile/session/{sessionID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session diff for mobile
+   *
+   * Return file diffs for a specific message in a session.
+   */
+  public diff<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      messageID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "messageID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileSessionDiffResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/diff/{messageID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Send mobile session message
+   *
+   * Queue a message for a session and rely on the session stream for realtime updates.
+   */
+  public message<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      messageID?: string
+      model?: {
+        providerID: string
+        modelID: string
+      }
+      agent?: string
+      noReply?: boolean
+      tools?: {
+        [key: string]: boolean
+      }
+      format?: OutputFormat
+      system?: string
+      variant?: string
+      parts?: Array<TextPartInput | FilePartInput | AgentPartInput | SubtaskPartInput>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "messageID" },
+            { in: "body", key: "model" },
+            { in: "body", key: "agent" },
+            { in: "body", key: "noReply" },
+            { in: "body", key: "tools" },
+            { in: "body", key: "format" },
+            { in: "body", key: "system" },
+            { in: "body", key: "variant" },
+            { in: "body", key: "parts" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileSessionMessageResponses,
+      MobileSessionMessageErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/message",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Abort mobile session
+   *
+   * Abort the active run for a session.
+   */
+  public abort<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileSessionAbortResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/abort",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Stream mobile session events
+   *
+   * Subscribe to session-scoped realtime events for the mobile chat UI.
+   */
+  public stream<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).sse.get<MobileSessionStreamResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/stream",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Permission2 extends HeyApiClient {
+  /**
+   * Respond to permission from mobile
+   *
+   * Approve, always approve, or reject a pending permission request.
+   */
+  public respond<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      permissionID: string
+      directory?: string
+      workspace?: string
+      response?: "once" | "always" | "reject"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "permissionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "response" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobilePermissionRespondResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/permissions/{permissionID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Worktree2 extends HeyApiClient {
+  /**
+   * Remove mobile worktree
+   *
+   * Remove an existing worktree sandbox.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      worktreeRemoveInput?: WorktreeRemoveInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "worktreeRemoveInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobileWorktreeRemoveResponses, unknown, ThrowOnError>({
+      url: "/mobile/worktree",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Create mobile worktree
+   *
+   * Create a git worktree for sandboxed mobile work.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      worktreeCreateInput?: WorktreeCreateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "worktreeCreateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileWorktreeCreateResponses,
+      MobileWorktreeCreateErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/worktree",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Reset mobile worktree
+   *
+   * Reset a worktree back to the default branch state.
+   */
+  public reset<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      worktreeResetInput?: WorktreeResetInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "worktreeResetInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileWorktreeResetResponses, unknown, ThrowOnError>({
+      url: "/mobile/worktree/reset",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
+export class Mobile extends HeyApiClient {
+  /**
+   * Get mobile bootstrap payload
+   *
+   * Return the current mobile bootstrap state for the connected host.
+   */
+  public bootstrap<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileBootstrapResponses, unknown, ThrowOnError>({
+      url: "/mobile/bootstrap",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _auth?: Auth
+  get auth(): Auth {
+    return (this._auth ??= new Auth({ client: this.client }))
+  }
+
+  private _project?: Project2
+  get project(): Project2 {
+    return (this._project ??= new Project2({ client: this.client }))
+  }
+
+  private _github?: Github
+  get github(): Github {
+    return (this._github ??= new Github({ client: this.client }))
+  }
+
+  private _session?: Session3
+  get session(): Session3 {
+    return (this._session ??= new Session3({ client: this.client }))
+  }
+
+  private _permission?: Permission2
+  get permission(): Permission2 {
+    return (this._permission ??= new Permission2({ client: this.client }))
+  }
+
+  private _worktree?: Worktree2
+  get worktree(): Worktree2 {
+    return (this._worktree ??= new Worktree2({ client: this.client }))
+  }
+}
+
 export class Find extends HeyApiClient {
   /**
    * Find text
@@ -2693,7 +3806,7 @@ export class File extends HeyApiClient {
   }
 }
 
-export class Auth extends HeyApiClient {
+export class Auth3 extends HeyApiClient {
   /**
    * Remove connector credentials
    *
@@ -2846,13 +3959,13 @@ export class Connectors extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth
-  get auth(): Auth {
-    return (this._auth ??= new Auth({ client: this.client }))
+  private _auth?: Auth3
+  get auth(): Auth3 {
+    return (this._auth ??= new Auth3({ client: this.client }))
   }
 }
 
-export class Auth2 extends HeyApiClient {
+export class Auth4 extends HeyApiClient {
   /**
    * Remove MCP OAuth
    *
@@ -3121,9 +4234,9 @@ export class Mcp extends HeyApiClient {
     })
   }
 
-  private _auth?: Auth2
-  get auth(): Auth2 {
-    return (this._auth ??= new Auth2({ client: this.client }))
+  private _auth?: Auth4
+  get auth(): Auth4 {
+    return (this._auth ??= new Auth4({ client: this.client }))
   }
 }
 
@@ -3857,7 +4970,7 @@ export class Formatter extends HeyApiClient {
   }
 }
 
-export class Auth3 extends HeyApiClient {
+export class Auth5 extends HeyApiClient {
   /**
    * Remove auth credentials
    *
@@ -3900,7 +5013,7 @@ export class Auth3 extends HeyApiClient {
       providerID: string
       directory?: string
       workspace?: string
-      auth?: Auth4
+      auth?: Auth6
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -3970,6 +5083,62 @@ export class NikcliClient extends HeyApiClient {
     NikcliClient.__registry.set(this, args?.key)
   }
 
+  public getSShareId<ThrowOnError extends boolean = false>(
+    parameters: {
+      shareID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "shareID" }] }])
+    return (options?.client ?? this.client).get<GetSShareIdResponses, unknown, ThrowOnError>({
+      url: "/s/{shareID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  public getShareShareId<ThrowOnError extends boolean = false>(
+    parameters: {
+      shareID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "shareID" }] }])
+    return (options?.client ?? this.client).get<GetShareShareIdResponses, unknown, ThrowOnError>({
+      url: "/share/{shareID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  public getApiShareShareId<ThrowOnError extends boolean = false>(
+    parameters: {
+      shareID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "shareID" }] }])
+    return (options?.client ?? this.client).get<GetApiShareShareIdResponses, unknown, ThrowOnError>({
+      url: "/api/share/{shareID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  public getApiShareShareIdData<ThrowOnError extends boolean = false>(
+    parameters: {
+      shareID: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "shareID" }] }])
+    return (options?.client ?? this.client).get<GetApiShareShareIdDataResponses, unknown, ThrowOnError>({
+      url: "/api/share/{shareID}/data",
+      ...options,
+      ...params,
+    })
+  }
+
   private _global?: Global
   get global(): Global {
     return (this._global ??= new Global({ client: this.client }))
@@ -4035,6 +5204,11 @@ export class NikcliClient extends HeyApiClient {
     return (this._provider ??= new Provider({ client: this.client }))
   }
 
+  private _mobile?: Mobile
+  get mobile(): Mobile {
+    return (this._mobile ??= new Mobile({ client: this.client }))
+  }
+
   private _find?: Find
   get find(): Find {
     return (this._find ??= new Find({ client: this.client }))
@@ -4095,9 +5269,9 @@ export class NikcliClient extends HeyApiClient {
     return (this._formatter ??= new Formatter({ client: this.client }))
   }
 
-  private _auth?: Auth3
-  get auth(): Auth3 {
-    return (this._auth ??= new Auth3({ client: this.client }))
+  private _auth?: Auth5
+  get auth(): Auth5 {
+    return (this._auth ??= new Auth5({ client: this.client }))
   }
 
   private _event?: Event
