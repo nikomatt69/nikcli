@@ -26,6 +26,7 @@ import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
 import { Config } from "@/config/config"
+import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { getAdaptor, getContainerRuntimeInfo } from "@/workspace/adaptors"
@@ -57,6 +58,8 @@ const MobileBootstrap = z
     github: z.object({
       connected: z.boolean(),
       oauthDeviceEnabled: z.boolean(),
+      oauthDeviceConfigured: z.boolean().optional(),
+      oauthClientSource: z.enum(["flag", "config", "env"]).optional(),
       user: z
         .object({
           login: z.string(),
@@ -129,6 +132,32 @@ const MobileGithubSessionCreateResult = z
     workspace: Workspace.Info.optional(),
   })
   .meta({ ref: "MobileGithubSessionCreateResult" })
+
+const MobileCommand = z
+  .object({
+    name: z.string(),
+    description: z.string().optional(),
+    agent: z.string().optional(),
+    model: z.string().optional(),
+    mcp: z.boolean().optional(),
+    subtask: z.boolean().optional(),
+    hints: z.array(z.string()),
+  })
+  .meta({ ref: "MobileCommand" })
+
+const MobileSessionCommandInput = z
+  .object({
+    command: z.string().min(1),
+    arguments: z.string().default(""),
+    agent: z.string().optional(),
+    model: z
+      .object({
+        providerID: z.string(),
+        modelID: z.string(),
+      })
+      .optional(),
+  })
+  .meta({ ref: "MobileSessionCommandInput" })
 
 const MobileGithubPublishInput = z
   .object({
@@ -286,18 +315,40 @@ async function githubOAuthClientID() {
       typeof connector === "object" && connector !== null && "type" in connector && connector.type === "github",
   )
 
-  return (
-    Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID ||
-    githubConnector?.oauthClientId ||
-    githubConnector?.clientId ||
-    process.env.NIKCLI_GITHUB_OAUTH_CLIENT_ID ||
-    process.env.GITHUB_CLIENT_ID_CONSOLE ||
-    process.env.GITHUB_CLIENT_ID
-  )
+  const flagValue = Flag.NIKCLI_GITHUB_OAUTH_CLIENT_ID
+  if (flagValue) {
+    return {
+      clientID: flagValue,
+      source: "flag" as const,
+    }
+  }
+
+  const configValue = githubConnector?.oauthClientId || githubConnector?.clientId
+  if (configValue) {
+    return {
+      clientID: configValue,
+      source: "config" as const,
+    }
+  }
+
+  const envValue =
+    process.env.NIKCLI_GITHUB_OAUTH_CLIENT_ID || process.env.GITHUB_CLIENT_ID_CONSOLE || process.env.GITHUB_CLIENT_ID
+
+  if (envValue) {
+    return {
+      clientID: envValue,
+      source: "env" as const,
+    }
+  }
+
+  return {
+    clientID: undefined,
+    source: undefined,
+  }
 }
 
 async function startGithubDeviceAuth() {
-  const clientID = await githubOAuthClientID()
+  const { clientID } = await githubOAuthClientID()
   if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
   const response = await fetch("https://github.com/login/device/code", {
     method: "POST",
@@ -333,7 +384,7 @@ async function startGithubDeviceAuth() {
 }
 
 async function pollGithubDeviceAuth(deviceCode: string) {
-  const clientID = await githubOAuthClientID()
+  const { clientID } = await githubOAuthClientID()
   if (!clientID) throw new Error("GitHub OAuth client ID is not configured on the host")
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
@@ -583,6 +634,7 @@ export const MobileRoutes = lazy(() =>
         const token = currentToken(c)
         const user = await githubUser()
         const container = await getContainerRuntimeInfo()
+        const oauth = await githubOAuthClientID()
         return c.json({
           version: Installation.VERSION,
           auth: {
@@ -602,7 +654,9 @@ export const MobileRoutes = lazy(() =>
           },
           github: {
             connected: Boolean(user),
-            oauthDeviceEnabled: Boolean(await githubOAuthClientID()),
+            oauthDeviceEnabled: true,
+            oauthDeviceConfigured: Boolean(oauth.clientID),
+            oauthClientSource: oauth.source,
             user: user
               ? {
                   login: user.login,
@@ -612,6 +666,36 @@ export const MobileRoutes = lazy(() =>
               : undefined,
           },
         })
+      },
+    )
+    .get(
+      "/command",
+      describeRoute({
+        summary: "List mobile commands",
+        description: "Return command metadata safe for the mobile command palette and slash autocomplete.",
+        operationId: "mobile.command.list",
+        responses: {
+          200: {
+            description: "Commands",
+            content: { "application/json": { schema: resolver(MobileCommand.array()) } },
+          },
+        },
+      }),
+      async (c) => {
+        const commands = await Command.list()
+        return c.json(
+          commands
+            .map((command) => ({
+              name: command.name,
+              description: command.description,
+              agent: command.agent,
+              model: command.model,
+              mcp: command.mcp,
+              subtask: command.subtask,
+              hints: command.hints,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
       },
     )
     .get(
@@ -1087,6 +1171,84 @@ export const MobileRoutes = lazy(() =>
         return c.json(result)
       },
     )
+    .get(
+      "/session/:sessionID/command",
+      describeRoute({
+        summary: "List session commands for mobile",
+        description: "Return command metadata resolved in the current session context for mobile slash autocomplete.",
+        operationId: "mobile.session.command.list",
+        responses: {
+          200: {
+            description: "Commands",
+            content: { "application/json": { schema: resolver(MobileCommand.array()) } },
+          },
+          ...errors(404),
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        const session = await getSessionAnyProject(sessionID)
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "GET",
+            url: "/command",
+            signal: c.req.raw.signal,
+          })
+
+          if (!response?.ok) {
+            return new Response(response?.body, {
+              status: response?.status ?? 502,
+              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
+            })
+          }
+
+          const commands = (await response.json().catch(() => [])) as Array<Record<string, unknown>>
+          return c.json(
+            commands
+              .map((command) => ({
+                name: typeof command.name === "string" ? command.name : "unknown",
+                description: typeof command.description === "string" ? command.description : undefined,
+                agent: typeof command.agent === "string" ? command.agent : undefined,
+                model: typeof command.model === "string" ? command.model : undefined,
+                mcp: typeof command.mcp === "boolean" ? command.mcp : undefined,
+                subtask: typeof command.subtask === "boolean" ? command.subtask : undefined,
+                hints: Array.isArray(command.hints)
+                  ? command.hints.filter((hint): hint is string => typeof hint === "string")
+                  : [],
+              }))
+              .filter((command) => command.name !== "unknown")
+              .sort((a, b) => a.name.localeCompare(b.name)),
+          )
+        }
+
+        const commands = await Instance.provide({
+          directory: session.directory,
+          async fn() {
+            return WorkspaceContext.provide({
+              workspaceID: session.workspaceID,
+              async fn() {
+                return Command.list()
+              },
+            })
+          },
+        })
+        return c.json(
+          commands
+            .map((command) => ({
+              name: command.name,
+              description: command.description,
+              agent: command.agent,
+              model: command.model,
+              mcp: command.mcp,
+              subtask: command.subtask,
+              hints: command.hints,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        )
+      },
+    )
     .post(
       "/session/:sessionID/message",
       describeRoute({
@@ -1159,6 +1321,68 @@ export const MobileRoutes = lazy(() =>
           })
         })
         return c.json({ accepted: true as const }, 202)
+      },
+    )
+    .post(
+      "/session/:sessionID/command",
+      describeRoute({
+        summary: "Run mobile session command",
+        description: "Execute a slash-style command against the current session.",
+        operationId: "mobile.session.command",
+        responses: {
+          200: {
+            description: "Command result",
+            content: { "application/json": { schema: resolver(MessageV2.WithParts) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      validator("json", MobileSessionCommandInput),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        const body = c.req.valid("json")
+        const session = await getSessionAnyProject(sessionID)
+        if (session.github?.worktree.cleanedAt) {
+          return c.json({ error: "Session worktree has been cleaned up" }, 400)
+        }
+
+        const commandBody = {
+          command: body.command,
+          arguments: body.arguments,
+          agent: body.agent,
+          model: body.model ? `${body.model.providerID}/${body.model.modelID}` : undefined,
+        }
+
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "POST",
+            url: `/session/${encodeURIComponent(sessionID)}/command`,
+            body: JSON.stringify(commandBody),
+            headers: {
+              "content-type": "application/json",
+            },
+            signal: c.req.raw.signal,
+          })
+
+          return new Response(response?.body, {
+            status: response?.status ?? 502,
+            headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
+          })
+        }
+
+        const result = await Instance.provide({
+          directory: session.directory,
+          async fn() {
+            return SessionPrompt.command({
+              ...commandBody,
+              sessionID,
+            })
+          },
+        })
+
+        return c.json(result)
       },
     )
     .post(

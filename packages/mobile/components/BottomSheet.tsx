@@ -17,6 +17,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react-native"
+import { useAppTheme } from "@/lib/theme"
 
 export type ActionSheetRef = {
   present(): void
@@ -57,24 +58,29 @@ export const ActionSheet = React.forwardRef<
   { children: React.ReactNode; snapPoints?: (string | number)[] }
 >(function ActionSheet({ children, snapPoints = [280] }, ref) {
   const { height: windowHeight } = useWindowDimensions()
+  const { palette, isDark } = useAppTheme()
   const [visible, setVisible] = useState(false)
   const translateY = useRef(new Animated.Value(36)).current
   const opacity = useRef(new Animated.Value(0)).current
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
-  useImperativeHandle(ref, () => ({
-    present() {
-      setVisible(true)
-    },
-    dismiss() {
-      Animated.parallel([
-        Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(translateY, { toValue: 36, duration: 180, useNativeDriver: true }),
-      ]).start(({ finished }) => {
-        if (finished) setVisible(false)
-      })
-    },
-  }), [opacity, translateY])
+  useImperativeHandle(
+    ref,
+    () => ({
+      present() {
+        setVisible(true)
+      },
+      dismiss() {
+        Animated.parallel([
+          Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+          Animated.timing(translateY, { toValue: 36, duration: 180, useNativeDriver: true }),
+        ]).start(({ finished }) => {
+          if (finished) setVisible(false)
+        })
+      },
+    }),
+    [opacity, translateY],
+  )
 
   useEffect(() => {
     if (!visible) return
@@ -95,7 +101,13 @@ export const ActionSheet = React.forwardRef<
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={() => setVisible(false)}>
-      <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(2, 6, 23, 0.58)" }}>
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "flex-end",
+          backgroundColor: isDark ? "rgba(2, 6, 23, 0.58)" : "rgba(15, 23, 42, 0.18)",
+        }}
+      >
         <Pressable style={{ flex: 1 }} onPress={() => setVisible(false)} />
         <Animated.View
           style={{
@@ -103,21 +115,21 @@ export const ActionSheet = React.forwardRef<
             transform: [{ translateY }],
             maxHeight: contentHeight,
             minHeight: Math.min(180, contentHeight),
-            backgroundColor: "#0a1829",
+            backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
             borderWidth: 1,
             borderBottomWidth: 0,
-            borderColor: "#162840",
+            borderColor: palette.border,
             paddingBottom: 24,
-            shadowColor: "#020617",
+            shadowColor: palette.shadow,
             shadowOpacity: 0.26,
             shadowRadius: 18,
             shadowOffset: { width: 0, height: -8 },
           }}
         >
           <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 8 }}>
-            <View style={{ width: 42, height: 5, borderRadius: 999, backgroundColor: "#2a4560" }} />
+            <View style={{ width: 42, height: 5, borderRadius: 999, backgroundColor: palette.border }} />
           </View>
           <View style={{ flex: 1, paddingBottom: 8 }}>{children}</View>
         </Animated.View>
@@ -138,6 +150,7 @@ export function ActionSheetItem({
   destructive?: boolean
 }) {
   const Icon = iconForName(icon)
+  const { palette, isDark } = useAppTheme()
 
   return (
     <Pressable
@@ -157,18 +170,26 @@ export function ActionSheetItem({
           width: 38,
           height: 38,
           borderRadius: 12,
-          backgroundColor: destructive ? "#7f1d1d20" : "#38bdf810",
+          backgroundColor: destructive
+            ? "rgba(239, 68, 68, 0.12)"
+            : isDark
+              ? "rgba(56, 189, 248, 0.1)"
+              : "rgba(14, 165, 233, 0.1)",
           borderWidth: 1,
-          borderColor: destructive ? "#7f1d1d30" : "#38bdf820",
+          borderColor: destructive
+            ? "rgba(239, 68, 68, 0.2)"
+            : isDark
+              ? "rgba(56, 189, 248, 0.2)"
+              : "rgba(14, 165, 233, 0.2)",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Icon size={18} color={destructive ? "#fca5a5" : "#7dd3fc"} strokeWidth={2.1} />
+        <Icon size={18} color={destructive ? palette.danger : palette.accentLight} strokeWidth={2.1} />
       </View>
       <Text
         style={{
-          color: destructive ? "#fca5a5" : "#e6eef8",
+          color: destructive ? palette.danger : palette.ink,
           fontSize: 15,
           fontWeight: "600",
         }}
@@ -180,7 +201,8 @@ export function ActionSheetItem({
 }
 
 export function ActionSheetDivider() {
-  return <View style={{ height: 1, backgroundColor: "#162840", marginHorizontal: 16, marginVertical: 4 }} />
+  const { palette } = useAppTheme()
+  return <View style={{ height: 1, backgroundColor: palette.border, marginHorizontal: 16, marginVertical: 4 }} />
 }
 
 export function useActionSheetRef() {

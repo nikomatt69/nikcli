@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Pressable, ScrollView, Text, View } from "react-native"
 import { FileCode2, Folder, Globe, Search, SquareTerminal, Wrench, type LucideIcon } from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
 
 function toolIcon(toolName: string): LucideIcon {
   const value = toolName.toLowerCase()
@@ -17,11 +18,14 @@ function toolIcon(toolName: string): LucideIcon {
   return Wrench
 }
 
-function statusDotColor(status: string): string {
-  if (status === "running") return "#f59e0b"
-  if (status === "completed") return "#34d399"
-  if (status === "error") return "#fb7185"
-  return "#64748b"
+function statusDotColor(
+  status: string,
+  colors: { warn: string; success: string; danger: string; muted: string },
+): string {
+  if (status === "running") return colors.warn
+  if (status === "completed") return colors.success
+  if (status === "error") return colors.danger
+  return colors.muted
 }
 
 function stringifyValue(value: unknown): string {
@@ -36,6 +40,7 @@ function stringifyValue(value: unknown): string {
 }
 
 export function ToolCallView(props: { part: ToolPart }) {
+  const { palette } = useAppTheme()
   const [open, setOpen] = useState(false)
   const [showAllOutput, setShowAllOutput] = useState(false)
   const state = props.part.state
@@ -56,8 +61,20 @@ export function ToolCallView(props: { part: ToolPart }) {
         onPress={() => setOpen((value) => !value)}
       >
         <View className="flex-1 flex-row items-center gap-2">
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: statusDotColor(status) }} />
-          <Icon size={15} color="#7dd3fc" strokeWidth={2.1} />
+          <View
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: statusDotColor(status, {
+                warn: palette.warn,
+                success: palette.success,
+                danger: palette.danger,
+                muted: palette.muted,
+              }),
+            }}
+          />
+          <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
           <View className="min-w-0 flex-1">
             <Text className="text-sm font-semibold text-ink" numberOfLines={1}>
               {props.part.tool || "Unknown tool"}

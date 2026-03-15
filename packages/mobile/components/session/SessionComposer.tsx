@@ -1,14 +1,23 @@
 import { Pressable, Text, TextInput, View, useWindowDimensions } from "react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { useAppTheme } from "@/lib/theme"
 
 type SessionComposerProps = {
   mode: "plan" | "code"
   setMode(mode: "plan" | "code"): void
   input: string
   setInput(value: string): void
+  slashSuggestions?: Array<{
+    name: string
+    description?: string
+    badge?: string
+  }>
+  slashLoading?: boolean
   sending: boolean
   sessionBlocked: boolean
   cleaned: boolean
+  onOpenCommands(): void
+  onSelectSlash(name: string): void
   onSend(): void
 }
 
@@ -17,12 +26,17 @@ export function SessionComposer({
   setMode,
   input,
   setInput,
+  slashSuggestions = [],
+  slashLoading,
   sending,
   sessionBlocked,
   cleaned,
+  onOpenCommands,
+  onSelectSlash,
   onSend,
 }: SessionComposerProps) {
   const { width } = useWindowDimensions()
+  const { colorScheme, palette } = useAppTheme()
   const compact = width < 390
   const statusTone = cleaned ? "text-rose-300" : sessionBlocked ? "text-amber-200" : "text-emerald-200"
   const modeSummary =
@@ -39,6 +53,7 @@ export function SessionComposer({
           : "Add the coding instruction you want to send."
         : null
   const liveHint = disabledReason ?? modeSummary
+  const showSlashSuggestions = input.trimStart().startsWith("/")
 
   return (
     <View className="border-t border-border bg-background px-4 pb-3 pt-2">
@@ -92,8 +107,8 @@ export function SessionComposer({
               onChangeText={setInput}
               multiline
               editable={!cleaned}
-              selectionColor="#7dd3fc"
-              keyboardAppearance="dark"
+              selectionColor={palette.accent}
+              keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
               placeholder={
                 cleaned
                   ? "This GitHub worktree has been cleaned up."
@@ -101,10 +116,46 @@ export function SessionComposer({
                     ? "Ask for the exact plan you want before editing..."
                     : "Ask Nikcli to inspect, edit, review, or publish..."
               }
-              placeholderTextColor="#6d84a0"
+              placeholderTextColor={palette.muted}
               className="max-h-24 min-h-[56px] text-[15px] leading-5 text-ink"
               textAlignVertical="top"
             />
+
+            {showSlashSuggestions ? (
+              <View className="mt-2 gap-2 border-t border-border/70 pt-2">
+                {slashLoading ? (
+                  <Text className="text-[11px] text-soft">Loading slash commands…</Text>
+                ) : slashSuggestions.length ? (
+                  slashSuggestions.slice(0, 4).map((item) => (
+                    <Pressable
+                      key={item.name}
+                      onPress={() => onSelectSlash(item.name)}
+                      className="rounded-[14px] border border-border bg-surface px-3 py-2"
+                    >
+                      <View className="flex-row items-start justify-between gap-3">
+                        <View className="min-w-0 flex-1">
+                          <Text className="text-[12px] font-semibold text-ink">/{item.name}</Text>
+                          {item.description ? (
+                            <Text className="mt-0.5 text-[11px] leading-4 text-soft" numberOfLines={2}>
+                              {item.description}
+                            </Text>
+                          ) : null}
+                        </View>
+                        {item.badge ? (
+                          <View className="rounded-full border border-accent/20 bg-accent/10 px-2 py-1">
+                            <Text className="text-[9px] font-semibold uppercase tracking-[1.2px] text-accent-light">
+                              {item.badge}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  ))
+                ) : (
+                  <Text className="text-[11px] text-soft">No slash commands match this input yet.</Text>
+                )}
+              </View>
+            ) : null}
           </View>
           <View className={compact ? "w-full" : "w-[110px]"}>
             <ActionButton
@@ -121,9 +172,17 @@ export function SessionComposer({
           <Text className="min-w-0 flex-1 text-[10px] leading-4 text-soft" numberOfLines={2}>
             {liveHint}
           </Text>
-          <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
-            {input.trim().length} chars
-          </Text>
+          <View className="items-end gap-1">
+            <Pressable
+              onPress={onOpenCommands}
+              className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
+            >
+              <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
+            </Pressable>
+            <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
+              {input.trim().length} chars
+            </Text>
+          </View>
         </View>
       </View>
     </View>

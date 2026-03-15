@@ -14,6 +14,7 @@ import type {
 import { relativeTime } from "@/lib/types"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
+import { useAppTheme } from "@/lib/theme"
 
 function latestText(parts: MessageWithParts["parts"]) {
   return parts
@@ -22,8 +23,8 @@ function latestText(parts: MessageWithParts["parts"]) {
     .join("\n\n")
 }
 
-function reasoningPart(parts: MessageWithParts["parts"]) {
-  return parts.find((part): part is ReasoningPart => part.type === "reasoning")
+function reasoningParts(parts: MessageWithParts["parts"]) {
+  return parts.filter((part): part is ReasoningPart => part.type === "reasoning")
 }
 
 function patchPart(parts: MessageWithParts["parts"]) {
@@ -64,9 +65,13 @@ function trimmedCodeContent(node: ASTNode) {
   return node.content.endsWith("\n") ? node.content.slice(0, -1) : node.content
 }
 
-function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any }) {
+function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
   return (
-    <View key={props.node.key} className="mt-2 overflow-hidden rounded-[14px] border border-border/70 bg-[#071321]">
+    <View
+      key={props.node.key}
+      className="mt-2 overflow-hidden rounded-[14px] border"
+      style={{ backgroundColor: props.backgroundColor, borderColor: props.borderColor }}
+    >
       <ScrollView
         nestedScrollEnabled
         showsVerticalScrollIndicator
@@ -91,13 +96,14 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any }) {
 
 function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; muted?: boolean }) {
   const Icon = props.icon
+  const { palette } = useAppTheme()
 
   return (
     <Pressable
       onPress={props.onPress}
       className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
     >
-      <Icon size={13} color={props.muted ? "#6f90ac" : "#7dd3fc"} strokeWidth={2.1} />
+      <Icon size={13} color={props.muted ? palette.muted : palette.accentLight} strokeWidth={2.1} />
       <Text className={`text-[11px] font-semibold ${props.muted ? "text-soft" : "text-ink"}`}>{props.label}</Text>
     </Pressable>
   )
@@ -114,9 +120,10 @@ export function MessageBubble(props: {
   onDismiss?: () => void
   isActive?: boolean
 }) {
+  const { palette } = useAppTheme()
   const [showReasoning, setShowReasoning] = useState(false)
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
-  const reasoning = reasoningPart(props.message.parts)
+  const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
   const patch = patchPart(props.message.parts)
   const tools = toolParts(props.message.parts)
   const isUser = props.message.info.role === "user"
@@ -125,25 +132,45 @@ export function MessageBubble(props: {
   const assistantError = assistantInfo?.error?.data?.message
   const cost = assistantInfo?.cost ?? 0
   const tokens = assistantInfo ? assistantInfo.tokens.input + assistantInfo.tokens.output : 0
-  const wordCount = reasoning ? words(reasoning.text) : 0
+  const reasoningText = useMemo(
+    () =>
+      reasoning
+        .map((part) => part.text.trim())
+        .filter(Boolean)
+        .join("\n\n"),
+    [reasoning],
+  )
+  const wordCount = reasoningText ? words(reasoningText) : 0
+  const reasoningVisible = reasoning.length > 0
+  const reasoningExpanded = showReasoning || wordCount === 0
   const markdownRules = useMemo<RenderRules>(
     () => ({
       code_block: (node, _children, _parent, styles, inheritedStyles = {}) => (
-        <ScrollableCodeBlock node={node} textStyle={[inheritedStyles, styles.code_block]} />
+        <ScrollableCodeBlock
+          node={node}
+          textStyle={[inheritedStyles, styles.code_block]}
+          backgroundColor={palette.codeBackground}
+          borderColor={palette.border}
+        />
       ),
       fence: (node, _children, _parent, styles, inheritedStyles = {}) => (
-        <ScrollableCodeBlock node={node} textStyle={[inheritedStyles, styles.fence]} />
+        <ScrollableCodeBlock
+          node={node}
+          textStyle={[inheritedStyles, styles.fence]}
+          backgroundColor={palette.codeBackground}
+          borderColor={palette.border}
+        />
       ),
     }),
-    [],
+    [palette.border, palette.codeBackground],
   )
   const summaryLine = useMemo(() => {
     const items = [] as string[]
     if (tools.length) items.push(`${tools.length} tool${tools.length === 1 ? "" : "s"}`)
     if (patch?.files.length) items.push(`${patch.files.length} file${patch.files.length === 1 ? "" : "s"}`)
-    if (reasoning) items.push(`reasoning`)
+    if (reasoning.length) items.push(`reasoning`)
     return items.join(" · ")
-  }, [patch?.files.length, reasoning, tools.length])
+  }, [patch?.files.length, reasoning.length, tools.length])
   const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
@@ -156,7 +183,7 @@ export function MessageBubble(props: {
       <View
         className={`max-w-[96%] min-w-0 overflow-hidden rounded-[26px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
         style={{
-          shadowColor: "#020617",
+          shadowColor: palette.shadow,
           shadowOpacity: 0.12,
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 8 },
@@ -185,40 +212,40 @@ export function MessageBubble(props: {
               <Markdown
                 rules={markdownRules}
                 style={{
-                  body: { color: "#e6eef8", fontSize: 15, lineHeight: 22 },
+                  body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
                   paragraph: { marginTop: 0, marginBottom: 8 },
-                  heading1: { color: "#f5f9ff", marginTop: 4, marginBottom: 8 },
-                  heading2: { color: "#f5f9ff", marginTop: 4, marginBottom: 8 },
+                  heading1: { color: palette.ink, marginTop: 4, marginBottom: 8 },
+                  heading2: { color: palette.ink, marginTop: 4, marginBottom: 8 },
                   bullet_list: { marginVertical: 0 },
                   ordered_list: { marginVertical: 0 },
                   list_item: { marginBottom: 4 },
                   code_inline: {
-                    color: "#7dd3fc",
-                    backgroundColor: "#0000",
+                    color: palette.accentLight,
+                    backgroundColor: "transparent",
                     borderRadius: 8,
                     paddingHorizontal: 6,
                     paddingVertical: 2,
                   },
                   code_block: {
-                    color: "#d8e5f2",
+                    color: palette.codeText,
                     fontSize: 13,
                     lineHeight: 20,
                     includeFontPadding: false,
                   },
                   fence: {
-                    color: "#d8e5f2",
+                    color: palette.codeText,
                     fontSize: 13,
                     lineHeight: 20,
                     includeFontPadding: false,
-                    backgroundColor: "#0000"
+                    backgroundColor: "transparent",
                   },
                   blockquote: {
                     borderLeftWidth: 2,
-                    borderLeftColor: "#1d344d",
+                    borderLeftColor: palette.border,
                     paddingLeft: 10,
-                    color: "#a9bdd1",
+                    color: palette.soft,
                   },
-                  link: { color: "#7dd3fc" },
+                  link: { color: palette.accentLight },
                 }}
               >
                 {text}
@@ -235,26 +262,27 @@ export function MessageBubble(props: {
           </View>
         ) : null}
 
-        {reasoning ? (
+        {reasoningVisible ? (
           <View className="border-t border-border/80 px-3.5 py-3">
             <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
               <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
-                {showReasoning ? (
-                  <ChevronDown size={13} color="#7dd3fc" strokeWidth={2.1} />
+                {reasoningExpanded ? (
+                  <ChevronDown size={13} color={palette.accentLight} strokeWidth={2.1} />
                 ) : (
-                  <ChevronRight size={13} color="#7dd3fc" strokeWidth={2.1} />
+                  <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
                 )}
                 <Text className="flex-1 text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
-                  Reasoning · {wordCount.toLocaleString()} words
+                  {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
                 </Text>
               </Pressable>
-              {showReasoning ? (
+              {reasoningExpanded ? (
                 <Text selectable className="mt-2 text-sm leading-5 text-soft">
-                  {reasoning.text}
+                  {reasoningText ||
+                    "Reasoning metadata was returned, but no visible reasoning text was captured for this step."}
                 </Text>
               ) : (
                 <Text className="mt-2 text-sm leading-5 text-soft" numberOfLines={2}>
-                  {reasoning.text}
+                  {reasoningText}
                 </Text>
               )}
             </View>

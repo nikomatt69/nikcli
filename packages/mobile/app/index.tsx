@@ -10,6 +10,7 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { MobileClient } from "@/lib/client"
 import { useServer } from "@/lib/server-provider"
+import { useAppTheme } from "@/lib/theme"
 import type { ServerConfig } from "@/lib/types"
 
 function fromLink(url: string): ServerConfig | null {
@@ -32,6 +33,7 @@ function fromLink(url: string): ServerConfig | null {
 }
 
 export default function ConnectScreen() {
+  const { palette } = useAppTheme()
   const { top } = useSafeAreaInsets()
   const { config, loading, ready, save } = useServer()
   const [url, setUrl] = useState(config?.url ?? "")
@@ -124,7 +126,7 @@ export default function ConnectScreen() {
   if (loading && !config) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#7dd3fc" />
+        <ActivityIndicator color={palette.accent} />
       </View>
     )
   }

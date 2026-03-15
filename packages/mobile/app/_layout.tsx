@@ -1,20 +1,41 @@
 import "@/global.css"
+import { useEffect } from "react"
 import { Stack } from "expo-router"
 import { StatusBar } from "expo-status-bar"
+import { useColorScheme } from "nativewind"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { ServerProvider } from "@/lib/server-provider"
+import { getAppPreferences } from "@/lib/storage"
+import { useUIStore } from "@/lib/store"
+import { palettes } from "@/lib/theme"
 
 export default function RootLayout() {
+  const { colorScheme, setColorScheme } = useColorScheme()
+  const hydratePreferences = useUIStore((state) => state.hydratePreferences)
+  const themeMode = useUIStore((state) => state.themeMode)
+
+  useEffect(() => {
+    getAppPreferences()
+      .then(hydratePreferences)
+      .catch(() => undefined)
+  }, [hydratePreferences])
+
+  useEffect(() => {
+    setColorScheme(themeMode)
+  }, [setColorScheme, themeMode])
+
+  const palette = colorScheme === "light" ? palettes.light : palettes.dark
+
   return (
     <SafeAreaProvider>
       <ServerProvider>
-        <StatusBar style="light" />
+        <StatusBar style={colorScheme === "light" ? "dark" : "light"} />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: "#06121f" },
-            headerTintColor: "#e6eef8",
+            headerStyle: { backgroundColor: palette.background },
+            headerTintColor: palette.ink,
             headerShadowVisible: false,
-            contentStyle: { backgroundColor: "#06121f" },
+            contentStyle: { backgroundColor: palette.background },
           }}
         >
           <Stack.Screen name="index" options={{ headerShown: false }} />

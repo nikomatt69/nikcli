@@ -1,19 +1,21 @@
 import { Text, View } from "react-native"
+import { useAppTheme } from "@/lib/theme"
 
 export function ConnectionStatus(props: { connected: boolean; label: string }) {
+  const { palette } = useAppTheme()
   const label = props.label || (props.connected ? "Online" : "Offline")
   const tone = props.connected
     ? {
         border: "border-success/20",
         background: "bg-success/10",
         text: "text-emerald-200",
-        dot: "#34d399",
+        dot: palette.success,
       }
     : {
         border: "border-danger/20",
         background: "bg-danger/10",
         text: "text-rose-200",
-        dot: "#fb7185",
+        dot: palette.danger,
       }
 
   return (

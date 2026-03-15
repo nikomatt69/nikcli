@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, Text, type PressableProps } from "react-native"
 import { cn } from "@/lib/cn"
+import { useAppTheme } from "@/lib/theme"
 
 type ActionButtonProps = PressableProps & {
   label: string
@@ -15,6 +16,7 @@ export function ActionButton({
   className,
   ...props
 }: ActionButtonProps) {
+  const { palette } = useAppTheme()
   const buttonClass =
     variant === "secondary"
       ? "border border-border bg-background/70"
@@ -37,7 +39,7 @@ export function ActionButton({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? "#082f49" : "#7dd3fc"} />
+        <ActivityIndicator color={variant === "primary" ? palette.codeText : palette.accent} />
       ) : (
         <Text className={cn("text-center text-[15px] font-semibold", textClass)}>{label}</Text>
       )}

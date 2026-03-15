@@ -10,6 +10,7 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
+import { useAppTheme } from "@/lib/theme"
 import { MOBILE_DEFAULT_MODEL_ID, MOBILE_DEFAULT_PROVIDER_ID, type SessionSummary } from "@/lib/types"
 
 function currentProjectLabel(name?: string, worktree?: string) {
@@ -26,6 +27,7 @@ function currentSessionModelLabel(providerID?: string, modelID?: string) {
 }
 
 export default function SessionsScreen() {
+  const { palette } = useAppTheme()
   const { client, loading, bootstrapLoading, config, bootstrap } = useServer()
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -158,7 +160,9 @@ export default function SessionsScreen() {
         contentInsetAdjustmentBehavior="automatic"
         data={sessions}
         keyExtractor={(item) => item.info.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor="#7dd3fc" />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
+        }
         ItemSeparatorComponent={() => <View className="h-3" />}
         renderItem={({ item, index }) => (
           <SessionListItem item={item} index={index} onPress={() => router.push(`/sessions/${item.info.id}`)} />

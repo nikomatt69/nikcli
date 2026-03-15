@@ -10,6 +10,7 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
+import { useAppTheme } from "@/lib/theme"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
 
 function safeOwner(fullName?: string): string | null {
@@ -24,6 +25,7 @@ function currentProjectLabel(project: ProjectInfo | undefined) {
 }
 
 export default function ReposScreen() {
+  const { palette } = useAppTheme()
   const { client, config, bootstrap, save, loading, bootstrapLoading } = useServer()
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [repos, setRepos] = useState<GitHubRepo[]>([])
@@ -244,7 +246,9 @@ export default function ReposScreen() {
       className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 28 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor="#7dd3fc" />}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
+      }
     >
       <SurfaceCard
         eyebrow="Workspace portfolio"

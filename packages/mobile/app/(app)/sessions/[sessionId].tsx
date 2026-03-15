@@ -1,16 +1,19 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft } from "lucide-react-native"
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
+import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
+import { useAppTheme } from "@/lib/theme"
 import {
+  type CommandInfo,
   MOBILE_DEFAULT_MODEL_ID,
   MOBILE_DEFAULT_PROVIDER_ID,
   type FileDiff,
@@ -47,10 +50,23 @@ function sessionErrorMessage(event: SessionStreamEvent) {
   return typeof message === "string" && message.trim() ? message : "Session failed"
 }
 
+function parseSlashCommand(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed.startsWith("/")) return null
+  const match = trimmed.match(/^\/([^\s]+)\s*(.*)$/s)
+  if (!match) return null
+  return {
+    command: match[1],
+    argumentsText: match[2] ?? "",
+  }
+}
+
 export default function SessionScreen() {
+  const { palette } = useAppTheme()
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
+  const listRef = useRef<FlatList<MessageWithParts>>(null)
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
@@ -66,6 +82,10 @@ export default function SessionScreen() {
   const [publishBody, setPublishBody] = useState("")
   const [commitMessage, setCommitMessage] = useState("")
   const [mode, setMode] = useState<"plan" | "code">("code")
+  const [commands, setCommands] = useState<CommandInfo[]>([])
+  const [commandsLoading, setCommandsLoading] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [commandQuery, setCommandQuery] = useState("")
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -80,11 +100,33 @@ export default function SessionScreen() {
     }
   }, [client, sessionId])
 
+  const loadCommands = useCallback(async () => {
+    if (!client || !sessionId) {
+      setCommands([])
+      return
+    }
+
+    try {
+      setCommandsLoading(true)
+      setCommands(await client.listCommands(sessionId))
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setCommandsLoading(false)
+    }
+  }, [client, sessionId])
+
   useFocusEffect(
     useCallback(() => {
       void load()
-    }, [load]),
+      void loadCommands()
+    }, [load, loadCommands]),
   )
+
+  useEffect(() => {
+    if (!commandPaletteOpen) return
+    void loadCommands()
+  }, [commandPaletteOpen, loadCommands])
 
   useSessionStream({
     config,
@@ -149,6 +191,32 @@ export default function SessionScreen() {
     }),
     [config?.modelID, config?.modelProviderID],
   )
+  const slashInput = useMemo(() => parseSlashCommand(input), [input])
+  const slashSuggestions = useMemo(() => {
+    if (!input.trimStart().startsWith("/")) return []
+    const raw = input.trimStart().slice(1).split(/\s+/)[0]?.toLowerCase() ?? ""
+    return commands
+      .filter((command) => {
+        if (!raw) return true
+        return (
+          command.name.toLowerCase().includes(raw) ||
+          command.description?.toLowerCase().includes(raw) ||
+          command.hints.some((hint) => hint.toLowerCase().includes(raw))
+        )
+      })
+      .slice(0, 5)
+      .map((command) => ({
+        name: command.name,
+        description: command.description,
+        badge: command.mcp
+          ? "MCP"
+          : command.subtask
+            ? "Task"
+            : command.hints.length
+              ? `${command.hints.length} args`
+              : undefined,
+      }))
+  }, [commands, input])
 
   function openPublishModal() {
     if (!detail?.info.github) return
@@ -167,6 +235,13 @@ export default function SessionScreen() {
     try {
       setSending(true)
       setError(null)
+      if (slashInput) {
+        await client.sendCommand(sessionId, slashInput.command, slashInput.argumentsText, {
+          model: hasUserPrompt ? undefined : preferredModel,
+        })
+        setInput("")
+        return
+      }
       const text = input.trim()
       const payload =
         mode === "plan"
@@ -179,6 +254,22 @@ export default function SessionScreen() {
     } finally {
       setSending(false)
     }
+  }
+
+  function insertSlashCommand(name: string) {
+    const current = input.trimStart()
+    const match = current.match(/^\/([^\s]+)(.*)$/s)
+    const remainder = match?.[2] ?? ""
+    const nextRemainder = remainder.startsWith(" ") || remainder === "" ? remainder : ` ${remainder}`
+    setInput(`/${name}${nextRemainder || " "}`)
+  }
+
+  function scrollToTop() {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }
+
+  function scrollToBottom() {
+    listRef.current?.scrollToEnd({ animated: true })
   }
 
   async function loadDiff(messageID: string) {
@@ -242,10 +333,113 @@ export default function SessionScreen() {
     }
   }
 
+  const paletteItems = useMemo<CommandPaletteItem[]>(() => {
+    const localItems: CommandPaletteItem[] = [
+      {
+        id: "local.scroll.bottom",
+        title: "Jump to latest output",
+        description: "Scroll to the newest message in this transcript.",
+        section: "View",
+        badge: "Local",
+        keywords: ["bottom", "latest", "newest", "transcript"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          scrollToBottom()
+        },
+      },
+      {
+        id: "local.scroll.permissions",
+        title: "Jump to approvals",
+        description: "Scroll to the top of the session and inspect pending permissions.",
+        section: "View",
+        badge: detail?.permissions.length ? `${detail.permissions.length}` : "Local",
+        disabled: !detail?.permissions.length,
+        keywords: ["permissions", "approvals", "top"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          scrollToTop()
+        },
+      },
+      {
+        id: "local.publish",
+        title: "Open publish workflow",
+        description: "Prepare commit, PR title, and publish notes for the current GitHub session.",
+        section: "GitHub",
+        badge: "Local",
+        disabled: !detail?.info.github || cleaned,
+        keywords: ["publish", "pull request", "pr", "commit"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          openPublishModal()
+        },
+      },
+      {
+        id: "local.abort",
+        title: "Abort active run",
+        description: "Stop the current execution if the session is busy.",
+        section: "Session",
+        badge: "Local",
+        disabled: !sessionBlocked,
+        keywords: ["abort", "stop", "cancel", "busy"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          void abort()
+        },
+      },
+      {
+        id: "local.clear",
+        title: "Clear composer",
+        description: "Remove the current draft from the composer.",
+        section: "Compose",
+        badge: "Local",
+        disabled: !input.trim(),
+        keywords: ["clear", "draft", "composer"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          setInput("")
+        },
+      },
+    ]
+
+    const serverItems = commands.map<CommandPaletteItem>((command) => ({
+      id: `command:${command.name}`,
+      title: `/${command.name}`,
+      description:
+        command.description ||
+        (command.hints.length
+          ? `Arguments: ${command.hints.join(", ")}`
+          : "Insert this slash command into the composer."),
+      section: command.mcp ? "MCP" : command.subtask ? "Subtasks" : "Commands",
+      badge: command.mcp
+        ? "MCP"
+        : command.subtask
+          ? "Task"
+          : command.hints.length
+            ? `${command.hints.length} args`
+            : undefined,
+      keywords: command.hints,
+      onPress: () => {
+        setCommandPaletteOpen(false)
+        insertSlashCommand(command.name)
+      },
+    }))
+
+    const items = [...localItems, ...serverItems]
+    const term = commandQuery.trim().toLowerCase()
+    if (!term) return items
+
+    return items.filter((item) => {
+      const haystack = [item.title, item.description ?? "", item.section, item.badge ?? "", ...(item.keywords ?? [])]
+        .join(" ")
+        .toLowerCase()
+      return haystack.includes(term)
+    })
+  }, [abort, commandQuery, commands, detail?.info.github, detail?.permissions.length, input, sessionBlocked])
+
   if (loading && !detail) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator color="#fbbf24" />
+        <ActivityIndicator color={palette.accent} />
       </View>
     )
   }
@@ -255,7 +449,7 @@ export default function SessionScreen() {
       <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} className="rounded-full border border-border bg-surface p-3">
-            <ArrowLeft size={18} color="#e6eef8" strokeWidth={2.2} />
+            <ArrowLeft size={18} color={palette.ink} strokeWidth={2.2} />
           </Pressable>
           <View className="flex-1">
             <Text className="text-base font-semibold text-ink" numberOfLines={1}>
@@ -269,6 +463,7 @@ export default function SessionScreen() {
       </View>
 
       <FlatList
+        ref={listRef}
         className="flex-1 px-4 pt-4"
         contentInsetAdjustmentBehavior="automatic"
         data={messages}
@@ -317,10 +512,26 @@ export default function SessionScreen() {
         setMode={setMode}
         input={input}
         setInput={setInput}
+        slashSuggestions={slashSuggestions}
+        slashLoading={commandsLoading}
         sending={sending}
         sessionBlocked={sessionBlocked}
         cleaned={cleaned}
+        onOpenCommands={() => {
+          setCommandQuery("")
+          setCommandPaletteOpen(true)
+        }}
+        onSelectSlash={insertSlashCommand}
         onSend={() => void send()}
+      />
+
+      <CommandPaletteSheet
+        visible={commandPaletteOpen}
+        loading={commandsLoading}
+        query={commandQuery}
+        onQueryChange={setCommandQuery}
+        onClose={() => setCommandPaletteOpen(false)}
+        items={paletteItems}
       />
 
       <PublishSheet

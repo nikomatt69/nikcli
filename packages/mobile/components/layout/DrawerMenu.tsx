@@ -7,6 +7,7 @@ import { StatusPill } from "@/components/layout/StatusPill"
 import { APP_TABS, getCurrentProjectLabel, getGitHubStatusLabel } from "@/components/layout/navigation.config"
 import { useServer } from "@/lib/server-provider"
 import { useUIStore } from "@/lib/store"
+import { useAppTheme } from "@/lib/theme"
 
 type DrawerMenuProps = {
   routeName: string
@@ -15,6 +16,7 @@ type DrawerMenuProps = {
 export function DrawerMenu({ routeName }: DrawerMenuProps) {
   const { top, bottom } = useSafeAreaInsets()
   const { bootstrap, config, refreshBootstrap } = useServer()
+  const { palette, isDark } = useAppTheme()
   const open = useUIStore((state) => state.drawerOpen)
   const closeDrawer = useUIStore((state) => state.closeDrawer)
   const translateX = useRef(new Animated.Value(360)).current
@@ -65,7 +67,10 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
   return (
     <Modal transparent visible={open} animationType="none" onRequestClose={close}>
       <View className="flex-1">
-        <Animated.View className="absolute inset-0 bg-slate-950/70" style={{ opacity: overlay }} />
+        <Animated.View
+          className="absolute inset-0"
+          style={{ opacity: overlay, backgroundColor: isDark ? "rgba(2,6,23,0.7)" : "rgba(15,23,42,0.28)" }}
+        />
         <Pressable className="absolute inset-0" onPress={close} />
         <Animated.View
           className="absolute bottom-0 right-0 top-0 w-[86%] border-l border-border bg-background"
@@ -73,7 +78,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
             paddingTop: top + 14,
             paddingBottom: bottom + 18,
             transform: [{ translateX }],
-            shadowColor: "#000",
+            shadowColor: palette.shadow,
             shadowOpacity: 0.3,
             shadowRadius: 24,
             shadowOffset: { width: -6, height: 0 },
@@ -97,7 +102,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                   </Text>
                 </View>
                 <Pressable onPress={close} className="rounded-2xl border border-border bg-background/75 p-3">
-                  <X size={18} color="#e6eef8" strokeWidth={2.2} />
+                  <X size={18} color={palette.ink} strokeWidth={2.2} />
                 </Pressable>
               </View>
             </View>
@@ -116,7 +121,11 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                     >
                       <View className="flex-row items-center gap-3">
                         <View className={`rounded-2xl px-3 py-3 ${active ? "bg-accent/15" : "bg-surface"}`}>
-                          <Icon size={18} color={active ? "#8bdcff" : "#95a8bc"} strokeWidth={active ? 2.2 : 1.9} />
+                          <Icon
+                            size={18}
+                            color={active ? palette.accentLight : palette.muted}
+                            strokeWidth={active ? 2.2 : 1.9}
+                          />
                         </View>
                         <View className="flex-1">
                           <Text className="text-base font-semibold text-ink">{tab.label}</Text>
@@ -147,7 +156,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                 onPress={() => void refreshBootstrap().catch(() => null)}
                 className="mt-4 flex-row items-center justify-center gap-2 rounded-2xl border border-border bg-background/70 px-4 py-3"
               >
-                <RefreshCw size={16} color="#e6eef8" strokeWidth={2.1} />
+                <RefreshCw size={16} color={palette.ink} strokeWidth={2.1} />
                 <Text className="text-center font-semibold text-ink">Refresh host state</Text>
               </Pressable>
             </View>

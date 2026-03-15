@@ -3,6 +3,7 @@ import { Animated, Pressable, Text, View } from "react-native"
 import { Ellipsis, Trash2 } from "lucide-react-native"
 import type { SessionSummary } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
 
 function statusTone(status: string) {
   if (status === "busy") return "border-accent/30 bg-accent/12 text-accent-light"
@@ -37,6 +38,7 @@ export function SessionListItem(props: {
   onDelete?: () => void
   index?: number
 }) {
+  const { palette } = useAppTheme()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
   const translateY = useRef(new Animated.Value(10)).current
@@ -66,7 +68,7 @@ export function SessionListItem(props: {
         onLongPress={props.onLongPress}
         className="rounded-[30px] border border-border bg-surface px-4 py-4 active:opacity-85"
         style={{
-          shadowColor: "#020617",
+          shadowColor: palette.shadow,
           shadowOpacity: 0.18,
           shadowRadius: 20,
           shadowOffset: { width: 0, height: 12 },
@@ -114,11 +116,11 @@ export function SessionListItem(props: {
                 hitSlop={10}
                 className="rounded-full border border-danger/35 bg-danger/10 px-3 py-2"
               >
-                <Trash2 size={14} color="#fca5a5" strokeWidth={2.1} />
+                <Trash2 size={14} color={palette.danger} strokeWidth={2.1} />
               </Pressable>
             ) : null}
             <Text className="text-xs font-semibold uppercase tracking-[1.5px] text-accent-light">Open</Text>
-            {props.onLongPress ? <Ellipsis size={14} color="#6f90ac" strokeWidth={2.1} /> : null}
+            {props.onLongPress ? <Ellipsis size={14} color={palette.muted} strokeWidth={2.1} /> : null}
           </View>
         </View>
       </Pressable>

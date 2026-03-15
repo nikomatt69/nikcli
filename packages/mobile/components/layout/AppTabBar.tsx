@@ -3,29 +3,31 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { APP_TABS } from "@/components/layout/navigation.config"
 import { useServer } from "@/lib/server-provider"
+import { useAppTheme } from "@/lib/theme"
 
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { bottom } = useSafeAreaInsets()
   const { config, bootstrap } = useServer()
+  const { palette, isDark } = useAppTheme()
 
   const overallStatus = !config
-    ? { label: "Host offline", color: "#fb7185" }
+    ? { label: "Host offline", color: palette.danger }
     : !bootstrap?.github?.connected
-      ? { label: "GitHub attention", color: "#f59e0b" }
+      ? { label: "GitHub attention", color: palette.warn }
       : config.executionTarget === "container"
         ? {
             label: bootstrap?.execution?.container?.available ? "Container ready" : "Container unavailable",
-            color: bootstrap?.execution?.container?.available ? "#7dd3fc" : "#fb7185",
+            color: bootstrap?.execution?.container?.available ? palette.accentLight : palette.danger,
           }
-        : { label: "Local execution", color: "#34d399" }
+        : { label: "Local execution", color: palette.success }
 
   function badgeTone(route: string) {
     if (route === "settings") {
-      if (!config) return "#fb7185"
-      if (!bootstrap?.github?.connected) return "#f59e0b"
+      if (!config) return palette.danger
+      if (!bootstrap?.github?.connected) return palette.warn
     }
     if (route === "repos" && config?.executionTarget === "container") {
-      return bootstrap?.execution?.container?.available ? "#7dd3fc" : "#fb7185"
+      return bootstrap?.execution?.container?.available ? palette.accentLight : palette.danger
     }
     return undefined
   }
@@ -33,7 +35,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   return (
     <View
       style={{
-        backgroundColor: "#06121f",
+        backgroundColor: palette.tabBackground,
         paddingBottom: bottom > 0 ? bottom : 10,
         paddingTop: 5,
         paddingHorizontal: 12,
@@ -42,8 +44,8 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       <View
         style={{
           borderWidth: 1,
-          borderColor: "#17314b",
-          backgroundColor: "#071523",
+          borderColor: palette.border,
+          backgroundColor: palette.tabSurface,
           borderRadius: 26,
           overflow: "hidden",
         }}
@@ -56,8 +58,8 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             paddingHorizontal: 12,
             paddingVertical: 5,
             borderBottomWidth: 1,
-            borderBottomColor: "#17314b",
-            backgroundColor: "#081728",
+            borderBottomColor: palette.border,
+            backgroundColor: palette.tabStatus,
           }}
         >
           <Text
@@ -65,7 +67,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               fontSize: 8.5,
               fontWeight: "700",
               letterSpacing: 0.4,
-              color: "#8ca5bc",
+              color: palette.muted,
               textTransform: "uppercase",
             }}
           >
@@ -73,7 +75,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
             <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: overallStatus.color }} />
-            <Text style={{ fontSize: 8.5, fontWeight: "600", letterSpacing: 0.2, color: "#d9e6f2" }}>
+            <Text style={{ fontSize: 8.5, fontWeight: "600", letterSpacing: 0.2, color: palette.ink }}>
               {overallStatus.label}
             </Text>
           </View>
@@ -115,7 +117,10 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                   opacity: pressed ? 0.84 : 1,
                   transform: [{ scale: pressed ? 0.985 : 1 }],
                 })}
-                android_ripple={{ color: "#48c7f520", borderless: true }}
+                android_ripple={{
+                  color: isDark ? "rgba(72, 199, 245, 0.12)" : "rgba(14, 165, 233, 0.12)",
+                  borderless: true,
+                }}
               >
                 <View
                   style={{
@@ -125,7 +130,11 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                     paddingHorizontal: 6,
                     paddingVertical: 3,
                     borderRadius: 16,
-                    backgroundColor: focused ? "#48c7f516" : "transparent",
+                    backgroundColor: focused
+                      ? isDark
+                        ? "rgba(72, 199, 245, 0.09)"
+                        : "rgba(14, 165, 233, 0.1)"
+                      : "transparent",
                     gap: 2,
                   }}
                 >
@@ -136,11 +145,19 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                       borderRadius: 9,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: focused ? "#48c7f51a" : "transparent",
+                      backgroundColor: focused
+                        ? isDark
+                          ? "rgba(72, 199, 245, 0.1)"
+                          : "rgba(14, 165, 233, 0.15)"
+                        : "transparent",
                       position: "relative",
                     }}
                   >
-                    <Icon size={17} color={focused ? "#8bdcff" : "#54708a"} strokeWidth={focused ? 2.2 : 1.9} />
+                    <Icon
+                      size={17}
+                      color={focused ? palette.accentLight : palette.muted}
+                      strokeWidth={focused ? 2.2 : 1.9}
+                    />
                     {badge ? (
                       <View
                         style={{
@@ -160,7 +177,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                       fontSize: 8.5,
                       fontWeight: focused ? "700" : "500",
                       letterSpacing: 0.3,
-                      color: focused ? "#8bdcff" : "#54708a",
+                      color: focused ? palette.accentLight : palette.muted,
                       textAlign: "center",
                     }}
                   >
@@ -171,7 +188,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                       width: focused ? 18 : 6,
                       height: 3,
                       borderRadius: 999,
-                      backgroundColor: focused ? "#7dd3fc" : "transparent",
+                      backgroundColor: focused ? palette.accent : "transparent",
                     }}
                   />
                 </View>

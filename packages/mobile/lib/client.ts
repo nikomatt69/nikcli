@@ -1,4 +1,5 @@
 import type {
+  CommandInfo,
   FilePart,
   FileDiff,
   GitHubBranch,
@@ -7,6 +8,8 @@ import type {
   GitHubPublishResult,
   GitHubRepo,
   GitHubSessionCreateResult,
+  HostConfigSnapshot,
+  HostMcpStatus,
   ManagedGithubImport,
   MobileExecutionTarget,
   ModelRef,
@@ -17,6 +20,7 @@ import type {
   Session,
   SessionDetail,
   SessionSummary,
+  SkillInfo,
 } from "@/lib/types"
 
 export class MobileClient {
@@ -55,6 +59,10 @@ export class MobileClient {
     return this.request<MobileBootstrap>("/mobile/bootstrap")
   }
 
+  listCommands(sessionID: string) {
+    return this.request<CommandInfo[]>(`/mobile/session/${encodeURIComponent(sessionID)}/command`)
+  }
+
   listSessions(search?: string) {
     const query = search ? `?search=${encodeURIComponent(search)}` : ""
     return this.request<SessionSummary[]>(`/mobile/session${query}`)
@@ -79,6 +87,21 @@ export class MobileClient {
 
   sendMessage(sessionID: string, text: string, options?: { model?: ModelRef; agent?: string }) {
     return this.sendParts(sessionID, [{ type: "text", text }], options)
+  }
+
+  sendCommand(sessionID: string, command: string, argumentsText = "", options?: { model?: ModelRef; agent?: string }) {
+    return this.request<{
+      info: SessionDetail["messages"][number]["info"]
+      parts: SessionDetail["messages"][number]["parts"]
+    }>(`/mobile/session/${encodeURIComponent(sessionID)}/command`, {
+      method: "POST",
+      body: JSON.stringify({
+        command,
+        arguments: argumentsText,
+        agent: options?.agent,
+        model: options?.model,
+      }),
+    })
   }
 
   sendParts(
@@ -124,6 +147,49 @@ export class MobileClient {
 
   listProviders() {
     return this.request<ProviderCatalog>("/provider")
+  }
+
+  getConfig() {
+    return this.request<HostConfigSnapshot>("/config")
+  }
+
+  updateConfig(config: HostConfigSnapshot) {
+    return this.request<HostConfigSnapshot>("/config", {
+      method: "PATCH",
+      body: JSON.stringify(config),
+    })
+  }
+
+  listMcpStatus() {
+    return this.request<Record<string, HostMcpStatus>>("/mcp")
+  }
+
+  connectMcp(name: string) {
+    return this.request<boolean>(`/mcp/${encodeURIComponent(name)}/connect`, {
+      method: "POST",
+    })
+  }
+
+  disconnectMcp(name: string) {
+    return this.request<boolean>(`/mcp/${encodeURIComponent(name)}/disconnect`, {
+      method: "POST",
+    })
+  }
+
+  startMcpAuth(name: string) {
+    return this.request<{ authorizationUrl: string }>(`/mcp/${encodeURIComponent(name)}/auth`, {
+      method: "POST",
+    })
+  }
+
+  removeMcpAuth(name: string) {
+    return this.request<{ success: true }>(`/mcp/${encodeURIComponent(name)}/auth`, {
+      method: "DELETE",
+    })
+  }
+
+  listSkills() {
+    return this.request<SkillInfo[]>("/skill")
   }
 
   setProviderApiKey(providerID: string, key: string) {

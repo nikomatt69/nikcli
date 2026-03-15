@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
 import { FileCode2, Folder, Globe, Search, Shield, SquareTerminal, type LucideIcon } from "lucide-react-native"
 import type { PermissionRequest } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
 
 function permissionIcon(permission: string): LucideIcon {
   const value = permission.toLowerCase()
@@ -42,6 +43,7 @@ export function PermissionCard(props: {
   onRespond(response: "once" | "always" | "reject"): void
 }) {
   const { width } = useWindowDimensions()
+  const { palette } = useAppTheme()
   const Icon = permissionIcon(props.item.permission)
   const meta = props.item.metadata
   const description = asText(meta.description)
@@ -54,7 +56,7 @@ export function PermissionCard(props: {
     <View className="mb-3 overflow-hidden rounded-[28px] border border-accent/30 bg-panel px-4 py-4">
       <View className="flex-row items-start gap-3">
         <View className="rounded-[16px] border border-accent/20 bg-accent/10 p-2.5">
-          <Icon size={15} color="#7dd3fc" strokeWidth={2.1} />
+          <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
         </View>
         <View className="min-w-0 flex-1 gap-1.5">
           <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">

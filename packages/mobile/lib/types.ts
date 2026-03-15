@@ -49,6 +49,23 @@ export type Session = {
 
 export type MobileExecutionTarget = "local" | "container"
 
+export type ThemeMode = "system" | "light" | "dark"
+
+export type SettingsSectionID =
+  | "profile"
+  | "connection"
+  | "execution"
+  | "providers"
+  | "github"
+  | "mcp"
+  | "skills"
+  | "advanced"
+
+export type AppPreferences = {
+  themeMode: ThemeMode
+  visibleSettingsSections: Record<SettingsSectionID, boolean>
+}
+
 export type SessionStatus =
   | { type: "idle" }
   | { type: "busy" }
@@ -278,12 +295,63 @@ export type MobileBootstrap = {
   github: {
     connected: boolean
     oauthDeviceEnabled: boolean
+    oauthDeviceConfigured?: boolean
+    oauthClientSource?: "flag" | "config" | "env"
     user?: {
       login: string
       name?: string | null
       avatar_url?: string
     }
   }
+}
+
+export type HostMcpStatus =
+  | { status: "connected" }
+  | { status: "disabled" }
+  | { status: "needs_auth" }
+  | { status: "needs_client_registration"; error: string }
+  | { status: "failed"; error: string }
+
+export type SkillInfo = {
+  name: string
+  description: string
+  location: string
+  category?: string
+  tags?: string[]
+  version?: string
+}
+
+export type HostMcpConfig =
+  | {
+      type: "local"
+      command: string[]
+      environment?: Record<string, string>
+      enabled?: boolean
+      timeout?: number
+    }
+  | {
+      type: "remote"
+      url: string
+      headers?: Record<string, string>
+      enabled?: boolean
+      timeout?: number
+      oauth?: false | Record<string, unknown>
+    }
+
+export type HostConfigSnapshot = {
+  connectors?: Record<string, Record<string, unknown>>
+  mcp?: Record<string, HostMcpConfig>
+  [key: string]: unknown
+}
+
+export type CommandInfo = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  subtask?: boolean
+  hints: string[]
 }
 
 export type SessionSummary = {

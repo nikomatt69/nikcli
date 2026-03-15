@@ -3,11 +3,13 @@ import { Tabs, useSegments } from "expo-router"
 import { AppHeader } from "@/components/layout/AppHeader"
 import { AppTabBar } from "@/components/layout/AppTabBar"
 import { useUIStore } from "@/lib/store"
+import { useAppTheme } from "@/lib/theme"
 
 export default function AppLayout() {
   const segments = useSegments()
   const hideChrome = segments.length > 2
   const closeDrawer = useUIStore((state) => state.closeDrawer)
+  const { palette } = useAppTheme()
 
   useEffect(() => {
     if (hideChrome) closeDrawer()
@@ -19,7 +21,7 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: !hideChrome,
         header: ({ route }) => <AppHeader routeName={route.name} />,
-        sceneStyle: { backgroundColor: "#06121f" },
+        sceneStyle: { backgroundColor: palette.background },
       }}
     >
       <Tabs.Screen name="sessions" options={{ title: "Sessions" }} />

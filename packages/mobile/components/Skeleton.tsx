@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from "react"
 import { Animated, View, type DimensionValue, type ViewStyle } from "react-native"
+import { useAppTheme } from "@/lib/theme"
 
 export function SkeletonBox({
   width,
@@ -12,6 +13,7 @@ export function SkeletonBox({
   borderRadius?: number
   style?: ViewStyle
 }) {
+  const { palette, isDark } = useAppTheme()
   const opacity = useRef(new Animated.Value(0.48)).current
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function SkeletonBox({
           height,
           borderRadius,
           opacity,
-          backgroundColor: "#1d344d",
+          backgroundColor: isDark ? palette.border : palette.panel,
         },
         style,
       ]}
@@ -45,21 +47,24 @@ export function SkeletonBox({
 }
 
 function cardStyle() {
-  return {
-    borderRadius: 30,
-    backgroundColor: "#0d2035",
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#162840",
-  } as const
+  return {} as const
 }
 
 export function SessionListSkeleton() {
+  const { palette, isDark } = useAppTheme()
+  const style = {
+    borderRadius: 30,
+    backgroundColor: isDark ? palette.surface : palette.surface,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+  } as const
+
   return (
     <>
       {[0, 1, 2, 3, 4].map((value) => (
-        <View key={value} style={cardStyle()}>
+        <View key={value} style={style}>
           <SkeletonBox width={84} height={10} borderRadius={6} />
           <SkeletonBox width="85%" height={18} borderRadius={8} style={{ marginTop: 8 }} />
           <SkeletonBox width="60%" height={14} borderRadius={6} style={{ marginTop: 6 }} />
@@ -78,10 +83,20 @@ export function SessionListSkeleton() {
 }
 
 export function RepoCardSkeleton({ count = 1 }: { count?: number }) {
+  const { palette } = useAppTheme()
+  const style = {
+    borderRadius: 30,
+    backgroundColor: palette.surface,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+  } as const
+
   return (
     <>
       {Array.from({ length: count }).map((_, index) => (
-        <View key={index} style={cardStyle()}>
+        <View key={index} style={style}>
           <SkeletonBox width="70%" height={18} borderRadius={8} />
           <SkeletonBox width="90%" height={14} borderRadius={6} style={{ marginTop: 8 }} />
           <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>

@@ -1,3 +1,443 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --color-background: 241 246 251;
+  --color-surface: 255 255 255;
+  --color-panel: 232 240 248;
+  --color-border: 193 208 223;
+  --color-accent: 14 165 233;
+  --color-accent-strong: 2 132 199;
+  --color-accent-light: 3 105 161;
+  --color-muted: 97 118 140;
+  --color-ink: 13 27 42;
+  --color-soft: 70 88 110;
+  --color-user-bubble: 224 243 255;
+  --color-assistant-bubble: 255 255 255;
+  --color-success: 34 197 94;
+  --color-danger: 239 68 68;
+}
+
+.dark {
+  --color-background: 6 18 31;
+  --color-surface: 13 27 42;
+  --color-panel: 18 38 58;
+  --color-border: 29 52 77;
+  --color-accent: 56 189 248;
+  --color-accent-strong: 14 165 233;
+  --color-accent-light: 125 211 252;
+  --color-muted: 137 163 191;
+  --color-ink: 230 238 248;
+  --color-soft: 148 168 189;
+  --color-user-bubble: 17 50 77;
+  --color-assistant-bubble: 12 24 38;
+  --color-success: 34 197 94;
+  --color-danger: 239 68 68;
+}
+
+@layer utilities {
+  .bg-background {
+    background-color: #f1f6fb;
+  }
+
+  .dark .bg-background {
+    background-color: #06121f;
+  }
+
+  .bg-background\/55 {
+    background-color: rgba(241, 246, 251, 0.55);
+  }
+
+  .dark .bg-background\/55 {
+    background-color: rgba(6, 18, 31, 0.55);
+  }
+
+  .bg-background\/60 {
+    background-color: rgba(241, 246, 251, 0.6);
+  }
+
+  .dark .bg-background\/60 {
+    background-color: rgba(6, 18, 31, 0.6);
+  }
+
+  .bg-background\/65 {
+    background-color: rgba(241, 246, 251, 0.65);
+  }
+
+  .dark .bg-background\/65 {
+    background-color: rgba(6, 18, 31, 0.65);
+  }
+
+  .bg-background\/70 {
+    background-color: rgba(241, 246, 251, 0.7);
+  }
+
+  .dark .bg-background\/70 {
+    background-color: rgba(6, 18, 31, 0.7);
+  }
+
+  .bg-background\/75 {
+    background-color: rgba(241, 246, 251, 0.75);
+  }
+
+  .dark .bg-background\/75 {
+    background-color: rgba(6, 18, 31, 0.75);
+  }
+
+  .bg-background\/80 {
+    background-color: rgba(241, 246, 251, 0.8);
+  }
+
+  .dark .bg-background\/80 {
+    background-color: rgba(6, 18, 31, 0.8);
+  }
+
+  .bg-background\/85 {
+    background-color: rgba(241, 246, 251, 0.85);
+  }
+
+  .dark .bg-background\/85 {
+    background-color: rgba(6, 18, 31, 0.85);
+  }
+
+  .bg-surface {
+    background-color: #ffffff;
+  }
+
+  .dark .bg-surface {
+    background-color: #0d1b2a;
+  }
+
+  .bg-panel {
+    background-color: #e8f0f8;
+  }
+
+  .dark .bg-panel {
+    background-color: #12263a;
+  }
+
+  .bg-panel\/14 {
+    background-color: rgba(232, 240, 248, 0.14);
+  }
+
+  .dark .bg-panel\/14 {
+    background-color: rgba(18, 38, 58, 0.14);
+  }
+
+  .bg-panel\/25 {
+    background-color: rgba(232, 240, 248, 0.25);
+  }
+
+  .dark .bg-panel\/25 {
+    background-color: rgba(18, 38, 58, 0.25);
+  }
+
+  .bg-panel\/35 {
+    background-color: rgba(232, 240, 248, 0.35);
+  }
+
+  .dark .bg-panel\/35 {
+    background-color: rgba(18, 38, 58, 0.35);
+  }
+
+  .bg-panel\/55 {
+    background-color: rgba(232, 240, 248, 0.55);
+  }
+
+  .dark .bg-panel\/55 {
+    background-color: rgba(18, 38, 58, 0.55);
+  }
+
+  .bg-accent {
+    background-color: #0ea5e9;
+  }
+
+  .dark .bg-accent {
+    background-color: #38bdf8;
+  }
+
+  .bg-accent\/10 {
+    background-color: rgba(14, 165, 233, 0.1);
+  }
+
+  .dark .bg-accent\/10 {
+    background-color: rgba(56, 189, 248, 0.1);
+  }
+
+  .bg-accent\/12 {
+    background-color: rgba(14, 165, 233, 0.12);
+  }
+
+  .dark .bg-accent\/12 {
+    background-color: rgba(56, 189, 248, 0.12);
+  }
+
+  .bg-accent\/15 {
+    background-color: rgba(14, 165, 233, 0.15);
+  }
+
+  .dark .bg-accent\/15 {
+    background-color: rgba(56, 189, 248, 0.15);
+  }
+
+  .bg-success\/10 {
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+
+  .dark .bg-success\/10 {
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+
+  .bg-success\/12 {
+    background-color: rgba(34, 197, 94, 0.12);
+  }
+
+  .dark .bg-success\/12 {
+    background-color: rgba(34, 197, 94, 0.12);
+  }
+
+  .bg-danger\/10 {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .dark .bg-danger\/10 {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+
+  .bg-danger\/12 {
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+
+  .dark .bg-danger\/12 {
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+
+  .bg-danger\/15 {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+
+  .dark .bg-danger\/15 {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+
+  .bg-user-bubble {
+    background-color: #e0f3ff;
+  }
+
+  .dark .bg-user-bubble {
+    background-color: #11324d;
+  }
+
+  .bg-assistant-bubble {
+    background-color: #ffffff;
+  }
+
+  .dark .bg-assistant-bubble {
+    background-color: #0c1826;
+  }
+
+  .border-border {
+    border-color: #c1d0df;
+  }
+
+  .dark .border-border {
+    border-color: #1d344d;
+  }
+
+  .border-border\/60 {
+    border-color: rgba(193, 208, 223, 0.6);
+  }
+
+  .dark .border-border\/60 {
+    border-color: rgba(29, 52, 77, 0.6);
+  }
+
+  .border-border\/70 {
+    border-color: rgba(193, 208, 223, 0.7);
+  }
+
+  .dark .border-border\/70 {
+    border-color: rgba(29, 52, 77, 0.7);
+  }
+
+  .border-border\/80 {
+    border-color: rgba(193, 208, 223, 0.8);
+  }
+
+  .dark .border-border\/80 {
+    border-color: rgba(29, 52, 77, 0.8);
+  }
+
+  .border-accent\/20 {
+    border-color: rgba(14, 165, 233, 0.2);
+  }
+
+  .dark .border-accent\/20 {
+    border-color: rgba(56, 189, 248, 0.2);
+  }
+
+  .border-accent\/25 {
+    border-color: rgba(14, 165, 233, 0.25);
+  }
+
+  .dark .border-accent\/25 {
+    border-color: rgba(56, 189, 248, 0.25);
+  }
+
+  .border-accent\/30 {
+    border-color: rgba(14, 165, 233, 0.3);
+  }
+
+  .dark .border-accent\/30 {
+    border-color: rgba(56, 189, 248, 0.3);
+  }
+
+  .border-accent\/35 {
+    border-color: rgba(14, 165, 233, 0.35);
+  }
+
+  .dark .border-accent\/35 {
+    border-color: rgba(56, 189, 248, 0.35);
+  }
+
+  .border-accent\/40 {
+    border-color: rgba(14, 165, 233, 0.4);
+  }
+
+  .dark .border-accent\/40 {
+    border-color: rgba(56, 189, 248, 0.4);
+  }
+
+  .border-success\/20 {
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+
+  .dark .border-success\/20 {
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+
+  .border-success\/25 {
+    border-color: rgba(34, 197, 94, 0.25);
+  }
+
+  .dark .border-success\/25 {
+    border-color: rgba(34, 197, 94, 0.25);
+  }
+
+  .border-success\/35 {
+    border-color: rgba(34, 197, 94, 0.35);
+  }
+
+  .dark .border-success\/35 {
+    border-color: rgba(34, 197, 94, 0.35);
+  }
+
+  .border-danger\/20 {
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .dark .border-danger\/20 {
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  .border-danger\/25 {
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+
+  .dark .border-danger\/25 {
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+
+  .border-danger\/30 {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .dark .border-danger\/30 {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .border-danger\/35 {
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+
+  .dark .border-danger\/35 {
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+
+  .text-ink {
+    color: #0d1b2a;
+  }
+
+  .dark .text-ink {
+    color: #e6eef8;
+  }
+
+  .text-soft {
+    color: #46586e;
+  }
+
+  .dark .text-soft {
+    color: #94a8bd;
+  }
+
+  .text-muted {
+    color: #61768c;
+  }
+
+  .dark .text-muted {
+    color: #89a3bf;
+  }
+
+  .text-accent-light {
+    color: #0369a1;
+  }
+
+  .dark .text-accent-light {
+    color: #7dd3fc;
+  }
+
+  .text-accent {
+    color: #0ea5e9;
+  }
+
+  .dark .text-accent {
+    color: #38bdf8;
+  }
+
+  .text-accent-light\/85 {
+    color: rgba(3, 105, 161, 0.85);
+  }
+
+  .dark .text-accent-light\/85 {
+    color: rgba(125, 211, 252, 0.85);
+  }
+
+  .text-amber-200 {
+    color: #b45309;
+  }
+
+  .dark .text-amber-200 {
+    color: #fde68a;
+  }
+
+  .text-emerald-200,
+  .text-emerald-300 {
+    color: #047857;
+  }
+
+  .dark .text-emerald-200,
+  .dark .text-emerald-300 {
+    color: #a7f3d0;
+  }
+
+  .text-rose-200,
+  .text-rose-300 {
+    color: #be123c;
+  }
+
+  .dark .text-rose-200,
+  .dark .text-rose-300 {
+    color: #fda4af;
+  }
+}

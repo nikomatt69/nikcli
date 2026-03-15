@@ -1,6 +1,7 @@
 import { forwardRef, useState } from "react"
 import { Text, TextInput, type TextInputProps, View } from "react-native"
 import { cn } from "@/lib/cn"
+import { useAppTheme } from "@/lib/theme"
 
 type TextFieldProps = TextInputProps & {
   label?: string
@@ -8,10 +9,11 @@ type TextFieldProps = TextInputProps & {
 }
 
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
-  { label, className, placeholderTextColor = "#6d84a0", ...props },
+  { label, className, placeholderTextColor, ...props },
   ref,
 ) {
   const [focused, setFocused] = useState(false)
+  const { colorScheme, palette } = useAppTheme()
 
   return (
     <View>
@@ -20,9 +22,9 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       ) : null}
       <TextInput
         ref={ref}
-        placeholderTextColor={placeholderTextColor}
-        selectionColor="#7dd3fc"
-        keyboardAppearance="dark"
+        placeholderTextColor={placeholderTextColor || palette.muted}
+        selectionColor={palette.accent}
+        keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
         onFocus={(event) => {
           setFocused(true)
           props.onFocus?.(event)

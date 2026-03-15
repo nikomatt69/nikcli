@@ -1,8 +1,18 @@
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native"
 import type { Dispatch, SetStateAction } from "react"
 import type { SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
+import { useAppTheme } from "@/lib/theme"
 
 type PublishSheetProps = {
   visible: boolean
@@ -35,14 +45,25 @@ export function PublishSheet({
   onClose,
   onPublish,
 }: PublishSheetProps) {
+  const { palette, isDark } = useAppTheme()
+
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView className="flex-1 bg-slate-950/70" behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        className="flex-1"
+        style={{ backgroundColor: isDark ? "rgba(2, 6, 23, 0.7)" : "rgba(15, 23, 42, 0.22)" }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View className="flex-1 items-center justify-end px-4 pb-6">
           <Pressable className="absolute inset-0" onPress={onClose} />
-          <ScrollView className="w-full max-h-[88%]" contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}>
+          <ScrollView
+            className="w-full max-h-[88%]"
+            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+          >
             <View className="w-full rounded-[34px] border border-border bg-surface px-5 py-5">
-              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">Publish workflow</Text>
+              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+                Publish workflow
+              </Text>
               <Text className="mt-2 text-[28px] font-semibold leading-[32px] text-ink">
                 {detail?.info.github?.pullRequest ? "Update pull request" : "Create pull request"}
               </Text>
@@ -53,10 +74,20 @@ export function PublishSheet({
               </Text>
 
               <View className="mt-4 gap-3">
-                <TextField label="Commit message" value={commitMessage} onChangeText={setCommitMessage} placeholder="Commit message" />
+                <TextField
+                  label="Commit message"
+                  value={commitMessage}
+                  onChangeText={setCommitMessage}
+                  placeholder="Commit message"
+                />
                 {!detail?.info.github?.pullRequest ? (
                   <>
-                    <TextField label="Pull request title" value={publishTitle} onChangeText={setPublishTitle} placeholder="Pull request title" />
+                    <TextField
+                      label="Pull request title"
+                      value={publishTitle}
+                      onChangeText={setPublishTitle}
+                      placeholder="Pull request title"
+                    />
                     <TextField
                       label="Pull request body"
                       value={publishBody}
@@ -83,7 +114,7 @@ export function PublishSheet({
 
               {publishing ? (
                 <View className="mt-3 flex-row items-center gap-2">
-                  <ActivityIndicator color="#7dd3fc" size="small" />
+                  <ActivityIndicator color={palette.accent} size="small" />
                   <Text className="text-sm text-soft">Publishing changes to GitHub…</Text>
                 </View>
               ) : null}

@@ -6,6 +6,7 @@ import { StatusPill } from "@/components/layout/StatusPill"
 import { getCurrentProjectLabel, getCurrentTab, getGitHubStatusLabel } from "@/components/layout/navigation.config"
 import { useServer } from "@/lib/server-provider"
 import { useUIStore } from "@/lib/store"
+import { useAppTheme } from "@/lib/theme"
 
 type AppHeaderProps = {
   routeName: string
@@ -15,6 +16,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
   const { top } = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const { bootstrap, config } = useServer()
+  const { palette } = useAppTheme()
   const current = getCurrentTab(routeName)
   const openDrawer = useUIStore((state) => state.openDrawer)
   const compact = width < 390
@@ -30,7 +32,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
     : !bootstrap?.github?.connected
       ? "GitHub attention"
       : "Control plane live"
-  const controlTone = !config ? "#fb7185" : !bootstrap?.github?.connected ? "#f59e0b" : "#34d399"
+  const controlTone = !config ? palette.danger : !bootstrap?.github?.connected ? palette.warn : palette.success
 
   return (
     <>
@@ -51,7 +53,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
               onPress={openDrawer}
               className="rounded-[13px] border border-border bg-background/80 px-2.5 py-2"
             >
-              <Menu size={15} color="#e6eef8" strokeWidth={2.2} />
+              <Menu size={15} color={palette.ink} strokeWidth={2.2} />
             </Pressable>
           </View>
 
