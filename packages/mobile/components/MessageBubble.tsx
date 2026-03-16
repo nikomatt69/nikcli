@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
 import { ChevronDown, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import Markdown, { type ASTNode, type RenderRules } from "react-native-markdown-display"
+import { Swipeable } from "react-native-gesture-handler"
 import type {
   AssistantMessage,
   FileDiff,
@@ -14,6 +15,8 @@ import type {
 import { relativeTime } from "@/lib/types"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
+import { triggerHaptic } from "@/lib/haptics"
+import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 
 function latestText(parts: MessageWithParts["parts"]) {
@@ -118,9 +121,11 @@ export function MessageBubble(props: {
   onCopy?: () => void
   onFork?: () => void
   onDismiss?: () => void
+  onActivate?(): void
   isActive?: boolean
 }) {
   const { palette } = useAppTheme()
+  const gestures = useUIStore((state) => state.gestures)
   const [showReasoning, setShowReasoning] = useState(false)
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
   const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
@@ -178,166 +183,198 @@ export function MessageBubble(props: {
     setShowReasoning((value) => !value)
   }
 
-  return (
-    <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
-      <View
-        className={`max-w-[96%] min-w-0 overflow-hidden rounded-[26px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
-        style={{
-          shadowColor: palette.shadow,
-          shadowOpacity: 0.12,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 8 },
-        }}
-      >
-        <View className="min-w-0 flex-row items-start justify-between gap-3 px-3.5 py-3">
-          <View className="min-w-0 flex-1">
-            <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
-              {isUser ? "You" : "Nikcli"}
-            </Text>
-            {summaryLine ? <Text className="mt-1 text-xs leading-4 text-soft">{summaryLine}</Text> : null}
-          </View>
-          <View className="items-end gap-1">
-            {assistantInfo && (cost > 0 || tokens > 0) ? (
-              <Text className="text-[10px] text-muted">
-                ${cost.toFixed(5)} · {tokens.toLocaleString()} tok
+  const bubble = (
+    <Pressable
+      onLongPress={() => {
+        if (!gestures.bubbleLongPressActions) return
+        props.onActivate?.()
+        void triggerHaptic("selection")
+      }}
+      delayLongPress={180}
+    >
+      <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
+        <View
+          className={`max-w-[96%] min-w-0 overflow-hidden rounded-[26px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
+          style={{
+            shadowColor: palette.shadow,
+            shadowOpacity: 0.12,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 8 },
+          }}
+        >
+          <View className="min-w-0 flex-row items-start justify-between gap-3 px-3.5 py-3">
+            <View className="min-w-0 flex-1">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                {isUser ? "You" : "Nikcli"}
               </Text>
-            ) : null}
-            <Text className="text-[10px] text-muted">{timeLabel}</Text>
-          </View>
-        </View>
-
-        {text || assistantError ? (
-          <View className="min-w-0 border-t border-border/80 px-3.5 py-3">
-            {text ? (
-              <Markdown
-                rules={markdownRules}
-                style={{
-                  body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
-                  paragraph: { marginTop: 0, marginBottom: 8 },
-                  heading1: { color: palette.ink, marginTop: 4, marginBottom: 8 },
-                  heading2: { color: palette.ink, marginTop: 4, marginBottom: 8 },
-                  bullet_list: { marginVertical: 0 },
-                  ordered_list: { marginVertical: 0 },
-                  list_item: { marginBottom: 4 },
-                  code_inline: {
-                    color: palette.accentLight,
-                    backgroundColor: "transparent",
-                    borderRadius: 8,
-                    paddingHorizontal: 6,
-                    paddingVertical: 2,
-                  },
-                  code_block: {
-                    color: palette.codeText,
-                    fontSize: 13,
-                    lineHeight: 20,
-                    includeFontPadding: false,
-                  },
-                  fence: {
-                    color: palette.codeText,
-                    fontSize: 13,
-                    lineHeight: 20,
-                    includeFontPadding: false,
-                    backgroundColor: "transparent",
-                  },
-                  blockquote: {
-                    borderLeftWidth: 2,
-                    borderLeftColor: palette.border,
-                    paddingLeft: 10,
-                    color: palette.soft,
-                  },
-                  link: { color: palette.accentLight },
-                }}
-              >
-                {text}
-              </Markdown>
-            ) : null}
-
-            {assistantError ? (
-              <View className="rounded-[16px] border border-danger/25 bg-danger/10 px-3 py-2.5">
-                <Text selectable className="text-sm leading-5 text-rose-200">
-                  {assistantError}
+              {summaryLine ? <Text className="mt-1 text-xs leading-4 text-soft">{summaryLine}</Text> : null}
+            </View>
+            <View className="items-end gap-1">
+              {assistantInfo && (cost > 0 || tokens > 0) ? (
+                <Text className="text-[10px] text-muted">
+                  ${cost.toFixed(5)} · {tokens.toLocaleString()} tok
                 </Text>
-              </View>
-            ) : null}
-          </View>
-        ) : null}
-
-        {reasoningVisible ? (
-          <View className="border-t border-border/80 px-3.5 py-3">
-            <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
-              <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
-                {reasoningExpanded ? (
-                  <ChevronDown size={13} color={palette.accentLight} strokeWidth={2.1} />
-                ) : (
-                  <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
-                )}
-                <Text className="flex-1 text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
-                  {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
-                </Text>
-              </Pressable>
-              {reasoningExpanded ? (
-                <Text selectable className="mt-2 text-sm leading-5 text-soft">
-                  {reasoningText ||
-                    "Reasoning metadata was returned, but no visible reasoning text was captured for this step."}
-                </Text>
-              ) : (
-                <Text className="mt-2 text-sm leading-5 text-soft" numberOfLines={2}>
-                  {reasoningText}
-                </Text>
-              )}
+              ) : null}
+              <Text className="text-[10px] text-muted">{timeLabel}</Text>
             </View>
           </View>
-        ) : null}
 
-        {tools.length ? (
-          <View className="border-t border-border/80 px-3.5 py-3">
-            <View className="gap-2">
-              {tools.map((part) => (
-                <ToolCallView key={part.id} part={part} />
-              ))}
-            </View>
-          </View>
-        ) : null}
+          {text || assistantError ? (
+            <View className="min-w-0 border-t border-border/80 px-3.5 py-3">
+              {text ? (
+                <Markdown
+                  rules={markdownRules}
+                  style={{
+                    body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
+                    paragraph: { marginTop: 0, marginBottom: 8 },
+                    heading1: { color: palette.ink, marginTop: 4, marginBottom: 8 },
+                    heading2: { color: palette.ink, marginTop: 4, marginBottom: 8 },
+                    bullet_list: { marginVertical: 0 },
+                    ordered_list: { marginVertical: 0 },
+                    list_item: { marginBottom: 4 },
+                    code_inline: {
+                      color: palette.accentLight,
+                      backgroundColor: "transparent",
+                      borderRadius: 8,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    },
+                    code_block: {
+                      color: palette.codeText,
+                      fontSize: 13,
+                      lineHeight: 20,
+                      includeFontPadding: false,
+                    },
+                    fence: {
+                      color: palette.codeText,
+                      fontSize: 13,
+                      lineHeight: 20,
+                      includeFontPadding: false,
+                      backgroundColor: "transparent",
+                    },
+                    blockquote: {
+                      borderLeftWidth: 2,
+                      borderLeftColor: palette.border,
+                      paddingLeft: 10,
+                      color: palette.soft,
+                    },
+                    link: { color: palette.accentLight },
+                  }}
+                >
+                  {text}
+                </Markdown>
+              ) : null}
 
-        {patch ? (
-          <View className="border-t border-border/80 px-3.5 py-3">
-            <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
-              <View className="flex-row items-center justify-between gap-3">
-                <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
-                {!props.diffLoaded ? (
-                  <Pressable onPress={() => props.onLoadDiff?.(props.message.info.id)}>
-                    <Text className="text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
-                      {props.diffLoading ? "Loading..." : "Load diff"}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-              <ScrollView className="mt-2 max-h-28" nestedScrollEnabled style={{ flexGrow: 0 }}>
-                <View className="min-w-0 gap-1">{renderPathPreview(patch.files)}</View>
-              </ScrollView>
-              {props.diffLoaded ? (
-                props.diffs?.length ? (
-                  <DiffViewer diffs={props.diffs} />
-                ) : (
-                  <View className="mt-3 rounded-[14px] border border-border/70 bg-surface px-3 py-2.5">
-                    <Text className="text-sm leading-5 text-soft">
-                      No structured diff is available for this patch step.
-                    </Text>
-                  </View>
-                )
+              {assistantError ? (
+                <View className="rounded-[16px] border border-danger/25 bg-danger/10 px-3 py-2.5">
+                  <Text selectable className="text-sm leading-5" style={{ color: palette.danger }}>
+                    {assistantError}
+                  </Text>
+                </View>
               ) : null}
             </View>
-          </View>
-        ) : null}
+          ) : null}
 
-        {props.isActive && (props.onCopy || props.onFork || props.onDismiss) ? (
-          <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
-            {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
-            {props.onFork ? <ActionChip label="Fork" onPress={props.onFork} icon={GitBranch} /> : null}
-            {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
-          </View>
-        ) : null}
+          {reasoningVisible ? (
+            <View className="border-t border-border/80 px-3.5 py-3">
+              <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
+                <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
+                  {reasoningExpanded ? (
+                    <ChevronDown size={13} color={palette.accentLight} strokeWidth={2.1} />
+                  ) : (
+                    <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
+                  )}
+                  <Text className="flex-1 text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
+                    {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
+                  </Text>
+                </Pressable>
+                {reasoningExpanded ? (
+                  <Text selectable className="mt-2 text-sm leading-5 text-soft">
+                    {reasoningText ||
+                      "Reasoning metadata was returned, but no visible reasoning text was captured for this step."}
+                  </Text>
+                ) : (
+                  <Text className="mt-2 text-sm leading-5 text-soft" numberOfLines={2}>
+                    {reasoningText}
+                  </Text>
+                )}
+              </View>
+            </View>
+          ) : null}
+
+          {tools.length ? (
+            <View className="border-t border-border/80 px-3.5 py-3">
+              <View className="gap-2">
+                {tools.map((part) => (
+                  <ToolCallView key={part.id} part={part} />
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {patch ? (
+            <View className="border-t border-border/80 px-3.5 py-3">
+              <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
+                <View className="flex-row items-center justify-between gap-3">
+                  <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
+                  {!props.diffLoaded ? (
+                    <Pressable onPress={() => props.onLoadDiff?.(props.message.info.id)}>
+                      <Text className="text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
+                        {props.diffLoading ? "Loading..." : "Load diff"}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+                <ScrollView className="mt-2 max-h-28" nestedScrollEnabled style={{ flexGrow: 0 }}>
+                  <View className="min-w-0 gap-1">{renderPathPreview(patch.files)}</View>
+                </ScrollView>
+                {props.diffLoaded ? (
+                  props.diffs?.length ? (
+                    <DiffViewer diffs={props.diffs} />
+                  ) : (
+                    <View className="mt-3 rounded-[14px] border border-border/70 bg-surface px-3 py-2.5">
+                      <Text className="text-sm leading-5 text-soft">
+                        No structured diff is available for this patch step.
+                      </Text>
+                    </View>
+                  )
+                ) : null}
+              </View>
+            </View>
+          ) : null}
+
+          {props.isActive && (props.onCopy || props.onFork || props.onDismiss) ? (
+            <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
+              {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
+              {props.onFork ? <ActionChip label="Fork" onPress={props.onFork} icon={GitBranch} /> : null}
+              {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
+            </View>
+          ) : null}
+        </View>
       </View>
-    </View>
+    </Pressable>
+  )
+
+  if (!gestures.bubbleSwipeActions || (!props.onCopy && !props.onFork && !props.onDismiss)) {
+    return bubble
+  }
+
+  return (
+    <Swipeable
+      overshootRight={false}
+      renderRightActions={() => (
+        <View className="mb-3 ml-2 flex-row items-center gap-2 self-stretch">
+          {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
+          {props.onFork ? <ActionChip label="Reuse" onPress={props.onFork} icon={GitBranch} /> : null}
+          {props.onDismiss ? <ActionChip label="Hide" onPress={props.onDismiss} icon={X} muted /> : null}
+        </View>
+      )}
+      onSwipeableWillOpen={() => {
+        props.onActivate?.()
+        void triggerHaptic("selection")
+      }}
+    >
+      {bubble}
+    </Swipeable>
   )
 }

@@ -1,11 +1,19 @@
 import * as SecureStore from "expo-secure-store"
-import type { AppPreferences, ServerConfig, SettingsSectionID } from "./types"
+import type {
+  AppPreferences,
+  GesturePreferences,
+  HapticPreferences,
+  NotificationPreferences,
+  ServerConfig,
+  SettingsSectionID,
+} from "./types"
 
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
 
 const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   profile: true,
+  interaction: true,
   connection: true,
   execution: true,
   providers: true,
@@ -15,10 +23,33 @@ const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   advanced: true,
 }
 
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  enabled: true,
+  sessionReady: true,
+  permissions: true,
+  failures: true,
+}
+
+const DEFAULT_HAPTIC_PREFERENCES: HapticPreferences = {
+  enabled: true,
+  send: true,
+  commands: true,
+  permissions: true,
+  errors: true,
+}
+
+const DEFAULT_GESTURE_PREFERENCES: GesturePreferences = {
+  bubbleSwipeActions: true,
+  bubbleLongPressActions: true,
+}
+
 function defaultPreferences(): AppPreferences {
   return {
     themeMode: "system",
     visibleSettingsSections: DEFAULT_SETTINGS_SECTIONS,
+    notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+    haptics: DEFAULT_HAPTIC_PREFERENCES,
+    gestures: DEFAULT_GESTURE_PREFERENCES,
   }
 }
 
@@ -60,6 +91,18 @@ export async function getAppPreferences(): Promise<AppPreferences> {
       visibleSettingsSections: {
         ...DEFAULT_SETTINGS_SECTIONS,
         ...(parsed.visibleSettingsSections ?? {}),
+      },
+      notifications: {
+        ...DEFAULT_NOTIFICATION_PREFERENCES,
+        ...(parsed.notifications ?? {}),
+      },
+      haptics: {
+        ...DEFAULT_HAPTIC_PREFERENCES,
+        ...(parsed.haptics ?? {}),
+      },
+      gestures: {
+        ...DEFAULT_GESTURE_PREFERENCES,
+        ...(parsed.gestures ?? {}),
       },
     }
   } catch {

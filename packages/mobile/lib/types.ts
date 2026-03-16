@@ -53,6 +53,7 @@ export type ThemeMode = "system" | "light" | "dark"
 
 export type SettingsSectionID =
   | "profile"
+  | "interaction"
   | "connection"
   | "execution"
   | "providers"
@@ -61,9 +62,32 @@ export type SettingsSectionID =
   | "skills"
   | "advanced"
 
+export type NotificationPreferences = {
+  enabled: boolean
+  sessionReady: boolean
+  permissions: boolean
+  failures: boolean
+}
+
+export type HapticPreferences = {
+  enabled: boolean
+  send: boolean
+  commands: boolean
+  permissions: boolean
+  errors: boolean
+}
+
+export type GesturePreferences = {
+  bubbleSwipeActions: boolean
+  bubbleLongPressActions: boolean
+}
+
 export type AppPreferences = {
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
+  notifications: NotificationPreferences
+  haptics: HapticPreferences
+  gestures: GesturePreferences
 }
 
 export type SessionStatus =

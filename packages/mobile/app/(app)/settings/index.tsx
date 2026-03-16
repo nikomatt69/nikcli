@@ -87,6 +87,7 @@ function mcpLabel(status?: HostMcpStatus) {
 
 const SETTINGS_SECTIONS: Array<{ id: SettingsSectionID; label: string }> = [
   { id: "profile", label: "Profile" },
+  { id: "interaction", label: "Interaction" },
   { id: "connection", label: "Connection" },
   { id: "execution", label: "Execution" },
   { id: "providers", label: "Models" },
@@ -110,6 +111,12 @@ export default function SettingsScreen() {
   const setThemeMode = useUIStore((state) => state.setThemeMode)
   const visibleSettingsSections = useUIStore((state) => state.visibleSettingsSections)
   const setSettingsSectionVisible = useUIStore((state) => state.setSettingsSectionVisible)
+  const notifications = useUIStore((state) => state.notifications)
+  const haptics = useUIStore((state) => state.haptics)
+  const gestures = useUIStore((state) => state.gestures)
+  const setNotificationPreference = useUIStore((state) => state.setNotificationPreference)
+  const setHapticPreference = useUIStore((state) => state.setHapticPreference)
+  const setGesturePreference = useUIStore((state) => state.setGesturePreference)
   const [url, setUrl] = useState(config?.url ?? "")
   const [token, setToken] = useState(config?.token ?? "")
   const [directory, setDirectory] = useState(config?.directory ?? "")
@@ -276,17 +283,23 @@ export default function SettingsScreen() {
   async function persistPreferences(next: {
     themeMode?: ThemeMode
     visibleSettingsSections?: Record<SettingsSectionID, boolean>
+    notifications?: typeof notifications
+    haptics?: typeof haptics
+    gestures?: typeof gestures
   }) {
     const current = await getAppPreferences()
     await setAppPreferences({
       themeMode: next.themeMode ?? current.themeMode,
       visibleSettingsSections: next.visibleSettingsSections ?? current.visibleSettingsSections,
+      notifications: next.notifications ?? current.notifications,
+      haptics: next.haptics ?? current.haptics,
+      gestures: next.gestures ?? current.gestures,
     })
   }
 
   async function applyThemeMode(nextMode: ThemeMode) {
     setThemeMode(nextMode)
-    await persistPreferences({ themeMode: nextMode, visibleSettingsSections })
+    await persistPreferences({ themeMode: nextMode, visibleSettingsSections, notifications, haptics, gestures })
   }
 
   async function toggleSettingsSection(section: SettingsSectionID) {
@@ -296,7 +309,37 @@ export default function SettingsScreen() {
       [section]: nextVisible,
     }
     setSettingsSectionVisible(section, nextVisible)
-    await persistPreferences({ themeMode, visibleSettingsSections: nextSections })
+    await persistPreferences({ themeMode, visibleSettingsSections: nextSections, notifications, haptics, gestures })
+  }
+
+  async function updateNotificationPreference<K extends keyof typeof notifications>(
+    key: K,
+    value: (typeof notifications)[K],
+  ) {
+    const next = {
+      ...notifications,
+      [key]: value,
+    }
+    setNotificationPreference(key, value)
+    await persistPreferences({ themeMode, visibleSettingsSections, notifications: next, haptics, gestures })
+  }
+
+  async function updateHapticPreference<K extends keyof typeof haptics>(key: K, value: (typeof haptics)[K]) {
+    const next = {
+      ...haptics,
+      [key]: value,
+    }
+    setHapticPreference(key, value)
+    await persistPreferences({ themeMode, visibleSettingsSections, notifications, haptics: next, gestures })
+  }
+
+  async function updateGesturePreference<K extends keyof typeof gestures>(key: K, value: (typeof gestures)[K]) {
+    const next = {
+      ...gestures,
+      [key]: value,
+    }
+    setGesturePreference(key, value)
+    await persistPreferences({ themeMode, visibleSettingsSections, notifications, haptics, gestures: next })
   }
 
   async function persistGithubOAuthClientID() {
@@ -862,6 +905,106 @@ export default function SettingsScreen() {
           </View>
         </View>
       </SurfaceCard>
+
+      {visibleSettingsSections.interaction ? (
+        <SurfaceCard
+          eyebrow="Interactions"
+          title="Notifications, haptics, gestures"
+          description="Control device feedback for approvals, session completions, failures, and gesture-driven message actions."
+        >
+          <View className="flex-row flex-wrap gap-2">
+            <InfoChip
+              label={notifications.enabled ? "Notifications on" : "Notifications off"}
+              tone={notifications.enabled ? "good" : "neutral"}
+            />
+            <InfoChip
+              label={haptics.enabled ? "Haptics on" : "Haptics off"}
+              tone={haptics.enabled ? "good" : "neutral"}
+            />
+            <InfoChip
+              label={gestures.bubbleSwipeActions ? "Swipe actions on" : "Swipe actions off"}
+              tone={gestures.bubbleSwipeActions ? "accent" : "neutral"}
+            />
+          </View>
+
+          <View className="mt-4 gap-3">
+            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                Notifications
+              </Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {[
+                  ["enabled", "Master switch"],
+                  ["sessionReady", "Session ready"],
+                  ["permissions", "Permission requests"],
+                  ["failures", "Failures"],
+                ].map(([key, label]) => {
+                  const active = notifications[key as keyof typeof notifications] as boolean
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => void updateNotificationPreference(key as keyof typeof notifications, !active)}
+                      className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                    >
+                      <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
+                      <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+
+            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">Haptics</Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {[
+                  ["enabled", "Master switch"],
+                  ["send", "Send"],
+                  ["commands", "Commands"],
+                  ["permissions", "Permissions"],
+                  ["errors", "Errors"],
+                ].map(([key, label]) => {
+                  const active = haptics[key as keyof typeof haptics] as boolean
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => void updateHapticPreference(key as keyof typeof haptics, !active)}
+                      className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                    >
+                      <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
+                      <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+
+            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+                Message gestures
+              </Text>
+              <View className="mt-3 flex-row flex-wrap gap-2">
+                {[
+                  ["bubbleSwipeActions", "Swipe actions"],
+                  ["bubbleLongPressActions", "Long press actions"],
+                ].map(([key, label]) => {
+                  const active = gestures[key as keyof typeof gestures] as boolean
+                  return (
+                    <Pressable
+                      key={key}
+                      onPress={() => void updateGesturePreference(key as keyof typeof gestures, !active)}
+                      className={`rounded-[16px] border px-3 py-2 ${optionChipClass(active)}`}
+                    >
+                      <Text className={`text-[12px] font-semibold ${optionChipTextClass(active)}`}>{label}</Text>
+                      <Text className="mt-1 text-[10px] text-soft">{active ? "On" : "Off"}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </View>
+          </View>
+        </SurfaceCard>
+      ) : null}
 
       {visibleSettingsSections.connection ? (
         <SurfaceCard

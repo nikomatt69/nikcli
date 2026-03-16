@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft } from "lucide-react-native"
+import * as Clipboard from "expo-clipboard"
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -11,6 +12,8 @@ import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
+import { triggerHaptic } from "@/lib/haptics"
+import { sendLocalNotification } from "@/lib/notifications"
 import { useAppTheme } from "@/lib/theme"
 import {
   type CommandInfo,
@@ -61,12 +64,29 @@ function parseSlashCommand(value: string) {
   }
 }
 
+function messagePlainText(message: MessageWithParts) {
+  const text = message.parts
+    .filter((part): part is Extract<MessageWithParts["parts"][number], { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("\n\n")
+    .trim()
+  if (text) return text
+  if (message.info.role === "assistant") {
+    return message.info.error?.data?.message?.trim() ?? ""
+  }
+  return ""
+}
+
 export default function SessionScreen() {
   const { palette } = useAppTheme()
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
   const listRef = useRef<FlatList<MessageWithParts>>(null)
+  const statusRef = useRef<SessionDetail["status"]>()
+  const permissionIDsRef = useRef<Set<string>>(new Set())
+  const followTranscriptRef = useRef(true)
+  const initialScrollDoneRef = useRef(false)
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
@@ -86,6 +106,7 @@ export default function SessionScreen() {
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState("")
+  const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -128,6 +149,17 @@ export default function SessionScreen() {
     void loadCommands()
   }, [commandPaletteOpen, loadCommands])
 
+  useEffect(() => {
+    followTranscriptRef.current = true
+    initialScrollDoneRef.current = false
+  }, [sessionId])
+
+  useEffect(() => {
+    if (!detail) return
+    statusRef.current = detail.status
+    permissionIDsRef.current = new Set(detail.permissions.map((item) => item.id))
+  }, [detail?.permissions, detail?.status])
+
   useSessionStream({
     config,
     sessionID: sessionId,
@@ -136,7 +168,49 @@ export default function SessionScreen() {
       const nextError = sessionErrorMessage(event)
       if (nextError) {
         setError(nextError)
+        void triggerHaptic("error")
+        void sendLocalNotification({
+          kind: "failures",
+          title: detail?.info.title || "Session failed",
+          body: nextError,
+          dedupeKey: `${sessionId}:error:${nextError}`,
+        })
         return
+      }
+
+      if (event.type === "permission.asked") {
+        const requestID = event.properties.id
+        if (!permissionIDsRef.current.has(requestID)) {
+          permissionIDsRef.current.add(requestID)
+          void triggerHaptic("permission")
+          void sendLocalNotification({
+            kind: "permissions",
+            title: detail?.info.title || "Permission required",
+            body: event.properties.permission,
+            dedupeKey: `${sessionId}:permission:${requestID}`,
+          })
+        }
+      }
+
+      if (event.type === "permission.replied") {
+        permissionIDsRef.current.delete(event.properties.requestID)
+      }
+
+      if (event.type === "session.status") {
+        statusRef.current = event.properties.status
+      }
+
+      if (event.type === "session.idle") {
+        if (statusRef.current?.type && statusRef.current.type !== "idle") {
+          void triggerHaptic("success")
+          void sendLocalNotification({
+            kind: "sessionReady",
+            title: detail?.info.title || "Session ready",
+            body: "Execution is idle and ready for the next command.",
+            dedupeKey: `${sessionId}:idle`,
+          })
+        }
+        statusRef.current = { type: "idle" }
       }
 
       setDetail((current) => {
@@ -239,6 +313,7 @@ export default function SessionScreen() {
         await client.sendCommand(sessionId, slashInput.command, slashInput.argumentsText, {
           model: hasUserPrompt ? undefined : preferredModel,
         })
+        void triggerHaptic("command")
         setInput("")
         return
       }
@@ -248,15 +323,18 @@ export default function SessionScreen() {
           ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${text}`
           : text
       await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
+      void triggerHaptic("send")
       setInput("")
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
+      void triggerHaptic("error")
     } finally {
       setSending(false)
     }
   }
 
   function insertSlashCommand(name: string) {
+    void triggerHaptic("selection")
     const current = input.trimStart()
     const match = current.match(/^\/([^\s]+)(.*)$/s)
     const remainder = match?.[2] ?? ""
@@ -265,11 +343,47 @@ export default function SessionScreen() {
   }
 
   function scrollToTop() {
+    followTranscriptRef.current = false
     listRef.current?.scrollToOffset({ offset: 0, animated: true })
   }
 
   function scrollToBottom() {
+    followTranscriptRef.current = true
     listRef.current?.scrollToEnd({ animated: true })
+  }
+
+  function scrollToLatest(animated: boolean) {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated })
+    })
+  }
+
+  function updateTranscriptFollow(event: {
+    nativeEvent: {
+      layoutMeasurement: { height: number }
+      contentOffset: { y: number }
+      contentSize: { height: number }
+    }
+  }) {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent
+    const distanceFromBottom = contentSize.height - (layoutMeasurement.height + contentOffset.y)
+    followTranscriptRef.current = distanceFromBottom < 96
+  }
+
+  async function copyMessage(message: MessageWithParts) {
+    const value = messagePlainText(message)
+    if (!value) return
+    await Clipboard.setStringAsync(value)
+    setActiveMessageID(null)
+    void triggerHaptic("selection")
+  }
+
+  function reuseMessage(message: MessageWithParts) {
+    const value = messagePlainText(message)
+    if (!value) return
+    setInput(message.info.role === "assistant" ? `Follow up on this result:\n\n${value}` : value)
+    setActiveMessageID(null)
+    void triggerHaptic("selection")
   }
 
   async function loadDiff(messageID: string) {
@@ -290,11 +404,13 @@ export default function SessionScreen() {
   async function respond(permissionID: string, response: "once" | "always" | "reject") {
     if (!client || !sessionId) return
     await client.respondToPermission(sessionId, permissionID, response)
+    void triggerHaptic(response === "reject" ? "error" : "success")
   }
 
   async function abort() {
     if (!client || !sessionId) return
     await client.abortSession(sessionId)
+    void triggerHaptic("error")
   }
 
   async function publish() {
@@ -306,6 +422,13 @@ export default function SessionScreen() {
         title: publishTitle.trim() || detail.info.github.pullRequest?.title || detail.info.title,
         body: publishBody.trim() || undefined,
         commitMessage: commitMessage.trim() || detail.info.title,
+      })
+      void triggerHaptic("success")
+      void sendLocalNotification({
+        kind: "sessionReady",
+        title: detail.info.title,
+        body: "GitHub publish workflow completed successfully.",
+        dedupeKey: `${sessionId}:publish`,
       })
       setPublishOpen(false)
       await load()
@@ -322,6 +445,7 @@ export default function SessionScreen() {
       setCleaning(true)
       setError(null)
       await client.cleanupGithubSession(sessionId)
+      void triggerHaptic("success")
       if (config && detail.info.github.repositoryDirectory) {
         await save({ ...config, directory: detail.info.github.repositoryDirectory })
       }
@@ -344,6 +468,7 @@ export default function SessionScreen() {
         keywords: ["bottom", "latest", "newest", "transcript"],
         onPress: () => {
           setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
           scrollToBottom()
         },
       },
@@ -357,6 +482,7 @@ export default function SessionScreen() {
         keywords: ["permissions", "approvals", "top"],
         onPress: () => {
           setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
           scrollToTop()
         },
       },
@@ -370,6 +496,7 @@ export default function SessionScreen() {
         keywords: ["publish", "pull request", "pr", "commit"],
         onPress: () => {
           setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
           openPublishModal()
         },
       },
@@ -396,6 +523,7 @@ export default function SessionScreen() {
         keywords: ["clear", "draft", "composer"],
         onPress: () => {
           setCommandPaletteOpen(false)
+          void triggerHaptic("selection")
           setInput("")
         },
       },
@@ -466,17 +594,46 @@ export default function SessionScreen() {
         ref={listRef}
         className="flex-1 px-4 pt-4"
         contentInsetAdjustmentBehavior="automatic"
+        onLayout={() => {
+          if (detail && !initialScrollDoneRef.current) {
+            initialScrollDoneRef.current = true
+            scrollToLatest(false)
+          }
+        }}
+        onContentSizeChange={() => {
+          if (!detail) return
+          if (!initialScrollDoneRef.current) {
+            initialScrollDoneRef.current = true
+            scrollToLatest(false)
+            return
+          }
+          if (followTranscriptRef.current) {
+            scrollToLatest(true)
+          }
+        }}
+        onScroll={updateTranscriptFollow}
+        scrollEventThrottle={16}
         data={messages}
         keyExtractor={(item) => item.info.id}
-        renderItem={({ item }) => (
-          <MessageBubble
-            message={item}
-            diffs={diffs[item.info.id]}
-            diffLoaded={Boolean(diffLoaded[item.info.id])}
-            diffLoading={Boolean(diffLoading[item.info.id])}
-            onLoadDiff={loadDiff}
-          />
-        )}
+        renderItem={({ item }) => {
+          const messageText = messagePlainText(item)
+          const hasReusableText = Boolean(messageText)
+
+          return (
+            <MessageBubble
+              message={item}
+              diffs={diffs[item.info.id]}
+              diffLoaded={Boolean(diffLoaded[item.info.id])}
+              diffLoading={Boolean(diffLoading[item.info.id])}
+              onLoadDiff={loadDiff}
+              isActive={activeMessageID === item.info.id}
+              onCopy={hasReusableText ? () => void copyMessage(item) : undefined}
+              onFork={hasReusableText ? () => reuseMessage(item) : undefined}
+              onDismiss={() => setActiveMessageID(null)}
+              onActivate={() => setActiveMessageID(item.info.id)}
+            />
+          )
+        }}
         ListHeaderComponent={
           <>
             <SessionSummaryCard

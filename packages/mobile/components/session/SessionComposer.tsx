@@ -1,5 +1,6 @@
 import { Pressable, Text, TextInput, View, useWindowDimensions } from "react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
+import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 
 type SessionComposerProps = {
@@ -38,7 +39,7 @@ export function SessionComposer({
   const { width } = useWindowDimensions()
   const { colorScheme, palette } = useAppTheme()
   const compact = width < 390
-  const statusTone = cleaned ? "text-rose-300" : sessionBlocked ? "text-amber-200" : "text-emerald-200"
+  const statusColor = cleaned ? palette.danger : sessionBlocked ? palette.warn : palette.success
   const modeSummary =
     mode === "plan"
       ? "Returns analysis first and avoids direct edits."
@@ -71,7 +72,7 @@ export function SessionComposer({
                   {mode === "plan" ? "Plan first" : "Code ready"}
                 </Text>
               </View>
-              <Text className={`text-[10px] font-semibold ${statusTone}`}>
+              <Text className="text-[10px] font-semibold" style={{ color: statusColor }}>
                 {cleaned ? "Read-only" : sessionBlocked ? "Busy" : "Ready"}
               </Text>
             </View>
@@ -83,13 +84,19 @@ export function SessionComposer({
           <View className="self-start rounded-full border border-border bg-background/85 p-1">
             <View className="flex-row items-center">
               <Pressable
-                onPress={() => setMode("plan")}
+                onPress={() => {
+                  void triggerHaptic("selection")
+                  setMode("plan")
+                }}
                 className={`rounded-full px-3 py-1.5 ${mode === "plan" ? "bg-panel" : "bg-transparent"}`}
               >
                 <Text className={`text-[12px] font-semibold ${mode === "plan" ? "text-ink" : "text-soft"}`}>Plan</Text>
               </Pressable>
               <Pressable
-                onPress={() => setMode("code")}
+                onPress={() => {
+                  void triggerHaptic("selection")
+                  setMode("code")
+                }}
                 className={`rounded-full px-3 py-1.5 ${mode === "code" ? "bg-accent" : "bg-transparent"}`}
               >
                 <Text className={`text-[12px] font-semibold ${mode === "code" ? "text-slate-950" : "text-soft"}`}>
@@ -129,7 +136,10 @@ export function SessionComposer({
                   slashSuggestions.slice(0, 4).map((item) => (
                     <Pressable
                       key={item.name}
-                      onPress={() => onSelectSlash(item.name)}
+                      onPress={() => {
+                        void triggerHaptic("selection")
+                        onSelectSlash(item.name)
+                      }}
                       className="rounded-[14px] border border-border bg-surface px-3 py-2"
                     >
                       <View className="flex-row items-start justify-between gap-3">
@@ -174,7 +184,10 @@ export function SessionComposer({
           </Text>
           <View className="items-end gap-1">
             <Pressable
-              onPress={onOpenCommands}
+              onPress={() => {
+                void triggerHaptic("selection")
+                onOpenCommands()
+              }}
               className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
             >
               <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
