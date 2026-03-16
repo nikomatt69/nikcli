@@ -113,8 +113,7 @@ export const ActionSheet = React.forwardRef<
           style={{
             opacity,
             transform: [{ translateY }],
-            maxHeight: contentHeight,
-            minHeight: Math.min(180, contentHeight),
+            height: contentHeight,
             backgroundColor: palette.surface,
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,

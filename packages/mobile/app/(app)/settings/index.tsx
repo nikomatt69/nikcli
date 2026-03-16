@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
-import { useFocusEffect } from "expo-router"
+import { Link, useFocusEffect } from "expo-router"
+import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
 import { useColorScheme } from "nativewind"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
@@ -10,6 +11,7 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
 import { getAppPreferences, setAppPreferences } from "@/lib/storage"
+import { ensureNotificationPermissions } from "@/lib/notifications"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 import {
@@ -88,12 +90,17 @@ function mcpLabel(status?: HostMcpStatus) {
 const SETTINGS_SECTIONS: Array<{ id: SettingsSectionID; label: string }> = [
   { id: "profile", label: "Profile" },
   { id: "interaction", label: "Interaction" },
+  { id: "commands", label: "Commands" },
+  { id: "memories", label: "Memories" },
   { id: "connection", label: "Connection" },
   { id: "execution", label: "Execution" },
   { id: "providers", label: "Models" },
   { id: "github", label: "GitHub" },
   { id: "mcp", label: "MCP" },
+  { id: "connectors", label: "Connectors" },
   { id: "skills", label: "Skills" },
+  { id: "agents", label: "Agents" },
+  { id: "tokens", label: "Tokens" },
   { id: "advanced", label: "Advanced" },
 ]
 
@@ -114,6 +121,8 @@ export default function SettingsScreen() {
   const notifications = useUIStore((state) => state.notifications)
   const haptics = useUIStore((state) => state.haptics)
   const gestures = useUIStore((state) => state.gestures)
+  const composer = useUIStore((state) => state.composer)
+  const promptPresets = useUIStore((state) => state.promptPresets)
   const setNotificationPreference = useUIStore((state) => state.setNotificationPreference)
   const setHapticPreference = useUIStore((state) => state.setHapticPreference)
   const setGesturePreference = useUIStore((state) => state.setGesturePreference)
@@ -286,6 +295,8 @@ export default function SettingsScreen() {
     notifications?: typeof notifications
     haptics?: typeof haptics
     gestures?: typeof gestures
+    composer?: typeof composer
+    promptPresets?: typeof promptPresets
   }) {
     const current = await getAppPreferences()
     await setAppPreferences({
@@ -294,12 +305,22 @@ export default function SettingsScreen() {
       notifications: next.notifications ?? current.notifications,
       haptics: next.haptics ?? current.haptics,
       gestures: next.gestures ?? current.gestures,
+      composer: next.composer ?? current.composer,
+      promptPresets: next.promptPresets ?? current.promptPresets,
     })
   }
 
   async function applyThemeMode(nextMode: ThemeMode) {
     setThemeMode(nextMode)
-    await persistPreferences({ themeMode: nextMode, visibleSettingsSections, notifications, haptics, gestures })
+    await persistPreferences({
+      themeMode: nextMode,
+      visibleSettingsSections,
+      notifications,
+      haptics,
+      gestures,
+      composer,
+      promptPresets,
+    })
   }
 
   async function toggleSettingsSection(section: SettingsSectionID) {
@@ -309,19 +330,42 @@ export default function SettingsScreen() {
       [section]: nextVisible,
     }
     setSettingsSectionVisible(section, nextVisible)
-    await persistPreferences({ themeMode, visibleSettingsSections: nextSections, notifications, haptics, gestures })
+    await persistPreferences({
+      themeMode,
+      visibleSettingsSections: nextSections,
+      notifications,
+      haptics,
+      gestures,
+      composer,
+      promptPresets,
+    })
   }
 
   async function updateNotificationPreference<K extends keyof typeof notifications>(
     key: K,
     value: (typeof notifications)[K],
   ) {
+    if (key === "enabled" && value === true) {
+      const granted = await ensureNotificationPermissions(true)
+      if (!granted) {
+        setMessage("Notification permission was not granted on this device")
+        return
+      }
+    }
     const next = {
       ...notifications,
       [key]: value,
     }
     setNotificationPreference(key, value)
-    await persistPreferences({ themeMode, visibleSettingsSections, notifications: next, haptics, gestures })
+    await persistPreferences({
+      themeMode,
+      visibleSettingsSections,
+      notifications: next,
+      haptics,
+      gestures,
+      composer,
+      promptPresets,
+    })
   }
 
   async function updateHapticPreference<K extends keyof typeof haptics>(key: K, value: (typeof haptics)[K]) {
@@ -330,7 +374,15 @@ export default function SettingsScreen() {
       [key]: value,
     }
     setHapticPreference(key, value)
-    await persistPreferences({ themeMode, visibleSettingsSections, notifications, haptics: next, gestures })
+    await persistPreferences({
+      themeMode,
+      visibleSettingsSections,
+      notifications,
+      haptics: next,
+      gestures,
+      composer,
+      promptPresets,
+    })
   }
 
   async function updateGesturePreference<K extends keyof typeof gestures>(key: K, value: (typeof gestures)[K]) {
@@ -339,7 +391,15 @@ export default function SettingsScreen() {
       [key]: value,
     }
     setGesturePreference(key, value)
-    await persistPreferences({ themeMode, visibleSettingsSections, notifications, haptics, gestures: next })
+    await persistPreferences({
+      themeMode,
+      visibleSettingsSections,
+      notifications,
+      haptics,
+      gestures: next,
+      composer,
+      promptPresets,
+    })
   }
 
   async function persistGithubOAuthClientID() {
@@ -796,6 +856,111 @@ export default function SettingsScreen() {
       </SurfaceCard>
 
       {maybeHandle(message)}
+
+      <SurfaceCard
+        eyebrow="Control surfaces"
+        title="Dedicated command and memory workspaces"
+        description="Open focused settings pages for custom commands, reusable presets, host prompt history, and saved snippets without losing the broader control plane below."
+      >
+        <View className="gap-3">
+          {visibleSettingsSections.commands ? (
+            <Link href="/settings/commands" asChild>
+              <SettingsNavCard
+                eyebrow="Commands"
+                title="Custom commands and presets"
+                description="Add host slash commands, tune composer defaults, and manage reusable mobile presets."
+                badges={[
+                  `${hostConfig?.command ? Object.keys(hostConfig.command).length : 0} host`,
+                  `${promptPresets.length} presets`,
+                ]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.memories ? (
+            <Link href="/settings/memories" asChild>
+              <SettingsNavCard
+                eyebrow="Memories"
+                title="Prompt history and reusable snippets"
+                description="Browse host-backed prompt history, keep snippets, and build reusable operator context."
+                badges={["Host-backed", "Reusable context"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.providers ? (
+            <Link href="/settings/providers" asChild>
+              <SettingsNavCard
+                eyebrow="Models"
+                title="Providers and default models"
+                description="Focus provider auth, model selection, and default session model behavior in a dedicated control screen."
+                badges={[selectedProviderID || "No provider", selectedModelID || "No model"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.github ? (
+            <Link href="/settings/github" asChild>
+              <SettingsNavCard
+                eyebrow="GitHub"
+                title="OAuth and account trust"
+                description="Manage device sign-in, fallback token access, and the host GitHub identity posture from one enterprise screen."
+                badges={[
+                  githubConnected ? "Connected" : "Offline",
+                  oauthConfigured ? "OAuth ready" : "Needs client ID",
+                ]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.mcp ? (
+            <Link href="/settings/mcp" asChild>
+              <SettingsNavCard
+                eyebrow="MCP"
+                title="Automation endpoints"
+                description="Manage Model Context Protocol servers, auth, enablement, and live capability health."
+                badges={[`${mcpEntries.length} configured`, `${Object.keys(mcpStatus).length} live`]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.connectors ? (
+            <Link href="/settings/connectors" asChild>
+              <SettingsNavCard
+                eyebrow="Integrations"
+                title="Connectors"
+                description="Connect Figma, Slack, Discord, Linear, Lovable, and Teams to the AI host."
+                badges={["Figma", "Slack", "Linear", "Lovable"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.skills ? (
+            <Link href="/settings/skills" asChild>
+              <SettingsNavCard
+                eyebrow="Skills"
+                title="Discovered skill catalog"
+                description="Browse the host skill registry with better focus than the inline overview can provide."
+                badges={[`${skills.length} skills`, "Host catalog"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.agents ? (
+            <Link href="/settings/agents" asChild>
+              <SettingsNavCard
+                eyebrow="Automation"
+                title="Agents"
+                description="Browse built-in and custom AI agents with their tool selections."
+                badges={["Built-in", "Custom"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.tokens ? (
+            <Link href="/settings/tokens" asChild>
+              <SettingsNavCard
+                eyebrow="Security"
+                title="Access Tokens"
+                description="Create and revoke long-lived mobile bearer tokens for this server connection."
+                badges={["Bearer auth"]}
+              />
+            </Link>
+          ) : null}
+        </View>
+      </SurfaceCard>
 
       {visibleSettingsSections.profile ? (
         <SurfaceCard

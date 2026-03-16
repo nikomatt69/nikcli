@@ -1,5 +1,8 @@
 import type {
+  AgentInfo,
   CommandInfo,
+  ConnectorAuthInput,
+  ConnectorStatus,
   FilePart,
   FileDiff,
   GitHubBranch,
@@ -9,12 +12,18 @@ import type {
   GitHubRepo,
   GitHubSessionCreateResult,
   HostConfigSnapshot,
+  HostCommandConfig,
   HostMcpStatus,
   ManagedGithubImport,
+  MemorySearchHit,
+  MobileAuthToken,
   MobileExecutionTarget,
   ModelRef,
   MobileBootstrap,
   ProviderCatalog,
+  PromptHistoryEntry,
+  PromptPreset,
+  PromptStashEntry,
   ProjectInfo,
   ServerConfig,
   Session,
@@ -61,6 +70,10 @@ export class MobileClient {
 
   listCommands(sessionID: string) {
     return this.request<CommandInfo[]>(`/mobile/session/${encodeURIComponent(sessionID)}/command`)
+  }
+
+  listHostCommands() {
+    return this.request<CommandInfo[]>("/mobile/command")
   }
 
   listSessions(search?: string) {
@@ -162,6 +175,31 @@ export class MobileClient {
 
   listMcpStatus() {
     return this.request<Record<string, HostMcpStatus>>("/mcp")
+  }
+
+  listPromptHistory() {
+    return this.request<PromptHistoryEntry[]>("/mobile/memory/history")
+  }
+
+  searchMemories(query: string) {
+    return this.request<MemorySearchHit[]>(`/mobile/memory/search?query=${encodeURIComponent(query)}`)
+  }
+
+  listPromptStash() {
+    return this.request<PromptStashEntry[]>("/mobile/memory/stash")
+  }
+
+  addPromptStash(input: { input: string }) {
+    return this.request<PromptStashEntry>("/mobile/memory/stash", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  removePromptStash(id: string) {
+    return this.request<{ success: true }>(`/mobile/memory/stash/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    })
   }
 
   connectMcp(name: string) {
@@ -308,6 +346,51 @@ export class MobileClient {
     } catch {
       return false
     }
+  }
+
+  listAuthTokens() {
+    return this.request<MobileAuthToken[]>("/mobile/auth/token")
+  }
+
+  createAuthToken(name?: string, expiresInDays?: number) {
+    return this.request<{ token: string; info: MobileAuthToken }>("/mobile/auth/token", {
+      method: "POST",
+      body: JSON.stringify({ name, expiresInDays }),
+    })
+  }
+
+  revokeAuthToken(id: string) {
+    return this.request<{ revoked: boolean }>(`/mobile/auth/token/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    })
+  }
+
+  listConnectors() {
+    return this.request<Record<string, ConnectorStatus>>("/connectors")
+  }
+
+  setConnectorAuth(name: string, input: ConnectorAuthInput) {
+    return this.request<{ success: true }>(`/connectors/${encodeURIComponent(name)}/auth`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  removeConnectorAuth(name: string) {
+    return this.request<{ success: true }>(`/connectors/${encodeURIComponent(name)}/auth`, {
+      method: "DELETE",
+    })
+  }
+
+  listAgents() {
+    return this.request<AgentInfo[]>("/agent")
+  }
+
+  renameSession(sessionID: string, title: string) {
+    return this.request<{ success: true }>(`/mobile/session/${encodeURIComponent(sessionID)}/rename`, {
+      method: "POST",
+      body: JSON.stringify({ title }),
+    })
   }
 
   withToken(token: string): MobileClient {

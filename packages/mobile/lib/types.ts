@@ -54,6 +54,8 @@ export type ThemeMode = "system" | "light" | "dark"
 export type SettingsSectionID =
   | "profile"
   | "interaction"
+  | "commands"
+  | "memories"
   | "connection"
   | "execution"
   | "providers"
@@ -61,6 +63,9 @@ export type SettingsSectionID =
   | "mcp"
   | "skills"
   | "advanced"
+  | "connectors"
+  | "agents"
+  | "tokens"
 
 export type NotificationPreferences = {
   enabled: boolean
@@ -82,12 +87,27 @@ export type GesturePreferences = {
   bubbleLongPressActions: boolean
 }
 
+export type PromptPreset = {
+  id: string
+  title: string
+  prompt: string
+  mode: "plan" | "code"
+}
+
+export type ComposerPreferences = {
+  defaultMode: "plan" | "code"
+  autoFollowTranscript: boolean
+  slashSuggestions: boolean
+}
+
 export type AppPreferences = {
   themeMode: ThemeMode
   visibleSettingsSections: Record<SettingsSectionID, boolean>
   notifications: NotificationPreferences
   haptics: HapticPreferences
   gestures: GesturePreferences
+  composer: ComposerPreferences
+  promptPresets: PromptPreset[]
 }
 
 export type SessionStatus =
@@ -364,8 +384,17 @@ export type HostMcpConfig =
 
 export type HostConfigSnapshot = {
   connectors?: Record<string, Record<string, unknown>>
+  command?: Record<string, HostCommandConfig>
   mcp?: Record<string, HostMcpConfig>
   [key: string]: unknown
+}
+
+export type HostCommandConfig = {
+  template: string
+  description?: string
+  agent?: string
+  model?: string
+  subtask?: boolean
 }
 
 export type CommandInfo = {
@@ -376,6 +405,30 @@ export type CommandInfo = {
   mcp?: boolean
   subtask?: boolean
   hints: string[]
+}
+
+export type PromptHistoryEntry = {
+  id: string
+  input: string
+  mode?: "normal" | "shell"
+  partsCount: number
+}
+
+export type PromptStashEntry = {
+  id: string
+  input: string
+  timestamp: number
+  partsCount: number
+}
+
+export type MemorySearchHit = {
+  id: string
+  sessionID: string
+  sessionTitle: string
+  messageID: string
+  role: "user" | "assistant"
+  createdAt: number
+  preview: string
 }
 
 export type SessionSummary = {
@@ -501,6 +554,42 @@ export type SessionStreamEvent =
       properties: { sessionID: string; requestID: string; reply: "once" | "always" | "reject" }
     }
   | { type: string; properties: any }
+
+export type MobileAuthToken = {
+  id: string
+  name?: string
+  hash: string
+  createdAt: number
+  lastUsedAt?: number
+  expiresAt?: number
+}
+
+export type ConnectorStatus =
+  | { status: "connected" }
+  | { status: "disabled" }
+  | { status: "failed"; error: string }
+  | { status: "needs_auth" }
+
+export type ConnectorAuthInput = {
+  token?: string
+  botToken?: string
+  apiKey?: string
+}
+
+export type ConnectorInfo = {
+  name: string
+  type: string
+  credentialType: "token" | "botToken" | "apiKey"
+  status: ConnectorStatus
+}
+
+export type AgentInfo = {
+  id: string
+  name: string
+  description?: string
+  tools?: string[]
+  isDefault?: boolean
+}
 
 export function relativeTime(value: number): string {
   const diffMs = Date.now() - value

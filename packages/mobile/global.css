@@ -441,3 +441,68 @@
     color: #fda4af;
   }
 }
+
+/* Glass effect tokens */
+:root {
+  --color-glass-shell: 255 255 255;
+  --color-glass-shell-strong: 255 255 255;
+  --color-glass-panel: 232 240 248;
+  --color-glass-border: 255 255 255;
+  --color-glass-border-strong: 255 255 255;
+  --color-glass-shadow: 0 0 0;
+  --color-glass-scrim: 0 0 0;
+  --color-glass-tint-accent: 14 165 233;
+}
+
+.dark {
+  --color-glass-shell: 13 27 42;
+  --color-glass-shell-strong: 13 27 42;
+  --color-glass-panel: 18 38 58;
+  --color-glass-border: 255 255 255;
+  --color-glass-border-strong: 255 255 255;
+  --color-glass-shadow: 0 0 0;
+  --color-glass-scrim: 0 0 0;
+  --color-glass-tint-accent: 56 189 248;
+}
+
+@layer utilities {
+  .bg-glass-shell {
+    background-color: rgba(var(--color-glass-shell), 0.72);
+  }
+
+  .bg-glass-shell-strong {
+    background-color: rgba(var(--color-glass-shell-strong), 0.85);
+  }
+
+  .bg-glass-panel {
+    background-color: rgba(var(--color-glass-panel), 0.68);
+  }
+
+  .bg-glass-panel-strong {
+    background-color: rgba(var(--color-glass-panel), 0.82);
+  }
+
+  .border-glass {
+    border-color: rgba(var(--color-glass-border), 0.18);
+  }
+
+  .border-glass-strong {
+    border-color: rgba(var(--color-glass-border-strong), 0.28);
+  }
+
+  .shadow-glass {
+    shadow-color: rgba(var(--color-glass-shadow), 0.06);
+    shadow-opacity: 1;
+    shadow-offset: 0 2px;
+    shadow-radius: 8px;
+    elevation: 3;
+  }
+
+  .bg-glass-scrim {
+    background-color: rgba(var(--color-glass-scrim), 0.025);
+  }
+
+  .bg-glass-tint-accent {
+    background-color: rgba(var(--color-glass-tint-accent), 0.08);
+  }
+}

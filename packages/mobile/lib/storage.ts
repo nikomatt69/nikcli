@@ -1,9 +1,11 @@
 import * as SecureStore from "expo-secure-store"
 import type {
   AppPreferences,
+  ComposerPreferences,
   GesturePreferences,
   HapticPreferences,
   NotificationPreferences,
+  PromptPreset,
   ServerConfig,
   SettingsSectionID,
 } from "./types"
@@ -14,6 +16,8 @@ const APP_PREFERENCES_KEY = "nikcli_app_preferences"
 const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   profile: true,
   interaction: true,
+  commands: true,
+  memories: true,
   connection: true,
   execution: true,
   providers: true,
@@ -21,10 +25,13 @@ const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   mcp: true,
   skills: true,
   advanced: true,
+  connectors: true,
+  agents: true,
+  tokens: true,
 }
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  enabled: true,
+  enabled: false,
   sessionReady: true,
   permissions: true,
   failures: true,
@@ -43,6 +50,33 @@ const DEFAULT_GESTURE_PREFERENCES: GesturePreferences = {
   bubbleLongPressActions: true,
 }
 
+const DEFAULT_COMPOSER_PREFERENCES: ComposerPreferences = {
+  defaultMode: "code",
+  autoFollowTranscript: true,
+  slashSuggestions: true,
+}
+
+const DEFAULT_PROMPT_PRESETS: PromptPreset[] = [
+  {
+    id: "preset-review",
+    title: "Review current work",
+    prompt: "Review the current changes, call out risks, and propose the smallest safe next steps.",
+    mode: "plan",
+  },
+  {
+    id: "preset-fix",
+    title: "Fix latest error",
+    prompt: "Investigate the latest failure, explain the root cause, and apply the smallest correct fix.",
+    mode: "code",
+  },
+  {
+    id: "preset-publish",
+    title: "Prepare publish",
+    prompt: "Check the diff, summarize the work, and get this session ready to publish safely.",
+    mode: "plan",
+  },
+]
+
 function defaultPreferences(): AppPreferences {
   return {
     themeMode: "system",
@@ -50,6 +84,8 @@ function defaultPreferences(): AppPreferences {
     notifications: DEFAULT_NOTIFICATION_PREFERENCES,
     haptics: DEFAULT_HAPTIC_PREFERENCES,
     gestures: DEFAULT_GESTURE_PREFERENCES,
+    composer: DEFAULT_COMPOSER_PREFERENCES,
+    promptPresets: DEFAULT_PROMPT_PRESETS,
   }
 }
 
@@ -104,6 +140,21 @@ export async function getAppPreferences(): Promise<AppPreferences> {
         ...DEFAULT_GESTURE_PREFERENCES,
         ...(parsed.gestures ?? {}),
       },
+      composer: {
+        ...DEFAULT_COMPOSER_PREFERENCES,
+        ...(parsed.composer ?? {}),
+      },
+      promptPresets: Array.isArray(parsed.promptPresets)
+        ? parsed.promptPresets.filter(
+            (item): item is PromptPreset =>
+              typeof item === "object" &&
+              item !== null &&
+              typeof item.id === "string" &&
+              typeof item.title === "string" &&
+              typeof item.prompt === "string" &&
+              (item.mode === "plan" || item.mode === "code"),
+          )
+        : DEFAULT_PROMPT_PRESETS,
     }
   } catch {
     return defaultPreferences()

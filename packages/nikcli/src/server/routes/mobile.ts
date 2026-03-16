@@ -1,3 +1,4 @@
+import path from "path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
@@ -21,6 +22,7 @@ import { GithubApi } from "@/connectors/api/github"
 import { ConnectorAuth } from "@/connectors/auth"
 import { Connectors } from "@/connectors"
 import { Installation } from "@/installation"
+import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Storage } from "@/storage/storage"
@@ -30,6 +32,7 @@ import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { getAdaptor, getContainerRuntimeInfo } from "@/workspace/adaptors"
+import { PromptStashStore } from "@/prompt/stash-store"
 import { errors } from "../error"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
@@ -211,8 +214,170 @@ const MobileGithubDeviceAuthPollResult = z
   })
   .meta({ ref: "MobileGithubDeviceAuthPollResult" })
 
+const MobilePromptHistoryEntry = z
+  .object({
+    id: z.string(),
+    input: z.string(),
+    mode: z.enum(["normal", "shell"]).optional(),
+    partsCount: z.number(),
+  })
+  .meta({ ref: "MobilePromptHistoryEntry" })
+
+const MobilePromptStashEntry = z
+  .object({
+    id: z.string(),
+    input: z.string(),
+    timestamp: z.number(),
+    partsCount: z.number(),
+  })
+  .meta({ ref: "MobilePromptStashEntry" })
+
+const MobilePromptStashCreateInput = z
+  .object({
+    input: z.string().trim().min(1),
+  })
+  .meta({ ref: "MobilePromptStashCreateInput" })
+
+const MobileMemorySearchHit = z
+  .object({
+    id: z.string(),
+    sessionID: z.string(),
+    sessionTitle: z.string(),
+    messageID: z.string(),
+    role: z.enum(["user", "assistant"]),
+    createdAt: z.number(),
+    preview: z.string(),
+  })
+  .meta({ ref: "MobileMemorySearchHit" })
+
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
+}
+
+type PromptHistoryRecord = {
+  input: string
+  mode?: "normal" | "shell"
+  parts?: unknown[]
+}
+
+type PromptStashRecord = {
+  input: string
+  timestamp: number
+  parts?: unknown[]
+}
+
+async function readJsonLines<T>(filePath: string) {
+  const text = await Bun.file(filePath)
+    .text()
+    .catch(() => "")
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      try {
+        return JSON.parse(line) as T
+      } catch {
+        return null
+      }
+    })
+    .filter((item): item is T => item !== null)
+}
+
+function historyFilePath() {
+  return path.join(Global.Path.state, "prompt-history.jsonl")
+}
+
+function stashFilePath() {
+  return path.join(Global.Path.state, "prompt-stash.jsonl")
+}
+
+async function listPromptHistory() {
+  const entries = await readJsonLines<PromptHistoryRecord>(historyFilePath())
+  return entries
+    .filter((entry): entry is PromptHistoryRecord => typeof entry.input === "string")
+    .slice(-50)
+    .reverse()
+    .map((entry, index) => ({
+      id: `${index}`,
+      input: entry.input,
+      mode: entry.mode === "shell" ? "shell" : entry.mode === "normal" ? "normal" : undefined,
+      partsCount: Array.isArray(entry.parts) ? entry.parts.length : 0,
+    }))
+}
+
+async function listPromptStash() {
+  const entries = await PromptStashStore.list()
+  return entries
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .map((entry) => ({
+      id: entry.id,
+      input: entry.input,
+      timestamp: entry.timestamp,
+      partsCount: Array.isArray(entry.parts) ? entry.parts.length : 0,
+    }))
+}
+
+function messageSearchText(message: MessageV2.WithParts) {
+  const text = message.parts
+    .filter((part): part is Extract<MessageV2.WithParts["parts"][number], { type: "text" }> => part.type === "text")
+    .map((part) => part.text)
+    .join("\n\n")
+    .trim()
+  if (text) return text
+  if (message.info.role === "assistant") {
+    return message.info.error?.data?.message?.trim() ?? ""
+  }
+  return ""
+}
+
+function snippetForQuery(text: string, query: string) {
+  const lower = text.toLowerCase()
+  const index = lower.indexOf(query)
+  if (index === -1) return text.slice(0, 180)
+  const start = Math.max(0, index - 48)
+  const end = Math.min(text.length, index + query.length + 108)
+  const prefix = start > 0 ? "..." : ""
+  const suffix = end < text.length ? "..." : ""
+  return `${prefix}${text.slice(start, end).trim()}${suffix}`
+}
+
+async function searchPromptMemories(query: string) {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return []
+  const hits: Array<{
+    id: string
+    sessionID: string
+    sessionTitle: string
+    messageID: string
+    role: "user" | "assistant"
+    createdAt: number
+    preview: string
+  }> = []
+
+  const sessionKeys = await Storage.list(["session"])
+  for (const key of sessionKeys) {
+    if (key.length !== 3) continue
+    const session = await Storage.read<Session.Info>(key).catch(() => undefined)
+    if (!session) continue
+    const messages = await Session.messages({ sessionID: session.id }).catch(() => [])
+    for (const message of messages) {
+      const text = messageSearchText(message)
+      if (!text || !text.toLowerCase().includes(normalized)) continue
+      hits.push({
+        id: `${session.id}:${message.info.id}`,
+        sessionID: session.id,
+        sessionTitle: session.title,
+        messageID: message.info.id,
+        role: message.info.role,
+        createdAt: message.info.time.created,
+        preview: snippetForQuery(text, normalized),
+      })
+      if (hits.length >= 40) break
+    }
+    if (hits.length >= 40) break
+  }
+
+  return hits.sort((a, b) => b.createdAt - a.createdAt).slice(0, 24)
 }
 
 async function getSessionAnyProject(sessionID: string): Promise<Session.Info> {
@@ -666,6 +831,115 @@ export const MobileRoutes = lazy(() =>
               : undefined,
           },
         })
+      },
+    )
+    .get(
+      "/memory/history",
+      describeRoute({
+        summary: "List prompt history for mobile",
+        description: "Return recent prompt history stored on the Nikcli host.",
+        operationId: "mobile.memory.history",
+        responses: {
+          200: {
+            description: "Prompt history",
+            content: { "application/json": { schema: resolver(MobilePromptHistoryEntry.array()) } },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(await listPromptHistory())
+      },
+    )
+    .get(
+      "/memory/search",
+      describeRoute({
+        summary: "Search prompt memories for mobile",
+        description: "Search across stored session messages for memory-like prompt context from mobile.",
+        operationId: "mobile.memory.search",
+        responses: {
+          200: {
+            description: "Memory search hits",
+            content: { "application/json": { schema: resolver(MobileMemorySearchHit.array()) } },
+          },
+        },
+      }),
+      validator("query", z.object({ query: z.string().trim().min(1) })),
+      async (c) => {
+        const query = c.req.valid("query").query
+        return c.json(await searchPromptMemories(query))
+      },
+    )
+    .get(
+      "/memory/stash",
+      describeRoute({
+        summary: "List prompt stash for mobile",
+        description: "Return reusable prompt snippets stored on the Nikcli host.",
+        operationId: "mobile.memory.stash.list",
+        responses: {
+          200: {
+            description: "Prompt stash",
+            content: { "application/json": { schema: resolver(MobilePromptStashEntry.array()) } },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(await listPromptStash())
+      },
+    )
+    .post(
+      "/memory/stash",
+      describeRoute({
+        summary: "Create prompt stash entry",
+        description: "Save a reusable prompt snippet on the Nikcli host.",
+        operationId: "mobile.memory.stash.create",
+        responses: {
+          200: {
+            description: "Created prompt stash entry",
+            content: { "application/json": { schema: resolver(MobilePromptStashEntry) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", MobilePromptStashCreateInput),
+      async (c) => {
+        const body = c.req.valid("json")
+        const [entry] = (
+          await PromptStashStore.push({
+            input: body.input.trim(),
+            parts: [] as any,
+          })
+        ).slice(-1)
+        return c.json({
+          id: entry.id,
+          input: entry.input,
+          timestamp: entry.timestamp,
+          partsCount: 0,
+        })
+      },
+    )
+    .delete(
+      "/memory/stash/:id",
+      describeRoute({
+        summary: "Delete prompt stash entry",
+        description: "Remove a reusable prompt snippet from the Nikcli host.",
+        operationId: "mobile.memory.stash.delete",
+        responses: {
+          200: {
+            description: "Deleted",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        const id = c.req.valid("param").id
+        const current = await PromptStashStore.list()
+        const next = await PromptStashStore.removeByID(id)
+        if (next.length === current.length) {
+          return c.json({ error: "Prompt snippet not found" }, 404)
+        }
+        return c.json({ success: true as const })
       },
     )
     .get(
@@ -1738,6 +2012,32 @@ export const MobileRoutes = lazy(() =>
       validator("json", Worktree.ResetInput),
       async (c) => {
         await Worktree.reset(c.req.valid("json"))
+        return c.json({ success: true as const })
+      },
+    )
+    .post(
+      "/session/:sessionID/rename",
+      describeRoute({
+        summary: "Rename a session",
+        description: "Update the title of an existing session.",
+        operationId: "mobile.session.rename",
+        responses: {
+          200: {
+            description: "Session renamed",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      validator("json", z.object({ title: z.string().min(1) })),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const { title } = c.req.valid("json")
+        const session = await Session.get(sessionID)
+        if (!session) return c.json({ error: "not found" }, 404)
+        await Session.update(sessionID, (draft) => {
+          draft.title = title.trim()
+        })
         return c.json({ success: true as const })
       },
     )

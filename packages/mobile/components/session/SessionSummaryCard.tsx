@@ -44,6 +44,19 @@ export function SessionSummaryCard({
   const updatedAt = detail?.info.time.updated
   const executionLabel = detail?.info.workspaceID ? "Container sandbox" : "Local worktree"
 
+  const totalTokens =
+    detail?.messages
+      .filter((m) => m.info.role === "assistant")
+      .reduce((sum, m) => {
+        const t = (m.info as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number } } }).tokens
+        return sum + (t?.input ?? 0) + (t?.output ?? 0) + (t?.reasoning ?? 0) + (t?.cache?.read ?? 0)
+      }, 0) ?? 0
+
+  const totalCost =
+    detail?.messages
+      .filter((m) => m.info.role === "assistant")
+      .reduce((sum, m) => sum + ((m.info as { cost?: number }).cost ?? 0), 0) ?? 0
+
   return (
     <View className="pb-4">
       <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="px-5 py-5">
@@ -57,6 +70,8 @@ export function SessionSummaryCard({
           <InfoChip label={executionLabel} tone={detail?.info.workspaceID ? "accent" : "neutral"} />
           {github?.headBranch ? <InfoChip label={github.headBranch} /> : null}
           {updatedAt ? <InfoChip label={`Updated ${relativeTime(updatedAt)}`} /> : null}
+          {totalTokens > 0 ? <InfoChip label={`${totalTokens.toLocaleString()} ctx`} tone="neutral" /> : null}
+          {totalCost > 0 ? <InfoChip label={`$${totalCost.toFixed(4)}`} tone="neutral" /> : null}
         </View>
 
         {github ? (

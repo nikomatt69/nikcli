@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft } from "lucide-react-native"
+import { ArrowLeft, Ellipsis } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
+import { useActionSheetRef } from "@/components/BottomSheet"
+import { AttachmentPicker } from "@/components/session/AttachmentPicker"
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
+import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
+import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
 import { triggerHaptic } from "@/lib/haptics"
 import { sendLocalNotification } from "@/lib/notifications"
+import { enqueueOp } from "@/lib/offline"
+import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 import {
   type CommandInfo,
@@ -21,6 +27,7 @@ import {
   MOBILE_DEFAULT_PROVIDER_ID,
   type FileDiff,
   type MessageWithParts,
+  type PromptStashEntry,
   type SessionDetail,
   type SessionStreamEvent,
 } from "@/lib/types"
@@ -82,6 +89,8 @@ export default function SessionScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
+  const composerPreferences = useUIStore((state) => state.composer)
+  const promptPresets = useUIStore((state) => state.promptPresets)
   const listRef = useRef<FlatList<MessageWithParts>>(null)
   const statusRef = useRef<SessionDetail["status"]>()
   const permissionIDsRef = useRef<Set<string>>(new Set())
@@ -101,12 +110,18 @@ export default function SessionScreen() {
   const [publishTitle, setPublishTitle] = useState("")
   const [publishBody, setPublishBody] = useState("")
   const [commitMessage, setCommitMessage] = useState("")
-  const [mode, setMode] = useState<"plan" | "code">("code")
+  const [mode, setMode] = useState<"plan" | "code">(composerPreferences.defaultMode)
   const [commands, setCommands] = useState<CommandInfo[]>([])
+  const [stashEntries, setStashEntries] = useState<PromptStashEntry[]>([])
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState("")
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
+  const [renameOpen, setRenameOpen] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false)
+  const actionsSheetRef = useActionSheetRef()
+  const attachSheetRef = useActionSheetRef()
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -137,22 +152,41 @@ export default function SessionScreen() {
     }
   }, [client, sessionId])
 
+  const loadMemories = useCallback(async () => {
+    if (!client) {
+      setStashEntries([])
+      return
+    }
+
+    try {
+      setStashEntries(await client.listPromptStash())
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    }
+  }, [client])
+
   useFocusEffect(
     useCallback(() => {
       void load()
       void loadCommands()
-    }, [load, loadCommands]),
+      void loadMemories()
+    }, [load, loadCommands, loadMemories]),
   )
 
   useEffect(() => {
     if (!commandPaletteOpen) return
     void loadCommands()
-  }, [commandPaletteOpen, loadCommands])
+    void loadMemories()
+  }, [commandPaletteOpen, loadCommands, loadMemories])
 
   useEffect(() => {
-    followTranscriptRef.current = true
+    followTranscriptRef.current = composerPreferences.autoFollowTranscript
     initialScrollDoneRef.current = false
-  }, [sessionId])
+  }, [composerPreferences.autoFollowTranscript, sessionId])
+
+  useEffect(() => {
+    setMode(composerPreferences.defaultMode)
+  }, [composerPreferences.defaultMode, sessionId])
 
   useEffect(() => {
     if (!detail) return
@@ -267,6 +301,7 @@ export default function SessionScreen() {
   )
   const slashInput = useMemo(() => parseSlashCommand(input), [input])
   const slashSuggestions = useMemo(() => {
+    if (!composerPreferences.slashSuggestions) return []
     if (!input.trimStart().startsWith("/")) return []
     const raw = input.trimStart().slice(1).split(/\s+/)[0]?.toLowerCase() ?? ""
     return commands
@@ -290,7 +325,66 @@ export default function SessionScreen() {
               ? `${command.hints.length} args`
               : undefined,
       }))
-  }, [commands, input])
+  }, [commands, composerPreferences.slashSuggestions, input])
+
+  async function handleRename(title: string) {
+    if (!client || !sessionId) return
+    try {
+      setRenaming(true)
+      await client.renameSession(sessionId, title)
+      await load()
+      setRenameOpen(false)
+      void triggerHaptic("success")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setRenaming(false)
+    }
+  }
+
+  async function handleExport(format: "markdown" | "json") {
+    if (!detail) return
+    const messages = detail.messages
+    let content: string
+    let title: string
+    if (format === "json") {
+      content = JSON.stringify(detail, null, 2)
+      title = `${detail.info.title}.json`
+    } else {
+      const lines: string[] = [`# ${detail.info.title}`, ""]
+      for (const msg of messages) {
+        const role = msg.info.role === "user" ? "**User**" : "**Assistant**"
+        const text = msg.parts
+          .filter((p): p is Extract<typeof p, { type: "text" }> => p.type === "text")
+          .map((p) => p.text)
+          .join("\n\n")
+        if (text) lines.push(`${role}\n\n${text}`, "")
+      }
+      content = lines.join("\n")
+      title = `${detail.info.title}.md`
+    }
+    await Share.share({ message: content, title })
+    void triggerHaptic("success")
+  }
+
+  function handleAttach() {
+    attachSheetRef.current?.present()
+  }
+
+  async function handleAttachFile(mime: string, filename: string, base64: string) {
+    if (!client || !sessionId || cleaned) return
+    try {
+      setSending(true)
+      setError(null)
+      await client.sendParts(sessionId, [{ type: "file", mime, filename, url: `data:${mime};base64,${base64}` }])
+      void triggerHaptic("send")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error))
+      void triggerHaptic("error")
+    } finally {
+      setSending(false)
+    }
+  }
 
   function openPublishModal() {
     if (!detail?.info.github) return
@@ -328,6 +422,10 @@ export default function SessionScreen() {
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
       void triggerHaptic("error")
+      // Queue for offline delivery on next foreground
+      if (sessionId && input.trim() && !slashInput) {
+        void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: input.trim() })
+      }
     } finally {
       setSending(false)
     }
@@ -350,6 +448,19 @@ export default function SessionScreen() {
   function scrollToBottom() {
     followTranscriptRef.current = true
     listRef.current?.scrollToEnd({ animated: true })
+  }
+
+  function mergeDraft(nextValue: string) {
+    const current = input.trim()
+    if (current.startsWith("/")) {
+      setInput(nextValue)
+      return
+    }
+    if (!current) {
+      setInput(nextValue)
+      return
+    }
+    setInput(`${current}\n\n${nextValue}`)
   }
 
   function scrollToLatest(animated: boolean) {
@@ -527,7 +638,59 @@ export default function SessionScreen() {
           setInput("")
         },
       },
+      {
+        id: "local.save-snippet",
+        title: "Save draft to memories",
+        description: "Store the current composer draft as a reusable host-backed snippet.",
+        section: "Memories",
+        badge: "Local",
+        disabled: !input.trim(),
+        keywords: ["save", "snippet", "memory", "stash", "draft"],
+        onPress: () => {
+          setCommandPaletteOpen(false)
+          if (!client || !input.trim()) return
+          void (async () => {
+            try {
+              await client.addPromptStash({ input: input.trim() })
+              await loadMemories()
+              void triggerHaptic("success")
+            } catch (error) {
+              setError(error instanceof Error ? error.message : String(error))
+              void triggerHaptic("error")
+            }
+          })()
+        },
+      },
     ]
+
+    const presetItems = promptPresets.map<CommandPaletteItem>((preset) => ({
+      id: `preset:${preset.id}`,
+      title: preset.title,
+      description: preset.prompt,
+      section: "Presets",
+      badge: preset.mode,
+      keywords: [preset.mode, "preset", "prompt"],
+      onPress: () => {
+        setCommandPaletteOpen(false)
+        setMode(preset.mode)
+        mergeDraft(preset.prompt)
+        void triggerHaptic("selection")
+      },
+    }))
+
+    const stashItems = stashEntries.slice(0, 8).map<CommandPaletteItem>((entry) => ({
+      id: `stash:${entry.id}`,
+      title: `Snippet ${new Date(entry.timestamp).toLocaleDateString()}`,
+      description: entry.input,
+      section: "Memories",
+      badge: entry.partsCount ? `${entry.partsCount} parts` : "Snippet",
+      keywords: ["memory", "snippet", "stash"],
+      onPress: () => {
+        setCommandPaletteOpen(false)
+        mergeDraft(entry.input)
+        void triggerHaptic("selection")
+      },
+    }))
 
     const serverItems = commands.map<CommandPaletteItem>((command) => ({
       id: `command:${command.name}`,
@@ -552,7 +715,7 @@ export default function SessionScreen() {
       },
     }))
 
-    const items = [...localItems, ...serverItems]
+    const items = [...localItems, ...presetItems, ...stashItems, ...serverItems]
     const term = commandQuery.trim().toLowerCase()
     if (!term) return items
 
@@ -562,7 +725,19 @@ export default function SessionScreen() {
         .toLowerCase()
       return haystack.includes(term)
     })
-  }, [abort, commandQuery, commands, detail?.info.github, detail?.permissions.length, input, sessionBlocked])
+  }, [
+    abort,
+    client,
+    commandQuery,
+    commands,
+    detail?.info.github,
+    detail?.permissions.length,
+    input,
+    loadMemories,
+    promptPresets,
+    sessionBlocked,
+    stashEntries,
+  ])
 
   if (loading && !detail) {
     return (
@@ -587,6 +762,15 @@ export default function SessionScreen() {
               {sessionLocation}
             </Text>
           </View>
+          <Pressable
+            onPress={() => {
+              void triggerHaptic("selection")
+              actionsSheetRef.current?.present()
+            }}
+            className="rounded-full border border-border bg-surface p-3"
+          >
+            <Ellipsis size={18} color={palette.ink} strokeWidth={2.2} />
+          </Pressable>
         </View>
       </View>
 
@@ -680,6 +864,7 @@ export default function SessionScreen() {
         }}
         onSelectSlash={insertSlashCommand}
         onSend={() => void send()}
+        onAttach={handleAttach}
       />
 
       <CommandPaletteSheet
@@ -706,6 +891,38 @@ export default function SessionScreen() {
         onClose={() => setPublishOpen(false)}
         onPublish={() => void publish()}
       />
+
+      <SessionActionsSheet
+        sheetRef={actionsSheetRef}
+        title={detail?.info.title ?? ""}
+        onRename={() => {
+          actionsSheetRef.current?.dismiss()
+          setRenameOpen(true)
+        }}
+        onExportMarkdown={() => {
+          actionsSheetRef.current?.dismiss()
+          void handleExport("markdown")
+        }}
+        onExportJSON={() => {
+          actionsSheetRef.current?.dismiss()
+          void handleExport("json")
+        }}
+        onCopyID={() => {
+          actionsSheetRef.current?.dismiss()
+          if (sessionId) void Clipboard.setStringAsync(sessionId)
+          void triggerHaptic("selection")
+        }}
+      />
+
+      <SessionRenameSheet
+        visible={renameOpen}
+        currentTitle={detail?.info.title ?? ""}
+        saving={renaming}
+        onClose={() => setRenameOpen(false)}
+        onSave={(title) => void handleRename(title)}
+      />
+
+      <AttachmentPicker sheetRef={attachSheetRef} onFile={(mime, filename, base64) => void handleAttachFile(mime, filename, base64)} />
     </KeyboardAvoidingView>
   )
 }

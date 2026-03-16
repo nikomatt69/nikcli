@@ -1,16 +1,20 @@
 PODS:
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
-  - EXApplication (6.1.5):
+  - EXApplication (6.0.2):
     - ExpoModulesCore
   - EXConstants (17.0.8):
     - ExpoModulesCore
   - EXImageLoader (5.0.0):
     - ExpoModulesCore
     - React-Core
+  - EXNotifications (0.29.14):
+    - ExpoModulesCore
   - Expo (52.0.49):
     - ExpoModulesCore
   - ExpoAsset (10.0.10):
+    - ExpoModulesCore
+  - ExpoClipboard (7.0.1):
     - ExpoModulesCore
   - ExpoCrypto (14.0.2):
     - ExpoModulesCore
@@ -19,6 +23,8 @@ PODS:
   - ExpoFileSystem (18.0.12):
     - ExpoModulesCore
   - ExpoFont (13.0.4):
+    - ExpoModulesCore
+  - ExpoHaptics (14.0.1):
     - ExpoModulesCore
   - ExpoHead (4.0.22):
     - ExpoModulesCore
@@ -1631,6 +1637,27 @@ PODS:
     - React-logger (= 0.76.7)
     - React-perflogger (= 0.76.7)
     - React-utils (= 0.76.7)
+  - RNGestureHandler (2.20.2):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNScreens (4.4.0):
     - DoubleConversion
     - glog
@@ -1682,15 +1709,18 @@ PODS:
 DEPENDENCIES:
   - "boost (from `../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/third-party-podspecs/boost.podspec`)"
   - "DoubleConversion (from `../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/third-party-podspecs/DoubleConversion.podspec`)"
-  - "EXApplication (from `../../../node_modules/.bun/expo-application@6.1.5+1232e80665a70525/node_modules/expo-application/ios`)"
+  - "EXApplication (from `../../../node_modules/.bun/expo-application@6.0.2+1232e80665a70525/node_modules/expo-application/ios`)"
   - "EXConstants (from `../../../node_modules/.bun/expo-constants@17.0.8+1232e80665a70525/node_modules/expo-constants/ios`)"
   - "EXImageLoader (from `../../../node_modules/.bun/expo-image-loader@5.0.0+1232e80665a70525/node_modules/expo-image-loader/ios`)"
+  - "EXNotifications (from `../../../node_modules/.bun/expo-notifications@0.29.14+1232e80665a70525/node_modules/expo-notifications/ios`)"
   - "Expo (from `../../../node_modules/.bun/expo@52.0.49+1232e80665a70525/node_modules/expo`)"
   - "ExpoAsset (from `../../../node_modules/.bun/expo-asset@10.0.10+1232e80665a70525/node_modules/expo-asset/ios`)"
+  - "ExpoClipboard (from `../../../node_modules/.bun/expo-clipboard@7.0.1+1232e80665a70525/node_modules/expo-clipboard/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.bun/expo-crypto@14.0.2+1232e80665a70525/node_modules/expo-crypto/ios`)"
   - "ExpoDocumentPicker (from `../../../node_modules/.bun/expo-document-picker@13.0.3+1232e80665a70525/node_modules/expo-document-picker/ios`)"
   - "ExpoFileSystem (from `../../../node_modules/.bun/expo-file-system@18.0.12+1232e80665a70525/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../../../node_modules/.bun/expo-font@13.0.4+1232e80665a70525/node_modules/expo-font/ios`)"
+  - "ExpoHaptics (from `../../../node_modules/.bun/expo-haptics@14.0.1+1232e80665a70525/node_modules/expo-haptics/ios`)"
   - "ExpoHead (from `../../../node_modules/.bun/expo-router@4.0.22+5f1f922dd5db4926/node_modules/expo-router/ios`)"
   - "ExpoImagePicker (from `../../../node_modules/.bun/expo-image-picker@16.0.6+1232e80665a70525/node_modules/expo-image-picker/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.bun/expo-keep-awake@14.0.3+541c8e18387bd8d5/node_modules/expo-keep-awake/ios`)"
@@ -1762,6 +1792,7 @@ DEPENDENCIES:
   - "React-utils (from `../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/ReactCommon/react/utils`)"
   - ReactCodegen (from `build/generated/ios`)
   - "ReactCommon/turbomodule/core (from `../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/ReactCommon`)"
+  - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - "Yoga (from `../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/ReactCommon/yoga`)"
 
@@ -1775,15 +1806,19 @@ EXTERNAL SOURCES:
   DoubleConversion:
     :podspec: "../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/third-party-podspecs/DoubleConversion.podspec"
   EXApplication:
-    :path: "../../../node_modules/.bun/expo-application@6.1.5+1232e80665a70525/node_modules/expo-application/ios"
+    :path: "../../../node_modules/.bun/expo-application@6.0.2+1232e80665a70525/node_modules/expo-application/ios"
   EXConstants:
     :path: "../../../node_modules/.bun/expo-constants@17.0.8+1232e80665a70525/node_modules/expo-constants/ios"
   EXImageLoader:
     :path: "../../../node_modules/.bun/expo-image-loader@5.0.0+1232e80665a70525/node_modules/expo-image-loader/ios"
+  EXNotifications:
+    :path: "../../../node_modules/.bun/expo-notifications@0.29.14+1232e80665a70525/node_modules/expo-notifications/ios"
   Expo:
     :path: "../../../node_modules/.bun/expo@52.0.49+1232e80665a70525/node_modules/expo"
   ExpoAsset:
     :path: "../../../node_modules/.bun/expo-asset@10.0.10+1232e80665a70525/node_modules/expo-asset/ios"
+  ExpoClipboard:
+    :path: "../../../node_modules/.bun/expo-clipboard@7.0.1+1232e80665a70525/node_modules/expo-clipboard/ios"
   ExpoCrypto:
     :path: "../../../node_modules/.bun/expo-crypto@14.0.2+1232e80665a70525/node_modules/expo-crypto/ios"
   ExpoDocumentPicker:
@@ -1792,6 +1827,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/expo-file-system@18.0.12+1232e80665a70525/node_modules/expo-file-system/ios"
   ExpoFont:
     :path: "../../../node_modules/.bun/expo-font@13.0.4+1232e80665a70525/node_modules/expo-font/ios"
+  ExpoHaptics:
+    :path: "../../../node_modules/.bun/expo-haptics@14.0.1+1232e80665a70525/node_modules/expo-haptics/ios"
   ExpoHead:
     :path: "../../../node_modules/.bun/expo-router@4.0.22+5f1f922dd5db4926/node_modules/expo-router/ios"
   ExpoImagePicker:
@@ -1931,6 +1968,8 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../../../node_modules/.bun/react-native@0.76.7+26cb0635753fc1ec/node_modules/react-native/ReactCommon"
+  RNGestureHandler:
+    :path: "../node_modules/react-native-gesture-handler"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   Yoga:
@@ -1939,15 +1978,18 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   boost: 1dca942403ed9342f98334bf4c3621f011aa7946
   DoubleConversion: f16ae600a246532c4020132d54af21d0ddb2a385
-  EXApplication: 1e06972201838375ca1ec1ba34d586a98a5dc718
+  EXApplication: 4c72f6017a14a65e338c5e74fca418f35141e819
   EXConstants: fcfc75800824ac2d5c592b5bc74130bad17b146b
   EXImageLoader: e5da974e25b13585c196b658a440720c075482d5
+  EXNotifications: 9d3d17e52c95f377750d4a2ae553a716313dd4aa
   Expo: 4bb70893882e6382b41d1e910d7226c6a1b85f0a
   ExpoAsset: 286fee7ba711ce66bf20b315e68106b13b8629fc
+  ExpoClipboard: 44fd1c8959ee8f6175d059dc011b154c9709a969
   ExpoCrypto: e97e864c8d7b9ce4a000bca45dddb93544a1b2b4
   ExpoDocumentPicker: 6d3d499cf15b692688a804f42927d0f35de5ebaa
   ExpoFileSystem: 42d363d3b96f9afab980dcef60d5657a4443c655
   ExpoFont: f354e926f8feae5e831ec8087f36652b44a0b188
+  ExpoHaptics: 8d199b2f33245ea85289ff6c954c7ee7c00a5b5d
   ExpoHead: 2a14db58219c0a506e4a409ea83f884eab23f555
   ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
@@ -2017,6 +2059,7 @@ SPEC CHECKSUMS:
   React-utils: 0342746d2cf989cf5e0d1b84c98cfa152edbdf3f
   ReactCodegen: 3dea62b0f60717838483e48c11667ede4f964369
   ReactCommon: 81e0744ee33adfd6d586141b927024f488bc49ea
+  RNGestureHandler: 16ef3dc2d7ecb09f240f25df5255953c4098819b
   RNScreens: 351f431ef2a042a1887d4d90e1c1024b8ae9d123
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 90d80701b27946c4b23461c00a7207f300a6ff71

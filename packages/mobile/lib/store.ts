@@ -1,9 +1,11 @@
 import { create } from "zustand"
 import type {
   AppPreferences,
+  ComposerPreferences,
   GesturePreferences,
   HapticPreferences,
   NotificationPreferences,
+  PromptPreset,
   SettingsSectionID,
   ThemeMode,
 } from "@/lib/types"
@@ -26,6 +28,8 @@ export interface AppShellState {
   notifications: NotificationPreferences
   haptics: HapticPreferences
   gestures: GesturePreferences
+  composer: ComposerPreferences
+  promptPresets: PromptPreset[]
   preferencesReady: boolean
   openDrawer(): void
   closeDrawer(): void
@@ -39,6 +43,8 @@ export interface AppShellState {
   setNotificationPreference<K extends keyof NotificationPreferences>(key: K, value: NotificationPreferences[K]): void
   setHapticPreference<K extends keyof HapticPreferences>(key: K, value: HapticPreferences[K]): void
   setGesturePreference<K extends keyof GesturePreferences>(key: K, value: GesturePreferences[K]): void
+  setComposerPreference<K extends keyof ComposerPreferences>(key: K, value: ComposerPreferences[K]): void
+  setPromptPresets(presets: PromptPreset[]): void
 }
 
 const defaultRouteLabels: RouteLabelState = {
@@ -50,6 +56,8 @@ const defaultRouteLabels: RouteLabelState = {
 const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   profile: true,
   interaction: true,
+  commands: true,
+  memories: true,
   connection: true,
   execution: true,
   providers: true,
@@ -57,10 +65,13 @@ const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   mcp: true,
   skills: true,
   advanced: true,
+  connectors: true,
+  agents: true,
+  tokens: true,
 }
 
 const defaultNotifications: NotificationPreferences = {
-  enabled: true,
+  enabled: false,
   sessionReady: true,
   permissions: true,
   failures: true,
@@ -79,6 +90,33 @@ const defaultGestures: GesturePreferences = {
   bubbleLongPressActions: true,
 }
 
+const defaultComposer: ComposerPreferences = {
+  defaultMode: "code",
+  autoFollowTranscript: true,
+  slashSuggestions: true,
+}
+
+const defaultPromptPresets: PromptPreset[] = [
+  {
+    id: "preset-review",
+    title: "Review current work",
+    prompt: "Review the current changes, call out risks, and propose the smallest safe next steps.",
+    mode: "plan",
+  },
+  {
+    id: "preset-fix",
+    title: "Fix latest error",
+    prompt: "Investigate the latest failure, explain the root cause, and apply the smallest correct fix.",
+    mode: "code",
+  },
+  {
+    id: "preset-publish",
+    title: "Prepare publish",
+    prompt: "Check the diff, summarize the work, and get this session ready to publish safely.",
+    mode: "plan",
+  },
+]
+
 export const useUIStore = create<AppShellState>((set) => ({
   drawerOpen: false,
   activeRoute: "sessions",
@@ -88,6 +126,8 @@ export const useUIStore = create<AppShellState>((set) => ({
   notifications: defaultNotifications,
   haptics: defaultHaptics,
   gestures: defaultGestures,
+  composer: defaultComposer,
+  promptPresets: defaultPromptPresets,
   preferencesReady: false,
   openDrawer: () => set({ drawerOpen: true }),
   closeDrawer: () => set({ drawerOpen: false }),
@@ -126,6 +166,11 @@ export const useUIStore = create<AppShellState>((set) => ({
         ...defaultGestures,
         ...preferences.gestures,
       },
+      composer: {
+        ...defaultComposer,
+        ...preferences.composer,
+      },
+      promptPresets: preferences.promptPresets?.length ? preferences.promptPresets : defaultPromptPresets,
       preferencesReady: true,
     }),
   setThemeMode: (mode) => set({ themeMode: mode }),
@@ -157,4 +202,12 @@ export const useUIStore = create<AppShellState>((set) => ({
         [key]: value,
       },
     })),
+  setComposerPreference: (key, value) =>
+    set((state) => ({
+      composer: {
+        ...state.composer,
+        [key]: value,
+      },
+    })),
+  setPromptPresets: (presets) => set({ promptPresets: presets }),
 }))

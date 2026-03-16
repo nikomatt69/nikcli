@@ -51,6 +51,50 @@ export const palettes = {
 
 export type AppPalette = (typeof palettes)[keyof typeof palettes]
 
+// Glass-specific tokens for expo-glass-effect
+export const glassTokens = {
+  light: {
+    // Shell: subtle glass fill for headers, tabs, overlays
+    glassShell: "rgba(255, 255, 255, 0.72)",
+    glassShellStrong: "rgba(255, 255, 255, 0.85)",
+    // Panel: stronger glass for cards, sheets
+    glassPanel: "rgba(232, 240, 248, 0.68)",
+    glassPanelStrong: "rgba(232, 240, 248, 0.82)",
+    // Border: white borders for glass separation
+    glassBorder: "rgba(255, 255, 255, 0.18)",
+    glassBorderStrong: "rgba(255, 255, 255, 0.28)",
+    // Shadow: light-mode glass shadow
+    glassShadow: "rgba(0, 0, 0, 0.06)",
+    glassShadowStrong: "rgba(0, 0, 0, 0.1)",
+    // Scrim: background tint for overlays
+    glassScrim: "rgba(0, 0, 0, 0.025)",
+    // Accent tint: subtle color for interactive glass
+    glassTintAccent: "rgba(14, 165, 233, 0.08)",
+    glassTintAccentStrong: "rgba(14, 165, 233, 0.15)",
+  },
+  dark: {
+    // Shell: subtle glass fill for headers, tabs, overlays
+    glassShell: "rgba(13, 27, 42, 0.72)",
+    glassShellStrong: "rgba(13, 27, 42, 0.85)",
+    // Panel: stronger glass for cards, sheets
+    glassPanel: "rgba(18, 38, 58, 0.68)",
+    glassPanelStrong: "rgba(18, 38, 58, 0.82)",
+    // Border: white borders for glass separation
+    glassBorder: "rgba(255, 255, 255, 0.1)",
+    glassBorderStrong: "rgba(255, 255, 255, 0.18)",
+    // Shadow: dark-mode glass shadow
+    glassShadow: "rgba(0, 0, 0, 0.3)",
+    glassShadowStrong: "rgba(0, 0, 0, 0.45)",
+    // Scrim: background tint for overlays
+    glassScrim: "rgba(0, 0, 0, 0.18)",
+    // Accent tint: subtle color for interactive glass
+    glassTintAccent: "rgba(56, 189, 248, 0.1)",
+    glassTintAccentStrong: "rgba(56, 189, 248, 0.18)",
+  },
+} as const
+
+export type GlassTokens = (typeof glassTokens)[keyof typeof glassTokens]
+
 export function useAppTheme() {
   const { colorScheme } = useColorScheme()
   const scheme = colorScheme === "light" ? "light" : "dark"
@@ -58,5 +102,6 @@ export function useAppTheme() {
     colorScheme: scheme,
     isDark: scheme === "dark",
     palette: palettes[scheme],
+    glass: glassTokens[scheme],
   }
 }

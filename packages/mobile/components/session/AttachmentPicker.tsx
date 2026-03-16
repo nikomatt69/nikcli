@@ -1,0 +1,128 @@
+import type { RefObject } from "react"
+import { Pressable, Text, View } from "react-native"
+import * as DocumentPicker from "expo-document-picker"
+import * as FileSystem from "expo-file-system"
+import * as ImagePicker from "expo-image-picker"
+import { FileText, Image, type LucideIcon } from "lucide-react-native"
+import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
+import { useAppTheme } from "@/lib/theme"
+
+type Props = {
+  sheetRef: RefObject<ActionSheetRef>
+  onFile(mime: string, filename: string, base64: string): void
+}
+
+type RowProps = {
+  Icon: LucideIcon
+  label: string
+  description: string
+  onPress(): void
+}
+
+function PickerRow({ Icon, label, description, onPress }: RowProps) {
+  const { palette, isDark } = useAppTheme()
+
+  return (
+    <Pressable
+      onPress={onPress}
+      className="flex-row items-center gap-3.5 px-5 py-4"
+      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+    >
+      <View
+        className="shrink-0 items-center justify-center rounded-[14px]"
+        style={{
+          width: 46,
+          height: 46,
+          backgroundColor: isDark ? "rgba(56,189,248,0.10)" : "rgba(14,165,233,0.09)",
+          borderWidth: 1,
+          borderColor: isDark ? "rgba(56,189,248,0.26)" : "rgba(14,165,233,0.18)",
+        }}
+      >
+        <Icon size={20} color={palette.accentLight} strokeWidth={2.1} />
+      </View>
+      <View className="flex-1">
+        <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink">
+          {label}
+        </Text>
+        <Text className="mt-0.5 text-[12.5px] leading-4 text-muted">
+          {description}
+        </Text>
+      </View>
+    </Pressable>
+  )
+}
+
+export function AttachmentPicker({ sheetRef, onFile }: Props) {
+  const { palette, isDark } = useAppTheme()
+
+  async function pickDocument() {
+    sheetRef.current?.dismiss()
+    const result = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true })
+    if (result.canceled || !result.assets?.[0]) return
+    const asset = result.assets[0]
+    const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: "base64" })
+    onFile(asset.mimeType ?? "application/octet-stream", asset.name, base64)
+  }
+
+  async function pickImage() {
+    sheetRef.current?.dismiss()
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      base64: true,
+      quality: 0.85,
+    })
+    if (result.canceled || !result.assets?.[0]) return
+    const asset = result.assets[0]
+    if (!asset.base64) return
+    const mime = asset.mimeType ?? "image/jpeg"
+    const filename = asset.fileName ?? `image_${Date.now()}.jpg`
+    onFile(mime, filename, asset.base64)
+  }
+
+  return (
+    <ActionSheet ref={sheetRef} snapPoints={[320]}>
+      {/* Header */}
+      <View className="border-b border-border px-5 pb-4">
+        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">
+          Attach file
+        </Text>
+        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink">
+          Choose a source
+        </Text>
+        <View
+          className="mt-2 self-start rounded-full px-2.5 py-1"
+          style={{
+            borderWidth: 1,
+            borderColor: isDark ? "rgba(56,189,248,0.22)" : "rgba(14,165,233,0.18)",
+            backgroundColor: isDark ? "rgba(56,189,248,0.10)" : "rgba(14,165,233,0.09)",
+          }}
+        >
+          <Text
+            className="text-[10px] font-semibold tracking-wide"
+            style={{ color: palette.accentLight }}
+          >
+            Sent to active session
+          </Text>
+        </View>
+      </View>
+
+      {/* Rows */}
+      <View>
+        <PickerRow
+          Icon={FileText}
+          label="Attach document"
+          description="PDF, TXT, code files, spreadsheets"
+          onPress={() => void pickDocument()}
+        />
+        <View className="mx-5 h-px bg-border" />
+        <PickerRow
+          Icon={Image}
+          label="Attach image"
+          description="JPG, PNG, HEIC from your photo library"
+          onPress={() => void pickImage()}
+        />
+        <View className="h-2" />
+      </View>
+    </ActionSheet>
+  )
+}

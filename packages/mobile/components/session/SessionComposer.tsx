@@ -1,4 +1,5 @@
 import { Pressable, Text, TextInput, View, useWindowDimensions } from "react-native"
+import { Paperclip } from "lucide-react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
@@ -20,6 +21,7 @@ type SessionComposerProps = {
   onOpenCommands(): void
   onSelectSlash(name: string): void
   onSend(): void
+  onAttach?(): void
 }
 
 export function SessionComposer({
@@ -35,6 +37,7 @@ export function SessionComposer({
   onOpenCommands,
   onSelectSlash,
   onSend,
+  onAttach,
 }: SessionComposerProps) {
   const { width } = useWindowDimensions()
   const { colorScheme, palette } = useAppTheme()
@@ -183,15 +186,29 @@ export function SessionComposer({
             {liveHint}
           </Text>
           <View className="items-end gap-1">
-            <Pressable
-              onPress={() => {
-                void triggerHaptic("selection")
-                onOpenCommands()
-              }}
-              className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
-            >
-              <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
-            </Pressable>
+            <View className="flex-row items-center gap-1.5">
+              {onAttach ? (
+                <Pressable
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    onAttach()
+                  }}
+                  disabled={cleaned}
+                  className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
+                >
+                  <Paperclip size={13} color={palette.accent} strokeWidth={2.1} />
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  void triggerHaptic("selection")
+                  onOpenCommands()
+                }}
+                className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
+              >
+                <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
+              </Pressable>
+            </View>
             <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
               {input.trim().length} chars
             </Text>
