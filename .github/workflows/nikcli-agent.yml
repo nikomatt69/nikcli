@@ -42,7 +42,7 @@ jobs:
 
       - name: Run NikCLI Headless
         env:
-          NIKCLI_MODEL: minimax-coding-plan/MiniMax-M2.5
+          NIKCLI_MODEL: minimax-coding-plan/MiniMax-M2.7
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

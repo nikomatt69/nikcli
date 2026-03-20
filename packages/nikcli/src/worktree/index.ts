@@ -294,6 +294,13 @@ export namespace Worktree {
       throw new CreateFailedError({ message: errorText(created) || "Failed to create git worktree" })
     }
 
+    // Symlink node_modules from the main worktree so workspace packages (e.g. @nikcli-ai/plugin) resolve correctly
+    const mainNodeModules = path.join(Instance.worktree, "node_modules")
+    const worktreeNodeModules = path.join(info.directory, "node_modules")
+    if ((await exists(mainNodeModules)) && !(await exists(worktreeNodeModules))) {
+      await fs.symlink(mainNodeModules, worktreeNodeModules).catch(() => undefined)
+    }
+
     const cmd = input?.startCommand?.trim()
     if (!cmd) return info
 
