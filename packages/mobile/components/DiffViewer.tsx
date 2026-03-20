@@ -1,6 +1,7 @@
 import { useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
 import type { FileDiff } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
 
 function renderLines(before: string, after: string) {
   const beforeLines = before.split("\n")
@@ -30,8 +31,15 @@ function fileStatus(diff: FileDiff): { label: string; style: string } {
 
 export function DiffViewer(props: { diffs: FileDiff[] }) {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
+  const { palette } = useAppTheme()
 
   function toggle(file: string) {
+    LayoutAnimation.configureNext({
+      duration: 240,
+      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
+      update: { type: LayoutAnimation.Types.spring, springDamping: 0.8, duration: 240 },
+      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
+    })
     setExpandedFiles((prev) => {
       const next = new Set(prev)
       if (next.has(file)) next.delete(file)
@@ -49,35 +57,45 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
           <View key={diff.file} className="overflow-hidden rounded-[18px] border border-border bg-surface">
             <Pressable
               className="flex-row items-center justify-between gap-3 border-b border-border px-3 py-2.5"
+              hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
               onPress={() => toggle(diff.file)}
             >
-              <Text className="flex-1 text-sm font-semibold text-ink" numberOfLines={2}>
+              <Text allowFontScaling={false} className="flex-1 text-sm font-semibold text-ink" numberOfLines={2}>
                 {diff.file}
               </Text>
               <View className="flex-row items-center gap-2">
                 <View className={`rounded-full border px-2 py-0.5 ${status.style}`}>
-                  <Text className="text-[10px] font-semibold">{status.label}</Text>
+                  <Text allowFontScaling={false} className="text-[10px] font-semibold">{status.label}</Text>
                 </View>
-                <Text className="text-xs text-soft">
+                <Text allowFontScaling={false} className="text-xs text-soft">
                   +{diff.additions} / -{diff.deletions}
                 </Text>
               </View>
             </Pressable>
             {isExpanded ? (
-              <ScrollView className="max-h-72" nestedScrollEnabled style={{ flexGrow: 0 }}>
+              <ScrollView
+                className="max-h-72"
+                nestedScrollEnabled
+                bounces={false}
+                scrollsToTop={false}
+                style={{ flexGrow: 0 }}
+              >
                 <ScrollView
                   horizontal
                   nestedScrollEnabled
+                  bounces={false}
+                  scrollsToTop={false}
                   showsHorizontalScrollIndicator
                   className="px-3 py-2.5"
                   style={{ flexGrow: 0 }}
                   contentContainerStyle={{ alignSelf: "flex-start" }}
                 >
-                  <View className="gap-1">
+                  <View style={{ gap: 1 }}>
                     {renderLines(diff.before, diff.after).map((line, index) => (
                       <Text
                         key={`${diff.file}-${index}`}
                         selectable
+                        selectionColor={palette.accent}
                         className={`font-mono text-xs leading-5 ${line.kind === "add" ? "text-emerald-300" : line.kind === "remove" ? "text-rose-300" : "text-muted"}`}
                       >
                         {line.text || " "}

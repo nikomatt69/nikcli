@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { FlatList, RefreshControl, Text, View } from "react-native"
-import { router, useFocusEffect } from "expo-router"
+import { router } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
 import { SessionListSkeleton } from "@/components/Skeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -64,16 +64,14 @@ export default function SessionsScreen() {
     return () => clearTimeout(timer)
   }, [client, load, search])
 
-  useFocusEffect(
-    useCallback(() => {
-      if (loading) return
-      if (!config) {
-        router.replace("/")
-        return
-      }
-      void load(search)
-    }, [config, load, loading, search]),
-  )
+  useEffect(() => {
+    if (loading) return
+    if (!config) {
+      router.replace("/")
+      return
+    }
+    void load(search)
+  }, [config, loading, search])
 
   async function createSession() {
     if (!client || creating) return

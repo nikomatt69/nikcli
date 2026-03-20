@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from "react-native"
+import { useEffect, useRef } from "react"
+import { Animated, Pressable, Text, View } from "react-native"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { APP_TABS } from "@/components/layout/navigation.config"
@@ -9,6 +10,28 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const { bottom } = useSafeAreaInsets()
   const { config, bootstrap } = useServer()
   const { palette, isDark } = useAppTheme()
+  const indicatorAnims = useRef(new Map<string, Animated.Value>()).current
+
+  function getIndicatorAnim(key: string, initialFocused: boolean): Animated.Value {
+    if (!indicatorAnims.has(key)) {
+      indicatorAnims.set(key, new Animated.Value(initialFocused ? 1 : 0))
+    }
+    return indicatorAnims.get(key)!
+  }
+
+  useEffect(() => {
+    state.routes.forEach((route, index) => {
+      const anim = indicatorAnims.get(route.key)
+      if (!anim) return
+      Animated.spring(anim, {
+        toValue: state.index === index ? 1 : 0,
+        useNativeDriver: true,
+        damping: 20,
+        stiffness: 300,
+        mass: 0.8,
+      }).start()
+    })
+  }, [state.index])
 
   const overallStatus = !config
     ? { label: "Host offline", color: palette.danger }
@@ -98,6 +121,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             const badge = badgeTone(route.name)
 
             const Icon = tab.icon
+            const focusAnim = getIndicatorAnim(route.key, focused)
             const onPress = () => {
               const event = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true })
               if (!focused && !event.defaultPrevented) navigation.navigate(route.name as string)
@@ -183,12 +207,14 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                   >
                     {tab.label}
                   </Text>
-                  <View
+                  <Animated.View
                     style={{
-                      width: focused ? 18 : 6,
+                      width: 18,
                       height: 3,
                       borderRadius: 999,
-                      backgroundColor: focused ? palette.accent : "transparent",
+                      backgroundColor: palette.accent,
+                      opacity: focusAnim,
+                      transform: [{ scaleX: focusAnim.interpolate({ inputRange: [0, 1], outputRange: [0.33, 1] }) }],
                     }}
                   />
                 </View>

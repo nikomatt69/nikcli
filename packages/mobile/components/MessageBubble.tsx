@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react"
-import { LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
+import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { ChevronDown, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
+import * as Clipboard from "expo-clipboard"
 import Markdown, { type ASTNode, type RenderRules } from "react-native-markdown-display"
 import { Swipeable } from "react-native-gesture-handler"
 import type {
@@ -68,31 +69,170 @@ function trimmedCodeContent(node: ASTNode) {
   return node.content.endsWith("\n") ? node.content.slice(0, -1) : node.content
 }
 
+function getLanguage(node: ASTNode): string {
+  const info = (node.sourceType as string | undefined)?.trim()
+  return info?.split(/\s+/)[0]?.toLowerCase() || "code"
+}
+
+function highlightCode(code: string): { text: string; color: string }[] {
+  const patterns: { regex: RegExp; color: string }[] = [
+    {
+      regex:
+        /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|interface|type|extends|implements|async|await|try|catch|throw|new|this|static|public|private|protected|readonly|abstract|override|keyof|infer|never|unknown|any|void|null|undefined|true|false|switch|case|default|break|continue|typeof|instanceof|delete|in|of|yield|finally|do|as|is)\b/g,
+      color: "#ff79c6",
+    },
+    { regex: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, color: "#50fa7b" },
+    { regex: /\/\/.*$/gm, color: "#6272a4" },
+    { regex: /\/\*[\s\S]*?\*\//g, color: "#6272a4" },
+    {
+      regex:
+        /\b(console|document|window|Math|Array|Object|String|Number|Boolean|Function|Symbol|Map|Set|Promise|setTimeout|setInterval|fetch|localStorage|sessionStorage|process|require|module|exports)\b/g,
+      color: "#ffb86c",
+    },
+    { regex: /\b[A-Z][a-zA-Z0-9]*\b/g, color: "#ffb86c" },
+    { regex: /\b\d+\.?\d*\b/g, color: "#bd93f9" },
+    { regex: /#[a-fA-F0-9]{3,8}\b/g, color: "#bd93f9" },
+    { regex: /=>|===|!==|&&|\|\||<=|>=|==|!=|\+\+|--|\+|-|\*|\/|%|\||&|\^|~|\?|:/g, color: "#8be9fd" },
+  ]
+
+  const result: { text: string; color: string }[] = []
+  const lines = code.split("\n")
+
+  lines.forEach((line, lineIndex) => {
+    let segments: { text: string; color: string }[] = [{ text: line, color: "#f8f8f2" }]
+
+    const matches: { start: number; end: number; text: string; color: string }[] = []
+
+    patterns.forEach(({ regex, color }) => {
+      let match
+      regex.lastIndex = 0
+      while ((match = regex.exec(line)) !== null) {
+        matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], color })
+      }
+    })
+
+    matches.sort((a, b) => a.start - b.start)
+
+    const filtered: { start: number; end: number; text: string; color: string }[] = []
+    matches.forEach((m) => {
+      if (filtered.length === 0 || m.start > filtered[filtered.length - 1].end) {
+        filtered.push(m)
+      }
+    })
+
+    if (filtered.length > 0) {
+      const newSegments: { text: string; color: string }[] = []
+      let lastEnd = 0
+      filtered.forEach((m) => {
+        if (m.start > lastEnd) {
+          newSegments.push({ text: line.slice(lastEnd, m.start), color: "#f8f8f2" })
+        }
+        newSegments.push({ text: m.text, color: m.color })
+        lastEnd = m.end
+      })
+      if (lastEnd < line.length) {
+        newSegments.push({ text: line.slice(lastEnd), color: "#abb2bf" })
+      }
+      segments = newSegments
+    }
+
+    result.push(
+      ...segments.map((s, i) => ({
+        text: i === segments.length - 1 && lineIndex < lines.length - 1 ? s.text + "\n" : s.text,
+        color: s.color,
+      })),
+    )
+  })
+
+  return result.length > 0 ? result : [{ text: code, color: "#f8f8f2" }]
+}
+
 function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const { palette } = useAppTheme()
+  const language = getLanguage(props.node)
+  const code = trimmedCodeContent(props.node)
+  const highlighted = highlightCode(code)
+  const lineCount = code.split("\n").length
+  const isLong = lineCount > 10
+
+  async function handleCopy() {
+    await Clipboard.setStringAsync(code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <View
       key={props.node.key}
-      className="mt-2 overflow-hidden rounded-[14px] border"
-      style={{ backgroundColor: props.backgroundColor, borderColor: props.borderColor }}
+      className="mt-2 overflow-hidden rounded-2xl border"
+      style={{ backgroundColor: palette.codeBlockBackground, borderColor: palette.border }}
     >
+      <View
+        className="flex-row items-center justify-between border-b px-4 py-2.5"
+        style={{ backgroundColor: `${palette.codeBlockBackground}dd`, borderBottomColor: palette.border }}
+      >
+        <View className="flex-row items-center gap-2">
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.danger }} />
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} />
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.success }} />
+        </View>
+        <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: palette.accentLight }}>
+          {language}
+        </Text>
+        <View className="flex-row items-center gap-2">
+          <Text className="text-[9px]" style={{ color: palette.muted }}>
+            {lineCount} {lineCount === 1 ? "line" : "lines"}
+          </Text>
+          <Pressable
+            onPress={handleCopy}
+            hitSlop={8}
+            className="flex-row items-center gap-1.5 rounded-lg px-2.5 py-1"
+            style={{ backgroundColor: copied ? `${palette.success}30` : `${palette.border}40` }}
+          >
+            <Copy size={10} color={copied ? palette.success : palette.muted} strokeWidth={2} />
+            <Text className="text-[10px] font-semibold" style={{ color: copied ? palette.success : palette.muted }}>
+              {copied ? "Copied!" : "Copy"}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
       <ScrollView
         nestedScrollEnabled
-        showsVerticalScrollIndicator
-        style={{ flexGrow: 0, maxHeight: 220 }}
-        contentContainerStyle={{ paddingHorizontal: 10, paddingVertical: 9 }}
+        horizontal
+        showsHorizontalScrollIndicator={true}
+        showsVerticalScrollIndicator={false}
+        style={{ maxHeight: expanded ? 800 : 400 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 }}
       >
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={{ alignSelf: "flex-start" }}
-        >
-          <Text selectable style={props.textStyle as any}>
-            {trimmedCodeContent(props.node)}
-          </Text>
-        </ScrollView>
+        <View>
+          {code.split("\n").map((line, lineIndex) => {
+            const lineHighlighted = highlightCode(line)
+            return (
+              <Text key={lineIndex} selectable className="text-[11px] leading-[18px]" style={{ fontFamily: "Menlo" }}>
+                {lineHighlighted.map((seg, i) => (
+                  <Text key={i} style={{ color: seg.color }}>
+                    {seg.text}
+                  </Text>
+                ))}
+                {"\n"}
+              </Text>
+            )
+          })}
+        </View>
       </ScrollView>
+      {isLong && (
+        <Pressable
+          onPress={() => setExpanded(!expanded)}
+          className="border-t py-2.5"
+          style={{ backgroundColor: `${palette.codeBlockBackground}dd`, borderTopColor: palette.border }}
+        >
+          <Text className="text-center text-[11px] font-semibold" style={{ color: palette.accentLight }}>
+            {expanded ? "Show less" : "Show more"}
+          </Text>
+        </Pressable>
+      )}
     </View>
   )
 }
@@ -225,40 +365,89 @@ export function MessageBubble(props: {
                 <Markdown
                   rules={markdownRules}
                   style={{
-                    body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
-                    paragraph: { marginTop: 0, marginBottom: 8 },
-                    heading1: { color: palette.ink, marginTop: 4, marginBottom: 8 },
-                    heading2: { color: palette.ink, marginTop: 4, marginBottom: 8 },
-                    bullet_list: { marginVertical: 0 },
-                    ordered_list: { marginVertical: 0 },
-                    list_item: { marginBottom: 4 },
+                    body: { color: palette.ink, fontSize: 13, lineHeight: 20, fontFamily: "Helvetica-Bold" },
+                    paragraph: { marginTop: 0, marginBottom: 6 },
+                    heading1: { color: palette.ink, fontSize: 16, fontWeight: "700", marginTop: 10, marginBottom: 6 },
+                    heading2: { color: palette.ink, fontSize: 14, fontWeight: "700", marginTop: 8, marginBottom: 4 },
+                    heading3: { color: palette.ink, fontSize: 13, fontWeight: "600", marginTop: 6, marginBottom: 3 },
+                    heading4: { color: palette.ink, fontSize: 12, fontWeight: "600", marginTop: 4, marginBottom: 3 },
+                    heading5: { color: palette.ink, fontSize: 11, fontWeight: "600", marginTop: 4, marginBottom: 2 },
+                    heading6: { color: palette.muted, fontSize: 10, fontWeight: "600", marginTop: 4, marginBottom: 2 },
+                    strong: { fontWeight: "700" },
+                    em: { fontStyle: "italic" },
+                    s: { textDecorationLine: "line-through", color: palette.muted },
+                    hr: { backgroundColor: palette.border, height: StyleSheet.hairlineWidth, marginVertical: 12 },
+                    table: {
+                      borderWidth: 1,
+                      borderColor: palette.border,
+                      borderRadius: 10,
+                      marginVertical: 10,
+                      overflow: "hidden",
+                    },
+                    thead: { backgroundColor: palette.surface },
+                    th: {
+                      color: palette.ink,
+                      fontWeight: "600",
+                      fontSize: 11,
+                      paddingHorizontal: 10,
+                      paddingVertical: 8,
+                      borderRightWidth: 1,
+                      borderRightColor: palette.border,
+                      borderBottomWidth: 2,
+                      borderBottomColor: palette.border,
+                    },
+                    tr: {
+                      borderBottomWidth: 1,
+                      borderBottomColor: palette.border,
+                    },
+                    td: {
+                      color: palette.soft,
+                      fontSize: 11,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                      borderRightWidth: 1,
+                      borderRightColor: palette.border,
+                    },
+                    bullet_list: { marginVertical: 4 },
+                    ordered_list: { marginVertical: 4 },
+                    list_item: { marginBottom: 6 },
+                    bullet_list_icon: { color: palette.accentLight, marginRight: 6 },
+                    ordered_list_icon: { color: palette.accentLight, marginRight: 6 },
                     code_inline: {
                       color: palette.accentLight,
-                      backgroundColor: "transparent",
-                      borderRadius: 8,
-                      paddingHorizontal: 6,
+                      backgroundColor: palette.codeBackground,
+                      borderRadius: 14,
+                      shadowRadius: 12,
+                      shadowColor: palette.shadow,
+                      paddingHorizontal: 4,
                       paddingVertical: 2,
+                      fontFamily: "Menlo-bold",
+                      fontSize: 11,
                     },
                     code_block: {
                       color: palette.codeText,
-                      fontSize: 13,
-                      lineHeight: 20,
+                      fontSize: 11,
+                      lineHeight: 16,
+                      fontFamily: "Menlo",
                       includeFontPadding: false,
                     },
                     fence: {
                       color: palette.codeText,
-                      fontSize: 13,
-                      lineHeight: 20,
+                      fontSize: 11,
+                      lineHeight: 16,
+                      fontFamily: "Menlo",
                       includeFontPadding: false,
-                      backgroundColor: "transparent",
                     },
                     blockquote: {
-                      borderLeftWidth: 2,
-                      borderLeftColor: palette.border,
-                      paddingLeft: 10,
-                      color: palette.soft,
+                      borderLeftWidth: 3,
+                      borderLeftColor: palette.accent,
+                      paddingLeft: 12,
+                      paddingVertical: 4,
+                      marginVertical: 8,
+                      backgroundColor: `${palette.accent}10`,
+                      borderRadius: 4,
                     },
-                    link: { color: palette.accentLight },
+                    link: { color: palette.accentLight, textDecorationLine: "underline" },
                   }}
                 >
                   {text}

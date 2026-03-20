@@ -1,6 +1,4 @@
-// UI Components - Glass & Surface
-export { GlassSurface } from "./GlassSurface"
-export type { GlassSurfaceProps, GlassEffectStyle, GlassColorScheme, GlassTokens } from "./GlassSurface"
+
 
 // UI Components - Action & Input
 export { ActionButton } from "./ActionButton"

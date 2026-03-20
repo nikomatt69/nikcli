@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Pressable, ScrollView, Text, View } from "react-native"
+import { useEffect, useRef, useState } from "react"
+import { Animated, LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
 import { FileCode2, Folder, Globe, Search, SquareTerminal, Wrench, type LucideIcon } from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
@@ -46,6 +46,32 @@ export function ToolCallView(props: { part: ToolPart }) {
   const state = props.part.state
   const status = state.status
   const Icon = toolIcon(props.part.tool)
+  const pulseAnim = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    if (status !== "running") {
+      pulseAnim.setValue(1)
+      return
+    }
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.25, duration: 520, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 520, useNativeDriver: true }),
+      ]),
+    )
+    animation.start()
+    return () => animation.stop()
+  }, [status, pulseAnim])
+
+  function toggle() {
+    LayoutAnimation.configureNext({
+      duration: 240,
+      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
+      update: { type: LayoutAnimation.Types.spring, springDamping: 0.8, duration: 240 },
+      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
+    })
+    setOpen((value) => !value)
+  }
 
   const title = status === "running" || status === "completed" ? state.title : undefined
   const timing =
@@ -58,14 +84,16 @@ export function ToolCallView(props: { part: ToolPart }) {
     <View className="min-w-0 overflow-hidden rounded-[18px] border border-border bg-background/75">
       <Pressable
         className="flex-row items-center justify-between gap-3 px-3 py-2.5"
-        onPress={() => setOpen((value) => !value)}
+        onPress={toggle}
       >
         <View className="flex-1 flex-row items-center gap-2">
-          <View
+          <Animated.View
             style={{
               width: 8,
               height: 8,
+
               borderRadius: 4,
+              opacity: status === "running" ? pulseAnim : 1,
               backgroundColor: statusDotColor(status, {
                 warn: palette.warn,
                 success: palette.success,

@@ -845,7 +845,7 @@ export default function SessionScreen() {
             description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
           />
         }
-        contentContainerStyle={{ paddingBottom: 12, paddingTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 24, paddingTop: 10 }}
       />
 
       <SessionComposer
@@ -897,7 +897,7 @@ export default function SessionScreen() {
         title={detail?.info.title ?? ""}
         onRename={() => {
           actionsSheetRef.current?.dismiss()
-          setRenameOpen(true)
+          setTimeout(() => setRenameOpen(true), 220)
         }}
         onExportMarkdown={() => {
           actionsSheetRef.current?.dismiss()
@@ -922,7 +922,10 @@ export default function SessionScreen() {
         onSave={(title) => void handleRename(title)}
       />
 
-      <AttachmentPicker sheetRef={attachSheetRef} onFile={(mime, filename, base64) => void handleAttachFile(mime, filename, base64)} />
+      <AttachmentPicker
+        sheetRef={attachSheetRef}
+        onFile={(mime, filename, base64) => void handleAttachFile(mime, filename, base64)}
+      />
     </KeyboardAvoidingView>
   )
 }

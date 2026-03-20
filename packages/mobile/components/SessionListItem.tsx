@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import { Ellipsis, Trash2 } from "lucide-react-native"
 import type { SessionSummary } from "@/lib/types"
@@ -43,8 +43,17 @@ export function SessionListItem(props: {
   const summary = props.item.info.summary
   const translateY = useRef(new Animated.Value(10)).current
   const opacity = useRef(new Animated.Value(0)).current
+  const scale = useRef(new Animated.Value(1)).current
   const badge = repoBadge(props.item)
   const containerBacked = Boolean(props.item.info.workspaceID)
+
+  const onPressIn = useCallback(() => {
+    Animated.spring(scale, { toValue: 0.978, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
+  }, [scale])
+
+  const onPressOut = useCallback(() => {
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 3 }).start()
+  }, [scale])
 
   useEffect(() => {
     const delay = (props.index ?? 0) * 30
@@ -62,11 +71,13 @@ export function SessionListItem(props: {
   }, [opacity, props.index, translateY])
 
   return (
-    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+    <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
       <Pressable
         onPress={props.onPress}
         onLongPress={props.onLongPress}
-        className="rounded-[30px] border border-border bg-surface px-4 py-4 active:opacity-85"
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        className="rounded-[30px] border border-border bg-surface px-4 py-4"
         style={{
           shadowColor: palette.shadow,
           shadowOpacity: 0.18,

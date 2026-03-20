@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react"
-import { Animated, View, type DimensionValue, type ViewStyle } from "react-native"
+import { Animated, Easing, View, type DimensionValue, type ViewStyle } from "react-native"
 import { useAppTheme } from "@/lib/theme"
 
 export function SkeletonBox({
@@ -19,15 +19,12 @@ export function SkeletonBox({
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.9, duration: 820, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.48, duration: 820, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.85, duration: 460, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.38, duration: 460, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ]),
     )
     animation.start()
-
-    return () => {
-      animation.stop()
-    }
+    return () => animation.stop()
   }, [opacity])
 
   return (
@@ -44,10 +41,6 @@ export function SkeletonBox({
       ]}
     />
   )
-}
-
-function cardStyle() {
-  return {} as const
 }
 
 export function SessionListSkeleton() {
