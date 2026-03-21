@@ -1,6 +1,7 @@
 /// <reference path="../env.d.ts" />
 // import { Octokit } from "@octokit/rest"
-import { tool } from "@nikcli-ai/plugin"
+
+import { tool } from "@nikcli-ai/plugin/tool"
 import DESCRIPTION from "./github-triage.txt"
 
 function getIssueNumber(): number {
