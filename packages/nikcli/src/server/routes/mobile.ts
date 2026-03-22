@@ -31,7 +31,8 @@ import { Config } from "@/config/config"
 import { Command } from "@/command"
 import { Workspace } from "@/workspace"
 import { WorkspaceContext } from "@/workspace/workspace-context"
-import { getAdaptor, getContainerRuntimeInfo } from "@/workspace/adaptors"
+import { getContainerRuntimeInfo } from "@/workspace/adaptors"
+import { proxyWorkspaceRequest } from "@/workspace/session-proxy-middleware"
 import { PromptStashStore } from "@/prompt/stash-store"
 import { errors } from "../error"
 import { lazy } from "@/util/lazy"
@@ -380,26 +381,6 @@ async function searchPromptMemories(query: string) {
   return hits.sort((a, b) => b.createdAt - a.createdAt).slice(0, 24)
 }
 
-async function getSessionAnyProject(sessionID: string): Promise<Session.Info> {
-  try {
-    return await Session.get(sessionID)
-  } catch (e) {
-    if (!(e instanceof Storage.NotFoundError)) throw e
-  }
-  // Fallback: session was created in a different project context — scan all projects
-  const allKeys = await Storage.list(["session"])
-  for (const key of allKeys) {
-    if (key.length === 3 && key[2] === sessionID) {
-      try {
-        return await Storage.read<Session.Info>(key)
-      } catch {
-        continue
-      }
-    }
-  }
-  throw new Storage.NotFoundError({ message: `Session not found: ${sessionID}` })
-}
-
 async function latestPromptDefaults(sessionID: string) {
   const messages = await Session.messages({ sessionID, limit: 24 }).catch(() => [])
   for (let index = messages.length - 1; index >= 0; index--) {
@@ -670,36 +651,6 @@ async function createExecutionWorkspace(input: {
       serverUrl: "http://127.0.0.1:1",
     },
   })
-}
-
-async function proxyWorkspaceRequest(input: {
-  workspaceID: string
-  method: string
-  url: string
-  body?: BodyInit
-  headers?: HeadersInit
-  signal?: AbortSignal
-}) {
-  const workspace = await Workspace.get(input.workspaceID)
-  if (!workspace) {
-    return new Response(`Workspace not found: ${input.workspaceID}`, {
-      status: 404,
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-      },
-    })
-  }
-
-  const response = await getAdaptor(workspace.config).request(
-    workspace.config,
-    input.method,
-    input.url,
-    input.body,
-    input.signal,
-    input.headers,
-  )
-
-  return response
 }
 
 async function statusForSession(session: Session.Info) {
@@ -1246,6 +1197,7 @@ export const MobileRoutes = lazy(() =>
                 async fn() {
                   return Session.create({
                     title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
+                    workspaceID: workspace?.id,
                     github: {
                       owner: body.owner,
                       repo: body.repo,
@@ -1371,7 +1323,14 @@ export const MobileRoutes = lazy(() =>
           const session = await WorkspaceContext.provide({
             workspaceID: workspace?.id,
             async fn() {
-              return Session.create(sessionInput)
+              return Session.create(
+                workspace?.id
+                  ? {
+                      ...sessionInput,
+                      workspaceID: workspace.id,
+                    }
+                  : sessionInput,
+              )
             },
           })
           return c.json(session)
@@ -1400,7 +1359,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const info = await getSessionAnyProject(sessionID)
+        const info = await Session.getAnyProject(sessionID)
         const { messages, permissions, status } = await Instance.provide({
           directory: info.directory,
           async fn() {
@@ -1435,7 +1394,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string(), messageID: z.string() })),
       async (c) => {
         const params = c.req.valid("param")
-        const session = await getSessionAnyProject(params.sessionID)
+        const session = await Session.getAnyProject(params.sessionID)
         const result = await Instance.provide({
           directory: session.directory,
           async fn() {
@@ -1462,7 +1421,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await getSessionAnyProject(sessionID)
+        const session = await Session.getAnyProject(sessionID)
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1471,30 +1430,32 @@ export const MobileRoutes = lazy(() =>
             signal: c.req.raw.signal,
           })
 
-          if (!response?.ok) {
-            return new Response(response?.body, {
-              status: response?.status ?? 502,
-              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
-            })
-          }
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
 
-          const commands = (await response.json().catch(() => [])) as Array<Record<string, unknown>>
-          return c.json(
-            commands
-              .map((command) => ({
-                name: typeof command.name === "string" ? command.name : "unknown",
-                description: typeof command.description === "string" ? command.description : undefined,
-                agent: typeof command.agent === "string" ? command.agent : undefined,
-                model: typeof command.model === "string" ? command.model : undefined,
-                mcp: typeof command.mcp === "boolean" ? command.mcp : undefined,
-                subtask: typeof command.subtask === "boolean" ? command.subtask : undefined,
-                hints: Array.isArray(command.hints)
-                  ? command.hints.filter((hint): hint is string => typeof hint === "string")
-                  : [],
-              }))
-              .filter((command) => command.name !== "unknown")
-              .sort((a, b) => a.name.localeCompare(b.name)),
-          )
+            const commands = (await response.json().catch(() => [])) as Array<Record<string, unknown>>
+            return c.json(
+              commands
+                .map((command) => ({
+                  name: typeof command.name === "string" ? command.name : "unknown",
+                  description: typeof command.description === "string" ? command.description : undefined,
+                  agent: typeof command.agent === "string" ? command.agent : undefined,
+                  model: typeof command.model === "string" ? command.model : undefined,
+                  mcp: typeof command.mcp === "boolean" ? command.mcp : undefined,
+                  subtask: typeof command.subtask === "boolean" ? command.subtask : undefined,
+                  hints: Array.isArray(command.hints)
+                    ? command.hints.filter((hint): hint is string => typeof hint === "string")
+                    : [],
+                }))
+                .filter((command) => command.name !== "unknown")
+                .sort((a, b) => a.name.localeCompare(b.name)),
+            )
+          }
         }
 
         const commands = await Instance.provide({
@@ -1542,7 +1503,7 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const session = await getSessionAnyProject(sessionID)
+        const session = await Session.getAnyProject(sessionID)
         if (session.github?.worktree.cleanedAt) {
           return c.json({ error: "Session worktree has been cleaned up" }, 400)
         }
@@ -1565,13 +1526,17 @@ export const MobileRoutes = lazy(() =>
             },
             signal: c.req.raw.signal,
           })
-          if (!response?.ok) {
-            return new Response(response?.body, {
-              status: response?.status ?? 502,
-              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
-            })
+
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
+
+            return c.json({ accepted: true as const }, 202)
           }
-          return c.json({ accepted: true as const }, 202)
         }
 
         void Instance.provide({
@@ -1616,7 +1581,7 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const session = await getSessionAnyProject(sessionID)
+        const session = await Session.getAnyProject(sessionID)
         if (session.github?.worktree.cleanedAt) {
           return c.json({ error: "Session worktree has been cleaned up" }, 400)
         }
@@ -1640,10 +1605,12 @@ export const MobileRoutes = lazy(() =>
             signal: c.req.raw.signal,
           })
 
-          return new Response(response?.body, {
-            status: response?.status ?? 502,
-            headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
-          })
+          if (response) {
+            return new Response(response.body, {
+              status: response.status,
+              headers: toHeadersObject(response.headers),
+            })
+          }
         }
 
         const result = await Instance.provide({
@@ -1675,7 +1642,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await getSessionAnyProject(sessionID)
+        const session = await Session.getAnyProject(sessionID)
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1683,13 +1650,17 @@ export const MobileRoutes = lazy(() =>
             url: `/session/${encodeURIComponent(sessionID)}/abort`,
             signal: c.req.raw.signal,
           })
-          if (!response?.ok) {
-            return new Response(response?.body, {
-              status: response?.status ?? 502,
-              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
-            })
+
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
+
+            return c.json({ success: true as const })
           }
-          return c.json({ success: true as const })
         }
         SessionPrompt.cancel(sessionID)
         return c.json({ success: true as const })
@@ -1712,7 +1683,7 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ response: PermissionNext.Reply })),
       async (c) => {
         const params = c.req.valid("param")
-        const session = await getSessionAnyProject(params.sessionID)
+        const session = await Session.getAnyProject(params.sessionID)
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1724,13 +1695,17 @@ export const MobileRoutes = lazy(() =>
             },
             signal: c.req.raw.signal,
           })
-          if (!response?.ok) {
-            return new Response(response?.body, {
-              status: response?.status ?? 502,
-              headers: response ? toHeadersObject(response.headers) : { "content-type": "application/json" },
-            })
+
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
+
+            return c.json({ success: true as const })
           }
-          return c.json({ success: true as const })
         }
         PermissionNext.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
         return c.json({ success: true as const })
@@ -1757,7 +1732,7 @@ export const MobileRoutes = lazy(() =>
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
 
         const body = c.req.valid("json") ?? {}
-        const sessionInfo = await getSessionAnyProject(c.req.valid("param").sessionID)
+        const sessionInfo = await Session.getAnyProject(c.req.valid("param").sessionID)
         if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
         if (sessionInfo.github.worktree.cleanedAt)
           return c.json({ error: "Session worktree has already been cleaned" }, 400)
@@ -1889,7 +1864,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
-        const sessionInfo = await getSessionAnyProject(c.req.valid("param").sessionID)
+        const sessionInfo = await Session.getAnyProject(c.req.valid("param").sessionID)
         if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
         if (sessionInfo.github.worktree.cleanedAt) return c.json({ success: true as const })
 

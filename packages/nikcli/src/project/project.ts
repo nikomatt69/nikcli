@@ -16,6 +16,36 @@ import { existsSync } from "fs"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
+
+  async function readCachedID(gitDir?: string) {
+    if (!gitDir) return undefined
+
+    const stat = await fs.stat(gitDir).catch(() => undefined)
+    if (!stat?.isDirectory()) return undefined
+
+    return Bun.file(path.join(gitDir, "nikcli"))
+      .text()
+      .then((x) => x.trim())
+      .catch(() => undefined)
+  }
+
+  async function writeCachedID(gitDir: string | undefined, id: string) {
+    if (!gitDir) return
+
+    const stat = await fs.stat(gitDir).catch(() => undefined)
+    if (!stat?.isDirectory()) return
+
+    await Bun.file(path.join(gitDir, "nikcli"))
+      .write(id)
+      .catch(() => undefined)
+  }
+
+  function cacheDirToWorktree(gitDir: string, sandbox: string) {
+    const dirname = path.dirname(path.relative(sandbox, gitDir) || ".")
+    if (dirname === ".") return sandbox
+    return path.resolve(sandbox, dirname)
+  }
+
   export const Info = z
     .object({
       id: z.string(),
@@ -57,10 +87,22 @@ export namespace Project {
 
         const gitBinary = Bun.which("git")
 
-        let id = await Bun.file(path.join(git, "nikcli"))
-          .text()
-          .then((x) => x.trim())
-          .catch(() => undefined)
+        let commonGitDir: string | undefined
+        let id = await readCachedID(git)
+
+        if (gitBinary) {
+          commonGitDir = await $`git rev-parse --git-common-dir`
+            .quiet()
+            .nothrow()
+            .cwd(sandbox)
+            .text()
+            .then((x) => path.resolve(sandbox, x.trim()))
+            .catch(() => undefined)
+
+          if (!id && commonGitDir && commonGitDir !== git) {
+            id = await readCachedID(commonGitDir)
+          }
+        }
 
         if (!gitBinary) {
           return {
@@ -97,8 +139,13 @@ export namespace Project {
 
           id = roots[0]
           if (id) {
-            void Bun.file(path.join(git, "nikcli"))
-              .write(id)
+            const derivedID = id
+            const cacheDir = commonGitDir ?? git
+            void readCachedID(cacheDir)
+              .then((cached) => {
+                if (cached || !cacheDir) return
+                return writeCachedID(cacheDir, derivedID)
+              })
               .catch(() => undefined)
           }
         }
@@ -131,17 +178,7 @@ export namespace Project {
 
         sandbox = top
 
-        const worktree = await $`git rev-parse --git-common-dir`
-          .quiet()
-          .nothrow()
-          .cwd(sandbox)
-          .text()
-          .then((x) => {
-            const dirname = path.dirname(x.trim())
-            if (dirname === ".") return sandbox
-            return dirname
-          })
-          .catch(() => undefined)
+        const worktree = commonGitDir ? cacheDirToWorktree(commonGitDir, sandbox) : undefined
 
         if (!worktree) {
           return {

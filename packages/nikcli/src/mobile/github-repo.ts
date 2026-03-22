@@ -67,7 +67,9 @@ export namespace MobileGithubRepo {
     return entry
   }
 
-  function gitAuthEnv(token: string) {
+  function gitEnv(token?: string) {
+    if (!token) return process.env
+
     const auth = Buffer.from(`x-access-token:${token}`).toString("base64")
     return {
       ...process.env,
@@ -78,11 +80,11 @@ export namespace MobileGithubRepo {
     }
   }
 
-  export async function runGit(args: string[], options: { cwd?: string; token: string }) {
+  export async function runGit(args: string[], options: { cwd?: string; token?: string }) {
     const proc = Bun.spawn(["git", ...args], {
       cwd: options.cwd,
       env: Object.fromEntries(
-        Object.entries(gitAuthEnv(options.token)).filter(
+        Object.entries(gitEnv(options.token)).filter(
           (entry): entry is [string, string] => typeof entry[1] === "string",
         ),
       ),
@@ -114,15 +116,46 @@ export namespace MobileGithubRepo {
 
     if (!exists) {
       await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)
-      await runGit(
-        ["clone", "--filter=blob:none", "--branch", input.defaultBranch, "--single-branch", input.cloneUrl, directory],
-        { token },
-      )
+      try {
+        await runGit(
+          [
+            "clone",
+            "--filter=blob:none",
+            "--branch",
+            input.defaultBranch,
+            "--single-branch",
+            input.cloneUrl,
+            directory,
+          ],
+          { token },
+        )
+      } catch (error) {
+        if (input.private) throw error
+        await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)
+        await runGit(
+          [
+            "clone",
+            "--filter=blob:none",
+            "--branch",
+            input.defaultBranch,
+            "--single-branch",
+            input.cloneUrl,
+            directory,
+          ],
+          {},
+        )
+      }
       return directory
     }
 
-    await runGit(["fetch", "origin", input.defaultBranch, "--prune"], { cwd: directory, token })
-    await runGit(["checkout", "-B", input.defaultBranch, `origin/${input.defaultBranch}`], { cwd: directory, token })
+    try {
+      await runGit(["fetch", "origin", input.defaultBranch, "--prune"], { cwd: directory, token })
+      await runGit(["checkout", "-B", input.defaultBranch, `origin/${input.defaultBranch}`], { cwd: directory, token })
+    } catch (error) {
+      if (input.private) throw error
+      await runGit(["fetch", "origin", input.defaultBranch, "--prune"], { cwd: directory })
+      await runGit(["checkout", "-B", input.defaultBranch, `origin/${input.defaultBranch}`], { cwd: directory })
+    }
     return directory
   }
 

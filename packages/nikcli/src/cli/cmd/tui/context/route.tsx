@@ -5,12 +5,14 @@ import type { PromptInfo } from "../component/prompt/history"
 export type HomeRoute = {
   type: "home"
   initialPrompt?: PromptInfo
+  workspaceID?: string
 }
 
 export type SessionRoute = {
   type: "session"
   sessionID: string
   initialPrompt?: PromptInfo
+  workspaceID?: string
 }
 
 export type Route = HomeRoute | SessionRoute

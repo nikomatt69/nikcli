@@ -249,6 +249,12 @@ export namespace Server {
             // fallback to original value
           }
           const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace")
+          const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
+
+          if (workspace?.config.type === "worktree") {
+            directory = workspace.config.directory
+          }
+
           return WorkspaceContext.provide({
             workspaceID,
             async fn() {

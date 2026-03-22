@@ -72,12 +72,14 @@ export function DialogSubagent(props: { sessionID: string }) {
           value: opt.value,
           description: opt.description,
           bg: color,
-          gutter: opt.agent ? (
-            <text fg={color ?? theme.textMuted}>@{opt.agent}</text>
-          ) : undefined,
+          gutter: opt.agent ? <text fg={color ?? theme.textMuted}>@{opt.agent}</text> : undefined,
           onSelect: (ctx: DialogContext) => {
             removeFromBackground(props.sessionID, opt.value)
-            route.navigate({ type: "session", sessionID: opt.value })
+            route.navigate({
+              type: "session",
+              sessionID: opt.value,
+              workspaceID: sync.session.get(opt.value)?.workspaceID,
+            })
             ctx.clear()
           },
         }

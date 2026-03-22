@@ -266,6 +266,7 @@ function App() {
         route.navigate({
           type: "session",
           sessionID: args.sessionID,
+          workspaceID: sync.session.get(args.sessionID)?.workspaceID,
         })
       }
     })
@@ -282,7 +283,11 @@ function App() {
           .find((x) => x.parentID === undefined)?.id
         if (match) {
           continued = true
-          route.navigate({ type: "session", sessionID: match })
+          route.navigate({
+            type: "session",
+            sessionID: match,
+            workspaceID: sync.session.get(match)?.workspaceID,
+          })
         }
       },
       { defer: true },
@@ -346,9 +351,14 @@ function App() {
         const current = promptRef.current
         // Don't require focus - if there's any text, preserve it
         const currentPrompt = current?.current?.input ? current.current : undefined
+        const workspaceID =
+          route.data.type === "session"
+            ? (route.data.workspaceID ?? sync.session.get(route.data.sessionID)?.workspaceID)
+            : route.data.workspaceID
         route.navigate({
           type: "home",
           initialPrompt: currentPrompt,
+          workspaceID,
         })
         dialog.clear()
       },
@@ -673,12 +683,13 @@ function App() {
     route.navigate({
       type: "session",
       sessionID: evt.properties.sessionID,
+      workspaceID: sync.session.get(evt.properties.sessionID)?.workspaceID,
     })
   })
 
   sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
     if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
-      route.navigate({ type: "home" })
+      route.navigate({ type: "home", workspaceID: evt.properties.info.workspaceID })
       toast.show({
         variant: "info",
         message: "The current session was deleted",

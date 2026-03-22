@@ -120,6 +120,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
         route.navigate({
           type: "session",
           sessionID: option.value,
+          workspaceID: props.workspaceID ?? sync.session.get(option.value)?.workspaceID,
         })
         dialog.clear()
       }}

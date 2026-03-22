@@ -35,11 +35,13 @@ export function DialogSkills() {
             type: "session",
             sessionID: route.data.sessionID,
             initialPrompt: { input: `/skill ${option.value}`, parts: [] },
+            workspaceID: route.data.workspaceID,
           })
         } else {
           route.navigate({
             type: "home",
             initialPrompt: { input: `/skill ${option.value}`, parts: [] },
+            workspaceID: route.data.workspaceID,
           })
         }
         dialog.clear()

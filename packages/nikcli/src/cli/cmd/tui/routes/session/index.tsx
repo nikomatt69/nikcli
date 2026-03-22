@@ -207,7 +207,7 @@ export function Session() {
           message: `Session not found: ${route.sessionID}`,
           variant: "error",
         })
-        return navigate({ type: "home" })
+        return navigate({ type: "home", workspaceID: sync.session.get(route.sessionID)?.workspaceID })
       })
   })
 
@@ -216,7 +216,7 @@ export function Session() {
 
   createEffect(
     on(
-      () => session()?.workspaceID,
+      () => route.workspaceID ?? session()?.workspaceID,
       (workspaceID) => {
         sdk.setWorkspace(workspaceID)
       },
@@ -318,7 +318,7 @@ export function Session() {
     evt.preventDefault()
     evt.stopPropagation()
     addToBackground(parentID, route.sessionID)
-    navigate({ type: "session", sessionID: parentID })
+    navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
   })
 
   // In subagent sessions, Esc should behave like Ctrl+B (background + return to parent).
@@ -330,7 +330,7 @@ export function Session() {
     evt.preventDefault()
     evt.stopPropagation()
     addToBackground(parentID, route.sessionID)
-    navigate({ type: "session", sessionID: parentID })
+    navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
   })
 
   // Helper: Find next visible message boundary in direction
@@ -391,6 +391,7 @@ export function Session() {
       navigate({
         type: "session",
         sessionID: children()[next].id,
+        workspaceID: children()[next].workspaceID,
       })
     }
   }
@@ -407,7 +408,7 @@ export function Session() {
         const parentID = session()?.parentID
         if (!parentID) return
         addToBackground(parentID, route.sessionID)
-        navigate({ type: "session", sessionID: parentID })
+        navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
         dialog.clear()
       },
     },
@@ -1039,6 +1040,7 @@ export function Session() {
           navigate({
             type: "session",
             sessionID: parentID,
+            workspaceID: sync.session.get(parentID)?.workspaceID,
           })
         }
         dialog.clear()
@@ -1067,6 +1069,7 @@ export function Session() {
           navigate({
             type: "session",
             sessionID: parentID,
+            workspaceID: sync.session.get(parentID)?.workspaceID,
           })
         }
         dialog.clear()
@@ -1996,6 +1999,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const keybind = useKeybind()
   const { navigate } = useRoute()
   const local = useLocal()
+  const sync = useSync()
 
   const current = createMemo(() => props.metadata.summary?.findLast((x) => x.state.status !== "pending"))
   const color = createMemo(() => local.agent.color(props.input.subagent_type ?? "unknown"))
@@ -2009,7 +2013,12 @@ function Task(props: ToolProps<typeof TaskTool>) {
           accentColor={color()}
           onClick={
             props.metadata.sessionId
-              ? () => navigate({ type: "session", sessionID: props.metadata.sessionId! })
+              ? () =>
+                  navigate({
+                    type: "session",
+                    sessionID: props.metadata.sessionId!,
+                    workspaceID: sync.session.get(props.metadata.sessionId!)?.workspaceID,
+                  })
               : undefined
           }
           part={props.part}

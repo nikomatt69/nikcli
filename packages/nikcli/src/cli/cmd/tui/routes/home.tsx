@@ -1,5 +1,5 @@
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import { createMemo, Match, onMount, Show, Switch } from "solid-js"
+import { createEffect, createMemo, Match, onMount, Show, Switch } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "../component/logo"
@@ -14,6 +14,7 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
+import { useSDK } from "../context/sdk"
 
 // Used to avoid re-applying the initial prompt multiple times.
 let once = false
@@ -23,6 +24,7 @@ export function Home() {
   const kv = useKV()
   const { theme } = useTheme()
   const route = useRouteData("home")
+  const sdk = useSDK()
   const promptRef = usePromptRef()
   const command = useCommandDialog()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
@@ -92,6 +94,10 @@ export function Home() {
 
   const keybind = useKeybind()
 
+  createEffect(() => {
+    sdk.setWorkspace(route.workspaceID)
+  })
+
   return (
     <>
       <box flexGrow={1} alignItems="center" paddingLeft={2} paddingRight={2}>
@@ -108,6 +114,7 @@ export function Home() {
               promptRef.set(r)
             }}
             hint={Hint}
+            workspaceID={route.workspaceID}
           />
         </box>
         <box height={4} minHeight={0} width="100%" maxWidth={75} alignItems="center" paddingTop={3} flexShrink={1}>

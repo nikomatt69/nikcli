@@ -19,6 +19,8 @@ import { lazy } from "../../util/lazy"
 import { SessionProxyMiddleware } from "../../workspace/session-proxy-middleware"
 import { ShareNext } from "@/share/share-next"
 import { Config } from "@/config/config"
+import { Instance } from "@/project/instance"
+import { WorkspaceContext } from "@/workspace/workspace-context"
 
 const log = Log.create({ service: "server" })
 
@@ -58,9 +60,10 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const query = c.req.valid("query")
         const term = query.search?.toLowerCase()
+        const directory = WorkspaceContext.workspaceID ? Instance.directory : query.directory
         const sessions: Session.Info[] = []
         for await (const session of Session.list()) {
-          if (query.directory !== undefined && session.directory !== query.directory) continue
+          if (directory !== undefined && session.directory !== directory) continue
           if (query.roots && session.parentID) continue
           if (query.start !== undefined && session.time.updated < query.start) continue
           if (term !== undefined && !session.title.toLowerCase().includes(term)) continue

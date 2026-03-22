@@ -2652,12 +2652,52 @@ export type MobileBootstrap = {
   github: {
     connected: boolean
     oauthDeviceEnabled: boolean
+    oauthDeviceConfigured?: boolean
+    oauthClientSource?: "flag" | "config" | "env"
     user?: {
       login: string
       name?: string | null
       avatar_url?: string
     }
   }
+}
+
+export type MobilePromptHistoryEntry = {
+  id: string
+  input: string
+  mode?: "normal" | "shell"
+  partsCount: number
+}
+
+export type MobileMemorySearchHit = {
+  id: string
+  sessionID: string
+  sessionTitle: string
+  messageID: string
+  role: "user" | "assistant"
+  createdAt: number
+  preview: string
+}
+
+export type MobilePromptStashEntry = {
+  id: string
+  input: string
+  timestamp: number
+  partsCount: number
+}
+
+export type MobilePromptStashCreateInput = {
+  input: string
+}
+
+export type MobileCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  subtask?: boolean
+  hints: Array<string>
 }
 
 export type MobileGithubBranch = {
@@ -2754,6 +2794,16 @@ export type MobileSessionDetail = {
     parts: Array<Part>
   }>
   permissions: Array<PermissionRequest>
+}
+
+export type MobileSessionCommandInput = {
+  command: string
+  arguments?: string
+  agent?: string
+  model?: {
+    providerID: string
+    modelID: string
+  }
 }
 
 export type MobileGithubPublishResult = {
@@ -3711,6 +3761,7 @@ export type SessionCreateData = {
     title?: string
     permission?: PermissionRuleset
     github?: SessionGithub
+    workspaceID?: string
   }
   path?: never
   query?: {
@@ -5214,6 +5265,143 @@ export type MobileBootstrapResponses = {
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
 
+export type MobileMemoryHistoryData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/memory/history"
+}
+
+export type MobileMemoryHistoryResponses = {
+  /**
+   * Prompt history
+   */
+  200: Array<MobilePromptHistoryEntry>
+}
+
+export type MobileMemoryHistoryResponse = MobileMemoryHistoryResponses[keyof MobileMemoryHistoryResponses]
+
+export type MobileMemorySearchData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    query: string
+  }
+  url: "/mobile/memory/search"
+}
+
+export type MobileMemorySearchResponses = {
+  /**
+   * Memory search hits
+   */
+  200: Array<MobileMemorySearchHit>
+}
+
+export type MobileMemorySearchResponse = MobileMemorySearchResponses[keyof MobileMemorySearchResponses]
+
+export type MobileMemoryStashListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/memory/stash"
+}
+
+export type MobileMemoryStashListResponses = {
+  /**
+   * Prompt stash
+   */
+  200: Array<MobilePromptStashEntry>
+}
+
+export type MobileMemoryStashListResponse = MobileMemoryStashListResponses[keyof MobileMemoryStashListResponses]
+
+export type MobileMemoryStashCreateData = {
+  body?: MobilePromptStashCreateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/memory/stash"
+}
+
+export type MobileMemoryStashCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileMemoryStashCreateError = MobileMemoryStashCreateErrors[keyof MobileMemoryStashCreateErrors]
+
+export type MobileMemoryStashCreateResponses = {
+  /**
+   * Created prompt stash entry
+   */
+  200: MobilePromptStashEntry
+}
+
+export type MobileMemoryStashCreateResponse = MobileMemoryStashCreateResponses[keyof MobileMemoryStashCreateResponses]
+
+export type MobileMemoryStashDeleteData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/memory/stash/{id}"
+}
+
+export type MobileMemoryStashDeleteErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileMemoryStashDeleteError = MobileMemoryStashDeleteErrors[keyof MobileMemoryStashDeleteErrors]
+
+export type MobileMemoryStashDeleteResponses = {
+  /**
+   * Deleted
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileMemoryStashDeleteResponse = MobileMemoryStashDeleteResponses[keyof MobileMemoryStashDeleteResponses]
+
+export type MobileCommandListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/command"
+}
+
+export type MobileCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
+
 export type MobileProjectListData = {
   body?: never
   path?: never
@@ -5567,6 +5755,74 @@ export type MobileSessionDiffResponses = {
 
 export type MobileSessionDiffResponse = MobileSessionDiffResponses[keyof MobileSessionDiffResponses]
 
+export type MobileSessionCommandListData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/command"
+}
+
+export type MobileSessionCommandListErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionCommandListError = MobileSessionCommandListErrors[keyof MobileSessionCommandListErrors]
+
+export type MobileSessionCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileSessionCommandListResponse =
+  MobileSessionCommandListResponses[keyof MobileSessionCommandListResponses]
+
+export type MobileSessionCommandData = {
+  body?: MobileSessionCommandInput
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/command"
+}
+
+export type MobileSessionCommandErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionCommandError = MobileSessionCommandErrors[keyof MobileSessionCommandErrors]
+
+export type MobileSessionCommandResponses = {
+  /**
+   * Command result
+   */
+  200: {
+    info: Message
+    parts: Array<Part>
+  }
+}
+
+export type MobileSessionCommandResponse = MobileSessionCommandResponses[keyof MobileSessionCommandResponses]
+
 export type MobileSessionMessageData = {
   body?: {
     messageID?: string
@@ -5830,6 +6086,31 @@ export type MobileWorktreeResetResponses = {
 }
 
 export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
+
+export type MobileSessionRenameData = {
+  body?: {
+    title: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/rename"
+}
+
+export type MobileSessionRenameResponses = {
+  /**
+   * Session renamed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type FindTextData = {
   body?: never

@@ -42,6 +42,7 @@ async function openWorkspace(input: {
     input.route.navigate({
       type: "session",
       sessionID: session.id,
+      workspaceID: session.workspaceID ?? input.workspaceID,
     })
     input.dialog.clear()
     return
@@ -49,7 +50,7 @@ async function openWorkspace(input: {
 
   let created: Session | undefined
   while (!created) {
-    const result = await client.session.create({}).catch(() => undefined)
+    const result = await client.session.create({ workspaceID: input.workspaceID }).catch(() => undefined)
     if (!result) {
       input.toast.show({
         message: "Failed to open workspace",
@@ -75,6 +76,7 @@ async function openWorkspace(input: {
   input.route.navigate({
     type: "session",
     sessionID: created.id,
+    workspaceID: created.workspaceID ?? input.workspaceID,
   })
   input.dialog.clear()
 }
@@ -215,9 +217,9 @@ export function DialogWorkspaceList() {
 
   const currentWorkspaceID = createMemo(() => {
     if (route.data.type === "session") {
-      return sync.session.get(route.data.sessionID)?.workspaceID ?? "__local__"
+      return route.data.workspaceID ?? sync.session.get(route.data.sessionID)?.workspaceID ?? "__local__"
     }
-    return "__local__"
+    return route.data.workspaceID ?? "__local__"
   })
 
   const localCount = createMemo(

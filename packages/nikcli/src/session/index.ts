@@ -174,6 +174,7 @@ export namespace Session {
         title: z.string().optional(),
         permission: Info.shape.permission,
         github: GithubInfo.optional(),
+        workspaceID: Info.shape.workspaceID,
       })
       .optional(),
     async (input) => {
@@ -183,6 +184,7 @@ export namespace Session {
         title: input?.title,
         permission: input?.permission,
         github: input?.github,
+        workspaceID: input?.workspaceID,
       })
     },
   )
@@ -193,8 +195,10 @@ export namespace Session {
       messageID: Identifier.schema("message").optional(),
     }),
     async (input) => {
+      const original = await get(input.sessionID)
       const session = await createNext({
-        directory: Instance.directory,
+        directory: original.directory,
+        workspaceID: original.workspaceID,
       })
       const msgs = await messages({ sessionID: input.sessionID })
       const idMap = new Map<string, string>()
@@ -236,6 +240,7 @@ export namespace Session {
     title?: string
     parentID?: string
     directory: string
+    workspaceID?: string
     permission?: PermissionNext.Ruleset
     github?: z.infer<typeof GithubInfo>
   }) {
@@ -246,7 +251,7 @@ export namespace Session {
       projectID: Instance.project.id,
       directory: input.directory,
       parentID: input.parentID,
-      workspaceID: WorkspaceContext.workspaceID,
+      workspaceID: input.workspaceID ?? WorkspaceContext.workspaceID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
       github: input.github,
@@ -287,6 +292,25 @@ export namespace Session {
   export const get = fn(Identifier.schema("session"), async (id) => {
     const read = await Storage.read<Info>(["session", Instance.project.id, id])
     return read as Info
+  })
+
+  export const getAnyProject = fn(Identifier.schema("session"), async (id) => {
+    try {
+      return await get(id)
+    } catch (error) {
+      if (!(error instanceof Storage.NotFoundError)) throw error
+    }
+
+    for (const key of await Storage.list(["session"])) {
+      if (key.length !== 3 || key[2] !== id) continue
+      try {
+        return await Storage.read<Info>(key)
+      } catch {
+        continue
+      }
+    }
+
+    throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
   })
 
   export const getShare = fn(Identifier.schema("session"), async (id) => {

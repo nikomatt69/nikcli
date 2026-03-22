@@ -77,6 +77,7 @@ import type {
   MobileAuthTokenListResponses,
   MobileAuthTokenRevokeResponses,
   MobileBootstrapResponses,
+  MobileCommandListResponses,
   MobileGithubAuthRemoveResponses,
   MobileGithubAuthSetErrors,
   MobileGithubAuthSetResponses,
@@ -99,9 +100,22 @@ import type {
   MobileGithubSessionCreateResponses,
   MobileGithubSessionPublishErrors,
   MobileGithubSessionPublishResponses,
+  MobileMemoryHistoryResponses,
+  MobileMemorySearchResponses,
+  MobileMemoryStashCreateErrors,
+  MobileMemoryStashCreateResponses,
+  MobileMemoryStashDeleteErrors,
+  MobileMemoryStashDeleteResponses,
+  MobileMemoryStashListResponses,
   MobilePermissionRespondResponses,
   MobileProjectListResponses,
+  MobilePromptStashCreateInput,
   MobileSessionAbortResponses,
+  MobileSessionCommandErrors,
+  MobileSessionCommandInput,
+  MobileSessionCommandListErrors,
+  MobileSessionCommandListResponses,
+  MobileSessionCommandResponses,
   MobileSessionCreateErrors,
   MobileSessionCreateInput,
   MobileSessionCreateResponses,
@@ -111,6 +125,7 @@ import type {
   MobileSessionListResponses,
   MobileSessionMessageErrors,
   MobileSessionMessageResponses,
+  MobileSessionRenameResponses,
   MobileSessionStreamResponses,
   MobileWorktreeCreateErrors,
   MobileWorktreeCreateResponses,
@@ -1176,6 +1191,7 @@ export class Session extends HeyApiClient {
       title?: string
       permission?: PermissionRuleset
       github?: SessionGithub
+      workspaceID?: string
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -1190,6 +1206,7 @@ export class Session extends HeyApiClient {
             { in: "body", key: "title" },
             { in: "body", key: "permission" },
             { in: "body", key: "github" },
+            { in: "body", key: "workspaceID" },
           ],
         },
       ],
@@ -2751,6 +2768,216 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
+export class Stash extends HeyApiClient {
+  /**
+   * List prompt stash for mobile
+   *
+   * Return reusable prompt snippets stored on the Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileMemoryStashListResponses, unknown, ThrowOnError>({
+      url: "/mobile/memory/stash",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create prompt stash entry
+   *
+   * Save a reusable prompt snippet on the Nikcli host.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobilePromptStashCreateInput?: MobilePromptStashCreateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobilePromptStashCreateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileMemoryStashCreateResponses,
+      MobileMemoryStashCreateErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/memory/stash",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete prompt stash entry
+   *
+   * Remove a reusable prompt snippet from the Nikcli host.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      MobileMemoryStashDeleteResponses,
+      MobileMemoryStashDeleteErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/memory/stash/{id}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Memory extends HeyApiClient {
+  /**
+   * List prompt history for mobile
+   *
+   * Return recent prompt history stored on the Nikcli host.
+   */
+  public history<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileMemoryHistoryResponses, unknown, ThrowOnError>({
+      url: "/mobile/memory/history",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Search prompt memories for mobile
+   *
+   * Search across stored session messages for memory-like prompt context from mobile.
+   */
+  public search<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      query: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "query" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileMemorySearchResponses, unknown, ThrowOnError>({
+      url: "/mobile/memory/search",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _stash?: Stash
+  get stash(): Stash {
+    return (this._stash ??= new Stash({ client: this.client }))
+  }
+}
+
+export class Command extends HeyApiClient {
+  /**
+   * List mobile commands
+   *
+   * Return command metadata safe for the mobile command palette and slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
+      url: "/mobile/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Project2 extends HeyApiClient {
   /**
    * List local projects for mobile
@@ -3208,6 +3435,44 @@ export class Github extends HeyApiClient {
   }
 }
 
+export class Command2 extends HeyApiClient {
+  /**
+   * List session commands for mobile
+   *
+   * Return command metadata resolved in the current session context for mobile slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      MobileSessionCommandListResponses,
+      MobileSessionCommandListErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Session3 extends HeyApiClient {
   /**
    * List mobile sessions
@@ -3349,6 +3614,49 @@ export class Session3 extends HeyApiClient {
   }
 
   /**
+   * Run mobile session command
+   *
+   * Execute a slash-style command against the current session.
+   */
+  public command<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      mobileSessionCommandInput?: MobileSessionCommandInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileSessionCommandInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileSessionCommandResponses,
+      MobileSessionCommandErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}/command",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
    * Send mobile session message
    *
    * Queue a message for a session and rely on the session stream for realtime updates.
@@ -3474,6 +3782,54 @@ export class Session3 extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  /**
+   * Rename a session
+   *
+   * Update the title of an existing session.
+   */
+  public rename<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      title?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "title" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileSessionRenameResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/rename",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  private _command?: Command2
+  get commands(): Command2 {
+    return (this._command ??= new Command2({ client: this.client }))
+  }
+
+  get command2(): Command2 {
+    return this.commands
   }
 }
 
@@ -3671,6 +4027,16 @@ export class Mobile extends HeyApiClient {
   private _auth?: Auth2
   get auth(): Auth2 {
     return (this._auth ??= new Auth2({ client: this.client }))
+  }
+
+  private _memory?: Memory
+  get memory(): Memory {
+    return (this._memory ??= new Memory({ client: this.client }))
+  }
+
+  private _command?: Command
+  get command(): Command {
+    return (this._command ??= new Command({ client: this.client }))
   }
 
   private _project?: Project2
@@ -4860,7 +5226,7 @@ export class Vcs extends HeyApiClient {
   }
 }
 
-export class Command extends HeyApiClient {
+export class Command3 extends HeyApiClient {
   /**
    * List commands
    *
@@ -5342,9 +5708,9 @@ export class NikcliClient extends HeyApiClient {
     return (this._vcs ??= new Vcs({ client: this.client }))
   }
 
-  private _command?: Command
-  get command(): Command {
-    return (this._command ??= new Command({ client: this.client }))
+  private _command?: Command3
+  get command(): Command3 {
+    return (this._command ??= new Command3({ client: this.client }))
   }
 
   private _app?: App
