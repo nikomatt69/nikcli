@@ -11,6 +11,7 @@ import type {
   GitHubPublishResult,
   GitHubRepo,
   GitHubSessionCreateResult,
+  HealthResponse,
   HostConfigSnapshot,
   HostCommandConfig,
   HostMcpStatus,
@@ -339,13 +340,21 @@ export class MobileClient {
     })
   }
 
-  async ping(): Promise<boolean> {
+  async health(): Promise<HealthResponse> {
     try {
-      await this.request<MobileBootstrap>("/mobile/bootstrap")
-      return true
+      const response = await fetch(this.url("/health"), {
+        headers: this.headers(),
+      })
+      if (!response.ok) return { healthy: false }
+      return response.json() as Promise<HealthResponse>
     } catch {
-      return false
+      return { healthy: false }
     }
+  }
+
+  async ping(): Promise<boolean> {
+    const result = await this.health()
+    return result.healthy
   }
 
   listAuthTokens() {

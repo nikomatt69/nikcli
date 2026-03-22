@@ -216,6 +216,16 @@ export type StepFinishPart = {
   tokens: { input: number; output: number; reasoning: number; cache: { read: number; write: number } }
 }
 
+export type KnownPartType = "text" | "file" | "reasoning" | "tool" | "patch" | "step-start" | "step-finish"
+
+export type UnknownPart = {
+  id: string
+  sessionID: string
+  messageID: string
+  type: string
+  [key: string]: unknown
+}
+
 export type Part =
   | TextPart
   | FilePart
@@ -224,11 +234,17 @@ export type Part =
   | PatchPart
   | StepStartPart
   | StepFinishPart
-  | { id: string; sessionID: string; messageID: string; type: string; [key: string]: unknown }
+
+export type AnyPart = Part | UnknownPart
+
+export function isKnownPart(part: AnyPart): part is Part {
+  const knownTypes: KnownPartType[] = ["text", "file", "reasoning", "tool", "patch", "step-start", "step-finish"]
+  return knownTypes.includes(part.type as KnownPartType)
+}
 
 export type MessageWithParts = {
   info: Message
-  parts: Part[]
+  parts: AnyPart[]
 }
 
 export type SSEEvent =
@@ -562,6 +578,11 @@ export type MobileAuthToken = {
   createdAt: number
   lastUsedAt?: number
   expiresAt?: number
+}
+
+export type HealthResponse = {
+  healthy: boolean
+  version?: string
 }
 
 export type ConnectorStatus =
