@@ -6,6 +6,7 @@ import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
 import z from "zod"
+import { RejectedDBEditError } from "@nikcli-ai/util"
 import type { DBEditRequest } from "../cli/cmd/tui/component/table-db/db/types"
 
 export namespace DBEditNext {
@@ -194,7 +195,7 @@ export namespace DBEditNext {
           requestID: existing.info.id,
           reply: "reject",
         })
-        existing.reject(new RejectedError(input.message))
+        existing.reject(new RejectedDBEditError(input.message))
         return
       }
 
@@ -222,15 +223,5 @@ export namespace DBEditNext {
 
   export async function list() {
     return state().then((x) => Object.values(x.pending).map((x) => x.info))
-  }
-
-  export class RejectedError extends Error {
-    constructor(message?: string) {
-      super(
-        message
-          ? `The user rejected database changes with feedback: ${message}`
-          : `The user rejected the database changes.`,
-      )
-    }
   }
 }

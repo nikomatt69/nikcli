@@ -4,6 +4,7 @@ import { Identifier } from "@/id/id"
 import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
 import z from "zod"
+import { RejectedQuestionError } from "@nikcli-ai/util"
 
 export namespace Question {
   const log = Log.create({ service: "question" })
@@ -156,13 +157,13 @@ export namespace Question {
       requestID: existing.info.id,
     })
 
-    existing.reject(new RejectedError())
+    existing.reject(new RejectedQuestionError())
   }
 
-  export class RejectedError extends Error {
-    constructor() {
-      super("The user dismissed this question")
-    }
+  export async function list() {
+    return state().then((x) => Object.values(x.pending).map((x) => x.info))
+  }
+}
   }
 
   export async function list() {

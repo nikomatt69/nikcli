@@ -6,6 +6,7 @@ import { Identifier } from "../id/id"
 import { Plugin } from "../plugin"
 import { Instance } from "../project/instance"
 import { Wildcard } from "../util/wildcard"
+import { RejectedPermissionError } from "@nikcli-ai/util"
 
 export namespace Permission {
   const log = Log.create({ service: "permission" })
@@ -76,7 +77,7 @@ export namespace Permission {
     async (state) => {
       for (const pending of Object.values(state.pending)) {
         for (const item of Object.values(pending)) {
-          item.reject(new RejectedError(item.info.sessionID, item.info.id, item.info.callID, item.info.metadata))
+          item.reject(new RejectedPermissionError(item.info.sessionID, item.info.id, item.info.callID, item.info.metadata))
         }
       }
     },
@@ -136,7 +137,7 @@ export namespace Permission {
       }).then((x) => x.status)
     ) {
       case "deny":
-        throw new RejectedError(info.sessionID, info.id, info.callID, info.metadata)
+        throw new RejectedPermissionError(info.sessionID, info.id, info.callID, info.metadata)
       case "allow":
         return
     }
@@ -167,7 +168,7 @@ export namespace Permission {
       response: input.response,
     })
     if (input.response === "reject") {
-      match.reject(new RejectedError(input.sessionID, input.permissionID, match.info.callID, match.info.metadata))
+      match.reject(new RejectedPermissionError(input.sessionID, input.permissionID, match.info.callID, match.info.metadata))
       return
     }
     match.resolve()
@@ -189,22 +190,6 @@ export namespace Permission {
           })
         }
       }
-    }
-  }
-
-  export class RejectedError extends Error {
-    constructor(
-      public readonly sessionID: string,
-      public readonly permissionID: string,
-      public readonly toolCallID?: string,
-      public readonly metadata?: Record<string, any>,
-      public readonly reason?: string,
-    ) {
-      super(
-        reason !== undefined
-          ? reason
-          : `The user rejected permission to use this specific tool call. You may try again with different parameters.`,
-      )
     }
   }
 }

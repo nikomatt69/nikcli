@@ -7,6 +7,7 @@ import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
+import { RejectedToolCallError, CorrectedToolCallError, DeniedToolCallError } from "@nikcli-ai/util"
 import os from "os"
 import z from "zod"
 
@@ -135,7 +136,7 @@ export namespace PermissionNext {
         const rule = evaluate(request.permission, pattern, ruleset, s.approved)
         log.info("evaluated", { permission: request.permission, pattern, action: rule })
         if (rule.action === "deny")
-          throw new DeniedError(ruleset.filter((r) => Wildcard.match(request.permission, r.permission)))
+          throw new DeniedToolCallError(ruleset.filter((r) => Wildcard.match(request.permission, r.permission)))
         if (rule.action === "ask") {
           const id = input.id ?? Identifier.ascending("permission")
           return new Promise<void>((resolve, reject) => {
@@ -173,7 +174,7 @@ export namespace PermissionNext {
         reply: input.reply,
       })
       if (input.reply === "reject") {
-        existing.reject(input.message ? new CorrectedError(input.message) : new RejectedError())
+        existing.reject(input.message ? new CorrectedToolCallError(input.message) : new RejectedToolCallError())
         const sessionID = existing.info.sessionID
         for (const [id, pending] of Object.entries(s.pending)) {
           if (pending.info.sessionID === sessionID) {
@@ -183,7 +184,7 @@ export namespace PermissionNext {
               requestID: pending.info.id,
               reply: "reject",
             })
-            pending.reject(new RejectedError())
+            pending.reject(new RejectedToolCallError())
           }
         }
         return
@@ -259,26 +260,6 @@ export namespace PermissionNext {
       if (rule.pattern === "*" && rule.action === "deny") result.add(tool)
     }
     return result
-  }
-
-  export class RejectedError extends Error {
-    constructor() {
-      super(`The user rejected permission to use this specific tool call.`)
-    }
-  }
-
-  export class CorrectedError extends Error {
-    constructor(message: string) {
-      super(`The user rejected permission to use this specific tool call with the following feedback: ${message}`)
-    }
-  }
-
-  export class DeniedError extends Error {
-    constructor(public readonly ruleset: Ruleset) {
-      super(
-        `The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules ${JSON.stringify(ruleset)}`,
-      )
-    }
   }
 
   export async function list() {

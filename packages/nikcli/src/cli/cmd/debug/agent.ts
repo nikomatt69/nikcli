@@ -11,6 +11,7 @@ import { PermissionNext } from "../../../permission/next"
 import { iife } from "../../../util/iife"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
+import { DeniedToolCallError } from "@nikcli-ai/util"
 
 export const AgentCommand = cmd({
   command: "agent <name>",
@@ -158,7 +159,7 @@ async function createToolContext(agent: Agent.Info) {
       for (const pattern of req.patterns) {
         const rule = PermissionNext.evaluate(req.permission, pattern, ruleset)
         if (rule.action === "deny") {
-          throw new PermissionNext.DeniedError(ruleset)
+          throw new DeniedToolCallError(ruleset)
         }
       }
     },
