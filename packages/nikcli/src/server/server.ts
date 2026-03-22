@@ -149,7 +149,7 @@ export namespace Server {
           if (bearer) {
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-            ;(c as any).set("mobileAuth", token)
+              ; (c as any).set("mobileAuth", token)
             return next()
           }
 
@@ -274,7 +274,7 @@ export namespace Server {
             documentation: {
               info: {
                 title: "nikcli",
-                version: "0.0.3",
+                version: "0.0.4",
                 description: "nikcli api",
               },
               openapi: "3.1.1",

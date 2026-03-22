@@ -62,7 +62,7 @@ export default function ConnectorsSettingsScreen() {
       setStatuses(data)
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      if (msg.includes("404") || msg.includes("not found")) {
+      if (/Request failed with 404/.test(msg) || msg.toLowerCase().includes("not found")) {
         setNotAvailable(true)
       } else {
         setMessage(msg)

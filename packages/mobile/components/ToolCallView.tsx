@@ -77,7 +77,7 @@ export function ToolCallView(props: { part: ToolPart }) {
   const timing =
     status === "completed" || status === "error" ? `${Math.max(0, state.time.end - state.time.start)}ms` : undefined
   const rawOutput = status === "completed" ? state.output : status === "error" ? state.error : undefined
-  const output = rawOutput ?? ""
+  const output = typeof rawOutput === "string" ? rawOutput : rawOutput != null ? String(rawOutput) : ""
   const inputEntries = Object.entries(state.input ?? {})
 
   return (

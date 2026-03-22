@@ -24,7 +24,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
 
   useEffect(() => {
     if (!open) return
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(translateX, {
         toValue: 0,
         duration: 240,
@@ -37,7 +37,9 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-    ]).start()
+    ])
+    animation.start()
+    return () => animation.stop()
   }, [open, overlay, translateX])
 
   function close() {

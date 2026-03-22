@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -20,6 +20,12 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   }
 
   useEffect(() => {
+    // Clean up stale entries for routes that no longer exist
+    const currentKeys = new Set(state.routes.map((r) => r.key))
+    for (const key of indicatorAnims.keys()) {
+      if (!currentKeys.has(key)) indicatorAnims.delete(key)
+    }
+
     state.routes.forEach((route, index) => {
       const anim = indicatorAnims.get(route.key)
       if (!anim) return
@@ -31,7 +37,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         mass: 0.8,
       }).start()
     })
-  }, [state.index])
+  }, [indicatorAnims, state.index, state.routes])
 
   const overallStatus = !config
     ? { label: "Host offline", color: palette.danger }
@@ -44,16 +50,19 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           }
         : { label: "Local execution", color: palette.success }
 
-  function badgeTone(route: string) {
-    if (route === "settings") {
-      if (!config) return palette.danger
-      if (!bootstrap?.github?.connected) return palette.warn
-    }
-    if (route === "repos" && config?.executionTarget === "container") {
-      return bootstrap?.execution?.container?.available ? palette.accentLight : palette.danger
-    }
-    return undefined
-  }
+  const badgeTone = useCallback(
+    (route: string) => {
+      if (route === "settings") {
+        if (!config) return palette.danger
+        if (!bootstrap?.github?.connected) return palette.warn
+      }
+      if (route === "repos" && config?.executionTarget === "container") {
+        return bootstrap?.execution?.container?.available ? palette.accentLight : palette.danger
+      }
+      return undefined
+    },
+    [bootstrap, config, palette],
+  )
 
   return (
     <View
@@ -133,7 +142,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                 onPress={onPress}
                 accessibilityRole="button"
                 accessibilityState={focused ? { selected: true } : {}}
-                accessibilityLabel={options.tabBarAccessibilityLabel}
+                accessibilityLabel={options.tabBarAccessibilityLabel ?? tab.label}
                 style={({ pressed }) => ({
                   flex: 1,
                   alignItems: "center",

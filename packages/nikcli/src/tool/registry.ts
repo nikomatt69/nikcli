@@ -1,3 +1,4 @@
+import { plugin } from "bun"
 import { QuestionTool } from "./question"
 import { BashTool } from "./bash"
 import { EditTool } from "./edit"
@@ -48,6 +49,21 @@ import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
 import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
+
+const _toolDir = import.meta.dir
+
+plugin({
+  name: "nikcli-plugin-resolver",
+  setup(build) {
+    build.onResolve({ filter: /^@nikcli-ai\/plugin/ }, (args) => {
+      try {
+        return { path: Bun.resolveSync(args.path, _toolDir) }
+      } catch {
+        return undefined
+      }
+    })
+  },
+})
 
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })

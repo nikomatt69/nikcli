@@ -23,7 +23,11 @@ async function readQueue(): Promise<OfflineOp[]> {
 }
 
 async function writeQueue(queue: OfflineOp[]): Promise<void> {
-  await SecureStore.setItemAsync(QUEUE_KEY, JSON.stringify(queue))
+  try {
+    await SecureStore.setItemAsync(QUEUE_KEY, JSON.stringify(queue))
+  } catch {
+    // SecureStore unavailable; queue persists in memory only for this session
+  }
 }
 
 export async function enqueueOp(op: OfflineOp): Promise<void> {
@@ -54,9 +58,13 @@ export async function drainQueue(): Promise<void> {
 }
 
 export function setupOfflineDrainOnForeground(): () => void {
+  let draining = false
   const subscription = AppState.addEventListener("change", (state) => {
-    if (state === "active") {
-      void drainQueue()
+    if (state === "active" && !draining) {
+      draining = true
+      drainQueue().finally(() => {
+        draining = false
+      })
     }
   })
   return () => subscription.remove()

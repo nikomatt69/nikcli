@@ -1,0 +1,8 @@
+{
+  "$schema": "https://nikcli.store/config.json",
+  "speak": {
+    "provider": "openrouter",
+    "model": "alloy",
+    "modelId": "openai/gpt-4o-audio-preview"
+  }
+}

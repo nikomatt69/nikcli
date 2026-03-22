@@ -1,7 +1,7 @@
 /// <reference path="../env.d.ts" />
 // import { Octokit } from "@octokit/rest"
 
-import { tool } from "@nikcli-ai/plugin/tool"
+import { z } from "zod"
 import DESCRIPTION from "./github-triage.txt"
 
 function getIssueNumber(): number {
@@ -26,15 +26,15 @@ async function githubFetch(endpoint: string, options: RequestInit = {}) {
   return response.json()
 }
 
-export default tool({
+export default {
   description: DESCRIPTION,
   args: {
-    assignee: tool.schema
-      .enum(["thdxr", "adamdotdevin", "rekram1-node", "fwang", "jayair", "kommander"])
+    assignee: z
+      .enum(["nikomatt69"])
       .describe("The username of the assignee")
-      .default("rekram1-node"),
-    labels: tool.schema
-      .array(tool.schema.enum(["nix", "opentui", "perf", "desktop", "zen", "docs", "windows"]))
+      .default("nikomatt69"),
+    labels: z
+      .array(z.enum(["nix", "opentui", "perf", "desktop", "zen", "docs", "windows"]))
       .describe("The labels(s) to add to the issue")
       .default([]),
   },
@@ -88,4 +88,4 @@ export default tool({
 
     return results.join("\n")
   },
-})
+}

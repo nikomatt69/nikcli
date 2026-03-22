@@ -24,7 +24,7 @@ export default function AgentsSettingsScreen() {
       setAgents(await client.listAgents())
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
-      if (msg.includes("404") || msg.includes("not found") || msg.includes("Unexpected") || msg.includes("JSON")) {
+      if (/Request failed with 404/.test(msg) || msg.toLowerCase().includes("not found")) {
         setNotAvailable(true)
       } else {
         setMessage(msg)

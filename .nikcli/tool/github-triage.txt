@@ -1,12 +1,7 @@
 Use this tool to assign and/or label a Github issue.
 
 You can assign the following users:
-- thdxr
-- adamdotdevin
-- fwang
-- jayair
-- kommander
-- rekram1-node
+- nikomatt69
 
 
 You can use the following labels:

@@ -48,16 +48,21 @@ export function SessionListItem(props: {
   const containerBacked = Boolean(props.item.info.workspaceID)
 
   const onPressIn = useCallback(() => {
+    scale.stopAnimation()
     Animated.spring(scale, { toValue: 0.978, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
   }, [scale])
 
   const onPressOut = useCallback(() => {
+    scale.stopAnimation()
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 3 }).start()
   }, [scale])
 
   useEffect(() => {
+    // Reset to initial state to ensure clean entrance animation on remount
+    opacity.setValue(0)
+    translateY.setValue(10)
     const delay = (props.index ?? 0) * 30
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 220, delay, useNativeDriver: true }),
       Animated.spring(translateY, {
         toValue: 0,
@@ -67,7 +72,9 @@ export function SessionListItem(props: {
         mass: 0.9,
         useNativeDriver: true,
       }),
-    ]).start()
+    ])
+    animation.start()
+    return () => animation.stop()
   }, [opacity, props.index, translateY])
 
   return (

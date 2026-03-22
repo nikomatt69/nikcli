@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Stack, useFocusEffect } from "expo-router"
@@ -36,6 +36,8 @@ export default function GithubSettingsScreen() {
   const [oauthFlow, setOauthFlow] = useState<GitHubDeviceAuthStart | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const authRun = useRef(0)
+  // Cancel any in-flight polling loop on unmount
+  useEffect(() => () => { authRun.current = -1 }, [])
 
   const githubConnected = Boolean(bootstrap?.github?.connected)
   const oauthConfigured = Boolean(bootstrap?.github?.oauthDeviceConfigured)
@@ -154,8 +156,8 @@ export default function GithubSettingsScreen() {
       setOauthBusy(true)
       setMessage(null)
       const flow = await client.startGithubDeviceAuth()
-      const runID = Date.now()
-      authRun.current = runID
+      authRun.current += 1
+      const runID = authRun.current
       setOauthFlow(flow)
       void WebBrowser.openBrowserAsync(flow.verificationUriComplete || flow.verificationUri)
       void waitForApproval(flow, runID)

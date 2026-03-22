@@ -23,45 +23,51 @@ export function ServerProvider(props: PropsWithChildren) {
   const [bootstrap, setBootstrap] = useState<MobileBootstrap | null>(null)
   const [bootstrapLoading, setBootstrapLoading] = useState(false)
 
+  // Stable client instance — only recreated when config changes
+  const client = useMemo(() => (config ? new MobileClient(config) : null), [config])
+
   useEffect(() => {
+    let mounted = true
     getServerConfig()
-      .then((value) => setConfig(value))
-      .finally(() => setLoading(false))
+      .then((value) => { if (mounted) setConfig(value) })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
   }, [])
 
   useEffect(() => {
-    if (!config) {
+    if (!config || !client) {
       setBootstrap(null)
       setBootstrapLoading(false)
       return
     }
 
-    const client = new MobileClient(config)
+    let mounted = true
     setBootstrapLoading(true)
     client
       .bootstrap()
-      .then((value) => setBootstrap(value))
-      .catch(() => setBootstrap(null))
-      .finally(() => setBootstrapLoading(false))
-  }, [config])
+      .then((value) => { if (mounted) setBootstrap(value) })
+      .catch(() => { if (mounted) setBootstrap(null) })
+      .finally(() => { if (mounted) setBootstrapLoading(false) })
+    return () => { mounted = false }
+  }, [config, client])
 
   const value = useMemo<ServerContextValue>(
     () => ({
       config,
       loading,
       ready: !loading,
-      client: config ? new MobileClient(config) : null,
+      client,
       bootstrap,
       bootstrapLoading,
       async refreshBootstrap() {
-        if (!config) {
+        if (!config || !client) {
           setBootstrap(null)
           setBootstrapLoading(false)
           return null
         }
         setBootstrapLoading(true)
         try {
-          const next = await new MobileClient(config).bootstrap()
+          const next = await client.bootstrap()
           setBootstrap(next)
           return next
         } finally {
@@ -78,7 +84,7 @@ export function ServerProvider(props: PropsWithChildren) {
         setBootstrap(null)
       },
     }),
-    [bootstrap, bootstrapLoading, config, loading],
+    [bootstrap, bootstrapLoading, client, config, loading],
   )
 
   return <ServerContext.Provider value={value}>{props.children}</ServerContext.Provider>

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -41,6 +41,10 @@ export default function ProvidersSettingsScreen() {
   const [modelSearch, setModelSearch] = useState("")
   const [selectedProviderID, setSelectedProviderID] = useState(config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID)
   const [selectedModelID, setSelectedModelID] = useState(config?.modelID ?? MOBILE_DEFAULT_MODEL_ID)
+  const selectedProviderIDRef = useRef(selectedProviderID)
+  const selectedModelIDRef = useRef(selectedModelID)
+  selectedProviderIDRef.current = selectedProviderID
+  selectedModelIDRef.current = selectedModelID
   const [providerKey, setProviderKey] = useState("")
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -61,7 +65,7 @@ export default function ProvidersSettingsScreen() {
       const nextProvider = (() => {
         if (config?.modelProviderID && catalog.all.some((item) => item.id === config.modelProviderID))
           return config.modelProviderID
-        if (catalog.all.some((item) => item.id === selectedProviderID)) return selectedProviderID
+        if (catalog.all.some((item) => item.id === selectedProviderIDRef.current)) return selectedProviderIDRef.current
         return providerFallback(catalog)
       })()
 
@@ -72,7 +76,7 @@ export default function ProvidersSettingsScreen() {
           if (!provider) return undefined
           if (config?.modelProviderID === nextProvider && config?.modelID && provider.models[config.modelID])
             return config.modelID
-          if (provider.models[selectedModelID]) return selectedModelID
+          if (provider.models[selectedModelIDRef.current]) return selectedModelIDRef.current
           return modelFallback(catalog, nextProvider)
         })()
         if (nextModel) setSelectedModelID(nextModel)
@@ -82,7 +86,7 @@ export default function ProvidersSettingsScreen() {
     } finally {
       setLoading(false)
     }
-  }, [client, config?.modelID, config?.modelProviderID, selectedModelID, selectedProviderID])
+  }, [client, config?.modelID, config?.modelProviderID])
 
   useFocusEffect(
     useCallback(() => {

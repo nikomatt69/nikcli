@@ -34,10 +34,11 @@ import {
 import { useSessionStream } from "@/hooks/use-session-stream"
 
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
-  const existing = messages.find((item) => item.info.id === next.id)
-  if (existing) {
-    existing.info = next
-    return [...messages]
+  const index = messages.findIndex((item) => item.info.id === next.id)
+  if (index !== -1) {
+    const updated = [...messages]
+    updated[index] = { ...messages[index], info: next }
+    return updated
   }
   return [...messages, { info: next, parts: [] }].sort((a, b) => a.info.time.created - b.info.time.created)
 }

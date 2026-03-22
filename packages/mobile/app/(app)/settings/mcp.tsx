@@ -77,12 +77,11 @@ export default function McpSettingsScreen() {
   const entries = useMemo(() => Object.entries(hostConfig?.mcp ?? {}), [hostConfig?.mcp])
 
   async function saveConfig(nextMcp: NonNullable<HostConfigSnapshot["mcp"]>, successMessage: string) {
-    if (!client) return
+    if (!client || !hostConfig) return
     try {
       setSaving(true)
       setMessage(null)
-      const config = await client.getConfig()
-      const next = await client.updateConfig({ ...config, mcp: nextMcp })
+      const next = await client.updateConfig({ ...hostConfig, mcp: nextMcp })
       setHostConfig(next)
       await load()
       setMessage(successMessage)

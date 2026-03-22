@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ScrollView, Text, View } from "react-native"
 import { Stack, useFocusEffect } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -34,6 +34,8 @@ export default function TokensSettingsScreen() {
   useFocusEffect(
     useCallback(() => {
       void load()
+      // Clear any visible token when leaving the screen
+      return () => setNewToken(null)
     }, [load]),
   )
 
@@ -42,7 +44,12 @@ export default function TokensSettingsScreen() {
     try {
       setSaving(true)
       setMessage(null)
-      const days = expiresInDays.trim() ? Number(expiresInDays.trim()) : undefined
+      const daysRaw = expiresInDays.trim()
+      const days = daysRaw ? Number(daysRaw) : undefined
+      if (days !== undefined && (!Number.isInteger(days) || days <= 0)) {
+        setMessage("Expiry must be a positive whole number of days")
+        return
+      }
       const result = await client.createAuthToken(tokenName.trim() || undefined, days)
       setNewToken(result.token)
       setTokenName("")

@@ -1,4 +1,4 @@
-import React, { useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
+import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
 import { Animated, Modal, Pressable, Text, View, useWindowDimensions } from "react-native"
 import {
   AlertTriangle,
@@ -64,22 +64,25 @@ export const ActionSheet = React.forwardRef<
   const opacity = useRef(new Animated.Value(0)).current
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
+  const dismiss = useCallback(() => {
+    const animation = Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 36, duration: 180, useNativeDriver: true }),
+    ])
+    animation.start(({ finished }) => {
+      if (finished) setVisible(false)
+    })
+  }, [opacity, translateY])
+
   useImperativeHandle(
     ref,
     () => ({
       present() {
         setVisible(true)
       },
-      dismiss() {
-        Animated.parallel([
-          Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-          Animated.timing(translateY, { toValue: 36, duration: 180, useNativeDriver: true }),
-        ]).start(({ finished }) => {
-          if (finished) setVisible(false)
-        })
-      },
+      dismiss,
     }),
-    [opacity, translateY],
+    [dismiss],
   )
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export const ActionSheet = React.forwardRef<
 
     opacity.setValue(0)
     translateY.setValue(36)
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
       Animated.spring(translateY, {
         toValue: 0,
@@ -96,11 +99,13 @@ export const ActionSheet = React.forwardRef<
         mass: 0.95,
         useNativeDriver: true,
       }),
-    ]).start()
+    ])
+    animation.start()
+    return () => animation.stop()
   }, [opacity, translateY, visible])
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={() => setVisible(false)}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={dismiss}>
       <View
         style={{
           flex: 1,
@@ -108,7 +113,7 @@ export const ActionSheet = React.forwardRef<
           backgroundColor: isDark ? "rgba(2, 6, 23, 0.58)" : "rgba(15, 23, 42, 0.18)",
         }}
       >
-        <Pressable style={{ flex: 1 }} onPress={() => setVisible(false)} />
+        <Pressable style={{ flex: 1 }} onPress={dismiss} />
         <Animated.View
           style={{
             opacity,

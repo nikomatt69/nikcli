@@ -30,7 +30,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
       onRequestClose={onClose}
       onShow={() => {
         setTitle(currentTitle)
-        setTimeout(() => inputRef.current?.focus(), 80)
+        requestAnimationFrame(() => inputRef.current?.focus())
       }}
     >
       <KeyboardAvoidingView

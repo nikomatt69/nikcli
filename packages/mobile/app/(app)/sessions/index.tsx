@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, RefreshControl, Text, View } from "react-native"
 import { router } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
@@ -34,6 +34,8 @@ export default function SessionsScreen() {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const searchRef = useRef(search)
+  useEffect(() => { searchRef.current = search }, [search])
 
   const load = useCallback(
     async (term?: string) => {
@@ -70,8 +72,9 @@ export default function SessionsScreen() {
       router.replace("/")
       return
     }
-    void load(search)
-  }, [config, loading, search])
+    // Use ref to avoid search being in deps (first effect handles search debounce)
+    void load(searchRef.current)
+  }, [config, loading])
 
   async function createSession() {
     if (!client || creating) return

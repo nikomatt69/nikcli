@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { ChevronDown, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
@@ -156,11 +156,15 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
   const highlighted = highlightCode(code)
   const lineCount = code.split("\n").length
   const isLong = lineCount > 10
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => { if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current) }, [])
 
   async function handleCopy() {
     await Clipboard.setStringAsync(code)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current)
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000)
   }
 
   return (

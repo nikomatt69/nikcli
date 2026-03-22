@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactNode } from "react"
+import { useMemo, type PropsWithChildren, type ReactNode } from "react"
 import { Text, View, useWindowDimensions } from "react-native"
 import { cn } from "@/lib/cn"
 
@@ -22,7 +22,7 @@ export function SurfaceCard({
 }: SurfaceCardProps) {
   const { width } = useWindowDimensions()
   const toneClass = tone === "panel" ? "bg-panel" : tone === "background" ? "bg-background/70" : "bg-surface"
-  const compact = width < 390
+  const compact = useMemo(() => width < 390, [width])
 
   return (
     <View

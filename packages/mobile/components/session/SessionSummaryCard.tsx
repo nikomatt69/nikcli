@@ -102,7 +102,7 @@ export function SessionSummaryCard({
                 <ActionButton
                   label="Open PR"
                   variant="secondary"
-                  onPress={() => void Linking.openURL(github.pullRequest!.url)}
+                  onPress={() => void Linking.openURL(github.pullRequest?.url ?? "")}
                 />
               </View>
             ) : null}

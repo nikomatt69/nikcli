@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useEffect, useRef } from "react"
 import { ActivityIndicator, Animated, Pressable, Text, type PressableProps } from "react-native"
 import { cn } from "@/lib/cn"
 import { useAppTheme } from "@/lib/theme"
@@ -22,6 +22,12 @@ export function ActionButton({
   const { palette } = useAppTheme()
   const scale = useRef(new Animated.Value(1)).current
 
+  useEffect(() => {
+    return () => {
+      scale.stopAnimation()
+    }
+  }, [scale])
+
   const buttonClass =
     variant === "secondary"
       ? "border border-border bg-background/70"
@@ -35,12 +41,14 @@ export function ActionButton({
 
   function handlePressIn(e: Parameters<NonNullable<PressableProps["onPressIn"]>>[0]) {
     if (!disabled && !loading) {
+      scale.stopAnimation()
       Animated.spring(scale, { toValue: 0.975, useNativeDriver: true, speed: 60, bounciness: 0 }).start()
     }
     externalPressIn?.(e)
   }
 
   function handlePressOut(e: Parameters<NonNullable<PressableProps["onPressOut"]>>[0]) {
+    scale.stopAnimation()
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 4 }).start()
     externalPressOut?.(e)
   }

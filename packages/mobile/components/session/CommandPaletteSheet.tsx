@@ -89,6 +89,7 @@ export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
                 selectionColor={palette.accent}
                 keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
                 autoCapitalize="none"
+                autoFocus
                 className="flex-1 text-[15px] text-ink"
               />
             </View>

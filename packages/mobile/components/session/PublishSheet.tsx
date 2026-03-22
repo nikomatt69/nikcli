@@ -52,7 +52,7 @@ export function PublishSheet({
       <KeyboardAvoidingView
         className="flex-1"
         style={{ backgroundColor: isDark ? "rgba(2, 6, 23, 0.7)" : "rgba(15, 23, 42, 0.22)" }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <View className="flex-1 items-center justify-end px-4 pb-6">
           <Pressable className="absolute inset-0" onPress={onClose} />

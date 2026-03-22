@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AppState, Pressable, Text, View } from "react-native"
 import { useServer } from "@/lib/server-provider"
 
@@ -7,11 +7,15 @@ export function NetworkBanner() {
   const [isReachable, setIsReachable] = useState(true)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  async function checkReachability() {
+  const checkReachability = useCallback(async () => {
     if (!client) return
-    const ok = await client.ping()
-    setIsReachable(ok)
-  }
+    try {
+      const ok = await client.ping()
+      setIsReachable(ok)
+    } catch {
+      setIsReachable(false)
+    }
+  }, [client])
 
   useEffect(() => {
     if (!config) return
@@ -30,7 +34,7 @@ export function NetworkBanner() {
       if (intervalRef.current) clearInterval(intervalRef.current)
       subscription.remove()
     }
-  }, [client, config])
+  }, [checkReachability, config])
 
   if (!config || isReachable) return null
 

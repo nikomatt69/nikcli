@@ -11,6 +11,7 @@ Notifications.setNotificationHandler({
 })
 
 const recentNotifications = new Map<string, number>()
+const MAX_DEDUPE_ENTRIES = 200
 const MOBILE_CHANNEL_ID = "nikcli-mobile"
 
 function canNotify(kind: "sessionReady" | "permissions" | "failures") {
@@ -54,18 +55,27 @@ export async function sendLocalNotification(input: {
   const now = Date.now()
   const last = recentNotifications.get(dedupeKey)
   if (last && now - last < 8_000) return false
+
+  if (recentNotifications.size >= MAX_DEDUPE_ENTRIES) {
+    const oldest = [...recentNotifications.entries()].sort((a, b) => a[1] - b[1]).slice(0, 50)
+    for (const [key] of oldest) recentNotifications.delete(key)
+  }
   recentNotifications.set(dedupeKey, now)
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: input.title,
-      body: input.body,
-      sound: false,
-      data: { kind: input.kind },
-      ...(Platform.OS === "android" ? { channelId: MOBILE_CHANNEL_ID } : {}),
-    },
-    trigger: null,
-  })
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: input.title,
+        body: input.body,
+        sound: false,
+        data: { kind: input.kind },
+        ...(Platform.OS === "android" ? { channelId: MOBILE_CHANNEL_ID } : {}),
+      },
+      trigger: null,
+    })
+  } catch {
+    return false
+  }
 
   return true
 }
