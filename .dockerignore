@@ -8,6 +8,19 @@ package-lock.json
 yarn.lock
 !bun.lock
 packages/*/node_modules
+packages/*/dist
+packages/*/build
+packages/*/out
+# Rust/Tauri build artifacts
+packages/*/target
+packages/desktop/src-tauri/target
+# iOS/Android build artifacts
+packages/mobile/ios/build
+packages/mobile/ios/Pods
+packages/mobile/android/build
+packages/mobile/android/.gradle
+# Sidecars/prebuilt binaries
+packages/desktop/src-tauri/sidecars
 !.dockerignore
 Dockerfile*
 docker-compose*

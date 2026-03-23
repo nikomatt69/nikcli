@@ -1,0 +1,8 @@
+[build]
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "mkdir -p /data/nikcli && echo \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json && echo \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json && nikcli mobile serve --hostname 0.0.0.0 --port $PORT --pair --public-url https://$RAILWAY_PUBLIC_DOMAIN"
+
+[[volumes]]
+mountPath = "/data"
