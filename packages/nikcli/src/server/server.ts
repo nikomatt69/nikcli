@@ -139,6 +139,10 @@ export namespace Server {
           return c.json(data)
         })
         .use(async (c, next) => {
+          if (c.req.method === "GET" && c.req.path === "/global/health") {
+            return next()
+          }
+
           // Always allow CORS preflight to reach the CORS middleware.
           if (c.req.method === "OPTIONS") return next()
 
@@ -149,7 +153,7 @@ export namespace Server {
           if (bearer) {
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-              ; (c as any).set("mobileAuth", token)
+            ;(c as any).set("mobileAuth", token)
             return next()
           }
 

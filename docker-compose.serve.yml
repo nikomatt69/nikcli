@@ -11,12 +11,13 @@ services:
     environment:
       - NIKCLI_SERVER_SSH_ENABLED=true
       - NIKCLI_SERVER_TAILSCALE_AUTH=${NIKCLI_SERVER_TAILSCALE_AUTH:-false}
+      - PORT=4096
     volumes:
-      - nikcli-data:/app/.nikcli
-      - /Users/nikoemme/.local/share/nikcli/auth.json:/root/.local/share/nikcli/auth.json:ro
+      - nikcli-data:/data
+      - /Users/nikoemme/.local/share/nikcli/auth.json:/data/nikcli/auth.json:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4096/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:4096/global/health"]
       interval: 30s
       timeout: 10s
       retries: 3

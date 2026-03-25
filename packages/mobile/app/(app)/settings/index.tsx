@@ -254,12 +254,12 @@ export default function SettingsScreen() {
   async function saveConnection() {
     const nextUrl = url.trim()
     if (!nextUrl) {
-      setMessage("Host URL is required")
+      setMessage("Server URL is required")
       return
     }
 
     if (selectedExecutionTarget === "container" && !bootstrap?.execution?.container?.available) {
-      setMessage("Container sandbox requires Docker or Podman on the Nikcli host")
+      setMessage("Container sandbox requires Docker or Podman on the server")
       return
     }
 
@@ -275,7 +275,7 @@ export default function SettingsScreen() {
         modelID: selectedModelID,
         executionTarget: selectedExecutionTarget,
       })
-      setMessage("Host connection updated")
+      setMessage("Server connection updated")
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
     } finally {
@@ -970,7 +970,7 @@ export default function SettingsScreen() {
         >
           <View className="flex-row flex-wrap gap-2">
             <InfoChip label={bootstrap?.version ? `Nikcli ${bootstrap.version}` : "Nikcli unknown"} tone="accent" />
-            <InfoChip label={config?.url ? config.url.replace(/^https?:\/\//, "") : "No host"} />
+            <InfoChip label={config?.url ? config.url.replace(/^https?:\/\//, "") : "No server"} />
             <InfoChip label={themeMode === "system" ? `Theme: ${colorScheme}` : `Theme: ${themeMode}`} />
             <InfoChip label={bootstrap?.projects?.length ? `${bootstrap.projects.length} projects` : "No projects"} />
           </View>
@@ -1173,18 +1173,18 @@ export default function SettingsScreen() {
 
       {visibleSettingsSections.connection ? (
         <SurfaceCard
-          eyebrow="Host connection"
+          eyebrow="Server connection"
           title="Primary endpoint"
-          description="This endpoint is the execution backbone for sessions, worktrees, approvals, and GitHub publishing."
+          description="This hosted endpoint is the execution backbone for sessions, worktrees, approvals, and GitHub publishing."
           tone="panel"
         >
           <View className="gap-3">
             <TextField
-              label="Host URL"
+              label="Server URL"
               value={url}
               onChangeText={setUrl}
               autoCapitalize="none"
-              placeholder="https://your-host.example.com"
+              placeholder="https://your-hosted-nikcli.example.com"
             />
             <TextField
               label="Bearer token"
@@ -1194,11 +1194,11 @@ export default function SettingsScreen() {
               placeholder="Bearer token"
             />
             <TextField
-              label="Default host directory"
+              label="Default server directory"
               value={directory}
               onChangeText={setDirectory}
               autoCapitalize="none"
-              placeholder="Default host directory"
+              placeholder="Default directory on the hosted server"
             />
             <View className="flex-row gap-2">
               <View className="flex-1">
@@ -1206,7 +1206,7 @@ export default function SettingsScreen() {
               </View>
               <View className="flex-1">
                 <ActionButton
-                  label="Forget host"
+                  label="Forget server"
                   variant="secondary"
                   disabled={saving}
                   onPress={() => void forgetHost()}
@@ -1221,7 +1221,7 @@ export default function SettingsScreen() {
         <SurfaceCard
           eyebrow="GitHub execution"
           title="Choose where GitHub sessions run"
-          description="Keep the current local worktree flow or launch GitHub sessions inside a same-host container sandbox while preserving the existing mobile structure."
+          description="Keep the current server worktree flow or launch GitHub sessions inside a same-server container sandbox while preserving the existing mobile structure."
         >
           <View className="flex-row flex-wrap gap-2">
             <InfoChip
@@ -1247,7 +1247,7 @@ export default function SettingsScreen() {
                 Local worktree
               </Text>
               <Text className="mt-1 text-xs leading-5 text-soft">
-                Same behavior as now: host repo, host git, fastest path to publish.
+                Same behavior as now: server repo, server git, fastest path to publish.
               </Text>
             </Pressable>
 
@@ -1262,7 +1262,7 @@ export default function SettingsScreen() {
                 Container sandbox
               </Text>
               <Text className="mt-1 text-xs leading-5 text-soft">
-                Runs GitHub session execution inside a same-host container while keeping the worktree publish flow.
+                Runs GitHub session execution inside a same-server container while keeping the worktree publish flow.
               </Text>
             </Pressable>
           </View>
@@ -1270,7 +1270,7 @@ export default function SettingsScreen() {
           <Text className="mt-3 text-xs leading-5 text-soft">
             {containerReady
               ? "Recommended when you want stronger execution isolation without changing how PRs and cleanup work."
-              : "Install Docker or Podman on the host to unlock container-backed GitHub sessions."}
+              : "Install Docker or Podman on the server to unlock container-backed GitHub sessions."}
           </Text>
         </SurfaceCard>
       ) : null}

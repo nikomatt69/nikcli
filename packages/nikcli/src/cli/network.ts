@@ -37,9 +37,11 @@ export async function resolveNetworkOptions(args: NetworkOptions) {
   const hostnameExplicitlySet = process.argv.includes("--hostname")
   const mdnsExplicitlySet = process.argv.includes("--mdns")
   const corsExplicitlySet = process.argv.includes("--cors")
+  const envPortValue = Number.parseInt(process.env.PORT || "", 10)
+  const envPort = Number.isInteger(envPortValue) && envPortValue > 0 ? envPortValue : undefined
 
   const mdns = mdnsExplicitlySet ? args.mdns : (config?.server?.mdns ?? args.mdns)
-  const port = portExplicitlySet ? args.port : (config?.server?.port ?? args.port)
+  const port = portExplicitlySet ? args.port : (config?.server?.port ?? envPort ?? args.port)
   const hostname = hostnameExplicitlySet
     ? args.hostname
     : mdns && !config?.server?.hostname

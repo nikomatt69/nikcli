@@ -25,6 +25,10 @@ function getLocalIPs(): string[] {
   return ips
 }
 
+function isLoopbackHostname(hostname: string) {
+  return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
+}
+
 function resolveServerUrl(input: { publicUrl?: string; hostname: string; port: number }) {
   if (input.publicUrl) {
     const value = normalizePublicUrl(input.publicUrl)
@@ -83,11 +87,20 @@ export const MobileCommand = cmd({
             }),
         handler: async (args) => {
           const opts = await resolveNetworkOptions(args)
-          const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
+          const loopback = isLoopbackHostname(opts.hostname)
           const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
+          const publicExposure = Boolean(args.publicUrl) || !loopback
 
           if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
-            console.log("Mobile mode requires either a bearer mobile token, server password, or Tailscale auth.")
+            if (publicExposure) {
+              throw new Error(
+                "Public mobile hosting requires NIKCLI_SERVER_PASSWORD. Set a server password before binding to a non-loopback address or using --public-url.",
+              )
+            }
+
+            console.log(
+              "Mobile mode without a server password is only safe on loopback. Set NIKCLI_SERVER_PASSWORD for LAN or public access.",
+            )
           }
 
           const server = Server.listen(opts)

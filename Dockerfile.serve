@@ -18,6 +18,7 @@ COPY packages/remote/package.json /app/packages/remote/
 COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
+COPY github/package.json /app/github/
 
 RUN cd /app && bun install
 
@@ -29,6 +30,7 @@ COPY packages/remote /app/packages/remote
 COPY packages/plugin /app/packages/plugin
 COPY packages/companion /app/packages/companion
 COPY packages/slack /app/packages/slack
+COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
 ENV NIKCLI_VERSION=0.0.0-dev
@@ -36,21 +38,26 @@ RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
 
+COPY --from=build /app/packages/nikcli/dist /tmp/nikcli-dist
+
 ARG TARGETARCH
-RUN --mount=type=bind,from=build,source=/app/packages/nikcli/dist,target=/dist \
-    if [ "$TARGETARCH" = "arm64" ]; then \
-        cp /dist/nikcli-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+        cp /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
     else \
-        cp /dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
-    fi
+        cp /tmp/nikcli-dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
+    fi && chmod +x /usr/local/bin/nikcli && rm -rf /tmp/nikcli-dist
 
 RUN nikcli --version
 
-RUN mkdir -p /var/run/sshd && \
+RUN mkdir -p /var/run/sshd /data /data/config /data/state && \
     ssh-keygen -A && \
     chmod 0755 /var/run/sshd && \
     chmod 0644 /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ed25519_key
 
+ENV PORT=4096
+ENV XDG_DATA_HOME=/data
+ENV XDG_CONFIG_HOME=/data/config
+ENV XDG_STATE_HOME=/data/state
 ENV NIKCLI_SERVER_USERNAME=nikcli
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
@@ -58,7 +65,7 @@ ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
 
 EXPOSE 4096 2222
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:4096/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -s -o /dev/null "http://127.0.0.1:${PORT:-4096}/" || exit 1
 
-ENTRYPOINT ["nikcli", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
+CMD ["sh", "-c", "mkdir -p /data/nikcli /data/config /data/state && if [ -n \"$NIKCLI_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json; fi && if [ -n \"$NIKCLI_CONNECTORS_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json; fi && exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]

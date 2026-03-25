@@ -88,7 +88,7 @@ export default function TokensSettingsScreen() {
       <SurfaceCard
         eyebrow="Security"
         title="Long-lived bearer tokens"
-        description="Create scoped mobile bearer tokens for this server connection. Tokens never expire unless you set a duration or revoke them manually."
+        description="Create mobile bearer tokens for this server connection. On a hosted public endpoint, use an expiry unless you intentionally want a long-lived device token."
       >
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={`${tokens.length} active tokens`} tone={tokens.length ? "accent" : "neutral"} />
@@ -101,7 +101,7 @@ export default function TokensSettingsScreen() {
       <SurfaceCard
         eyebrow="Create token"
         title="Issue a new bearer token"
-        description="Give it a name and optional expiry. Copy and store the token immediately — it will not be shown again."
+        description="Give it a name and an expiry when possible. Copy and store the token immediately — it will not be shown again."
       >
         <View className="gap-3">
           <TextField
@@ -116,7 +116,7 @@ export default function TokensSettingsScreen() {
             value={expiresInDays}
             onChangeText={setExpiresInDays}
             keyboardType="numeric"
-            placeholder="e.g. 90 — leave blank for no expiry"
+            placeholder="e.g. 90 — recommended for hosted access"
           />
           <ActionButton label="Create Token" loading={saving} onPress={() => void createToken()} />
         </View>
@@ -128,15 +128,14 @@ export default function TokensSettingsScreen() {
           title="Copy now — not shown again"
           description="Store this token securely. Once you navigate away you cannot retrieve this value again."
         >
-          <Text selectable className="mt-2 rounded-[14px] border border-border bg-background/80 px-4 py-3 font-mono text-sm text-ink">
+          <Text
+            selectable
+            className="mt-2 rounded-[14px] border border-border bg-background/80 px-4 py-3 font-mono text-sm text-ink"
+          >
             {newToken}
           </Text>
           <View className="mt-3">
-            <ActionButton
-              label="Dismiss"
-              variant="secondary"
-              onPress={() => setNewToken(null)}
-            />
+            <ActionButton label="Dismiss" variant="secondary" onPress={() => setNewToken(null)} />
           </View>
         </SurfaceCard>
       ) : null}

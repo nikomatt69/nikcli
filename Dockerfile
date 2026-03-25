@@ -1,6 +1,8 @@
-FROM oven/bun:1-alpine
+FROM oven/bun:1
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends bash ca-certificates git ripgrep && rm -rf /var/lib/apt/lists/*
 
 # Copy root workspace files
 COPY package.json bun.lock ./
@@ -8,17 +10,40 @@ COPY package.json bun.lock ./
 # Copy patches required by bun install
 COPY patches patches
 
-# Copy all packages for workspace resolution
-COPY packages packages
+# Copy only workspace manifests needed to resolve nikcli dependencies
+COPY packages/nikcli/package.json packages/nikcli/
+COPY packages/script/package.json packages/script/
+COPY packages/util/package.json packages/util/
+COPY packages/sdk/js/package.json packages/sdk/js/
+COPY packages/remote/package.json packages/remote/
+COPY packages/plugin/package.json packages/plugin/
+COPY packages/companion/package.json packages/companion/
+COPY packages/slack/package.json packages/slack/
+COPY github/package.json github/
 
 # Install dependencies (resolves workspace:*)
 RUN bun install
 
+# Copy package sources required to build the nikcli binary
+COPY packages/nikcli packages/nikcli
+COPY packages/script packages/script
+COPY packages/util packages/util
+COPY packages/sdk/js packages/sdk/js
+COPY packages/remote packages/remote
+COPY packages/plugin packages/plugin
+COPY packages/companion packages/companion
+COPY packages/slack packages/slack
+COPY github github
+
 # Build nikcli binary for the current platform (linux-x64)
 # NIKCLI_CHANNEL avoids git branch lookup in build script (no .git in Docker context)
 ENV NIKCLI_CHANNEL=latest
+ENV NIKCLI_VERSION=0.0.4
+ENV XDG_DATA_HOME=/data
+ENV XDG_CONFIG_HOME=/data/config
+ENV XDG_STATE_HOME=/data/state
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
-    cp dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
+    set -- dist/nikcli-linux-*/bin/nikcli && cp "$1" /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
-# Run the bot from slack package
-CMD ["bun", "run", "--cwd", "packages/slack", "src/index.ts"]
+# Default to the mobile host without auto-pairing
+CMD ["nikcli", "mobile", "serve", "--hostname", "0.0.0.0", "--port", "4096"]

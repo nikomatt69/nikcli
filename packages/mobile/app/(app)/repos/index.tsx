@@ -152,7 +152,7 @@ export default function ReposScreen() {
   async function importRepo(repo: GitHubRepo) {
     if (!client || !config || !repo.clone_url) return
     if (executionTarget === "container" && !containerReady) {
-      setError("Container sandbox requires Docker or Podman on the host. Switch back to local in Settings.")
+      setError("Container sandbox requires Docker or Podman on the server. Switch back to local in Settings.")
       return
     }
     const owner = safeOwner(repo.full_name)
@@ -253,11 +253,11 @@ export default function ReposScreen() {
       <SurfaceCard
         eyebrow="Workspace portfolio"
         title="Direct sandboxes and source repos from your phone."
-        description="Create disposable worktrees, import GitHub repos into the host, pick a base branch, and launch a PR-ready execution session without leaving the mobile control plane."
+        description="Create disposable worktrees, import GitHub repos into the hosted server, pick a base branch, and launch a PR-ready execution session without leaving the mobile control plane."
       >
         <View className="absolute -right-8 top-0 h-28 w-28 rounded-full bg-accent/15" />
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={`${projects.length} local repos`} tone="accent" />
+          <InfoChip label={`${projects.length} server repos`} tone="accent" />
           <InfoChip label={`${repos.length} GitHub repos`} />
           <InfoChip label={currentProjectLabel(selectedProject)} />
           <InfoChip label={executionTarget === "container" ? "GitHub target: container" : "GitHub target: local"} />
@@ -270,7 +270,7 @@ export default function ReposScreen() {
       <SurfaceCard
         eyebrow="New sandbox"
         title="Create a disposable execution branch"
-        description="Provision a fresh host worktree before you start a new mobile task so session history and publish flow stay isolated."
+        description="Provision a fresh server worktree before you start a new mobile task so session history and publish flow stay isolated."
         tone="panel"
       >
         <TextField
@@ -288,12 +288,12 @@ export default function ReposScreen() {
       </SurfaceCard>
 
       <View className="gap-3">
-        <Text className="text-lg font-semibold text-ink">Local host repos</Text>
+        <Text className="text-lg font-semibold text-ink">Server repos</Text>
         {loading || bootstrapLoading ? <RepoCardSkeleton count={2} /> : null}
         {!loading && !bootstrapLoading && projects.length === 0 ? (
           <EmptyState
-            title="No local repos yet"
-            description="Point the host at a workspace, import a repository, or create a sandbox to seed the local portfolio."
+            title="No server repos yet"
+            description="Point the server at a workspace, import a repository, or create a sandbox to seed the hosted portfolio."
           />
         ) : null}
         {projects.map((project) => (
@@ -311,7 +311,7 @@ export default function ReposScreen() {
         {!bootstrap?.github?.connected ? (
           <EmptyState
             title="Connect GitHub first"
-            description="Open Settings to enable OAuth or install a host token, then come back here to browse repositories and launch branch-native sessions."
+            description="Open Settings to enable OAuth or install a server token, then come back here to browse repositories and launch branch-native sessions."
             action={<ActionButton label="Open GitHub controls" onPress={() => router.push("/settings")} />}
           />
         ) : (
@@ -330,9 +330,9 @@ export default function ReposScreen() {
             <Text className="mt-3 text-xs leading-5 text-soft">
               {executionTarget === "container"
                 ? containerReady
-                  ? "New GitHub sessions will keep the same host worktree flow but execute inside a same-host container sandbox."
-                  : "Container mode is selected, but the host has no Docker or Podman runtime available right now."
-                : "New GitHub sessions use the current local worktree flow for execution and publish."}
+                  ? "New GitHub sessions will keep the same server worktree flow but execute inside a same-server container sandbox."
+                  : "Container mode is selected, but the server has no Docker or Podman runtime available right now."
+                : "New GitHub sessions use the current server worktree flow for execution and publish."}
             </Text>
           </SurfaceCard>
         )}
@@ -420,7 +420,7 @@ export default function ReposScreen() {
               </Text>
               <Text className="mt-1 text-sm leading-6 text-soft">
                 Execution target:{" "}
-                {executionTarget === "container" ? "same-host container sandbox" : "local host worktree"}.
+                {executionTarget === "container" ? "same-server container sandbox" : "server worktree"}.
               </Text>
             </View>
 

@@ -100,7 +100,7 @@ export default function ConnectScreen() {
 
   async function connect() {
     if (!form.url) {
-      setError("Host URL is required")
+      setError("Server URL is required")
       return
     }
 
@@ -139,8 +139,8 @@ export default function ConnectScreen() {
     >
       <SurfaceCard
         eyebrow="Secure mobile airlock"
-        title="Direct command access for your active Nikcli host."
-        description="Pair once, verify the endpoint, then move from repo selection to approvals and pull requests without leaving your phone."
+        title="Direct command access for your hosted Nikcli server."
+        description="Pair once, verify the hosted endpoint, then move from repo selection to approvals and pull requests without leaving your phone."
         className="px-6 py-7"
       >
         <View className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/15" />
@@ -155,8 +155,8 @@ export default function ConnectScreen() {
 
       <SurfaceCard
         eyebrow="Secure pairing"
-        title="Connect to your host"
-        description="Use the same public HTTPS address and pairing token produced by `nikcli mobile serve --pair` on your host machine."
+        title="Connect to your server"
+        description="Use the fixed public HTTPS address for your hosted Nikcli server, then pair with a token created from that server."
         tone="panel"
       >
         <View className="mb-4 flex-row items-center justify-between gap-4">
@@ -171,11 +171,11 @@ export default function ConnectScreen() {
 
         <View className="gap-3">
           <TextField
-            label="Host URL"
+            label="Server URL"
             value={url}
             onChangeText={setUrl}
             autoCapitalize="none"
-            placeholder="https://your-host.example.com"
+            placeholder="https://nikcli-mobile-production.up.railway.app"
           />
           <TextField
             label="Bearer token"
@@ -185,11 +185,11 @@ export default function ConnectScreen() {
             placeholder="Bearer token from nikcli mobile pair"
           />
           <TextField
-            label="Default directory"
+            label="Default server directory"
             value={directory}
             onChangeText={setDirectory}
             autoCapitalize="none"
-            placeholder="Optional default directory on host"
+            placeholder="Optional directory on the hosted server"
           />
           <ActionButton
             label="Validate and continue"
@@ -203,20 +203,23 @@ export default function ConnectScreen() {
       {error ? <ErrorBanner message={error} /> : null}
 
       <SurfaceCard
-        eyebrow="Quick host setup"
-        title="Run a mobile-ready endpoint"
-        description="Set these environment values on the host running Nikcli, not inside the mobile app."
+        eyebrow="Hosted server setup"
+        title="Run a Railway-ready endpoint"
+        description="Set `NIKCLI_SERVER_PASSWORD` on Railway, deploy the hosted Nikcli server, then create a pairing token from that same server."
       >
         <Text className="font-mono text-sm leading-6 text-soft">
-          nikcli mobile serve --hostname 0.0.0.0 --port 4096 --pair --public-url https://your-host.example.com
+          nikcli mobile serve --hostname 0.0.0.0 --port $PORT --public-url https://nikcli-mobile-production.up.railway.app
+        </Text>
+        <Text className="mt-3 font-mono text-sm leading-6 text-soft">
+          nikcli mobile pair --public-url https://nikcli-mobile-production.up.railway.app --name iphone --expiry-days 90
         </Text>
         <View className="mt-4 gap-2 rounded-[24px] border border-border bg-background/70 px-4 py-4">
           <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
-            GitHub OAuth host setup
+            GitHub OAuth server setup
           </Text>
           <Text className="text-sm leading-6 text-soft">
             If Settings says GitHub OAuth is unavailable, add `NIKCLI_GITHUB_OAUTH_CLIENT_ID` or
-            `GITHUB_CLIENT_ID_CONSOLE` to the host environment where you run Nikcli, then restart that host process.
+            `GITHUB_CLIENT_ID_CONSOLE` to the hosted server environment, then restart that server process.
           </Text>
         </View>
       </SurfaceCard>

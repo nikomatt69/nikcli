@@ -3,14 +3,23 @@ node_modules
 dist
 build
 .turbo
+.nikcli
+.sst
+.expo
 *.log
 package-lock.json
 yarn.lock
 !bun.lock
+# node_modules at any depth
 packages/*/node_modules
+packages/*/*/node_modules
+packages/*/*/*/node_modules
+# Build output dirs at any depth
 packages/*/dist
 packages/*/build
 packages/*/out
+packages/*/.output
+packages/*/*/.output
 # Rust/Tauri build artifacts
 packages/*/target
 packages/desktop/src-tauri/target
