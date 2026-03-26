@@ -97,6 +97,7 @@ export default function SessionScreen() {
   const permissionIDsRef = useRef<Set<string>>(new Set())
   const followTranscriptRef = useRef(true)
   const initialScrollDoneRef = useRef(false)
+  const scrollRafRef = useRef<number | null>(null)
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
@@ -465,7 +466,11 @@ export default function SessionScreen() {
   }
 
   function scrollToLatest(animated: boolean) {
-    requestAnimationFrame(() => {
+    if (scrollRafRef.current !== null) {
+      cancelAnimationFrame(scrollRafRef.current)
+    }
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null
       listRef.current?.scrollToEnd({ animated })
     })
   }
@@ -793,7 +798,7 @@ export default function SessionScreen() {
             return
           }
           if (followTranscriptRef.current) {
-            scrollToLatest(true)
+            scrollToLatest(!sessionBlocked)
           }
         }}
         onScroll={updateTranscriptFollow}
@@ -846,7 +851,7 @@ export default function SessionScreen() {
             description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
           />
         }
-        contentContainerStyle={{ paddingBottom: 24, paddingTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
       />
 
       <SessionComposer

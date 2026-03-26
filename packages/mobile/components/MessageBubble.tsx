@@ -323,7 +323,12 @@ export function MessageBubble(props: {
   const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
-    LayoutAnimation.easeInEaseOut()
+    LayoutAnimation.configureNext({
+      duration: 240,
+      create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
+      update: { type: LayoutAnimation.Types.spring, springDamping: 0.8, duration: 240 },
+      delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
+    })
     setShowReasoning((value) => !value)
   }
 
@@ -416,7 +421,9 @@ export function MessageBubble(props: {
                     ordered_list: { marginVertical: 4 },
                     list_item: { marginBottom: 6 },
                     bullet_list_icon: { color: palette.accentLight, marginRight: 6 },
+                    bullet_list_content: { flex: undefined, flexGrow: 1, flexShrink: 1 },
                     ordered_list_icon: { color: palette.accentLight, marginRight: 6 },
+                    ordered_list_content: { flex: undefined, flexGrow: 1, flexShrink: 1 },
                     code_inline: {
                       color: palette.accentLight,
                       backgroundColor: palette.codeBackground,
