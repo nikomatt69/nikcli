@@ -39,12 +39,10 @@ const IS_PREVIEW = CHANNEL !== "latest"
 const VERSION = await (async () => {
   if (env.NIKCLI_VERSION) return env.NIKCLI_VERSION
   if (IS_PREVIEW) return pkgver
-  const version = await fetch("https://registry.npmjs.org/nikcli-ai/latest")
-    .then((res) => {
-      if (!res.ok) throw new Error(res.statusText)
-      return res.json()
-    })
-    .then((data: any) => data.version)
+  const res = await fetch("https://registry.npmjs.org/nikcli-ai/latest")
+  const version = res.ok
+    ? await res.json().then((data: any) => data.version)
+    : pkgver
   const [major, minor, patch] = version.split(".").map((x: string) => Number(x) || 0)
   const t = env.NIKCLI_BUMP?.toLowerCase()
   if (t === "major") return `${major + 1}.0.0`
