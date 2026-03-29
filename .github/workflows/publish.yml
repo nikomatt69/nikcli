@@ -30,9 +30,17 @@ permissions:
 
 jobs:
   publish:
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     if: github.repository == 'nikomatt69/nikcli'
     steps:
+      - name: Cancel other workflows for this commit
+        run: |
+          gh run list --commit ${{ github.sha }} --json databaseId,workflowName \
+            --jq '.[] | select(.workflowName != "publish") | .databaseId' \
+            | xargs -r -I{} gh run cancel {} || true
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
@@ -103,9 +111,9 @@ jobs:
             target: aarch64-apple-darwin
           - host: blacksmith-4vcpu-windows-2025
             target: x86_64-pc-windows-msvc
-          - host: blacksmith-4vcpu-ubuntu-2404
+          - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - host: blacksmith-4vcpu-ubuntu-2404-arm
+          - host: ubuntu-latest-arm
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -210,7 +218,7 @@ jobs:
       - publish
       - publish-tauri
     if: always() && needs.publish.result == 'success' && needs.publish.outputs.tag
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
