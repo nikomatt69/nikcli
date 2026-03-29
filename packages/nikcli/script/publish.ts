@@ -45,6 +45,10 @@ async function npmPublish(cwd: string, tag: string) {
       return
     } catch (err: any) {
       const msg = String(err) + String(err?.stderr ?? "")
+      if (msg.includes("previously published versions")) {
+        console.log(`[${cwd}] already published at this version, skipping`)
+        return
+      }
       if (!msg.includes("E429") || attempt === 5) throw err
       const delay = attempt * 30000
       console.log(`[${cwd}] rate limited, retry ${attempt}/5 in ${delay / 1000}s...`)
