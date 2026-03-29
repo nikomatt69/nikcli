@@ -23,6 +23,10 @@ function detectSource(location: string) {
     return { label: "External", rank: 2 }
   }
 
+  if (normalized.includes("/.claude/") || normalized.includes("/.agents/")) {
+    return { label: "Workspace", rank: 0 }
+  }
+
   return { label: "Other", rank: 3 }
 }
 
@@ -49,6 +53,7 @@ export function DialogSkills() {
     return (skills() ?? [])
       .map((skill) => {
         const source = detectSource(skill.location)
+        const location = shortenLocation(skill.location)
         const metadata = [skill.category, skill.tags?.slice(0, 3).join(", "), skill.version ? `v${skill.version}` : undefined]
           .filter(Boolean)
           .join(" - ")
@@ -62,6 +67,7 @@ export function DialogSkills() {
           source.label,
           command,
           skill.location,
+          location,
         ]
           .filter(Boolean)
           .join(" ")
@@ -71,7 +77,7 @@ export function DialogSkills() {
           title: skill.name,
           description: metadata ? `${skill.description} - ${metadata}` : skill.description,
           value: command,
-          footer: shortenLocation(skill.location),
+          footer: location,
           category: source.label,
           rank: source.rank,
           search,
