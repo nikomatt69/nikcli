@@ -7,6 +7,7 @@ import { NamedError } from "@nikcli-ai/util/error"
 import { readableStreamToText } from "bun"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
+import { proxied } from "../util/network"
 
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
@@ -76,18 +77,11 @@ export namespace BunProc {
     const modExists = await Filesystem.exists(mod)
     if (dependencies[pkg] === version && modExists) return mod
 
-    const proxied = !!(
-      process.env.HTTP_PROXY ||
-      process.env.HTTPS_PROXY ||
-      process.env.http_proxy ||
-      process.env.https_proxy
-    )
-
     const args = [
       "add",
       "--force",
       "--exact",
-      ...(proxied ? ["--no-cache"] : []),
+      ...(proxied() ? ["--no-cache"] : []),
       "--cwd",
       Global.Path.cache,
       pkg + "@" + version,

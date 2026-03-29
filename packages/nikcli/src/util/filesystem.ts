@@ -1,7 +1,39 @@
-import { realpathSync } from "fs"
-import { dirname, join, relative } from "path"
+import { realpathSync, statSync } from "fs"
+import { dirname, join, relative, resolve as pathResolve } from "path"
+import { mkdir } from "fs/promises"
 
 export namespace Filesystem {
+  export function stat(p: string): import("fs").Stats | undefined {
+    try {
+      return statSync(p)
+    } catch {
+      return undefined
+    }
+  }
+
+  export async function readJson<T>(p: string): Promise<T> {
+    return Bun.file(p).json() as Promise<T>
+  }
+
+  export async function writeJson(p: string, data: unknown): Promise<void> {
+    await mkdir(dirname(p), { recursive: true })
+    await Bun.write(p, JSON.stringify(data, null, 2))
+  }
+
+  export async function readText(p: string): Promise<string> {
+    return Bun.file(p).text()
+  }
+
+  export async function write(p: string, text: string | Buffer): Promise<void> {
+    await mkdir(dirname(p), { recursive: true })
+    await Bun.write(p, text)
+  }
+
+  export function resolve(p: string): string {
+    return pathResolve(p)
+  }
+
+
   export const exists = (p: string) =>
     Bun.file(p)
       .stat()

@@ -3,5 +3,11 @@
   "remote": {
     "enableTunnel": true,
     "provider": "cloudflared"
+  },
+  "connectors": {
+    "figma": {
+      "type": "figma",
+      "enabled": true
+    }
   }
 }

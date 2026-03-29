@@ -9,13 +9,19 @@ import { GlassBorderLight } from "../component/border"
 
 export function Dialog(
   props: ParentProps<{
-    size?: "medium" | "large"
+    size?: "medium" | "large" | "xlarge"
     onClose: () => void
   }>,
 ) {
   const dimensions = useTerminalDimensions()
   const { theme } = useTheme()
   const renderer = useRenderer()
+
+  const width = () => {
+    if (props.size === "xlarge") return 116
+    if (props.size === "large") return 88
+    return 60
+  }
 
   return (
     <box
@@ -37,7 +43,7 @@ export function Dialog(
           if (renderer.getSelection()) return
           e.stopPropagation()
         }}
-        width={props.size === "large" ? 80 : 60}
+        width={width()}
         maxWidth={dimensions().width - 2}
         backgroundColor={theme.backgroundPanel}
         border={[...GlassBorderLight.border]}
@@ -60,7 +66,7 @@ function init() {
       element: JSX.Element
       onClose?: () => void
     }[],
-    size: "medium" as "medium" | "large",
+    size: "medium" as "medium" | "large" | "xlarge",
   })
 
   useKeyboard((evt) => {
@@ -126,7 +132,7 @@ function init() {
     get size() {
       return store.size
     },
-    setSize(size: "medium" | "large") {
+    setSize(size: "medium" | "large" | "xlarge") {
       setStore("size", size)
     },
   }

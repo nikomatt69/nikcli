@@ -4,14 +4,16 @@ import {
   createContext,
   createMemo,
   createSignal,
+  getOwner,
   onCleanup,
+  runWithOwner,
   useContext,
   type Accessor,
+  type Owner,
   type ParentProps,
 } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
-import type { KeybindsConfig } from "@nikcli-ai/sdk/v2"
 
 type Context = ReturnType<typeof init>
 const ctx = createContext<Context>()
@@ -22,7 +24,7 @@ export type Slash = {
 }
 
 export type CommandOption = DialogSelectOption<string> & {
-  keybind?: keyof KeybindsConfig
+  keybind?: string
   suggested?: boolean
   slash?: Slash
   hidden?: boolean
@@ -32,12 +34,20 @@ export type CommandOption = DialogSelectOption<string> & {
 function init() {
   const [registrations, setRegistrations] = createSignal<Accessor<CommandOption[]>[]>([])
   const [suspendCount, setSuspendCount] = createSignal(0)
+  const owner: Owner | null = getOwner()
   const dialog = useDialog()
   const keybind = useKeybind()
 
   const entries = createMemo(() => {
     const all = registrations().flatMap((x) => x())
-    return all.map((x) => ({
+    const seen = new Set<string>()
+    const unique: typeof all = []
+    for (const item of all) {
+      if (seen.has(item.value)) continue
+      seen.add(item.value)
+      unique.push(item)
+    }
+    return unique.map((x) => ({
       ...x,
       footer: x.keybind ? keybind.print(x.keybind) : undefined,
     }))
@@ -101,11 +111,17 @@ function init() {
       dialog.replace(() => <DialogCommand options={visibleOptions()} suggestedOptions={suggestedOptions()} />)
     },
     register(cb: () => CommandOption[]) {
-      const results = createMemo(cb)
-      setRegistrations((arr) => [results, ...arr])
-      onCleanup(() => {
-        setRegistrations((arr) => arr.filter((x) => x !== results))
+      let results: Accessor<CommandOption[]>
+      runWithOwner(owner, () => {
+        results = createMemo(cb)
+        setRegistrations((arr) => [results!, ...arr])
+        onCleanup(() => {
+          setRegistrations((arr) => arr.filter((x) => x !== results))
+        })
       })
+      return () => {
+        setRegistrations((arr) => arr.filter((x) => x !== results))
+      }
     },
   }
   return result
@@ -140,9 +156,17 @@ export function CommandProvider(props: ParentProps) {
 
 function DialogCommand(props: { options: CommandOption[]; suggestedOptions: CommandOption[] }) {
   let ref: DialogSelectRef<string>
-  const list = () => {
-    if (ref?.filter) return props.options
-    return [...props.suggestedOptions, ...props.options]
-  }
+  const list = createMemo(() => {
+    const all = [...props.suggestedOptions, ...props.options]
+    const seen = new Map<string, number>()
+    const unique: typeof all = []
+    for (const item of all) {
+      const key = `${item.category ?? ""}|${item.value}`
+      if (seen.has(key)) continue
+      seen.set(key, unique.length)
+      unique.push(item)
+    }
+    return unique
+  })
   return <DialogSelect ref={(r) => (ref = r)} title="Commands" options={list()} />
 }

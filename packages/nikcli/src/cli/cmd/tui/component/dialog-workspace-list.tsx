@@ -29,12 +29,15 @@ async function openWorkspace(input: {
     )
   }
 
-  const client = createNikcliClient({
-    baseUrl: input.sdk.url,
-    fetch: input.sdk.fetch,
-    directory: input.sync.data.path.directory || input.sdk.directory,
-    workspace: input.workspaceID,
-  })
+  function scoped(workspaceID?: string) {
+    return createNikcliClient({
+      baseUrl: input.sdk.url,
+      fetch: input.sdk.fetch,
+      directory: input.sync.data.path.directory || input.sdk.directory,
+      workspace: workspaceID,
+    })
+  }
+  const client = scoped(input.workspaceID)
   const listed = input.forceCreate ? undefined : await client.session.list({ roots: true, limit: 1 })
   const session = listed?.data?.[0]
   if (session?.id) {
@@ -162,6 +165,15 @@ export function DialogWorkspaceList() {
   const sdk = useSDK()
   const toast = useToast()
   const keybind = useKeybind()
+
+  function scoped(workspaceID?: string) {
+    return createNikcliClient({
+      baseUrl: sdk.url,
+      fetch: sdk.fetch,
+      directory: sync.data.path.directory || sdk.directory,
+      workspace: workspaceID,
+    })
+  }
   const [toDelete, setToDelete] = createSignal<string>()
   const [counts, setCounts] = createSignal<Record<string, number | null | undefined>>({})
 
@@ -201,12 +213,7 @@ export function DialogWorkspaceList() {
       return
     }
 
-    const client = createNikcliClient({
-      baseUrl: sdk.url,
-      fetch: sdk.fetch,
-      directory: sync.data.path.directory || sdk.directory,
-      workspace: workspaceID,
-    })
+    const client = scoped(workspaceID)
     const listed = await client.session.list({ roots: true, limit: 1 }).catch(() => undefined)
     if (listed?.data?.length) {
       dialog.replace(() => <DialogSessionList workspaceID={workspaceID} />)

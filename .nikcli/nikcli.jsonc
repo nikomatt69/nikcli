@@ -1,0 +1,8 @@
+{
+  "$schema": "https://nikcli.store/config.json",
+  "plugin": [
+    "opencode-antigravity-auth",
+    "@zenobius/opencode-skillful",
+    "opencode-scheduler"
+  ]
+}

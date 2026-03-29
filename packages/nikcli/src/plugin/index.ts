@@ -18,6 +18,8 @@ import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./copilot"
+import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
+import type { PluginModule } from "@nikcli-ai/plugin"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -619,6 +621,7 @@ export namespace Plugin {
     for (let plugin of plugins) {
       // ignore old codex plugin since it is supported first party now
       if (plugin.includes("nikcli-openai-codex-auth") || plugin.includes("nikcli-copilot-auth")) continue
+      const spec = plugin
       log.info("loading plugin", { path: plugin })
       if (!plugin.startsWith("file://")) {
         const lastAtIndex = plugin.lastIndexOf("@")
@@ -645,15 +648,23 @@ export namespace Plugin {
         if (!plugin) continue
       }
       const mod = await import(plugin)
-      // Prevent duplicate initialization when plugins export the same function
-      // as both a named export and default export (e.g., `export const X` and `export default X`).
-      // Object.entries(mod) would return both entries pointing to the same function reference.
-      const seen = new Set<PluginInstance>()
-      for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
-        if (seen.has(fn)) continue
-        seen.add(fn)
-        const init = await fn(input)
-        hooks.push(init)
+      const v1 = readV1Plugin(mod, spec, "server", "detect")
+      if (v1) {
+        const source = pluginSource(spec)
+        const id = readPluginId(v1.id, spec)
+        await resolvePluginId(source, spec, plugin, id)
+        hooks.push(await (v1 as PluginModule).server!(input, Config.pluginOptions(spec)))
+      } else {
+        // Prevent duplicate initialization when plugins export the same function
+        // as both a named export and default export (e.g., `export const X` and `export default X`).
+        // Object.entries(mod) would return both entries pointing to the same function reference.
+        const seen = new Set<PluginInstance>()
+        for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
+          if (seen.has(fn)) continue
+          seen.add(fn)
+          const init = await fn(input)
+          hooks.push(init)
+        }
       }
     }
 

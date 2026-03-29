@@ -38,6 +38,7 @@ import { AdsCommand } from "./cli/cmd/ads"
 import { LovableCommand } from "./cli/cmd/lovable"
 import { CompanionCommand } from "./cli/cmd/companion"
 import { MobileCommand } from "./cli/cmd/mobile"
+import { PluginCommand } from "./cli/cmd/plug"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -120,6 +121,7 @@ const cli = yargs(hideBin(process.argv))
   .command(RemoteCommand)
   .command(CompanionCommand)
   .command(MobileCommand)
+  .command(PluginCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

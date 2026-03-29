@@ -104,7 +104,13 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       // mapValues((x) => x.sort((a, b) => a.title.localeCompare(b.title))),
       entries(),
     )
-    return result
+    // Deduplicate categories
+    const seen = new Set<string>()
+    return result.filter(([category]) => {
+      if (seen.has(category)) return false
+      seen.add(category)
+      return true
+    })
   })
 
   const flat = createMemo(() => {

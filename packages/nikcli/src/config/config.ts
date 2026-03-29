@@ -1,6 +1,7 @@
 import { Log } from "../util/log"
 import path from "path"
 import { pathToFileURL } from "url"
+import { createRequire } from "module"
 import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
@@ -31,6 +32,68 @@ import { Event } from "../server/event"
 
 export namespace Config {
   const log = Log.create({ service: "config" })
+
+  // PluginSpec: string or [string, options] tuple
+  const _PluginOptions = z.record(z.string(), z.unknown())
+  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), _PluginOptions])])
+  export type PluginOptions = z.infer<typeof _PluginOptions>
+  export type PluginSpec = z.infer<typeof PluginSpec>
+
+  function systemManagedConfigDir(): string {
+    switch (process.platform) {
+      case "darwin":
+        return "/Library/Application Support/nikcli"
+      case "win32":
+        return path.join(process.env.ProgramData || "C:\\ProgramData", "nikcli")
+      default:
+        return "/etc/nikcli"
+    }
+  }
+
+  export function managedConfigDir() {
+    return process.env["NIKCLI_TEST_MANAGED_CONFIG_DIR"] || systemManagedConfigDir()
+  }
+
+  export function pluginSpecifier(plugin: PluginSpec): string {
+    return Array.isArray(plugin) ? plugin[0] : plugin
+  }
+
+  export function pluginOptions(plugin: PluginSpec): PluginOptions | undefined {
+    return Array.isArray(plugin) ? (plugin[1] as PluginOptions) : undefined
+  }
+
+  export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
+    const { isPathPluginSpec, resolvePathPluginTarget } = await import("../plugin/shared")
+    const spec = pluginSpecifier(plugin)
+    if (!isPathPluginSpec(spec)) return plugin
+    if (spec.startsWith("file://")) {
+      const resolved = await resolvePathPluginTarget(spec).catch(() => spec)
+      if (Array.isArray(plugin)) return [resolved, plugin[1]]
+      return resolved
+    }
+    if (path.isAbsolute(spec) || /^[A-Za-z]:[\\/]/.test(spec)) {
+      const base = pathToFileURL(spec).href
+      const resolved = await resolvePathPluginTarget(base).catch(() => base)
+      if (Array.isArray(plugin)) return [resolved, plugin[1]]
+      return resolved
+    }
+    try {
+      const base = import.meta.resolve!(spec, configFilepath)
+      const resolved = await resolvePathPluginTarget(base).catch(() => base)
+      if (Array.isArray(plugin)) return [resolved, plugin[1]]
+      return resolved
+    } catch {
+      try {
+        const require = createRequire(configFilepath)
+        const base = pathToFileURL(require.resolve(spec)).href
+        const resolved = await resolvePathPluginTarget(base).catch(() => base)
+        if (Array.isArray(plugin)) return [resolved, plugin[1]]
+        return resolved
+      } catch {
+        return plugin
+      }
+    }
+  }
 
   // Custom merge function that concatenates array fields instead of replacing them
   function mergeConfigConcatArrays(target: Info, source: Info): Info {

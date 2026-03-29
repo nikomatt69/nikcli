@@ -79,21 +79,22 @@ export const { use: useKeybind, provider: KeybindProvider } = createSimpleContex
         }
         return Keybind.fromParsedKey(evt, store.leader)
       },
-      match(key: keyof KeybindsConfig, evt: ParsedKey) {
-        const keybind = keybinds()[key]
-        if (!keybind) return false
+      match(key: string, evt: ParsedKey): boolean {
+        const list = keybinds()[key as keyof KeybindsConfig] ?? Keybind.parse(key)
+        if (!list) return false
         const parsed: Keybind.Info = result.parse(evt)
-        for (const key of keybind) {
-          if (Keybind.match(key, parsed)) {
+        for (const k of list) {
+          if (Keybind.match(k, parsed)) {
             return true
           }
         }
+        return false
       },
-      print(key: keyof KeybindsConfig) {
-        const first = keybinds()[key]?.at(0)
+      print(key: string) {
+        const first = (keybinds()[key as keyof KeybindsConfig] ?? Keybind.parse(key)).at(0)
         if (!first) return ""
-        const result = Keybind.toString(first)
-        return result.replace("<leader>", Keybind.toString(keybinds().leader![0]!))
+        const r = Keybind.toString(first)
+        return r.replace("<leader>", Keybind.toString(keybinds().leader![0]!))
       },
     }
     return result
