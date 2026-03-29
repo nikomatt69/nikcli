@@ -106,6 +106,7 @@ export namespace Session {
         archived: z.number().optional(),
       }),
       permission: PermissionNext.Ruleset.optional(),
+      skills: z.array(z.string()).optional(),
       revert: z
         .object({
           messageID: z.string(),
@@ -173,6 +174,7 @@ export namespace Session {
         parentID: Identifier.schema("session").optional(),
         title: z.string().optional(),
         permission: Info.shape.permission,
+        skills: z.array(z.string()).optional(),
         github: GithubInfo.optional(),
         workspaceID: Info.shape.workspaceID,
       })
@@ -183,6 +185,7 @@ export namespace Session {
         directory: Instance.directory,
         title: input?.title,
         permission: input?.permission,
+        skills: input?.skills,
         github: input?.github,
         workspaceID: input?.workspaceID,
       })
@@ -199,6 +202,7 @@ export namespace Session {
       const session = await createNext({
         directory: original.directory,
         workspaceID: original.workspaceID,
+        skills: original.skills,
       })
       const msgs = await messages({ sessionID: input.sessionID })
       const idMap = new Map<string, string>()
@@ -242,8 +246,11 @@ export namespace Session {
     directory: string
     workspaceID?: string
     permission?: PermissionNext.Ruleset
+    skills?: string[]
     github?: z.infer<typeof GithubInfo>
   }) {
+    const inheritedSkills =
+      !input.skills && input.parentID ? (await get(input.parentID).catch(() => undefined))?.skills : undefined
     const result: Info = {
       id: Identifier.descending("session", input.id),
       slug: Slug.create(),
@@ -254,6 +261,7 @@ export namespace Session {
       workspaceID: input.workspaceID ?? WorkspaceContext.workspaceID,
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
+      skills: input.skills ?? inheritedSkills ?? [],
       github: input.github,
       time: {
         created: Date.now(),

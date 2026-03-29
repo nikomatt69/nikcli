@@ -1,9 +1,8 @@
-import path from "path"
 import z from "zod"
 import { Tool } from "./tool"
 import { Skill } from "../skill"
-import { ConfigMarkdown } from "../config/markdown"
 import { PermissionNext } from "../permission/next"
+import { Session } from "../session"
 
 export const SkillTool = Tool.define("skill", async (ctx) => {
   const allSkills = await Skill.all()
@@ -70,8 +69,10 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
 
       if (params.search) {
         const searchLower = params.search.toLowerCase()
-        skills = skills.filter(
-          (s) => s.name.toLowerCase().includes(searchLower) || s.description.toLowerCase().includes(searchLower),
+        skills = skills.filter((s) =>
+          [s.name, s.description, s.category ?? "", ...(s.tags ?? [])].some((value) =>
+            value.toLowerCase().includes(searchLower),
+          ),
         )
       }
 
@@ -85,40 +86,56 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       }
 
       if (params.name) {
-        const skill = await Skill.get(params.name)
-        if (!skill) {
-          const available = await Skill.all().then((x) => Object.keys(x).join(", "))
-          throw new Error(`Skill "${params.name}" not found. Available skills: ${available || "none"}`)
+        const resolved = await Skill.resolve(params.name, accessibleSkills)
+        if (!resolved.skill) {
+          const suggestions = resolved.suggestions.join(", ")
+          const available = accessibleSkills.map((skill) => skill.name).join(", ")
+          const hint = suggestions ? ` Did you mean: ${suggestions}?` : ""
+          throw new Error(`Skill "${params.name}" not found.${hint} Available skills: ${available || "none"}`)
         }
 
         await ctx.ask({
           permission: "skill",
-          patterns: [params.name],
-          always: [params.name],
+          patterns: [resolved.skill.name],
+          always: [resolved.skill.name],
           metadata: {},
         })
 
-        const parsed = await ConfigMarkdown.parse(skill.location)
-        const dir = path.dirname(skill.location)
+        const loaded = await Skill.load(resolved.skill.name)
+        if (!loaded) {
+          throw new Error(`Skill "${resolved.skill.name}" could not be loaded.`)
+        }
+
+        if (ctx.sessionID) {
+          await Session.update(ctx.sessionID, (draft) => {
+            const next = new Set(draft.skills ?? [])
+            next.add(loaded.name)
+            draft.skills = [...next]
+          })
+        }
+
+        const dir = loaded.dir
 
         const meta = [
+          `**Slash command**: /${Skill.commandName(loaded.name)}`,
           `**Base directory**: ${dir}`,
-          skill.category ? `**Category**: ${skill.category}` : null,
-          skill.tags?.length ? `**Tags**: ${skill.tags.join(", ")}` : null,
-          skill.version ? `**Version**: ${skill.version}` : null,
+          loaded.category ? `**Category**: ${loaded.category}` : null,
+          loaded.tags?.length ? `**Tags**: ${loaded.tags.join(", ")}` : null,
+          loaded.version ? `**Version**: ${loaded.version}` : null,
         ].filter(Boolean)
 
-        const output = [`## Skill: ${skill.name}`, "", meta.join("\n"), "", parsed.content.trim()].join("\n")
+        const output = [`## Skill: ${loaded.name}`, "", meta.join("\n"), "", loaded.content].join("\n")
 
         return {
-          title: `Loaded skill: ${skill.name}`,
+          title: `Loaded skill: ${loaded.name}`,
           output,
           metadata: {
-            name: skill.name,
+            name: loaded.name,
             dir,
-            category: skill.category,
-            tags: skill.tags,
-            version: skill.version,
+            category: loaded.category,
+            tags: loaded.tags,
+            version: loaded.version,
+            command: Skill.commandName(loaded.name),
           },
         }
       }

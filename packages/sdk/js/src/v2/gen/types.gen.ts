@@ -837,6 +837,7 @@ export type Session = {
     archived?: number
   }
   permission?: PermissionRuleset
+  skills?: Array<string>
   revert?: {
     messageID: string
     partID?: string
@@ -2696,6 +2697,7 @@ export type MobileCommand = {
   agent?: string
   model?: string
   mcp?: boolean
+  skill?: boolean
   subtask?: boolean
   hints: Array<string>
 }
@@ -2938,6 +2940,7 @@ export type Command = {
   agent?: string
   model?: string
   mcp?: boolean
+  skill?: boolean
   template: string
   subtask?: boolean
   hints: Array<string>
@@ -3760,6 +3763,7 @@ export type SessionCreateData = {
     parentID?: string
     title?: string
     permission?: PermissionRuleset
+    skills?: Array<string>
     github?: SessionGithub
     workspaceID?: string
   }

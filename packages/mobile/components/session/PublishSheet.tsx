@@ -5,10 +5,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native"
 import type { Dispatch, SetStateAction } from "react"
+import { AdaptiveBlur } from "@/components/GlassView"
 import type { SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
@@ -49,79 +51,139 @@ export function PublishSheet({
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        className="flex-1"
-        style={{ backgroundColor: isDark ? "rgba(2, 6, 23, 0.7)" : "rgba(15, 23, 42, 0.22)" }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <View className="flex-1 items-center justify-end px-4 pb-6">
-          <Pressable className="absolute inset-0" onPress={onClose} />
-          <ScrollView
-            className="w-full max-h-[88%]"
-            contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
-          >
-            <View className="w-full rounded-[34px] border border-border bg-surface px-5 py-5">
-              <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
-                Publish workflow
-              </Text>
-              <Text className="mt-2 text-[28px] font-semibold leading-[32px] text-ink">
-                {detail?.info.github?.pullRequest ? "Update pull request" : "Create pull request"}
-              </Text>
-              <Text className="mt-3 text-sm leading-6 text-soft">
-                {detail?.info.github?.pullRequest
-                  ? "Update the branch and commit message. Existing PR title and description stay in GitHub unless you edit them here."
-                  : "Set the commit, PR title, and launch notes before this session publishes back to GitHub from mobile."}
-              </Text>
+      <View style={{ flex: 1 }}>
+        {/* Full-screen blur backdrop */}
+        <AdaptiveBlur
+          tint={isDark ? "dark" : "light"}
+          intensity={isDark ? 22 : 15}
+          style={StyleSheet.absoluteFill}
+          fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+        />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)" },
+          ]}
+        />
 
-              <View className="mt-4 gap-3">
-                <TextField
-                  label="Commit message"
-                  value={commitMessage}
-                  onChangeText={setCommitMessage}
-                  placeholder="Commit message"
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 24 }}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+            <ScrollView
+              style={{ width: "100%", maxHeight: "88%" }}
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+            >
+              {/* Glass card */}
+              <View
+                style={{
+                  overflow: "hidden",
+                  borderRadius: 34,
+                  borderWidth: 1,
+                  borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
+                  shadowColor: "#000",
+                  shadowOpacity: isDark ? 0.45 : 0.14,
+                  shadowRadius: 32,
+                  shadowOffset: { width: 0, height: -6 },
+                  elevation: 22,
+                }}
+              >
+                <AdaptiveBlur
+                  tint={isDark ? "dark" : "light"}
+                  intensity={isDark ? 92 : 80}
+                  style={StyleSheet.absoluteFill}
+                  fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
                 />
-                {!detail?.info.github?.pullRequest ? (
-                  <>
-                    <TextField
-                      label="Pull request title"
-                      value={publishTitle}
-                      onChangeText={setPublishTitle}
-                      placeholder="Pull request title"
-                    />
-                    <TextField
-                      label="Pull request body"
-                      value={publishBody}
-                      onChangeText={setPublishBody}
-                      multiline
-                      placeholder="Pull request body"
-                    />
-                  </>
-                ) : null}
-              </View>
+                <View
+                  style={[
+                    StyleSheet.absoluteFill,
+                    { backgroundColor: isDark ? "rgba(17,17,17,0.68)" : "rgba(255,255,255,0.62)" },
+                  ]}
+                  pointerEvents="none"
+                />
 
-              <View className="mt-5 flex-row gap-2">
-                <View className="flex-1">
-                  <ActionButton label="Cancel" variant="secondary" onPress={onClose} />
-                </View>
-                <View className="flex-1">
-                  <ActionButton
-                    label="Publish now"
-                    disabled={publishing || sessionBlocked || cleaned}
-                    onPress={onPublish}
-                  />
+                <View style={{ padding: 20 }}>
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "700",
+                      letterSpacing: 2,
+                      textTransform: "uppercase",
+                      color: palette.accentLight,
+                    }}
+                  >
+                    Publish workflow
+                  </Text>
+                  <Text
+                    style={{
+                      marginTop: 8,
+                      fontSize: 28,
+                      fontWeight: "600",
+                      lineHeight: 32,
+                      color: palette.ink,
+                    }}
+                  >
+                    {detail?.info.github?.pullRequest ? "Update pull request" : "Create pull request"}
+                  </Text>
+                  <Text style={{ marginTop: 12, fontSize: 14, lineHeight: 24, color: palette.soft }}>
+                    {detail?.info.github?.pullRequest
+                      ? "Update the branch and commit message. Existing PR title and description stay in GitHub unless you edit them here."
+                      : "Set the commit, PR title, and launch notes before this session publishes back to GitHub from mobile."}
+                  </Text>
+
+                  <View style={{ marginTop: 16, gap: 12 }}>
+                    <TextField
+                      label="Commit message"
+                      value={commitMessage}
+                      onChangeText={setCommitMessage}
+                      placeholder="Commit message"
+                    />
+                    {!detail?.info.github?.pullRequest ? (
+                      <>
+                        <TextField
+                          label="Pull request title"
+                          value={publishTitle}
+                          onChangeText={setPublishTitle}
+                          placeholder="Pull request title"
+                        />
+                        <TextField
+                          label="Pull request body"
+                          value={publishBody}
+                          onChangeText={setPublishBody}
+                          multiline
+                          placeholder="Pull request body"
+                        />
+                      </>
+                    ) : null}
+                  </View>
+
+                  <View style={{ marginTop: 20, flexDirection: "row", gap: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <ActionButton label="Cancel" variant="secondary" onPress={onClose} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <ActionButton
+                        label="Publish now"
+                        disabled={publishing || sessionBlocked || cleaned}
+                        onPress={onPublish}
+                      />
+                    </View>
+                  </View>
+
+                  {publishing ? (
+                    <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                      <ActivityIndicator color={palette.accent} size="small" />
+                      <Text style={{ fontSize: 14, color: palette.soft }}>Publishing changes to GitHub…</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
-
-              {publishing ? (
-                <View className="mt-3 flex-row items-center gap-2">
-                  <ActivityIndicator color={palette.accent} size="small" />
-                  <Text className="text-sm text-soft">Publishing changes to GitHub…</Text>
-                </View>
-              ) : null}
-            </View>
-          </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </View>
     </Modal>
   )
 }

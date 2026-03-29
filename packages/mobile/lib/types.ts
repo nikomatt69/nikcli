@@ -403,6 +403,7 @@ export type CommandInfo = {
   agent?: string
   model?: string
   mcp?: boolean
+  skill?: boolean
   subtask?: boolean
   hints: string[]
 }

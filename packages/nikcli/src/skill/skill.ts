@@ -1,5 +1,6 @@
 import z from "zod"
 import path from "path"
+import { createHash } from "crypto"
 import { Config } from "../config/config"
 import { Instance } from "../project/instance"
 import { NamedError } from "@nikcli-ai/util/error"
@@ -13,6 +14,8 @@ import { Session } from "@/session"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
+  const COMMAND_PREFIX = "skill:"
+
   export const Info = z.object({
     name: z.string(),
     description: z.string(),
@@ -21,7 +24,14 @@ export namespace Skill {
     tags: z.array(z.string()).optional(),
     version: z.string().optional(),
   })
+  const Metadata = Info.omit({
+    location: true,
+  })
   export type Info = z.infer<typeof Info>
+  export type Loaded = Info & {
+    dir: string
+    content: string
+  }
 
   export const InvalidError = NamedError.create(
     "SkillInvalidError",
@@ -50,6 +60,28 @@ export namespace Skill {
   const CLAUDE_SKILL_GLOB = new Bun.Glob("skills/**/SKILL.md")
   const SKILL_GLOB = new Bun.Glob("**/SKILL.md")
 
+  function normalizeName(input: string) {
+    return input.toLowerCase().replace(/[^a-z0-9]+/g, "")
+  }
+
+  function slug(input: string) {
+    return input
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+  }
+
+  export function commandName(name: string) {
+    const suffix = slug(name) || "skill"
+    const hash = createHash("sha1").update(name).digest("hex").slice(0, 6)
+    return `${COMMAND_PREFIX}${suffix}-${hash}`
+  }
+
+  export function isCommandName(name: string) {
+    return name.startsWith(COMMAND_PREFIX)
+  }
+
   export const state = Instance.state(async () => {
     const skills: Record<string, Info> = {}
 
@@ -65,7 +97,7 @@ export namespace Skill {
 
       if (!md) return
 
-      const parsed = Info.safeParse(md.data)
+      const parsed = Metadata.safeParse(md.data)
       if (!parsed.success) return
 
       if (skills[parsed.data.name]) {
@@ -140,5 +172,61 @@ export namespace Skill {
 
   export async function all() {
     return state().then((x) => Object.values(x))
+  }
+
+  export async function resolve(name: string, candidates?: Info[]) {
+    const query = name.trim()
+    if (!query) return { skill: undefined, suggestions: [] as string[] }
+
+    const list = candidates ?? (await all())
+    const lower = query.toLowerCase()
+    const normalized = normalizeName(query)
+
+    const exact =
+      list.find((skill) => skill.name === query) ??
+      list.find((skill) => skill.name.toLowerCase() === lower) ??
+      (() => {
+        const matches = list.filter((skill) => normalizeName(skill.name) === normalized)
+        return matches.length === 1 ? matches[0] : undefined
+      })()
+
+    if (exact) {
+      return { skill: exact, suggestions: [exact.name] }
+    }
+
+    const partial = list.filter((skill) => {
+      const skillName = skill.name.toLowerCase()
+      const normalizedName = normalizeName(skill.name)
+      return skillName.includes(lower) || normalizedName.includes(normalized)
+    })
+
+    if (partial.length === 1) {
+      return { skill: partial[0], suggestions: partial.map((skill) => skill.name) }
+    }
+
+    const related = partial.length
+      ? partial
+      : list.filter((skill) =>
+          [skill.description, skill.category ?? "", ...(skill.tags ?? [])].some((value) =>
+            value.toLowerCase().includes(lower),
+          ),
+        )
+
+    return {
+      skill: undefined,
+      suggestions: related.slice(0, 5).map((skill) => skill.name),
+    }
+  }
+
+  export async function load(name: string): Promise<Loaded | undefined> {
+    const skill = await get(name)
+    if (!skill) return
+
+    const parsed = await ConfigMarkdown.parse(skill.location)
+    return {
+      ...skill,
+      dir: path.dirname(skill.location),
+      content: parsed.content.trim(),
+    }
   }
 }

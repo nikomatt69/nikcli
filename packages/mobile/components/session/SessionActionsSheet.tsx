@@ -26,24 +26,31 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
 
   const iconBg =
     tone === "success"
-      ? (isDark ? "rgba(34,197,94,0.10)" : "rgba(22,163,74,0.09)")
+      ? isDark
+        ? "rgba(255,255,255,0.06)"
+        : "rgba(22,163,74,0.09)"
       : tone === "neutral"
-        ? (isDark ? "rgba(148,163,184,0.09)" : "rgba(100,116,139,0.08)")
-        : (isDark ? "rgba(56,189,248,0.10)" : "rgba(14,165,233,0.09)")
+        ? isDark
+          ? "rgba(148,163,184,0.09)"
+          : "rgba(100,116,139,0.08)"
+        : isDark
+          ? "rgba(255,255,255,0.08)"
+          : "rgba(14,165,233,0.09)"
 
   const iconBorder =
     tone === "success"
-      ? (isDark ? "rgba(34,197,94,0.26)" : "rgba(22,163,74,0.20)")
+      ? isDark
+        ? "rgba(255,255,255,0.1)"
+        : "rgba(22,163,74,0.20)"
       : tone === "neutral"
-        ? (isDark ? "rgba(148,163,184,0.18)" : "rgba(100,116,139,0.16)")
-        : (isDark ? "rgba(56,189,248,0.26)" : "rgba(14,165,233,0.18)")
+        ? isDark
+          ? "rgba(148,163,184,0.18)"
+          : "rgba(100,116,139,0.16)"
+        : isDark
+          ? "rgba(255,255,255,0.12)"
+          : "rgba(14,165,233,0.18)"
 
-  const iconColor =
-    tone === "success"
-      ? palette.success
-      : tone === "neutral"
-        ? palette.soft
-        : palette.accentLight
+  const iconColor = tone === "success" ? palette.success : tone === "neutral" ? palette.soft : palette.accentLight
 
   return (
     <Pressable
@@ -76,52 +83,33 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return (
-    <Text className="px-5 pb-1 pt-3.5 text-[10px] font-bold uppercase tracking-[1.6px] text-muted">
-      {label}
-    </Text>
-  )
+  return <Text className="px-5 pb-1 pt-3.5 text-[10px] font-bold uppercase tracking-[1.6px] text-muted">{label}</Text>
 }
 
 function SectionDivider() {
   return <View className="mx-5 mt-2 h-px bg-border" />
 }
 
-export function SessionActionsSheet({
-  sheetRef,
-  title,
-  onRename,
-  onExportMarkdown,
-  onExportJSON,
-  onCopyID,
-}: Props) {
+export function SessionActionsSheet({ sheetRef, title, onRename, onExportMarkdown, onExportJSON, onCopyID }: Props) {
   const { palette, isDark } = useAppTheme()
 
   return (
     <ActionSheet ref={sheetRef} snapPoints={["86%"]}>
       {/* Header */}
       <View className="border-b border-border px-5 pb-4">
-        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">
-          Session actions
-        </Text>
-        <Text
-          className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink"
-          numberOfLines={2}
-        >
+        <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Session actions</Text>
+        <Text className="mt-1.5 text-lg font-bold leading-6 tracking-tight text-ink" numberOfLines={2}>
           {title || "Untitled session"}
         </Text>
         <View
           className="mt-2 self-start rounded-full px-2.5 py-1"
           style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(56,189,248,0.22)" : "rgba(14,165,233,0.18)",
-            backgroundColor: isDark ? "rgba(56,189,248,0.10)" : "rgba(14,165,233,0.09)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
           }}
         >
-          <Text
-            className="text-[10px] font-semibold tracking-wide"
-            style={{ color: palette.accentLight }}
-          >
+          <Text className="text-[10px] font-semibold tracking-wide" style={{ color: palette.accentLight }}>
             Choose an action
           </Text>
         </View>

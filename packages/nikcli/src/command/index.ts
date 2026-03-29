@@ -7,6 +7,7 @@ import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import { MCP } from "../mcp"
 import { Connectors } from "../connectors"
+import { Skill } from "../skill"
 
 export namespace Command {
   export const Event = {
@@ -28,6 +29,7 @@ export namespace Command {
       agent: z.string().optional(),
       model: z.string().optional(),
       mcp: z.boolean().optional(),
+      skill: z.boolean().optional(),
       template: z.promise(z.string()).or(z.string()),
       subtask: z.boolean().optional(),
       hints: z.array(z.string()),
@@ -52,6 +54,17 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
   } as const
+
+  function skillTemplate(skill: Skill.Info) {
+    return [
+      `Use the skill tool to load the \"${skill.name}\" skill first.`,
+      `After loading it, follow that skill for the rest of this session unless the user says otherwise.`,
+      "Apply the skill to the user request below when one is provided.",
+      "If no additional request is provided, briefly confirm that the skill is active and explain what it helps with.",
+      "",
+      "$ARGUMENTS",
+    ].join("\n")
+  }
 
   const state = Instance.state(async () => {
     const cfg = await Config.get()
@@ -130,6 +143,21 @@ export namespace Command {
 - args: ${argsExample}${argsEntries.length > 0 ? `\n\nReplace the placeholder values ($$) with actual values:\n${argsEntries.join("\n")}` : ""}`
         },
         hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+      }
+    }
+
+    for (const skill of await Skill.all()) {
+      const name = Skill.commandName(skill.name)
+      if (result[name]) continue
+      const template = skillTemplate(skill)
+      result[name] = {
+        name,
+        description: skill.description,
+        skill: true,
+        get template() {
+          return template
+        },
+        hints: hints(template),
       }
     }
 

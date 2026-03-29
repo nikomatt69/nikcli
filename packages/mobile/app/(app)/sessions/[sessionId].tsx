@@ -319,13 +319,15 @@ export default function SessionScreen() {
       .map((command) => ({
         name: command.name,
         description: command.description,
-        badge: command.mcp
-          ? "MCP"
-          : command.subtask
-            ? "Task"
-            : command.hints.length
-              ? `${command.hints.length} args`
-              : undefined,
+        badge: command.skill
+          ? "Skill"
+          : command.mcp
+            ? "MCP"
+            : command.subtask
+              ? "Task"
+              : command.hints.length
+                ? `${command.hints.length} args`
+                : undefined,
       }))
   }, [commands, composerPreferences.slashSuggestions, input])
 
@@ -706,15 +708,23 @@ export default function SessionScreen() {
         (command.hints.length
           ? `Arguments: ${command.hints.join(", ")}`
           : "Insert this slash command into the composer."),
-      section: command.mcp ? "MCP" : command.subtask ? "Subtasks" : "Commands",
-      badge: command.mcp
-        ? "MCP"
-        : command.subtask
-          ? "Task"
-          : command.hints.length
-            ? `${command.hints.length} args`
-            : undefined,
-      keywords: command.hints,
+      section: command.skill
+        ? "Skills"
+        : command.mcp
+          ? "MCP"
+          : command.subtask
+            ? "Subtasks"
+            : "Commands",
+      badge: command.skill
+        ? "Skill"
+        : command.mcp
+          ? "MCP"
+          : command.subtask
+            ? "Task"
+            : command.hints.length
+              ? `${command.hints.length} args`
+              : undefined,
+      keywords: command.skill ? [...command.hints, "skill"] : command.hints,
       onPress: () => {
         setCommandPaletteOpen(false)
         insertSlashCommand(command.name)

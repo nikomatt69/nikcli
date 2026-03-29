@@ -283,11 +283,11 @@ export namespace SessionPrompt {
     let structuredOutput: unknown | undefined
 
     let step = 0
-    const session = await Session.get(sessionID)
     while (true) {
       SessionStatus.set(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
       if (abort.aborted) break
+      const session = await Session.get(sessionID)
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
       let lastUser: MessageV2.User | undefined
@@ -609,6 +609,8 @@ export namespace SessionPrompt {
 
       await Plugin.trigger("experimental.chat.messages.transform", {}, { messages: sessionMessages })
 
+      const activeSkillMessages = await SystemPrompt.skills(session.skills ?? [])
+
       // Build system prompt, adding structured output instructions if needed
       const system = [
         ...(await SystemPrompt.environment()),
@@ -627,6 +629,7 @@ export namespace SessionPrompt {
         sessionID,
         system,
         messages: [
+          ...activeSkillMessages.map((content) => ({ role: "user" as const, content })),
           ...MessageV2.toModelMessages(sessionMessages, model),
           ...(isLastStep
             ? [

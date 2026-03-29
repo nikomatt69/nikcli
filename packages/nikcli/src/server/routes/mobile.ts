@@ -144,6 +144,7 @@ const MobileCommand = z
     agent: z.string().optional(),
     model: z.string().optional(),
     mcp: z.boolean().optional(),
+    skill: z.boolean().optional(),
     subtask: z.boolean().optional(),
     hints: z.array(z.string()),
   })
@@ -916,6 +917,7 @@ export const MobileRoutes = lazy(() =>
               agent: command.agent,
               model: command.model,
               mcp: command.mcp,
+              skill: command.skill,
               subtask: command.subtask,
               hints: command.hints,
             }))
@@ -1447,6 +1449,7 @@ export const MobileRoutes = lazy(() =>
                   agent: typeof command.agent === "string" ? command.agent : undefined,
                   model: typeof command.model === "string" ? command.model : undefined,
                   mcp: typeof command.mcp === "boolean" ? command.mcp : undefined,
+                  skill: typeof command.skill === "boolean" ? command.skill : undefined,
                   subtask: typeof command.subtask === "boolean" ? command.subtask : undefined,
                   hints: Array.isArray(command.hints)
                     ? command.hints.filter((hint): hint is string => typeof hint === "string")
@@ -1477,6 +1480,7 @@ export const MobileRoutes = lazy(() =>
               agent: command.agent,
               model: command.model,
               mcp: command.mcp,
+              skill: command.skill,
               subtask: command.subtask,
               hints: command.hints,
             }))

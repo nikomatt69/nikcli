@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@nikcli-ai/sdk",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -30,6 +30,16 @@
   },
   "dependencies": {},
   "publishConfig": {
-    "directory": "dist"
+    "directory": "dist",
+    "exports": {
+      ".": "./index.js",
+      "./client": "./client.js",
+      "./server": "./server.js",
+      "./crypto": "./crypto/index.js",
+      "./cloud": "./cloud/index.js",
+      "./v2": "./v2/index.js",
+      "./v2/client": "./v2/client.js",
+      "./v2/server": "./v2/server.js"
+    }
   }
 }
