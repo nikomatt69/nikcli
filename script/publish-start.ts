@@ -10,7 +10,12 @@ console.log("=== publishing ===\n")
 
 if (!Script.preview) {
   const previous = await getLatestRelease()
-  notes = await buildNotes(previous, "HEAD")
+  try {
+    notes = await buildNotes(previous, "HEAD")
+  } catch (e) {
+    console.log("Could not build changelog notes (nikcli not installed):", e)
+    notes = []
+  }
 }
 
 const pkgjsons = await Array.fromAsync(
