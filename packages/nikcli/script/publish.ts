@@ -38,18 +38,35 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
 
 const tags = [Script.channel]
 
-const tasks = Object.entries(binaries).map(async ([name]) => {
+async function npmPublish(cwd: string, tag: string) {
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      await $`npm publish *.tgz --access public --tag ${tag}`.cwd(cwd)
+      return
+    } catch (err: any) {
+      const msg = String(err) + String(err?.stderr ?? "")
+      if (!msg.includes("E429") || attempt === 5) throw err
+      const delay = attempt * 30000
+      console.log(`[${cwd}] rate limited, retry ${attempt}/5 in ${delay / 1000}s...`)
+      await Bun.sleep(delay)
+    }
+  }
+}
+
+for (const [name] of Object.entries(binaries)) {
   if (process.platform !== "win32") {
     await $`chmod -R 755 .`.cwd(`./dist/${name}`)
   }
   await $`bun pm pack`.cwd(`./dist/${name}`)
   for (const tag of tags) {
-    await $`npm publish *.tgz --access public --tag ${tag}`.cwd(`./dist/${name}`)
+    await npmPublish(`./dist/${name}`, tag)
   }
-})
-await Promise.all(tasks)
+  await Bun.sleep(3000)
+}
+
 for (const tag of tags) {
-  await $`cd ./dist/${pkg.name} && bun pm pack && npm publish *.tgz --access public --tag ${tag}`
+  await $`bun pm pack`.cwd(`./dist/${pkg.name}`)
+  await npmPublish(`./dist/${pkg.name}`, tag)
 }
 
 if (!Script.preview) {
