@@ -1,4 +1,5 @@
-import { Pressable, Text, View, useWindowDimensions } from "react-native"
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { AdaptiveBlur } from "@/components/GlassView"
 import { Menu } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { DrawerMenu } from "@/components/layout/DrawerMenu"
@@ -16,7 +17,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
   const { top } = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const { bootstrap, config } = useServer()
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const current = getCurrentTab(routeName)
   const openDrawer = useUIStore((state) => state.openDrawer)
   const compact = width < 390
@@ -36,49 +37,167 @@ export function AppHeader({ routeName }: AppHeaderProps) {
 
   return (
     <>
-      <View className="border-b border-border bg-background px-4 pb-2" style={{ paddingTop: top + 4 }}>
-        <View className="overflow-hidden rounded-[20px] border border-border bg-surface px-3 py-2.5">
-          <View className="absolute -right-8 -top-8 h-14 w-14 rounded-full bg-accent/10" />
-          <View className="absolute bottom-0 left-0 h-6 w-full bg-panel/14" />
+      {/* Outer header container with glass background */}
+      <View
+        style={{
+          paddingTop: top + 4,
+          paddingHorizontal: 16,
+          paddingBottom: 8,
+          overflow: "hidden",
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(193,208,223,0.8)",
+        }}
+      >
+        {/* Full header glass background */}
+        <AdaptiveBlur
+          tint={isDark ? "dark" : "light"}
+          intensity={isDark ? 90 : 80}
+          style={StyleSheet.absoluteFill}
+          fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(241,246,251,0.80)"}
+        />
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(241,246,251,0.22)" },
+          ]}
+          pointerEvents="none"
+        />
 
-          <View className="flex-row items-center justify-between gap-2">
-            <View className="min-w-0 flex-1 flex-row items-center gap-2">
-              <View className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: controlTone }} />
-              <Text className="text-[9px] font-semibold uppercase tracking-[1.4px] text-soft">{controlStatus}</Text>
-              <Text className="text-[9px] font-semibold uppercase tracking-[1.4px] text-accent-light">
+        {/* Inner glass card */}
+        <View style={[styles.innerCard, { borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.80)" }]}>
+          <AdaptiveBlur
+            tint={isDark ? "dark" : "extraLight"}
+            intensity={isDark ? 55 : 45}
+            style={StyleSheet.absoluteFill}
+            fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+          />
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: isDark ? "rgba(24,24,24,0.52)" : "rgba(255,255,255,0.48)" },
+            ]}
+            pointerEvents="none"
+          />
+
+          {/* Decorative orb */}
+          <View
+            style={{
+              position: "absolute",
+              right: -32,
+              top: -32,
+              width: 56,
+              height: 56,
+              borderRadius: 999,
+              backgroundColor: isDark ? "rgba(255,255,255,0.035)" : "rgba(232,240,248,0.85)",
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 24,
+              backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.14)",
+            }}
+          />
+
+          {/* Top row */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <View style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: controlTone }} />
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: "700",
+                  letterSpacing: 1.4,
+                  color: palette.soft,
+                  textTransform: "uppercase",
+                }}
+              >
+                {controlStatus}
+              </Text>
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: "700",
+                  letterSpacing: 1.4,
+                  color: palette.accentLight,
+                  textTransform: "uppercase",
+                }}
+              >
                 {current.label}
               </Text>
             </View>
             <Pressable
               onPress={openDrawer}
-              className="rounded-[13px] border border-border bg-background/80 px-2.5 py-2"
+              style={{
+                borderRadius: 13,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+              }}
             >
               <Menu size={15} color={palette.ink} strokeWidth={2.2} />
             </Pressable>
           </View>
 
-          <View className={`mt-2 items-center gap-2 ${compact ? "" : "flex-row justify-between"}`}>
-            <View className="min-w-0 flex-1">
+          {/* Title + Workspace */}
+          <View
+            style={[
+              { marginTop: 8, gap: 8 },
+              !compact && { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+            ]}
+          >
+            <View style={{ flex: 1, minWidth: 0 }}>
               <Text
-                className={`font-semibold text-ink ${compact ? "text-[16px] leading-[19px]" : "text-[17px] leading-[20px]"}`}
+                style={{
+                  fontWeight: "600",
+                  color: palette.ink,
+                  fontSize: compact ? 16 : 17,
+                  lineHeight: compact ? 19 : 20,
+                }}
               >
                 Mobile operations
               </Text>
-              <Text className="mt-0.5 text-[11px] leading-4 text-soft" numberOfLines={1}>
+              <Text style={{ marginTop: 2, fontSize: 11, lineHeight: 16, color: palette.soft }} numberOfLines={1}>
                 {current.subtitle}
               </Text>
             </View>
 
-            <View className="min-w-0 rounded-[13px] border border-border/80 bg-background/80 px-2.5 py-1.5">
-              <Text className="text-[8px] font-semibold uppercase tracking-[1.2px] text-accent-light">Workspace</Text>
-              <Text selectable className="mt-0.5 text-[10px] font-semibold text-ink" numberOfLines={1}>
+            <View
+              style={{
+                borderRadius: 13,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.78)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.52)",
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                minWidth: 0,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 8,
+                  fontWeight: "700",
+                  letterSpacing: 1.2,
+                  color: palette.accentLight,
+                  textTransform: "uppercase",
+                }}
+              >
+                Workspace
+              </Text>
+              <Text selectable style={{ marginTop: 2, fontSize: 10, fontWeight: "600", color: palette.ink }} numberOfLines={1}>
                 {workspaceLabel}
               </Text>
-              <Text className="mt-0.5 text-[8px] text-soft">{executionValue}</Text>
+              <Text style={{ marginTop: 2, fontSize: 8, color: palette.soft }}>{executionValue}</Text>
             </View>
           </View>
 
-          <View className="mt-2 flex-row flex-wrap gap-1.5">
+          {/* Status pills */}
+          <View style={{ marginTop: 8, flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             <StatusPill label="Host" value={config ? "Connected" : "Offline"} tone={config ? "good" : "warn"} compact />
             <StatusPill
               label="GitHub"
@@ -99,3 +218,12 @@ export function AppHeader({ routeName }: AppHeaderProps) {
     </>
   )
 }
+
+const styles = StyleSheet.create({
+  innerCard: {
+    overflow: "hidden",
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 12,
+  },
+})

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
-import { Animated, Pressable, Text, View } from "react-native"
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
+import { AdaptiveBlur } from "@/components/GlassView"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { APP_TABS } from "@/components/layout/navigation.config"
 import { useServer } from "@/lib/server-provider"
@@ -20,12 +21,10 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   }
 
   useEffect(() => {
-    // Clean up stale entries for routes that no longer exist
     const currentKeys = new Set(state.routes.map((r) => r.key))
     for (const key of indicatorAnims.keys()) {
       if (!currentKeys.has(key)) indicatorAnims.delete(key)
     }
-
     state.routes.forEach((route, index) => {
       const anim = indicatorAnims.get(route.key)
       if (!anim) return
@@ -67,21 +66,42 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   return (
     <View
       style={{
-        backgroundColor: palette.tabBackground,
+        backgroundColor: "transparent",
         paddingBottom: bottom > 0 ? bottom : 10,
         paddingTop: 5,
         paddingHorizontal: 12,
       }}
     >
-      <View
-        style={{
-          borderWidth: 1,
-          borderColor: palette.border,
-          backgroundColor: palette.tabSurface,
-          borderRadius: 26,
-          overflow: "hidden",
-        }}
-      >
+      {/* Glass pill container */}
+      <View style={styles.pillContainer}>
+        <AdaptiveBlur
+          tint={isDark ? "dark" : "light"}
+          intensity={isDark ? 80 : 65}
+          style={StyleSheet.absoluteFill}
+          fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+        />
+        {/* Tint overlay for depth */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? "rgba(17,17,17,0.30)" : "rgba(255,255,255,0.28)" },
+          ]}
+          pointerEvents="none"
+        />
+        {/* Glass border */}
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              borderRadius: 26,
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
+            },
+          ]}
+          pointerEvents="none"
+        />
+
+        {/* Status bar */}
         <View
           style={{
             flexDirection: "row",
@@ -89,9 +109,8 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             justifyContent: "space-between",
             paddingHorizontal: 12,
             paddingVertical: 5,
-            borderBottomWidth: 1,
-            borderBottomColor: palette.border,
-            backgroundColor: palette.tabStatus,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
           }}
         >
           <Text
@@ -113,6 +132,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           </View>
         </View>
 
+        {/* Tab buttons */}
         <View
           style={{
             flexDirection: "row",
@@ -151,7 +171,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                   transform: [{ scale: pressed ? 0.985 : 1 }],
                 })}
                 android_ripple={{
-                  color: isDark ? "rgba(72, 199, 245, 0.12)" : "rgba(14, 165, 233, 0.12)",
+                  color: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(14, 165, 233, 0.12)",
                   borderless: true,
                 }}
               >
@@ -163,10 +183,16 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                     paddingHorizontal: 6,
                     paddingVertical: 3,
                     borderRadius: 16,
+                    borderWidth: focused ? 1 : 0,
+                    borderColor: focused
+                      ? isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(255,255,255,0.88)"
+                      : "transparent",
                     backgroundColor: focused
                       ? isDark
-                        ? "rgba(72, 199, 245, 0.09)"
-                        : "rgba(14, 165, 233, 0.1)"
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(255,255,255,0.52)"
                       : "transparent",
                     gap: 2,
                   }}
@@ -178,10 +204,16 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                       borderRadius: 9,
                       alignItems: "center",
                       justifyContent: "center",
+                      borderWidth: focused ? 1 : 0,
+                      borderColor: focused
+                        ? isDark
+                          ? "rgba(255,255,255,0.14)"
+                          : "rgba(255,255,255,0.90)"
+                        : "transparent",
                       backgroundColor: focused
                         ? isDark
-                          ? "rgba(72, 199, 245, 0.1)"
-                          : "rgba(14, 165, 233, 0.15)"
+                          ? "rgba(255,255,255,0.10)"
+                          : "rgba(14,165,233,0.12)"
                         : "transparent",
                       position: "relative",
                     }}
@@ -235,3 +267,10 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  pillContainer: {
+    borderRadius: 26,
+    overflow: "hidden",
+  },
+})

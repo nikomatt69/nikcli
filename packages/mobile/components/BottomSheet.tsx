@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react"
-import { Animated, Modal, Pressable, Text, View, useWindowDimensions } from "react-native"
+import { Animated, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
+import { AdaptiveBlur } from "@/components/GlassView"
 import {
   AlertTriangle,
   Check,
@@ -106,34 +107,86 @@ export const ActionSheet = React.forwardRef<
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={dismiss}>
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "flex-end",
-          backgroundColor: isDark ? "rgba(2, 6, 23, 0.58)" : "rgba(15, 23, 42, 0.18)",
-        }}
-      >
-        <Pressable style={{ flex: 1 }} onPress={dismiss} />
+      <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        {/* Backdrop blur */}
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity }]}>
+          <AdaptiveBlur
+            tint={isDark ? "dark" : "light"}
+            intensity={isDark ? 15 : 10}
+            style={StyleSheet.absoluteFill}
+            fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
+          />
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(15,23,42,0.16)" },
+            ]}
+          />
+        </Animated.View>
+
+        <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+
+        {/* Glass sheet — shadow on outer, clip on inner */}
         <Animated.View
           style={{
             opacity,
             transform: [{ translateY }],
             height: contentHeight,
-            backgroundColor: palette.surface,
+            backgroundColor: isDark ? palette.surface : palette.surface, // required for iOS shadow
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
-            borderWidth: 1,
-            borderBottomWidth: 0,
-            borderColor: palette.border,
-            paddingBottom: 24,
             shadowColor: palette.shadow,
-            shadowOpacity: 0.26,
-            shadowRadius: 18,
+            shadowOpacity: isDark ? 0.50 : 0.18,
+            shadowRadius: 24,
             shadowOffset: { width: 0, height: -8 },
+            elevation: 24,
           }}
         >
+          {/* Glass fill — clipped to border radius */}
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" },
+            ]}
+            pointerEvents="none"
+          >
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={isDark ? 90 : 75}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.82)"}
+            />
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: isDark ? "rgba(17,17,17,0.58)" : "rgba(255,255,255,0.52)" },
+              ]}
+            />
+            {/* Top border */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  borderTopLeftRadius: 28,
+                  borderTopRightRadius: 28,
+                  borderWidth: 1,
+                  borderBottomWidth: 0,
+                  borderColor: isDark ? "rgba(255,255,255,0.11)" : "rgba(255,255,255,0.82)",
+                },
+              ]}
+            />
+          </View>
+
+          {/* Drag handle */}
           <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 8 }}>
-            <View style={{ width: 42, height: 5, borderRadius: 999, backgroundColor: palette.border }} />
+            <View
+              style={{
+                width: 42,
+                height: 5,
+                borderRadius: 999,
+                backgroundColor: isDark ? "rgba(255,255,255,0.20)" : "rgba(0,0,0,0.16)",
+              }}
+            />
           </View>
           <View style={{ flex: 1, paddingBottom: 8 }}>{children}</View>
         </Animated.View>
@@ -175,16 +228,20 @@ export function ActionSheetItem({
           height: 38,
           borderRadius: 12,
           backgroundColor: destructive
-            ? "rgba(239, 68, 68, 0.12)"
+            ? isDark
+              ? "rgba(143,143,143,0.10)"
+              : "rgba(239,68,68,0.10)"
             : isDark
-              ? "rgba(56, 189, 248, 0.1)"
-              : "rgba(14, 165, 233, 0.1)",
+              ? "rgba(255,255,255,0.07)"
+              : "rgba(14,165,233,0.08)",
           borderWidth: 1,
           borderColor: destructive
-            ? "rgba(239, 68, 68, 0.2)"
+            ? isDark
+              ? "rgba(143,143,143,0.18)"
+              : "rgba(239,68,68,0.18)"
             : isDark
-              ? "rgba(56, 189, 248, 0.2)"
-              : "rgba(14, 165, 233, 0.2)",
+              ? "rgba(255,255,255,0.11)"
+              : "rgba(14,165,233,0.18)",
           alignItems: "center",
           justifyContent: "center",
         }}
@@ -205,8 +262,17 @@ export function ActionSheetItem({
 }
 
 export function ActionSheetDivider() {
-  const { palette } = useAppTheme()
-  return <View style={{ height: 1, backgroundColor: palette.border, marginHorizontal: 16, marginVertical: 4 }} />
+  const { palette, isDark } = useAppTheme()
+  return (
+    <View
+      style={{
+        height: StyleSheet.hairlineWidth,
+        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : palette.border,
+        marginHorizontal: 16,
+        marginVertical: 4,
+      }}
+    />
+  )
 }
 
 export function useActionSheetRef() {

@@ -31,7 +31,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYwMDM5Nzg5OUMzOUExMDQKUldRRW9UbWNpWmNEOENYT01CV0lhOXR1UFhpaXJsK1Z3aU9lZnNtNzE0TDROWVMwVW9XQnFOelkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEYxOTQwNEZGMUY3Q0Q0MjgKUldRbzFId2Yvd1NVOFFhZjRFU0RCNUxkVGFtM3k2OFI4alY0bVRxNDBOUUt3cUczQ2tEZU1CbFIK",
       "endpoints": ["https://github.com/nikomatt69/nikcli/releases/latest/download/latest.json"]
     }
   }

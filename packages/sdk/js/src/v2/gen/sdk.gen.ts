@@ -1190,6 +1190,7 @@ export class Session extends HeyApiClient {
       parentID?: string
       title?: string
       permission?: PermissionRuleset
+      skills?: Array<string>
       github?: SessionGithub
       workspaceID?: string
     },
@@ -1205,6 +1206,7 @@ export class Session extends HeyApiClient {
             { in: "body", key: "parentID" },
             { in: "body", key: "title" },
             { in: "body", key: "permission" },
+            { in: "body", key: "skills" },
             { in: "body", key: "github" },
             { in: "body", key: "workspaceID" },
           ],

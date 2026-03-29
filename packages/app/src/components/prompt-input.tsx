@@ -371,7 +371,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
       title: cmd.name,
       description: cmd.description,
       type: "custom" as const,
-      source: cmd.mcp ? ("mcp" as const) : ("command" as const),
+      source: cmd.skill ? ("skill" as const) : cmd.mcp ? ("mcp" as const) : ("command" as const),
     }))
 
     return [...custom, ...builtin]

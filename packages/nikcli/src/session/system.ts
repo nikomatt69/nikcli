@@ -15,6 +15,7 @@ import PROMPT_CODEX from "./prompt/codex_header.txt"
 import type { Provider } from "@/provider/provider"
 import { Flag } from "@/flag/flag"
 import { getContextSummary, getLoadedDocs } from "@/docs/context"
+import { Skill } from "@/skill"
 
 const log = Log.create({ service: "system-prompt" })
 
@@ -155,5 +156,40 @@ export namespace SystemPrompt {
     const block = ["<docs-context>", summary, "</docs-context>"].join("\n")
     if (!block.trim()) return []
     return [block]
+  }
+
+  export async function skills(names: string[] = []) {
+    const uniqueNames = [...new Set(names)]
+    if (uniqueNames.length === 0) return []
+
+    const loaded = (await Promise.all(uniqueNames.map((name) => Skill.load(name).catch(() => undefined)))).filter(
+      (skill): skill is NonNullable<Awaited<ReturnType<typeof Skill.load>>> => !!skill,
+    )
+
+    if (loaded.length === 0) return []
+
+    return [
+      [
+        "<active_skills>",
+        "The user explicitly loaded the following skills earlier in this session.",
+        "Use them as reference and follow them when they help with the current request.",
+        "Higher-priority system instructions and later user messages override them.",
+        ...loaded.map((skill) =>
+          [
+            `## Skill: ${skill.name}`,
+            `**Slash command**: /${Skill.commandName(skill.name)}`,
+            skill.category ? `**Category**: ${skill.category}` : null,
+            skill.tags?.length ? `**Tags**: ${skill.tags.join(", ")}` : null,
+            skill.version ? `**Version**: ${skill.version}` : null,
+            `**Base directory**: ${skill.dir}`,
+            "",
+            skill.content,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
+        "</active_skills>",
+      ].join("\n\n"),
+    ]
   }
 }

@@ -355,8 +355,9 @@ export function Autocomplete(props: {
     const results: AutocompleteOption[] = [...command.slashes()]
 
     for (const serverCommand of sync.data.command) {
+      const suffix = serverCommand.skill ? " (Skill)" : serverCommand.mcp ? " (MCP)" : ""
       results.push({
-        display: "/" + serverCommand.name + (serverCommand.mcp ? " (MCP)" : ""),
+        display: "/" + serverCommand.name + suffix,
         description: serverCommand.description,
         onSelect: () => {
           const newText = "/" + serverCommand.name + " "
