@@ -17,5 +17,14 @@ for (const [key, value] of Object.entries(pkg.exports)) {
   }
 }
 await Bun.write("package.json", JSON.stringify(pkg, null, 2))
-await $`bun pm pack && npm publish *.tgz --tag ${Script.channel} --access public`
+try {
+  await $`bun pm pack && npm publish *.tgz --tag ${Script.channel} --access public`
+} catch (err: any) {
+  const msg = String(err?.message ?? err)
+  if (!msg.includes("E409") && !msg.includes("You cannot publish over the previously published versions")) {
+    await Bun.write("package.json", JSON.stringify(original, null, 2))
+    throw err
+  }
+  console.log("  already published (E409)")
+}
 await Bun.write("package.json", JSON.stringify(original, null, 2))

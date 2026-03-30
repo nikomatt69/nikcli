@@ -27,45 +27,45 @@ const features = [
   },
   {
     title: 'MCP Native Integration',
-    description: 'First-class support for Model Context Protocol. Extend Nikclis capabilities with standard community tools.',
+    description: 'First-class support for Model Context Protocol. Extend Nikcli\'s capabilities with standard community tools.',
     icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>'
   },
 ];
 ---
 
-<section class="py-32 bg-surface-hover/30 border-y border-terminal-border/60">
-  <div class="container mx-auto px-4">
+<section class="page-section border-y border-terminal-border/60 bg-surface-hover/30">
+  <div class="page-shell">
     
-    <div class="max-w-3xl mb-20 text-center mx-auto">
+    <div class="mx-auto mb-14 max-w-3xl text-center sm:mb-20">
       <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-terminal-accent/10 text-[11px] font-mono font-bold text-terminal-accent mb-6 uppercase tracking-widest border border-terminal-accent/20">
         Engineered for speed
       </div>
-      <h2 class="text-4xl md:text-5xl font-extrabold tracking-tight mb-6 text-terminal-text leading-[1.1]">Powerful primitives</h2>
-      <p class="text-lg md:text-xl text-terminal-muted leading-relaxed font-medium">
+      <h2 class="mb-5 text-3xl font-extrabold leading-[1.1] tracking-tight text-terminal-text sm:mb-6 sm:text-4xl md:text-5xl">Powerful primitives</h2>
+      <p class="text-base font-medium leading-relaxed text-terminal-muted sm:text-lg md:text-xl">
         Everything you need to automate your development workflow, packed into a single blazing-fast binary.
       </p>
     </div>
 
     <!-- Bento Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-7xl mx-auto">
-      {features.map((feature, index) => (
-        <div class="feature-card group relative p-8 md:p-10 rounded-3xl bg-terminal-panel border border-terminal-border/80 dark:border-white/5 hover:border-terminal-accent/50 dark:hover:border-terminal-accent/40 transition-all duration-500 shadow-soft hover:shadow-strong overflow-hidden z-10 hover:-translate-y-1">
+    <div class="mx-auto grid max-w-[var(--content-max)] grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+      {features.map((feature) => (
+        <div class="feature-card group card-surface relative z-10 overflow-hidden border border-terminal-border/80 bg-terminal-panel p-6 shadow-soft transition-all duration-500 hover:-translate-y-1 hover:border-terminal-accent/50 hover:shadow-strong dark:border-white/5 dark:hover:border-terminal-accent/40 sm:p-7 md:p-8">
           
           <!-- Hover Gradient Background -->
           <div class="absolute inset-0 bg-gradient-to-br from-terminal-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>
           
           <!-- Icon Container -->
-          <div class="w-14 h-14 rounded-2xl bg-surface-active border border-terminal-border/60 dark:border-white/5 shadow-inner flex items-center justify-center mb-8 text-terminal-text group-hover:text-terminal-accent group-hover:scale-110 transition-all duration-500 ease-out">
+           <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-terminal-border/60 bg-surface-active text-terminal-text shadow-inner transition-all duration-500 ease-out group-hover:scale-110 group-hover:text-terminal-accent dark:border-white/5 sm:mb-8">
              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon}></svg>
           </div>
           
-          <h3 class="text-2xl font-bold tracking-tight mb-4 text-terminal-text group-hover:text-terminal-accent transition-colors duration-300">
-            {feature.title}
-          </h3>
-          
-          <p class="text-terminal-muted text-[17px] leading-[1.7] font-medium">
-            {feature.description}
-          </p>
+           <h3 class="mb-3 text-xl font-bold tracking-tight text-terminal-text transition-colors duration-300 group-hover:text-terminal-accent sm:mb-4 sm:text-2xl">
+             {feature.title}
+           </h3>
+           
+           <p class="text-[15px] font-medium leading-[1.7] text-terminal-muted sm:text-[16px] md:text-[17px]">
+             {feature.description}
+           </p>
 
         </div>
       ))}

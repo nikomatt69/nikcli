@@ -1,5 +1,6 @@
 ---
 const navItems = [
+  { href: "/app", label: "Web App" },
   { href: "/docs", label: "Docs" },
   { href: "https://github.com/nikomatt69/nikcli", label: "GitHub", external: true },
 ];
@@ -7,7 +8,7 @@ const pathname = Astro.url.pathname;
 ---
 
 <nav class="sticky top-0 z-50 w-full border-b border-terminal-border/60 dark:border-white/5 bg-terminal-bg/70 dark:bg-terminal-bg/80 backdrop-blur-xl transition-all duration-300 shadow-sm" aria-label="Primary">
-  <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+  <div class="page-shell flex h-[var(--topbar-height)] items-center justify-between gap-4">
     <a href="/" class="flex items-center gap-2.5 font-mono font-bold text-lg tracking-tight hover:text-terminal-accent transition-colors group">
       <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-terminal-accent/20 to-terminal-accent/5 flex items-center justify-center border border-terminal-accent/30 group-hover:bg-terminal-accent/30 group-hover:shadow-[0_0_20px_-3px_rgb(var(--terminal-accent)/0.4)] group-active:scale-95 transition-all">
         <svg viewBox="0 0 24 24" class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 17l6-6-6-6M12 19h8" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -16,8 +17,8 @@ const pathname = Astro.url.pathname;
     </a>
 
     <!-- Desktop Nav -->
-    <div class="hidden md:flex items-center gap-6">
-      <div class="flex items-center gap-1.5 p-1 rounded-xl bg-surface-hover/50 border border-terminal-border/30">
+    <div class="hidden md:flex items-center gap-4 lg:gap-6">
+      <div class="flex items-center gap-1.5 rounded-xl border border-terminal-border/30 bg-surface-hover/50 p-1">
         {navItems.map((item) => {
           const isActive = !item.external && pathname.startsWith(item.href);
           return (
@@ -40,7 +41,7 @@ const pathname = Astro.url.pathname;
       <div class="flex items-center gap-3">
         <button
           id="theme-toggle"
-          class="w-9 h-9 rounded-full flex items-center justify-center text-terminal-muted hover:text-terminal-text hover:bg-surface-active border border-transparent hover:border-terminal-border/50 hover:shadow-soft active:scale-90 transition-all"
+          class="flex h-10 w-10 items-center justify-center rounded-full border border-terminal-border/60 bg-terminal-panel/80 text-terminal-muted shadow-sm transition-all hover:bg-surface-hover hover:text-terminal-text active:scale-90"
           type="button"
           aria-label="Toggle theme"
           aria-pressed="false"
@@ -64,7 +65,7 @@ const pathname = Astro.url.pathname;
     </div>
 
     <!-- Mobile Menu Button -->
-    <button id="mobile-menu-btn" class="md:hidden p-2 -mr-2 text-terminal-muted hover:text-terminal-text rounded-md hover:bg-surface-hover active:scale-95 transition-all" aria-label="Menu">
+    <button id="mobile-menu-btn" type="button" class="md:hidden rounded-md p-2 -mr-2 text-terminal-muted hover:text-terminal-text hover:bg-surface-hover active:scale-95 transition-all" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
       </svg>
@@ -72,13 +73,14 @@ const pathname = Astro.url.pathname;
   </div>
 
   <!-- Mobile Menu Dropdown -->
-  <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 w-full bg-terminal-bg/95 backdrop-blur-3xl border-b border-terminal-border shadow-2xl py-6 px-4 flex flex-col gap-5 origin-top transition-all z-50">
+  <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 z-50 flex max-h-[calc(100dvh-var(--topbar-height))] w-full flex-col gap-5 overflow-y-auto border-b border-terminal-border bg-terminal-bg/95 px-[var(--page-gutter)] py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-3xl transition-all origin-top">
     <div class="flex flex-col gap-2">
       {navItems.map((item) => {
         const isActive = !item.external && pathname.startsWith(item.href);
         return (
         <a
           href={item.href}
+          data-mobile-menu-link
           class={`px-4 py-3.5 rounded-xl text-base font-bold transition-colors flex items-center justify-between ${isActive ? "bg-surface-active text-terminal-text shadow-sm ring-1 ring-terminal-border/50" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover"}`}
         >
           {item.label}
@@ -94,66 +96,150 @@ const pathname = Astro.url.pathname;
         <span class="theme-icon hidden dark:block" data-theme-icon="moon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z"/></svg></span>
       </button>
     </div>
-    <a href="/docs#installation" class="w-full text-center py-4 rounded-xl bg-terminal-text text-terminal-bg font-bold mt-2 shadow-strong active:scale-95 transition-transform">
+    <a href="/docs#installation" data-mobile-menu-link class="w-full text-center py-4 rounded-xl bg-terminal-text text-terminal-bg font-bold mt-2 shadow-strong active:scale-95 transition-transform">
       Install nikcli
     </a>
   </div>
 </nav>
 
 <script>
-  // Theme Toggle Logic
-  const setupThemeToggle = () => {
+  const initNavbar = () => {
+    const win = window as Window & {
+      __nikcliNavbarCleanup?: () => void;
+      __nikcliNavbarPageLoad?: () => void;
+    };
+
+    win.__nikcliNavbarCleanup?.();
+
+    const cleanups: Array<() => void> = [];
     const root = document.documentElement;
-    const toggles = [document.getElementById("theme-toggle"), document.getElementById("theme-toggle-mobile")];
-    const stored = localStorage.getItem("theme");
-    const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const current = root.getAttribute("data-theme");
-    const initial = current || stored || (prefersDark ? "dark" : "light");
-    
-    if (!current) root.setAttribute("data-theme", initial);
-    
-    toggles.forEach(toggle => {
-      if(!toggle) return;
-      toggle.setAttribute("aria-pressed", initial === "dark" ? "true" : "false");
-      
-      toggle.addEventListener("click", () => {
-        const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+    const resolveTheme = () => {
+      const current = root.getAttribute("data-theme");
+      if (current === "dark" || current === "light") return current;
+      const stored = localStorage.getItem("theme");
+      if (stored === "dark" || stored === "light") return stored;
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return prefersDark ? "dark" : "light";
+    };
+
+    const syncPressedState = (theme: "light" | "dark") => {
+      document.querySelectorAll<HTMLElement>("#theme-toggle, #theme-toggle-mobile").forEach((toggle) => {
+        toggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+      });
+    };
+
+    const attachToggle = (id: string): HTMLElement | null => {
+      const current = document.getElementById(id);
+      if (!current || !current.parentNode) return null;
+      const next = current.cloneNode(true);
+      if (!(next instanceof HTMLElement)) return null;
+      current.parentNode.replaceChild(next, current);
+      return next;
+    };
+
+    const toggles = [attachToggle("theme-toggle"), attachToggle("theme-toggle-mobile")];
+    const initial = resolveTheme();
+
+    root.setAttribute("data-theme", initial);
+    syncPressedState(initial);
+
+    toggles.forEach((toggle) => {
+      if (!toggle) return;
+      const handleToggle = () => {
+        const next = resolveTheme() === "dark" ? "light" : "dark";
         root.setAttribute("data-theme", next);
         localStorage.setItem("theme", next);
-        
-        toggles.forEach(t => {
-          if(!t) return;
-          t.setAttribute("aria-pressed", next === "dark" ? "true" : "false");
-        });
-      });
-    });
-  };
+        syncPressedState(next);
+      };
 
-  // Mobile Menu Logic
-  const setupMobileMenu = () => {
+      toggle.addEventListener("click", handleToggle);
+      cleanups.push(() => toggle.removeEventListener("click", handleToggle));
+    });
+
     const btn = document.getElementById('mobile-menu-btn');
     const menu = document.getElementById('mobile-menu');
     let isOpen = false;
 
-    const newBtn = btn?.cloneNode(true);
-    if(btn && newBtn && btn.parentNode) {
-      btn.parentNode.replaceChild(newBtn, btn);
+    const newBtn = btn?.cloneNode(true) ?? null;
+    const mobileBtn = newBtn instanceof HTMLElement ? newBtn : null;
+    if(btn && mobileBtn && btn.parentNode) {
+      btn.parentNode.replaceChild(mobileBtn, btn);
     }
 
-    newBtn?.addEventListener('click', () => {
-      isOpen = !isOpen;
-      if (isOpen) {
-        menu?.classList.remove('hidden');
-        newBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
-        document.body.style.overflow = 'hidden';
-      } else {
-        menu?.classList.add('hidden');
-        newBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>`;
-        document.body.style.overflow = '';
-      }
+    const renderButton = (open: boolean) => {
+      if (!mobileBtn) return;
+      mobileBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      mobileBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      mobileBtn.innerHTML = open
+        ? `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`
+        : `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>`;
+    };
+
+    const closeMenu = () => {
+      isOpen = false;
+      menu?.classList.add('hidden');
+      document.body.style.overflow = '';
+      renderButton(false);
+    };
+
+    const openMenu = () => {
+      isOpen = true;
+      menu?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+      renderButton(true);
+      window.dispatchEvent(new CustomEvent('nikcli:mobile-overlay-open', { detail: { source: 'navbar' } }));
+    };
+
+    renderButton(false);
+
+    const handleMobileToggle = () => {
+      if (isOpen) closeMenu();
+      else openMenu();
+    };
+    mobileBtn?.addEventListener('click', handleMobileToggle);
+    cleanups.push(() => mobileBtn?.removeEventListener('click', handleMobileToggle));
+
+    const handleExternalOpen = (event: Event) => {
+      if (!(event instanceof CustomEvent) || event.detail?.source === 'navbar') return;
+      closeMenu();
+    };
+    window.addEventListener('nikcli:mobile-overlay-open', handleExternalOpen);
+    cleanups.push(() => window.removeEventListener('nikcli:mobile-overlay-open', handleExternalOpen));
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') closeMenu();
+    };
+    window.addEventListener('keydown', handleEscape);
+    cleanups.push(() => window.removeEventListener('keydown', handleEscape));
+
+    const mobileBreakpoint = window.matchMedia('(min-width: 768px)');
+    const handleBreakpoint = (event: MediaQueryListEvent) => {
+      if (event.matches) closeMenu();
+    };
+    mobileBreakpoint.addEventListener?.('change', handleBreakpoint);
+    cleanups.push(() => mobileBreakpoint.removeEventListener?.('change', handleBreakpoint));
+
+    const handleBeforeSwap = () => closeMenu();
+    document.addEventListener('astro:before-swap', handleBeforeSwap);
+    cleanups.push(() => document.removeEventListener('astro:before-swap', handleBeforeSwap));
+
+    menu?.querySelectorAll('[data-mobile-menu-link]').forEach((link) => {
+      link.addEventListener('click', closeMenu);
+      cleanups.push(() => link.removeEventListener('click', closeMenu));
     });
+
+    win.__nikcliNavbarCleanup = () => {
+      closeMenu();
+      cleanups.forEach((cleanup) => cleanup());
+    };
   };
 
-  setupThemeToggle();
-  setupMobileMenu();
+  const win = window as Window & { __nikcliNavbarPageLoad?: () => void };
+  if (win.__nikcliNavbarPageLoad) {
+    document.removeEventListener('astro:page-load', win.__nikcliNavbarPageLoad);
+  }
+  win.__nikcliNavbarPageLoad = () => initNavbar();
+
+  initNavbar();
+  document.addEventListener('astro:page-load', win.__nikcliNavbarPageLoad);
 </script>

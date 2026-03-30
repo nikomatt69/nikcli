@@ -69,26 +69,25 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
     <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
     <Navbar />
     
-    <div class="flex-1 w-full max-w-[90rem] mx-auto flex flex-col md:flex-row relative">
+    <div class="page-shell relative flex w-full flex-1 flex-col xl:flex-row">
       
       <!-- Mobile Docs Menu Toggle -->
-      <div class="md:hidden sticky top-16 z-40 bg-terminal-bg/90 dark:bg-terminal-bg/80 backdrop-blur-xl border-b border-terminal-border/60 dark:border-white/5 px-4 py-3 flex items-center justify-between shadow-sm">
-         <span class="font-semibold text-sm text-terminal-text">Docs Menu</span>
-         <button id="mobile-docs-toggle" class="p-1.5 rounded-md bg-surface-hover hover:bg-surface-active border border-terminal-border/50 text-terminal-text transition-all active:scale-95" aria-label="Toggle Docs Menu">
-           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>
+       <div class="sticky top-[var(--topbar-height)] z-40 flex min-h-[var(--docs-mobilebar-height)] items-center justify-between border-b border-terminal-border/60 bg-terminal-bg/90 px-0 py-3 shadow-sm backdrop-blur-xl dark:border-white/5 dark:bg-terminal-bg/80 xl:hidden">
+          <span class="text-sm font-semibold text-terminal-text">Docs</span>
+         <button id="mobile-docs-toggle" type="button" class="inline-flex items-center gap-2 rounded-full border border-terminal-border/60 bg-terminal-panel/90 px-3 py-2 text-sm font-semibold text-terminal-text shadow-sm transition-all hover:bg-surface-hover active:scale-95" aria-label="Open docs navigation" aria-controls="docs-sidebar" aria-expanded="false">
+           <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h6M4 12h6M4 18h6M14 5h6v14h-6z"></path></svg>
+           <span>Browse</span>
          </button>
-      </div>
+       </div>
 
       <!-- Sidebar Navigation -->
-      <aside id="docs-sidebar" class="hidden md:block w-full md:w-64 lg:w-[280px] shrink-0 border-r border-terminal-border/60 dark:border-white/5 bg-terminal-bg md:bg-transparent overflow-y-auto h-[calc(100vh-4rem)] md:sticky md:top-16 custom-scrollbar z-30 transition-transform duration-300">
-        <div class="p-5 md:py-8 lg:py-10 flex flex-col gap-8">
+      <aside id="docs-sidebar" class="hidden w-full shrink-0 overflow-y-auto border-terminal-border/60 bg-terminal-bg xl:block xl:w-[280px] xl:border-r xl:bg-transparent xl:sticky xl:top-[var(--topbar-height)] xl:h-[calc(100vh-var(--topbar-height))] custom-scrollbar z-30 transition-transform duration-300 dark:border-white/5">
+        <div class="flex flex-col gap-8 py-6 xl:py-10 xl:pr-8">
           
           <!-- Search Bar -->
-          <div class="relative group cursor-not-allowed">
-            <div class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-terminal-muted group-hover:text-terminal-text transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </div>
-            <input type="text" disabled class="block w-full py-2.5 pl-10 pr-3 text-sm text-terminal-text bg-surface-hover border border-terminal-border/60 dark:border-white/10 rounded-xl opacity-70 cursor-not-allowed placeholder-terminal-muted/80 shadow-inner" placeholder="Search (⌘K)" />
+          <div class="rounded-xl border border-terminal-border/60 bg-surface-hover px-4 py-3 shadow-inner">
+            <div class="font-mono text-eyebrow uppercase text-terminal-muted">Search</div>
+            <p class="mt-2 text-body-sm text-terminal-muted">Use the sidebar or browser find while docs search is being refined.</p>
           </div>
 
           <!-- Navigation Links -->
@@ -103,6 +102,7 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
                       <li>
                         <a
                           href={item.href}
+                          data-mobile-docs-link
                           class={`block px-3.5 py-2 rounded-lg transition-all duration-200 relative ${isActive ? "bg-surface-active text-terminal-accent font-semibold shadow-sm ring-1 ring-terminal-border/50 before:absolute before:inset-y-1.5 before:-left-0.5 before:w-1.5 before:bg-terminal-accent before:rounded-full" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-medium"}`}
                         >
                           {item.title}
@@ -118,15 +118,15 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
       </aside>
 
       <!-- Main Content Area -->
-      <main id="main-content" class="flex-1 min-w-0 px-5 md:px-10 lg:px-16 py-10 md:py-16 pb-32 outline-none" tabindex="-1">
-        <article class="prose max-w-3xl mx-auto prose-pre:bg-terminal-window-code prose-pre:border prose-pre:border-terminal-window-border prose-pre:shadow-sm prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight hover:prose-a:text-terminal-accent prose-a:underline-offset-4 prose-a:decoration-terminal-border hover:prose-a:decoration-terminal-accent prose-a:transition-colors docs-content-anim opacity-0">
-          <header class="mb-12 not-prose border-b border-terminal-border/60 pb-10">
-            <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-terminal-accent/10 text-[11px] font-mono font-bold text-terminal-accent mb-5 uppercase tracking-widest border border-terminal-accent/20">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-              Documentation
-            </div>
-            <h1 class="text-4xl sm:text-5xl font-extrabold text-terminal-text mb-6 tracking-tight leading-[1.1]">{title}</h1>
-            {subtitle && <p class="text-lg sm:text-xl text-terminal-muted leading-relaxed max-w-2xl font-medium">{subtitle}</p>}
+      <main id="main-content" class="min-w-0 flex-1 py-8 pb-24 outline-none sm:py-10 lg:py-14 lg:pb-28 xl:px-10" tabindex="-1">
+        <article class="prose mx-auto max-w-[48rem] prose-pre:border prose-pre:border-terminal-window-border prose-pre:bg-terminal-window-code prose-pre:shadow-sm prose-p:leading-relaxed prose-headings:font-bold prose-headings:tracking-tight prose-a:underline-offset-4 prose-a:decoration-terminal-border prose-a:transition-colors hover:prose-a:text-terminal-accent hover:prose-a:decoration-terminal-accent">
+          <header class="not-prose mb-10 border-b border-terminal-border/60 pb-8 sm:mb-12 sm:pb-10">
+             <div class="mb-5 inline-flex items-center gap-2 rounded-md border border-terminal-accent/20 bg-terminal-accent/10 px-2.5 py-1 font-mono text-eyebrow uppercase text-terminal-accent">
+               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+               Documentation
+             </div>
+             <h1 class="mb-5 text-page-title text-terminal-text sm:mb-6">{title}</h1>
+             {subtitle && <p class="max-w-2xl text-page-subtitle text-terminal-muted">{subtitle}</p>}
           </header>
           <div class="content-body text-terminal-text font-sans relative z-10">
              <slot />
@@ -136,8 +136,8 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
 
       <!-- Table of Contents (Right Sidebar) -->
       {toc.length > 0 && (
-        <div class="hidden xl:block w-72 shrink-0 pr-6">
-          <div class="sticky top-16 pt-16 pb-24 overflow-y-auto h-[calc(100vh-4rem)] custom-scrollbar">
+        <div class="hidden xl:block w-72 shrink-0 pl-6">
+          <div class="sticky top-[var(--topbar-height)] h-[calc(100vh-var(--topbar-height))] overflow-y-auto pt-12 pb-24 custom-scrollbar">
              <DocToc items={toc} />
           </div>
         </div>
@@ -148,61 +148,134 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
       import { animate, stagger } from "framer-motion";
 
       const initDocs = () => {
-        // Mobile Sidebar Toggle
+        (window as Window & { __nikcliDocsCleanup?: () => void }).__nikcliDocsCleanup?.();
+
+        const cleanups: Array<() => void> = [];
         const mobileBtn = document.getElementById('mobile-docs-toggle');
         const sidebar = document.getElementById('docs-sidebar');
+        const mobileSidebarClasses = [
+          'fixed',
+          'inset-x-[var(--page-gutter)]',
+          'top-[calc(var(--topbar-height)+var(--docs-mobilebar-height)+0.5rem)]',
+          'z-50',
+          'block',
+          'h-[calc(100dvh-var(--topbar-height)-var(--docs-mobilebar-height)-1rem)]',
+          'overflow-y-auto',
+          'rounded-[var(--radius-card)]',
+          'border',
+          'border-terminal-border/80',
+          'bg-terminal-panel/95',
+          'px-4',
+          'pb-[max(1rem,env(safe-area-inset-bottom))]',
+          'shadow-2xl',
+          'backdrop-blur-xl',
+        ];
+
+        const newBtn = mobileBtn?.cloneNode(true) as HTMLElement | null;
+        const docsBtn = newBtn instanceof HTMLElement ? newBtn : null;
+        if (mobileBtn && docsBtn && mobileBtn.parentNode) {
+          mobileBtn.parentNode.replaceChild(docsBtn, mobileBtn);
+        }
+
         let sidebarOpen = false;
 
-        const newBtn = mobileBtn?.cloneNode(true);
-        if (mobileBtn && newBtn && mobileBtn.parentNode) {
-            mobileBtn.parentNode.replaceChild(newBtn, mobileBtn);
-        }
+        const renderButton = (open: boolean) => {
+          if (!docsBtn) return;
+          docsBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          docsBtn.setAttribute('aria-label', open ? 'Close docs navigation' : 'Open docs navigation');
+          docsBtn.innerHTML = open
+            ? `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg><span>Close</span>`
+            : `<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h6M4 12h6M4 18h6M14 5h6v14h-6z"></path></svg><span>Browse</span>`;
+        };
 
-        newBtn?.addEventListener('click', () => {
-          sidebarOpen = !sidebarOpen;
-          if(sidebarOpen) {
-            sidebar?.classList.remove('hidden');
-            sidebar?.classList.add('absolute', 'inset-x-0', 'top-[3.25rem]', 'h-[calc(100vh-3.25rem)]', 'border-b', 'shadow-2xl', 'bg-terminal-bg', 'z-50');
-            document.body.style.overflow = 'hidden';
-            // Swap icon to close
-            newBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`;
-          } else {
-            sidebar?.classList.add('hidden');
-            sidebar?.classList.remove('absolute', 'inset-x-0', 'top-[3.25rem]', 'h-[calc(100vh-3.25rem)]', 'border-b', 'shadow-2xl', 'bg-terminal-bg', 'z-50');
-            document.body.style.overflow = '';
-            // Swap back to menu
-            newBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path></svg>`;
-          }
+        const closeSidebar = () => {
+          sidebarOpen = false;
+          sidebar?.classList.add('hidden');
+          sidebar?.classList.remove(...mobileSidebarClasses);
+          document.body.style.overflow = '';
+          renderButton(false);
+        };
+
+        const openSidebar = () => {
+          sidebarOpen = true;
+          sidebar?.classList.remove('hidden');
+          sidebar?.classList.add(...mobileSidebarClasses);
+          document.body.style.overflow = 'hidden';
+          renderButton(true);
+          window.dispatchEvent(new CustomEvent('nikcli:mobile-overlay-open', { detail: { source: 'docs' } }));
+        };
+
+        renderButton(false);
+
+        const handleToggle = () => {
+          if (sidebarOpen) closeSidebar();
+          else openSidebar();
+        };
+
+        docsBtn?.addEventListener('click', handleToggle);
+        cleanups.push(() => docsBtn?.removeEventListener('click', handleToggle));
+
+        const handleExternalOpen = (event: Event) => {
+          if (!(event instanceof CustomEvent) || event.detail?.source === 'docs') return;
+          closeSidebar();
+        };
+        window.addEventListener('nikcli:mobile-overlay-open', handleExternalOpen);
+        cleanups.push(() => window.removeEventListener('nikcli:mobile-overlay-open', handleExternalOpen));
+
+        const handleEscape = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') closeSidebar();
+        };
+        window.addEventListener('keydown', handleEscape);
+        cleanups.push(() => window.removeEventListener('keydown', handleEscape));
+
+        const handleBreakpoint = (event: MediaQueryListEvent) => {
+          if (event.matches) closeSidebar();
+        };
+        const desktopQuery = window.matchMedia('(min-width: 1280px)');
+        desktopQuery.addEventListener?.('change', handleBreakpoint);
+        cleanups.push(() => desktopQuery.removeEventListener?.('change', handleBreakpoint));
+
+        const handleBeforeSwap = () => closeSidebar();
+        document.addEventListener('astro:before-swap', handleBeforeSwap);
+        cleanups.push(() => document.removeEventListener('astro:before-swap', handleBeforeSwap));
+
+        sidebar?.querySelectorAll('[data-mobile-docs-link]').forEach((link) => {
+          link.addEventListener('click', closeSidebar);
+          cleanups.push(() => link.removeEventListener('click', closeSidebar));
         });
 
-        // Framer Motion Animations
-        animate(
-          ".docs-content-anim",
-          { opacity: [0, 1], y: [20, 0] },
-          { duration: 0.5, ease: [0.16, 1, 0.3, 1] }
-        );
-
         const navGroups = document.querySelectorAll('.docs-nav-group-anim');
-        if(navGroups.length > 0 && window.innerWidth > 768) {
-           animate(
-             navGroups,
-             { opacity: [0, 1], x: [-15, 0] },
-             { delay: stagger(0.08), duration: 0.5, ease: "easeOut" }
-           );
+        if (navGroups.length > 0 && window.innerWidth > 768) {
+          animate(
+            navGroups,
+            { opacity: [0, 1], x: [-15, 0] },
+            { delay: stagger(0.08), duration: 0.5, ease: 'easeOut' }
+          );
         }
 
-        const cards = document.querySelectorAll("a.block.p-6, div.block.p-6"); 
-        if(cards.length > 0) {
-           animate(
-             cards,
-             { opacity: [0, 1], y: [10, 0] },
-             { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.4, ease: "easeOut" }
-           );
+        const cards = document.querySelectorAll('.doc-card');
+        if (cards.length > 0) {
+          animate(
+            cards,
+            { opacity: [0, 1], y: [10, 0] },
+            { delay: stagger(0.1, { startDelay: 0.2 }), duration: 0.4, ease: 'easeOut' }
+          );
         }
+
+        (window as Window & { __nikcliDocsCleanup?: () => void }).__nikcliDocsCleanup = () => {
+          closeSidebar();
+          cleanups.forEach((cleanup) => cleanup());
+        };
       };
 
+      const win = window as Window & { __nikcliDocsPageLoad?: () => void };
+      if (win.__nikcliDocsPageLoad) {
+        document.removeEventListener('astro:page-load', win.__nikcliDocsPageLoad);
+      }
+      win.__nikcliDocsPageLoad = () => initDocs();
+
       initDocs();
-      document.addEventListener('astro:page-load', initDocs);
+      document.addEventListener('astro:page-load', win.__nikcliDocsPageLoad);
     </script>
   </body>
 </html>

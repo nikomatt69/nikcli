@@ -1,0 +1,6 @@
+{
+  "$schema": "https://nikcli.store/config.json",
+  "plugin": [
+    "opencode-antigravity-auth@latest"
+  ]
+}

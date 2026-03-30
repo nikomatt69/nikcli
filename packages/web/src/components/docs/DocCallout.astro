@@ -9,19 +9,19 @@ interface Props {
 const { type = "info", title } = Astro.props;
 
 const styles = {
-  info: "bg-blue-500/10 border-blue-500/20 text-blue-800 dark:text-blue-300 [&_strong]:text-blue-900 dark:[&_strong]:text-blue-200",
+  info: "bg-terminal-accent/10 border-terminal-accent/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
   note: "bg-surface-active border-terminal-border/60 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
-  warn: "bg-amber-500/10 border-amber-500/20 text-amber-800 dark:text-amber-300 [&_strong]:text-amber-900 dark:[&_strong]:text-amber-200",
-  error: "bg-red-500/10 border-red-500/20 text-red-800 dark:text-red-300 [&_strong]:text-red-900 dark:[&_strong]:text-red-200",
-  success: "bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300 [&_strong]:text-emerald-900 dark:[&_strong]:text-emerald-200"
+  warn: "bg-terminal-warning/10 border-terminal-warning/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
+  error: "bg-terminal-error/10 border-terminal-error/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
+  success: "bg-terminal-success/10 border-terminal-success/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm"
 };
 
 const iconColors = {
-  info: "text-blue-600 dark:text-blue-400",
+  info: "text-terminal-accent",
   note: "text-terminal-muted",
-  warn: "text-amber-600 dark:text-amber-400",
-  error: "text-red-600 dark:text-red-400",
-  success: "text-emerald-600 dark:text-emerald-400"
+  warn: "text-terminal-warning",
+  error: "text-terminal-error",
+  success: "text-terminal-success"
 }
 
 const icons = {

@@ -1,0 +1,12 @@
+---
+import Layout from '@/layouts/Layout.astro'
+import AppShell from '@/app/AppShell'
+import Navbar from '@/components/Navbar.astro'
+
+const initialPath = Astro.url.pathname
+---
+
+<Layout title="Nikcli Web App" description="Use Nikcli from the browser through the same headless mobile routes and Railway-hosted server.">
+  <Navbar />
+  <AppShell client:load initialPath={initialPath} />
+</Layout>

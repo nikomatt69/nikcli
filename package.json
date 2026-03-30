@@ -19,6 +19,7 @@
   "workspaces": {
     "packages": [
       "packages/*",
+      "packages/plugin/plugins/*",
       "packages/console/*",
       "packages/remote",
       "packages/sdk/js",

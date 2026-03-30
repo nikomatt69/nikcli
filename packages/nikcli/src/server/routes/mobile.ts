@@ -21,6 +21,7 @@ import { Worktree } from "@/worktree"
 import { GithubApi } from "@/connectors/api/github"
 import { ConnectorAuth } from "@/connectors/auth"
 import { Connectors } from "@/connectors"
+import { resolveCredential } from "@/connectors/credentials"
 import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
@@ -451,8 +452,12 @@ function extractSessionIDs(value: unknown): string[] {
 }
 
 async function githubToken() {
-  const auth = await ConnectorAuth.get("github")
-  return auth?.token
+  const config = await Config.get().catch(() => undefined)
+  const githubConnector = Object.values(config?.connectors ?? {}).find(
+    (c): c is Config.ConnectorGithub => typeof c === "object" && c !== null && "type" in c && c.type === "github",
+  )
+  const connector = githubConnector ?? ({ type: "github" } as Config.ConnectorGithub)
+  return resolveCredential("github", connector)
 }
 
 async function githubOAuthClientID() {
@@ -558,6 +563,12 @@ async function pollGithubDeviceAuth(deviceCode: string) {
     const user = await GithubApi.getUser(payload.access_token)
     await ConnectorAuth.set("github", { token: payload.access_token })
     Connectors.invalidateConnector("github")
+
+    const config = await Config.get().catch(() => undefined)
+    if (!config?.connectors?.github) {
+      await Config.update({ connectors: { github: { type: "github" } } })
+    }
+
     return {
       status: "approved" as const,
       user: {
@@ -1083,6 +1094,10 @@ export const MobileRoutes = lazy(() =>
         const payload = c.req.valid("json")
         await ConnectorAuth.set("github", { token: payload.token })
         Connectors.invalidateConnector("github")
+        const config = await Config.get().catch(() => undefined)
+        if (!config?.connectors?.github) {
+          await Config.update({ connectors: { github: { type: "github" } } })
+        }
         return c.json({ success: true as const })
       },
     )

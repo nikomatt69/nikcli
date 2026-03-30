@@ -5,3 +5,6 @@ compatibility_date = "2025-01-25"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "SESSION"

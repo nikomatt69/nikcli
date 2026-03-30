@@ -6,11 +6,23 @@
   "license": "MIT",
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "build:plugins": "bun run script/build-plugins.ts",
+    "publish:plugins": "bun run script/publish-plugins.ts"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./tool": "./src/tool.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tool": {
+      "import": "./dist/tool.js",
+      "types": "./dist/tool.d.ts"
+    },
+    "./tui": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    }
   },
   "files": [
     "dist"
@@ -24,6 +36,8 @@
   },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
+    "@opentui/core": "0.1.91",
+    "@opentui/solid": "0.1.91",
     "zod": "catalog:"
   },
   "devDependencies": {
