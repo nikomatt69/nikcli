@@ -1,4 +1,6 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { InfoChip } from "@/components/ui/InfoChip"
 import type { GitHubRepo, ProjectInfo } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
@@ -28,96 +30,109 @@ export function LocalRepoCard(props: {
   onStartSession?: () => void
   startingSession?: boolean
 }) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
 
   return (
     <Pressable
       onPress={props.onSelect}
-      className={`rounded-[30px] border px-4 py-4 ${props.selected ? "border-accent/40 bg-panel" : "border-border bg-surface"}`}
+      className="overflow-hidden rounded-[30px] border px-4 py-4"
       style={{
+        borderColor: props.selected
+          ? isDark
+            ? "rgba(255,255,255,0.16)"
+            : "rgba(14,165,233,0.22)"
+          : isDark
+            ? "rgba(255,255,255,0.08)"
+            : "rgba(193,208,223,0.9)",
+        backgroundColor: props.selected ? palette.panel : palette.surface,
         shadowColor: palette.shadow,
-        shadowOpacity: 0.18,
+        shadowOpacity: isDark ? 0.24 : 0.12,
         shadowRadius: 20,
         shadowOffset: { width: 0, height: 10 },
       }}
     >
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          right: -16,
+          top: -18,
+          width: 80,
+          height: 80,
+          borderRadius: 999,
+          backgroundColor: props.selected
+            ? isDark
+              ? "rgba(255,255,255,0.04)"
+              : "rgba(14,165,233,0.08)"
+            : isDark
+              ? "rgba(255,255,255,0.02)"
+              : "rgba(232,240,248,0.35)",
+        }}
+      />
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text className="text-[11px] font-semibold uppercase tracking-[2.1px] text-accent-light">
+          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
             {props.project.current ? "Live workspace" : "Available workspace"}
           </Text>
-          <Text className="text-base font-semibold text-ink">{projectLabel(props.project)}</Text>
-          <Text className="text-sm leading-5 text-soft">{props.project.worktree || "Unknown path"}</Text>
+          <Text selectable className="text-base font-semibold text-ink">
+            {projectLabel(props.project)}
+          </Text>
+          <Text selectable className="text-sm leading-5 text-soft">
+            {props.project.worktree || "Unknown path"}
+          </Text>
         </View>
-        {props.project.current ? (
-          <View className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5">
-            <Text className="text-[10px] font-semibold uppercase tracking-[1.8px] text-accent-light">Current</Text>
-          </View>
-        ) : null}
+        {props.project.current ? <InfoChip label="Current" tone="accent" /> : null}
       </View>
       <View className="mt-4 flex-row flex-wrap gap-2">
-        <View className="rounded-full border border-border/60 bg-background/75 px-3 py-2">
-          <Text className="text-[11px] font-semibold text-ink">{props.project.sandboxes.length} sandboxes</Text>
-        </View>
-        {props.selected ? (
-          <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
-            <Text className="text-[11px] font-semibold text-accent-light">Selected on mobile</Text>
-          </View>
-        ) : null}
+        <InfoChip label={`${props.project.sandboxes.length} sandboxes`} />
+        {props.selected ? <InfoChip label="Selected on mobile" tone="accent" /> : null}
       </View>
       {props.onStartSession ? (
-        <Pressable
-          disabled={props.startingSession}
-          onPress={props.onStartSession}
-          className="mt-3 rounded-[20px] border border-border bg-background/70 px-4 py-3"
-        >
-          {props.startingSession ? (
-            <ActivityIndicator color={palette.accent} size="small" />
-          ) : (
-            <Text className="text-center text-sm font-semibold text-ink">Start session here</Text>
-          )}
-        </Pressable>
+        <View className="mt-3">
+          <ActionButton
+            label={props.startingSession ? "Starting session..." : "Start session here"}
+            loading={props.startingSession}
+            variant={props.selected ? "primary" : "secondary"}
+            onPress={props.onStartSession}
+          />
+        </View>
       ) : null}
     </Pressable>
   )
 }
 
 export function GithubRepoCard(props: { repo: GitHubRepo }) {
+  const { palette, isDark } = useAppTheme()
+
   return (
-    <View className="rounded-[30px] border border-border bg-background/55 px-4 py-4">
+    <View
+      className="overflow-hidden rounded-[30px] border px-4 py-4"
+      style={{
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
+        backgroundColor: isDark ? "rgba(0,0,0,0.55)" : "rgba(241,246,251,0.65)",
+      }}
+    >
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
-          <Text className="text-[11px] font-semibold uppercase tracking-[2.1px] text-accent-light">GitHub source</Text>
-          <Text className="text-base font-semibold text-ink">{repoLabel(props.repo)}</Text>
+          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
+            GitHub source
+          </Text>
+          <Text selectable className="text-base font-semibold text-ink">
+            {repoLabel(props.repo)}
+          </Text>
         </View>
-        {props.repo.imported ? (
-          <View className="rounded-full border border-success/35 bg-success/10 px-3 py-1.5">
-            <Text className="text-[10px] font-semibold uppercase tracking-[1.8px] text-emerald-200">Imported</Text>
-          </View>
-        ) : null}
+        {props.repo.imported ? <InfoChip label="Imported" tone="good" /> : null}
       </View>
       {props.repo.description ? (
-        <Text className="mt-2 text-sm leading-6 text-soft">{props.repo.description}</Text>
+        <Text selectable className="mt-2 text-sm leading-6 text-soft">
+          {props.repo.description}
+        </Text>
       ) : null}
       <View className="mt-4 flex-row flex-wrap gap-2">
-        <View className="rounded-full border border-border/60 bg-surface px-3 py-2">
-          <Text className="text-[11px] font-semibold text-ink">{branchLabel(props.repo.default_branch)}</Text>
-        </View>
-        {props.repo.language ? (
-          <View className="rounded-full border border-border/60 bg-surface px-3 py-2">
-            <Text className="text-[11px] font-semibold text-ink">{props.repo.language}</Text>
-          </View>
-        ) : null}
-        <View className="rounded-full border border-border/60 bg-surface px-3 py-2">
-          <Text className="text-[11px] font-semibold text-ink">{props.repo.stargazers_count} stars</Text>
-        </View>
-        {props.repo.updated_at ? (
-          <View className="rounded-full border border-border/60 bg-surface px-3 py-2">
-            <Text className="text-[11px] font-semibold text-soft">
-              {relativeTime(new Date(props.repo.updated_at).getTime())}
-            </Text>
-          </View>
-        ) : null}
+        <InfoChip label={branchLabel(props.repo.default_branch)} />
+        {props.repo.language ? <InfoChip label={props.repo.language} tone="neutral" /> : null}
+        <InfoChip label={`${props.repo.stargazers_count.toLocaleString()} stars`} tone="accent" />
+        {props.repo.updated_at ? <InfoChip label={relativeTime(new Date(props.repo.updated_at).getTime())} /> : null}
       </View>
     </View>
   )

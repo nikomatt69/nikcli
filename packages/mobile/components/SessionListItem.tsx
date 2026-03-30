@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useRef } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { Ellipsis, Trash2 } from "lucide-react-native"
+import { ArrowRight, Ellipsis, Trash2 } from "lucide-react-native"
+import { InfoChip } from "@/components/ui/InfoChip"
 import type { SessionSummary } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
-
-function statusTone(status: string) {
-  if (status === "busy") return "border-accent/30 bg-accent/12 text-accent-light"
-  if (status === "retry") return "border-danger/30 bg-danger/12 text-rose-200"
-  return "border-success/25 bg-success/12 text-emerald-200"
-}
 
 function sessionLocation(item: SessionSummary): string {
   const github = item.info.github
@@ -38,7 +33,7 @@ export function SessionListItem(props: {
   onDelete?: () => void
   index?: number
 }) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
   const translateY = useRef(new Animated.Value(10)).current
@@ -46,6 +41,34 @@ export function SessionListItem(props: {
   const scale = useRef(new Animated.Value(1)).current
   const badge = repoBadge(props.item)
   const containerBacked = Boolean(props.item.info.workspaceID)
+  const changedFiles = (summary?.additions ?? 0) + (summary?.deletions ?? 0)
+  const footerLabel =
+    status === "busy"
+      ? "Execution is active and streaming new output"
+      : status === "retry"
+        ? "Needs attention before the next run can continue"
+        : "Ready for transcript, approvals, and publish review"
+  const statusColors =
+    status === "busy"
+      ? {
+          backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.10)",
+          borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)",
+          textColor: palette.accentLight,
+          dotColor: palette.accent,
+        }
+      : status === "retry"
+        ? {
+            backgroundColor: isDark ? "rgba(143,143,143,0.08)" : "rgba(239,68,68,0.10)",
+            borderColor: isDark ? "rgba(143,143,143,0.16)" : "rgba(239,68,68,0.22)",
+            textColor: isDark ? palette.ink : palette.danger,
+            dotColor: palette.danger,
+          }
+        : {
+            backgroundColor: isDark ? "rgba(212,212,212,0.08)" : "rgba(34,197,94,0.10)",
+            borderColor: isDark ? "rgba(212,212,212,0.16)" : "rgba(34,197,94,0.20)",
+            textColor: palette.accentLight,
+            dotColor: palette.success,
+          }
 
   const onPressIn = useCallback(() => {
     scale.stopAnimation()
@@ -84,46 +107,78 @@ export function SessionListItem(props: {
         onLongPress={props.onLongPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className="rounded-[30px] border border-border bg-surface px-4 py-4"
+        className="overflow-hidden rounded-[30px] border border-border bg-surface px-4 py-4"
         style={{
           shadowColor: palette.shadow,
-          shadowOpacity: 0.18,
+          shadowOpacity: isDark ? 0.24 : 0.14,
           shadowRadius: 20,
           shadowOffset: { width: 0, height: 12 },
         }}
       >
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            right: -18,
+            top: -22,
+            width: 84,
+            height: 84,
+            borderRadius: 999,
+            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(14,165,233,0.08)",
+          }}
+        />
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1 gap-2">
-            <Text className="text-[11px] font-semibold uppercase tracking-[2.2px] text-accent-light">Execution</Text>
-            <Text className="text-base font-semibold text-ink">{props.item.info.title || "Untitled session"}</Text>
-            <Text className="text-sm leading-5 text-soft">{sessionLocation(props.item)}</Text>
+            <View className="flex-row flex-wrap items-center gap-2">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.9px] text-accent-light">Execution</Text>
+              <Text className="text-[11px] text-muted">Updated {relativeTime(props.item.info.time.updated)}</Text>
+            </View>
+            <Text selectable className="text-[17px] font-semibold leading-[22px] text-ink" numberOfLines={2}>
+              {props.item.info.title || "Untitled session"}
+            </Text>
+            <Text selectable className="text-sm leading-5 text-soft" numberOfLines={2}>
+              {sessionLocation(props.item)}
+            </Text>
           </View>
-          <View className={`rounded-full border px-3 py-1.5 ${statusTone(status)}`}>
-            <Text className="text-[10px] font-semibold uppercase tracking-[1.8px]">{status}</Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: statusColors.borderColor,
+              backgroundColor: statusColors.backgroundColor,
+              paddingHorizontal: 10,
+              paddingVertical: 7,
+            }}
+          >
+            <View
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                backgroundColor: statusColors.dotColor,
+              }}
+            />
+            <Text style={{ color: statusColors.textColor, fontSize: 10, fontWeight: "700", letterSpacing: 1.2 }}>
+              {status.toUpperCase()}
+            </Text>
           </View>
         </View>
         <View className="mt-4 flex-row flex-wrap gap-2">
-          <View className="rounded-full border border-border/60 bg-background/80 px-3 py-2">
-            <Text className="text-[11px] font-semibold text-ink">{summary?.files ?? 0} files</Text>
-          </View>
-          <View className="rounded-full border border-border/60 bg-background/80 px-3 py-2">
-            <Text className="text-[11px] font-semibold text-ink">
-              +{summary?.additions ?? 0} / -{summary?.deletions ?? 0}
-            </Text>
-          </View>
-          {containerBacked ? (
-            <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
-              <Text className="text-[11px] font-semibold text-accent-light">container</Text>
-            </View>
-          ) : null}
-          {badge ? (
-            <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
-              <Text className="text-[11px] font-semibold text-accent-light">{badge}</Text>
-            </View>
-          ) : null}
+          <InfoChip label={`${summary?.files ?? 0} files`} />
+          <InfoChip
+            label={`+${summary?.additions ?? 0} / -${summary?.deletions ?? 0}`}
+            tone={changedFiles ? "accent" : "neutral"}
+          />
+          {containerBacked ? <InfoChip label="Container sandbox" tone="accent" /> : null}
+          {badge ? <InfoChip label={badge} tone="accent" /> : null}
         </View>
         <View className="mt-4 flex-row items-center justify-between border-t border-border/80 pt-3">
-          <Text className="text-xs text-soft">Updated {relativeTime(props.item.info.time.updated)}</Text>
+          <Text selectable className="text-xs text-soft">
+            {footerLabel}
+          </Text>
           <View className="flex-row items-center gap-2">
             {props.onDelete ? (
               <Pressable
@@ -137,7 +192,10 @@ export function SessionListItem(props: {
                 <Trash2 size={14} color={palette.danger} strokeWidth={2.1} />
               </Pressable>
             ) : null}
-            <Text className="text-xs font-semibold uppercase tracking-[1.5px] text-accent-light">Open</Text>
+            <View className="flex-row items-center gap-1 rounded-full border border-border/70 bg-background/80 px-3 py-2">
+              <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-accent-light">Open</Text>
+              <ArrowRight size={13} color={palette.accentLight} strokeWidth={2.1} />
+            </View>
             {props.onLongPress ? <Ellipsis size={14} color={palette.muted} strokeWidth={2.1} /> : null}
           </View>
         </View>

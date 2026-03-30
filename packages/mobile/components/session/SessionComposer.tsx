@@ -1,7 +1,9 @@
-import { Pressable, Text, TextInput, View, useWindowDimensions } from "react-native"
-import { Paperclip } from "lucide-react-native"
-import { ActionButton } from "@/components/ui/ActionButton"
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native"
+import { ArrowUp, Paperclip } from "lucide-react-native"
+import { AdaptiveBlur } from "@/components/GlassView"
+import { InfoChip } from "@/components/ui/InfoChip"
 import { triggerHaptic } from "@/lib/haptics"
+import { cn } from "@/lib/cn"
 import { useAppTheme } from "@/lib/theme"
 
 type SessionComposerProps = {
@@ -40,9 +42,16 @@ export function SessionComposer({
   onAttach,
 }: SessionComposerProps) {
   const { width } = useWindowDimensions()
-  const { colorScheme, palette } = useAppTheme()
+  const { colorScheme, palette, isDark } = useAppTheme()
   const compact = width < 390
   const statusColor = cleaned ? palette.danger : sessionBlocked ? palette.warn : palette.success
+  const sendBlocked = sessionBlocked || cleaned || !input.trim()
+  const sendDisabled = sending || sendBlocked
+  const sendTone = sendBlocked ? "blocked" : sending ? "loading" : "active"
+  const utilityButtonStyle = {
+    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.82)",
+    backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
+  } as const
   const modeSummary =
     mode === "plan"
       ? "Returns analysis first and avoids direct edits."
@@ -61,20 +70,41 @@ export function SessionComposer({
 
   return (
     <View className="border-t border-border bg-background px-4 pb-3 pt-2">
-      <View className="rounded-[22px] border border-border bg-surface px-3 py-2.5">
+      <View
+        className="overflow-hidden rounded-[24px] border px-3 py-3"
+        style={{
+          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
+          backgroundColor: palette.surface,
+          shadowColor: palette.shadow,
+          shadowOpacity: isDark ? 0.22 : 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+        }}
+      >
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            right: -14,
+            top: -18,
+            width: 84,
+            height: 84,
+            borderRadius: 999,
+            backgroundColor: isDark
+              ? "rgba(255,255,255,0.03)"
+              : mode === "code"
+                ? "rgba(14,165,233,0.08)"
+                : "rgba(232,240,248,0.7)",
+          }}
+        />
         <View className={`items-start gap-2 ${compact ? "" : "flex-row justify-between"}`}>
           <View className="min-w-0 flex-1 gap-1.5">
             <View className="flex-row flex-wrap items-center gap-2">
               <Text className="text-[10px] font-semibold uppercase tracking-[1.7px] text-accent-light">Composer</Text>
-              <View
-                className={`rounded-full border px-2.5 py-1 ${mode === "plan" ? "border-border bg-panel" : "border-accent/20 bg-accent/10"}`}
-              >
-                <Text
-                  className={`text-[10px] font-semibold uppercase tracking-[1.4px] ${mode === "plan" ? "text-ink" : "text-accent-light"}`}
-                >
-                  {mode === "plan" ? "Plan first" : "Code ready"}
-                </Text>
-              </View>
+              <InfoChip
+                label={mode === "plan" ? "Plan first" : "Code ready"}
+                tone={mode === "plan" ? "neutral" : "accent"}
+              />
               <Text className="text-[10px] font-semibold" style={{ color: statusColor }}>
                 {cleaned ? "Read-only" : sessionBlocked ? "Busy" : "Ready"}
               </Text>
@@ -84,34 +114,61 @@ export function SessionComposer({
             </Text>
           </View>
 
-          <View className="self-start rounded-full border border-border bg-background/85 p-1">
+          <View
+            className="self-start rounded-full p-1"
+            style={{
+              borderWidth: 1,
+              borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(193,208,223,0.82)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.86)",
+            }}
+          >
             <View className="flex-row items-center">
               <Pressable
                 onPress={() => {
                   void triggerHaptic("selection")
                   setMode("plan")
                 }}
-                className={`rounded-full px-3 py-1.5 ${mode === "plan" ? "bg-panel" : "bg-transparent"}`}
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: mode === "plan" ? (isDark ? "rgba(255,255,255,0.16)" : palette.panel) : "transparent",
+                }}
               >
-                <Text className={`text-[12px] font-semibold ${mode === "plan" ? "text-ink" : "text-soft"}`}>Plan</Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: mode === "plan" ? palette.ink : palette.soft }}>Plan</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
                   void triggerHaptic("selection")
                   setMode("code")
                 }}
-                className={`rounded-full px-3 py-1.5 ${mode === "code" ? "bg-accent" : "bg-transparent"}`}
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  backgroundColor: mode === "code" ? (isDark ? "rgba(255,255,255,0.94)" : palette.accent) : "transparent",
+                }}
               >
-                <Text className={`text-[12px] font-semibold ${mode === "code" ? "text-slate-950" : "text-soft"}`}>
-                  Code
-                </Text>
+                <Text style={{ fontSize: 12, fontWeight: "600", color: mode === "code" ? "#0a0a0a" : palette.soft }}>Code</Text>
               </Pressable>
             </View>
           </View>
         </View>
 
         <View className={`mt-2.5 items-end gap-2 ${compact ? "" : "flex-row"}`}>
-          <View className="min-w-0 flex-1 rounded-[18px] border border-border bg-background px-3 py-2.5">
+          <View
+            className="min-w-0 flex-1 rounded-[20px] border px-3 py-2.5"
+            style={{
+              borderColor: showSlashSuggestions
+                ? isDark
+                  ? "rgba(255,255,255,0.14)"
+                  : "rgba(14,165,233,0.22)"
+                : isDark
+                  ? "rgba(255,255,255,0.08)"
+                  : "rgba(193,208,223,0.82)",
+              backgroundColor: isDark ? "rgba(0,0,0,0.58)" : "rgba(241,246,251,0.84)",
+            }}
+          >
             <TextInput
               value={input}
               onChangeText={setInput}
@@ -170,14 +227,62 @@ export function SessionComposer({
               </View>
             ) : null}
           </View>
-          <View className={compact ? "w-full" : "w-[110px]"}>
-            <ActionButton
-              label="Send"
-              loading={sending}
-              disabled={sending || sessionBlocked || cleaned || !input.trim()}
-              className="rounded-[18px] px-4 py-3"
+          <View className="self-end">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              disabled={sendDisabled}
               onPress={onSend}
-            />
+              className={cn(
+                "items-center justify-center overflow-hidden rounded-[20px] border",
+                compact ? "h-[54px] w-[54px]" : "h-[58px] w-[58px]",
+                sendTone === "blocked" ? "border-border bg-surface/90" : "border-accent/20 bg-accent",
+              )}
+              style={({ pressed }) => ({
+                opacity: sendTone === "blocked" ? 0.5 : sendTone === "loading" ? 0.82 : pressed ? 0.9 : 1,
+                shadowColor: palette.accent,
+                shadowOpacity: sendTone === "active" ? (isDark ? 0.24 : 0.16) : 0,
+                shadowRadius: 16,
+                shadowOffset: { width: 0, height: 10 },
+                transform: [{ scale: pressed && !sendDisabled ? 0.98 : 1 }],
+              })}
+            >
+              <AdaptiveBlur
+                tint={isDark ? "dark" : "light"}
+                intensity={62}
+                style={StyleSheet.absoluteFill}
+                fallbackColor={sendTone === "blocked" ? (isDark ? "rgba(22,22,22,0.82)" : "rgba(241,246,251,0.86)") : palette.accent}
+                pointerEvents="none"
+              />
+              <View
+                style={[
+                  StyleSheet.absoluteFill,
+                  {
+                    backgroundColor: sendDisabled
+                      ? sendTone === "blocked"
+                        ? isDark
+                          ? "rgba(255,255,255,0.04)"
+                          : "rgba(255,255,255,0.12)"
+                        : isDark
+                          ? "rgba(255,255,255,0.05)"
+                          : "rgba(255,255,255,0.08)"
+                      : isDark
+                        ? "rgba(255,255,255,0.05)"
+                        : "rgba(255,255,255,0.08)",
+                  },
+                ]}
+                pointerEvents="none"
+              />
+              {sending ? (
+                <ActivityIndicator color={isDark ? "#0a0a0a" : palette.codeText} />
+              ) : (
+                <ArrowUp
+                  size={compact ? 18 : 20}
+                  color={sendBlocked ? palette.muted : isDark ? "#0a0a0a" : palette.codeText}
+                  strokeWidth={2.4}
+                />
+              )}
+            </Pressable>
           </View>
         </View>
 
@@ -194,7 +299,14 @@ export function SessionComposer({
                     onAttach()
                   }}
                   disabled={cleaned}
-                  className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
+                  style={{
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    opacity: cleaned ? 0.6 : 1,
+                    ...utilityButtonStyle,
+                  }}
                 >
                   <Paperclip size={13} color={palette.accent} strokeWidth={2.1} />
                 </Pressable>
@@ -204,7 +316,13 @@ export function SessionComposer({
                   void triggerHaptic("selection")
                   onOpenCommands()
                 }}
-                className="rounded-full border border-border bg-background/75 px-2.5 py-1.5"
+                style={{
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  ...utilityButtonStyle,
+                }}
               >
                 <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
               </Pressable>

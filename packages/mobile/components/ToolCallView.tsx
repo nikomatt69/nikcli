@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react"
 import { Animated, LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
-import { FileCode2, Folder, Globe, Search, SquareTerminal, Wrench, type LucideIcon } from "lucide-react-native"
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode2,
+  Folder,
+  Globe,
+  Search,
+  SquareTerminal,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react-native"
 import type { ToolPart } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
 
@@ -40,7 +50,7 @@ function stringifyValue(value: unknown): string {
 }
 
 export function ToolCallView(props: { part: ToolPart }) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const [open, setOpen] = useState(false)
   const [showAllOutput, setShowAllOutput] = useState(false)
   const state = props.part.state
@@ -79,12 +89,56 @@ export function ToolCallView(props: { part: ToolPart }) {
   const rawOutput = status === "completed" ? state.output : status === "error" ? state.error : undefined
   const output = typeof rawOutput === "string" ? rawOutput : rawOutput != null ? String(rawOutput) : ""
   const inputEntries = Object.entries(state.input ?? {})
+  const statusLabel =
+    status === "running" ? "Running" : status === "completed" ? "Completed" : status === "error" ? "Failed" : "Idle"
+  const statusBackground =
+    status === "running"
+      ? isDark
+        ? "rgba(183,183,183,0.08)"
+        : "rgba(245,158,11,0.10)"
+      : status === "completed"
+        ? isDark
+          ? "rgba(212,212,212,0.08)"
+          : "rgba(34,197,94,0.10)"
+        : status === "error"
+          ? isDark
+            ? "rgba(143,143,143,0.08)"
+            : "rgba(239,68,68,0.10)"
+          : isDark
+            ? "rgba(255,255,255,0.05)"
+            : "rgba(241,246,251,0.8)"
+  const statusBorder =
+    status === "running"
+      ? isDark
+        ? "rgba(183,183,183,0.16)"
+        : "rgba(245,158,11,0.22)"
+      : status === "completed"
+        ? isDark
+          ? "rgba(212,212,212,0.16)"
+          : "rgba(34,197,94,0.22)"
+        : status === "error"
+          ? isDark
+            ? "rgba(143,143,143,0.16)"
+            : "rgba(239,68,68,0.22)"
+          : isDark
+            ? "rgba(255,255,255,0.08)"
+            : "rgba(193,208,223,0.72)"
 
   return (
-    <View className="min-w-0 overflow-hidden rounded-[18px] border border-border bg-background/75">
+    <View
+      className="min-w-0 overflow-hidden rounded-[20px] border"
+      style={{
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.78)",
+        backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(241,246,251,0.78)",
+      }}
+    >
       <Pressable
-        className="flex-row items-center justify-between gap-3 px-3 py-2.5"
+        className="flex-row items-center justify-between gap-3 px-3 py-3"
         onPress={toggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${props.part.tool || "Tool"} ${open ? "details expanded" : "details collapsed"}`}
+        accessibilityHint={open ? "Double tap to collapse tool details" : "Double tap to expand tool details"}
       >
         <View className="flex-1 flex-row items-center gap-2">
           <Animated.View
@@ -113,18 +167,51 @@ export function ToolCallView(props: { part: ToolPart }) {
               </Text>
             ) : null}
           </View>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: statusBorder,
+              backgroundColor: statusBackground,
+              paddingHorizontal: 9,
+              paddingVertical: 6,
+            }}
+          >
+            <Text
+              style={{
+                color: status === "error" && !isDark ? palette.danger : palette.accentLight,
+                fontSize: 10,
+                fontWeight: "700",
+                letterSpacing: 0.8,
+                textTransform: "uppercase",
+              }}
+            >
+              {statusLabel}
+            </Text>
+          </View>
           {timing ? (
-            <View className="mr-2 rounded-full border border-border/60 bg-background/80 px-2 py-0.5">
-              <Text className="text-[10px] text-soft">{timing}</Text>
+            <View className="rounded-full border border-border/60 bg-background/80 px-2.5 py-1">
+              <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
+                {timing}
+              </Text>
             </View>
           ) : null}
+          {open ? (
+            <ChevronDown size={14} color={palette.muted} strokeWidth={2.1} />
+          ) : (
+            <ChevronRight size={14} color={palette.muted} strokeWidth={2.1} />
+          )}
         </View>
-        <Text className="text-[11px] font-semibold uppercase tracking-[1.7px] text-soft">{open ? "Hide" : "Show"}</Text>
       </Pressable>
       {open ? (
         <View className="gap-3 border-t border-border px-3 py-2.5">
           {inputEntries.length > 0 ? (
-            <View>
+            <View className="rounded-[16px] border border-border/70 bg-surface px-3 py-3">
               <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Input</Text>
               {inputEntries.map(([key, value]) => (
                 <View key={key} className="mb-1 min-w-0 flex-row gap-2">
@@ -146,21 +233,23 @@ export function ToolCallView(props: { part: ToolPart }) {
             </View>
           ) : null}
           {rawOutput !== undefined ? (
-            <View>
+            <View className="rounded-[16px] border border-border/70 bg-surface px-3 py-3">
               <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
                 Output
               </Text>
-              <ScrollView
-                horizontal
-                nestedScrollEnabled
-                showsHorizontalScrollIndicator
-                style={{ flexGrow: 0 }}
-                contentContainerStyle={{ alignSelf: "flex-start" }}
-              >
-                <Text selectable className="font-mono text-xs leading-5 text-soft">
-                  {showAllOutput ? output : output.slice(0, 400)}
-                </Text>
-              </ScrollView>
+              <View className="overflow-hidden rounded-[12px] border border-border/70 bg-background/80 px-3 py-2.5">
+                <ScrollView
+                  horizontal
+                  nestedScrollEnabled
+                  showsHorizontalScrollIndicator
+                  style={{ flexGrow: 0 }}
+                  contentContainerStyle={{ alignSelf: "flex-start" }}
+                >
+                  <Text selectable className="font-mono text-xs leading-5 text-soft">
+                    {showAllOutput ? output : output.slice(0, 400)}
+                  </Text>
+                </ScrollView>
+              </View>
               {output.length > 400 ? (
                 <Pressable onPress={() => setShowAllOutput((value) => !value)} className="mt-2">
                   <Text className="text-[11px] font-semibold text-accent-light">

@@ -1,5 +1,7 @@
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native"
+import { ScrollView, Text, View, useWindowDimensions } from "react-native"
 import { FileCode2, Folder, Globe, Search, Shield, SquareTerminal, type LucideIcon } from "lucide-react-native"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { InfoChip } from "@/components/ui/InfoChip"
 import type { PermissionRequest } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
 
@@ -22,7 +24,9 @@ function DataBlock(props: { label: string; value: string }) {
 
   return (
     <View className="gap-1.5 rounded-[18px] border border-border/70 bg-background/80 px-3 py-2.5">
-      <Text className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">{props.label}</Text>
+      <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
+        {props.label}
+      </Text>
       <ScrollView
         horizontal
         nestedScrollEnabled
@@ -43,7 +47,7 @@ export function PermissionCard(props: {
   onRespond(response: "once" | "always" | "reject"): void
 }) {
   const { width } = useWindowDimensions()
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const Icon = permissionIcon(props.item.permission)
   const meta = props.item.metadata
   const description = asText(meta.description)
@@ -53,13 +57,31 @@ export function PermissionCard(props: {
   const alwaysCount = props.item.always.length
 
   return (
-    <View className="mb-3 overflow-hidden rounded-[28px] border border-accent/30 bg-panel px-4 py-4">
+    <View
+      className="mb-3 overflow-hidden rounded-[28px] border px-4 py-4"
+      style={{
+        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.18)",
+        backgroundColor: palette.panel,
+      }}
+    >
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          right: -16,
+          top: -22,
+          width: 86,
+          height: 86,
+          borderRadius: 999,
+          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(14,165,233,0.08)",
+        }}
+      />
       <View className="flex-row items-start gap-3">
         <View className="rounded-[16px] border border-accent/20 bg-accent/10 p-2.5">
           <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
         </View>
         <View className="min-w-0 flex-1 gap-1.5">
-          <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+          <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
             Permission required
           </Text>
           <Text selectable className="text-base font-semibold text-ink">
@@ -74,18 +96,13 @@ export function PermissionCard(props: {
       </View>
 
       <View className="mt-3 flex-row flex-wrap gap-2">
-        <View className="rounded-full border border-border/70 bg-background/80 px-3 py-2">
-          <Text className="text-[10px] font-semibold uppercase tracking-[1.4px] text-soft">
-            {props.item.patterns.length} pattern{props.item.patterns.length === 1 ? "" : "s"}
-          </Text>
-        </View>
-        {alwaysCount ? (
-          <View className="rounded-full border border-accent/20 bg-accent/10 px-3 py-2">
-            <Text className="text-[10px] font-semibold uppercase tracking-[1.4px] text-accent-light">
-              {alwaysCount} remembered
-            </Text>
-          </View>
-        ) : null}
+        <InfoChip
+          label={`${props.item.patterns.length} pattern${props.item.patterns.length === 1 ? "" : "s"}`}
+          tone="neutral"
+        />
+        {alwaysCount ? <InfoChip label={`${alwaysCount} remembered`} tone="accent" /> : null}
+        {command ? <InfoChip label="Command scope" tone="accent" /> : null}
+        {path ? <InfoChip label="Path scoped" tone="neutral" /> : null}
       </View>
 
       <View className="mt-3 gap-2">
@@ -95,7 +112,9 @@ export function PermissionCard(props: {
 
       {props.item.patterns.length > 0 ? (
         <View className="mt-3 gap-2 rounded-[18px] border border-border/70 bg-background/80 px-3 py-2.5">
-          <Text className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Patterns</Text>
+          <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
+            Patterns
+          </Text>
           {props.item.patterns.map((pattern, index) => (
             <ScrollView
               key={index}
@@ -114,24 +133,15 @@ export function PermissionCard(props: {
       ) : null}
 
       <View className={`mt-4 gap-2 ${compactActions ? "" : "flex-row"}`}>
-        <Pressable
-          className={`rounded-[18px] border border-border bg-background/60 px-3 py-3 ${compactActions ? "" : "flex-1"}`}
-          onPress={() => props.onRespond("reject")}
-        >
-          <Text className="text-center text-sm font-semibold text-rose-300">Reject</Text>
-        </Pressable>
-        <Pressable
-          className={`rounded-[18px] border border-border bg-background/60 px-3 py-3 ${compactActions ? "" : "flex-1"}`}
-          onPress={() => props.onRespond("once")}
-        >
-          <Text className="text-center text-sm font-semibold text-ink">Allow once</Text>
-        </Pressable>
-        <Pressable
-          className={`rounded-[18px] bg-accent px-3 py-3 ${compactActions ? "" : "flex-1"}`}
-          onPress={() => props.onRespond("always")}
-        >
-          <Text className="text-center text-sm font-semibold text-slate-950">Always</Text>
-        </Pressable>
+        <View className={compactActions ? "w-full" : "flex-1"}>
+          <ActionButton label="Reject" variant="danger" onPress={() => props.onRespond("reject")} />
+        </View>
+        <View className={compactActions ? "w-full" : "flex-1"}>
+          <ActionButton label="Allow once" variant="secondary" onPress={() => props.onRespond("once")} />
+        </View>
+        <View className={compactActions ? "w-full" : "flex-1"}>
+          <ActionButton label="Always allow" onPress={() => props.onRespond("always")} />
+        </View>
       </View>
       <Text selectable className="mt-2 text-[10px] leading-4 text-soft">
         Always remembers this permission scope until Nikcli restarts. Use it only when the command and path look safe.

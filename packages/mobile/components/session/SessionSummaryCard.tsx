@@ -1,9 +1,10 @@
-import { ActivityIndicator, Linking, Text, View } from "react-native"
+import { Linking, Text, View } from "react-native"
 import { relativeTime, type SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { useAppTheme } from "@/lib/theme"
 
 type SessionSummaryCardProps = {
   detail: SessionDetail | null
@@ -22,6 +23,60 @@ function currentStatusTone(status?: string) {
   return "good" as const
 }
 
+function MetricTile(props: { label: string; value: string; tone?: "neutral" | "accent" | "good" | "warn" }) {
+  const { palette, isDark } = useAppTheme()
+  const backgroundColor =
+    props.tone === "accent"
+      ? isDark
+        ? "rgba(255,255,255,0.06)"
+        : "rgba(14,165,233,0.08)"
+      : props.tone === "good"
+        ? isDark
+          ? "rgba(212,212,212,0.06)"
+          : "rgba(34,197,94,0.08)"
+        : props.tone === "warn"
+          ? isDark
+            ? "rgba(143,143,143,0.06)"
+            : "rgba(239,68,68,0.08)"
+          : isDark
+            ? "rgba(255,255,255,0.04)"
+            : "rgba(241,246,251,0.78)"
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        minWidth: 0,
+        borderRadius: 18,
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.7)",
+        backgroundColor,
+        paddingHorizontal: 12,
+        paddingVertical: 11,
+      }}
+    >
+      <Text
+        selectable
+        style={{ fontSize: 10, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase", color: palette.soft }}
+      >
+        {props.label}
+      </Text>
+      <Text
+        selectable
+        style={{
+          marginTop: 4,
+          fontSize: 16,
+          fontWeight: "700",
+          color: palette.ink,
+          fontVariant: ["tabular-nums"],
+        }}
+      >
+        {props.value}
+      </Text>
+    </View>
+  )
+}
+
 export function SessionSummaryCard({
   detail,
   sessionBlocked,
@@ -32,6 +87,7 @@ export function SessionSummaryCard({
   onAbort,
   onCleanup,
 }: SessionSummaryCardProps) {
+  const { palette, isDark } = useAppTheme()
   const title = detail?.info.title || "Session"
   const github = detail?.info.github
   const location = github?.fullName || detail?.info.directory || "Unknown workspace"
@@ -48,7 +104,9 @@ export function SessionSummaryCard({
     detail?.messages
       .filter((m) => m.info.role === "assistant")
       .reduce((sum, m) => {
-        const t = (m.info as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number } } }).tokens
+        const t = (
+          m.info as { tokens?: { input?: number; output?: number; reasoning?: number; cache?: { read?: number } } }
+        ).tokens
         return sum + (t?.input ?? 0) + (t?.output ?? 0) + (t?.reasoning ?? 0) + (t?.cache?.read ?? 0)
       }, 0) ?? 0
 
@@ -74,12 +132,35 @@ export function SessionSummaryCard({
           {totalCost > 0 ? <InfoChip label={`$${totalCost.toFixed(4)}`} tone="neutral" /> : null}
         </View>
 
+        <View className="mt-4 flex-row flex-wrap gap-2">
+          <MetricTile label="Messages" value={messageCount.toLocaleString()} tone="neutral" />
+          <MetricTile label="Approvals" value={approvalCount.toLocaleString()} tone={approvalCount ? "warn" : "good"} />
+        </View>
+        <View className="mt-2 flex-row flex-wrap gap-2">
+          <MetricTile
+            label="Files touched"
+            value={fileCount.toLocaleString()}
+            tone={fileCount ? "accent" : "neutral"}
+          />
+          <MetricTile
+            label={totalCost > 0 ? "Cost" : "Context"}
+            value={totalCost > 0 ? `$${totalCost.toFixed(4)}` : totalTokens.toLocaleString()}
+            tone={totalCost > 0 || totalTokens > 0 ? "accent" : "neutral"}
+          />
+        </View>
+
         {github ? (
-          <View className="mt-4 rounded-[24px] border border-border bg-background/65 px-4 py-4">
-            <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
+          <View
+            className="mt-4 rounded-[24px] border px-4 py-4"
+            style={{
+              borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.72)",
+              backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(241,246,251,0.68)",
+            }}
+          >
+            <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
               GitHub publish path
             </Text>
-            <Text className="mt-2 text-sm leading-6 text-soft">
+            <Text selectable className="mt-2 text-sm leading-6 text-soft">
               {github.pullRequest
                 ? `This session already tracks PR #${github.pullRequest.number}. You can update the branch or reopen the PR directly from mobile.`
                 : `Base branch ${github.baseBranch} -> head branch ${github.headBranch}. Publish when the worktree is ready.`}
@@ -107,7 +188,7 @@ export function SessionSummaryCard({
               </View>
             ) : null}
             <View className="flex-1">
-              <ActionButton label="Abort session" variant="secondary" onPress={onAbort} />
+              <ActionButton label="Abort session" variant="danger" onPress={onAbort} />
             </View>
             {github ? (
               <View className="flex-1">
