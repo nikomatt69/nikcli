@@ -153,12 +153,17 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
   const { palette } = useAppTheme()
   const language = getLanguage(props.node)
   const code = trimmedCodeContent(props.node)
-  const highlighted = highlightCode(code)
   const lineCount = code.split("\n").length
   const isLong = lineCount > 10
+  const lineHighlights = useMemo(() => code.split("\n").map((line) => highlightCode(line)), [code])
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => () => { if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current) }, [])
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current)
+    },
+    [],
+  )
 
   async function handleCopy() {
     await Clipboard.setStringAsync(code)
@@ -192,12 +197,12 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
           <Pressable
             onPress={handleCopy}
             hitSlop={8}
-            className="flex-row items-center gap-1.5 rounded-lg px-2.5 py-1"
+            className="flex-row items-center gap-1.5 rounded-full px-2.5 py-1"
             style={{ backgroundColor: copied ? `${palette.success}30` : `${palette.border}40` }}
           >
             <Copy size={10} color={copied ? palette.success : palette.muted} strokeWidth={2} />
             <Text className="text-[10px] font-semibold" style={{ color: copied ? palette.success : palette.muted }}>
-              {copied ? "Copied!" : "Copy"}
+              {copied ? "Copied" : "Copy"}
             </Text>
           </Pressable>
         </View>
@@ -211,8 +216,7 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 }}
       >
         <View>
-          {code.split("\n").map((line, lineIndex) => {
-            const lineHighlighted = highlightCode(line)
+          {lineHighlights.map((lineHighlighted, lineIndex) => {
             return (
               <Text key={lineIndex} selectable className="text-[11px] leading-[18px]" style={{ fontFamily: "Menlo" }}>
                 {lineHighlighted.map((seg, i) => (
@@ -243,12 +247,23 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
 
 function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; muted?: boolean }) {
   const Icon = props.icon
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
 
   return (
     <Pressable
       onPress={props.onPress}
-      className="flex-row items-center gap-1 rounded-full border border-border bg-background/70 px-3 py-2"
+      style={({ pressed }) => ({
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.78)",
+        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(241,246,251,0.78)",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        opacity: pressed ? 0.86 : 1,
+      })}
     >
       <Icon size={13} color={props.muted ? palette.muted : palette.accentLight} strokeWidth={2.1} />
       <Text className={`text-[11px] font-semibold ${props.muted ? "text-soft" : "text-ink"}`}>{props.label}</Text>
@@ -268,7 +283,7 @@ export function MessageBubble(props: {
   onActivate?(): void
   isActive?: boolean
 }) {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const gestures = useUIStore((state) => state.gestures)
   const [showReasoning, setShowReasoning] = useState(false)
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
@@ -343,24 +358,49 @@ export function MessageBubble(props: {
     >
       <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
         <View
-          className={`max-w-[96%] min-w-0 overflow-hidden rounded-[26px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
+          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
           style={{
             shadowColor: palette.shadow,
-            shadowOpacity: 0.12,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: isDark ? 0.18 : 0.1,
+            shadowRadius: 18,
+            shadowOffset: { width: 0, height: 10 },
           }}
         >
           <View className="min-w-0 flex-row items-start justify-between gap-3 px-3.5 py-3">
             <View className="min-w-0 flex-1">
-              <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
-                {isUser ? "You" : "Nikcli"}
-              </Text>
-              {summaryLine ? <Text className="mt-1 text-xs leading-4 text-soft">{summaryLine}</Text> : null}
+              <View className="flex-row flex-wrap items-center gap-2">
+                <View
+                  style={{
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: isUser
+                      ? isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(14,165,233,0.18)"
+                      : isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(193,208,223,0.72)",
+                    backgroundColor: isUser
+                      ? isDark
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(14,165,233,0.08)"
+                      : isDark
+                        ? "rgba(255,255,255,0.04)"
+                        : "rgba(241,246,251,0.78)",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Text className="text-[10px] font-semibold uppercase tracking-[1.4px] text-accent-light">
+                    {isUser ? "You" : "Nikcli"}
+                  </Text>
+                </View>
+                {summaryLine ? <Text className="text-[11px] leading-4 text-soft">{summaryLine}</Text> : null}
+              </View>
             </View>
             <View className="items-end gap-1">
               {assistantInfo && (cost > 0 || tokens > 0) ? (
-                <Text className="text-[10px] text-muted">
+                <Text className="text-[10px] text-muted" style={{ fontVariant: ["tabular-nums"] }}>
                   ${cost.toFixed(5)} · {tokens.toLocaleString()} tok
                 </Text>
               ) : null}
@@ -374,11 +414,11 @@ export function MessageBubble(props: {
                 <Markdown
                   rules={markdownRules}
                   style={{
-                    body: { color: palette.ink, fontSize: 13, lineHeight: 20, fontFamily: "Helvetica-Bold" },
-                    paragraph: { marginTop: 0, marginBottom: 6 },
-                    heading1: { color: palette.ink, fontSize: 16, fontWeight: "700", marginTop: 10, marginBottom: 6 },
-                    heading2: { color: palette.ink, fontSize: 14, fontWeight: "700", marginTop: 8, marginBottom: 4 },
-                    heading3: { color: palette.ink, fontSize: 13, fontWeight: "600", marginTop: 6, marginBottom: 3 },
+                    body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
+                    paragraph: { marginTop: 0, marginBottom: 10 },
+                    heading1: { color: palette.ink, fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 },
+                    heading2: { color: palette.ink, fontSize: 16, fontWeight: "700", marginTop: 10, marginBottom: 6 },
+                    heading3: { color: palette.ink, fontSize: 14, fontWeight: "700", marginTop: 8, marginBottom: 4 },
                     heading4: { color: palette.ink, fontSize: 12, fontWeight: "600", marginTop: 4, marginBottom: 3 },
                     heading5: { color: palette.ink, fontSize: 11, fontWeight: "600", marginTop: 4, marginBottom: 2 },
                     heading6: { color: palette.muted, fontSize: 10, fontWeight: "600", marginTop: 4, marginBottom: 2 },
@@ -419,7 +459,7 @@ export function MessageBubble(props: {
                     },
                     bullet_list: { marginVertical: 4 },
                     ordered_list: { marginVertical: 4 },
-                    list_item: { marginBottom: 6 },
+                    list_item: { marginBottom: 5 },
                     bullet_list_icon: { color: palette.accentLight, marginRight: 6 },
                     bullet_list_content: { flex: undefined, flexGrow: 1, flexShrink: 1 },
                     ordered_list_icon: { color: palette.accentLight, marginRight: 6 },
@@ -428,11 +468,9 @@ export function MessageBubble(props: {
                       color: palette.accentLight,
                       backgroundColor: palette.codeBackground,
                       borderRadius: 14,
-                      shadowRadius: 12,
-                      shadowColor: palette.shadow,
-                      paddingHorizontal: 4,
+                      paddingHorizontal: 6,
                       paddingVertical: 2,
-                      fontFamily: "Menlo-bold",
+                      fontFamily: "Menlo",
                       fontSize: 11,
                     },
                     code_block: {
@@ -477,7 +515,7 @@ export function MessageBubble(props: {
 
           {reasoningVisible ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
+              <View className="rounded-[20px] border border-border bg-background/55 px-3 py-3">
                 <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
                   {reasoningExpanded ? (
                     <ChevronDown size={13} color={palette.accentLight} strokeWidth={2.1} />
@@ -514,7 +552,7 @@ export function MessageBubble(props: {
 
           {patch ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[18px] border border-border bg-background/55 px-3 py-2.5">
+              <View className="rounded-[20px] border border-border bg-background/55 px-3 py-3">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
                   {!props.diffLoaded ? (
@@ -546,7 +584,7 @@ export function MessageBubble(props: {
           {props.isActive && (props.onCopy || props.onFork || props.onDismiss) ? (
             <View className="flex-row flex-wrap gap-2 border-t border-border/80 px-3.5 py-3">
               {props.onCopy ? <ActionChip label="Copy" onPress={props.onCopy} icon={Copy} /> : null}
-              {props.onFork ? <ActionChip label="Fork" onPress={props.onFork} icon={GitBranch} /> : null}
+              {props.onFork ? <ActionChip label="Reuse" onPress={props.onFork} icon={GitBranch} /> : null}
               {props.onDismiss ? <ActionChip label="Dismiss" onPress={props.onDismiss} icon={X} muted /> : null}
             </View>
           ) : null}

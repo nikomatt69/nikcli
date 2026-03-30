@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Ellipsis } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { AdaptiveBlur } from "@/components/GlassView"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
@@ -86,7 +87,7 @@ function messagePlainText(message: MessageWithParts) {
 }
 
 export default function SessionScreen() {
-  const { palette } = useAppTheme()
+  const { palette, isDark } = useAppTheme()
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
   const { top } = useSafeAreaInsets()
   const { client, config, save } = useServer()
@@ -118,6 +119,15 @@ export default function SessionScreen() {
   const [commandsLoading, setCommandsLoading] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const [commandQuery, setCommandQuery] = useState("")
+  const chromeButtonFill = isDark ? "rgba(22,22,22,0.88)" : "rgba(255,255,255,0.88)"
+  const chromeButtonOverlay = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.16)"
+  const chromeButtonStyle = {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.82)",
+    overflow: "hidden",
+    padding: 12,
+  } as const
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -767,7 +777,15 @@ export default function SessionScreen() {
     <KeyboardAvoidingView className="flex-1 bg-background" behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} className="rounded-full border border-border bg-surface p-3">
+          <Pressable onPress={() => router.back()} style={chromeButtonStyle}>
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
             <ArrowLeft size={18} color={palette.ink} strokeWidth={2.2} />
           </Pressable>
           <View className="flex-1">
@@ -783,8 +801,16 @@ export default function SessionScreen() {
               void triggerHaptic("selection")
               actionsSheetRef.current?.present()
             }}
-            className="rounded-full border border-border bg-surface p-3"
+            style={chromeButtonStyle}
           >
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
             <Ellipsis size={18} color={palette.ink} strokeWidth={2.2} />
           </Pressable>
         </View>
