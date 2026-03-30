@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/plugin-handoff",
+  "version": "0.0.6",
+  "type": "module",
+  "license": "MIT",
+  "description": "Generate structured handoff documents for session continuity",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc --project tsconfig.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "@nikcli-ai/plugin": "workspace:*"
+  }
+}

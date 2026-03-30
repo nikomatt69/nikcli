@@ -32,10 +32,10 @@ html {
   border-left-width: 4px;
   border-left-color: rgb(var(--terminal-accent));
   background-color: var(--surface-hover);
-  padding: 1.25rem 1.5rem;
+  padding: var(--space-5) var(--space-5);
   margin-top: 2rem;
   margin-bottom: 2rem;
-  border-radius: 0 1rem 1rem 0;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   color: rgb(var(--terminal-text));
   box-shadow: var(--shadow-soft);
   font-weight: 500;
@@ -53,13 +53,43 @@ html {
 .prose pre {
   margin-top: 2rem;
   margin-bottom: 2rem;
-  border-radius: 1rem;
-  padding: 1.25rem 1.5rem;
-  font-size: 0.875rem;
+  border-radius: var(--radius-lg);
+  padding: var(--space-5) var(--space-5);
+  font-size: var(--type-body-sm);
   line-height: 1.7;
   border: 1px solid rgb(var(--terminal-window-border));
   background-color: rgb(var(--terminal-window-code));
   box-shadow: var(--shadow-soft);
+}
+
+.prose h2,
+.prose h3,
+.prose h4 {
+  scroll-margin-top: calc(var(--topbar-height) + 1.25rem);
+}
+
+.prose p,
+.prose ul,
+.prose ol {
+  font-size: var(--type-body-md);
+}
+
+.prose strong,
+.prose th,
+.prose h2,
+.prose h3,
+.prose h4 {
+  color: rgb(var(--terminal-text));
+}
+
+.prose ul > li::marker,
+.prose ol > li::marker {
+  color: rgb(var(--terminal-muted));
+}
+
+.prose hr {
+  margin-block: 2.5rem;
+  border-color: rgb(var(--terminal-border));
 }
 
 .prose pre code {
@@ -77,18 +107,53 @@ html {
 /* Table styling for Enterprise look */
 .prose table {
   width: 100%;
+  min-width: 100%;
   table-layout: auto;
   text-align: left;
   margin-top: 2.5rem;
   margin-bottom: 2.5rem;
-  font-size: 0.95rem;
+  font-size: var(--type-body-sm);
   line-height: 1.6;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid rgb(var(--terminal-border));
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
+}
+
+@media (max-width: 767px) {
+  .prose table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .prose thead,
+  .prose tbody {
+    width: 100%;
+  }
+
+  .prose th,
+  .prose td {
+    min-width: 8rem;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .prose td code,
+  .prose th code {
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 768px) {
+  .prose table {
+    display: table;
+    width: 100%;
+  }
 }
 
 .prose thead {
@@ -96,7 +161,7 @@ html {
 }
 
 .prose thead th {
-  padding: 1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   font-weight: 700;
   color: rgb(var(--terminal-text));
   vertical-align: bottom;
@@ -113,7 +178,7 @@ html {
 }
 
 .prose tbody td {
-  padding: 1rem 1.25rem;
+  padding: var(--space-4) var(--space-5);
   vertical-align: top;
   color: rgb(var(--terminal-muted));
   border-bottom: 1px solid rgb(var(--terminal-border));

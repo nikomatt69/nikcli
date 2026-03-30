@@ -18,7 +18,7 @@ const toc = [
   subtitle="A source-of-truth overview of nikcli, generated directly from the codebase in packages/nikcli."
   toc={toc}
 >
-  <section id="install-run" class="mb-20 scroll-mt-28">
+  <section id="install-run" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Install & Run</h2>
     <p>
       nikcli ships as a CLI with a full TUI experience. The default entrypoint is the TUI command
@@ -37,9 +37,9 @@ const toc = [
     </DocCallout>
   </section>
 
-  <section id="architecture-snapshot" class="mb-20 scroll-mt-28">
+  <section id="architecture-snapshot" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Architecture Snapshot</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
+    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <DocCard title="CLI + TUI" eyebrow="Interface">
         <p>
           All CLI commands are registered in <code>packages/nikcli/src/index.ts</code>. The TUI is
@@ -67,9 +67,9 @@ const toc = [
     </div>
   </section>
 
-  <section id="core-concepts" class="mb-20 scroll-mt-28">
+  <section id="core-concepts" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Core Concepts</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
+    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <DocCard title="Agents">
         <p>
           Default agents (<code>build</code>, <code>plan</code>) and subagents
@@ -98,13 +98,13 @@ const toc = [
     </div>
   </section>
 
-  <section id="codebase-roadmap" class="mb-20 scroll-mt-28">
+  <section id="codebase-roadmap" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Codebase Roadmap</h2>
     <p>
       Every page in this docs section links directly to the source files that implement the
       feature. The full file index is available in <a href="/docs/source-map">Source Map</a>.
     </p>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 my-10">
+    <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <DocCard title="CLI Reference" eyebrow="Command Surface" href="/docs/cli">
         <p>
           All commands, flags, and flows. See CLI Quickstart and CLI Debug.
@@ -118,7 +118,7 @@ const toc = [
     </div>
   </section>
 
-  <section id="next-steps" class="mb-20 scroll-mt-28">
+  <section id="next-steps" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Next Steps</h2>
     <DocCallout type="success" title="Ready to roll">
       <p>

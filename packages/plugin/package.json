@@ -6,12 +6,23 @@
   "license": "MIT",
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "tsc"
+    "build": "tsc",
+    "build:plugins": "bun run script/build-plugins.ts",
+    "publish:plugins": "bun run script/publish-plugins.ts"
   },
   "exports": {
-    ".": "./src/index.ts",
-    "./tool": "./src/tool.ts",
-    "./tui": "./src/tui.ts"
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./tool": {
+      "import": "./dist/tool.js",
+      "types": "./dist/tool.d.ts"
+    },
+    "./tui": {
+      "import": "./dist/tui.js",
+      "types": "./dist/tui.d.ts"
+    }
   },
   "files": [
     "dist"
