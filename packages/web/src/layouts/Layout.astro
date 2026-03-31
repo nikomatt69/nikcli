@@ -63,9 +63,9 @@ const pathname = Astro.url.pathname;
     
     <!-- Global Framer Motion Page Transition Initialization -->
     <script>
-      import { animate, stagger } from "framer-motion";
-      
-      const initAnimations = () => {
+      const initAnimations = async () => {
+        if (typeof window === 'undefined') return;
+        const { animate, stagger } = await import("framer-motion");
         animate(
           ".animate-fade-in-up",
           { opacity: [0, 1], y: [25, 0] },

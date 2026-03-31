@@ -131,14 +131,17 @@ export function AppHeader({ routeName }: AppHeaderProps) {
             </View>
             <Pressable
               onPress={openDrawer}
-              style={{
+              hitSlop={6}
+              style={({ pressed }) => ({
                 borderRadius: 13,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
                 backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
                 paddingHorizontal: 10,
                 paddingVertical: 8,
-              }}
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.93 : 1 }],
+              })}
             >
               <Menu size={15} color={palette.ink} strokeWidth={2.2} />
             </Pressable>

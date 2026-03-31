@@ -145,9 +145,9 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
     </div>
 
     <script>
-      import { animate, stagger } from "framer-motion";
-
-      const initDocs = () => {
+      const initDocs = async () => {
+        if (typeof window === 'undefined') return;
+        const { animate, stagger } = await import("framer-motion");
         (window as Window & { __nikcliDocsCleanup?: () => void }).__nikcliDocsCleanup?.();
 
         const cleanups: Array<() => void> = [];

@@ -1,10 +1,19 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native"
-import { ArrowUp, Paperclip } from "lucide-react-native"
-import { AdaptiveBlur } from "@/components/GlassView"
-import { InfoChip } from "@/components/ui/InfoChip"
+import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Keyboard,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
+import { ArrowUp, Code2, Lock, MapPin, Paperclip, Square, Terminal } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
-import { cn } from "@/lib/cn"
 import { useAppTheme } from "@/lib/theme"
+import { useSafeAreaInsets } from "react-native-safe-area-context"
 
 type SessionComposerProps = {
   mode: "plan" | "code"
@@ -26,6 +35,18 @@ type SessionComposerProps = {
   onAttach?(): void
 }
 
+const CHAR_COUNT_THRESHOLD = 100
+// Each segment width — pill animates between [2, SEGMENT_W + 2]
+const SEGMENT_W = 68
+// TextInput line metrics
+const INPUT_LINE_HEIGHT = 22
+const INPUT_PADDING_TOP = 14
+const INPUT_PADDING_BOTTOM = 10
+const INPUT_MIN_ROWS = 2
+const INPUT_MAX_ROWS = 6
+const INPUT_MIN_HEIGHT = INPUT_PADDING_TOP + INPUT_MIN_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 68
+const INPUT_MAX_HEIGHT = INPUT_PADDING_TOP + INPUT_MAX_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 156
+
 export function SessionComposer({
   mode,
   setMode,
@@ -41,298 +62,678 @@ export function SessionComposer({
   onSend,
   onAttach,
 }: SessionComposerProps) {
-  const { width } = useWindowDimensions()
-  const { colorScheme, palette, isDark } = useAppTheme()
-  const compact = width < 390
-  const statusColor = cleaned ? palette.danger : sessionBlocked ? palette.warn : palette.success
+  const { palette, isDark } = useAppTheme()
+  const insets = useSafeAreaInsets()
+  const inputRef = useRef<TextInput>(null)
+  const [isFocused, setIsFocused] = useState(false)
+
   const sendBlocked = sessionBlocked || cleaned || !input.trim()
   const sendDisabled = sending || sendBlocked
-  const sendTone = sendBlocked ? "blocked" : sending ? "loading" : "active"
-  const utilityButtonStyle = {
-    borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.82)",
-    backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
-  } as const
-  const modeSummary =
-    mode === "plan"
-      ? "Returns analysis first and avoids direct edits."
-      : "Allows direct inspection, edits, and publish work."
-  const disabledReason = cleaned
-    ? "This GitHub worktree is read-only after cleanup."
-    : sessionBlocked
-      ? "Execution is still active. Wait until the session returns idle."
-      : !input.trim()
-        ? mode === "plan"
-          ? "Add the planning request you want reviewed first."
-          : "Add the coding instruction you want to send."
-        : null
-  const liveHint = disabledReason ?? modeSummary
-  const showSlashSuggestions = input.trimStart().startsWith("/")
+  const showSlash = input.trimStart().startsWith("/")
+  const hasText = input.trim().length > 0
+  const charCount = input.length
+  const showCharCount = charCount > CHAR_COUNT_THRESHOLD
+  const showStatus = sessionBlocked || cleaned
+
+  // ── Animation values ──────────────────────────────────────────────────────
+
+  // Focus: border glow (non-native — drives borderColor interpolation)
+  const focusAnim = useRef(new Animated.Value(0)).current
+
+  // Send button: color transition (non-native)
+  const sendColorAnim = useRef(new Animated.Value(hasText && !sendBlocked ? 1 : 0)).current
+
+  // Send button: scale spring pop (native)
+  const sendScaleAnim = useRef(new Animated.Value(1)).current
+
+  // Stop button: pulsing scale (native)
+  const stopPulse = useRef(new Animated.Value(1)).current
+
+  // Mode segmented control: sliding pill (non-native for left position)
+  const modeAnim = useRef(new Animated.Value(mode === "code" ? 1 : 0)).current
+
+  // Slash panel: fade + slide (native)
+  const slashAnim = useRef(new Animated.Value(0)).current
+
+  // Status banner: slide down (native)
+  const statusAnim = useRef(new Animated.Value(0)).current
+
+  // ── Effects ───────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    Animated.timing(focusAnim, {
+      toValue: isFocused ? 1 : 0,
+      duration: 220,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.ease),
+    }).start()
+  }, [isFocused, focusAnim])
+
+  useEffect(() => {
+    const isReady = hasText && !sendBlocked
+    Animated.timing(sendColorAnim, {
+      toValue: isReady ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.ease),
+    }).start()
+    if (isReady) {
+      Animated.spring(sendScaleAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        damping: 11,
+        stiffness: 260,
+        mass: 0.7,
+      }).start()
+    } else {
+      Animated.spring(sendScaleAnim, {
+        toValue: 0.88,
+        useNativeDriver: true,
+        damping: 14,
+        stiffness: 200,
+        mass: 0.8,
+      }).start()
+    }
+  }, [hasText, sendBlocked, sendColorAnim, sendScaleAnim])
+
+  useEffect(() => {
+    if (!sending) {
+      stopPulse.setValue(1)
+      return
+    }
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(stopPulse, {
+          toValue: 1.14,
+          duration: 680,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+        Animated.timing(stopPulse, {
+          toValue: 1,
+          duration: 680,
+          useNativeDriver: true,
+          easing: Easing.inOut(Easing.ease),
+        }),
+      ]),
+    )
+    pulse.start()
+    return () => pulse.stop()
+  }, [sending, stopPulse])
+
+  useEffect(() => {
+    Animated.timing(modeAnim, {
+      toValue: mode === "code" ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+      easing: Easing.out(Easing.quad),
+    }).start()
+  }, [mode, modeAnim])
+
+  useEffect(() => {
+    Animated.spring(slashAnim, {
+      toValue: showSlash ? 1 : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 220,
+      mass: 0.9,
+    }).start()
+  }, [showSlash, slashAnim])
+
+  useEffect(() => {
+    Animated.spring(statusAnim, {
+      toValue: showStatus ? 1 : 0,
+      useNativeDriver: true,
+      damping: 16,
+      stiffness: 200,
+    }).start()
+  }, [showStatus, statusAnim])
+
+  // ── Derived animated styles ───────────────────────────────────────────────
+
+  const borderColor = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      palette.border,
+      isDark ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.38)",
+    ],
+  })
+
+  // Inactive → topbar glass; active → accent fill
+  const sendBg = sendColorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [
+      isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+      palette.accent,
+    ],
+  })
+
+  // Pill slides from left-edge-gap (2) to second segment start (SEGMENT_W + 2)
+  const segmentPillLeft = modeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, SEGMENT_W + 2], // [2, 70] with SEGMENT_W=68
+  })
+
+  const segmentLabelPlan = modeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [isDark ? palette.accentLight : palette.accentLight, palette.muted],
+  })
+
+  const segmentLabelCode = modeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [palette.muted, isDark ? palette.accentLight : palette.accentLight],
+  })
+
+  const slashTranslateY = slashAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
+  const statusTranslateY = statusAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] })
+
+  // ── Icon button style ─────────────────────────────────────────────────────
+  const iconBtn = useMemo(
+    () => ({
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(193,208,223,0.78)",
+      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
+    }),
+    [isDark],
+  )
 
   return (
-    <View className="border-t border-border bg-background px-4 pb-3 pt-2">
-      <View
-        className="overflow-hidden rounded-[24px] border px-3 py-3"
-        style={{
-          borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
-          backgroundColor: palette.surface,
-          shadowColor: palette.shadow,
-          shadowOpacity: isDark ? 0.22 : 0.08,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 10 },
-        }}
-      >
-        <View
-          pointerEvents="none"
+    <View
+      style={{
+        backgroundColor: isDark ? "rgba(0,0,0,0.0)" : "rgba(241,246,251,0.0)",
+        paddingBottom: Math.max(insets.bottom, 10),
+      }}
+    >
+      {/* Top hairline separator */}
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border }} />
+
+      {/* Status banner — glass pill, animated slide-down */}
+      {showStatus && (
+        <Animated.View
           style={{
-            position: "absolute",
-            right: -14,
-            top: -18,
-            width: 84,
-            height: 84,
-            borderRadius: 999,
-            backgroundColor: isDark
-              ? "rgba(255,255,255,0.03)"
-              : mode === "code"
-                ? "rgba(14,165,233,0.08)"
-                : "rgba(232,240,248,0.7)",
+            opacity: statusAnim,
+            transform: [{ translateY: statusTranslateY }],
           }}
-        />
-        <View className={`items-start gap-2 ${compact ? "" : "flex-row justify-between"}`}>
-          <View className="min-w-0 flex-1 gap-1.5">
-            <View className="flex-row flex-wrap items-center gap-2">
-              <Text className="text-[10px] font-semibold uppercase tracking-[1.7px] text-accent-light">Composer</Text>
-              <InfoChip
-                label={mode === "plan" ? "Plan first" : "Code ready"}
-                tone={mode === "plan" ? "neutral" : "accent"}
-              />
-              <Text className="text-[10px] font-semibold" style={{ color: statusColor }}>
-                {cleaned ? "Read-only" : sessionBlocked ? "Busy" : "Ready"}
-              </Text>
-            </View>
-            <Text className="text-[11px] leading-4 text-soft" numberOfLines={2}>
-              {modeSummary}
+        >
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              paddingVertical: 9,
+              paddingHorizontal: 16,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              borderBottomColor: palette.border,
+              backgroundColor: cleaned
+                ? isDark
+                  ? "rgba(143,143,143,0.07)"
+                  : "rgba(220,38,38,0.06)"
+                : isDark
+                  ? "rgba(183,183,183,0.07)"
+                  : "rgba(217,119,6,0.07)",
+            }}
+          >
+            {sessionBlocked ? (
+              <ActivityIndicator size={10} color={palette.warn} />
+            ) : (
+              <Lock size={11} color={palette.danger} strokeWidth={2.2} />
+            )}
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "600",
+                letterSpacing: 0.2,
+                color: sessionBlocked ? palette.warn : palette.danger,
+              }}
+            >
+              {cleaned ? "Read-only worktree" : "Processing…"}
             </Text>
           </View>
+        </Animated.View>
+      )}
 
+      {/* Slash autocomplete — animated fade + slide up */}
+      {showSlash && (
+        <Animated.View
+          style={{
+            opacity: slashAnim,
+            transform: [{ translateY: slashTranslateY }],
+          }}
+        >
+          {/* Glass surface matching app tab bar language */}
           <View
-            className="self-start rounded-full p-1"
             style={{
+              marginHorizontal: 14,
+              marginBottom: 6,
+              borderRadius: 18,
+              overflow: "hidden",
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(193,208,223,0.82)",
-              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.86)",
+              borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
+              shadowColor: palette.shadow,
+              shadowOffset: { width: 0, height: 6 },
+              shadowOpacity: isDark ? 0.20 : 0.08,
+              shadowRadius: 14,
             }}
           >
-            <View className="flex-row items-center">
-              <Pressable
-                onPress={() => {
-                  void triggerHaptic("selection")
-                  setMode("plan")
-                }}
-                style={{
-                  borderRadius: 999,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  backgroundColor: mode === "plan" ? (isDark ? "rgba(255,255,255,0.16)" : palette.panel) : "transparent",
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: mode === "plan" ? palette.ink : palette.soft }}>Plan</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  void triggerHaptic("selection")
-                  setMode("code")
-                }}
-                style={{
-                  borderRadius: 999,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  backgroundColor: mode === "code" ? (isDark ? "rgba(255,255,255,0.94)" : palette.accent) : "transparent",
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: mode === "code" ? "#0a0a0a" : palette.soft }}>Code</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-        <View className={`mt-2.5 items-end gap-2 ${compact ? "" : "flex-row"}`}>
-          <View
-            className="min-w-0 flex-1 rounded-[20px] border px-3 py-2.5"
-            style={{
-              borderColor: showSlashSuggestions
-                ? isDark
-                  ? "rgba(255,255,255,0.14)"
-                  : "rgba(14,165,233,0.22)"
-                : isDark
-                  ? "rgba(255,255,255,0.08)"
-                  : "rgba(193,208,223,0.82)",
-              backgroundColor: isDark ? "rgba(0,0,0,0.58)" : "rgba(241,246,251,0.84)",
-            }}
-          >
-            <TextInput
-              value={input}
-              onChangeText={setInput}
-              multiline
-              editable={!cleaned}
-              selectionColor={palette.accent}
-              keyboardAppearance={colorScheme === "light" ? "light" : "dark"}
-              placeholder={
-                cleaned
-                  ? "This GitHub worktree has been cleaned up."
-                  : mode === "plan"
-                    ? "Ask for the exact plan you want before editing..."
-                    : "Ask Nikcli to inspect, edit, review, or publish..."
-              }
-              placeholderTextColor={palette.muted}
-              className="max-h-24 min-h-[56px] text-[15px] leading-5 text-ink"
-              textAlignVertical="top"
+            {/* Glass background */}
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)" }]}
+              pointerEvents="none"
+            />
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(232,240,248,0.12)" }]}
+              pointerEvents="none"
             />
 
-            {showSlashSuggestions ? (
-              <View className="mt-2 gap-2 border-t border-border/70 pt-2">
-                {slashLoading ? (
-                  <Text className="text-[11px] text-soft">Loading slash commands…</Text>
-                ) : slashSuggestions.length ? (
-                  slashSuggestions.slice(0, 4).map((item) => (
-                    <Pressable
-                      key={item.name}
-                      onPress={() => {
-                        void triggerHaptic("selection")
-                        onSelectSlash(item.name)
+            {/* Header label */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingHorizontal: 14,
+                paddingVertical: 8,
+                borderBottomWidth: StyleSheet.hairlineWidth,
+                borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: "700",
+                  letterSpacing: 1.2,
+                  textTransform: "uppercase",
+                  color: palette.muted,
+                }}
+              >
+                Commands
+              </Text>
+              {slashLoading && <ActivityIndicator size="small" color={palette.accent} />}
+            </View>
+
+            {slashSuggestions.length ? (
+              slashSuggestions.slice(0, 5).map((item, i) => (
+                <Pressable
+                  key={item.name}
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    onSelectSlash(item.name)
+                  }}
+                  style={({ pressed }) => ({
+                    flexDirection: "row",
+                    alignItems: "center",
+                    paddingLeft: 14,
+                    paddingRight: 14,
+                    paddingVertical: 11,
+                    backgroundColor: pressed
+                      ? isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(14,165,233,0.05)"
+                      : "transparent",
+                    borderBottomWidth: i < Math.min(slashSuggestions.length, 5) - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  })}
+                >
+                  {/* Left accent — slash indicator */}
+                  <View
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)",
+                      marginRight: 12,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "700",
+                        color: palette.accentLight,
+                        lineHeight: 16,
                       }}
-                      className="rounded-[14px] border border-border bg-surface px-3 py-2"
                     >
-                      <View className="flex-row items-start justify-between gap-3">
-                        <View className="min-w-0 flex-1">
-                          <Text className="text-[12px] font-semibold text-ink">/{item.name}</Text>
-                          {item.description ? (
-                            <Text className="mt-0.5 text-[11px] leading-4 text-soft" numberOfLines={2}>
-                              {item.description}
-                            </Text>
-                          ) : null}
-                        </View>
-                        {item.badge ? (
-                          <View className="rounded-full border border-accent/20 bg-accent/10 px-2 py-1">
-                            <Text className="text-[9px] font-semibold uppercase tracking-[1.2px] text-accent-light">
-                              {item.badge}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  ))
-                ) : (
-                  <Text className="text-[11px] text-soft">No slash commands match this input yet.</Text>
-                )}
+                      /
+                    </Text>
+                  </View>
+
+                  {/* Content */}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "500", letterSpacing: -0.1 }}>
+                      {item.name}
+                    </Text>
+                    {item.description ? (
+                      <Text style={{ color: palette.muted, fontSize: 11.5, marginTop: 1.5, lineHeight: 16 }} numberOfLines={1}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {/* Badge */}
+                  {item.badge ? (
+                    <View
+                      style={{
+                        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                        borderRadius: 6,
+                        borderWidth: 1,
+                        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.14)",
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        marginLeft: 10,
+                      }}
+                    >
+                      <Text style={{ color: palette.accentLight, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
+                        {item.badge}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))
+            ) : !slashLoading ? (
+              <View style={{ alignItems: "center", paddingVertical: 20 }}>
+                <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
               </View>
             ) : null}
           </View>
-          <View className="self-end">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Send message"
-              disabled={sendDisabled}
-              onPress={onSend}
-              className={cn(
-                "items-center justify-center overflow-hidden rounded-[20px] border",
-                compact ? "h-[54px] w-[54px]" : "h-[58px] w-[58px]",
-                sendTone === "blocked" ? "border-border bg-surface/90" : "border-accent/20 bg-accent",
-              )}
-              style={({ pressed }) => ({
-                opacity: sendTone === "blocked" ? 0.5 : sendTone === "loading" ? 0.82 : pressed ? 0.9 : 1,
-                shadowColor: palette.accent,
-                shadowOpacity: sendTone === "active" ? (isDark ? 0.24 : 0.16) : 0,
-                shadowRadius: 16,
-                shadowOffset: { width: 0, height: 10 },
-                transform: [{ scale: pressed && !sendDisabled ? 0.98 : 1 }],
-              })}
-            >
-              <AdaptiveBlur
-                tint={isDark ? "dark" : "light"}
-                intensity={62}
-                style={StyleSheet.absoluteFill}
-                fallbackColor={sendTone === "blocked" ? (isDark ? "rgba(22,22,22,0.82)" : "rgba(241,246,251,0.86)") : palette.accent}
-                pointerEvents="none"
-              />
-              <View
-                style={[
-                  StyleSheet.absoluteFill,
-                  {
-                    backgroundColor: sendDisabled
-                      ? sendTone === "blocked"
-                        ? isDark
-                          ? "rgba(255,255,255,0.04)"
-                          : "rgba(255,255,255,0.12)"
-                        : isDark
-                          ? "rgba(255,255,255,0.05)"
-                          : "rgba(255,255,255,0.08)"
-                      : isDark
-                        ? "rgba(255,255,255,0.05)"
-                        : "rgba(255,255,255,0.08)",
-                  },
-                ]}
-                pointerEvents="none"
-              />
-              {sending ? (
-                <ActivityIndicator color={isDark ? "#0a0a0a" : palette.codeText} />
-              ) : (
-                <ArrowUp
-                  size={compact ? 18 : 20}
-                  color={sendBlocked ? palette.muted : isDark ? "#0a0a0a" : palette.codeText}
-                  strokeWidth={2.4}
-                />
-              )}
-            </Pressable>
-          </View>
-        </View>
+        </Animated.View>
+      )}
 
-        <View className="mt-2 flex-row items-start justify-between gap-3">
-          <Text className="min-w-0 flex-1 text-[10px] leading-4 text-soft" numberOfLines={2}>
-            {liveHint}
-          </Text>
-          <View className="items-end gap-1">
-            <View className="flex-row items-center gap-1.5">
-              {onAttach ? (
+      {/* Main capsule */}
+      <View style={{ marginHorizontal: 14, marginTop: 10 }}>
+        {/* Shadow wrapper — outside overflow:hidden so shadow renders */}
+        <View
+          style={{
+            borderRadius: 24,
+            shadowColor: palette.shadow,
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: isDark ? 0.24 : 0.1,
+            shadowRadius: 20,
+          }}
+        >
+          {/* Clip container */}
+          <View style={styles.capsule}>
+            {/* Glass background */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: isDark ? "rgba(17,17,17,0.92)" : "rgba(255,255,255,0.95)",
+                },
+              ]}
+              pointerEvents="none"
+            />
+            {/* Inner tint for depth */}
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                {
+                  backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.15)",
+                },
+              ]}
+              pointerEvents="none"
+            />
+            {/* Animated border overlay */}
+            <Animated.View
+              style={[StyleSheet.absoluteFill, { borderRadius: 24, borderWidth: 1, borderColor }]}
+              pointerEvents="none"
+            />
+
+            {/* TextInput */}
+            <TextInput
+              ref={inputRef}
+              value={input}
+              onChangeText={setInput}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              multiline
+              editable={!cleaned}
+              selectionColor={palette.accent}
+              keyboardAppearance={isDark ? "dark" : "light"}
+              returnKeyType="default"
+              placeholder={
+                cleaned
+                  ? "Worktree cleaned up"
+                  : mode === "plan"
+                    ? "What would you like to plan?"
+                    : "Reply to Nikcli…"
+              }
+              placeholderTextColor={palette.muted}
+              style={{
+                fontSize: 16,
+                lineHeight: INPUT_LINE_HEIGHT,
+                color: palette.ink,
+                maxHeight: INPUT_MAX_HEIGHT,
+                minHeight: INPUT_MIN_HEIGHT,
+                paddingTop: INPUT_PADDING_TOP,
+                paddingBottom: INPUT_PADDING_BOTTOM,
+                paddingHorizontal: 18,
+                textAlignVertical: "top",
+              }}
+            />
+
+            {/* Input / toolbar separator */}
+            <View
+              style={{
+                height: StyleSheet.hairlineWidth,
+                marginHorizontal: 16,
+                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.6)",
+              }}
+            />
+
+            {/* Toolbar */}
+            <View style={styles.toolbar}>
+              {/* Left cluster */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {/* Attach */}
+                {onAttach ? (
+                  <Pressable
+                    onPress={() => {
+                      void triggerHaptic("selection")
+                      Keyboard.dismiss()
+                      onAttach()
+                    }}
+                    disabled={cleaned}
+                    hitSlop={6}
+                    style={({ pressed }) => ({
+                      ...iconBtn,
+                      padding: 8,
+                      opacity: cleaned ? 0.3 : pressed ? 0.68 : 1,
+                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                    })}
+                  >
+                    <Paperclip size={15} color={palette.soft} strokeWidth={2} />
+                  </Pressable>
+                ) : null}
+
+                {/* Commands */}
                 <Pressable
                   onPress={() => {
                     void triggerHaptic("selection")
-                    onAttach()
+                    Keyboard.dismiss()
+                    onOpenCommands()
                   }}
-                  disabled={cleaned}
-                  style={{
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    opacity: cleaned ? 0.6 : 1,
-                    ...utilityButtonStyle,
-                  }}
+                  hitSlop={6}
+                  style={({ pressed }) => ({
+                    ...iconBtn,
+                    padding: 8,
+                    opacity: pressed ? 0.68 : 1,
+                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                  })}
                 >
-                  <Paperclip size={13} color={palette.accent} strokeWidth={2.1} />
+                  <Terminal size={15} color={palette.accentLight} strokeWidth={2} />
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => {
-                  void triggerHaptic("selection")
-                  onOpenCommands()
-                }}
-                style={{
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  paddingHorizontal: 10,
-                  paddingVertical: 6,
-                  ...utilityButtonStyle,
-                }}
-              >
-                <Text className="text-[10px] font-semibold uppercase tracking-[1.2px] text-accent-light">Commands</Text>
-              </Pressable>
+
+                {/* Mode segmented control */}
+                <Pressable
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    setMode(mode === "plan" ? "code" : "plan")
+                  }}
+                  hitSlop={4}
+                  style={({ pressed }) => ({
+                    opacity: pressed ? 0.78 : 1,
+                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                  })}
+                >
+                  <View style={[styles.segment, { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.78)" }]}>
+                    {/* Sliding pill indicator */}
+                    <Animated.View
+                      style={[
+                        styles.segmentPill,
+                        {
+                          left: segmentPillLeft,
+                          backgroundColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(255,255,255,0.95)",
+                          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.18)",
+                        },
+                      ]}
+                    />
+                    {/* Plan segment */}
+                    <View style={styles.segmentItem}>
+                      <MapPin size={10} color={mode === "plan" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>
+                        Plan
+                      </Animated.Text>
+                    </View>
+                    {/* Code segment */}
+                    <View style={styles.segmentItem}>
+                      <Code2 size={10} color={mode === "code" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>
+                        Code
+                      </Animated.Text>
+                    </View>
+                  </View>
+                </Pressable>
+              </View>
+
+              {/* Right cluster */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {/* Char count */}
+                {showCharCount && !sending ? (
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: "500",
+                      color: charCount > 400 ? palette.warn : palette.muted,
+                      fontVariant: ["tabular-nums"],
+                    }}
+                  >
+                    {charCount}
+                  </Text>
+                ) : null}
+
+                {/* Send / Stop */}
+                {sending ? (
+                  <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
+                    <Pressable
+                      onPress={() => void triggerHaptic("error")}
+                      hitSlop={4}
+                      style={({ pressed }) => ({
+                        borderRadius: 13,
+                        borderWidth: 1,
+                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
+                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        opacity: pressed ? 0.7 : 1,
+                        transform: [{ scale: pressed ? 0.93 : 1 }],
+                      })}
+                    >
+                      <Square size={14} color={palette.ink} strokeWidth={0} fill={palette.ink} />
+                    </Pressable>
+                  </Animated.View>
+                ) : (
+                  <Animated.View style={{ transform: [{ scale: sendScaleAnim }] }}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Send message"
+                      disabled={sendDisabled}
+                      onPress={() => {
+                        void triggerHaptic("send")
+                        onSend()
+                      }}
+                      style={({ pressed }) => ({
+                        borderRadius: 13,
+                        borderWidth: 1,
+                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
+                        paddingHorizontal: 10,
+                        paddingVertical: 8,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "hidden",
+                        opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.5 : 1,
+                        transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
+                      })}
+                    >
+                      <Animated.View
+                        style={[StyleSheet.absoluteFill, { borderRadius: 13, backgroundColor: sendBg }]}
+                      />
+                      <ArrowUp
+                        size={20}
+                        color={hasText && !sendBlocked ? (isDark ? "#0a0a0a" : "#ffffff") : palette.muted}
+                        strokeWidth={2.6}
+                      />
+                    </Pressable>
+                  </Animated.View>
+                )}
+              </View>
             </View>
-            <Text className="text-[10px] text-soft" style={{ fontVariant: ["tabular-nums"] }}>
-              {input.trim().length} chars
-            </Text>
           </View>
         </View>
       </View>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  capsule: {
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  toolbar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+    paddingTop: 8,
+  },
+  segment: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 30,
+    // SEGMENT_W * 2 segments + 4px inner padding (2 each side) = 68*2+4 = 140
+    width: SEGMENT_W * 2 + 4,
+    position: "relative",
+    overflow: "hidden",
+    backgroundColor: "transparent",
+  },
+  segmentPill: {
+    position: "absolute",
+    top: 2,
+    // Pill fills one segment minus 2px (leaves 2px gap on connecting edge)
+    width: SEGMENT_W - 2,
+    height: 26, // 30 - 4 (2px top + 2px bottom clearance)
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  segmentItem: {
+    width: SEGMENT_W,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    zIndex: 1,
+  },
+  segmentLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+  },
+})
