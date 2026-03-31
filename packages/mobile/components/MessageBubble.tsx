@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react"
-import { LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
-import { ChevronDown, ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
+import { Animated, LayoutAnimation, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import { ChevronRight, Copy, GitBranch, X, type LucideIcon } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import Markdown, { type ASTNode, type RenderRules } from "react-native-markdown-display"
 import { Swipeable } from "react-native-gesture-handler"
@@ -256,17 +256,34 @@ function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; m
         flexDirection: "row",
         alignItems: "center",
         gap: 6,
-        borderRadius: 999,
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.78)",
-        backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(241,246,251,0.78)",
-        paddingHorizontal: 12,
+        borderRadius: 18,
+        backgroundColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.06)",
+        paddingHorizontal: 14,
         paddingVertical: 8,
-        opacity: pressed ? 0.86 : 1,
+        transform: [{ scale: pressed ? 0.95 : 1 }],
       })}
     >
-      <Icon size={13} color={props.muted ? palette.muted : palette.accentLight} strokeWidth={2.1} />
-      <Text className={`text-[11px] font-semibold ${props.muted ? "text-soft" : "text-ink"}`}>{props.label}</Text>
+      <Icon
+        size={14}
+        color={
+          props.muted ? (isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)") : isDark ? "#FFFFFF" : palette.accent
+        }
+        strokeWidth={2}
+      />
+      <Text
+        className="text-[12px] font-medium"
+        style={{
+          color: props.muted
+            ? isDark
+              ? "rgba(255,255,255,0.4)"
+              : "rgba(0,0,0,0.4)"
+            : isDark
+              ? "#FFFFFF"
+              : palette.ink,
+        }}
+      >
+        {props.label}
+      </Text>
     </Pressable>
   )
 }
@@ -286,6 +303,7 @@ export function MessageBubble(props: {
   const { palette, isDark } = useAppTheme()
   const gestures = useUIStore((state) => state.gestures)
   const [showReasoning, setShowReasoning] = useState(false)
+  const reasoningRotation = useRef(new Animated.Value(0)).current
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
   const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
   const patch = patchPart(props.message.parts)
@@ -338,13 +356,19 @@ export function MessageBubble(props: {
   const timeLabel = relativeTime(props.message.info.time.created)
 
   function toggleReasoning() {
+    const next = !showReasoning
+    Animated.timing(reasoningRotation, {
+      toValue: next ? 1 : 0,
+      duration: 200,
+      useNativeDriver: true,
+    }).start()
     LayoutAnimation.configureNext({
       duration: 240,
       create: { type: LayoutAnimation.Types.easeOut, property: LayoutAnimation.Properties.opacity, duration: 200 },
       update: { type: LayoutAnimation.Types.spring, springDamping: 0.8, duration: 240 },
       delete: { type: LayoutAnimation.Types.easeIn, property: LayoutAnimation.Properties.opacity, duration: 130 },
     })
-    setShowReasoning((value) => !value)
+    setShowReasoning(next)
   }
 
   const bubble = (
@@ -358,7 +382,7 @@ export function MessageBubble(props: {
     >
       <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
         <View
-          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
+          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-[#0c3589]" : "border-border bg-assistant-bubble"}`}
           style={{
             shadowColor: palette.shadow,
             shadowOpacity: isDark ? 0.18 : 0.1,
@@ -382,7 +406,7 @@ export function MessageBubble(props: {
                         : "rgba(193,208,223,0.72)",
                     backgroundColor: isUser
                       ? isDark
-                        ? "rgba(255,255,255,0.08)"
+                        ? "rgba(10, 3, 131, 0.52)"
                         : "rgba(14,165,233,0.08)"
                       : isDark
                         ? "rgba(255,255,255,0.04)"
@@ -517,11 +541,20 @@ export function MessageBubble(props: {
             <View className="border-t border-border/80 px-3.5 py-3">
               <View className="rounded-[20px] border border-border bg-background/55 px-3 py-3">
                 <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
-                  {reasoningExpanded ? (
-                    <ChevronDown size={13} color={palette.accentLight} strokeWidth={2.1} />
-                  ) : (
+                  <Animated.View
+                    style={{
+                      transform: [
+                        {
+                          rotate: reasoningRotation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ["0deg", "90deg"],
+                          }),
+                        },
+                      ],
+                    }}
+                  >
                     <ChevronRight size={13} color={palette.accentLight} strokeWidth={2.1} />
-                  )}
+                  </Animated.View>
                   <Text className="flex-1 text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
                     {wordCount > 0 ? `Reasoning · ${wordCount.toLocaleString()} words` : "Reasoning"}
                   </Text>

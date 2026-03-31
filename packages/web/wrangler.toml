@@ -8,3 +8,4 @@ binding = "ASSETS"
 
 [[kv_namespaces]]
 binding = "SESSION"
+id = "9472fcfbe18245438b2d4af7cbdaef81"
