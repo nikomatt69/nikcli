@@ -1407,7 +1407,7 @@ export function SessionCodebroSide(props: { sessionID: string }) {
         title: "Dream seeds saved",
         lines: [
           `${rootDreamMemories().length} memory seed${rootDreamMemories().length > 1 ? "s" : ""} captured from background runs.`,
-          truncate(latestDreamMemory()?.seeds[0], 64) ?? "Use /dream to consolidate them into durable memory.",
+          truncate(latestDreamMemory()?.seeds[0], 64) ?? "Use /brain to consolidate them into durable memory.",
         ],
       })
     }
@@ -1620,26 +1620,27 @@ export function SessionCodebroSide(props: { sessionID: string }) {
       onSelect: () => openDossier(),
     },
     {
-      title: "Run dream consolidation",
-      value: "session.codebro.dream",
+      title: "Run brain consolidation",
+      value: "session.codebro.brain",
       category: "Session",
       slash: {
-        name: "dream",
+        name: "brain",
+        aliases: ["brain"],
       },
       onSelect: async () => {
-        const { Dream } = await import("@/dream")
-        const result = await Dream.trigger()
+        const { Brain } = await import("@/brain")
+        const result = await Brain.trigger()
         if (!result.success) {
           toast.show({
             variant: "warning",
-            message: result.error ?? "Dream did not run",
+            message: result.error ?? "Brain did not run",
             duration: 3000,
           })
           return
         }
         toast.show({
           variant: "success",
-          message: `Dream consolidated ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
+          message: `Brain consolidated ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
           duration: 3000,
         })
       },

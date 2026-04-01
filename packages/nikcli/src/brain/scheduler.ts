@@ -1,24 +1,24 @@
 import { Scheduler } from "@/scheduler"
-import { Dream } from "./index"
+import { Brain } from "./index"
 import { Log } from "@/util/log"
 
-const log = Log.create({ service: "dream-scheduler" })
+const log = Log.create({ service: "brain-scheduler" })
 
-export function initDreamScheduler(): void {
+export function initBrainScheduler(): void {
   Scheduler.register({
-    id: "dream",
+    id: "brain",
     interval: 60 * 60 * 1000,
     scope: "instance",
     async run() {
       try {
-        const shouldTrigger = await Dream.shouldTrigger()
+        const shouldTrigger = await Brain.shouldTrigger()
         if (shouldTrigger) {
-          log.info("dream conditions met, triggering")
-          const result = await Dream.trigger()
+          log.info("brain conditions met, triggering")
+          const result = await Brain.trigger()
           if (result.success) {
-            log.info("dream completed", {
+            log.info("brain completed", {
               sessionsReviewed: result.sessionsReviewed,
-              hoursSinceLastDream: result.hoursSinceLastDream,
+              hoursSinceLastBrain: result.hoursSinceLastBrain,
             })
           } else {
             log.warn("dream failed", { error: result.error })

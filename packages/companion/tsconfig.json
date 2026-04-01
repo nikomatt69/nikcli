@@ -10,7 +10,7 @@
     "target": "ESNext",
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx",
-    "types": ["node"]
+    "types": ["node", "bun"]
   },
   "include": ["src/**/*"]
 }

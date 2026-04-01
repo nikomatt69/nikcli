@@ -1,4 +1,4 @@
-import { serve as bunServe } from "bun"
+
 
 import {
   handleCliConnect,
@@ -29,7 +29,7 @@ export function serve(options: ServeOptions = {}) {
   const port = options.port || parseInt(process.env.PORT || "3456")
   const hostname = options.hostname || "localhost"
 
-  const server = bunServe({
+  const server = Bun.serve({
     port,
     hostname,
     fetch(req, server) {

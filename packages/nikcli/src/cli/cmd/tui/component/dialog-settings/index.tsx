@@ -5,9 +5,9 @@ import { DialogSettingsSpinner } from "./spinner"
 import { DialogSettingsPrompt } from "./prompt"
 import { DialogSettingsSidebar } from "./sidebar"
 import { DialogSettingsUI } from "./ui"
-import { DialogSettingsDream } from "./dream"
+import { DialogSettingsBrain } from "./brain"
 
-export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "dream"
+export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "brain"
 
 export function DialogSettings() {
   const dialog = useDialog()
@@ -38,8 +38,8 @@ export function DialogSettings() {
       category: "General",
     },
     {
-      title: "Dream",
-      value: "dream",
+      title: "Brain",
+      value: "brain",
       description: "Memory consolidation settings",
       category: "General",
     },
@@ -59,8 +59,8 @@ export function DialogSettings() {
       case "ui":
         dialog.replace(() => <DialogSettingsUI />)
         break
-      case "dream":
-        dialog.replace(() => <DialogSettingsDream />)
+      case "brain":
+        dialog.replace(() => <DialogSettingsBrain />)
         break
     }
   }

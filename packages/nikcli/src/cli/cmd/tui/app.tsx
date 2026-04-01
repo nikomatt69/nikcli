@@ -60,7 +60,7 @@ import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
-import { initDreamScheduler } from "@/dream/scheduler"
+import { initBrainScheduler } from "@/brain/scheduler"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -237,7 +237,7 @@ function App() {
       const tuiConfig = await Instance.provide({
         directory: process.cwd(),
         fn: async () => {
-          initDreamScheduler()
+          initBrainScheduler()
           return TuiConfig.get()
         },
       })

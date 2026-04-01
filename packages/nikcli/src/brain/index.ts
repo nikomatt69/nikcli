@@ -9,21 +9,21 @@ import { Storage } from "@/storage/storage"
 import { SessionPrompt } from "@/session/prompt"
 import { Provider } from "@/provider/provider"
 
-export type DreamConfig = {
+export type BrainConfig = {
   minHours: number
   minSessions: number
   enabled: boolean
   memoryEnabled: boolean
 }
 
-const DEFAULTS: DreamConfig = {
+const DEFAULTS: BrainConfig = {
   minHours: 24,
   minSessions: 5,
   enabled: true,
   memoryEnabled: true,
 }
 
-const LOCK_FILE = ".dream-lock"
+const LOCK_FILE = ".brain-lock"
 
 function memoryPath(): string {
   return path.join(Instance.directory, ".github", "instructions", "memory.instruction.md")
@@ -38,14 +38,14 @@ export async function isMemoryEnabled(): Promise<boolean> {
   return config.experimental?.memory !== false
 }
 
-export async function isDreamEnabled(): Promise<boolean> {
+export async function isBrainEnabled(): Promise<boolean> {
   const config = await Config.get()
   if (config.experimental?.dream === false) return false
   if (config.experimental?.dream === true) return true
   return DEFAULTS.enabled
 }
 
-export async function readLastDreamAt(): Promise<number> {
+export async function readLastBrainAt(): Promise<number> {
   try {
     const s = await fs.stat(lockPath())
     return s.mtimeMs
@@ -77,7 +77,7 @@ export async function listSessionsSince(sinceMs: number): Promise<string[]> {
   return sessions
 }
 
-export async function tryAcquireDreamLock(): Promise<number | null> {
+export async function tryAcquireBrainLock(): Promise<number | null> {
   const lock = lockPath()
   try {
     const s = await fs.stat(lock)
@@ -95,7 +95,7 @@ export async function tryAcquireDreamLock(): Promise<number | null> {
   }
 }
 
-export async function rollbackDreamLock(priorMtime: number): Promise<void> {
+export async function rollbackBrainLock(priorMtime: number): Promise<void> {
   const lock = lockPath()
   try {
     if (priorMtime === 0) {
@@ -109,7 +109,7 @@ export async function rollbackDreamLock(priorMtime: number): Promise<void> {
   }
 }
 
-export async function recordDream(): Promise<void> {
+export async function recordBrain(): Promise<void> {
   const lock = lockPath()
   try {
     await fs.mkdir(path.dirname(lock), { recursive: true })
@@ -119,7 +119,7 @@ export async function recordDream(): Promise<void> {
   }
 }
 
-export async function getMemoryContent(): Promise<string> {
+export async function getBrainMemoryContent(): Promise<string> {
   const memPath = memoryPath()
   try {
     return await fs.readFile(memPath, "utf8")
@@ -135,7 +135,7 @@ export async function updateMemory(content: string): Promise<void> {
   await fs.writeFile(memPath, content, "utf8")
 }
 
-export async function getDreamConfig(): Promise<DreamConfig> {
+export async function getBrainConfig(): Promise<BrainConfig> {
   const config = await Config.get()
   const experimental = config.experimental ?? {}
   return {
@@ -152,32 +152,32 @@ export async function getSessionsCountSince(sinceMs: number): Promise<number> {
   return sessions.length
 }
 
-export type DreamResult = {
+export type BrainResult = {
   success: boolean
   sessionsReviewed: number
-  hoursSinceLastDream: number
+  hoursSinceLastBrain: number
   error?: string
   sessionID?: string
 }
 
-export namespace Dream {
-  const log = Log.create({ service: "dream" })
+export namespace Brain {
+  const log = Log.create({ service: "brain" })
 
   let lastSessionScanAt = 0
 
   const SCAN_THROTTLE_MS = 10 * 60 * 1000
 
   export async function shouldTrigger(): Promise<boolean> {
-    if (!(await isDreamEnabled())) return false
+    if (!(await isBrainEnabled())) return false
     if (!(await isMemoryEnabled())) return false
 
-    const cfg = await getDreamConfig()
+    const cfg = await getBrainConfig()
 
     let lastAt: number
     try {
-      lastAt = await readLastDreamAt()
+      lastAt = await readLastBrainAt()
     } catch (e) {
-      log.error("readLastDreamAt failed", { error: String(e) })
+      log.error("readLastBrainAt failed", { error: String(e) })
       return false
     }
 
@@ -201,72 +201,72 @@ export namespace Dream {
     return true
   }
 
-  export async function trigger(): Promise<DreamResult> {
-    const log = Log.create({ service: "dream" })
+  export async function trigger(): Promise<BrainResult> {
+    const log = Log.create({ service: "brain" })
 
-    if (!(await isDreamEnabled())) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastDream: 0, error: "dream disabled" }
+    if (!(await isBrainEnabled())) {
+      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: "brain disabled" }
     }
 
     if (!(await isMemoryEnabled())) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastDream: 0, error: "memory disabled" }
+      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: "memory disabled" }
     }
 
     let lastAt: number
     try {
-      lastAt = await readLastDreamAt()
+      lastAt = await readLastBrainAt()
     } catch (e) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastDream: 0, error: String(e) }
+      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: String(e) }
     }
 
     const hoursSince = (Date.now() - lastAt) / 3_600_000
 
     let priorMtime: number | null
     try {
-      priorMtime = await tryAcquireDreamLock()
+      priorMtime = await tryAcquireBrainLock()
     } catch (e) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastDream: hoursSince, error: String(e) }
+      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: hoursSince, error: String(e) }
     }
 
     if (priorMtime === null) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastDream: hoursSince, error: "lock held" }
+      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: hoursSince, error: "lock held" }
     }
 
-    log.info("dream triggered", { hoursSince, priorMtime })
+    log.info("brain triggered", { hoursSince, priorMtime })
 
     const sessionIds = await listSessionsSince(lastAt)
 
     try {
-      const sessionID = await executeDream(sessionIds)
-      await recordDream()
-      log.info("dream completed", { sessionsReviewed: sessionIds.length })
-      return { success: true, sessionsReviewed: sessionIds.length, hoursSinceLastDream: hoursSince, sessionID }
+      const sessionID = await executeBrain(sessionIds)
+      await recordBrain()
+      log.info("brain completed", { sessionsReviewed: sessionIds.length })
+      return { success: true, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, sessionID }
     } catch (e) {
-      log.error("dream failed", { error: String(e) })
-      await rollbackDreamLock(priorMtime)
-      return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastDream: hoursSince, error: String(e) }
+      log.error("brain failed", { error: String(e) })
+      await rollbackBrainLock(priorMtime)
+      return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
     }
   }
 
-  async function executeDream(sessionIds: string[]): Promise<string> {
+  async function executeBrain(sessionIds: string[]): Promise<string> {
     try {
-      const memory = await getMemoryContent()
+      const memory = await getBrainMemoryContent()
       const memoryDir = path.join(Instance.directory, ".github", "instructions")
       await fs.mkdir(memoryDir, { recursive: true })
 
-      const prompt = buildDreamPrompt(memoryDir, sessionIds, memory)
-      log.info("dream prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
+      const prompt = buildBrainPrompt(memoryDir, sessionIds, memory)
+      log.info("brain prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
 
       try {
         const session = await Session.create({
-          title: "Dream: Memory Consolidation",
+          title: "Brain: Memory Consolidation",
           permission: [
             { permission: "todowrite", pattern: "*", action: "deny" },
             { permission: "todoread", pattern: "*", action: "deny" },
             { permission: "task", pattern: "*", action: "deny" },
           ],
         })
-        log.info("dream session created", { sessionID: session.id })
+        log.info("brain session created", { sessionID: session.id })
         const model = await Provider.defaultModel()
         const parts = await SessionPrompt.resolvePromptParts(prompt)
         SessionPrompt.prompt({
@@ -274,22 +274,22 @@ export namespace Dream {
           model,
           parts,
         }).catch((err) => {
-          log.error("dream prompt execution failed", { sessionID: session.id, error: String(err) })
+          log.error("brain prompt execution failed", { sessionID: session.id, error: String(err) })
         })
         return session.id
       } catch (sessionError) {
-        log.warn("could not create dream session, logging prompt instead", { error: String(sessionError) })
-        log.info("Dream prompt:", { prompt })
-        return "dream-session-not-created"
+        log.warn("could not create brain session, logging prompt instead", { error: String(sessionError) })
+        log.info("Brain prompt:", { prompt })
+        return "brain-session-not-created"
       }
     } catch (e) {
-      log.error("dream execution failed", { error: String(e) })
+      log.error("brain execution failed", { error: String(e) })
       throw e
     }
   }
 
-  export function buildDreamPrompt(memoryPath: string, sessionIds: string[], currentMemory: string): string {
-    return `# Dream: Memory Consolidation
+  export function buildBrainPrompt(memoryPath: string, sessionIds: string[], currentMemory: string): string {
+    return `# Brain: Memory Consolidation
 
 You are performing a dream — a reflective pass over your memory files. Synthesize what you've learned recently into durable, well-organized memories so that future sessions can orient quickly.
 
