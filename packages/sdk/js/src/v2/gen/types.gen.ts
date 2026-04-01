@@ -750,6 +750,51 @@ export type EventTuiSessionSelect = {
   }
 }
 
+export type EventMcpServerConnected = {
+  type: "mcp.server.connected"
+  properties: {
+    server: string
+    type: "remote" | "local"
+  }
+}
+
+export type EventMcpServerDisconnected = {
+  type: "mcp.server.disconnected"
+  properties: {
+    server: string
+    reason: string
+  }
+}
+
+export type EventMcpServerReconnecting = {
+  type: "mcp.server.reconnecting"
+  properties: {
+    server: string
+    attempt: number
+    maxAttempts: number
+    delay: number
+  }
+}
+
+export type EventMcpServerHealthChanged = {
+  type: "mcp.server.health_changed"
+  properties: {
+    server: string
+    healthy: boolean
+    latencyMs?: number
+    error?: string
+  }
+}
+
+export type EventMcpServerConnectionFailed = {
+  type: "mcp.server.connection_failed"
+  properties: {
+    server: string
+    error: string
+    attempt?: number
+  }
+}
+
 export type EventMcpToolsChanged = {
   type: "mcp.tools.changed"
   properties: {
@@ -1069,6 +1114,11 @@ export type Event =
   | EventTuiCommandExecute
   | EventTuiToastShow
   | EventTuiSessionSelect
+  | EventMcpServerConnected
+  | EventMcpServerDisconnected
+  | EventMcpServerReconnecting
+  | EventMcpServerHealthChanged
+  | EventMcpServerConnectionFailed
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
@@ -2244,6 +2294,22 @@ export type Config = {
      */
     continue_loop_on_deny?: boolean
     /**
+     * Enable automatic memory consolidation (dream) feature
+     */
+    dream?: boolean
+    /**
+     * Minimum hours between dream consolidation runs
+     */
+    dreamMinHours?: number
+    /**
+     * Minimum number of sessions to trigger dream consolidation
+     */
+    dreamMinSessions?: number
+    /**
+     * Enable memory file support for session context
+     */
+    memory?: boolean
+    /**
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
@@ -2822,6 +2888,23 @@ export type MobileGithubPublishInput = {
   title?: string
   body?: string
   commitMessage?: string
+}
+
+export type MobilePlugin = {
+  name: string
+  spec:
+    | string
+    | [
+        string,
+        {
+          [key: string]: unknown
+        },
+      ]
+  options: {
+    [key: string]: unknown
+  } | null
+  internal: boolean
+  builtin: boolean
 }
 
 export type Symbol = {
@@ -6115,6 +6198,89 @@ export type MobileSessionRenameResponses = {
 }
 
 export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
+
+export type MobilePluginListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/plugin"
+}
+
+export type MobilePluginListResponses = {
+  /**
+   * Plugins
+   */
+  200: Array<MobilePlugin>
+}
+
+export type MobilePluginListResponse = MobilePluginListResponses[keyof MobilePluginListResponses]
+
+export type MobilePluginAddData = {
+  body?: {
+    plugin: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/plugin"
+}
+
+export type MobilePluginAddErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobilePluginAddError = MobilePluginAddErrors[keyof MobilePluginAddErrors]
+
+export type MobilePluginAddResponses = {
+  /**
+   * Plugin added
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobilePluginAddResponse = MobilePluginAddResponses[keyof MobilePluginAddResponses]
+
+export type MobilePluginRemoveData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/plugin/{name}"
+}
+
+export type MobilePluginRemoveErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobilePluginRemoveError = MobilePluginRemoveErrors[keyof MobilePluginRemoveErrors]
+
+export type MobilePluginRemoveResponses = {
+  /**
+   * Plugin removed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobilePluginRemoveResponse = MobilePluginRemoveResponses[keyof MobilePluginRemoveResponses]
 
 export type FindTextData = {
   body?: never

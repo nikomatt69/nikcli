@@ -36,7 +36,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const agent = iife(() => {
       const agents = createMemo(() =>
         sync.data.agent.filter(
-          (x) => x.mode !== "subagent" && !x.hidden && ["build", "plan", "general", "ralph"].includes(x.name),
+          (x) => x.mode !== "subagent" && !x.hidden && ["build", "plan", "general", "ralph", "crew"].includes(x.name),
         ),
       )
       const [agentStore, setAgentStore] = createStore<{
@@ -144,7 +144,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           if (Array.isArray(x.favorite)) setModelStore("favorite", x.favorite)
           if (typeof x.variant === "object" && x.variant !== null) setModelStore("variant", x.variant)
         })
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           setModelStore("ready", true)
           if (state.pending) save()

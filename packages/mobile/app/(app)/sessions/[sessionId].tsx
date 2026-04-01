@@ -33,6 +33,7 @@ import {
   type SessionStreamEvent,
 } from "@/lib/types"
 import { useSessionStream } from "@/hooks/use-session-stream"
+import { useAgentLiveActivity, type AgentType } from "@/hooks/use-agent-live-activity"
 
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
   const index = messages.findIndex((item) => item.info.id === next.id)
@@ -86,6 +87,44 @@ function messagePlainText(message: MessageWithParts) {
   return ""
 }
 
+function inferAgentTypeFromCommand(commandName: string, command?: CommandInfo): AgentType {
+  const name = commandName.toLowerCase()
+
+  if (name.includes("search") || name.includes("grep") || name.includes("find") || name.includes("glob")) {
+    return "searching"
+  }
+  if (name.includes("test") || name.includes("spec")) {
+    return "testing"
+  }
+  if (
+    name.includes("build") ||
+    name.includes("compile") ||
+    name.includes("install") ||
+    name.includes("npm") ||
+    name.includes("yarn")
+  ) {
+    return "building"
+  }
+  if (name.includes("debug") || name.includes("fix") || name.includes("error")) {
+    return "debugging"
+  }
+  if (name.includes("plan") || name.includes("analyze") || name.includes("review")) {
+    return "planning"
+  }
+  if (name.includes("memory") || name.includes("stash") || name.includes("remember")) {
+    return "memory"
+  }
+  if (name.includes("think") || name.includes("reason")) {
+    return "reasoning"
+  }
+
+  if (command?.skill) return "coding"
+  if (command?.mcp) return "coding"
+  if (command?.subtask) return "planning"
+
+  return "coding"
+}
+
 export default function SessionScreen() {
   const { palette, isDark } = useAppTheme()
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
@@ -99,6 +138,7 @@ export default function SessionScreen() {
   const followTranscriptRef = useRef(true)
   const initialScrollDoneRef = useRef(false)
   const scrollRafRef = useRef<number | null>(null)
+  const composerHeightRef = useRef(0)
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [input, setInput] = useState("")
@@ -129,6 +169,7 @@ export default function SessionScreen() {
     padding: 12,
   } as const
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
+  const [currentAgent, setCurrentAgent] = useState<{ id: string; name: string; type?: AgentType } | undefined>()
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [attachPickerOpen, setAttachPickerOpen] = useState(false)
@@ -211,6 +252,8 @@ export default function SessionScreen() {
     sessionID: sessionId,
     enabled: Boolean(config && sessionId),
     onEvent(event: SessionStreamEvent) {
+      subAgentActivity.handleStreamEvent(event)
+
       const nextError = sessionErrorMessage(event)
       if (nextError) {
         setError(nextError)
@@ -297,6 +340,14 @@ export default function SessionScreen() {
     onError(message) {
       setError(message)
     },
+  })
+
+  const subAgentActivity = useAgentLiveActivity({
+    sessionId,
+    agentId: currentAgent?.id,
+    agentName: currentAgent?.name,
+    agentType: currentAgent?.type,
+    enabled: Boolean(sessionId && currentAgent?.id),
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
@@ -417,7 +468,15 @@ export default function SessionScreen() {
     try {
       setSending(true)
       setError(null)
+
       if (slashInput) {
+        const matchingCommand = commands.find((c) => c.name === slashInput.command)
+        const agentId = matchingCommand?.agent || "assistant"
+        const agentName = matchingCommand?.agent ? matchingCommand.agent : "AI Assistant"
+
+        const agentType = inferAgentTypeFromCommand(slashInput.command, matchingCommand)
+        setCurrentAgent({ id: agentId, name: agentName, type: agentType })
+
         await client.sendCommand(sessionId, slashInput.command, slashInput.argumentsText, {
           model: hasUserPrompt ? undefined : preferredModel,
         })
@@ -430,13 +489,15 @@ export default function SessionScreen() {
         mode === "plan"
           ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${text}`
           : text
+
+      setCurrentAgent({ id: "assistant", name: "AI Assistant", type: mode === "plan" ? "planning" : "coding" })
       await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
       void triggerHaptic("send")
       setInput("")
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
       void triggerHaptic("error")
-      // Queue for offline delivery on next foreground
+      setCurrentAgent(undefined)
       if (sessionId && input.trim() && !slashInput) {
         void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: input.trim() })
       }
@@ -485,6 +546,15 @@ export default function SessionScreen() {
       scrollRafRef.current = null
       listRef.current?.scrollToEnd({ animated })
     })
+  }
+
+  function handleComposerHeightChange(height: number) {
+    if (Math.abs(composerHeightRef.current - height) < 2) return
+    const hadMeasuredComposer = composerHeightRef.current > 0
+    composerHeightRef.current = height
+    if (hadMeasuredComposer && followTranscriptRef.current) {
+      scrollToLatest(false)
+    }
   }
 
   function updateTranscriptFollow(event: {
@@ -901,6 +971,7 @@ export default function SessionScreen() {
         onSelectSlash={insertSlashCommand}
         onSend={() => void send()}
         onAttach={handleAttach}
+        onHeightChange={handleComposerHeightChange}
       />
 
       <CommandPaletteSheet

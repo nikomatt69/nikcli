@@ -4,13 +4,16 @@ import {
   Animated,
   Easing,
   Keyboard,
+  type LayoutChangeEvent,
+  type KeyboardEvent,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native"
-import { ArrowUp, Code2, Lock, MapPin, Paperclip, Square, Terminal } from "lucide-react-native"
+import { ArrowUp, Code2, Lock, MapPin, Paperclip, Square } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
@@ -33,19 +36,29 @@ type SessionComposerProps = {
   onSelectSlash(name: string): void
   onSend(): void
   onAttach?(): void
+  onHeightChange?(height: number): void
 }
 
 const CHAR_COUNT_THRESHOLD = 100
-// Each segment width — pill animates between [2, SEGMENT_W + 2]
 const SEGMENT_W = 68
-// TextInput line metrics
-const INPUT_LINE_HEIGHT = 22
-const INPUT_PADDING_TOP = 14
-const INPUT_PADDING_BOTTOM = 10
-const INPUT_MIN_ROWS = 2
-const INPUT_MAX_ROWS = 6
-const INPUT_MIN_HEIGHT = INPUT_PADDING_TOP + INPUT_MIN_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 68
-const INPUT_MAX_HEIGHT = INPUT_PADDING_TOP + INPUT_MAX_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 156
+
+const composerTokens = {
+  sheetRadius: 25,
+  shellInset: 12,
+  shellPaddingX: 15,
+  shellPaddingTop: 15,
+  shellPaddingBottom: 15,
+  shellGap: 10,
+  inputFontSize: 14,
+  inputLineHeight: 18,
+  inputMinHeight: 22,
+  inputMaxHeight: 108,
+  actionSize: 34,
+  sendSize: 78,
+  actionRadius: 20,
+  panelRadius: 18,
+  clusterGap: 8,
+} as const
 
 export function SessionComposer({
   mode,
@@ -61,11 +74,12 @@ export function SessionComposer({
   onSelectSlash,
   onSend,
   onAttach,
+  onHeightChange,
 }: SessionComposerProps) {
   const { palette, isDark } = useAppTheme()
   const insets = useSafeAreaInsets()
-  const inputRef = useRef<TextInput>(null)
   const [isFocused, setIsFocused] = useState(false)
+  const [keyboardInset, setKeyboardInset] = useState(0)
 
   const sendBlocked = sessionBlocked || cleaned || !input.trim()
   const sendDisabled = sending || sendBlocked
@@ -75,30 +89,11 @@ export function SessionComposer({
   const showCharCount = charCount > CHAR_COUNT_THRESHOLD
   const showStatus = sessionBlocked || cleaned
 
-  // ── Animation values ──────────────────────────────────────────────────────
-
-  // Focus: border glow (non-native — drives borderColor interpolation)
   const focusAnim = useRef(new Animated.Value(0)).current
-
-  // Send button: color transition (non-native)
-  const sendColorAnim = useRef(new Animated.Value(hasText && !sendBlocked ? 1 : 0)).current
-
-  // Send button: scale spring pop (native)
-  const sendScaleAnim = useRef(new Animated.Value(1)).current
-
-  // Stop button: pulsing scale (native)
   const stopPulse = useRef(new Animated.Value(1)).current
-
-  // Mode segmented control: sliding pill (non-native for left position)
   const modeAnim = useRef(new Animated.Value(mode === "code" ? 1 : 0)).current
-
-  // Slash panel: fade + slide (native)
   const slashAnim = useRef(new Animated.Value(0)).current
-
-  // Status banner: slide down (native)
   const statusAnim = useRef(new Animated.Value(0)).current
-
-  // ── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     Animated.timing(focusAnim, {
@@ -110,37 +105,11 @@ export function SessionComposer({
   }, [isFocused, focusAnim])
 
   useEffect(() => {
-    const isReady = hasText && !sendBlocked
-    Animated.timing(sendColorAnim, {
-      toValue: isReady ? 1 : 0,
-      duration: 200,
-      useNativeDriver: false,
-      easing: Easing.out(Easing.ease),
-    }).start()
-    if (isReady) {
-      Animated.spring(sendScaleAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        damping: 11,
-        stiffness: 260,
-        mass: 0.7,
-      }).start()
-    } else {
-      Animated.spring(sendScaleAnim, {
-        toValue: 0.88,
-        useNativeDriver: true,
-        damping: 14,
-        stiffness: 200,
-        mass: 0.8,
-      }).start()
-    }
-  }, [hasText, sendBlocked, sendColorAnim, sendScaleAnim])
-
-  useEffect(() => {
     if (!sending) {
       stopPulse.setValue(1)
       return
     }
+
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(stopPulse, {
@@ -157,6 +126,7 @@ export function SessionComposer({
         }),
       ]),
     )
+
     pulse.start()
     return () => pulse.stop()
   }, [sending, stopPulse])
@@ -189,83 +159,118 @@ export function SessionComposer({
     }).start()
   }, [showStatus, statusAnim])
 
-  // ── Derived animated styles ───────────────────────────────────────────────
+  useEffect(() => {
+    const updateKeyboardInset = (nextInset: number, event?: KeyboardEvent) => {
+      if (Platform.OS === "ios" && event) {
+        Keyboard.scheduleLayoutAnimation(event)
+      }
+      setKeyboardInset(nextInset)
+    }
+
+    const handleKeyboardFrame = (event: KeyboardEvent) => {
+      updateKeyboardInset(Math.max(event.endCoordinates.height - insets.bottom, 0), event)
+    }
+
+    const handleKeyboardHide = (event: KeyboardEvent) => {
+      updateKeyboardInset(0, event)
+    }
+
+    const frameSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillChangeFrame" : "keyboardDidShow",
+      handleKeyboardFrame,
+    )
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      handleKeyboardHide,
+    )
+
+    return () => {
+      frameSub.remove()
+      hideSub.remove()
+    }
+  }, [insets.bottom])
+
+  const surfaces = useMemo(
+    () => ({
+      shell: isDark ? palette.userBubble : palette.surface,
+      panel: isDark ? palette.panel : palette.surface,
+      action: isDark ? palette.assistantBubble : palette.panel,
+      actionBorder: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.64)",
+      shellBorder: isDark ? "rgba(255,255,255,0.09)" : "rgba(193,208,223,0.76)",
+      focusBorder: isDark ? "rgba(255,255,255,0.22)" : "rgba(14,165,233,0.30)",
+      pressed: isDark ? "rgba(255,255,255,0.05)" : "rgba(13,27,42,0.04)",
+      accentTint: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.08)",
+    }),
+    [isDark, palette],
+  )
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [
-      palette.border,
-      isDark ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.38)",
-    ],
+    outputRange: [surfaces.shellBorder, surfaces.focusBorder],
   })
 
-  // Inactive → topbar glass; active → accent fill
-  const sendBg = sendColorAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [
-      isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-      palette.accent,
-    ],
-  })
-
-  // Pill slides from left-edge-gap (2) to second segment start (SEGMENT_W + 2)
   const segmentPillLeft = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [2, SEGMENT_W + 2], // [2, 70] with SEGMENT_W=68
+    outputRange: [2, SEGMENT_W + 2],
   })
 
   const segmentLabelPlan = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [isDark ? palette.accentLight : palette.accentLight, palette.muted],
+    outputRange: [palette.accentLight, palette.muted],
   })
 
   const segmentLabelCode = modeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [palette.muted, isDark ? palette.accentLight : palette.accentLight],
+    outputRange: [palette.muted, palette.accentLight],
   })
 
   const slashTranslateY = slashAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] })
   const statusTranslateY = statusAnim.interpolate({ inputRange: [0, 1], outputRange: [-6, 0] })
 
-  // ── Icon button style ─────────────────────────────────────────────────────
+  const placeholder = cleaned
+    ? "Worktree cleaned up"
+    : mode === "plan"
+      ? "What would you like to plan?"
+      : "Reply to Nikcli..."
+
+  const modeDescription = mode === "plan" ? "Structured reasoning first" : "Direct execution ready"
+
   const iconBtn = useMemo(
     () => ({
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(193,208,223,0.78)",
-      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
+      borderColor: surfaces.actionBorder,
+      backgroundColor: surfaces.action,
     }),
-    [isDark],
+    [surfaces],
   )
 
-  return (
-    <View
-      style={{
-        backgroundColor: isDark ? "rgba(0,0,0,0.0)" : "rgba(241,246,251,0.0)",
-        paddingBottom: Math.max(insets.bottom, 10),
-      }}
-    >
-      {/* Top hairline separator */}
-      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border }} />
+  const handleLayout = (event: LayoutChangeEvent) => {
+    onHeightChange?.(event.nativeEvent.layout.height)
+  }
 
-      {/* Status banner — glass pill, animated slide-down */}
+  return (
+    <View>
       {showStatus && (
         <Animated.View
           style={{
             opacity: statusAnim,
             transform: [{ translateY: statusTranslateY }],
+            marginHorizontal: composerTokens.shellInset,
+            marginBottom: 10,
           }}
         >
           <View
             style={{
               flexDirection: "row",
               alignItems: "center",
-              justifyContent: "center",
+              justifyContent: "space-between",
               gap: 8,
-              paddingVertical: 9,
-              paddingHorizontal: 16,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: palette.border,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: composerTokens.panelRadius,
+              borderWidth: 1,
+              borderColor: surfaces.actionBorder,
               backgroundColor: cleaned
                 ? isDark
                   ? "rgba(143,143,143,0.07)"
@@ -275,77 +280,70 @@ export function SessionComposer({
                   : "rgba(217,119,6,0.07)",
             }}
           >
-            {sessionBlocked ? (
-              <ActivityIndicator size={10} color={palette.warn} />
-            ) : (
-              <Lock size={11} color={palette.danger} strokeWidth={2.2} />
-            )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
+              {sessionBlocked ? (
+                <ActivityIndicator size={10} color={palette.warn} />
+              ) : (
+                <Lock size={11} color={palette.danger} strokeWidth={2.2} />
+              )}
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  letterSpacing: 0.2,
+                  color: sessionBlocked ? palette.warn : palette.danger,
+                }}
+              >
+                {cleaned ? "Read-only worktree" : "Processing..."}
+              </Text>
+            </View>
             <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "600",
-                letterSpacing: 0.2,
-                color: sessionBlocked ? palette.warn : palette.danger,
-              }}
+              numberOfLines={1}
+              style={{ flexShrink: 1, marginLeft: 8, fontSize: 11, color: palette.soft, textAlign: "right" }}
             >
-              {cleaned ? "Read-only worktree" : "Processing…"}
+              {modeDescription}
             </Text>
           </View>
         </Animated.View>
       )}
 
-      {/* Slash autocomplete — animated fade + slide up */}
       {showSlash && (
         <Animated.View
           style={{
             opacity: slashAnim,
             transform: [{ translateY: slashTranslateY }],
+            marginHorizontal: composerTokens.shellInset,
+            marginBottom: 10,
           }}
         >
-          {/* Glass surface matching app tab bar language */}
           <View
             style={{
-              marginHorizontal: 14,
-              marginBottom: 6,
-              borderRadius: 18,
-              overflow: "hidden",
+              borderRadius: composerTokens.panelRadius,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
-              shadowColor: palette.shadow,
-              shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: isDark ? 0.20 : 0.08,
-              shadowRadius: 14,
+              borderColor: surfaces.actionBorder,
+              backgroundColor: surfaces.panel,
+              overflow: "hidden",
             }}
           >
-            {/* Glass background */}
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)" }]}
-              pointerEvents="none"
-            />
-            <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(232,240,248,0.12)" }]}
-              pointerEvents="none"
-            />
-
-            {/* Header label */}
             <View
               style={{
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
                 paddingHorizontal: 14,
-                paddingVertical: 8,
+                paddingTop: 12,
+                paddingBottom: 10,
                 borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.06)",
+                borderBottomColor: surfaces.actionBorder,
               }}
             >
               <Text
                 style={{
-                  fontSize: 9,
+                  fontSize: 10,
                   fontWeight: "700",
                   letterSpacing: 1.2,
                   textTransform: "uppercase",
-                  color: palette.muted,
+                  color: palette.soft,
                 }}
               >
                 Commands
@@ -354,7 +352,7 @@ export function SessionComposer({
             </View>
 
             {slashSuggestions.length ? (
-              slashSuggestions.slice(0, 5).map((item, i) => (
+              slashSuggestions.slice(0, 5).map((item, index) => (
                 <Pressable
                   key={item.name}
                   onPress={() => {
@@ -363,28 +361,22 @@ export function SessionComposer({
                   }}
                   style={({ pressed }) => ({
                     flexDirection: "row",
-                    alignItems: "center",
-                    paddingLeft: 14,
-                    paddingRight: 14,
-                    paddingVertical: 11,
-                    backgroundColor: pressed
-                      ? isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(14,165,233,0.05)"
-                      : "transparent",
-                    borderBottomWidth: i < Math.min(slashSuggestions.length, 5) - 1 ? StyleSheet.hairlineWidth : 0,
-                    borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                    alignItems: "flex-start",
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    backgroundColor: pressed ? surfaces.pressed : "transparent",
+                    borderBottomWidth: index < Math.min(slashSuggestions.length, 5) - 1 ? StyleSheet.hairlineWidth : 0,
+                    borderBottomColor: surfaces.actionBorder,
                   })}
                 >
-                  {/* Left accent — slash indicator */}
                   <View
                     style={{
                       width: 28,
                       height: 28,
-                      borderRadius: 8,
+                      borderRadius: 10,
                       alignItems: "center",
                       justifyContent: "center",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)",
+                      backgroundColor: surfaces.accentTint,
                       marginRight: 12,
                     }}
                   >
@@ -400,28 +392,29 @@ export function SessionComposer({
                     </Text>
                   </View>
 
-                  {/* Content */}
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "500", letterSpacing: -0.1 }}>
+                    <Text style={{ color: palette.ink, fontSize: 13.5, fontWeight: "600", letterSpacing: -0.1 }}>
                       {item.name}
                     </Text>
                     {item.description ? (
-                      <Text style={{ color: palette.muted, fontSize: 11.5, marginTop: 1.5, lineHeight: 16 }} numberOfLines={1}>
+                      <Text
+                        style={{ color: palette.soft, fontSize: 11.5, marginTop: 2, lineHeight: 16 }}
+                        numberOfLines={2}
+                      >
                         {item.description}
                       </Text>
                     ) : null}
                   </View>
 
-                  {/* Badge */}
                   {item.badge ? (
                     <View
                       style={{
-                        backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
-                        borderRadius: 6,
+                        backgroundColor: surfaces.accentTint,
+                        borderRadius: 10,
                         borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.14)",
+                        borderColor: surfaces.actionBorder,
                         paddingHorizontal: 8,
-                        paddingVertical: 3,
+                        paddingVertical: 4,
                         marginLeft: 10,
                       }}
                     >
@@ -433,101 +426,47 @@ export function SessionComposer({
                 </Pressable>
               ))
             ) : !slashLoading ? (
-              <View style={{ alignItems: "center", paddingVertical: 20 }}>
-                <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
+              <View style={{ alignItems: "center", paddingVertical: 18 }}>
+                <Text style={{ color: palette.soft, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
               </View>
             ) : null}
           </View>
         </Animated.View>
       )}
 
-      {/* Main capsule */}
-      <View style={{ marginHorizontal: 14, marginTop: 10 }}>
-        {/* Shadow wrapper — outside overflow:hidden so shadow renders */}
-        <View
-          style={{
-            borderRadius: 24,
-            shadowColor: palette.shadow,
-            shadowOffset: { width: 0, height: 10 },
-            shadowOpacity: isDark ? 0.24 : 0.1,
-            shadowRadius: 20,
-          }}
-        >
-          {/* Clip container */}
-          <View style={styles.capsule}>
-            {/* Glass background */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: isDark ? "rgba(17,17,17,0.92)" : "rgba(255,255,255,0.95)",
-                },
-              ]}
-              pointerEvents="none"
-            />
-            {/* Inner tint for depth */}
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.15)",
-                },
-              ]}
-              pointerEvents="none"
-            />
-            {/* Animated border overlay */}
-            <Animated.View
-              style={[StyleSheet.absoluteFill, { borderRadius: 24, borderWidth: 1, borderColor }]}
-              pointerEvents="none"
-            />
+      <Animated.View
+        onLayout={handleLayout}
+        style={[
+          styles.shell,
+          {
+            marginTop: 4,
+            borderColor,
+            backgroundColor: surfaces.shell,
+            paddingBottom: composerTokens.shellPaddingBottom + Math.max(insets.bottom, 10) + keyboardInset,
+          },
+        ]}
+      >
+        <View style={styles.bodyRow}>
+          <View style={styles.mainColumn}>
+            <View style={styles.inputBlock}>
+              <TextInput
+                value={input}
+                onChangeText={setInput}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                multiline
+                editable={!cleaned}
+                selectionColor={palette.accent}
+                keyboardAppearance={isDark ? "dark" : "light"}
+                returnKeyType="default"
+                placeholder={placeholder}
+                placeholderTextColor={palette.muted}
+                style={[styles.input, { color: palette.ink, fontWeight: input.length ? "500" : "400" }]}
+              />
+            </View>
 
-            {/* TextInput */}
-            <TextInput
-              ref={inputRef}
-              value={input}
-              onChangeText={setInput}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              multiline
-              editable={!cleaned}
-              selectionColor={palette.accent}
-              keyboardAppearance={isDark ? "dark" : "light"}
-              returnKeyType="default"
-              placeholder={
-                cleaned
-                  ? "Worktree cleaned up"
-                  : mode === "plan"
-                    ? "What would you like to plan?"
-                    : "Reply to Nikcli…"
-              }
-              placeholderTextColor={palette.muted}
-              style={{
-                fontSize: 16,
-                lineHeight: INPUT_LINE_HEIGHT,
-                color: palette.ink,
-                maxHeight: INPUT_MAX_HEIGHT,
-                minHeight: INPUT_MIN_HEIGHT,
-                paddingTop: INPUT_PADDING_TOP,
-                paddingBottom: INPUT_PADDING_BOTTOM,
-                paddingHorizontal: 18,
-                textAlignVertical: "top",
-              }}
-            />
-
-            {/* Input / toolbar separator */}
-            <View
-              style={{
-                height: StyleSheet.hairlineWidth,
-                marginHorizontal: 16,
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.6)",
-              }}
-            />
-
-            {/* Toolbar */}
-            <View style={styles.toolbar}>
-              {/* Left cluster */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                {/* Attach */}
+            <View style={styles.controlsRow}>
+              <View style={styles.leftCluster}>
                 {onAttach ? (
                   <Pressable
                     onPress={() => {
@@ -539,16 +478,18 @@ export function SessionComposer({
                     hitSlop={6}
                     style={({ pressed }) => ({
                       ...iconBtn,
-                      padding: 8,
-                      opacity: cleaned ? 0.3 : pressed ? 0.68 : 1,
+                      width: composerTokens.actionSize,
+                      height: composerTokens.actionSize,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: cleaned ? 0.32 : pressed ? 0.68 : 1,
                       transform: [{ scale: pressed ? 0.94 : 1 }],
                     })}
                   >
-                    <Paperclip size={15} color={palette.soft} strokeWidth={2} />
+                    <Paperclip size={15} color={palette.accentLight} strokeWidth={2} />
                   </Pressable>
                 ) : null}
 
-                {/* Commands */}
                 <Pressable
                   onPress={() => {
                     void triggerHaptic("selection")
@@ -558,15 +499,29 @@ export function SessionComposer({
                   hitSlop={6}
                   style={({ pressed }) => ({
                     ...iconBtn,
-                    padding: 8,
+                    height: composerTokens.actionSize,
+                    borderRadius: 17,
+                    minWidth: 88,
+                    paddingHorizontal: 12,
+                    alignItems: "center",
+                    justifyContent: "center",
                     opacity: pressed ? 0.68 : 1,
-                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                    transform: [{ scale: pressed ? 0.96 : 1 }],
                   })}
                 >
-                  <Terminal size={15} color={palette.accentLight} strokeWidth={2} />
+                  <Text
+                    style={{
+                      fontSize: 10,
+                      fontWeight: "700",
+                      letterSpacing: 0.8,
+                      textTransform: "uppercase",
+                      color: palette.accentLight,
+                    }}
+                  >
+                    Commands
+                  </Text>
                 </Pressable>
 
-                {/* Mode segmented control */}
                 <Pressable
                   onPress={() => {
                     void triggerHaptic("selection")
@@ -575,11 +530,12 @@ export function SessionComposer({
                   hitSlop={4}
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.78 : 1,
-                    transform: [{ scale: pressed ? 0.97 : 1 }],
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
                   })}
                 >
-                  <View style={[styles.segment, { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.78)" }]}>
-                    {/* Sliding pill indicator */}
+                  <View
+                    style={[styles.segment, { borderColor: surfaces.actionBorder, backgroundColor: surfaces.action }]}
+                  >
                     <Animated.View
                       style={[
                         styles.segmentPill,
@@ -590,136 +546,158 @@ export function SessionComposer({
                         },
                       ]}
                     />
-                    {/* Plan segment */}
                     <View style={styles.segmentItem}>
-                      <MapPin size={10} color={mode === "plan" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>
-                        Plan
-                      </Animated.Text>
+                      <MapPin
+                        size={10}
+                        color={mode === "plan" ? palette.accentLight : palette.muted}
+                        strokeWidth={2.2}
+                      />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>Plan</Animated.Text>
                     </View>
-                    {/* Code segment */}
                     <View style={styles.segmentItem}>
-                      <Code2 size={10} color={mode === "code" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>
-                        Code
-                      </Animated.Text>
+                      <Code2
+                        size={10}
+                        color={mode === "code" ? palette.accentLight : palette.muted}
+                        strokeWidth={2.2}
+                      />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>Code</Animated.Text>
                     </View>
                   </View>
                 </Pressable>
               </View>
 
-              {/* Right cluster */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                {/* Char count */}
-                {showCharCount && !sending ? (
-                  <Text
-                    style={{
-                      fontSize: 11,
-                      fontWeight: "500",
-                      color: charCount > 400 ? palette.warn : palette.muted,
-                      fontVariant: ["tabular-nums"],
-                    }}
-                  >
-                    {charCount}
-                  </Text>
-                ) : null}
-
-                {/* Send / Stop */}
-                {sending ? (
-                  <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
-                    <Pressable
-                      onPress={() => void triggerHaptic("error")}
-                      hitSlop={4}
-                      style={({ pressed }) => ({
-                        borderRadius: 13,
-                        borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        opacity: pressed ? 0.7 : 1,
-                        transform: [{ scale: pressed ? 0.93 : 1 }],
-                      })}
-                    >
-                      <Square size={14} color={palette.ink} strokeWidth={0} fill={palette.ink} />
-                    </Pressable>
-                  </Animated.View>
-                ) : (
-                  <Animated.View style={{ transform: [{ scale: sendScaleAnim }] }}>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Send message"
-                      disabled={sendDisabled}
-                      onPress={() => {
-                        void triggerHaptic("send")
-                        onSend()
-                      }}
-                      style={({ pressed }) => ({
-                        borderRadius: 13,
-                        borderWidth: 1,
-                        borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
-                        paddingHorizontal: 10,
-                        paddingVertical: 8,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        overflow: "hidden",
-                        opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.5 : 1,
-                        transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
-                      })}
-                    >
-                      <Animated.View
-                        style={[StyleSheet.absoluteFill, { borderRadius: 13, backgroundColor: sendBg }]}
-                      />
-                      <ArrowUp
-                        size={20}
-                        color={hasText && !sendBlocked ? (isDark ? "#0a0a0a" : "#ffffff") : palette.muted}
-                        strokeWidth={2.6}
-                      />
-                    </Pressable>
-                  </Animated.View>
-                )}
-              </View>
+              {showCharCount && !sending ? (
+                <Text
+                  style={{
+                    marginLeft: 8,
+                    fontSize: 11,
+                    fontWeight: "500",
+                    color: charCount > 400 ? palette.warn : palette.soft,
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
+                  {charCount}
+                </Text>
+              ) : null}
             </View>
           </View>
+
+          <View style={styles.sendRail}>
+            <Animated.View style={sending ? { transform: [{ scale: stopPulse }] } : undefined}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+                disabled={sendDisabled}
+                onPress={() => {
+                  if (sending) {
+                    void triggerHaptic("error")
+                    return
+                  }
+
+                  void triggerHaptic("send")
+                  onSend()
+                }}
+                hitSlop={4}
+                style={({ pressed }) => ({
+                  width: composerTokens.sendSize,
+                  height: composerTokens.sendSize,
+                  borderRadius: 999,
+                  borderWidth: isDark ? 1 : 1.5,
+                  borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(206,220,237,0.98)",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.99)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: isDark ? palette.shadow : "rgba(189,207,229,1)",
+                  shadowOpacity: isDark ? 0.08 : 0.18,
+                  shadowRadius: isDark ? 4 : 10,
+                  shadowOffset: { width: 0, height: isDark ? 1 : 2 },
+                  opacity: pressed && !sendDisabled ? 0.7 : sendDisabled ? 0.5 : 1,
+                  transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
+                })}
+              >
+                {sending ? (
+                  <Square size={16} color={palette.ink} strokeWidth={0} fill={palette.ink} />
+                ) : hasText && !sendBlocked ? (
+                  <ArrowUp size={28} color={palette.ink} strokeWidth={2.25} />
+                ) : (
+                  <ArrowUp size={28} color={palette.muted} strokeWidth={2.25} />
+                )}
+              </Pressable>
+            </Animated.View>
+          </View>
         </View>
-      </View>
+      </Animated.View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  capsule: {
-    borderRadius: 24,
+  shell: {
+    borderTopLeftRadius: composerTokens.sheetRadius,
+    borderTopRightRadius: composerTokens.sheetRadius,
+    borderWidth: 1,
     overflow: "hidden",
+    paddingHorizontal: composerTokens.shellPaddingX,
+    paddingTop: composerTokens.shellPaddingTop,
+    gap: composerTokens.shellGap,
   },
-  toolbar: {
+  bodyRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: 12,
+  },
+  mainColumn: {
+    flex: 1,
+    minWidth: 0,
+    gap: composerTokens.shellGap,
+  },
+  inputBlock: {
+    minHeight: composerTokens.inputMinHeight,
+  },
+  input: {
+    fontSize: composerTokens.inputFontSize,
+    lineHeight: composerTokens.inputLineHeight,
+    minHeight: composerTokens.inputMinHeight,
+    maxHeight: composerTokens.inputMaxHeight,
+    paddingHorizontal: 0,
+    paddingTop: 1,
+    paddingBottom: 3,
+    margin: 0,
+    textAlignVertical: "top",
+  },
+  controlsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 10,
-    paddingBottom: 10,
-    paddingTop: 8,
+    minHeight: composerTokens.actionSize,
+  },
+  leftCluster: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 1,
+    minWidth: 0,
+    gap: composerTokens.clusterGap,
+  },
+  sendRail: {
+    width: composerTokens.sendSize,
+    alignItems: "flex-end",
+    justifyContent: "center",
   },
   segment: {
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 999,
     borderWidth: 1,
-    height: 30,
-    // SEGMENT_W * 2 segments + 4px inner padding (2 each side) = 68*2+4 = 140
+    height: composerTokens.actionSize,
     width: SEGMENT_W * 2 + 4,
     position: "relative",
     overflow: "hidden",
-    backgroundColor: "transparent",
   },
   segmentPill: {
     position: "absolute",
     top: 2,
-    // Pill fills one segment minus 2px (leaves 2px gap on connecting edge)
     width: SEGMENT_W - 2,
-    height: 26, // 30 - 4 (2px top + 2px bottom clearance)
+    height: composerTokens.actionSize - 4,
     borderRadius: 999,
     borderWidth: 1,
   },

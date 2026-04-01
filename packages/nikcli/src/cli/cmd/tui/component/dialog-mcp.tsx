@@ -1,22 +1,100 @@
-import { createMemo, createSignal } from "solid-js"
+import { createMemo, createSignal, Show, Switch, Match } from "solid-js"
 import { useLocal } from "@tui/context/local"
-import { useSync } from "@tui/context/sync"
+import { useSync, type McpServerHealth, type McpReconnectState } from "@tui/context/sync"
 import { map, pipe, entries, sortBy } from "remeda"
 import { DialogSelect, type DialogSelectRef, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useTheme } from "../context/theme"
 import { Keybind } from "@/util/keybind"
-import { TextAttributes } from "@opentui/core"
 import { useSDK } from "@tui/context/sdk"
+import type { McpStatus } from "@nikcli-ai/sdk/v2"
 
-function Status(props: { enabled: boolean; loading: boolean }) {
+function HealthIndicator(props: { health?: McpServerHealth; reconnecting?: McpReconnectState }) {
   const { theme } = useTheme()
+
+  return (
+    <Show
+      when={props.reconnecting}
+      fallback={
+        <Show when={props.health}>
+          <text fg={props.health!.healthy ? theme.success : theme.error}>
+            {props.health!.healthy ? "●" : "◌"}
+          </text>
+          <Show when={props.health!.latencyMs !== null}>
+            <text fg={theme.textMuted}> {props.health!.latencyMs}ms</text>
+          </Show>
+        </Show>
+      }
+    >
+      <text fg={theme.warning}>↻</text>
+      <text fg={theme.textMuted}> {props.reconnecting!.attempt}/{props.reconnecting!.maxAttempts}</text>
+    </Show>
+  )
+}
+
+function StatusDisplay(props: {
+  status: McpStatus
+  enabled: boolean
+  loading: boolean
+  health?: McpServerHealth
+  reconnecting?: McpReconnectState
+}) {
+  const { theme } = useTheme()
+
   if (props.loading) {
-    return <span style={{ fg: theme.textMuted }}>⋯ Loading</span>
+    return <text fg={theme.textMuted}>⋯ Loading</text>
   }
-  if (props.enabled) {
-    return <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
+
+  return (
+    <box flexDirection="row" gap={1}>
+      <HealthIndicator health={props.health} reconnecting={props.reconnecting} />
+      <Switch>
+        <Match when={props.status.status === "connected"}>
+          <text fg={theme.success}>✓</text>
+        </Match>
+        <Match when={props.status.status === "failed"}>
+          <text fg={theme.error}>✗</text>
+        </Match>
+        <Match when={props.status.status === "needs_auth" || props.status.status === "needs_client_registration"}>
+          <text fg={theme.warning}>⚠</text>
+        </Match>
+        <Match when={true}>
+          <text fg={theme.textMuted}>○</text>
+        </Match>
+      </Switch>
+    </box>
+  )
+}
+
+function getStatusError(status: McpStatus): string | undefined {
+  if (status.status === "failed" && "error" in status) {
+    return status.error
   }
-  return <span style={{ fg: theme.textMuted }}>○ Disabled</span>
+  return undefined
+}
+
+function StatusDescription(props: { status: McpStatus }) {
+  const { theme } = useTheme()
+  const error = getStatusError(props.status)
+
+  return (
+    <Switch>
+      <Match when={props.status.status === "connected"}>
+        <span style={{ fg: theme.success }}>Connected</span>
+      </Match>
+      <Match when={error !== undefined}>
+        <span style={{ fg: theme.error }}>{error || "Connection failed"}</span>
+      </Match>
+      <Match when={props.status.status === "needs_auth"}>
+        <span style={{ fg: theme.warning }}>Needs authentication</span>
+      </Match>
+      <Match when={props.status.status === "needs_client_registration"}>
+        <span style={{ fg: theme.warning }}>Client registration required</span>
+      </Match>
+      <Match when={true}>
+        <span style={{ fg: theme.textMuted }}>Disabled</span>
+      </Match>
+    </Switch>
+  )
 }
 
 export function DialogMcp() {
@@ -27,8 +105,9 @@ export function DialogMcp() {
   const [loading, setLoading] = createSignal<string | null>(null)
 
   const options = createMemo(() => {
-    // Track sync data and loading state to trigger re-render when they change
     const mcpData = sync.data.mcp
+    const mcpHealth = sync.data.mcp_health
+    const mcpReconnecting = sync.data.mcp_reconnecting
     const loadingMcp = loading()
 
     return pipe(
@@ -38,8 +117,16 @@ export function DialogMcp() {
       map(([name, status]) => ({
         value: name,
         title: name,
-        description: status.status === "failed" ? "failed" : status.status,
-        footer: <Status enabled={local.mcp.isEnabled(name)} loading={loadingMcp === name} />,
+        description: <StatusDescription status={status} />,
+        footer: (
+          <StatusDisplay
+            status={status}
+            enabled={local.mcp.isEnabled(name)}
+            loading={loadingMcp === name}
+            health={mcpHealth[name]}
+            reconnecting={mcpReconnecting[name]}
+          />
+        ),
         category: undefined,
       })),
     )
@@ -50,18 +137,14 @@ export function DialogMcp() {
       keybind: Keybind.parse("space")[0],
       title: "toggle",
       onTrigger: async (option: DialogSelectOption<string>) => {
-        // Prevent toggling while an operation is already in progress
         if (loading() !== null) return
 
         setLoading(option.value)
         try {
           await local.mcp.toggle(option.value)
-          // Refresh MCP status from server
           const status = await sdk.client.mcp.status()
           if (status.data) {
             sync.set("mcp", status.data)
-          } else {
-            console.error("Failed to refresh MCP status: no data returned")
           }
         } catch (error) {
           console.error("Failed to toggle MCP:", error)
@@ -72,15 +155,5 @@ export function DialogMcp() {
     },
   ])
 
-  return (
-    <DialogSelect
-      ref={setRef}
-      title="MCPs"
-      options={options()}
-      keybind={keybinds()}
-      onSelect={(option) => {
-        // Don't close on select, only on escape
-      }}
-    />
-  )
+  return <DialogSelect ref={setRef} title="MCPs" options={options()} keybind={keybinds()} onSelect={() => {}} />
 }

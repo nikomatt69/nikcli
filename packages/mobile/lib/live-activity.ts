@@ -1,0 +1,563 @@
+import { isRunningInExpoGo, requireOptionalNativeModule } from "expo"
+import { AppState, Platform } from "react-native"
+import { getMobileClient } from "@/lib/client"
+import { triggerHaptic } from "@/lib/haptics"
+
+export type AgentType =
+  | "reasoning"
+  | "coding"
+  | "searching"
+  | "building"
+  | "testing"
+  | "memory"
+  | "planning"
+  | "debugging"
+
+export type SubAgentStatus = "launching" | "thinking" | "working" | "reviewing" | "completed" | "failed"
+
+export type LiveActivityId = string
+
+export interface ToolExecution {
+  name: string
+  status: "pending" | "running" | "completed" | "error"
+  progress?: number
+  duration?: number
+}
+
+export interface AgentActivity {
+  sessionId: string
+  agentId: string
+  id: LiveActivityId
+  agentType: AgentType
+  agentName: string
+  status: SubAgentStatus
+  progressMessage?: string
+  progress?: number
+  tool?: ToolExecution
+  tools: ToolExecution[]
+  startTime: number
+  lastUpdate: number
+  notificationId?: string
+}
+
+const activeActivities = new Map<string, AgentActivity>()
+let isAvailable: boolean | null = null
+let appState = AppState.currentState
+
+type LiveActivityNativeModule = {
+  startActivity(state: unknown, config?: unknown): string | undefined
+  stopActivity(id: string, state: unknown): void
+  updateActivity(id: string, state: unknown): void
+}
+
+function getLiveActivityNativeModule(): LiveActivityNativeModule | null {
+  if (Platform.OS !== "ios" || isRunningInExpoGo()) return null
+
+  try {
+    const module = requireOptionalNativeModule("ExpoLiveActivity") as LiveActivityNativeModule | null
+    if (!module) return null
+    if (typeof module.startActivity !== "function") return null
+    if (typeof module.updateActivity !== "function") return null
+    if (typeof module.stopActivity !== "function") return null
+    return module
+  } catch {
+    return null
+  }
+}
+
+export function isLiveActivitySupported(): boolean {
+  if (isAvailable !== null) return isAvailable
+  if (Platform.OS !== "ios" || isRunningInExpoGo()) {
+    isAvailable = false
+    return false
+  }
+
+  if (!getLiveActivityNativeModule()) {
+    isAvailable = false
+    return false
+  }
+
+  isAvailable = true
+  return true
+}
+
+export async function ensureNotificationSupport(): Promise<boolean> {
+  if (Platform.OS === "web" || isRunningInExpoGo()) return false
+
+  try {
+    const Notifications = require("expo-notifications")
+
+    if (Platform.OS === "android") {
+      await Notifications.setNotificationChannelAsync("nikcli-agents", {
+        name: "Agent Activities",
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 120],
+        lightColor: "#38bdf8",
+      })
+    }
+
+    const { granted } = await Notifications.getPermissionsAsync()
+    if (!granted) {
+      const { granted: requested } = await Notifications.requestPermissionsAsync()
+      return requested
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+const AGENT_ICONS: Record<AgentType, string> = {
+  reasoning: "🧠",
+  coding: "💻",
+  searching: "🔍",
+  building: "🔨",
+  testing: "🧪",
+  memory: "🗄️",
+  planning: "📋",
+  debugging: "🔧",
+}
+
+const AGENT_LABELS: Record<AgentType, string> = {
+  reasoning: "Reasoning",
+  coding: "Coding",
+  searching: "Searching",
+  building: "Building",
+  testing: "Testing",
+  memory: "Memory",
+  planning: "Planning",
+  debugging: "Debugging",
+}
+
+const STATUS_CONFIG: Record<SubAgentStatus, { color: string; icon: string; haptic?: "success" | "error" }> = {
+  launching: { color: "#94a3b8", icon: "🚀" },
+  thinking: { color: "#a78bfa", icon: "🤔" },
+  working: { color: "#38bdf8", icon: "⚡" },
+  reviewing: { color: "#fbbf24", icon: "👀" },
+  completed: { color: "#4ade80", icon: "✅", haptic: "success" },
+  failed: { color: "#f87171", icon: "❌", haptic: "error" },
+}
+
+const recentNotifications = new Map<string, number>()
+const NOTIFICATION_DEDUPE_MS = 5000
+
+function isAppInBackground(): boolean {
+  return appState !== "active"
+}
+
+function shouldSendNotification(activity: AgentActivity): boolean {
+  if (activity.status === "launching" || activity.status === "thinking") return false
+
+  const key = `agent:${activity.sessionId}:${activity.status}`
+  const now = Date.now()
+  const last = recentNotifications.get(key)
+
+  if (last && now - last < NOTIFICATION_DEDUPE_MS) return false
+
+  recentNotifications.set(key, now)
+
+  if (recentNotifications.size > 100) {
+    const entries = [...recentNotifications.entries()].sort((a, b) => a[1] - b[1])
+    entries.slice(0, 50).forEach(([k]) => recentNotifications.delete(k))
+  }
+
+  return true
+}
+
+async function sendFallbackNotification(activity: AgentActivity, status: SubAgentStatus, body?: string): Promise<void> {
+  try {
+    const Notifications = require("expo-notifications")
+
+    if (!shouldSendNotification(activity)) return
+
+    const statusConfig = STATUS_CONFIG[status]
+    const agentIcon = AGENT_ICONS[activity.agentType]
+
+    const id = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `${agentIcon} ${activity.agentName}`,
+        body: body || getDefaultSubtitle(status),
+        sound: status === "completed" ? "default" : undefined,
+        data: {
+          sessionId: activity.sessionId,
+          agentId: activity.agentId,
+          status,
+          deepLink: `/sessions/${activity.sessionId}`,
+        },
+        ...(Platform.OS === "android" ? { channelId: "nikcli-agents" } : {}),
+      },
+      trigger: null,
+    })
+
+    if (id) {
+      activity.notificationId = id
+    }
+  } catch (error) {
+    console.warn("Failed to send fallback notification:", error)
+  }
+}
+
+async function cancelNotification(activity: AgentActivity): Promise<void> {
+  if (!activity.notificationId) return
+
+  try {
+    const Notifications = require("expo-notifications")
+    await Notifications.cancelScheduledNotificationAsync(activity.notificationId)
+    activity.notificationId = undefined
+  } catch {
+    // Ignore
+  }
+}
+
+function playHapticFeedback(status: SubAgentStatus): void {
+  const config = STATUS_CONFIG[status]
+  if (config.haptic) {
+    triggerHaptic(config.haptic)
+  }
+}
+
+function getActivityState(activity: AgentActivity): {
+  title: string
+  subtitle: string
+  imageName?: string
+  dynamicIslandImageName?: string
+} {
+  const agentIcon = AGENT_ICONS[activity.agentType]
+
+  let title = `${agentIcon} ${activity.agentName}`
+  let subtitle = activity.progressMessage || getDefaultSubtitle(activity.status)
+
+  if (activity.tool && activity.tool.status === "running") {
+    subtitle = `${activity.tool.name}...`
+  }
+
+  const toolCount = activity.tools.filter((t) => t.status === "completed").length
+  if (toolCount > 0 && activity.tools.length > 0) {
+    subtitle = `${toolCount}/${activity.tools.length} tools`
+  }
+
+  return {
+    title,
+    subtitle,
+    imageName: getAgentImageName(activity.agentType),
+    dynamicIslandImageName: getAgentImageName(activity.agentType),
+  }
+}
+
+function getAgentImageName(agentType: AgentType): string {
+  const imageMap: Record<AgentType, string> = {
+    reasoning: "agent_reasoning",
+    coding: "agent_coding",
+    searching: "agent_searching",
+    building: "agent_building",
+    testing: "agent_testing",
+    memory: "agent_memory",
+    planning: "agent_planning",
+    debugging: "agent_debugging",
+  }
+  return imageMap[agentType] || "agent_icon"
+}
+
+function getDefaultSubtitle(status: SubAgentStatus): string {
+  const subtitles: Record<SubAgentStatus, string> = {
+    launching: "Initializing...",
+    thinking: "Analyzing...",
+    working: "Executing...",
+    reviewing: "Reviewing...",
+    completed: "Done",
+    failed: "Error",
+  }
+  return subtitles[status]
+}
+
+function getBackgroundColor(status: SubAgentStatus): string {
+  if (status === "completed") return "#052e16"
+  if (status === "failed") return "#450a0a"
+  if (status === "thinking") return "#1e1b4b"
+  return "#0c1929"
+}
+
+function getLiveActivityConfig(activity: AgentActivity) {
+  return {
+    backgroundColor: getBackgroundColor(activity.status),
+    titleColor: "#ffffff",
+    subtitleColor: "#94a3b8",
+    progressViewTint: STATUS_CONFIG[activity.status].color,
+    progressViewLabelColor: "#ffffff",
+    deepLinkUrl: `/sessions/${activity.sessionId}`,
+    timerType: "digital" as const,
+    imagePosition: "left" as const,
+    imageAlign: "center" as const,
+    imageSize: { width: 48, height: 48 },
+    contentFit: "contain" as const,
+    padding: { horizontal: 16, top: 12, bottom: 12 },
+  }
+}
+
+export function inferAgentType(event: {
+  type: string
+  properties?: { part?: { type: string; tool?: string } }
+}): AgentType {
+  const eventType = event.type
+
+  if (eventType.includes("reasoning")) return "reasoning"
+  if (eventType.includes("search") || eventType.includes("grep") || eventType.includes("glob")) return "searching"
+  if (eventType.includes("test") || eventType.includes("spec")) return "testing"
+  if (eventType.includes("build") || eventType.includes("compile") || eventType.includes("install")) return "building"
+  if (eventType.includes("debug") || eventType.includes("error")) return "debugging"
+  if (eventType.includes("memory") || eventType.includes("stash")) return "memory"
+  if (eventType.includes("plan")) return "planning"
+
+  if (event.properties?.part?.type === "tool") {
+    const tool = event.properties.part.tool?.toLowerCase() || ""
+    if (
+      tool.includes("read") ||
+      tool.includes("write") ||
+      tool.includes("edit") ||
+      tool.includes("glob") ||
+      tool.includes("grep")
+    ) {
+      return "coding"
+    }
+    if (tool.includes("test") || tool.includes("spec")) return "testing"
+    if (tool.includes("build") || tool.includes("install")) return "building"
+    if (tool.includes("debug") || tool.includes("error")) return "debugging"
+    if (tool.includes("search") || tool.includes("find")) return "searching"
+  }
+
+  return "coding"
+}
+
+async function updateLiveActivityInternal(activity: AgentActivity): Promise<void> {
+  if (!isLiveActivitySupported()) return
+
+  const module = require("expo-live-activity")
+  try {
+    const state = getActivityState(activity)
+    const config = getLiveActivityConfig(activity)
+    module.updateActivity(activity.id, state)
+  } catch (error) {
+    console.warn("Failed to update Live Activity:", error)
+  }
+}
+
+async function startLiveActivity(activity: AgentActivity): Promise<boolean> {
+  if (!isLiveActivitySupported()) return false
+
+  const module = require("expo-live-activity")
+  try {
+    const existing = activeActivities.get(activity.sessionId)
+    if (existing) {
+      await stopAgentActivityInternal(existing, "completed")
+    }
+
+    const state = getActivityState(activity)
+    const config = getLiveActivityConfig(activity)
+    const activityId = module.startActivity(state, config)
+
+    if (activityId) {
+      activity.id = activityId
+      return true
+    }
+    return false
+  } catch (error) {
+    console.warn("Failed to start Live Activity:", error)
+    return false
+  }
+}
+
+async function stopLiveActivityInternal(activity: AgentActivity, status: "completed" | "failed"): Promise<void> {
+  if (!isLiveActivitySupported()) return
+
+  const module = require("expo-live-activity")
+  try {
+    const state = getActivityState(activity)
+    const config = getLiveActivityConfig(activity)
+    module.stopActivity(activity.id, state)
+  } catch (error) {
+    console.warn("Failed to stop Live Activity:", error)
+  }
+}
+
+export async function startAgentActivity(input: {
+  sessionId: string
+  agentId: string
+  agentType?: AgentType
+  agentName: string
+  initialMessage?: string
+}): Promise<AgentActivity | null> {
+  const agentType = input.agentType || "coding"
+  const activity: AgentActivity = {
+    sessionId: input.sessionId,
+    agentId: input.agentId,
+    id: "",
+    agentType,
+    agentName: input.agentName,
+    status: "launching",
+    progressMessage: input.initialMessage || "Starting...",
+    progress: 0,
+    tools: [],
+    startTime: Date.now(),
+    lastUpdate: Date.now(),
+  }
+
+  await startLiveActivity(activity)
+
+  if (isAppInBackground()) {
+    await sendFallbackNotification(activity, "launching")
+  }
+
+  playHapticFeedback("launching")
+  activeActivities.set(input.sessionId, activity)
+  return activity
+}
+
+export async function updateAgentActivity(input: {
+  sessionId: string
+  status?: SubAgentStatus
+  progressMessage?: string
+  progress?: number
+  tool?: ToolExecution
+  agentType?: AgentType
+}): Promise<void> {
+  const activity = activeActivities.get(input.sessionId)
+  if (!activity) return
+
+  if (input.status) activity.status = input.status
+  if (input.progressMessage) activity.progressMessage = input.progressMessage
+  if (input.progress !== undefined) activity.progress = input.progress
+  if (input.agentType) activity.agentType = input.agentType
+  activity.lastUpdate = Date.now()
+
+  if (input.tool) {
+    const existingToolIndex = activity.tools.findIndex((t) => t.name === input.tool!.name)
+    if (existingToolIndex >= 0) {
+      activity.tools[existingToolIndex] = input.tool
+    } else {
+      activity.tools.push(input.tool)
+    }
+    activity.tool = input.tool
+  }
+
+  await updateLiveActivityInternal(activity)
+
+  if (isAppInBackground() && (input.status === "completed" || input.status === "failed")) {
+    await sendFallbackNotification(activity, input.status, input.progressMessage)
+  }
+
+  playHapticFeedback(input.status || activity.status)
+}
+
+async function stopAgentActivityInternal(activity: AgentActivity, status: "completed" | "failed"): Promise<void> {
+  await cancelNotification(activity)
+
+  activity.status = status
+  activity.lastUpdate = Date.now()
+
+  await stopLiveActivityInternal(activity, status)
+
+  if (isAppInBackground()) {
+    await sendFallbackNotification(activity, status)
+  }
+
+  playHapticFeedback(status)
+}
+
+export async function stopAgentActivity(
+  sessionId: string,
+  status: "completed" | "failed" = "completed",
+): Promise<void> {
+  const activity = activeActivities.get(sessionId)
+  if (!activity) return
+
+  await stopAgentActivityInternal(activity, status)
+  activeActivities.delete(sessionId)
+}
+
+export function getAgentActivity(sessionId: string): AgentActivity | undefined {
+  return activeActivities.get(sessionId)
+}
+
+export function getAllActiveActivities(): AgentActivity[] {
+  return Array.from(activeActivities.values())
+}
+
+export function getActiveSessionCount(): number {
+  return activeActivities.size
+}
+
+export function formatDuration(startTime: number): string {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000)
+  if (elapsed < 60) return `${elapsed}s`
+  const minutes = Math.floor(elapsed / 60)
+  if (minutes < 60) return `${minutes}m ${elapsed % 60}s`
+  const hours = Math.floor(minutes / 60)
+  return `${hours}h ${minutes % 60}m`
+}
+
+export function setupAppStateListener(): () => void {
+  const subscription = AppState.addEventListener("change", (nextAppState) => {
+    const wasInBackground = appState !== "active"
+    appState = nextAppState
+
+    if (appState === "active" && wasInBackground) {
+      activeActivities.forEach((act) => {
+        if (act.notificationId) {
+          cancelNotification(act)
+        }
+      })
+    }
+  })
+
+  return () => subscription.remove()
+}
+
+async function sendPushTokenToServer(pushToken: string): Promise<void> {
+  const client = await getMobileClient()
+  if (!client) return
+
+  try {
+    await fetch(`${client.serverUrl}/mobile/live-activity/push-token`, {
+      method: "POST",
+      headers: client.headers(),
+      body: JSON.stringify({
+        pushToken,
+        platform: "ios",
+        timestamp: Date.now(),
+        activeSessions: getActiveSessionCount(),
+      }),
+    })
+  } catch {
+    // Silent fail
+  }
+}
+
+export function setupLiveActivityListeners(): () => void {
+  if (!isLiveActivitySupported()) return () => {}
+
+  const module = require("expo-live-activity")
+
+  try {
+    const tokenSub = module.addActivityTokenListener((event: { activityPushToken?: string }) => {
+      if (event.activityPushToken) sendPushTokenToServer(event.activityPushToken)
+    })
+
+    const startTokenSub = module.addActivityPushToStartTokenListener((event: { activityPushToStartToken?: string }) => {
+      if (event.activityPushToStartToken) sendPushTokenToServer(event.activityPushToStartToken)
+    })
+
+    const updatesSub = module.addActivityUpdatesListener((event: unknown) => {
+      console.log("Live Activity update:", event)
+    })
+
+    return () => {
+      tokenSub?.remove?.()
+      startTokenSub?.remove?.()
+      updatesSub?.remove?.()
+    }
+  } catch {
+    return () => {}
+  }
+}
+
+export { AGENT_ICONS, AGENT_LABELS, STATUS_CONFIG }

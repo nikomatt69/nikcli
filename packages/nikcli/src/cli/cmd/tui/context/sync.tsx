@@ -35,6 +35,21 @@ import { readFileSync } from "fs"
 import { isDBFile, createDBSchemaFromSQL, readDBSchema } from "@/tool/db-diff"
 import type { DBSchema, DBEditRequest } from "../component/table-db/db/types"
 
+export interface McpServerHealth {
+  server: string
+  healthy: boolean
+  latencyMs: number | null
+  lastCheck: number
+  consecutiveFailures: number
+}
+
+export interface McpReconnectState {
+  server: string
+  attempt: number
+  maxAttempts: number
+  delay: number
+}
+
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
   init: () => {
@@ -59,6 +74,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       lsp: LspStatus[]
       mcp: Record<string, McpStatus>
       mcp_resource: Record<string, McpResource>
+      mcp_health: Record<string, McpServerHealth>
+      mcp_reconnecting: Record<string, McpReconnectState>
       connectors: Record<string, ConnectorStatus>
       formatter: FormatterStatus[]
       vcs: VcsInfo | undefined
@@ -86,6 +103,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       lsp: [],
       mcp: {},
       mcp_resource: {},
+      mcp_health: {},
+      mcp_reconnecting: {},
       connectors: {},
       formatter: [],
       vcs: undefined,
@@ -381,6 +400,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
       }
+    })
+
+    sdk.event.on("mcp.tools.changed", (evt) => {
+      sdk.client.mcp.status().then((x) => {
+        if (x.data) setStore("mcp", reconcile(x.data))
+      })
     })
 
     const exit = useExit()

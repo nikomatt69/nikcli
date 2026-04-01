@@ -20,6 +20,7 @@ import type {
   MobileExecutionTarget,
   ModelRef,
   MobileBootstrap,
+  PluginInfo,
   ProviderCatalog,
   PromptHistoryEntry,
   PromptPreset,
@@ -175,6 +176,23 @@ export class MobileClient {
 
   listMcpStatus() {
     return this.request<Record<string, HostMcpStatus>>("/mcp")
+  }
+
+  listPlugins() {
+    return this.request<PluginInfo[]>("/mobile/plugin")
+  }
+
+  addPlugin(plugin: string) {
+    return this.request<{ success: true }>("/mobile/plugin", {
+      method: "POST",
+      body: JSON.stringify({ plugin }),
+    })
+  }
+
+  removePlugin(name: string) {
+    return this.request<{ success: true }>(`/mobile/plugin/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    })
   }
 
   listPromptHistory() {

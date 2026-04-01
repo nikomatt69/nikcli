@@ -108,6 +108,11 @@ import type {
   MobileMemoryStashDeleteResponses,
   MobileMemoryStashListResponses,
   MobilePermissionRespondResponses,
+  MobilePluginAddErrors,
+  MobilePluginAddResponses,
+  MobilePluginListResponses,
+  MobilePluginRemoveErrors,
+  MobilePluginRemoveResponses,
   MobileProjectListResponses,
   MobilePromptStashCreateInput,
   MobileSessionAbortResponses,
@@ -3995,6 +4000,109 @@ export class Worktree2 extends HeyApiClient {
   }
 }
 
+export class Plugin extends HeyApiClient {
+  /**
+   * List plugins for mobile
+   *
+   * Return all configured plugins with their status and metadata.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobilePluginListResponses, unknown, ThrowOnError>({
+      url: "/mobile/plugin",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Add plugin for mobile
+   *
+   * Add a new plugin by npm package specifier.
+   */
+  public add<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      plugin?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "plugin" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobilePluginAddResponses, MobilePluginAddErrors, ThrowOnError>({
+      url: "/mobile/plugin",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Remove plugin for mobile
+   *
+   * Remove a plugin by name.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobilePluginRemoveResponses, MobilePluginRemoveErrors, ThrowOnError>(
+      {
+        url: "/mobile/plugin/{name}",
+        ...options,
+        ...params,
+      },
+    )
+  }
+}
+
 export class Mobile extends HeyApiClient {
   /**
    * Get mobile bootstrap payload
@@ -4064,6 +4172,11 @@ export class Mobile extends HeyApiClient {
   private _worktree?: Worktree2
   get worktree(): Worktree2 {
     return (this._worktree ??= new Worktree2({ client: this.client }))
+  }
+
+  private _plugin?: Plugin
+  get plugin(): Plugin {
+    return (this._plugin ??= new Plugin({ client: this.client }))
   }
 }
 

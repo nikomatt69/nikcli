@@ -62,6 +62,7 @@ export type SettingsSectionID =
   | "github"
   | "mcp"
   | "skills"
+  | "plugins"
   | "advanced"
   | "connectors"
   | "agents"
@@ -590,6 +591,14 @@ export type AgentInfo = {
   description?: string
   tools?: string[]
   isDefault?: boolean
+}
+
+export type PluginInfo = {
+  name: string
+  spec: string
+  options: Record<string, unknown> | null
+  internal: boolean
+  builtin: boolean
 }
 
 export function relativeTime(value: number): string {

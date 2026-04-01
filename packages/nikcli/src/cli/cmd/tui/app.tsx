@@ -1,8 +1,20 @@
-import { render, useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
-import { TextAttributes } from "@opentui/core"
 import { RouteProvider, useRoute } from "@tui/context/route"
-import { Switch, Match, createEffect, untrack, ErrorBoundary, createSignal, onMount, batch, Show, on } from "solid-js"
+import {
+  Switch,
+  Match,
+  createEffect,
+  createMemo,
+  untrack,
+  ErrorBoundary,
+  createSignal,
+  onMount,
+  onCleanup,
+  batch,
+  Show,
+  on,
+} from "solid-js"
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
@@ -24,7 +36,7 @@ import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogSkills } from "@tui/component/dialog-skills"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
-import { KeybindProvider } from "@tui/context/keybind"
+import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
@@ -42,6 +54,13 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
+import { TuiConfig } from "@/config/tui"
+import { Instance } from "@/project/instance"
+import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
+import { ErrorComponent } from "./component/error-component"
+import { PluginRouteMissing } from "./component/plugin-route-missing"
+import { StartupLoading } from "./component/startup-loading"
+import { initDreamScheduler } from "@/dream/scheduler"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -129,7 +148,7 @@ export function tui(input: {
             fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
           >
             <ArgsProvider {...input.args}>
-              <ExitProvider onExit={onExit}>
+              <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()}>
                 <ServerProvider startServer={input.startServer}>
                   <KVProvider>
                     <ToastProvider>
@@ -193,17 +212,59 @@ function App() {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
-  renderer.disableStdoutInterception()
+  renderer.externalOutputMode = "passthrough"
   const dialog = useDialog()
   const local = useLocal()
   const kv = useKV()
   const command = useCommandDialog()
   const sdk = useSDK()
   const toast = useToast()
-  const { theme, mode, setMode } = useTheme()
+  const themeCtx = useTheme()
+  const { theme, mode, setMode } = themeCtx
   const sync = useSync()
   const exit = useExit()
   const promptRef = usePromptRef()
+  const keybind = useKeybind()
+
+  // Plugin routes — mutable map + reactive stamp for re-renders
+  const routes: RouteMap = new Map()
+  const [pluginRouteKey, setPluginRouteKey] = createSignal(0)
+  const bump = () => setPluginRouteKey((k) => k + 1)
+  const [pluginsReady, setPluginsReady] = createSignal(false)
+
+  onMount(() => {
+    void (async () => {
+      const tuiConfig = await Instance.provide({
+        directory: process.cwd(),
+        fn: async () => {
+          initDreamScheduler()
+          return TuiConfig.get()
+        },
+      })
+      const api = createTuiApi({
+        command,
+        tuiConfig,
+        dialog,
+        keybind,
+        kv,
+        route,
+        routes,
+        bump,
+        sdk,
+        sync,
+        theme: themeCtx,
+        toast,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        renderer: renderer as any,
+      })
+      await TuiPluginRuntime.init(api)
+      setPluginsReady(true)
+    })()
+  })
+
+  onCleanup(() => {
+    void TuiPluginRuntime.dispose()
+  })
 
   // Wire up console copy-to-clipboard via opentui's onCopySelection callback
   renderer.console.onCopySelection = async (text: string) => {
@@ -324,19 +385,19 @@ function App() {
     },
     ...(Flag.NIKCLI_EXPERIMENTAL_WORKSPACES_TUI || Installation.isLocal()
       ? [
-          {
-            title: "Manage workspaces",
-            value: "workspace.list",
-            category: "Workspace",
-            suggested: true,
-            slash: {
-              name: "workspaces",
-            },
-            onSelect: () => {
-              dialog.replace(() => <DialogWorkspaceList />)
-            },
+        {
+          title: "Manage workspaces",
+          value: "workspace.list",
+          category: "Workspace",
+          suggested: true,
+          slash: {
+            name: "workspaces",
           },
-        ]
+          onSelect: () => {
+            dialog.replace(() => <DialogWorkspaceList />)
+          },
+        },
+      ]
       : []),
     {
       title: "New session",
@@ -570,7 +631,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://nikcli.store/docs").catch(() => {})
+        open("https://nikcli.store/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -579,7 +640,7 @@ function App() {
       title: "Open WebUI",
       value: "webui.open",
       onSelect: () => {
-        open(sdk.url).catch(() => {})
+        open(sdk.url).catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -766,89 +827,20 @@ function App() {
         <Match when={route.data.type === "session"}>
           <Session />
         </Match>
+        <Match when={route.data.type === "plugin" && route.data}>
+          {(data) => {
+            pluginRouteKey()
+            const entries = routes.get(data().id)
+            const last = entries?.at(-1)
+            return last ? (
+              last.render({ params: data().data })
+            ) : (
+              <PluginRouteMissing id={data().id} onHome={() => route.navigate({ type: "home" })} />
+            )
+          }}
+        </Match>
       </Switch>
-    </box>
-  )
-}
-
-function ErrorComponent(props: {
-  error: Error
-  reset: () => void
-  onExit: () => Promise<void>
-  mode?: "dark" | "light"
-}) {
-  const term = useTerminalDimensions()
-  const renderer = useRenderer()
-
-  const handleExit = async () => {
-    renderer.setTerminalTitle("")
-    renderer.destroy()
-    props.onExit()
-  }
-
-  useKeyboard((evt) => {
-    if (evt.ctrl && evt.name === "c") {
-      handleExit()
-    }
-  })
-  const [copied, setCopied] = createSignal(false)
-
-  const issueURL = new URL("https://github.com/nikomatt69/nikcli/issues/new?template=bug-report.yml")
-
-  // Choose safe fallback colors per mode since theme context may not be available
-  const isLight = props.mode === "light"
-  const colors = {
-    bg: isLight ? "#ffffff" : "#0a0a0a",
-    text: isLight ? "#1a1a1a" : "#eeeeee",
-    muted: isLight ? "#8a8a8a" : "#808080",
-    primary: isLight ? "#3b7dd8" : "#fab283",
-  }
-
-  if (props.error.message) {
-    issueURL.searchParams.set("title", `opentui: fatal: ${props.error.message}`)
-  }
-
-  if (props.error.stack) {
-    issueURL.searchParams.set(
-      "description",
-      "```\n" + props.error.stack.substring(0, 6000 - issueURL.toString().length) + "...\n```",
-    )
-  }
-
-  issueURL.searchParams.set("nikcli-version", Installation.VERSION)
-
-  const copyIssueURL = () => {
-    Clipboard.copy(issueURL.toString()).then(() => {
-      setCopied(true)
-    })
-  }
-
-  return (
-    <box flexDirection="column" gap={1} backgroundColor={colors.bg}>
-      <box flexDirection="row" gap={1} alignItems="center">
-        <text attributes={TextAttributes.BOLD} fg={colors.text}>
-          Please report an issue.
-        </text>
-        <box onMouseUp={copyIssueURL} backgroundColor={colors.primary} padding={1}>
-          <text attributes={TextAttributes.BOLD} fg={colors.bg}>
-            Copy issue URL (exception info pre-filled)
-          </text>
-        </box>
-        {copied() && <text fg={colors.muted}>Successfully copied</text>}
-      </box>
-      <box flexDirection="row" gap={2} alignItems="center">
-        <text fg={colors.text}>A fatal error occurred!</text>
-        <box onMouseUp={props.reset} backgroundColor={colors.primary} padding={1}>
-          <text fg={colors.bg}>Reset TUI</text>
-        </box>
-        <box onMouseUp={handleExit} backgroundColor={colors.primary} padding={1}>
-          <text fg={colors.bg}>Exit</text>
-        </box>
-      </box>
-      <scrollbox height={Math.floor(term().height * 0.7)}>
-        <text fg={colors.muted}>{props.error.stack}</text>
-      </scrollbox>
-      <text fg={colors.text}>{props.error.message}</text>
+      <StartupLoading ready={pluginsReady} />
     </box>
   )
 }

@@ -2055,5 +2055,113 @@ export const MobileRoutes = lazy(() =>
         await Project.removeSandbox(Instance.project.id, input.directory).catch(() => undefined)
         return c.json({ success: true as const })
       },
+    )
+    .get(
+      "/plugin",
+      describeRoute({
+        summary: "List plugins for mobile",
+        description: "Return all configured plugins with their status and metadata.",
+        operationId: "mobile.plugin.list",
+        responses: {
+          200: {
+            description: "Plugins",
+            content: { "application/json": { schema: resolver(MobilePlugin.array()) } },
+          },
+        },
+      }),
+      async (c) => {
+        const config = await Config.get()
+        const plugins = config.plugin ?? []
+        const internalPlugins = ["@gitlab/nikcli-gitlab-auth@1.3.2"]
+        return c.json(
+          plugins.map((spec) => {
+            const resolved = Config.pluginSpecifier(spec)
+            const options = Config.pluginOptions(spec)
+            const isInternal = internalPlugins.some((p) => resolved.includes(p))
+            const isBuiltin = resolved.startsWith("@nikcli-ai/plugin/")
+            return {
+              name: resolved,
+              spec,
+              options: options ?? null,
+              internal: isInternal,
+              builtin: isBuiltin,
+            } satisfies z.infer<typeof MobilePlugin>
+          }),
+        )
+      },
+    )
+    .post(
+      "/plugin",
+      describeRoute({
+        summary: "Add plugin for mobile",
+        description: "Add a new plugin by npm package specifier.",
+        operationId: "mobile.plugin.add",
+        responses: {
+          200: {
+            description: "Plugin added",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          plugin: z.string().min(1),
+        }),
+      ),
+      async (c) => {
+        const { plugin } = c.req.valid("json")
+        if (!plugin?.trim()) {
+          return c.json({ error: "Plugin specifier is required" }, 400)
+        }
+        const config = await Config.get()
+        const currentPlugins = config.plugin ?? []
+        if (currentPlugins.some((p) => Config.pluginSpecifier(p) === plugin)) {
+          return c.json({ error: "Plugin already exists" }, 400)
+        }
+        await Config.update({ plugin: [...currentPlugins, plugin.trim()] })
+        return c.json({ success: true as const })
+      },
+    )
+    .delete(
+      "/plugin/:name",
+      describeRoute({
+        summary: "Remove plugin for mobile",
+        description: "Remove a plugin by name.",
+        operationId: "mobile.plugin.remove",
+        responses: {
+          200: {
+            description: "Plugin removed",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(404),
+        },
+      }),
+      validator("param", z.object({ name: z.string() })),
+      async (c) => {
+        const { name } = c.req.valid("param")
+        const config = await Config.get()
+        const currentPlugins = config.plugin ?? []
+        const decoded = decodeURIComponent(name)
+        const index = currentPlugins.findIndex((p) => Config.pluginSpecifier(p) === decoded)
+        if (index === -1) {
+          return c.json({ error: "Plugin not found" }, 404)
+        }
+        const nextPlugins = [...currentPlugins]
+        nextPlugins.splice(index, 1)
+        await Config.update({ plugin: nextPlugins })
+        return c.json({ success: true as const })
+      },
     ),
 )
+
+const MobilePlugin = z
+  .object({
+    name: z.string(),
+    spec: Config.PluginSpec,
+    options: z.record(z.string(), z.unknown()).nullable(),
+    internal: z.boolean(),
+    builtin: z.boolean(),
+  })
+  .meta({ ref: "MobilePlugin" })

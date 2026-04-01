@@ -98,7 +98,7 @@ function highlightCode(code: string): { text: string; color: string }[] {
   const result: { text: string; color: string }[] = []
   const lines = code.split("\n")
 
-  lines.forEach((line, lineIndex) => {
+  lines.forEach((line) => {
     let segments: { text: string; color: string }[] = [{ text: line, color: "#f8f8f2" }]
 
     const matches: { start: number; end: number; text: string; color: string }[] = []
@@ -137,8 +137,8 @@ function highlightCode(code: string): { text: string; color: string }[] {
     }
 
     result.push(
-      ...segments.map((s, i) => ({
-        text: i === segments.length - 1 && lineIndex < lines.length - 1 ? s.text + "\n" : s.text,
+      ...segments.map((s) => ({
+        text: s.text,
         color: s.color,
       })),
     )
@@ -174,7 +174,6 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
 
   return (
     <View
-      key={props.node.key}
       className="mt-2 overflow-hidden rounded-2xl border"
       style={{ backgroundColor: palette.codeBlockBackground, borderColor: palette.border }}
     >
@@ -212,10 +211,10 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         horizontal
         showsHorizontalScrollIndicator={true}
         showsVerticalScrollIndicator={false}
-        style={{ maxHeight: expanded ? 800 : 400 }}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 }}
+        style={{ width: "100%", maxHeight: expanded ? 800 : 400 }}
+        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12 }}
       >
-        <View>
+        <View style={{ alignSelf: "flex-start" }}>
           {lineHighlights.map((lineHighlighted, lineIndex) => {
             return (
               <Text key={lineIndex} selectable className="text-[11px] leading-[18px]" style={{ fontFamily: "Menlo" }}>
@@ -224,7 +223,6 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
                     {seg.text}
                   </Text>
                 ))}
-                {"\n"}
               </Text>
             )
           })}
@@ -329,6 +327,7 @@ export function MessageBubble(props: {
     () => ({
       code_block: (node, _children, _parent, styles, inheritedStyles = {}) => (
         <ScrollableCodeBlock
+          key={node.key}
           node={node}
           textStyle={[inheritedStyles, styles.code_block]}
           backgroundColor={palette.codeBackground}
@@ -337,6 +336,7 @@ export function MessageBubble(props: {
       ),
       fence: (node, _children, _parent, styles, inheritedStyles = {}) => (
         <ScrollableCodeBlock
+          key={node.key}
           node={node}
           textStyle={[inheritedStyles, styles.fence]}
           backgroundColor={palette.codeBackground}
@@ -382,7 +382,7 @@ export function MessageBubble(props: {
     >
       <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
         <View
-          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-[#0c3589]" : "border-border bg-assistant-bubble"}`}
+          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-blue-400" : "border-border bg-assistant-bubble"}`}
           style={{
             shadowColor: palette.shadow,
             shadowOpacity: isDark ? 0.18 : 0.1,

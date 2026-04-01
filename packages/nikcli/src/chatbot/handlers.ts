@@ -86,14 +86,23 @@ export namespace BotHandlers {
       model: language,
       system: systemParts.join("\n"),
       messages,
+      maxRetries: 2,
+      onError: ({ error }) => {
+        log.error("stream error", { error })
+      },
     })
 
     let fullResponse = ""
-    for await (const chunk of result.textStream) {
-      fullResponse += chunk
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === "text-delta") {
+        fullResponse += chunk.text
+      } else if (chunk.type === "error") {
+        log.error("stream error", { error: chunk.error })
+        return `Error: ${chunk.error}`
+      }
     }
 
-    return fullResponse
+    return fullResponse || "No response generated"
   }
 
   export function registerAiHandler(bot: Chat, opts?: { prompt?: string; tools?: Record<string, any> }): void {

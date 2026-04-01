@@ -12,6 +12,7 @@ import { setupOfflineDrainOnForeground } from "@/lib/offline"
 import { getAppPreferences } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
 import { palettes } from "@/lib/theme"
+import { setupAppStateListener, setupLiveActivityListeners, ensureNotificationSupport } from "@/lib/live-activity"
 
 export default function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme()
@@ -28,6 +29,17 @@ export default function RootLayout() {
   useEffect(() => {
     setColorScheme(themeMode)
   }, [setColorScheme, themeMode])
+
+  useEffect(() => {
+    const appStateCleanup = setupAppStateListener()
+    const liveActivityCleanup = setupLiveActivityListeners()
+    ensureNotificationSupport()
+
+    return () => {
+      appStateCleanup()
+      liveActivityCleanup()
+    }
+  }, [])
 
   const palette = colorScheme === "light" ? palettes.light : palettes.dark
 

@@ -3,5 +3,15 @@
   "remote": {
     "enableTunnel": true,
     "provider": "cloudflared"
+  },
+  "connectors": {
+    "figma": {
+      "type": "figma",
+      "enabled": true
+    }
+  },
+  "speak": {
+    "provider": "elevenlabs",
+    "model": "YOq2y2Up4RgXP2HyXjE5"
   }
 }

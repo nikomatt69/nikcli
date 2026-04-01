@@ -18,6 +18,14 @@ import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./copilot"
+import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
+import type { PluginModule } from "@nikcli-ai/plugin"
+export * from "./errors"
+export * from "./hooks"
+export * from "./manifest"
+
+import { createPluginError, getPluginErrorMessage, getPluginErrorDetails, type PluginError } from "./errors"
+import { HookRegistry, type HookName, type HookContext, type HookRegistration } from "./hooks"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -583,6 +591,48 @@ export async function NotifyPlugin(_input: PluginInput): Promise<Hooks> {
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
+  export type ErrorHandler = (error: PluginError) => void
+
+  const errorHandlers: Set<ErrorHandler> = new Set()
+  const logErrors: Set<string> = new Set()
+
+  export function onError(handler: ErrorHandler): () => void {
+    errorHandlers.add(handler)
+    return () => errorHandlers.delete(handler)
+  }
+
+  export function getErrors(): string[] {
+    return [...logErrors]
+  }
+
+  export function clearErrors(): void {
+    logErrors.clear()
+  }
+
+  function handlePluginError(error: PluginError): void {
+    const id = `${error.code}:${JSON.stringify(error).slice(0, 100)}`
+    if (logErrors.has(id)) return
+    logErrors.add(id)
+    if (logErrors.size > 100) {
+      const first = logErrors.values().next().value
+      if (first) logErrors.delete(first)
+    }
+    for (const handler of errorHandlers) {
+      try {
+        handler(error)
+      } catch {
+        // ignore handler errors
+      }
+    }
+  }
+
+  function wrapPluginError(code: PluginError["code"], data: Omit<PluginError, "code">, spec?: string): PluginError {
+    const error = createPluginError(code, data)
+    handlePluginError(error)
+    log.error(getPluginErrorMessage(error), getPluginErrorDetails(error))
+    return error
+  }
+
   const BUILTIN = ["@gitlab/nikcli-gitlab-auth@1.3.2"]
 
   // Built-in plugins that are directly imported (not installed from npm)
@@ -596,6 +646,7 @@ export namespace Plugin {
     })
     const config = await Config.get()
     const hooks: Hooks[] = []
+    const pluginIds: string[] = []
     const input: PluginInput = {
       client,
       project: Instance.project,
@@ -619,6 +670,7 @@ export namespace Plugin {
     for (let plugin of plugins) {
       // ignore old codex plugin since it is supported first party now
       if (plugin.includes("nikcli-openai-codex-auth") || plugin.includes("nikcli-copilot-auth")) continue
+      const spec = plugin
       log.info("loading plugin", { path: plugin })
       if (!plugin.startsWith("file://")) {
         const lastAtIndex = plugin.lastIndexOf("@")
@@ -645,15 +697,23 @@ export namespace Plugin {
         if (!plugin) continue
       }
       const mod = await import(plugin)
-      // Prevent duplicate initialization when plugins export the same function
-      // as both a named export and default export (e.g., `export const X` and `export default X`).
-      // Object.entries(mod) would return both entries pointing to the same function reference.
-      const seen = new Set<PluginInstance>()
-      for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
-        if (seen.has(fn)) continue
-        seen.add(fn)
-        const init = await fn(input)
-        hooks.push(init)
+      const v1 = readV1Plugin(mod, spec, "server", "detect")
+      if (v1) {
+        const source = pluginSource(spec)
+        const id = readPluginId(v1.id, spec)
+        await resolvePluginId(source, spec, plugin, id)
+        hooks.push(await (v1 as PluginModule).server!(input, Config.pluginOptions(spec)))
+      } else {
+        // Prevent duplicate initialization when plugins export the same function
+        // as both a named export and default export (e.g., `export const X` and `export default X`).
+        // Object.entries(mod) would return both entries pointing to the same function reference.
+        const seen = new Set<PluginInstance>()
+        for (const [_name, fn] of Object.entries<PluginInstance>(mod)) {
+          if (seen.has(fn)) continue
+          seen.add(fn)
+          const init = await fn(input)
+          hooks.push(init)
+        }
       }
     }
 
@@ -672,10 +732,16 @@ export namespace Plugin {
     for (const hook of await state().then((x) => x.hooks)) {
       const fn = hook[name]
       if (!fn) continue
-      // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
-      // give up.
-      // try-counter: 2
-      await fn(input, output)
+      try {
+        // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
+        // give up.
+        // try-counter: 3
+        await fn(input, output)
+      } catch (err) {
+        const error: PluginError = { code: "hook-execution-failed", hook: name, cause: err }
+        handlePluginError(error)
+        log.error(getPluginErrorMessage(error), getPluginErrorDetails(error))
+      }
     }
     return output
   }

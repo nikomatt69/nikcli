@@ -54,21 +54,21 @@ function findInvalidLovableImage(images: string[]) {
 function Status(props: { enabled: boolean; configured: boolean; status?: string; loading: boolean }) {
   const { theme } = useTheme()
   if (props.loading) {
-    return <span style={{ fg: theme.textMuted }}>⋯ Loading</span>
+    return <text fg={theme.textMuted}>⋯ Loading</text>
   }
   if (!props.configured) {
-    return <span style={{ fg: theme.textMuted }}>○ Not configured</span>
+    return <text fg={theme.textMuted}>○ Not configured</text>
   }
   if (!props.enabled) {
-    return <span style={{ fg: theme.textMuted }}>○ Disabled</span>
+    return <text fg={theme.textMuted}>○ Disabled</text>
   }
   if (props.status === "needs_auth") {
-    return <span style={{ fg: theme.warning }}>⚠ Needs auth</span>
+    return <text fg={theme.warning}>⚠ Needs auth</text>
   }
   if (props.status === "failed") {
-    return <span style={{ fg: theme.error }}>✗ Failed</span>
+    return <text fg={theme.error}>✗ Failed</text>
   }
-  return <span style={{ fg: theme.success, attributes: TextAttributes.BOLD }}>✓ Enabled</span>
+  return <text fg={theme.success} attributes={TextAttributes.BOLD}>✓ Enabled</text>
 }
 
 function authConfigForType(type: string) {

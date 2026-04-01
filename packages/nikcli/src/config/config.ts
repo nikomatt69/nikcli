@@ -783,6 +783,7 @@ export namespace Config {
       session_share: z.string().optional().default("none").describe("Share current session"),
       session_unshare: z.string().optional().default("none").describe("Unshare current session"),
       session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
+      session_codebro_open: z.string().optional().default("<leader>i").describe("Open the Codebro dossier"),
       subtask_background: z
         .string()
         .optional()
@@ -1314,6 +1315,20 @@ export namespace Config {
             .optional()
             .describe("Tools that should only be available to primary agents."),
           continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
+          dream: z.boolean().optional().describe("Enable automatic memory consolidation (dream) feature"),
+          dreamMinHours: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Minimum hours between dream consolidation runs"),
+          dreamMinSessions: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Minimum number of sessions to trigger dream consolidation"),
+          memory: z.boolean().optional().describe("Enable memory file support for session context"),
           mcp_timeout: z
             .number()
             .int()

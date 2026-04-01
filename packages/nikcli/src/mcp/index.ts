@@ -23,6 +23,17 @@ import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
+import { Connected, Disconnected, Reconnecting, HealthChanged, ConnectionFailed } from "./events"
+import { withRetry, DEFAULT_RETRY_CONFIG } from "./retry"
+import {
+  initializeHealth,
+  startHealthChecks,
+  stopHealthChecks,
+  updateHealth,
+  getAllHealth,
+  DEFAULT_HEALTH_CHECK_CONFIG,
+  type ServerHealth,
+} from "./health"
 
 export namespace MCP {
   const log = Log.create({ service: "mcp" })
@@ -189,6 +200,9 @@ export namespace MCP {
       }
     },
     async (state) => {
+      for (const name of Object.keys(state.clients)) {
+        stopHealthChecks(name)
+      }
       await Promise.all(
         Object.values(state.clients).map((client) =>
           client.close().catch((error) => {
@@ -335,15 +349,42 @@ export namespace MCP {
       const connectTimeout = mcp.timeout ?? DEFAULT_TIMEOUT
       for (const { name, transport } of transports) {
         try {
-          const client = new Client({
-            name: "nikcli",
-            version: Installation.VERSION,
-          })
-          await withTimeout(client.connect(transport), connectTimeout)
+          const client = await withRetry(
+            async () => {
+              const c = new Client({
+                name: "nikcli",
+                version: Installation.VERSION,
+              })
+              await withTimeout(c.connect(transport), connectTimeout)
+              return c
+            },
+            {
+              maxAttempts: DEFAULT_RETRY_CONFIG.maxAttempts,
+              serverName: key,
+              onRetry: (attempt, delay, error) => {
+                log.debug("connection retry scheduled", { key, transport: name, attempt, delayMs: delay })
+                Bus.publish(Reconnecting, {
+                  server: key,
+                  attempt,
+                  maxAttempts: DEFAULT_RETRY_CONFIG.maxAttempts,
+                  delay,
+                })
+              },
+            },
+          )
           registerNotificationHandlers(client, key)
           mcpClient = client
           log.info("connected", { key, transport: name })
           status = { status: "connected" }
+          initializeHealth(key)
+          startHealthChecks(key, client, DEFAULT_HEALTH_CHECK_CONFIG, (serverName, health) => {
+            Bus.publish(HealthChanged, {
+              server: serverName,
+              healthy: health.healthy,
+              latencyMs: health.latencyMs ?? undefined,
+            })
+          })
+          Bus.publish(Connected, { server: key, type: "remote" })
           break
         } catch (error) {
           lastError = error instanceof Error ? error : new Error(String(error))
@@ -381,6 +422,10 @@ export namespace MCP {
             url: mcp.url,
             error: lastError.message,
           })
+          Bus.publish(ConnectionFailed, {
+            server: key,
+            error: lastError.message,
+          })
           status = {
             status: "failed" as const,
             error: lastError.message,
@@ -406,21 +451,52 @@ export namespace MCP {
 
       const connectTimeout = mcp.timeout ?? DEFAULT_TIMEOUT
       try {
-        const client = new Client({
-          name: "nikcli",
-          version: Installation.VERSION,
-        })
-        await withTimeout(client.connect(transport), connectTimeout)
+        const client = await withRetry(
+          async () => {
+            const c = new Client({
+              name: "nikcli",
+              version: Installation.VERSION,
+            })
+            await withTimeout(c.connect(transport), connectTimeout)
+            return c
+          },
+          {
+            maxAttempts: 3,
+            serverName: key,
+            onRetry: (attempt, delay, error) => {
+              log.debug("local connection retry scheduled", { key, attempt, delayMs: delay })
+              Bus.publish(Reconnecting, {
+                server: key,
+                attempt,
+                maxAttempts: 3,
+                delay,
+              })
+            },
+          },
+        )
         registerNotificationHandlers(client, key)
         mcpClient = client
         status = {
           status: "connected",
         }
+        initializeHealth(key)
+        startHealthChecks(key, client, DEFAULT_HEALTH_CHECK_CONFIG, (serverName, health) => {
+          Bus.publish(HealthChanged, {
+            server: serverName,
+            healthy: health.healthy,
+            latencyMs: health.latencyMs ?? undefined,
+          })
+        })
+        Bus.publish(Connected, { server: key, type: "local" })
       } catch (error) {
         log.error("local mcp startup failed", {
           key,
           command: mcp.command,
           cwd,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        Bus.publish(ConnectionFailed, {
+          server: key,
           error: error instanceof Error ? error.message : String(error),
         })
         status = {
@@ -533,6 +609,7 @@ export namespace MCP {
   export async function disconnect(name: string) {
     const s = await state()
     const client = s.clients[name]
+    stopHealthChecks(name)
     if (client) {
       await client.close().catch((error) => {
         log.error("Failed to close MCP client", { name, error })
@@ -540,6 +617,7 @@ export namespace MCP {
       delete s.clients[name]
     }
     s.status[name] = { status: "disabled" }
+    Bus.publish(Disconnected, { server: name, reason: "manual_disconnect" })
   }
 
   export async function tools() {
@@ -676,8 +754,7 @@ export namespace MCP {
     return result
   }
 
-  export async function
-    startAuth(mcpName: string): Promise<{ authorizationUrl: string }> {
+  export async function startAuth(mcpName: string): Promise<{ authorizationUrl: string }> {
     const cfg = await Config.get()
     const mcpConfig = cfg.mcp?.[mcpName]
 
@@ -856,5 +933,42 @@ export namespace MCP {
     if (!hasTokens) return "not_authenticated"
     const expired = await McpAuth.isTokenExpired(mcpName)
     return expired ? "expired" : "authenticated"
+  }
+
+  export async function getHealth(): Promise<Record<string, ServerHealth>> {
+    return getAllHealth()
+  }
+
+  export async function reconnect(name: string): Promise<Status> {
+    log.info("manual reconnect requested", { name })
+
+    stopHealthChecks(name)
+    const s = await state()
+    const existingClient = s.clients[name]
+    if (existingClient) {
+      await existingClient.close().catch((error) => {
+        log.error("Failed to close existing MCP client for reconnect", { name, error })
+      })
+      delete s.clients[name]
+    }
+
+    const cfg = await Config.get()
+    const config = cfg.mcp ?? {}
+    const mcpConfig = config[name]
+
+    if (!mcpConfig || !isMcpConfigured(mcpConfig)) {
+      const status = { status: "failed" as const, error: "Configuration not found" }
+      s.status[name] = status
+      return status
+    }
+
+    const result = await create(name, { ...mcpConfig, enabled: true })
+    s.status[name] = result.status
+
+    if (result.mcpClient) {
+      s.clients[name] = result.mcpClient
+    }
+
+    return result.status
   }
 }

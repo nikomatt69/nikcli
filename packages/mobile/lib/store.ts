@@ -64,6 +64,7 @@ const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   github: true,
   mcp: true,
   skills: true,
+  plugins: true,
   advanced: true,
   connectors: true,
   agents: true,

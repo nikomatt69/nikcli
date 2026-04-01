@@ -99,6 +99,7 @@ const SETTINGS_SECTIONS: Array<{ id: SettingsSectionID; label: string }> = [
   { id: "mcp", label: "MCP" },
   { id: "connectors", label: "Connectors" },
   { id: "skills", label: "Skills" },
+  { id: "plugins", label: "Plugins" },
   { id: "agents", label: "Agents" },
   { id: "tokens", label: "Tokens" },
   { id: "advanced", label: "Advanced" },
@@ -936,6 +937,16 @@ export default function SettingsScreen() {
                 title="Discovered skill catalog"
                 description="Browse the host skill registry with better focus than the inline overview can provide."
                 badges={[`${skills.length} skills`, "Host catalog"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.plugins ? (
+            <Link href="/settings/plugins" asChild>
+              <SettingsNavCard
+                eyebrow="Plugins"
+                title="Extensibility framework"
+                description="Install npm-based plugins to extend nikcli with hooks, tools, and additional capabilities."
+                badges={["npm packages", "Extensible"]}
               />
             </Link>
           ) : null}

@@ -1,14 +1,35 @@
-import * as Notifications from "expo-notifications"
+import { isRunningInExpoGo } from "expo"
 import { AppState, Platform } from "react-native"
 import { useUIStore } from "@/lib/store"
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-})
+let notificationsModule: typeof import("expo-notifications") | null | undefined
+let notificationHandlerConfigured = false
+
+function getNotificationsModule() {
+  if (Platform.OS === "web" || isRunningInExpoGo()) return null
+  if (notificationsModule !== undefined) return notificationsModule
+
+  try {
+    const Notifications = require("expo-notifications") as typeof import("expo-notifications")
+
+    if (!notificationHandlerConfigured) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: false,
+          shouldSetBadge: false,
+        }),
+      })
+      notificationHandlerConfigured = true
+    }
+
+    notificationsModule = Notifications
+    return Notifications
+  } catch {
+    notificationsModule = null
+    return null
+  }
+}
 
 const recentNotifications = new Map<string, number>()
 const MAX_DEDUPE_ENTRIES = 200
@@ -23,7 +44,9 @@ function canNotify(kind: "sessionReady" | "permissions" | "failures") {
 }
 
 export async function ensureNotificationPermissions(requestIfNeeded = false) {
-  if (Platform.OS === "web") return false
+  const Notifications = getNotificationsModule()
+  if (!Notifications) return false
+
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(MOBILE_CHANNEL_ID, {
       name: "Nikcli Mobile",
@@ -47,6 +70,9 @@ export async function sendLocalNotification(input: {
 }) {
   if (!canNotify(input.kind)) return false
   if (AppState.currentState === "active") return false
+
+  const Notifications = getNotificationsModule()
+  if (!Notifications) return false
 
   const granted = await ensureNotificationPermissions(false)
   if (!granted) return false

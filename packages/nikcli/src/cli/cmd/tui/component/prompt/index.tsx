@@ -50,6 +50,7 @@ import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
 import { DialogSubagent } from "@tui/routes/session/dialog-subagent"
+import { SessionCodebroSide } from "@tui/routes/session/codebro"
 import os from "os"
 import path from "path"
 import { rmSync } from "fs"
@@ -1694,6 +1695,11 @@ export function Prompt(props: PromptProps) {
         promptPartTypeId={() => promptPartTypeId}
       />
       <box ref={(r) => (anchor = r)} visible={props.visible !== false}>
+        <Show when={props.sessionID}>
+          <box flexDirection="row" justifyContent="flex-end" paddingRight={2} paddingBottom={1}>
+            <SessionCodebroSide sessionID={props.sessionID!} />
+          </box>
+        </Show>
         <box
           border={["left"]}
           borderColor={highlight()}

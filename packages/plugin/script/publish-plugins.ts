@@ -42,7 +42,13 @@ for (const plugin of plugins) {
       import: "./dist/index.js",
       types: "./dist/index.d.ts",
     },
+    "./tui": {
+      import: "./dist/index.js",
+      types: "./dist/index.d.ts",
+    },
   }
+  delete pkg.publishConfig
+  delete pkg.devDependencies
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
 
   process.stdout.write(`  ${plugin.padEnd(30)}`)
@@ -61,14 +67,11 @@ for (const plugin of plugins) {
     const tgz = readdirSync(pluginDir).find((f) => f.endsWith(".tgz"))
     if (!tgz) throw new Error("No .tgz found after pack")
 
-    const publish = Bun.spawnSync(
-      ["npm", "publish", tgz, "--tag", channel, "--access", "public"],
-      {
-        cwd: pluginDir,
-        stdout: "pipe",
-        stderr: "pipe",
-      },
-    )
+    const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+      cwd: pluginDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
 
     // Cleanup tarball
     rmSync(join(pluginDir, tgz))
@@ -76,7 +79,10 @@ for (const plugin of plugins) {
     const publishStderr = publish.stderr.toString()
     if (publish.exitCode !== 0) {
       // E409 = version already exists — treat as success
-      if (publishStderr.includes("E409") || publishStderr.includes("You cannot publish over the previously published versions")) {
+      if (
+        publishStderr.includes("E409") ||
+        publishStderr.includes("You cannot publish over the previously published versions")
+      ) {
         console.log(`✓  already published`)
       } else {
         throw new Error(publishStderr.trim() || "npm publish failed")

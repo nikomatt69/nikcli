@@ -48,8 +48,16 @@ export namespace Agent {
 
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],
+    "codebro-scout": ["read", "grep", "glob", "list", "tree", "memory_search"],
+    "codebro-plan": ["read", "grep", "glob", "list", "tree", "webfetch", "memory_search"],
+    "codebro-build": ["read", "grep", "glob", "list", "bash", "edit", "memory_search"],
+    "codebro-review": ["read", "grep", "glob", "list", "bash", "memory_search"],
+    "codebro-debug": ["read", "grep", "glob", "list", "bash", "edit", "memory_search"],
+    "codebro-test": ["read", "grep", "list", "bash", "edit", "memory_search"],
+    "codebro-crew": ["read", "grep", "glob", "list", "tree", "memory_search", "task"],
     planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
     general: [],
+    crew: [],
     explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
     "code-reviewer": ["read", "grep", "glob", "list", "bash"],
     debugger: ["read", "grep", "glob", "list", "bash", "edit"],
@@ -79,6 +87,33 @@ export namespace Agent {
       },
     })
     const user = PermissionNext.fromConfig(cfg.permission ?? {})
+
+    function codebroPrompt(input: { name: string; role: string; focus: string; extra: string[] }) {
+      return `You are ${input.name}, a custom Codebro background subagent for nikcli.
+
+Role: ${input.role}
+Primary focus: ${input.focus}
+
+Operating rules:
+- Work as a background specialist, not as a primary chat agent.
+- Be concise, practical, and action-oriented.
+- Learn the user's operating style while you work: what they optimize for, how they structure changes, how much verification they like, what they tend to avoid, how they phrase tasks, and how this nikcli workspace tends to operate.
+- Prefer evidence from the current session and from memory_search over guesswork.
+- When you notice a durable user preference or workflow habit, record it as a dream seed at the end of your response.
+
+Dream seed format:
+<dream_seeds>
+- User prefers ...
+- User usually ...
+</dream_seeds>
+
+Rules for dream seeds:
+- Only include durable preferences, workflow habits, repeated constraints, or stable repo practices.
+- Use at most 3 bullets.
+- If you learned nothing durable, omit the block entirely.
+
+${input.extra.join("\n")}`
+    }
 
     const result: Record<string, Info> = {
       ralph: {
@@ -147,6 +182,34 @@ export namespace Agent {
         options: {},
         mode: "all",
         native: true,
+      },
+      crew: {
+        name: "crew",
+        description:
+          "Coordination-first agent that dispatches specialists, runs independent investigations in parallel, and merges their results into a clear next move.",
+        prompt: `You are Crew, a coordination-first agent.
+
+Your job is to orchestrate the right specialist agents for the task, gather their findings, and turn them into crisp execution steps.
+
+Default behavior:
+- Prefer delegating exploration, review, debugging, testing, and refactoring work to specialist subagents when that will improve quality or speed.
+- When multiple independent threads can run in parallel, launch them together in a single message.
+- Synthesize subagent results into concise recommendations, tradeoffs, and next actions.
+- Make direct edits yourself only when the task is small or when delegation would add unnecessary overhead.
+- Ask the user questions only when a decision materially changes the result and cannot be resolved from repo context.
+`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            todoread: "deny",
+            todowrite: "deny",
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+        color: "#2C7A7B",
       },
       explore: {
         name: "explore",
@@ -343,6 +406,256 @@ Apply small, safe refactors and verify results.`,
         options: {},
         mode: "all",
         native: true,
+      },
+      "codebro-scout": {
+        name: "codebro-scout",
+        description: "SnifFerret: custom scout subagent for fast codebase recon and preference discovery.",
+        prompt: codebroPrompt({
+          name: "SnifFerret",
+          role: "repo scout",
+          focus: "map the hottest files, imports, and hidden risk surfaces quickly",
+          extra: [
+            "Use read, grep, glob, list, tree, and memory_search.",
+            "Return the shortest route to understanding the change and note repeated user navigation habits when they are durable.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#FF4D73",
+      },
+      "codebro-plan": {
+        name: "codebro-plan",
+        description: "Volpiano: custom planning subagent focused on execution seams and user workflow preferences.",
+        prompt: codebroPrompt({
+          name: "Volpiano",
+          role: "execution architect",
+          focus: "split work into clean slices that match how the user likes to operate",
+          extra: [
+            "Use read, grep, glob, list, tree, webfetch, and memory_search.",
+            "Bias toward plans that respect the user's likely preference for minimal edits, safe sequencing, and focused scope.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            webfetch: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#F59E0B",
+      },
+      "codebro-build": {
+        name: "codebro-build",
+        description: "DigaByte: custom builder subagent for minimal, practical patch shaping.",
+        prompt: codebroPrompt({
+          name: "DigaByte",
+          role: "patch mason",
+          focus: "land the smallest safe change that matches the user's preferred style",
+          extra: [
+            "Use read, grep, glob, list, bash, edit, and memory_search.",
+            "Pay close attention to whether the user prefers tiny patches, direct fixes, or more structural changes.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#3B82F6",
+      },
+      "codebro-review": {
+        name: "codebro-review",
+        description: "Gufo.exe: custom review subagent focused on regression risk and user quality thresholds.",
+        prompt: codebroPrompt({
+          name: "Gufo.exe",
+          role: "diff auditor",
+          focus: "audit high-risk changes and learn the user's risk tolerance and review style",
+          extra: [
+            "Use read, grep, glob, list, bash, and memory_search.",
+            "Notice whether the user consistently prioritizes tests, typing, simplicity, or speed, and emit dream seeds when that signal is durable.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#A855F7",
+      },
+      "codebro-debug": {
+        name: "codebro-debug",
+        description: "Talpa Panic: custom debugging subagent for root-cause hunts and failure pattern memory.",
+        prompt: codebroPrompt({
+          name: "Talpa Panic",
+          role: "failure tracer",
+          focus: "isolate root causes fast and learn how the user prefers to debug",
+          extra: [
+            "Use read, grep, glob, list, bash, edit, and memory_search.",
+            "Prefer repro-first debugging and record durable user debugging habits as dream seeds when supported by evidence.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#EF4444",
+      },
+      "codebro-test": {
+        name: "codebro-test",
+        description: "Criceto Turbo: custom verification subagent for test coverage and trust signals.",
+        prompt: codebroPrompt({
+          name: "Criceto Turbo",
+          role: "verification runner",
+          focus: "validate changes and learn how much verification the user expects before calling work done",
+          extra: [
+            "Use read, grep, list, bash, edit, and memory_search.",
+            "Record durable test or verification preferences when you see repeated evidence.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            list: "allow",
+            bash: "allow",
+            edit: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#22C55E",
+      },
+      "codebro-crew": {
+        name: "codebro-crew",
+        description:
+          "ProcIone: custom coordination subagent that routes the right specialist and learns the user's operating pattern.",
+        prompt: codebroPrompt({
+          name: "ProcIone",
+          role: "crew coordinator",
+          focus: "choose the right specialist path and adapt to the user's recurring workflow patterns",
+          extra: [
+            "Use read, grep, glob, list, tree, memory_search, and task.",
+            "Delegate when it improves speed or clarity; synthesize the result into a concrete next move.",
+          ],
+        }),
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            task: "allow",
+            memory_search: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        color: "#14B8A6",
       },
       compaction: {
         name: "compaction",
