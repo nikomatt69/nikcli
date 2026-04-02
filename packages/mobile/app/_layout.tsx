@@ -13,6 +13,7 @@ import { getAppPreferences } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
 import { palettes } from "@/lib/theme"
 import { setupAppStateListener, setupLiveActivityListeners, ensureNotificationSupport } from "@/lib/live-activity"
+import { DynamicIslandProvider } from "@/components/DynamicIsland"
 
 export default function RootLayout() {
   const { colorScheme, setColorScheme } = useColorScheme()
@@ -48,19 +49,21 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <GlobalErrorBoundary>
           <ServerProvider>
-            <StatusBar style={colorScheme === "light" ? "dark" : "light"} />
-            <Stack
-              screenOptions={{
-                headerStyle: { backgroundColor: palette.background },
-                headerTintColor: palette.ink,
-                headerShadowVisible: false,
-                contentStyle: { backgroundColor: palette.background },
-              }}
-            >
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(app)" options={{ headerShown: false }} />
-              <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
-            </Stack>
+            <DynamicIslandProvider>
+              <StatusBar style={colorScheme === "light" ? "dark" : "light"} />
+              <Stack
+                screenOptions={{
+                  headerStyle: { backgroundColor: palette.background },
+                  headerTintColor: palette.ink,
+                  headerShadowVisible: false,
+                  contentStyle: { backgroundColor: palette.background },
+                }}
+              >
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(app)" options={{ headerShown: false }} />
+                <Stack.Screen name="+not-found" options={{ title: "Not found" }} />
+              </Stack>
+            </DynamicIslandProvider>
           </ServerProvider>
         </GlobalErrorBoundary>
       </SafeAreaProvider>

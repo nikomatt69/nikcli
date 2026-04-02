@@ -1246,6 +1246,10 @@ export type KeybindsConfig = {
    */
   session_interrupt?: string
   /**
+   * Open the Codebro dossier
+   */
+  session_codebro_open?: string
+  /**
    * Background current subtask and return to parent session
    */
   subtask_background?: string
@@ -2294,17 +2298,17 @@ export type Config = {
      */
     continue_loop_on_deny?: boolean
     /**
-     * Enable automatic memory consolidation (dream) feature
+     * Enable automatic memory consolidation (brain) feature
      */
-    dream?: boolean
+    brain?: boolean
     /**
-     * Minimum hours between dream consolidation runs
+     * Minimum hours between brain consolidation runs
      */
-    dreamMinHours?: number
+    brainMinHours?: number
     /**
-     * Minimum number of sessions to trigger dream consolidation
+     * Minimum number of sessions to trigger brain consolidation
      */
-    dreamMinSessions?: number
+    brainMinSessions?: number
     /**
      * Enable memory file support for session context
      */

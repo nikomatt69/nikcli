@@ -6,6 +6,9 @@ import {
   setupLiveActivityListeners,
   isLiveActivitySupported,
   inferAgentType,
+  addPermissionToActivity,
+  removePermissionFromActivity,
+  accumulateTokensToActivity,
   type AgentType,
   type SubAgentStatus,
   type ToolExecution,
@@ -234,6 +237,30 @@ export function useAgentLiveActivity(options: UseAgentLiveActivityOptions) {
 
           if (part.type === "patch") {
             updateActivityFn("working", "Applying changes...")
+          }
+
+          if (part.type === "step-finish") {
+            const sf = part as { cost: number; tokens: { input: number; output: number } }
+            if (options.sessionId) {
+              accumulateTokensToActivity(options.sessionId, sf.tokens.input, sf.tokens.output, sf.cost)
+            }
+          }
+          break
+        }
+
+        case "permission.asked": {
+          const perm = event.properties as { id: string; permission: string }
+          if (options.sessionId && perm.id) {
+            addPermissionToActivity(options.sessionId, perm.id, perm.permission)
+            updateActivityFn("reviewing", `Permission: ${perm.permission}`)
+          }
+          break
+        }
+
+        case "permission.replied": {
+          const replied = event.properties as { requestID: string }
+          if (options.sessionId && replied.requestID) {
+            removePermissionFromActivity(options.sessionId, replied.requestID)
           }
           break
         }

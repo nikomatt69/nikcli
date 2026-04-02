@@ -3,13 +3,13 @@ import { useKV } from "../../context/kv"
 import { useTheme } from "../../context/theme"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 
-type DreamOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled"
+type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled"
 
-const DREAM_OPTIONS: { value: DreamOption; title: string; key: string }[] = [
-  { value: "enabled", title: "Enable Brain", key: "dream_enabled" },
-  { value: "minHours", title: "Min Hours", key: "dream_min_hours" },
-  { value: "minSessions", title: "Min Sessions", key: "dream_min_sessions" },
-  { value: "memoryEnabled", title: "Memory Consolidation", key: "dream_memory_enabled" },
+const BRAIN_OPTIONS: { value: BrainOption; title: string; key: string }[] = [
+  { value: "enabled", title: "Enable Brain", key: "brain_enabled" },
+  { value: "minHours", title: "Min Hours", key: "brain_min_hours" },
+  { value: "minSessions", title: "Min Sessions", key: "brain_min_sessions" },
+  { value: "memoryEnabled", title: "Memory Consolidation", key: "brain_memory_enabled" },
 ]
 
 export function DialogSettingsBrain() {
@@ -34,7 +34,7 @@ export function DialogSettingsBrain() {
     }
   })
 
-  const options = (): DialogSelectOption<DreamOption>[] => [
+  const options = (): DialogSelectOption<BrainOption>[] => [
     {
       title: "Enable Brain",
       value: "enabled",
@@ -57,7 +57,7 @@ export function DialogSettingsBrain() {
     },
   ]
 
-  const cycleValue = (option: DreamOption) => {
+  const cycleValue = (option: BrainOption) => {
     switch (option) {
       case "enabled":
         setBrainEnabled((v) => {

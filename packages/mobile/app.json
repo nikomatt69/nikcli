@@ -42,7 +42,8 @@
         {
           "enablePushNotifications": true
         }
-      ]
+      ],
+      "./plugin/withNikcliLiveActivity"
     ],
     "experiments": {
       "typedRoutes": true

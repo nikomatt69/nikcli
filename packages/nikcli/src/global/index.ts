@@ -2,6 +2,7 @@ import fs from "fs/promises"
 import { xdgData, xdgCache, xdgConfig, xdgState } from "xdg-basedir"
 import path from "path"
 import os from "os"
+import { Log } from "../util/log"
 
 const app = "nikcli"
 
@@ -52,6 +53,8 @@ if (version !== CACHE_VERSION) {
         }),
       ),
     )
-  } catch (e) {}
+  } catch (e) {
+    Log.create({ service: "global" }).warn("failed to clear cache directory", { error: e })
+  }
   await Bun.file(path.join(Global.Path.cache, "version")).write(CACHE_VERSION)
 }

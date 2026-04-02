@@ -68,6 +68,9 @@ plugin({
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
 
+  // Cache for initialized tools, keyed by "providerID:modelID:agentName"
+  const toolsCache = new Map<string, Awaited<ReturnType<typeof initializeTools>>>()
+
   export const state = Instance.state(async () => {
     const custom = [] as Tool.Info[]
     const glob = new Bun.Glob("{tool,tools}/*.{js,ts}")
@@ -121,9 +124,11 @@ export namespace ToolRegistry {
     const idx = custom.findIndex((t) => t.id === tool.id)
     if (idx >= 0) {
       custom.splice(idx, 1, tool)
-      return
+    } else {
+      custom.push(tool)
     }
-    custom.push(tool)
+    // Invalidate cache when custom tools change
+    toolsCache.clear()
   }
 
   async function all(): Promise<Tool.Info[]> {
@@ -175,19 +180,12 @@ export namespace ToolRegistry {
     ]
   }
 
-  export async function ids() {
-    return all().then((x) => x.map((t) => t.id))
-  }
-
-  export async function tools(
-    model: {
-      providerID: string
-      modelID: string
-    },
-    agent?: Agent.Info,
+  async function initializeTools(
+    model: { providerID: string; modelID: string },
+    agent: Agent.Info | undefined,
+    tools: Tool.Info[],
   ) {
-    const tools = await all()
-    const result = await Promise.all(
+    return Promise.all(
       tools
         .filter((t) => {
           if (t.id === "codesearch" || t.id === "websearch") {
@@ -209,6 +207,30 @@ export namespace ToolRegistry {
           }
         }),
     )
+  }
+
+  export async function ids() {
+    return all().then((x) => x.map((t) => t.id))
+  }
+
+  export async function tools(
+    model: {
+      providerID: string
+      modelID: string
+    },
+    agent?: Agent.Info,
+  ) {
+    // Cache key based on model and agent identity
+    const cacheKey = `${model.providerID}:${model.modelID}:${agent?.name ?? ""}`
+    const cached = toolsCache.get(cacheKey)
+    if (cached) return cached
+
+    const allTools = await all()
+    const result = await initializeTools(model, agent, allTools)
+
+    // Cache the result (tools are re-initialized per-agent, so cache by agent identity)
+    toolsCache.set(cacheKey, result)
+
     return result
   }
 }

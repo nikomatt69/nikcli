@@ -24,6 +24,7 @@ const DEFAULTS: BrainConfig = {
 }
 
 const LOCK_FILE = ".brain-lock"
+const LOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
 
 function memoryPath(): string {
   return path.join(Instance.directory, ".github", "instructions", "memory.instruction.md")
@@ -40,8 +41,8 @@ export async function isMemoryEnabled(): Promise<boolean> {
 
 export async function isBrainEnabled(): Promise<boolean> {
   const config = await Config.get()
-  if (config.experimental?.dream === false) return false
-  if (config.experimental?.dream === true) return true
+  if (config.experimental?.brain === false) return false
+  if (config.experimental?.brain === true) return true
   return DEFAULTS.enabled
 }
 
@@ -81,7 +82,7 @@ export async function tryAcquireBrainLock(): Promise<number | null> {
   const lock = lockPath()
   try {
     const s = await fs.stat(lock)
-    if (Date.now() - s.mtimeMs < 60 * 60 * 1000) {
+    if (Date.now() - s.mtimeMs < LOCK_DURATION_MS) {
       return null
     }
     await fs.writeFile(lock, String(process.pid))
@@ -139,10 +140,10 @@ export async function getBrainConfig(): Promise<BrainConfig> {
   const config = await Config.get()
   const experimental = config.experimental ?? {}
   return {
-    minHours: typeof experimental.dreamMinHours === "number" ? experimental.dreamMinHours : DEFAULTS.minHours,
+    minHours: typeof experimental.brainMinHours === "number" ? experimental.brainMinHours : DEFAULTS.minHours,
     minSessions:
-      typeof experimental.dreamMinSessions === "number" ? experimental.dreamMinSessions : DEFAULTS.minSessions,
-    enabled: experimental.dream !== undefined ? experimental.dream !== false : DEFAULTS.enabled,
+      typeof experimental.brainMinSessions === "number" ? experimental.brainMinSessions : DEFAULTS.minSessions,
+    enabled: experimental.brain !== undefined ? experimental.brain !== false : DEFAULTS.enabled,
     memoryEnabled: experimental.memory !== undefined ? experimental.memory !== false : DEFAULTS.memoryEnabled,
   }
 }
@@ -166,6 +167,7 @@ export namespace Brain {
   let lastSessionScanAt = 0
 
   const SCAN_THROTTLE_MS = 10 * 60 * 1000
+  const HOUR_MS = 60 * 60 * 1000
 
   export async function shouldTrigger(): Promise<boolean> {
     if (!(await isBrainEnabled())) return false
@@ -181,7 +183,7 @@ export namespace Brain {
       return false
     }
 
-    const hoursSince = (Date.now() - lastAt) / 3_600_000
+    const hoursSince = (Date.now() - lastAt) / HOUR_MS
     if (hoursSince < cfg.minHours) return false
 
     const sinceScanMs = Date.now() - lastSessionScanAt
@@ -219,7 +221,7 @@ export namespace Brain {
       return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: String(e) }
     }
 
-    const hoursSince = (Date.now() - lastAt) / 3_600_000
+    const hoursSince = (Date.now() - lastAt) / HOUR_MS
 
     let priorMtime: number | null
     try {
@@ -291,7 +293,7 @@ export namespace Brain {
   export function buildBrainPrompt(memoryPath: string, sessionIds: string[], currentMemory: string): string {
     return `# Brain: Memory Consolidation
 
-You are performing a dream — a reflective pass over your memory files. Synthesize what you've learned recently into durable, well-organized memories so that future sessions can orient quickly.
+You are performing a brain — a reflective pass over your memory files. Synthesize what you've learned recently into durable, well-organized memories so that future sessions can orient quickly.
 
 Memory directory: \`${memoryPath}\`
 

@@ -38,6 +38,20 @@ export interface AgentActivity {
   startTime: number
   lastUpdate: number
   notificationId?: string
+  pendingPermissions: Array<{ id: string; text: string }>
+  totalInputTokens: number
+  totalOutputTokens: number
+  totalCost: number
+}
+
+type LiveActivityStatePayload = {
+  title: string
+  subtitle?: string
+  progressBar?: {
+    progress?: number
+  }
+  imageName?: string
+  dynamicIslandImageName?: string
 }
 
 const activeActivities = new Map<string, AgentActivity>()
@@ -130,12 +144,12 @@ const AGENT_LABELS: Record<AgentType, string> = {
 }
 
 const STATUS_CONFIG: Record<SubAgentStatus, { color: string; icon: string; haptic?: "success" | "error" }> = {
-  launching: { color: "#94a3b8", icon: "🚀" },
-  thinking: { color: "#a78bfa", icon: "🤔" },
-  working: { color: "#38bdf8", icon: "⚡" },
-  reviewing: { color: "#fbbf24", icon: "👀" },
-  completed: { color: "#4ade80", icon: "✅", haptic: "success" },
-  failed: { color: "#f87171", icon: "❌", haptic: "error" },
+  launching: { color: "#7C8A9A", icon: "🚀" },
+  thinking: { color: "#4EA1FF", icon: "🤔" },
+  working: { color: "#23B5FF", icon: "⚡" },
+  reviewing: { color: "#F3A645", icon: "👀" },
+  completed: { color: "#38C98F", icon: "✅", haptic: "success" },
+  failed: { color: "#F87070", icon: "❌", haptic: "error" },
 }
 
 const recentNotifications = new Map<string, number>()
@@ -216,29 +230,71 @@ function playHapticFeedback(status: SubAgentStatus): void {
   }
 }
 
-function getActivityState(activity: AgentActivity): {
-  title: string
-  subtitle: string
-  imageName?: string
-  dynamicIslandImageName?: string
-} {
-  const agentIcon = AGENT_ICONS[activity.agentType]
+function formatCost(cost: number): string | undefined {
+  if (cost <= 0) return undefined
+  if (cost < 0.001) return "<$0.001"
+  if (cost < 0.01) return `$${cost.toFixed(4)}`
+  return `$${cost.toFixed(3)}`
+}
 
-  let title = `${agentIcon} ${activity.agentName}`
-  let subtitle = activity.progressMessage || getDefaultSubtitle(activity.status)
+function clampProgress(progress: number): number {
+  return Math.min(1, Math.max(0, progress))
+}
 
-  if (activity.tool && activity.tool.status === "running") {
-    subtitle = `${activity.tool.name}...`
+function getActivityProgress(activity: AgentActivity): number | undefined {
+  if (activity.status === "completed") return 1
+  if (activity.status === "failed") return undefined
+
+  if (activity.progress !== undefined && activity.progress > 0) {
+    return clampProgress(activity.progress)
   }
 
-  const toolCount = activity.tools.filter((t) => t.status === "completed").length
-  if (toolCount > 0 && activity.tools.length > 0) {
-    subtitle = `${toolCount}/${activity.tools.length} tools`
+  const totalTools = activity.tools.length
+  if (totalTools === 0) return undefined
+
+  const completedTools = activity.tools.filter((tool) => tool.status === "completed").length
+  const hasRunningTool = activity.tools.some((tool) => tool.status === "running")
+  const baseProgress = completedTools / totalTools
+  const runningBump = hasRunningTool ? 0.18 / totalTools : 0
+
+  return clampProgress(baseProgress + runningBump)
+}
+
+function getActivityTitle(activity: AgentActivity): string {
+  if (activity.pendingPermissions.length > 0) return "Approval required"
+  return activity.agentName
+}
+
+function getActivitySubtitle(activity: AgentActivity): string {
+  if (activity.pendingPermissions.length > 0) {
+    return activity.pendingPermissions[0]?.text || "A privileged action needs confirmation"
   }
+
+  const completedTools = activity.tools.filter((tool) => tool.status === "completed").length
+  const detail =
+    activity.tool?.status === "running"
+      ? `Running ${activity.tool.name}`
+      : activity.tool?.status === "completed"
+        ? `${activity.tool.name} finished`
+        : activity.tool?.status === "error"
+          ? `${activity.tool.name} failed`
+          : activity.progressMessage || getDefaultSubtitle(activity.status)
+
+  const summary =
+    activity.tools.length > 1
+      ? `${completedTools}/${activity.tools.length} tools`
+      : formatCost(activity.totalCost)
+
+  return [detail, summary].filter(Boolean).join(" • ")
+}
+
+function getActivityState(activity: AgentActivity): LiveActivityStatePayload {
+  const progress = getActivityProgress(activity)
 
   return {
-    title,
-    subtitle,
+    title: getActivityTitle(activity),
+    subtitle: getActivitySubtitle(activity),
+    progressBar: progress !== undefined ? { progress } : undefined,
     imageName: getAgentImageName(activity.agentType),
     dynamicIslandImageName: getAgentImageName(activity.agentType),
   }
@@ -260,21 +316,20 @@ function getAgentImageName(agentType: AgentType): string {
 
 function getDefaultSubtitle(status: SubAgentStatus): string {
   const subtitles: Record<SubAgentStatus, string> = {
-    launching: "Initializing...",
-    thinking: "Analyzing...",
-    working: "Executing...",
-    reviewing: "Reviewing...",
-    completed: "Done",
-    failed: "Error",
+    launching: "Preparing workspace",
+    thinking: "Analyzing request",
+    working: "Executing task",
+    reviewing: "Reviewing output",
+    completed: "Completed successfully",
+    failed: "Needs attention",
   }
   return subtitles[status]
 }
 
 function getBackgroundColor(status: SubAgentStatus): string {
-  if (status === "completed") return "#052e16"
-  if (status === "failed") return "#450a0a"
-  if (status === "thinking") return "#1e1b4b"
-  return "#0c1929"
+  if (status === "completed") return "#07110D"
+  if (status === "failed") return "#16090A"
+  return "#050608"
 }
 
 function getLiveActivityConfig(activity: AgentActivity) {
@@ -288,9 +343,9 @@ function getLiveActivityConfig(activity: AgentActivity) {
     timerType: "digital" as const,
     imagePosition: "left" as const,
     imageAlign: "center" as const,
-    imageSize: { width: 48, height: 48 },
+    imageSize: { width: 42, height: 42 },
     contentFit: "contain" as const,
-    padding: { horizontal: 16, top: 12, bottom: 12 },
+    padding: { top: 16, bottom: 16, left: 16, right: 16 },
   }
 }
 
@@ -334,7 +389,6 @@ async function updateLiveActivityInternal(activity: AgentActivity): Promise<void
   const module = require("expo-live-activity")
   try {
     const state = getActivityState(activity)
-    const config = getLiveActivityConfig(activity)
     module.updateActivity(activity.id, state)
   } catch (error) {
     console.warn("Failed to update Live Activity:", error)
@@ -366,13 +420,12 @@ async function startLiveActivity(activity: AgentActivity): Promise<boolean> {
   }
 }
 
-async function stopLiveActivityInternal(activity: AgentActivity, status: "completed" | "failed"): Promise<void> {
+async function stopLiveActivityInternal(activity: AgentActivity, _status: "completed" | "failed"): Promise<void> {
   if (!isLiveActivitySupported()) return
 
   const module = require("expo-live-activity")
   try {
     const state = getActivityState(activity)
-    const config = getLiveActivityConfig(activity)
     module.stopActivity(activity.id, state)
   } catch (error) {
     console.warn("Failed to stop Live Activity:", error)
@@ -399,6 +452,10 @@ export async function startAgentActivity(input: {
     tools: [],
     startTime: Date.now(),
     lastUpdate: Date.now(),
+    pendingPermissions: [],
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCost: 0,
   }
 
   await startLiveActivity(activity)
@@ -558,6 +615,39 @@ export function setupLiveActivityListeners(): () => void {
   } catch {
     return () => {}
   }
+}
+
+export function addPermissionToActivity(sessionId: string, permissionId: string, text: string): void {
+  const activity = activeActivities.get(sessionId)
+  if (!activity) return
+  if (!activity.pendingPermissions.find((p) => p.id === permissionId)) {
+    activity.pendingPermissions.push({ id: permissionId, text })
+  }
+  activity.lastUpdate = Date.now()
+  void updateLiveActivityInternal(activity)
+}
+
+export function removePermissionFromActivity(sessionId: string, permissionId: string): void {
+  const activity = activeActivities.get(sessionId)
+  if (!activity) return
+  activity.pendingPermissions = activity.pendingPermissions.filter((p) => p.id !== permissionId)
+  activity.lastUpdate = Date.now()
+  void updateLiveActivityInternal(activity)
+}
+
+export function accumulateTokensToActivity(
+  sessionId: string,
+  inputTokens: number,
+  outputTokens: number,
+  cost: number,
+): void {
+  const activity = activeActivities.get(sessionId)
+  if (!activity) return
+  activity.totalInputTokens += inputTokens
+  activity.totalOutputTokens += outputTokens
+  activity.totalCost += cost
+  activity.lastUpdate = Date.now()
+  void updateLiveActivityInternal(activity)
 }
 
 export { AGENT_ICONS, AGENT_LABELS, STATUS_CONFIG }

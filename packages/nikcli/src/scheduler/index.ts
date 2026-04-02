@@ -42,20 +42,31 @@ export namespace Scheduler {
     const current = entry.timers.get(task.id)
     if (current && scope === "global") return
     if (current) clearInterval(current)
+    const directory = scope === "global" ? undefined : Instance.directory
+    const execute = async (): Promise<void> => {
+      if (!directory) {
+        await task.run()
+        return
+      }
+      await Instance.provide({
+        directory,
+        fn: task.run,
+      })
+    }
 
     entry.tasks.set(task.id, task)
-    void run(task)
+    void run(task.id, execute)
     const timer = setInterval(() => {
-      void run(task)
+      void run(task.id, execute)
     }, task.interval)
     timer.unref()
     entry.timers.set(task.id, timer)
   }
 
-  async function run(task: Task) {
-    log.info("run", { id: task.id })
-    await task.run().catch((error) => {
-      log.error("run failed", { id: task.id, error })
+  async function run(id: string, execute: () => Promise<void>) {
+    log.info("run", { id })
+    await execute().catch((error) => {
+      log.error("run failed", { id, error })
     })
   }
 }

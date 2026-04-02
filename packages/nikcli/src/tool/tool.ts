@@ -5,9 +5,13 @@ import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
 
 export namespace Tool {
-  interface Metadata {
-    [key: string]: any
-  }
+  // Base metadata record type - allows any string keys with unknown values
+  // Tools can extend this with their own metadata schema
+  export type Metadata = Record<string, unknown>
+
+  // Strict metadata interface for tools that need typed metadata
+  // Use z.record(z.string(), z.unknown()) for the schema
+  export interface StrictMetadata extends z.ZodType<Record<string, unknown>> {}
 
   export interface InitContext {
     agent?: Agent.Info
@@ -19,7 +23,7 @@ export namespace Tool {
     agent: string
     abort: AbortSignal
     callID?: string
-    extra?: { [key: string]: any }
+    extra?: Record<string, unknown>
     metadata(input: { title?: string; metadata?: M }): void
     ask(input: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">): Promise<void>
   }

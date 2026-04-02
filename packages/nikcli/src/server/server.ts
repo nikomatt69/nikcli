@@ -640,7 +640,8 @@ export namespace Server {
                 await stream.writeSSE({
                   data: JSON.stringify(event),
                 })
-                if (event.type === Bus.InstanceDisposed.type) {
+                const evt = event as { type?: string }
+                if (evt?.type === Bus.InstanceDisposed.type) {
                   stream.close()
                 }
               })

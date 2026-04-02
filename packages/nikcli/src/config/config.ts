@@ -101,12 +101,12 @@ export namespace Config {
       // Only scan project .nikcli/ directories when project discovery is enabled
       ...(!Flag.NIKCLI_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
-            Filesystem.up({
-              targets: [".nikcli"],
-              start: Instance.directory,
-              stop: Instance.worktree,
-            }),
-          )
+          Filesystem.up({
+            targets: [".nikcli"],
+            start: Instance.directory,
+            stop: Instance.worktree,
+          }),
+        )
         : []),
       // Always scan ~/.nikcli/ (user home directory)
       ...(await Array.fromAsync(
@@ -214,11 +214,11 @@ export namespace Config {
       {
         cwd: dir,
       },
-    ).catch(() => {})
+    ).catch(() => { })
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
-    await BunProc.run(["install"], { cwd: dir }).catch(() => {})
+    await BunProc.run(["install"], { cwd: dir }).catch(() => { })
   }
 
   function rel(item: string, patterns: string[]) {
@@ -1315,19 +1315,19 @@ export namespace Config {
             .optional()
             .describe("Tools that should only be available to primary agents."),
           continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
-          dream: z.boolean().optional().describe("Enable automatic memory consolidation (dream) feature"),
-          dreamMinHours: z
+          brain: z.boolean().optional().describe("Enable automatic memory consolidation (brain) feature"),
+          brainMinHours: z
             .number()
             .int()
             .positive()
             .optional()
-            .describe("Minimum hours between dream consolidation runs"),
-          dreamMinSessions: z
+            .describe("Minimum hours between brain consolidation runs"),
+          brainMinSessions: z
             .number()
             .int()
             .positive()
             .optional()
-            .describe("Minimum number of sessions to trigger dream consolidation"),
+            .describe("Minimum number of sessions to trigger brain consolidation"),
           memory: z.boolean().optional().describe("Enable memory file support for session context"),
           mcp_timeout: z
             .number()
@@ -1464,7 +1464,7 @@ export namespace Config {
         await Bun.write(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
         await fs.unlink(path.join(Global.Path.config, "config"))
       })
-      .catch(() => {})
+      .catch(() => { })
 
     return result
   })
@@ -1554,7 +1554,7 @@ export namespace Config {
         parsed.data.$schema = "https://nikcli.store/config.json"
         // Write the $schema to the original text to preserve variables like {env:VAR}
         const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://nikcli.store/config.json",')
-        await Bun.write(configFilepath, updated).catch(() => {})
+        await Bun.write(configFilepath, updated).catch(() => { })
       }
       const data = parsed.data
       if (data.plugin) {
@@ -1562,7 +1562,9 @@ export namespace Config {
           const plugin = data.plugin[i]
           try {
             data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
-          } catch (err) {}
+          } catch (err) {
+            log.warn("failed to resolve plugin path", { plugin, error: err })
+          }
         }
       }
       return data

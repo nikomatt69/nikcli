@@ -6,6 +6,7 @@ import { useConnected } from "../../component/dialog-model"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
 import { useKV } from "../../context/kv"
+import { readLastBrainAt } from "@/brain"
 
 export function Footer() {
   const { theme } = useTheme()
@@ -23,9 +24,9 @@ export function Footer() {
   const directory = useDirectory()
   const connected = useConnected()
 
-  const dreamEnabled = createMemo(() => kv.get("dream_enabled", true))
-  const [dreamLastAt, setDreamLastAt] = createSignal(0)
-  const [dreamSessionsPending, setDreamSessionsPending] = createSignal(0)
+  const brainEnabled = createMemo(() => kv.get("brain_enabled", true))
+  const [brainLastAt, setBrainLastAt] = createSignal(0)
+  const [brainSessionsPending, setBrainSessionsPending] = createSignal(0)
 
   const [store, setStore] = createStore({
     welcome: false,
@@ -46,25 +47,25 @@ export function Footer() {
   onMount(() => {
     void (async () => {
       try {
-        const { readLastDreamAt, getSessionsCountSince } = await import("@/dream")
-        const lastAt = await readLastDreamAt()
-        setDreamLastAt(lastAt)
+        const { readLastBrainAt, getSessionsCountSince } = await import("@/brain")
+        const lastAt = await readLastBrainAt()
+        setBrainLastAt(lastAt)
         if (lastAt > 0) {
           const count = await getSessionsCountSince(lastAt)
-          setDreamSessionsPending(count)
+          setBrainSessionsPending(count)
         }
       } catch {
-        // dream not available
+        // brain not available
       }
     })()
   })
 
-  const dreamStatus = createMemo(() => {
-    if (!dreamEnabled()) return null
-    const lastAt = dreamLastAt()
+  const brainStatus = createMemo(() => {
+    if (!brainEnabled()) return null
+    const lastAt = brainLastAt()
     if (lastAt === 0) return { hours: 0, sessions: 0, never: true }
     const hours = Math.round((Date.now() - lastAt) / 3_600_000)
-    return { hours, sessions: dreamSessionsPending(), never: false }
+    return { hours, sessions: brainSessionsPending(), never: false }
   })
 
   const vimModeEnabled = createMemo(() => kv.get("vim_mode", false))
@@ -93,17 +94,17 @@ export function Footer() {
                 {permissions().length > 1 ? "s" : ""}
               </text>
             </Show>
-            <Show when={dreamEnabled() && dreamStatus()}>
+            <Show when={brainEnabled() && brainStatus()}>
               <text fg={theme.text}>
-                <span style={{ fg: theme.textMuted }}>Dream: </span>
-                {dreamStatus()!.never ? "never" : `${dreamStatus()!.hours}h ago`}
-                {dreamStatus()!.sessions > 0 && (
-                  <span style={{ fg: theme.success }}> ({dreamStatus()!.sessions} sessions)</span>
+                <span style={{ fg: theme.textMuted }}>Brain: </span>
+                {brainStatus()!.never ? "never" : `${brainStatus()!.hours}h ago`}
+                {brainStatus()!.sessions > 0 && (
+                  <span style={{ fg: theme.success }}> ({brainStatus()!.sessions} sessions)</span>
                 )}
               </text>
             </Show>
-            <Show when={dreamEnabled() && !dreamStatus()}>
-              <text fg={theme.textMuted}>Dream: ...</text>
+            <Show when={brainEnabled() && !brainStatus()}>
+              <text fg={theme.textMuted}>Brain: ...</text>
             </Show>
             <text fg={theme.text}>
               <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP

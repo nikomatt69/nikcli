@@ -20,6 +20,45 @@ export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
 
+  // Delta buffer settings for performance optimization
+  const DELTA_FLUSH_THRESHOLD = 100 // Flush after accumulating 100 chars
+  const DELTA_FLUSH_INTERVAL_MS = 500 // Or flush every 500ms
+
+  // Separate buffer types for text and reasoning parts
+  interface TextDeltaBuffer {
+    part: MessageV2.TextPart
+    accumulated: string
+    lastFlush: number
+  }
+
+  interface ReasoningDeltaBuffer {
+    part: MessageV2.ReasoningPart
+    accumulated: string
+    lastFlush: number
+  }
+
+  function createTextBuffer(part: MessageV2.TextPart): TextDeltaBuffer {
+    return { part, accumulated: "", lastFlush: Date.now() }
+  }
+
+  function createReasoningBuffer(part: MessageV2.ReasoningPart): ReasoningDeltaBuffer {
+    return { part, accumulated: "", lastFlush: Date.now() }
+  }
+
+  async function flushTextBuffer(buffer: TextDeltaBuffer): Promise<void> {
+    if (buffer.accumulated.length === 0) return
+    await Session.updatePart({ part: buffer.part, delta: buffer.accumulated })
+    buffer.accumulated = ""
+    buffer.lastFlush = Date.now()
+  }
+
+  async function flushReasoningBuffer(buffer: ReasoningDeltaBuffer): Promise<void> {
+    if (buffer.accumulated.length === 0) return
+    await Session.updatePart({ part: buffer.part, delta: buffer.accumulated })
+    buffer.accumulated = ""
+    buffer.lastFlush = Date.now()
+  }
+
   export type Info = Awaited<ReturnType<typeof create>>
   export type Result = Awaited<ReturnType<Info["process"]>>
 
@@ -46,10 +85,54 @@ export namespace SessionProcessor {
         log.info("process")
         needsCompaction = false
         const shouldBreak = (await Config.get()).experimental?.continue_loop_on_deny !== true
+
+        // Declare buffer variables outside try block so catch can access them
+        let currentText: MessageV2.TextPart | undefined
+        let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+        let reasoningBuffer: Record<string, ReasoningDeltaBuffer> = {}
+        let textBuffer: TextDeltaBuffer | undefined
+        let flushTimer: ReturnType<typeof setInterval> | undefined
+
+        // Start flush timer for buffered deltas
+        const startFlushTimer = () => {
+          if (flushTimer) clearInterval(flushTimer)
+          flushTimer = setInterval(async () => {
+            const now = Date.now()
+            // Flush text buffer if stale
+            if (textBuffer && now - textBuffer.lastFlush >= DELTA_FLUSH_INTERVAL_MS) {
+              await flushTextBuffer(textBuffer)
+            }
+            // Flush reasoning buffers if stale
+            for (const buffer of Object.values(reasoningBuffer)) {
+              if (now - buffer.lastFlush >= DELTA_FLUSH_INTERVAL_MS) {
+                await flushReasoningBuffer(buffer)
+              }
+            }
+          }, DELTA_FLUSH_INTERVAL_MS)
+          flushTimer.unref()
+        }
+
+        const stopFlushTimer = async () => {
+          if (flushTimer) {
+            clearInterval(flushTimer)
+            flushTimer = undefined
+          }
+          // Final flush all buffers
+          if (textBuffer) await flushTextBuffer(textBuffer)
+          for (const buffer of Object.values(reasoningBuffer)) {
+            await flushReasoningBuffer(buffer)
+          }
+        }
+
         while (true) {
+          // Reset buffers for each iteration
+          currentText = undefined
+          reasoningMap = {}
+          reasoningBuffer = {}
+          textBuffer = undefined
+
           try {
-            let currentText: MessageV2.TextPart | undefined
-            let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
+            startFlushTimer()
             const stream = await LLM.stream(streamInput)
 
             for await (const value of stream.fullStream) {
@@ -74,18 +157,25 @@ export namespace SessionProcessor {
                     },
                     metadata: value.providerMetadata,
                   }
+                  reasoningBuffer[value.id] = createReasoningBuffer(reasoningMap[value.id])
                   break
 
                 case "reasoning-delta":
-                  if (value.id in reasoningMap) {
+                  if (value.id in reasoningMap && value.id in reasoningBuffer) {
                     const part = reasoningMap[value.id]
+                    const buffer = reasoningBuffer[value.id]
                     part.text += value.text
+                    buffer.accumulated += value.text
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    if (part.text) await Session.updatePart({ part, delta: value.text })
+                    // Flush if buffer threshold reached
+                    if (buffer.accumulated.length >= DELTA_FLUSH_THRESHOLD) {
+                      await flushReasoningBuffer(buffer)
+                    }
                   }
                   break
 
                 case "reasoning-end":
+                  await stopFlushTimer()
                   if (value.id in reasoningMap) {
                     const part = reasoningMap[value.id]
                     part.text = part.text.trimEnd()
@@ -97,6 +187,7 @@ export namespace SessionProcessor {
                     if (value.providerMetadata) part.metadata = value.providerMetadata
                     await Session.updatePart(part)
                     delete reasoningMap[value.id]
+                    delete reasoningBuffer[value.id]
                   }
                   break
 
@@ -289,21 +380,23 @@ export namespace SessionProcessor {
                     },
                     metadata: value.providerMetadata,
                   }
+                  textBuffer = createTextBuffer(currentText)
                   break
 
                 case "text-delta":
-                  if (currentText) {
+                  if (currentText && textBuffer) {
                     currentText.text += value.text
+                    textBuffer.accumulated += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    if (currentText.text)
-                      await Session.updatePart({
-                        part: currentText,
-                        delta: value.text,
-                      })
+                    // Flush if buffer threshold reached
+                    if (textBuffer.accumulated.length >= DELTA_FLUSH_THRESHOLD) {
+                      await flushTextBuffer(textBuffer)
+                    }
                   }
                   break
 
                 case "text-end":
+                  await stopFlushTimer()
                   if (currentText) {
                     currentText.text = currentText.text.trimEnd()
                     const textOutput = await Plugin.trigger(
@@ -324,6 +417,7 @@ export namespace SessionProcessor {
                     await Session.updatePart(currentText)
                   }
                   currentText = undefined
+                  textBuffer = undefined
                   break
 
                 case "finish":
@@ -342,6 +436,11 @@ export namespace SessionProcessor {
               error: e,
               stack: JSON.stringify(e.stack),
             })
+            // Flush any pending deltas before handling error
+            if (textBuffer) await flushTextBuffer(textBuffer)
+            for (const buffer of Object.values(reasoningBuffer)) {
+              await flushReasoningBuffer(buffer)
+            }
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             // TODO: Handle context overflow error
             const retry = SessionRetry.retryable(error)

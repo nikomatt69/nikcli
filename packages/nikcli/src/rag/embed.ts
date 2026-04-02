@@ -5,6 +5,7 @@ import { Log } from "@/util/log"
 import { Config } from "@/config/config"
 
 const BATCH_SIZE = 32
+const CONCURRENT_BATCHES = 4
 
 type EmbeddingResponse = {
   data: Array<{ embedding: number[]; index: number }>
@@ -66,12 +67,10 @@ export namespace RagEmbed {
     })
 
     const results: number[][] = []
-    for (const batch of batches) {
-      const embedded = await embedBatch(batch, chosen, chosenProvider)
-      results.push(...embedded)
-      if (batches.indexOf(batch) < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      }
+    for (let i = 0; i < batches.length; i += CONCURRENT_BATCHES) {
+      const chunk = batches.slice(i, i + CONCURRENT_BATCHES)
+      const embedded = await Promise.all(chunk.map((batch) => embedBatch(batch, chosen, chosenProvider)))
+      results.push(...embedded.flat())
     }
     return results
   }

@@ -6,6 +6,7 @@ import { GlobalBus } from "./global"
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type Subscription = (event: any) => void
 
   export const InstanceDisposed = BusEvent.define(
@@ -15,28 +16,36 @@ export namespace Bus {
     }),
   )
 
-  const state = Instance.state(
+  const stateFn = Instance.state(
     () => {
-      const subscriptions = new Map<any, Subscription[]>()
+      const subscriptions = new Map<string, Subscription[]>()
 
       return {
         subscriptions,
       }
     },
     async (entry) => {
-      const wildcard = entry.subscriptions.get("*")
-      if (!wildcard) return
-      const event = {
-        type: InstanceDisposed.type,
-        properties: {
-          directory: Instance.directory,
-        },
+      // Notify all subscriptions before clearing
+      for (const [_type, subs] of entry.subscriptions) {
+        for (const sub of [...subs]) {
+          try {
+            sub({
+              type: InstanceDisposed.type,
+              properties: {
+                directory: Instance.directory,
+              },
+            })
+          } catch (e) {
+            log.error("subscription cleanup error", { error: e })
+          }
+        }
       }
-      for (const sub of [...wildcard]) {
-        sub(event)
-      }
+      // Clear all subscriptions to prevent memory leak
+      entry.subscriptions.clear()
     },
   )
+
+  export const state = stateFn
 
   export async function publish<Definition extends BusEvent.Definition>(
     def: Definition,
@@ -82,24 +91,28 @@ export namespace Bus {
     })
   }
 
-  export function subscribeAll(callback: (event: any) => void) {
+  export function subscribeAll(callback: (event: unknown) => void) {
     return raw("*", callback)
   }
 
-  function raw(type: string, callback: (event: any) => void) {
+  function raw(type: string, callback: Subscription) {
     log.info("subscribing", { type })
-    const subscriptions = state().subscriptions
-    let match = subscriptions.get(type) ?? []
+    const subs = state().subscriptions
+    const match = subs.get(type) ?? []
     match.push(callback)
-    subscriptions.set(type, match)
+    subs.set(type, match)
 
     return () => {
       log.info("unsubscribing", { type })
-      const match = subscriptions.get(type)
+      const match = subs.get(type)
       if (!match) return
       const index = match.indexOf(callback)
       if (index === -1) return
       match.splice(index, 1)
+      // Clean up empty arrays to prevent memory growth
+      if (match.length === 0) {
+        subs.delete(type)
+      }
     }
   }
 }

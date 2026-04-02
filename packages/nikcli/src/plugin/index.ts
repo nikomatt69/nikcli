@@ -26,7 +26,7 @@ export * from "./manifest"
 
 import { createPluginError, getPluginErrorMessage, getPluginErrorDetails, type PluginError } from "./errors"
 import { HookRegistry, type HookName, type HookContext, type HookRegistration } from "./hooks"
-
+import type { Event } from "@nikcli-ai/sdk"
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
 type NotifyEventKey = "sessionIdle" | "sessionError" | "permissionAsked" | "questionAsked"
@@ -761,7 +761,7 @@ export namespace Plugin {
       const hooks = await state().then((x) => x.hooks)
       for (const hook of hooks) {
         hook["event"]?.({
-          event: input,
+          event: input as unknown as Event,
         })
       }
     })

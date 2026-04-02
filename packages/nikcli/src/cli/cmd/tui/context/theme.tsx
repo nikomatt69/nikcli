@@ -95,7 +95,7 @@ import shadow from "./theme/shadow.json" with { type: "json" }
 import gold from "./theme/gold.json" with { type: "json" }
 import prism from "./theme/prism.json" with { type: "json" }
 import cyber from "./theme/cyber.json" with { type: "json" }
-import dream from "./theme/dream.json" with { type: "json" }
+import brain from "./theme/brain.json" with { type: "json" }
 import nova from "./theme/nova.json" with { type: "json" }
 import spectrum from "./theme/spectrum.json" with { type: "json" }
 import chromatic from "./theme/chromatic.json" with { type: "json" }
@@ -268,7 +268,7 @@ export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   chromatic,
   cyber,
   dim: shadow,
-  dream,
+  brain,
   duo,
   ethereal,
   fusion,

@@ -37,7 +37,7 @@ type DiffInsight = {
   topFiles: string[]
 }
 
-type DreamSeedMemory = {
+type BrainSeedMemory = {
   key: string
   rootSessionID: string
   sourceSessionID: string
@@ -574,9 +574,9 @@ function shortFile(file: string) {
   return parts.length <= 2 ? normalized : parts.slice(-2).join("/")
 }
 
-function extractDreamSeeds(text: string | undefined) {
+function extractBrainSeeds(text: string | undefined) {
   if (!text) return [] as string[]
-  const match = text.match(/<dream_seeds>\s*([\s\S]*?)\s*<\/dream_seeds>/i)
+  const match = text.match(/<brain_seeds>\s*([\s\S]*?)\s*<\/brain_seeds>/i)
   if (!match) return []
   return match[1]
     .split("\n")
@@ -705,7 +705,7 @@ function codebroForAgent(agent: string) {
 function dispatchRequest(codebro: CodebroDefinition, stats: DiffInsight) {
   const focus = stats.topFiles.length > 0 ? stats.topFiles.join(", ") : "the current diff and conversation context"
   const learning =
-    "While working, learn durable signals about how nikcli operates, how the user prefers to work, what level of verification they expect, and what workflow patterns repeat. Emit any durable findings as <dream_seeds> bullets at the end."
+    "While working, learn durable signals about how nikcli operates, how the user prefers to work, what level of verification they expect, and what workflow patterns repeat. Emit any durable findings as <brain_seeds> bullets at the end."
   switch (codebro.agent) {
     case "codebro-scout":
       return {
@@ -1233,9 +1233,9 @@ export function SessionCodebroSide(props: { sessionID: string }) {
     return truncate(text, compact() ? 72 : 132)
   })
 
-  const dreamMemories = createMemo(() => (kv.get("codebro_dream_seeds", []) ?? []) as DreamSeedMemory[])
-  const dreamCaptureEnabled = createMemo(() => kv.get("dream_enabled", true) && kv.get("dream_memory_enabled", true))
-  const workerDreamCandidates = createMemo<DreamSeedMemory[]>(() => {
+  const brainMemories = createMemo(() => (kv.get("codebro_brain_seeds", []) ?? []) as BrainSeedMemory[])
+  const brainCaptureEnabled = createMemo(() => kv.get("brain_enabled", true) && kv.get("brain_memory_enabled", true))
+  const workerBrainCandidates = createMemo<BrainSeedMemory[]>(() => {
     return family()
       .filter((item) => item.parentID === rootID())
       .flatMap((child) => {
@@ -1249,7 +1249,7 @@ export function SessionCodebroSide(props: { sessionID: string }) {
           .filter((part) => part.type === "text")
           .map((part) => (part as TextPart).text)
           .join(" ")
-        const seeds = extractDreamSeeds(text)
+        const seeds = extractBrainSeeds(text)
         if (!seeds.length) return []
         return [
           {
@@ -1267,13 +1267,13 @@ export function SessionCodebroSide(props: { sessionID: string }) {
   })
 
   createEffect(() => {
-    if (!dreamCaptureEnabled()) return
-    const existing = dreamMemories()
+    if (!brainCaptureEnabled()) return
+    const existing = brainMemories()
     const seen = new Set(existing.map((item) => item.key))
     const seenSeedText = new Set(
       existing.flatMap((item) => item.seeds.map((seed) => `${item.rootSessionID}:${seed.toLowerCase()}`)),
     )
-    const incoming = workerDreamCandidates().filter((item) => {
+    const incoming = workerBrainCandidates().filter((item) => {
       if (seen.has(item.key)) return false
       const uniqueSeeds = item.seeds.filter((seed) => {
         const key = `${item.rootSessionID}:${seed.toLowerCase()}`
@@ -1285,11 +1285,11 @@ export function SessionCodebroSide(props: { sessionID: string }) {
       return uniqueSeeds.length > 0
     })
     if (incoming.length === 0) return
-    kv.set("codebro_dream_seeds", [...incoming, ...existing].slice(0, 80))
+    kv.set("codebro_brain_seeds", [...incoming, ...existing].slice(0, 80))
   })
 
-  const rootDreamMemories = createMemo(() => dreamMemories().filter((item) => item.rootSessionID === rootID()))
-  const latestDreamMemory = createMemo(() => rootDreamMemories()[0])
+  const rootBrainMemories = createMemo(() => brainMemories().filter((item) => item.rootSessionID === rootID()))
+  const latestBrainMemory = createMemo(() => rootBrainMemories()[0])
 
   const latestToolError = createMemo(() => {
     for (const message of [...messages()].reverse()) {
@@ -1401,13 +1401,13 @@ export function SessionCodebroSide(props: { sessionID: string }) {
       })
     }
 
-    if (rootDreamMemories().length > 0) {
+    if (rootBrainMemories().length > 0) {
       tips.push({
         codebro: "crew",
-        title: "Dream seeds saved",
+        title: "Brain seeds saved",
         lines: [
-          `${rootDreamMemories().length} memory seed${rootDreamMemories().length > 1 ? "s" : ""} captured from background runs.`,
-          truncate(latestDreamMemory()?.seeds[0], 64) ?? "Use /brain to consolidate them into durable memory.",
+          `${rootBrainMemories().length} memory seed${rootBrainMemories().length > 1 ? "s" : ""} captured from background runs.`,
+          truncate(latestBrainMemory()?.seeds[0], 64) ?? "Use /brain to consolidate them into durable memory.",
         ],
       })
     }
@@ -1628,21 +1628,29 @@ export function SessionCodebroSide(props: { sessionID: string }) {
         aliases: ["brain"],
       },
       onSelect: async () => {
-        const { Brain } = await import("@/brain")
-        const result = await Brain.trigger()
-        if (!result.success) {
+        try {
+          const [{ Brain }, { Instance }] = await Promise.all([import("@/brain"), import("@/project/instance")])
+          const directory = sync.data.path.directory || process.cwd()
+          const result = await Instance.provide({
+            directory,
+            fn: () => Brain.trigger(),
+          })
+          if (!result.success) {
+            toast.show({
+              variant: "warning",
+              message: result.error ?? "Brain did not run",
+              duration: 3000,
+            })
+            return
+          }
           toast.show({
-            variant: "warning",
-            message: result.error ?? "Brain did not run",
+            variant: "success",
+            message: `Brain consolidated ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
             duration: 3000,
           })
-          return
+        } catch (error) {
+          toast.error(error)
         }
-        toast.show({
-          variant: "success",
-          message: `Brain consolidated ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
-          duration: 3000,
-        })
       },
     },
   ])

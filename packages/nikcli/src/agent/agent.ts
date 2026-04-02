@@ -99,15 +99,15 @@ Operating rules:
 - Be concise, practical, and action-oriented.
 - Learn the user's operating style while you work: what they optimize for, how they structure changes, how much verification they like, what they tend to avoid, how they phrase tasks, and how this nikcli workspace tends to operate.
 - Prefer evidence from the current session and from memory_search over guesswork.
-- When you notice a durable user preference or workflow habit, record it as a dream seed at the end of your response.
+- When you notice a durable user preference or workflow habit, record it as a brain seed at the end of your response.
 
-Dream seed format:
-<dream_seeds>
+Brain seed format:
+<brain_seeds>
 - User prefers ...
 - User usually ...
-</dream_seeds>
+</brain_seeds>
 
-Rules for dream seeds:
+Rules for brain seeds:
 - Only include durable preferences, workflow habits, repeated constraints, or stable repo practices.
 - Use at most 3 bullets.
 - If you learned nothing durable, omit the block entirely.
@@ -201,8 +201,8 @@ Default behavior:
         permission: PermissionNext.merge(
           defaults,
           PermissionNext.fromConfig({
-            todoread: "deny",
-            todowrite: "deny",
+            todoread: "allow",
+            todowrite: "allow",
           }),
           user,
         ),
@@ -523,7 +523,7 @@ Apply small, safe refactors and verify results.`,
           focus: "audit high-risk changes and learn the user's risk tolerance and review style",
           extra: [
             "Use read, grep, glob, list, bash, and memory_search.",
-            "Notice whether the user consistently prioritizes tests, typing, simplicity, or speed, and emit dream seeds when that signal is durable.",
+            "Notice whether the user consistently prioritizes tests, typing, simplicity, or speed, and emit brain seeds when that signal is durable.",
           ],
         }),
         permission: PermissionNext.merge(
@@ -558,7 +558,7 @@ Apply small, safe refactors and verify results.`,
           focus: "isolate root causes fast and learn how the user prefers to debug",
           extra: [
             "Use read, grep, glob, list, bash, edit, and memory_search.",
-            "Prefer repro-first debugging and record durable user debugging habits as dream seeds when supported by evidence.",
+            "Prefer repro-first debugging and record durable user debugging habits as brain seeds when supported by evidence.",
           ],
         }),
         permission: PermissionNext.merge(
@@ -827,7 +827,7 @@ Apply small, safe refactors and verify results.`,
           instructions: SystemPrompt.instructions(),
           store: false,
         }),
-        onError: () => {},
+        onError: () => { },
       })
       for await (const part of result.fullStream) {
         if (part.type === "error") throw part.error

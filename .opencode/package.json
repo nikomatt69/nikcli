@@ -1,0 +1,9 @@
+{
+  "name": "opencode-plugins",
+  "private": true,
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {
+    "unique-names-generator": "4.7.1"
+  }
+}

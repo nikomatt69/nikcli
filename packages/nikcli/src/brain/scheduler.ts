@@ -21,11 +21,11 @@ export function initBrainScheduler(): void {
               hoursSinceLastBrain: result.hoursSinceLastBrain,
             })
           } else {
-            log.warn("dream failed", { error: result.error })
+            log.warn("brain failed", { error: result.error })
           }
         }
       } catch (e) {
-        log.error("dream scheduler error", { error: String(e) })
+        log.error("brain scheduler error", { error: String(e) })
       }
     },
   })
