@@ -5,8 +5,9 @@ import { DialogSettingsSpinner } from "./spinner"
 import { DialogSettingsPrompt } from "./prompt"
 import { DialogSettingsSidebar } from "./sidebar"
 import { DialogSettingsUI } from "./ui"
+import { DialogSettingsBrain } from "./brain"
 
-export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui"
+export type SettingsCategory = "spinner" | "prompt" | "sidebar" | "ui" | "brain"
 
 export function DialogSettings() {
   const dialog = useDialog()
@@ -36,6 +37,12 @@ export function DialogSettings() {
       description: "General interface settings",
       category: "General",
     },
+    {
+      title: "Brain",
+      value: "brain",
+      description: "Memory consolidation settings",
+      category: "General",
+    },
   ])
 
   const handleSelect = (option: DialogSelectOption<SettingsCategory>) => {
@@ -51,6 +58,9 @@ export function DialogSettings() {
         break
       case "ui":
         dialog.replace(() => <DialogSettingsUI />)
+        break
+      case "brain":
+        dialog.replace(() => <DialogSettingsBrain />)
         break
     }
   }

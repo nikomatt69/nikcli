@@ -15,6 +15,8 @@ import {
 import { useKeyboard } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
 
+const globalCommands: Accessor<CommandOption[]>[] = []
+
 type Context = ReturnType<typeof init>
 const ctx = createContext<Context>()
 
@@ -39,7 +41,9 @@ function init() {
   const keybind = useKeybind()
 
   const entries = createMemo(() => {
-    const all = registrations().flatMap((x) => x())
+    const registered = registrations().flatMap((x) => x())
+    const global = globalCommands.flatMap((x) => x())
+    const all = [...registered, ...global]
     const seen = new Set<string>()
     const unique: typeof all = []
     for (const item of all) {
@@ -125,6 +129,14 @@ function init() {
     },
   }
   return result
+}
+
+export function registerGlobalCommand(accessor: Accessor<CommandOption[]>): () => void {
+  globalCommands.push(accessor)
+  return () => {
+    const idx = globalCommands.indexOf(accessor)
+    if (idx !== -1) globalCommands.splice(idx, 1)
+  }
 }
 
 export function useCommandDialog() {

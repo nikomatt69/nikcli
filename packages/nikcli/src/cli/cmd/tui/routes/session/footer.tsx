@@ -1,4 +1,4 @@
-import { createMemo, Match, onCleanup, onMount, Show, Switch } from "solid-js"
+import { createMemo, Match, onCleanup, onMount, Show, Switch, createSignal } from "solid-js"
 import { useTheme } from "../../context/theme"
 import { useSync } from "../../context/sync"
 import { useDirectory } from "../../context/directory"
@@ -20,17 +20,59 @@ export function Footer() {
   const directory = useDirectory()
   const connected = useConnected()
 
+  const [brainEnabled, setBrainEnabled] = createSignal<boolean | null>(null)
+  const [brainLastAt, setBrainLastAt] = createSignal(0)
+  const [brainSessionsPending, setBrainSessionsPending] = createSignal(0)
+
   const [store, setStore] = createStore({
     welcome: false,
   })
 
   onMount(() => {
-    const timer = setInterval(() => {
-      if (connected()) return
-      setStore("welcome", (prev) => !prev)
-    }, store.welcome ? 5000 : 10_000)
+    const timer = setInterval(
+      () => {
+        if (connected()) return
+        setStore("welcome", (prev) => !prev)
+      },
+      store.welcome ? 5000 : 10_000,
+    )
 
     onCleanup(() => clearInterval(timer))
+  })
+
+  onMount(() => {
+    const refreshBrainStatus = async () => {
+      try {
+        const { getBrainConfig, readLastBrainAt, getSessionsCountSince } = await import("@/brain")
+        const config = await getBrainConfig()
+        setBrainEnabled(config.enabled)
+        const lastAt = await readLastBrainAt()
+        setBrainLastAt(lastAt)
+        const count = await getSessionsCountSince(lastAt)
+        setBrainSessionsPending(count)
+      } catch {
+        setBrainEnabled(false)
+        setBrainLastAt(0)
+        setBrainSessionsPending(0)
+      }
+
+      return undefined
+    }
+
+    void refreshBrainStatus()
+    const timer = setInterval(() => {
+      void refreshBrainStatus()
+    }, 60_000)
+
+    onCleanup(() => clearInterval(timer))
+  })
+
+  const brainStatus = createMemo(() => {
+    if (brainEnabled() !== true) return null
+    const lastAt = brainLastAt()
+    if (lastAt === 0) return { hours: 0, sessions: brainSessionsPending(), never: true }
+    const hours = Math.round((Date.now() - lastAt) / 3_600_000)
+    return { hours, sessions: brainSessionsPending(), never: false }
   })
 
   return (
@@ -49,6 +91,18 @@ export function Footer() {
                 <span style={{ fg: theme.warning }}>△</span> {permissions().length} Permission
                 {permissions().length > 1 ? "s" : ""}
               </text>
+            </Show>
+            <Show when={brainStatus()}>
+              <text fg={theme.text}>
+                <span style={{ fg: theme.textMuted }}>Brain: </span>
+                {brainStatus()!.never ? "never" : `${brainStatus()!.hours}h ago`}
+                {brainStatus()!.sessions > 0 && (
+                  <span style={{ fg: theme.success }}> ({brainStatus()!.sessions} sessions)</span>
+                )}
+              </text>
+            </Show>
+            <Show when={brainEnabled() === null}>
+              <text fg={theme.textMuted}>Brain: ...</text>
             </Show>
             <text fg={theme.text}>
               <span style={{ fg: lsp().length > 0 ? theme.success : theme.textMuted }}>•</span> {lsp().length} LSP

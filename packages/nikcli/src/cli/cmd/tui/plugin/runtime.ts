@@ -323,7 +323,7 @@ function createPluginScope(load: PluginLoad, id: string) {
   let done = false
 
   const onDispose = (fn: TuiDispose) => {
-    if (done) return () => {}
+    if (done) return () => { }
     const key = Symbol()
     list.push({ key, fn })
     let drop = false
@@ -335,7 +335,7 @@ function createPluginScope(load: PluginLoad, id: string) {
   }
 
   const track = (fn: (() => void) | undefined) => {
-    if (!fn) return () => {}
+    if (!fn) return () => { }
     const off = onDispose(fn)
     let drop = false
     return () => {
@@ -550,7 +550,8 @@ function pluginApi(runtime: RuntimeState, load: PluginLoad, scope: PluginScope, 
     register(plugin) {
       const id = count ? `${base}:${count}` : base
       count += 1
-      scope.track(host.register({ ...plugin, id }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      scope.track(host.register({ ...plugin, id } as any))
       return id
     },
   }

@@ -33,7 +33,7 @@ function isHostSlotPlugin(value: unknown): value is HostSlotPlugin {
 
 export function setupSlots(api: HostPluginApi): HostSlots {
   const reg = createSolidSlotRegistry<TuiSlotMap, TuiSlotContext>(
-    api.renderer,
+    api.renderer as any,
     {
       theme: api.theme,
     },
@@ -54,7 +54,7 @@ export function setupSlots(api: HostPluginApi): HostSlots {
   view = (props) => slot(props)
   return {
     register(plugin) {
-      if (!isHostSlotPlugin(plugin)) return () => {}
+      if (!isHostSlotPlugin(plugin)) return () => { }
       return reg.register(plugin)
     },
   }

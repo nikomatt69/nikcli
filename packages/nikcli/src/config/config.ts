@@ -1,7 +1,6 @@
 import { Log } from "../util/log"
 import path from "path"
 import { pathToFileURL } from "url"
-import { createRequire } from "module"
 import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
@@ -32,68 +31,6 @@ import { Event } from "../server/event"
 
 export namespace Config {
   const log = Log.create({ service: "config" })
-
-  // PluginSpec: string or [string, options] tuple
-  const _PluginOptions = z.record(z.string(), z.unknown())
-  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), _PluginOptions])])
-  export type PluginOptions = z.infer<typeof _PluginOptions>
-  export type PluginSpec = z.infer<typeof PluginSpec>
-
-  function systemManagedConfigDir(): string {
-    switch (process.platform) {
-      case "darwin":
-        return "/Library/Application Support/nikcli"
-      case "win32":
-        return path.join(process.env.ProgramData || "C:\\ProgramData", "nikcli")
-      default:
-        return "/etc/nikcli"
-    }
-  }
-
-  export function managedConfigDir() {
-    return process.env["NIKCLI_TEST_MANAGED_CONFIG_DIR"] || systemManagedConfigDir()
-  }
-
-  export function pluginSpecifier(plugin: PluginSpec): string {
-    return Array.isArray(plugin) ? plugin[0] : plugin
-  }
-
-  export function pluginOptions(plugin: PluginSpec): PluginOptions | undefined {
-    return Array.isArray(plugin) ? (plugin[1] as PluginOptions) : undefined
-  }
-
-  export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
-    const { isPathPluginSpec, resolvePathPluginTarget } = await import("../plugin/shared")
-    const spec = pluginSpecifier(plugin)
-    if (!isPathPluginSpec(spec)) return plugin
-    if (spec.startsWith("file://")) {
-      const resolved = await resolvePathPluginTarget(spec).catch(() => spec)
-      if (Array.isArray(plugin)) return [resolved, plugin[1]]
-      return resolved
-    }
-    if (path.isAbsolute(spec) || /^[A-Za-z]:[\\/]/.test(spec)) {
-      const base = pathToFileURL(spec).href
-      const resolved = await resolvePathPluginTarget(base).catch(() => base)
-      if (Array.isArray(plugin)) return [resolved, plugin[1]]
-      return resolved
-    }
-    try {
-      const base = import.meta.resolve!(spec, configFilepath)
-      const resolved = await resolvePathPluginTarget(base).catch(() => base)
-      if (Array.isArray(plugin)) return [resolved, plugin[1]]
-      return resolved
-    } catch {
-      try {
-        const require = createRequire(configFilepath)
-        const base = pathToFileURL(require.resolve(spec)).href
-        const resolved = await resolvePathPluginTarget(base).catch(() => base)
-        if (Array.isArray(plugin)) return [resolved, plugin[1]]
-        return resolved
-      } catch {
-        return plugin
-      }
-    }
-  }
 
   // Custom merge function that concatenates array fields instead of replacing them
   function mergeConfigConcatArrays(target: Info, source: Info): Info {
@@ -480,6 +417,41 @@ export namespace Config {
     return uniqueSpecifiers.toReversed()
   }
 
+  export const PluginOptions = z.record(z.string(), z.unknown()).meta({
+    ref: "PluginOptionsConfig",
+  })
+  export type PluginOptions = z.infer<typeof PluginOptions>
+
+  export const PluginSpec = z.union([z.string(), z.tuple([z.string(), PluginOptions])]).meta({
+    ref: "PluginSpecConfig",
+  })
+  export type PluginSpec = z.infer<typeof PluginSpec>
+
+  export function pluginSpecifier(plugin: string | PluginSpec) {
+    if (typeof plugin === "string") return plugin
+    return plugin[0]
+  }
+
+  export function pluginOptions(plugin: string | PluginSpec) {
+    if (typeof plugin === "string") return
+    return plugin[1]
+  }
+
+  export async function resolvePluginSpec(plugin: PluginSpec, configFilepath: string): Promise<PluginSpec> {
+    const spec = pluginSpecifier(plugin)
+    let resolved = spec
+    try {
+      resolved = import.meta.resolve!(spec, configFilepath)
+    } catch {}
+
+    if (typeof plugin === "string") return resolved
+    return [resolved, plugin[1]]
+  }
+
+  export function managedConfigDir() {
+    return path.join(Global.Path.config, "managed")
+  }
+
   export const McpLocal = z
     .object({
       type: z.literal("local").describe("Type of MCP server connection"),
@@ -846,6 +818,7 @@ export namespace Config {
       session_share: z.string().optional().default("none").describe("Share current session"),
       session_unshare: z.string().optional().default("none").describe("Unshare current session"),
       session_interrupt: z.string().optional().default("escape").describe("Interrupt current session"),
+      session_codebro_open: z.string().optional().default("<leader>i").describe("Open the Codebro dossier"),
       subtask_background: z
         .string()
         .optional()
@@ -1377,6 +1350,20 @@ export namespace Config {
             .optional()
             .describe("Tools that should only be available to primary agents."),
           continue_loop_on_deny: z.boolean().optional().describe("Continue the agent loop when a tool call is denied"),
+          brain: z.boolean().optional().describe("Enable automatic memory consolidation (brain) feature"),
+          brainMinHours: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Minimum hours between brain consolidation runs"),
+          brainMinSessions: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Minimum number of sessions to trigger brain consolidation"),
+          memory: z.boolean().optional().describe("Enable memory file support for session context"),
           mcp_timeout: z
             .number()
             .int()

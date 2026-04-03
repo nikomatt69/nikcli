@@ -60,6 +60,7 @@ import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
+import { initBrainScheduler } from "@/brain/scheduler"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -211,7 +212,7 @@ function App() {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
-  renderer.disableStdoutInterception()
+  renderer.externalOutputMode = "passthrough"
   const dialog = useDialog()
   const local = useLocal()
   const kv = useKV()
@@ -235,7 +236,10 @@ function App() {
     void (async () => {
       const tuiConfig = await Instance.provide({
         directory: process.cwd(),
-        fn: () => TuiConfig.get(),
+        fn: async () => {
+          initBrainScheduler()
+          return TuiConfig.get()
+        },
       })
       const api = createTuiApi({
         command,
@@ -250,7 +254,8 @@ function App() {
         sync,
         theme: themeCtx,
         toast,
-        renderer,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        renderer: renderer as any,
       })
       await TuiPluginRuntime.init(api)
       setPluginsReady(true)
@@ -566,6 +571,47 @@ function App() {
       slash: { name: "settings" },
       onSelect: () => {
         dialog.replace(() => <DialogSettings />)
+      },
+      category: "System",
+    },
+    {
+      title: "Run Brain",
+      value: "brain.run",
+      slash: { name: "brain", aliases: ["dream"] },
+      onSelect: (dialog) => {
+        dialog.clear()
+        toast.show({ message: "Brain started in background", variant: "info" })
+        void (async () => {
+          const { Brain } = await import("@/brain")
+          const result = await Brain.trigger({ force: true })
+          if (!result.success) {
+            toast.show({
+              message: result.error ?? "Brain failed",
+              variant: "error",
+              duration: 5000,
+            })
+            return
+          }
+
+          toast.show({
+            message: `Brain completed after reviewing ${result.sessionsReviewed} session${result.sessionsReviewed === 1 ? "" : "s"}`,
+            variant: "success",
+          })
+
+          if (result.sessionID && result.sessionID !== "brain-session-not-created") {
+            route.navigate({
+              type: "session",
+              sessionID: result.sessionID,
+              workspaceID: sync.session.get(result.sessionID)?.workspaceID ?? route.data.workspaceID,
+            })
+          }
+        })().catch((error) => {
+          toast.show({
+            message: error instanceof Error ? error.message : "Brain failed",
+            variant: "error",
+            duration: 5000,
+          })
+        })
       },
       category: "System",
     },
