@@ -63,390 +63,789 @@
 }
 
 .dark {
-  /* ─── Color tokens ────────────────────────────────────────────────────── */
-  --color-background: 6 18 31;
-  --color-surface: 13 27 42;
-  --color-panel: 18 38 58;
-  --color-border: 29 52 77;
-  --color-accent: 56 189 248;
-  --color-accent-strong: 14 165 233;
-  --color-accent-light: 125 211 252;
-  --color-muted: 137 163 191;
-  --color-ink: 230 238 248;
-  --color-soft: 148 168 189;
-  --color-user-bubble: 17 50 77;
-  --color-assistant-bubble: 12 24 38;
-  --color-success: 74 222 128;
-  --color-danger: 248 113 113;
-  --color-warning: 251 191 36;
-  --color-info: 56 189 248;
-  --color-focus-ring: 56 189 248;
+  /* ─── Color tokens — Grays & Blacks Only ───────────────────────────────── */
+  --color-background: 0 0 0;
+  --color-surface: 17 17 17;
+  --color-panel: 24 24 24;
+  --color-border: 38 38 38;
+  --color-accent: 232 232 232;
+  --color-accent-strong: 190 190 190;
+  --color-accent-light: 255 255 255;
+  --color-accent-glow: 255 255 255;
+  --color-accent-subtle: 44 44 44;
+  --color-muted: 122 122 122;
+  --color-ink: 240 240 240;
+  --color-soft: 184 184 184;
+  --color-user-bubble: 35 35 35;
+  --color-assistant-bubble: 23 23 23;
+  --color-success: 212 212 212;
+  --color-danger: 143 143 143;
+  --color-warning: 183 183 183;
+  --color-info: 160 160 160;
+  --color-focus-ring: 230 230 230;
 
   /* ─── Glass material tokens ───────────────────────────────────────────── */
-  --color-glass-shell: 13 27 42;
-  --color-glass-shell-strong: 13 27 42;
-  --color-glass-panel: 18 38 58;
+  --color-glass-shell: 17 17 17;
+  --color-glass-shell-strong: 24 24 24;
+  --color-glass-panel: 30 30 30;
   --color-glass-border: 255 255 255;
   --color-glass-border-strong: 255 255 255;
   --color-glass-shadow: 0 0 0;
   --color-glass-scrim: 0 0 0;
-  --color-glass-tint-accent: 56 189 248;
+  --color-glass-tint-accent: 200 200 200;
+  --color-glass-glow: 255 255 255;
   --color-overlay: 0 0 0;
 }
 
 /* ─── Animation keyframes — transform + opacity only (GPU-safe) ─────────── */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fade-out {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slide-down {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(16px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-16px); }
-  to   { opacity: 1; transform: translateX(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 @keyframes slide-in-bottom {
-  from { opacity: 0; transform: translateY(100%); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slide-out-bottom {
-  from { opacity: 1; transform: translateY(0); }
-  to   { opacity: 0; transform: translateY(100%); }
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100%);
+  }
 }
 
 /* Asymmetric: slow deliberate enter, fast system exit */
 @keyframes enter-from-top {
-  from { opacity: 0; transform: translateY(-100%); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Skeleton shimmer — horizontal sweep */
 @keyframes shimmer {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(100%); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
 }
 
 /* Gentle pulse for loading states */
 @keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.45; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 /* Playful micro-bounce for confirmations */
 @keyframes bounce-sm {
-  0%, 100% { transform: scale(1); }
-  40%       { transform: scale(1.08); }
-  70%       { transform: scale(0.96); }
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  70% {
+    transform: scale(0.96);
+  }
 }
 
 @layer utilities {
   /* ─── Background ──────────────────────────────────────────────────────── */
-  .bg-background { background-color: #f1f6fb; }
-  .dark .bg-background { background-color: #06121f; }
+  .bg-background {
+    background-color: #f1f6fb;
+  }
+  .dark .bg-background {
+    background-color: #000000;
+  }
 
-  .bg-background\/55 { background-color: rgba(241, 246, 251, 0.55); }
-  .dark .bg-background\/55 { background-color: rgba(6, 18, 31, 0.55); }
+  .bg-background\/55 {
+    background-color: rgba(241, 246, 251, 0.55);
+  }
+  .dark .bg-background\/55 {
+    background-color: rgba(0, 0, 0, 0.55);
+  }
 
-  .bg-background\/60 { background-color: rgba(241, 246, 251, 0.6); }
-  .dark .bg-background\/60 { background-color: rgba(6, 18, 31, 0.6); }
+  .bg-background\/60 {
+    background-color: rgba(241, 246, 251, 0.6);
+  }
+  .dark .bg-background\/60 {
+    background-color: rgba(0, 0, 0, 0.6);
+  }
 
-  .bg-background\/65 { background-color: rgba(241, 246, 251, 0.65); }
-  .dark .bg-background\/65 { background-color: rgba(6, 18, 31, 0.65); }
+  .bg-background\/65 {
+    background-color: rgba(241, 246, 251, 0.65);
+  }
+  .dark .bg-background\/65 {
+    background-color: rgba(0, 0, 0, 0.65);
+  }
 
-  .bg-background\/70 { background-color: rgba(241, 246, 251, 0.7); }
-  .dark .bg-background\/70 { background-color: rgba(6, 18, 31, 0.7); }
+  .bg-background\/70 {
+    background-color: rgba(241, 246, 251, 0.7);
+  }
+  .dark .bg-background\/70 {
+    background-color: rgba(0, 0, 0, 0.7);
+  }
 
-  .bg-background\/75 { background-color: rgba(241, 246, 251, 0.75); }
-  .dark .bg-background\/75 { background-color: rgba(6, 18, 31, 0.75); }
+  .bg-background\/75 {
+    background-color: rgba(241, 246, 251, 0.75);
+  }
+  .dark .bg-background\/75 {
+    background-color: rgba(0, 0, 0, 0.75);
+  }
 
-  .bg-background\/80 { background-color: rgba(241, 246, 251, 0.8); }
-  .dark .bg-background\/80 { background-color: rgba(6, 18, 31, 0.8); }
+  .bg-background\/80 {
+    background-color: rgba(241, 246, 251, 0.8);
+  }
+  .dark .bg-background\/80 {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
 
-  .bg-background\/85 { background-color: rgba(241, 246, 251, 0.85); }
-  .dark .bg-background\/85 { background-color: rgba(6, 18, 31, 0.85); }
+  .bg-background\/85 {
+    background-color: rgba(241, 246, 251, 0.85);
+  }
+  .dark .bg-background\/85 {
+    background-color: rgba(0, 0, 0, 0.85);
+  }
 
-  .bg-surface { background-color: #ffffff; }
-  .dark .bg-surface { background-color: #0d1b2a; }
+  .bg-surface {
+    background-color: #ffffff;
+  }
+  .dark .bg-surface {
+    background-color: #111111;
+  }
 
-  .bg-panel { background-color: #e8f0f8; }
-  .dark .bg-panel { background-color: #12263a; }
+  .bg-panel {
+    background-color: #e8f0f8;
+  }
+  .dark .bg-panel {
+    background-color: #181818;
+  }
 
-  .bg-panel\/14 { background-color: rgba(232, 240, 248, 0.14); }
-  .dark .bg-panel\/14 { background-color: rgba(18, 38, 58, 0.14); }
+  .bg-panel\/14 {
+    background-color: rgba(232, 240, 248, 0.14);
+  }
+  .dark .bg-panel\/14 {
+    background-color: rgba(28, 28, 28, 0.14);
+  }
 
-  .bg-panel\/25 { background-color: rgba(232, 240, 248, 0.25); }
-  .dark .bg-panel\/25 { background-color: rgba(18, 38, 58, 0.25); }
+  .bg-panel\/25 {
+    background-color: rgba(232, 240, 248, 0.25);
+  }
+  .dark .bg-panel\/25 {
+    background-color: rgba(28, 28, 28, 0.25);
+  }
 
-  .bg-panel\/35 { background-color: rgba(232, 240, 248, 0.35); }
-  .dark .bg-panel\/35 { background-color: rgba(18, 38, 58, 0.35); }
+  .bg-panel\/35 {
+    background-color: rgba(232, 240, 248, 0.35);
+  }
+  .dark .bg-panel\/35 {
+    background-color: rgba(28, 28, 28, 0.35);
+  }
 
-  .bg-panel\/55 { background-color: rgba(232, 240, 248, 0.55); }
-  .dark .bg-panel\/55 { background-color: rgba(18, 38, 58, 0.55); }
+  .bg-panel\/55 {
+    background-color: rgba(232, 240, 248, 0.55);
+  }
+  .dark .bg-panel\/55 {
+    background-color: rgba(28, 28, 28, 0.55);
+  }
 
-  .bg-accent { background-color: #0ea5e9; }
-  .dark .bg-accent { background-color: #38bdf8; }
+  .bg-accent {
+    background-color: #0ea5e9;
+  }
+  .dark .bg-accent {
+    background-color: #e8e8e8;
+  }
 
-  .bg-accent\/10 { background-color: rgba(14, 165, 233, 0.1); }
-  .dark .bg-accent\/10 { background-color: rgba(56, 189, 248, 0.1); }
+  .bg-accent\/10 {
+    background-color: rgba(14, 165, 233, 0.1);
+  }
+  .dark .bg-accent\/10 {
+    background-color: rgba(200, 200, 200, 0.1);
+  }
 
-  .bg-accent\/12 { background-color: rgba(14, 165, 233, 0.12); }
-  .dark .bg-accent\/12 { background-color: rgba(56, 189, 248, 0.12); }
+  .bg-accent\/12 {
+    background-color: rgba(14, 165, 233, 0.12);
+  }
+  .dark .bg-accent\/12 {
+    background-color: rgba(200, 200, 200, 0.12);
+  }
 
-  .bg-accent\/15 { background-color: rgba(14, 165, 233, 0.15); }
-  .dark .bg-accent\/15 { background-color: rgba(56, 189, 248, 0.15); }
+  .bg-accent\/15 {
+    background-color: rgba(14, 165, 233, 0.15);
+  }
+  .dark .bg-accent\/15 {
+    background-color: rgba(200, 200, 200, 0.15);
+  }
 
-  .bg-success\/10 { background-color: rgba(34, 197, 94, 0.1); }
-  .dark .bg-success\/10 { background-color: rgba(74, 222, 128, 0.1); }
+  .bg-accent\/20 {
+    background-color: rgba(14, 165, 233, 0.2);
+  }
+  .dark .bg-accent\/20 {
+    background-color: rgba(200, 200, 200, 0.2);
+  }
 
-  .bg-success\/12 { background-color: rgba(34, 197, 94, 0.12); }
-  .dark .bg-success\/12 { background-color: rgba(74, 222, 128, 0.12); }
+  .bg-accent\/25 {
+    background-color: rgba(14, 165, 233, 0.25);
+  }
+  .dark .bg-accent\/25 {
+    background-color: rgba(200, 200, 200, 0.25);
+  }
 
-  .bg-danger\/10 { background-color: rgba(239, 68, 68, 0.1); }
-  .dark .bg-danger\/10 { background-color: rgba(248, 113, 113, 0.1); }
+  .bg-accent-subtle {
+    background-color: rgba(50, 50, 50, 0.6);
+  }
+  .dark .bg-accent-subtle {
+    background-color: rgba(50, 50, 50, 0.6);
+  }
 
-  .bg-danger\/12 { background-color: rgba(239, 68, 68, 0.12); }
-  .dark .bg-danger\/12 { background-color: rgba(248, 113, 113, 0.12); }
+  .bg-accent-glow {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
+  .dark .bg-accent-glow {
+    background-color: rgba(255, 255, 255, 0.15);
+  }
 
-  .bg-danger\/15 { background-color: rgba(239, 68, 68, 0.15); }
-  .dark .bg-danger\/15 { background-color: rgba(248, 113, 113, 0.15); }
+  .bg-success\/10 {
+    background-color: rgba(34, 197, 94, 0.1);
+  }
+  .dark .bg-success\/10 {
+    background-color: rgba(212, 212, 212, 0.1);
+  }
 
-  .bg-warning\/10 { background-color: rgba(245, 158, 11, 0.1); }
-  .dark .bg-warning\/10 { background-color: rgba(251, 191, 36, 0.1); }
+  .bg-success\/12 {
+    background-color: rgba(34, 197, 94, 0.12);
+  }
+  .dark .bg-success\/12 {
+    background-color: rgba(212, 212, 212, 0.12);
+  }
 
-  .bg-warning\/12 { background-color: rgba(245, 158, 11, 0.12); }
-  .dark .bg-warning\/12 { background-color: rgba(251, 191, 36, 0.12); }
+  .bg-danger\/10 {
+    background-color: rgba(239, 68, 68, 0.1);
+  }
+  .dark .bg-danger\/10 {
+    background-color: rgba(143, 143, 143, 0.1);
+  }
 
-  .bg-warning\/15 { background-color: rgba(245, 158, 11, 0.15); }
-  .dark .bg-warning\/15 { background-color: rgba(251, 191, 36, 0.15); }
+  .bg-danger\/12 {
+    background-color: rgba(239, 68, 68, 0.12);
+  }
+  .dark .bg-danger\/12 {
+    background-color: rgba(143, 143, 143, 0.12);
+  }
 
-  .bg-user-bubble { background-color: #e0f3ff; }
-  .dark .bg-user-bubble { background-color: #11324d; }
+  .bg-danger\/15 {
+    background-color: rgba(239, 68, 68, 0.15);
+  }
+  .dark .bg-danger\/15 {
+    background-color: rgba(143, 143, 143, 0.15);
+  }
 
-  .bg-assistant-bubble { background-color: #ffffff; }
-  .dark .bg-assistant-bubble { background-color: #0c1826; }
+  .bg-warning\/10 {
+    background-color: rgba(245, 158, 11, 0.1);
+  }
+  .dark .bg-warning\/10 {
+    background-color: rgba(183, 183, 183, 0.1);
+  }
+
+  .bg-warning\/12 {
+    background-color: rgba(245, 158, 11, 0.12);
+  }
+  .dark .bg-warning\/12 {
+    background-color: rgba(183, 183, 183, 0.12);
+  }
+
+  .bg-warning\/15 {
+    background-color: rgba(245, 158, 11, 0.15);
+  }
+  .dark .bg-warning\/15 {
+    background-color: rgba(183, 183, 183, 0.15);
+  }
+
+  .bg-user-bubble {
+    background-color: #e0f3ff;
+  }
+  .dark .bg-user-bubble {
+    background-color: #262626;
+  }
+
+  .bg-assistant-bubble {
+    background-color: #ffffff;
+  }
+  .dark .bg-assistant-bubble {
+    background-color: #171717;
+  }
 
   /* ─── Border ──────────────────────────────────────────────────────────── */
-  .border-border { border-color: #c1d0df; }
-  .dark .border-border { border-color: #1d344d; }
+  .border-border {
+    border-color: #c1d0df;
+  }
+  .dark .border-border {
+    border-color: #262626;
+  }
 
-  .border-border\/60 { border-color: rgba(193, 208, 223, 0.6); }
-  .dark .border-border\/60 { border-color: rgba(29, 52, 77, 0.6); }
+  .border-border\/60 {
+    border-color: rgba(193, 208, 223, 0.6);
+  }
+  .dark .border-border\/60 {
+    border-color: rgba(38, 38, 38, 0.6);
+  }
 
-  .border-border\/70 { border-color: rgba(193, 208, 223, 0.7); }
-  .dark .border-border\/70 { border-color: rgba(29, 52, 77, 0.7); }
+  .border-border\/70 {
+    border-color: rgba(193, 208, 223, 0.7);
+  }
+  .dark .border-border\/70 {
+    border-color: rgba(38, 38, 38, 0.7);
+  }
 
-  .border-border\/80 { border-color: rgba(193, 208, 223, 0.8); }
-  .dark .border-border\/80 { border-color: rgba(29, 52, 77, 0.8); }
+  .border-border\/80 {
+    border-color: rgba(193, 208, 223, 0.8);
+  }
+  .dark .border-border\/80 {
+    border-color: rgba(38, 38, 38, 0.8);
+  }
 
-  .border-accent\/20 { border-color: rgba(14, 165, 233, 0.2); }
-  .dark .border-accent\/20 { border-color: rgba(56, 189, 248, 0.2); }
+  .border-border\/90 {
+    border-color: rgba(193, 208, 223, 0.9);
+  }
+  .dark .border-border\/90 {
+    border-color: rgba(38, 38, 38, 0.9);
+  }
 
-  .border-accent\/25 { border-color: rgba(14, 165, 233, 0.25); }
-  .dark .border-accent\/25 { border-color: rgba(56, 189, 248, 0.25); }
+  /* ─── Premium Enterprise Subtle 1px Borders ──────────────────────────── */
+  /* Subtle white borders for dark mode - enterprise premium feel */
+  .dark .border-subtle {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  .dark .border-subtle\/50 {
+    border-color: rgba(255, 255, 255, 0.04);
+  }
+  .dark .border-subtle\/75 {
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  .dark .border-subtle\/100 {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  .dark .border-subtle\/125 {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+  .dark .border-subtle\/150 {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 
-  .border-accent\/30 { border-color: rgba(14, 165, 233, 0.3); }
-  .dark .border-accent\/30 { border-color: rgba(56, 189, 248, 0.3); }
+  /* Surface-to-surface subtle borders */
+  .dark .border-surface-subtle {
+    border-color: rgba(255, 255, 255, 0.04);
+  }
+  .dark .border-surface-elevated {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+  .dark .border-surface-floating {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 
-  .border-accent\/35 { border-color: rgba(14, 165, 233, 0.35); }
-  .dark .border-accent\/35 { border-color: rgba(56, 189, 248, 0.35); }
+  .border-accent\/20 {
+    border-color: rgba(14, 165, 233, 0.2);
+  }
+  .dark .border-accent\/20 {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
 
-  .border-accent\/40 { border-color: rgba(14, 165, 233, 0.4); }
-  .dark .border-accent\/40 { border-color: rgba(56, 189, 248, 0.4); }
+  .border-accent\/25 {
+    border-color: rgba(14, 165, 233, 0.25);
+  }
+  .dark .border-accent\/25 {
+    border-color: rgba(255, 255, 255, 0.1);
+  }
 
-  .border-success\/20 { border-color: rgba(34, 197, 94, 0.2); }
-  .dark .border-success\/20 { border-color: rgba(74, 222, 128, 0.2); }
+  .border-accent\/30 {
+    border-color: rgba(14, 165, 233, 0.3);
+  }
+  .dark .border-accent\/30 {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
 
-  .border-success\/25 { border-color: rgba(34, 197, 94, 0.25); }
-  .dark .border-success\/25 { border-color: rgba(74, 222, 128, 0.25); }
+  .border-accent\/35 {
+    border-color: rgba(14, 165, 233, 0.35);
+  }
+  .dark .border-accent\/35 {
+    border-color: rgba(255, 255, 255, 0.14);
+  }
 
-  .border-success\/35 { border-color: rgba(34, 197, 94, 0.35); }
-  .dark .border-success\/35 { border-color: rgba(74, 222, 128, 0.35); }
+  .border-accent\/40 {
+    border-color: rgba(14, 165, 233, 0.4);
+  }
+  .dark .border-accent\/40 {
+    border-color: rgba(255, 255, 255, 0.18);
+  }
 
-  .border-danger\/20 { border-color: rgba(239, 68, 68, 0.2); }
-  .dark .border-danger\/20 { border-color: rgba(248, 113, 113, 0.2); }
+  .border-success\/20 {
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+  .dark .border-success\/20 {
+    border-color: rgba(212, 212, 212, 0.2);
+  }
 
-  .border-danger\/25 { border-color: rgba(239, 68, 68, 0.25); }
-  .dark .border-danger\/25 { border-color: rgba(248, 113, 113, 0.25); }
+  .border-success\/25 {
+    border-color: rgba(34, 197, 94, 0.25);
+  }
+  .dark .border-success\/25 {
+    border-color: rgba(212, 212, 212, 0.25);
+  }
 
-  .border-danger\/30 { border-color: rgba(239, 68, 68, 0.3); }
-  .dark .border-danger\/30 { border-color: rgba(248, 113, 113, 0.3); }
+  .border-success\/35 {
+    border-color: rgba(34, 197, 94, 0.35);
+  }
+  .dark .border-success\/35 {
+    border-color: rgba(212, 212, 212, 0.35);
+  }
 
-  .border-danger\/35 { border-color: rgba(239, 68, 68, 0.35); }
-  .dark .border-danger\/35 { border-color: rgba(248, 113, 113, 0.35); }
+  .border-danger\/20 {
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+  .dark .border-danger\/20 {
+    border-color: rgba(143, 143, 143, 0.2);
+  }
 
-  .border-warning\/20 { border-color: rgba(245, 158, 11, 0.2); }
-  .dark .border-warning\/20 { border-color: rgba(251, 191, 36, 0.2); }
+  .border-danger\/25 {
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+  .dark .border-danger\/25 {
+    border-color: rgba(143, 143, 143, 0.25);
+  }
 
-  .border-warning\/25 { border-color: rgba(245, 158, 11, 0.25); }
-  .dark .border-warning\/25 { border-color: rgba(251, 191, 36, 0.25); }
+  .border-danger\/30 {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+  .dark .border-danger\/30 {
+    border-color: rgba(143, 143, 143, 0.3);
+  }
 
-  .border-warning\/35 { border-color: rgba(245, 158, 11, 0.35); }
-  .dark .border-warning\/35 { border-color: rgba(251, 191, 36, 0.35); }
+  .border-danger\/35 {
+    border-color: rgba(239, 68, 68, 0.35);
+  }
+  .dark .border-danger\/35 {
+    border-color: rgba(143, 143, 143, 0.35);
+  }
+
+  .border-warning\/20 {
+    border-color: rgba(245, 158, 11, 0.2);
+  }
+  .dark .border-warning\/20 {
+    border-color: rgba(183, 183, 183, 0.2);
+  }
+
+  .border-warning\/25 {
+    border-color: rgba(245, 158, 11, 0.25);
+  }
+  .dark .border-warning\/25 {
+    border-color: rgba(183, 183, 183, 0.25);
+  }
+
+  .border-warning\/35 {
+    border-color: rgba(245, 158, 11, 0.35);
+  }
+  .dark .border-warning\/35 {
+    border-color: rgba(183, 183, 183, 0.35);
+  }
 
   /* iOS hairline border — 0.5px separators */
-  .border-hairline { border-width: 0.5px; }
+  .border-hairline {
+    border-width: 0.5px;
+  }
 
   /* ─── Text ────────────────────────────────────────────────────────────── */
-  .text-ink { color: #0d1b2a; }
-  .dark .text-ink { color: #e6eef8; }
+  .text-ink {
+    color: #0d1b2a;
+  }
+  .dark .text-ink {
+    color: #f0f0f0;
+  }
 
-  .text-soft { color: #46586e; }
-  .dark .text-soft { color: #94a8bd; }
+  .text-soft {
+    color: #46586e;
+  }
+  .dark .text-soft {
+    color: #b8b8b8;
+  }
 
-  .text-muted { color: #61768c; }
-  .dark .text-muted { color: #89a3bf; }
+  .text-muted {
+    color: #61768c;
+  }
+  .dark .text-muted {
+    color: #7a7a7a;
+  }
 
-  .text-accent-light { color: #0369a1; }
-  .dark .text-accent-light { color: #7dd3fc; }
+  .text-accent-light {
+    color: #0369a1;
+  }
+  .dark .text-accent-light {
+    color: #ffffff;
+  }
 
-  .text-accent { color: #0ea5e9; }
-  .dark .text-accent { color: #38bdf8; }
+  .text-accent {
+    color: #0ea5e9;
+  }
+  .dark .text-accent {
+    color: #ffffff;
+  }
 
-  .text-success { color: #22c55e; }
-  .dark .text-success { color: #4ade80; }
+  .text-success {
+    color: #22c55e;
+  }
+  .dark .text-success {
+    color: #d4d4d4;
+  }
 
-  .text-danger { color: #ef4444; }
-  .dark .text-danger { color: #f87171; }
+  .text-danger {
+    color: #ef4444;
+  }
+  .dark .text-danger {
+    color: #8f8f8f;
+  }
 
-  .text-warning { color: #f59e0b; }
-  .dark .text-warning { color: #fbbf24; }
+  .text-warning {
+    color: #f59e0b;
+  }
+  .dark .text-warning {
+    color: #b7b7b7;
+  }
 
   /* Text opacity variants — /50 /70 /80 /90 */
-  .text-ink\/50 { color: rgba(13, 27, 42, 0.5); }
-  .dark .text-ink\/50 { color: rgba(230, 238, 248, 0.5); }
+  .text-ink\/50 {
+    color: rgba(13, 27, 42, 0.5);
+  }
+  .dark .text-ink\/50 {
+    color: rgba(240, 240, 240, 0.5);
+  }
 
-  .text-ink\/70 { color: rgba(13, 27, 42, 0.7); }
-  .dark .text-ink\/70 { color: rgba(230, 238, 248, 0.7); }
+  .text-ink\/70 {
+    color: rgba(13, 27, 42, 0.7);
+  }
+  .dark .text-ink\/70 {
+    color: rgba(240, 240, 240, 0.7);
+  }
 
-  .text-ink\/80 { color: rgba(13, 27, 42, 0.8); }
-  .dark .text-ink\/80 { color: rgba(230, 238, 248, 0.8); }
+  .text-ink\/80 {
+    color: rgba(13, 27, 42, 0.8);
+  }
+  .dark .text-ink\/80 {
+    color: rgba(240, 240, 240, 0.8);
+  }
 
-  .text-soft\/50 { color: rgba(70, 88, 110, 0.5); }
-  .dark .text-soft\/50 { color: rgba(148, 168, 189, 0.5); }
+  .text-soft\/50 {
+    color: rgba(70, 88, 110, 0.5);
+  }
+  .dark .text-soft\/50 {
+    color: rgba(184, 184, 184, 0.5);
+  }
 
-  .text-soft\/70 { color: rgba(70, 88, 110, 0.7); }
-  .dark .text-soft\/70 { color: rgba(148, 168, 189, 0.7); }
+  .text-soft\/70 {
+    color: rgba(70, 88, 110, 0.7);
+  }
+  .dark .text-soft\/70 {
+    color: rgba(184, 184, 184, 0.7);
+  }
 
-  .text-soft\/80 { color: rgba(70, 88, 110, 0.8); }
-  .dark .text-soft\/80 { color: rgba(148, 168, 189, 0.8); }
+  .text-soft\/80 {
+    color: rgba(70, 88, 110, 0.8);
+  }
+  .dark .text-soft\/80 {
+    color: rgba(184, 184, 184, 0.8);
+  }
 
-  .text-muted\/50 { color: rgba(97, 118, 140, 0.5); }
-  .dark .text-muted\/50 { color: rgba(137, 163, 191, 0.5); }
+  .text-muted\/50 {
+    color: rgba(97, 118, 140, 0.5);
+  }
+  .dark .text-muted\/50 {
+    color: rgba(122, 122, 122, 0.5);
+  }
 
-  .text-muted\/70 { color: rgba(97, 118, 140, 0.7); }
-  .dark .text-muted\/70 { color: rgba(137, 163, 191, 0.7); }
+  .text-muted\/70 {
+    color: rgba(97, 118, 140, 0.7);
+  }
+  .dark .text-muted\/70 {
+    color: rgba(122, 122, 122, 0.7);
+  }
 
-  .text-muted\/80 { color: rgba(97, 118, 140, 0.8); }
-  .dark .text-muted\/80 { color: rgba(137, 163, 191, 0.8); }
+  .text-muted\/80 {
+    color: rgba(97, 118, 140, 0.8);
+  }
+  .dark .text-muted\/80 {
+    color: rgba(122, 122, 122, 0.8);
+  }
 
-  .text-success\/70 { color: rgba(34, 197, 94, 0.7); }
-  .dark .text-success\/70 { color: rgba(74, 222, 128, 0.7); }
+  .text-success\/70 {
+    color: rgba(34, 197, 94, 0.7);
+  }
+  .dark .text-success\/70 {
+    color: rgba(212, 212, 212, 0.7);
+  }
 
-  .text-danger\/70 { color: rgba(239, 68, 68, 0.7); }
-  .dark .text-danger\/70 { color: rgba(248, 113, 113, 0.7); }
+  .text-danger\/70 {
+    color: rgba(239, 68, 68, 0.7);
+  }
+  .dark .text-danger\/70 {
+    color: rgba(143, 143, 143, 0.7);
+  }
 
-  .text-warning\/70 { color: rgba(245, 158, 11, 0.7); }
-  .dark .text-warning\/70 { color: rgba(251, 191, 36, 0.7); }
+  .text-warning\/70 {
+    color: rgba(245, 158, 11, 0.7);
+  }
+  .dark .text-warning\/70 {
+    color: rgba(183, 183, 183, 0.7);
+  }
 
-  .text-accent-light\/85 { color: rgba(3, 105, 161, 0.85); }
-  .dark .text-accent-light\/85 { color: rgba(125, 211, 252, 0.85); }
+  .text-accent-light\/85 {
+    color: rgba(3, 105, 161, 0.85);
+  }
+  .dark .text-accent-light\/85 {
+    color: rgba(255, 255, 255, 0.85);
+  }
 
-  .text-amber-200 { color: #b45309; }
-  .dark .text-amber-200 { color: #fde68a; }
+  .text-amber-200 {
+    color: #b45309;
+  }
+  .dark .text-amber-200 {
+    color: #d0d0d0;
+  }
 
   .text-emerald-200,
-  .text-emerald-300 { color: #047857; }
+  .text-emerald-300 {
+    color: #047857;
+  }
   .dark .text-emerald-200,
-  .dark .text-emerald-300 { color: #a7f3d0; }
+  .dark .text-emerald-300 {
+    color: #d8d8d8;
+  }
 
   .text-rose-200,
-  .text-rose-300 { color: #be123c; }
+  .text-rose-300 {
+    color: #be123c;
+  }
   .dark .text-rose-200,
-  .dark .text-rose-300 { color: #fda4af; }
+  .dark .text-rose-300 {
+    color: #b3b3b3;
+  }
 
   /* ─── Glass material utilities ────────────────────────────────────────── */
-  .bg-glass-shell { background-color: rgba(var(--color-glass-shell), 0.72); }
-  .bg-glass-shell-strong { background-color: rgba(var(--color-glass-shell-strong), 0.85); }
-  .bg-glass-panel { background-color: rgba(var(--color-glass-panel), 0.68); }
-  .bg-glass-panel-strong { background-color: rgba(var(--color-glass-panel), 0.82); }
-  .bg-glass-scrim { background-color: rgba(var(--color-glass-scrim), 0.025); }
-  .bg-glass-tint-accent { background-color: rgba(var(--color-glass-tint-accent), 0.08); }
-  .bg-overlay { background-color: rgba(var(--color-overlay), 0.45); }
-
-  .border-glass { border-color: rgba(var(--color-glass-border), 0.18); }
-  .border-glass-strong { border-color: rgba(var(--color-glass-border-strong), 0.28); }
-
-  /* Top-edge glass highlight — the physical highlight of frosted glass */
-  .bg-glass-highlight {
-    background-image: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0) 100%
-    );
+  .bg-glass-shell {
+    background-color: rgba(var(--color-glass-shell), 0.72);
   }
-  .dark .bg-glass-highlight {
-    background-image: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0) 100%
-    );
+  .bg-glass-shell-strong {
+    background-color: rgba(var(--color-glass-shell-strong), 0.85);
+  }
+  .bg-glass-panel {
+    background-color: rgba(var(--color-glass-panel), 0.68);
+  }
+  .bg-glass-panel-strong {
+    background-color: rgba(var(--color-glass-panel), 0.82);
+  }
+  .bg-glass-scrim {
+    background-color: rgba(var(--color-glass-scrim), 0.025);
+  }
+  .bg-glass-tint-accent {
+    background-color: rgba(var(--color-glass-tint-accent), 0.08);
+  }
+  .bg-overlay {
+    background-color: rgba(var(--color-overlay), 0.45);
   }
 
-  /* ─── Focus ring ──────────────────────────────────────────────────────── */
-  .focus-ring {
-    box-shadow: 0 0 0 3px rgba(var(--color-focus-ring), 0.35);
+  .border-glass {
+    border-color: rgba(var(--color-glass-border), 0.18);
   }
-
-  /* ─── Skeleton shimmer — overlay element, absolute inset ─────────────── */
-  .shimmer-overlay {
-    overflow: hidden;
-    position: relative;
-  }
-  .shimmer-overlay::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.18) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
-    animation: shimmer 1.6s var(--ease-in-out) infinite;
-  }
-  .dark .shimmer-overlay::after {
-    background: linear-gradient(
-      90deg,
-      rgba(255, 255, 255, 0) 0%,
-      rgba(255, 255, 255, 0.06) 50%,
-      rgba(255, 255, 255, 0) 100%
-    );
+  .border-glass-strong {
+    border-color: rgba(var(--color-glass-border-strong), 0.28);
   }
 
   /* ─── Preset animation utilities — consume CSS motion tokens ─────────── */
@@ -492,11 +891,21 @@
   }
 
   /* ─── Stagger delays for list choreography (Emil: 30–80ms between items) */
-  .stagger-1 { animation-delay: 30ms; }
-  .stagger-2 { animation-delay: 60ms; }
-  .stagger-3 { animation-delay: 90ms; }
-  .stagger-4 { animation-delay: 120ms; }
-  .stagger-5 { animation-delay: 150ms; }
+  .stagger-1 {
+    animation-delay: 30ms;
+  }
+  .stagger-2 {
+    animation-delay: 60ms;
+  }
+  .stagger-3 {
+    animation-delay: 90ms;
+  }
+  .stagger-4 {
+    animation-delay: 120ms;
+  }
+  .stagger-5 {
+    animation-delay: 150ms;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -57,6 +57,11 @@ export namespace Flag {
   export const NIKCLI_DISCORD_TASK_NOTIFICATIONS =
     truthy("NIKCLI_DISCORD_TASK_NOTIFICATIONS") || truthy("DISCORD_TASK_NOTIFICATIONS")
 
+  // TUI plugin system
+  export declare const NIKCLI_TUI_CONFIG: string | undefined
+  export const NIKCLI_PURE = truthy("NIKCLI_PURE")
+  export const NIKCLI_PLUGIN_META_FILE = process.env["NIKCLI_PLUGIN_META_FILE"]
+
   // Experimental
   export const NIKCLI_EXPERIMENTAL = truthy("NIKCLI_EXPERIMENTAL")
   export const NIKCLI_EXPERIMENTAL_FILEWATCHER = truthy("NIKCLI_EXPERIMENTAL_FILEWATCHER")
@@ -97,6 +102,14 @@ Object.defineProperty(Flag, "NIKCLI_DISABLE_PROJECT_CONFIG", {
 Object.defineProperty(Flag, "NIKCLI_CONFIG_DIR", {
   get() {
     return process.env["NIKCLI_CONFIG_DIR"]
+  },
+  enumerable: true,
+  configurable: false,
+})
+
+Object.defineProperty(Flag, "NIKCLI_TUI_CONFIG", {
+  get() {
+    return process.env["NIKCLI_TUI_CONFIG"]
   },
   enumerable: true,
   configurable: false,

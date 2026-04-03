@@ -201,6 +201,18 @@ type ThemeJson = {
   }
 }
 
+const extraThemes: Record<string, ThemeJson> = {}
+
+export function addTheme(name: string, data: unknown): void {
+  if (!data || typeof data !== "object" || !("theme" in data)) return
+  extraThemes[name] = data as ThemeJson
+  DEFAULT_THEMES[name] = data as ThemeJson
+}
+
+export function hasTheme(name: string): boolean {
+  return name in DEFAULT_THEMES
+}
+
 export const DEFAULT_THEMES: Record<string, ThemeJson> = {
   abyss,
   aura,

@@ -9,13 +9,19 @@ import type {
   Message,
   Part,
   Auth,
-  Config,
+  Config as SDKConfig,
 } from "@nikcli-ai/sdk"
 
 import type { BunShell } from "./shell"
 import { type ToolDefinition } from "./tool"
 
 export * from "./tool"
+
+export type PluginOptions = Record<string, unknown>
+
+export type Config = Omit<SDKConfig, "plugin"> & {
+  plugin?: Array<string | [string, PluginOptions]>
+}
 
 export type ProviderContext = {
   source: "env" | "config" | "custom" | "api"
@@ -32,7 +38,13 @@ export type PluginInput = {
   $: BunShell
 }
 
-export type Plugin = (input: PluginInput) => Promise<Hooks>
+export type Plugin = (input: PluginInput, options?: PluginOptions) => Promise<Hooks>
+
+export type PluginModule = {
+  id?: string
+  server: Plugin
+  tui?: never
+}
 
 export type AuthHook = {
   provider: string

@@ -3831,12 +3831,8 @@ export class Session3 extends HeyApiClient {
   }
 
   private _command?: Command2
-  get commands(): Command2 {
-    return (this._command ??= new Command2({ client: this.client }))
-  }
-
   get command2(): Command2 {
-    return this.commands
+    return (this._command ??= new Command2({ client: this.client }))
   }
 }
 

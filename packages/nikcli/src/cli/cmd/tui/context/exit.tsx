@@ -4,10 +4,11 @@ import { FormatError, FormatUnknownError } from "@/cli/error"
 
 export const { use: useExit, provider: ExitProvider } = createSimpleContext({
   name: "Exit",
-  init: (input: { onExit?: () => Promise<void> }) => {
+  init: (input: { onExit?: () => Promise<void>; onBeforeExit?: () => Promise<void> }) => {
     const renderer = useRenderer()
     return async (reason?: any) => {
       // Reset window title before destroying renderer
+      await input.onBeforeExit?.()
       renderer.setTerminalTitle("")
       renderer.destroy()
       await input.onExit?.()
