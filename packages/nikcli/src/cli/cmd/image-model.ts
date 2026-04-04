@@ -113,9 +113,7 @@ export const ImageModelCommand = cmd({
 })
 
 async function saveConfig(config: Config.Info, globalFlag: boolean) {
-  const configPath = globalFlag
-    ? path.join(Global.Path.config, "nikcli.jsonc")
-    : path.join(process.cwd(), "nikcli.jsonc")
+  const configPath = globalFlag ? path.join(Global.Path.config, "nikcli.json") : path.join(process.cwd(), "nikcli.json")
 
   const current = await Bun.file(configPath)
     .text()

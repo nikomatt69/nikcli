@@ -1,0 +1,6 @@
+Record audio from microphone and transcribe it to text using OpenRouter Whisper.
+
+Usage:
+- action: "start" to begin recording, "stop" to stop and transcribe, "status" to check if recording
+- duration: Maximum recording duration in seconds (default: 30)
+- language: Language code for transcription (default: "en")

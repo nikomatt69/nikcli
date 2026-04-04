@@ -32,7 +32,6 @@ export function ErrorComponent(props: {
 
   const issueURL = new URL("https://github.com/anomalyco/opencode/issues/new?template=bug-report.yml")
 
-  // Choose safe fallback colors per mode since theme context may not be available
   const isLight = props.mode === "light"
   const colors = {
     bg: isLight ? "#ffffff" : "#0a0a0a",

@@ -1,0 +1,6 @@
+Execute operations on external services (Figma, Slack, GitHub, Lovable).
+
+Usage:
+- connector: Connector name (must be configured in nikcli config)
+- operation: Operation to perform (connector-specific, e.g. figma_get_file, slack_send_message, github_create_issue)
+- args: Operation arguments (varies by operation)

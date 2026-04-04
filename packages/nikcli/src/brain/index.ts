@@ -24,6 +24,7 @@ const DEFAULTS: BrainConfig = {
 }
 
 const LOCK_FILE = ".brain-lock"
+const LOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
 const SESSION_REVIEW_LIMIT = 10
 const SESSION_REVIEW_MAX_CHARS = 12_000
 
@@ -88,7 +89,7 @@ export async function tryAcquireBrainLock(): Promise<number | null> {
   const lock = lockPath()
   try {
     const s = await fs.stat(lock)
-    if (Date.now() - s.mtimeMs < 60 * 60 * 1000) {
+    if (Date.now() - s.mtimeMs < LOCK_DURATION_MS) {
       return null
     }
     await fs.writeFile(lock, String(process.pid))
@@ -144,32 +145,13 @@ export async function updateMemory(content: string): Promise<void> {
 
 export async function getBrainConfig(): Promise<BrainConfig> {
   const config = await Config.get()
-  const experimental = (config.experimental ?? {}) as Record<string, unknown>
-  const configuredEnabled =
-    typeof experimental.brain === "boolean"
-      ? experimental.brain
-      : typeof experimental.dream === "boolean"
-        ? experimental.dream
-        : undefined
-  const configuredMinHours =
-    typeof experimental.brainMinHours === "number"
-      ? experimental.brainMinHours
-      : typeof experimental.dreamMinHours === "number"
-        ? experimental.dreamMinHours
-        : undefined
-  const configuredMinSessions =
-    typeof experimental.brainMinSessions === "number"
-      ? experimental.brainMinSessions
-      : typeof experimental.dreamMinSessions === "number"
-        ? experimental.dreamMinSessions
-        : undefined
-  const configuredMemoryEnabled = typeof experimental.memory === "boolean" ? experimental.memory : undefined
-
+  const experimental = config.experimental ?? {}
   return {
-    minHours: typeof configuredMinHours === "number" ? configuredMinHours : DEFAULTS.minHours,
-    minSessions: typeof configuredMinSessions === "number" ? configuredMinSessions : DEFAULTS.minSessions,
-    enabled: configuredEnabled ?? DEFAULTS.enabled,
-    memoryEnabled: typeof configuredMemoryEnabled === "boolean" ? configuredMemoryEnabled : DEFAULTS.memoryEnabled,
+    minHours: typeof experimental.brainMinHours === "number" ? experimental.brainMinHours : DEFAULTS.minHours,
+    minSessions:
+      typeof experimental.brainMinSessions === "number" ? experimental.brainMinSessions : DEFAULTS.minSessions,
+    enabled: experimental.brain !== undefined ? experimental.brain !== false : DEFAULTS.enabled,
+    memoryEnabled: experimental.memory !== undefined ? experimental.memory !== false : DEFAULTS.memoryEnabled,
   }
 }
 
@@ -192,6 +174,7 @@ export namespace Brain {
   let lastSessionScanAt = 0
 
   const SCAN_THROTTLE_MS = 10 * 60 * 1000
+  const HOUR_MS = 60 * 60 * 1000
 
   export async function shouldTrigger(): Promise<boolean> {
     if (!(await isBrainEnabled())) return false
@@ -207,7 +190,7 @@ export namespace Brain {
       return false
     }
 
-    const hoursSince = (Date.now() - lastAt) / 3_600_000
+    const hoursSince = (Date.now() - lastAt) / HOUR_MS
     if (hoursSince < cfg.minHours) return false
 
     const sinceScanMs = Date.now() - lastSessionScanAt
@@ -245,7 +228,7 @@ export namespace Brain {
       return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: String(e) }
     }
 
-    const hoursSince = (Date.now() - lastAt) / 3_600_000
+    const hoursSince = (Date.now() - lastAt) / HOUR_MS
 
     let priorMtime: number | null
     try {

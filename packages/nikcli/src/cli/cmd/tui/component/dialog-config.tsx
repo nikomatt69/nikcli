@@ -93,7 +93,7 @@ function ConfigCategoryList() {
       result.push({
         title: "No configurations found",
         value: "agent" as ConfigCategory,
-        description: "Add configurations to your config.json",
+        description: "Add configurations to your nikcli.json",
         category: "Info",
         disabled: true,
       })

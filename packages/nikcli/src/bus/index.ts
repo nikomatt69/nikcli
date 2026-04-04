@@ -17,7 +17,7 @@ export namespace Bus {
 
   const state = Instance.state(
     () => {
-      const subscriptions = new Map<any, Subscription[]>()
+      const subscriptions = new Map<string, Subscription[]>()
 
       return {
         subscriptions,
@@ -89,7 +89,7 @@ export namespace Bus {
   function raw(type: string, callback: (event: any) => void) {
     log.info("subscribing", { type })
     const subscriptions = state().subscriptions
-    let match = subscriptions.get(type) ?? []
+    const match = subscriptions.get(type) ?? []
     match.push(callback)
     subscriptions.set(type, match)
 

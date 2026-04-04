@@ -10,6 +10,7 @@ import { Config } from "@/config/config"
 import { ttsRegistry, type TTSProvider } from "./speak/provider"
 import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "./speak/elevenlabs"
 import { OPENROUTER_VOICES_LIST, openRouterProvider } from "./speak/openrouter"
+import DESCRIPTION from "./speak.txt"
 
 const log = Log.create({ service: "tool.speak" })
 
@@ -226,22 +227,6 @@ function playAudioNonBlocking(player: AudioPlayer, filePath: string, volume: num
     cleanup()
   })
 }
-
-const DESCRIPTION = `Convert text to speech and play it on the machine speakers (non-blocking).
-
-This tool supports multiple TTS providers (ElevenLabs and OpenRouter).
-
-Audio tag examples (ElevenLabs):
-  [laughs] [sighs] [excited] [sad] [angry]
-  [whispers] [shouts] [dramatically] [calmly]
-  [British accent] [strong French accent]
-
-Usage guidance:
-- Use in short bursts to notify about important state changes
-- Good for: task completion, errors requiring attention, questions needing user input
-- Keep messages concise (1-2 sentences)
-
-Note: audio plays on the device running nikcli.`
 
 export const SpeakTool = Tool.define("speak", {
   description: DESCRIPTION,

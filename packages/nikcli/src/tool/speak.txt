@@ -1,0 +1,27 @@
+Convert text to speech and play it on the machine speakers (non-blocking).
+
+This tool supports multiple TTS providers (ElevenLabs and OpenRouter).
+
+Audio tag examples (ElevenLabs):
+  [laughs] [sighs] [excited] [sad] [angry]
+  [whispers] [shouts] [dramatically] [calmly]
+  [British accent] [strong French accent]
+
+Usage:
+- text: Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.
+- provider: TTS provider (e.g., elevenlabs, openrouter)
+- stability: Voice stability (0-1). Lower = more expressive. Default: 0.5
+- similarityBoost: Voice similarity boost (0-1). Default: 0.75
+- speed: Speech speed multiplier (0.5-2). Default: 1.0
+- volume: Playback volume (0-2). Default: 1.0
+- voiceId: TTS voice ID (provider-dependent default)
+- modelId: TTS model ID (provider-dependent default)
+- outputFormat: TTS output format (provider-dependent default)
+- timeoutMs: Request timeout in milliseconds (default: 30000)
+
+Usage guidance:
+- Use in short bursts to notify about important state changes
+- Good for: task completion, errors requiring attention, questions needing user input
+- Keep messages concise (1-2 sentences)
+
+Note: audio plays on the device running nikcli.

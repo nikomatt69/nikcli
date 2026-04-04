@@ -3,6 +3,7 @@ import os from "os"
 import { Tool } from "./tool"
 import { Config } from "@/config/config"
 import { Auth } from "@/auth"
+import DESCRIPTION from "./voice.txt"
 
 const OPENROUTER_STT_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 
@@ -49,7 +50,7 @@ export const Voice = Tool.define("voice", async () => {
   }
 
   return {
-    description: "Record audio from microphone and transcribe it to text using OpenRouter Whisper",
+    description: DESCRIPTION,
     parameters,
     async execute(args) {
       const { action, duration, language } = args

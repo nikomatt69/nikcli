@@ -5,20 +5,14 @@ import os from "os"
 import z from "zod"
 import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
-import { mergeDeep, pipe, unique } from "remeda"
+import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy } from "../util/lazy"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
-import {
-  type ParseError as JsoncParseError,
-  applyEdits,
-  modify,
-  parse as parseJsonc,
-  printParseErrorCode,
-} from "jsonc-parser"
+import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
 import { Instance } from "../project/instance"
 import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
@@ -78,11 +72,9 @@ export namespace Config {
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      for (const file of ["nikcli.jsonc", "nikcli.json", "config.json"]) {
-        const found = await Filesystem.findUp(file, Instance.directory, Instance.worktree)
-        for (const resolved of found.toReversed()) {
-          result = mergeConfigConcatArrays(result, await loadFile(resolved))
-        }
+      const found = await Filesystem.findUp("nikcli.json", Instance.directory, Instance.worktree)
+      for (const resolved of found.toReversed()) {
+        result = mergeConfigConcatArrays(result, await loadFile(resolved))
       }
     }
 
@@ -125,14 +117,12 @@ export namespace Config {
 
     for (const dir of unique(directories)) {
       if (dir.endsWith(".nikcli") || dir === Flag.NIKCLI_CONFIG_DIR) {
-        for (const file of ["config.json", "nikcli.jsonc", "nikcli.json"]) {
-          log.debug(`loading config from ${path.join(dir, file)}`)
-          result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, file)))
-          // to satisfy the type checker
-          result.agent ??= {}
-          result.mode ??= {}
-          result.plugin ??= []
-        }
+        log.debug(`loading config from ${path.join(dir, "nikcli.json")}`)
+        result = mergeConfigConcatArrays(result, await loadFile(path.join(dir, "nikcli.json")))
+        // to satisfy the type checker
+        result.agent ??= {}
+        result.mode ??= {}
+        result.plugin ??= []
       }
 
       const exists = existsSync(path.join(dir, "node_modules"))
@@ -442,7 +432,9 @@ export namespace Config {
     let resolved = spec
     try {
       resolved = import.meta.resolve!(spec, configFilepath)
-    } catch {}
+    } catch (err) {
+      log.warn("failed to resolve plugin path", { spec, error: err })
+    }
 
     if (typeof plugin === "string") return resolved
     return [resolved, plugin[1]]
@@ -1479,29 +1471,7 @@ export namespace Config {
   export type Info = z.output<typeof Info>
 
   export const global = lazy(async () => {
-    let result: Info = pipe(
-      {},
-      mergeDeep(await loadFile(path.join(Global.Path.config, "config.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "nikcli.json"))),
-      mergeDeep(await loadFile(path.join(Global.Path.config, "nikcli.jsonc"))),
-    )
-
-    await import(path.join(Global.Path.config, "config"), {
-      with: {
-        type: "toml",
-      },
-    })
-      .then(async (mod) => {
-        const { provider, model, ...rest } = mod.default
-        if (provider && model) result.model = `${provider}/${model}`
-        result["$schema"] = "https://nikcli.store/config.json"
-        result = mergeDeep(result, rest)
-        await Bun.write(path.join(Global.Path.config, "config.json"), JSON.stringify(result, null, 2))
-        await fs.unlink(path.join(Global.Path.config, "config"))
-      })
-      .catch(() => {})
-
-    return result
+    return await loadFile(path.join(Global.Path.config, "nikcli.json"))
   })
 
   async function loadFile(filepath: string): Promise<Info> {
@@ -1597,7 +1567,9 @@ export namespace Config {
           const plugin = data.plugin[i]
           try {
             data.plugin[i] = import.meta.resolve!(plugin, configFilepath)
-          } catch (err) {}
+          } catch (err) {
+            log.warn("failed to resolve plugin path", { plugin, error: err })
+          }
         }
       }
       return data
@@ -1643,39 +1615,14 @@ export namespace Config {
   }
 
   export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "config.json")
+    const filepath = path.join(Instance.directory, "nikcli.json")
     const existing = await loadFile(filepath)
     await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
     await Instance.dispose()
   }
 
   function globalConfigFile() {
-    const candidates = ["nikcli.jsonc", "nikcli.json", "config.json"].map((file) => path.join(Global.Path.config, file))
-    for (const file of candidates) {
-      if (existsSync(file)) return file
-    }
-    return candidates[0]
-  }
-
-  function isRecord(value: unknown): value is Record<string, unknown> {
-    return !!value && typeof value === "object" && !Array.isArray(value)
-  }
-
-  function patchJsonc(input: string, patch: unknown, path: string[] = []): string {
-    if (!isRecord(patch)) {
-      const edits = modify(input, path, patch, {
-        formattingOptions: {
-          insertSpaces: true,
-          tabSize: 2,
-        },
-      })
-      return applyEdits(input, edits)
-    }
-
-    return Object.entries(patch).reduce((result, [key, value]) => {
-      if (value === undefined) return result
-      return patchJsonc(result, value, [...path, key])
-    }, input)
+    return path.join(Global.Path.config, "nikcli.json")
   }
 
   function parseConfig(text: string, filepath: string): Info {
@@ -1721,14 +1668,8 @@ export namespace Config {
         throw new JsonError({ path: filepath }, { cause: err })
       })
 
-    if (!filepath.endsWith(".jsonc")) {
-      const existing = parseConfig(before, filepath)
-      await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
-    } else {
-      const next = patchJsonc(before, config)
-      parseConfig(next, filepath)
-      await Bun.write(filepath, next)
-    }
+    const existing = parseConfig(before, filepath)
+    await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
 
     global.reset()
     await Instance.disposeAll()

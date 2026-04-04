@@ -27,10 +27,10 @@ function isChatPlatform(type: string): boolean {
 }
 
 async function resolveConfigPath(baseDir: string, global = false) {
-  const candidates = [path.join(baseDir, "nikcli.json"), path.join(baseDir, "nikcli.jsonc")]
+  const candidates = [path.join(baseDir, "nikcli.json")]
 
   if (!global) {
-    candidates.push(path.join(baseDir, ".nikcli", "nikcli.json"), path.join(baseDir, ".nikcli", "nikcli.jsonc"))
+    candidates.push(path.join(baseDir, ".nikcli", "nikcli.json"))
   }
 
   for (const candidate of candidates) {

@@ -4,9 +4,7 @@ import type { MouseEvent, KeyEvent, PasteEvent } from "@opentui/core"
 import { WebViewController, type WebViewState } from "./runtime"
 import { mouseDown, mouseUp, mouseMove, mouseWheel, keyDown, insertText, type RgbaBuffer } from "./native-bridge"
 
-// ============================================================================
 // Options
-// ============================================================================
 
 export interface WebViewOptions extends Omit<FrameBufferOptions, "width" | "height"> {
   url?: string
@@ -18,27 +16,21 @@ export interface WebViewOptions extends Omit<FrameBufferOptions, "width" | "heig
   respectAlpha?: boolean
 }
 
-// ============================================================================
 // Constants
-// ============================================================================
 
 const DEFAULT_CAPTURE_FPS = 10
 const DEFAULT_IDLE_CAPTURE_FPS = 2
 const BYTES_PER_PIXEL = 4
 const SUPERSAMPLE_ROW_ALIGNMENT = 256
 
-// ============================================================================
 // Helpers
-// ============================================================================
 
 function computeAlignedBytesPerRow(pixelWidth: number): number {
   const unaligned = pixelWidth * BYTES_PER_PIXEL
   return Math.ceil(unaligned / SUPERSAMPLE_ROW_ALIGNMENT) * SUPERSAMPLE_ROW_ALIGNMENT
 }
 
-// ============================================================================
 // WebViewRenderable
-// ============================================================================
 
 export class WebViewRenderable extends FrameBufferRenderable {
   private _controller: WebViewController
@@ -80,7 +72,6 @@ export class WebViewRenderable extends FrameBufferRenderable {
     this.onMouseMove = (event: MouseEvent) => this._handleMouseMove(event)
     this.onMouseScroll = (event: MouseEvent) => this._handleMouseScroll(event)
 
-    // Start capture loop
     this._startCapture()
   }
 
@@ -205,7 +196,6 @@ export class WebViewRenderable extends FrameBufferRenderable {
     const fps = this._isFocused ? this._captureFps : this._idleCaptureFps
     const interval = Math.round(1000 / fps)
 
-    // Dynamically adjust timer
     if (this._captureTimer) {
       clearInterval(this._captureTimer)
       this._captureTimer = setInterval(() => {

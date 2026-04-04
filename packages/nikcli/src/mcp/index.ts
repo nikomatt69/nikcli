@@ -676,8 +676,7 @@ export namespace MCP {
     return result
   }
 
-  export async function
-    startAuth(mcpName: string): Promise<{ authorizationUrl: string }> {
+  export async function startAuth(mcpName: string): Promise<{ authorizationUrl: string }> {
     const cfg = await Config.get()
     const mcpConfig = cfg.mcp?.[mcpName]
 

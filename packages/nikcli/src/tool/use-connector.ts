@@ -3,6 +3,7 @@ import { Config } from "../config/config"
 import { executeOperation } from "../connectors/registry"
 import { listConnectorTypes, getConnectorSpec } from "../connectors/registry"
 import { invalidateConnectorCache } from "../connectors/cache"
+import DESCRIPTION from "./use-connector.txt"
 import z from "zod"
 
 const allOperations = listConnectorTypes().flatMap((type) => {
@@ -12,7 +13,7 @@ const allOperations = listConnectorTypes().flatMap((type) => {
 
 export const UseConnectorTool = Tool.define("use_connector", async () => {
   return {
-    description: "Execute operations on external services (Figma, Slack, GitHub, Lovable)",
+    description: DESCRIPTION,
     parameters: z.object({
       connector: z.string().describe("Connector name"),
       operation: z.enum(allOperations as [string, ...string[]]).describe("Operation to perform"),

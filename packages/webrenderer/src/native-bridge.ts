@@ -27,10 +27,6 @@ function resolveLibraryPath(): string {
   )
 }
 
-// ============================================================================
-// Library Loading
-// ============================================================================
-
 const LIB_PATH = resolveLibraryPath()
 
 const lib = dlopen(LIB_PATH, {
@@ -80,9 +76,7 @@ const lib = dlopen(LIB_PATH, {
   wr_free_buffer: { args: [FFIType.ptr, FFIType.u64], returns: FFIType.void },
 })
 
-// ============================================================================
 // Types
-// ============================================================================
 
 export interface RgbaBuffer {
   data: Uint8ClampedArray
@@ -90,9 +84,7 @@ export interface RgbaBuffer {
   height: number
 }
 
-// ============================================================================
 // Singleton App Instance
-// ============================================================================
 
 let appPtr: number | null = null
 let pumpTimer: ReturnType<typeof setInterval> | null = null
@@ -111,20 +103,14 @@ function getApp(): number {
   return appPtr
 }
 
-// ============================================================================
 // Helpers
-// ============================================================================
 
-/** Convert a string to a null-terminated buffer for cstring FFI. */
 function toCString(str: string): Buffer {
   return Buffer.from(str + "\0")
 }
 
-// ============================================================================
 // Public API
-// ============================================================================
 
-/** No-op callback for webview_create when no event handler is needed. */
 const noopCallback = new JSCallback((_eventPtr: number, _userData: number) => {}, {
   args: [FFIType.ptr, FFIType.ptr],
   returns: FFIType.void,
@@ -146,33 +132,21 @@ export function createWebview(url: string | null, width: number, height: number)
   return id
 }
 
-/**
- * Navigate a webview to a URL.
- */
 export function navigate(webviewId: number, url: string): void {
   const app = getApp()
   lib.symbols.wr_webview_navigate(app, webviewId, toCString(url))
 }
 
-/**
- * Load HTML content directly into the webview.
- */
 export function setHtml(webviewId: number, html: string): void {
   const app = getApp()
   lib.symbols.wr_webview_set_html(app, webviewId, toCString(html))
 }
 
-/**
- * Evaluate JavaScript in the webview.
- */
 export function evalJs(webviewId: number, js: string): void {
   const app = getApp()
   lib.symbols.wr_webview_eval_js(app, webviewId, toCString(js))
 }
 
-/**
- * Resize the webview viewport (in pixels).
- */
 export function resizeWebview(webviewId: number, width: number, height: number): void {
   const app = getApp()
   lib.symbols.wr_webview_resize(app, webviewId, width, height)
@@ -204,17 +178,11 @@ export function captureScreenshot(webviewId: number, format: "png" | "jpeg" = "j
   return { data: copy, width, height }
 }
 
-/**
- * Destroy a webview by its ID.
- */
 export function destroyWebview(webviewId: number): void {
   const app = getApp()
   lib.symbols.wr_webview_destroy_by_id(app, webviewId)
 }
 
-/**
- * Shut down the entire native runtime.
- */
 export function destroyRuntime(): void {
   if (pumpTimer) {
     clearInterval(pumpTimer)
@@ -226,9 +194,7 @@ export function destroyRuntime(): void {
   }
 }
 
-// ============================================================================
 // Input Injection
-// ============================================================================
 
 export function mouseDown(webviewId: number, x: number, y: number, button: number): void {
   lib.symbols.wr_webview_mouse_down(getApp(), webviewId, x, y, button)
@@ -254,14 +220,8 @@ export function insertText(webviewId: number, text: string): void {
   lib.symbols.wr_webview_insert_text(getApp(), webviewId, toCString(text))
 }
 
-// ============================================================================
 // Standalone Image Processing (replaces pngjs)
-// ============================================================================
 
-/**
- * Decode PNG bytes to raw RGBA pixels.
- * Performance: ~1-3ms vs ~5-15ms with pngjs.
- */
 export function decodePng(pngBytes: Uint8Array): RgbaBuffer {
   const wBuf = new Uint32Array(1)
   const hBuf = new Uint32Array(1)
@@ -283,9 +243,6 @@ export function decodePng(pngBytes: Uint8Array): RgbaBuffer {
   return { data: copy, width, height }
 }
 
-/**
- * Resize RGBA pixel buffer using Lanczos3 filter.
- */
 export function resizeRgba(
   pixels: Uint8ClampedArray,
   width: number,

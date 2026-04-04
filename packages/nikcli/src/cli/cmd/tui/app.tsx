@@ -578,7 +578,7 @@ function App() {
     {
       title: "Run Brain",
       value: "brain.run",
-      slash: { name: "brain", aliases: ["dream"] },
+      slash: { name: "brain" },
       onSelect: (dialog) => {
         const directory = sync.data.path.directory || sdk.directory || process.cwd()
         dialog.clear()

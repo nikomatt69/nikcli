@@ -375,10 +375,10 @@ export const McpLogoutCommand = cmd({
 })
 
 async function resolveConfigPath(baseDir: string, global = false) {
-  const candidates = [path.join(baseDir, "nikcli.json"), path.join(baseDir, "nikcli.jsonc")]
+  const candidates = [path.join(baseDir, "nikcli.json")]
 
   if (!global) {
-    candidates.push(path.join(baseDir, ".nikcli", "nikcli.json"), path.join(baseDir, ".nikcli", "nikcli.jsonc"))
+    candidates.push(path.join(baseDir, ".nikcli", "nikcli.json"))
   }
 
   for (const candidate of candidates) {
@@ -717,8 +717,7 @@ export const McpDebugCommand = cmd({
               if (json.result?.serverInfo) {
                 prompts.log.info(`Server info: ${JSON.stringify(json.result.serverInfo)}`)
               }
-            } catch {
-            }
+            } catch {}
           } else {
             prompts.log.warn(`Unexpected status: ${response.status}`)
             const body = await response.text().catch(() => "")

@@ -1,12 +1,12 @@
 ---
-import DocsLayout from "../../layouts/DocsLayout.astro";
-import DocCallout from "../../components/docs/DocCallout.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro"
+import DocCallout from "../../components/docs/DocCallout.astro"
 
 const toc = [
   { title: "Plugins", href: "#plugins", depth: 2 },
   { title: "Built-ins", href: "#built-ins", depth: 2 },
   { title: "Skills", href: "#skills", depth: 2 },
-];
+]
 ---
 
 <DocsLayout
@@ -17,8 +17,8 @@ const toc = [
   <section id="plugins" class="mb-16 scroll-mt-24">
     <h2>Plugins</h2>
     <p>
-      Plugins are loaded via <code>Config.plugin</code> and initialized with a Nikcli client,
-      project context, and server URL. See <code>packages/nikcli/src/plugin/index.ts</code>.
+      Plugins are loaded via <code>Config.plugin</code> and initialized with a Nikcli client, project context, and server
+      URL. See <code>packages/nikcli/src/plugin/index.ts</code>.
     </p>
     <DocCallout type="info" title="Disable defaults">
       <p>Set <code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> to skip built-in plugins.</p>
@@ -29,8 +29,7 @@ const toc = [
     <h2>Built-ins</h2>
     <table class="doc-table">
       <tbody>
-        <tr><td><code>nikcli-anthropic-auth@0.0.9</code></td><td>Built-in Anthropic auth plugin.</td></tr>
-        <tr><td><code>@gitlab/nikcli-gitlab-auth@1.3.2</code></td><td>GitLab auth plugin.</td></tr>
+        <tr><td><code>@gitlab/opencode-gitlab-auth@1.3.2</code></td><td>GitLab auth plugin.</td></tr>
         <tr><td><code>CodexAuthPlugin</code></td><td>Internal OpenAI/Codex auth.</td></tr>
         <tr><td><code>CopilotAuthPlugin</code></td><td>Internal Copilot auth.</td></tr>
       </tbody>
@@ -44,7 +43,9 @@ const toc = [
       <code>.claude/skills</code> when Claude Code skills are enabled.
     </p>
     <DocCallout type="info" title="Skill format">
-      <p>Each skill requires a <code>SKILL.md</code> with frontmatter <code>name</code> and <code>description</code>.</p>
+      <p>
+        Each skill requires a <code>SKILL.md</code> with frontmatter <code>name</code> and <code>description</code>.
+      </p>
     </DocCallout>
   </section>
 </DocsLayout>

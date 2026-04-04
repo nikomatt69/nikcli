@@ -5,9 +5,9 @@ import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
 
 export namespace Tool {
-  interface Metadata {
-    [key: string]: any
-  }
+  export type Metadata = Record<string, unknown>
+
+  export interface StrictMetadata extends z.ZodType<Record<string, unknown>> {}
 
   export interface InitContext {
     agent?: Agent.Info
@@ -19,7 +19,7 @@ export namespace Tool {
     agent: string
     abort: AbortSignal
     callID?: string
-    extra?: { [key: string]: any }
+    extra?: Record<string, unknown>
     metadata(input: { title?: string; metadata?: M }): void
     ask(input: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">): Promise<void>
   }
