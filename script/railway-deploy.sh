@@ -12,6 +12,9 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CTX="/tmp/nikcli-railway-ctx"
 DETACH="${1:-}"
 
+echo "→ Cleaning previous Railway deploy context"
+rm -rf "$CTX"
+
 echo "→ Building minimal Railway context at $CTX"
 
 # Create directory structure
@@ -52,8 +55,16 @@ RSYNC_OPTS="-a --delete \
   --exclude node_modules \
   --exclude dist \
   --exclude build \
+  --exclude .cache \
+  --exclude .turbo \
+  --exclude .next \
+  --exclude .nuxt \
+  --exclude .svelte-kit \
   --exclude .expo \
   --exclude .output \
+  --exclude coverage \
+  --exclude tmp \
+  --exclude .DS_Store \
   --exclude '*.d.ts.map' \
   --exclude '*.js.map'"
 
@@ -66,6 +77,32 @@ eval rsync $RSYNC_OPTS "$ROOT/packages/plugin/"   "$CTX/packages/plugin/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/companion/" "$CTX/packages/companion/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/slack/"    "$CTX/packages/slack/"
 eval rsync $RSYNC_OPTS "$ROOT/github/"            "$CTX/github/"
+
+rm -rf \
+  "$CTX/packages/nikcli/.cache" \
+  "$CTX/packages/nikcli/.turbo" \
+  "$CTX/packages/nikcli/.next" \
+  "$CTX/packages/nikcli/.nuxt" \
+  "$CTX/packages/nikcli/.svelte-kit" \
+  "$CTX/packages/nikcli/.output" \
+  "$CTX/packages/nikcli/coverage" \
+  "$CTX/packages/nikcli/tmp" \
+  "$CTX/packages/script/.cache" \
+  "$CTX/packages/script/.turbo" \
+  "$CTX/packages/util/.cache" \
+  "$CTX/packages/util/.turbo" \
+  "$CTX/packages/sdk/js/.cache" \
+  "$CTX/packages/sdk/js/.turbo" \
+  "$CTX/packages/remote/.cache" \
+  "$CTX/packages/remote/.turbo" \
+  "$CTX/packages/plugin/.cache" \
+  "$CTX/packages/plugin/.turbo" \
+  "$CTX/packages/companion/.cache" \
+  "$CTX/packages/companion/.turbo" \
+  "$CTX/packages/slack/.cache" \
+  "$CTX/packages/slack/.turbo" \
+  "$CTX/github/.cache" \
+  "$CTX/github/.turbo"
 
 echo "→ Context size: $(du -sh "$CTX" | cut -f1)"
 echo "→ Deploying to Railway..."

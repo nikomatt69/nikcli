@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opentui/webrenderer",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./solid": {
+      "types": "./src/solid.tsx",
+      "import": "./src/solid.tsx"
+    }
+  },
+  "files": [
+    "src",
+    "dist",
+    "native/target/release/libwebrenderer.dylib",
+    "native/target/release/libwebrenderer.so"
+  ],
+  "scripts": {
+    "build": "bun run build:native && bun build src/index.ts src/solid.tsx --outdir dist --target bun --format esm --packages external && tsc --emitDeclarationOnly --declaration --declarationMap false --outDir dist --rootDir src --noEmit false",
+    "build:native": "cd native && cargo build --release",
+    "build:native:linux": "cd native && cargo build --release --target x86_64-unknown-linux-gnu",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@opentui/core": "^0.1.95",
+    "@opentui/solid": "^0.1.95",
+    "solid-js": "^1.9.10"
+  },
+  "devDependencies": {
+    "@tsconfig/bun": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

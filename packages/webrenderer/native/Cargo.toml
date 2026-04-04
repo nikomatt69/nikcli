@@ -1,0 +1,30 @@
+[package]
+name = "webrenderer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wry = "0.55"
+tao = "0.35"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+http = "1"
+once_cell = "1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = "0.6"
+objc2-app-kit = { version = "0.3", features = ["NSGraphicsContext", "NSImage", "NSBitmapImageRep", "NSImageRep"] }
+objc2-foundation = { version = "0.3", features = ["NSData", "NSRunLoop", "NSDate"] }
+objc2-core-graphics = "0.3"
+block2 = "0.6"
+
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
+codegen-units = 1

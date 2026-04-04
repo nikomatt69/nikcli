@@ -5,6 +5,7 @@ import { useDirectory } from "../../context/directory"
 import { useConnected } from "../../component/dialog-model"
 import { createStore } from "solid-js/store"
 import { useRoute } from "../../context/route"
+import { Instance } from "@/project/instance"
 
 export function Footer() {
   const { theme } = useTheme()
@@ -18,6 +19,7 @@ export function Footer() {
     return sync.data.permission[route.data.sessionID] ?? []
   })
   const directory = useDirectory()
+  const instanceDirectory = () => sync.data.path.directory || process.cwd()
   const connected = useConnected()
 
   const [brainEnabled, setBrainEnabled] = createSignal<boolean | null>(null)
@@ -44,11 +46,17 @@ export function Footer() {
     const refreshBrainStatus = async () => {
       try {
         const { getBrainConfig, readLastBrainAt, getSessionsCountSince } = await import("@/brain")
-        const config = await getBrainConfig()
+        const { config, lastAt, count } = await Instance.provide({
+          directory: instanceDirectory(),
+          fn: async () => {
+            const config = await getBrainConfig()
+            const lastAt = await readLastBrainAt()
+            const count = await getSessionsCountSince(lastAt)
+            return { config, lastAt, count }
+          },
+        })
         setBrainEnabled(config.enabled)
-        const lastAt = await readLastBrainAt()
         setBrainLastAt(lastAt)
-        const count = await getSessionsCountSince(lastAt)
         setBrainSessionsPending(count)
       } catch {
         setBrainEnabled(false)

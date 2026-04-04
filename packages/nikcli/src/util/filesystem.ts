@@ -1,6 +1,6 @@
 import { realpathSync, statSync } from "fs"
-import { dirname, join, relative, resolve as pathResolve } from "path"
 import { mkdir } from "fs/promises"
+import { dirname, join, relative, resolve as pathResolve } from "path"
 
 export namespace Filesystem {
   export function stat(p: string): import("fs").Stats | undefined {
@@ -32,7 +32,6 @@ export namespace Filesystem {
   export function resolve(p: string): string {
     return pathResolve(p)
   }
-
 
   export const exists = (p: string) =>
     Bun.file(p)

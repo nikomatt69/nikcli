@@ -49,6 +49,7 @@ import { DialogRagModel } from "../dialog-rag-model"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
+import { DialogWebPreview } from "../dialog-web-preview"
 import { DialogSubagent } from "@tui/routes/session/dialog-subagent"
 import os from "os"
 import path from "path"
@@ -2107,8 +2108,8 @@ export function Prompt(props: PromptProps) {
                   void handleVoiceButtonUp()
                 }}
                 backgroundColor={theme.error}
-                paddingLeft={1}
-                paddingRight={1}
+                paddingLeft={0.5}
+                paddingRight={0.5}
                 flexShrink={0}
               >
                 <text fg={theme.background}>
@@ -2116,7 +2117,7 @@ export function Prompt(props: PromptProps) {
                     {voiceStatus() === "recording"
                       ? "release to send"
                       : voiceStatus() === "transcribing"
-                        ? "transcribing..."
+                        ? "wait"
                         : (() => {
                             // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             const shortcut = keybind.print("voice_record" as any)
@@ -2129,6 +2130,20 @@ export function Prompt(props: PromptProps) {
                             )
                           })()}
                   </span>
+                </text>
+              </box>
+
+              <box
+                onMouseUp={() => {
+                  dialog.replace(() => <DialogWebPreview />)
+                }}
+                backgroundColor={theme.primary}
+                paddingLeft={1}
+                paddingRight={1}
+                flexShrink={0}
+              >
+                <text fg={theme.background}>
+                  ⊕ <span style={{ fg: theme.background }}>web</span>
                 </text>
               </box>
 

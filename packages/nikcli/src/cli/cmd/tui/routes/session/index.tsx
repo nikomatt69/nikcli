@@ -84,6 +84,8 @@ import { QuestionPrompt } from "./question"
 import { DBEditPrompt } from "./dbedit"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
+import { DialogWebPreview } from "@tui/component/dialog-web-preview"
+import { DialogSelect } from "../../ui/dialog-select"
 
 addDefaultParsers(parsers.parsers)
 
@@ -1967,10 +1969,45 @@ function List(props: ToolProps<typeof ListTool>) {
 }
 
 function WebFetch(props: ToolProps<typeof WebFetchTool>) {
+  const input = props.input as any
+  const { theme } = useTheme()
+  const dialog = useDialog()
+  const url = createMemo(() => String(input.url ?? "").trim())
+  const format = createMemo(() => String(input.format ?? "markdown"))
+  const host = createMemo(() => formatURLHost(url()))
+
+  const openPreview = () => {
+    if (!url()) return
+    dialog.replace(() => <DialogWebPreview url={url()} />)
+  }
+
   return (
-    <InlineTool icon="%" pending="Fetching from the web..." complete={(props.input as any).url} part={props.part}>
-      WebFetch {(props.input as any).url}
-    </InlineTool>
+    <Switch>
+      <Match when={props.output !== undefined && url()}>
+        <BlockTool
+          title={`# Web fetch: ${host()}`}
+          accentColor={theme.primary}
+          titleColor={theme.primary}
+          onClick={openPreview}
+          part={props.part}
+        >
+          <box gap={0}>
+            <box flexDirection="row" justifyContent="space-between" alignItems="center" gap={1}>
+              <text fg={theme.primary} wrapMode="char" flexGrow={1}>
+                {url()}
+              </text>
+              <text fg={theme.textMuted}>open preview</text>
+            </box>
+            <text fg={theme.textMuted}>Click to view this {format()} page in Web Preview</text>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="%" pending="Fetching from the web..." complete={(props.input as any).url} part={props.part}>
+          WebFetch {(props.input as any).url}
+        </InlineTool>
+      </Match>
+    </Switch>
   )
 }
 
@@ -1986,12 +2023,189 @@ function CodeSearch(props: ToolProps<any>) {
 
 function WebSearch(props: ToolProps<any>) {
   const input = props.input as any
-  const metadata = props.metadata as any
+  const { theme } = useTheme()
+  const dialog = useDialog()
+  const output = createMemo(() => String(props.output ?? "").trim())
+  const results = createMemo(() => parseWebSearchResults(output()))
+
+  const openPreview = (url: string) => {
+    dialog.replace(() => <DialogWebPreview url={url} />)
+  }
+
+  const choosePreview = () => {
+    if (results().length === 0) return
+    if (results().length === 1) {
+      openPreview(results()[0]!.url)
+      return
+    }
+
+    dialog.replace(() => (
+      <DialogSelect
+        title="Open Web Result"
+        placeholder="Filter results"
+        options={results().map((result) => ({
+          title: result.title,
+          description: result.host,
+          footer: result.snippet || result.url,
+          value: result.url,
+          onSelect: (ctx) => {
+            ctx.replace(() => <DialogWebPreview url={result.url} />)
+          },
+        }))}
+      />
+    ))
+  }
+
   return (
-    <InlineTool icon="◈" pending="Searching web..." complete={input.query} part={props.part}>
-      Exa Web Search "{input.query}" <Show when={metadata.numResults}>({metadata.numResults} results)</Show>
-    </InlineTool>
+    <Switch>
+      <Match when={results().length > 0}>
+        <BlockTool
+          title={`# Web search: ${input.query}`}
+          accentColor={theme.primary}
+          titleColor={theme.primary}
+          onClick={choosePreview}
+          part={props.part}
+        >
+          <box gap={0}>
+            <text fg={theme.textMuted}>
+              {results().length} previewable result{results().length === 1 ? "" : "s"} found
+            </text>
+            <text fg={theme.primary} wrapMode="char">
+              {results()[0]!.host}
+            </text>
+            <text fg={theme.textMuted}>
+              Click to {results().length === 1 ? "open the result" : "choose a result"} in Web Preview
+            </text>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={output()}>
+        <BlockTool title={`# Web search: ${input.query}`} accentColor={theme.primary} part={props.part}>
+          <box gap={1}>
+            <text fg={theme.textMuted}>Search completed, but no previewable URLs were extracted.</text>
+            <text fg={theme.text} wrapMode="word">
+              {output().slice(0, 400)}
+              {output().length > 400 ? "..." : ""}
+            </text>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="◈" pending="Searching web..." complete={input.query} part={props.part}>
+          Exa Web Search "{input.query}"
+        </InlineTool>
+      </Match>
+    </Switch>
   )
+}
+
+type WebSearchPreviewResult = {
+  url: string
+  title: string
+  snippet: string
+  host: string
+}
+
+function cleanWebSearchUrl(value: string) {
+  return value.replace(/[),.;:!?]+$/, "")
+}
+
+function cleanWebSearchLine(value: string) {
+  return value
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, "$1")
+    .replace(/https?:\/\/[^\s]+/g, "")
+    .replace(/^[\s>*\-•\d.()#]+/, "")
+    .replace(/[*_`~]+/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+}
+
+function buildWebSearchSnippet(lines: string[]) {
+  return lines.map(cleanWebSearchLine).filter(Boolean).join(" ").slice(0, 220)
+}
+
+function parseWebSearchResults(output: string): WebSearchPreviewResult[] {
+  if (!output.trim()) return []
+
+  const lines = output.split("\n")
+  const results: WebSearchPreviewResult[] = []
+  const seen = new Set<string>()
+  let previousLine = ""
+
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index]?.trim() ?? ""
+    if (!line) continue
+
+    const urlMatch = line.match(/https?:\/\/[^\s<>()\]]+/)
+    if (!urlMatch) {
+      previousLine = line
+      continue
+    }
+
+    const url = cleanWebSearchUrl(urlMatch[0])
+    if (seen.has(url)) {
+      previousLine = line
+      continue
+    }
+    seen.add(url)
+
+    let host = url
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "")
+    } catch {}
+
+    const titleFromLine = cleanWebSearchLine(line)
+    const titleFromPrevious = cleanWebSearchLine(previousLine)
+    const title = titleFromLine || titleFromPrevious || host
+
+    const snippetLines: string[] = []
+    for (let next = index + 1; next < lines.length; next++) {
+      const candidate = lines[next]?.trim() ?? ""
+      if (!candidate) {
+        if (snippetLines.length > 0) break
+        continue
+      }
+      if (/https?:\/\/[^\s<>()\]]+/.test(candidate)) break
+      snippetLines.push(candidate)
+      if (snippetLines.join(" ").length > 240) break
+    }
+
+    results.push({
+      url,
+      host,
+      title,
+      snippet: buildWebSearchSnippet(snippetLines),
+    })
+
+    if (results.length >= 8) break
+    previousLine = line
+  }
+
+  if (results.length > 0) return results
+
+  const fallbackUrls = Array.from(output.matchAll(/https?:\/\/[^\s<>()\]]+/g))
+  return fallbackUrls.slice(0, 8).map((match) => {
+    const url = cleanWebSearchUrl(match[0])
+    let host = url
+    try {
+      host = new URL(url).hostname.replace(/^www\./, "")
+    } catch {}
+    return {
+      url,
+      host,
+      title: host,
+      snippet: "",
+    }
+  })
+}
+
+function formatURLHost(value: string) {
+  if (!value) return "web"
+  try {
+    return new URL(value).hostname.replace(/^www\./, "") || value
+  } catch {
+    return value
+  }
 }
 
 function Task(props: ToolProps<typeof TaskTool>) {

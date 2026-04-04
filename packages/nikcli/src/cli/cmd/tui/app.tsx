@@ -61,6 +61,7 @@ import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
 import { initBrainScheduler } from "@/brain/scheduler"
+import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -579,11 +580,15 @@ function App() {
       value: "brain.run",
       slash: { name: "brain", aliases: ["dream"] },
       onSelect: (dialog) => {
+        const directory = sync.data.path.directory || sdk.directory || process.cwd()
         dialog.clear()
         toast.show({ message: "Brain started in background", variant: "info" })
         void (async () => {
           const { Brain } = await import("@/brain")
-          const result = await Brain.trigger({ force: true })
+          const result = await Instance.provide({
+            directory,
+            fn: () => Brain.trigger({ force: true }),
+          })
           if (!result.success) {
             toast.show({
               message: result.error ?? "Brain failed",
@@ -623,6 +628,18 @@ function App() {
         dialog.replace(() => <DialogConfig />)
       },
       category: "System",
+    },
+    {
+      title: "Web preview",
+      value: "web.preview",
+      category: "Tools",
+      slash: {
+        name: "preview",
+        aliases: ["browse", "web"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogWebPreview />)
+      },
     },
     {
       title: "View status",
