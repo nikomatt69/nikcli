@@ -91,7 +91,7 @@
     },
     "packages/cloud": {
       "name": "@nikcli-ai/cloud",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "hono": "catalog:",
         "jose": "5.9.6",
@@ -105,7 +105,7 @@
     },
     "packages/companion": {
       "name": "@nikcli-ai/companion",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@hono/node-server": "1.13.2",
         "@nikcli-ai/sdk": "workspace:*",
@@ -125,7 +125,7 @@
     },
     "packages/console/app": {
       "name": "@nikcli-ai/console-app",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@cloudflare/vite-plugin": "1.15.2",
         "@ibm/plex": "6.4.1",
@@ -159,7 +159,7 @@
     },
     "packages/console/core": {
       "name": "@nikcli-ai/console-core",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@aws-sdk/client-sts": "3.782.0",
         "@jsx-email/render": "1.1.1",
@@ -186,7 +186,7 @@
     },
     "packages/console/function": {
       "name": "@nikcli-ai/console-function",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@ai-sdk/anthropic": "2.0.0",
         "@ai-sdk/openai": "2.0.2",
@@ -210,7 +210,7 @@
     },
     "packages/console/mail": {
       "name": "@nikcli-ai/console-mail",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@jsx-email/all": "2.2.3",
         "@jsx-email/cli": "1.4.3",
@@ -222,7 +222,7 @@
     },
     "packages/console/resource": {
       "name": "@nikcli-ai/console-resource",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@cloudflare/workers-types": "catalog:",
       },
@@ -309,7 +309,7 @@
     },
     "packages/mobile": {
       "name": "@nikcli-ai/mobile",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@babel/runtime": "7.28.6",
         "@expo/metro-runtime": "~4.0.1",
@@ -361,7 +361,7 @@
     },
     "packages/nikcli": {
       "name": "nikcli",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "bin": {
         "nikcli": "./bin/nikcli",
       },
@@ -605,7 +605,7 @@
     },
     "packages/remote": {
       "name": "@nikcli-ai/remote",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "bin": {
         "nikcli-remote": "./dist/nikcli-remote",
       },
@@ -637,7 +637,7 @@
     },
     "packages/sdk/js": {
       "name": "@nikcli-ai/sdk",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.90.4",
         "@tsconfig/node22": "catalog:",
@@ -648,7 +648,7 @@
     },
     "packages/slack": {
       "name": "@nikcli-ai/slack",
-      "version": "0.0.6",
+      "version": "0.0.7",
       "dependencies": {
         "@nikcli-ai/sdk": "workspace:*",
         "@slack/bolt": "^4.6.0",

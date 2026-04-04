@@ -359,21 +359,21 @@ download_and_install() {
     local download_success=false
 
     # Try nikcli.store
-    if curl -sL -o "$tmp_dir/$filename" "$url_primary"; then
-        if [ -s "$tmp_dir/$filename" ]; then
-            download_url="$url_primary"
-            download_success=true
-        fi
+    local http_code
+    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_primary")
+    if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
+        download_url="$url_primary"
+        download_success=true
     fi
 
     # Fallback to GitHub if nikcli.store failed
     if [ "$download_success" = false ]; then
         print_message info "${MUTED}Downloading from GitHub (fallback)...${NC}"
-        if curl -sL -o "$tmp_dir/$filename" "$url_fallback"; then
-            if [ -s "$tmp_dir/$filename" ]; then
-                download_url="$url_fallback"
-                download_success=true
-            fi
+        rm -f "$tmp_dir/$filename"
+        http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_fallback")
+        if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
+            download_url="$url_fallback"
+            download_success=true
         fi
     fi
 
@@ -389,8 +389,15 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    mv "$tmp_dir/nikcli" "$INSTALL_DIR"
-    chmod 755 "${INSTALL_DIR}/nikcli"
+    local extracted_binary="$tmp_dir/$APP-$target/bin/$APP"
+    if [ ! -f "$extracted_binary" ]; then
+        echo -e "${RED}Error: Binary not found in archive at expected path${NC}"
+        rm -rf "$tmp_dir"
+        exit 1
+    fi
+
+    mv "$extracted_binary" "$INSTALL_DIR/$APP"
+    chmod 755 "${INSTALL_DIR}/$APP"
     rm -rf "$tmp_dir"
 }
 
