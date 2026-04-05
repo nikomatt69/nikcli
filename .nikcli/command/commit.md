@@ -1,6 +1,6 @@
 ---
 description: git commit and push
-model: nikcli/glm-4.6
+model: nikcli/glm-5
 subtask: true
 ---
 

@@ -378,6 +378,13 @@ export namespace ShareNext {
     if (disabled) return
 
     log.info("removing share", { sessionID })
+
+    const queued = queue.get(sessionID)
+    if (queued) {
+      clearTimeout(queued.timeout)
+      queue.delete(sessionID)
+    }
+
     const share = await get(sessionID).catch(() => undefined)
     if (!share) return
 

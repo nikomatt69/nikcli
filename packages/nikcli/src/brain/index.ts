@@ -183,15 +183,13 @@ export namespace Brain {
   let pending: Promise<BrainResult> | null = null
 
   export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
-    if (pending) return pending
-    const promise = runBrain(input)
-    pending = promise.catch((error) => ({
-      success: false,
-      sessionsReviewed: 0,
-      hoursSinceLastBrain: 0,
-      error: String(error),
-    }))
-    return pending
+    const existing = pending
+    if (existing) return existing
+    const task = runBrain(input).finally(() => {
+      if (pending === task) pending = null
+    })
+    pending = task
+    return task
   }
 
   async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
@@ -251,7 +249,11 @@ export namespace Brain {
       log.error("brain failed", { error: String(e) })
       return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
     } finally {
-      await lease.release()
+      const released = await lease.release().catch((err) => {
+        log.warn("failed to release brain lock", { error: String(err) })
+        return false
+      })
+      if (released) log.debug("brain lock released")
     }
   }
 
@@ -291,11 +293,7 @@ export namespace Brain {
 
         const timeout = setTimeout(() => {
           log.warn("brain session timed out, cancelling", { sessionID: session.id })
-          try {
-            SessionPrompt.cancel(session.id)
-          } catch (cancelError) {
-            log.error("failed to cancel brain session", { sessionID: session.id, error: String(cancelError) })
-          }
+          SessionPrompt.cancel(session.id)
         }, BRAIN_SESSION_TIMEOUT_MS)
 
         try {

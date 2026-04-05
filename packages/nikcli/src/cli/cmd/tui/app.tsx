@@ -761,7 +761,9 @@ function App() {
             return
           }
           const status = await Tophat.status()
-          const devices = status.devices.map((d: { name: string; platform: string }) => `${d.name} (${d.platform})`).join(", ") || "none"
+          const devices =
+            status.devices.map((d: { name: string; platform: string }) => `${d.name} (${d.platform})`).join(", ") ||
+            "none"
           toast.show({
             message: `Tophat: ${status.providers.length} provider(s), devices: ${devices}`,
             variant: "info",
@@ -825,12 +827,12 @@ function App() {
       category: "System",
       hidden: true,
       onSelect: () => {
-        process.once("SIGCONT", () => {
+        const handler = () => {
           renderer.resume()
-        })
+        }
+        process.once("SIGCONT", handler)
 
         renderer.suspend()
-        // pid=0 means send the signal to all processes in the process group
         process.kill(0, "SIGTSTP")
       },
     },
