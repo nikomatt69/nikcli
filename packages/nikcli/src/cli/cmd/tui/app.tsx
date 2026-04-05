@@ -62,6 +62,9 @@ import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
 import { initBrainScheduler } from "@/brain/scheduler"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
+import { UserDB } from "@/db/users"
+import { DialogLogin } from "@tui/component/dialog-login"
+import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -235,6 +238,15 @@ function App() {
 
   onMount(() => {
     void (async () => {
+      // --- User session check ---
+      const storedToken = UserDB.getActiveSessionSync()
+      const validUser = storedToken ? UserDB.verifySession(storedToken) : null
+      if (!validUser) {
+        // No session or expired — run login/register flow
+        await DialogLogin.run(dialog)
+      }
+      // --- End user session check ---
+
       const tuiConfig = await Instance.provide({
         directory: process.cwd(),
         fn: async () => {
@@ -567,6 +579,18 @@ function App() {
       category: "Provider",
     },
     {
+      title: "Manage Account",
+      value: "auth.manage",
+      category: "Account",
+      slash: {
+        name: "auth",
+        aliases: ["account"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogAuthManage />)
+      },
+    },
+    {
       title: "Settings",
       value: "settings.open",
       slash: { name: "settings" },
@@ -704,6 +728,55 @@ function App() {
       category: "System",
     },
     {
+      title: "Tophat: install app",
+      value: "tophat.install",
+      category: "Mobile",
+      slash: {
+        name: "tophat",
+        aliases: ["tophat-install", "install-app"],
+      },
+      onSelect: (dialog) => {
+        dialog.clear()
+        toast.show({
+          message: "Use: install <path|url> [--platform ios|android] [--dest device|simulator]",
+          variant: "info",
+          duration: 6000,
+        })
+      },
+    },
+    {
+      title: "Tophat: status",
+      value: "tophat.status",
+      category: "Mobile",
+      slash: {
+        name: "tophat-status",
+      },
+      onSelect: (dialog) => {
+        dialog.clear()
+        void (async () => {
+          const { Tophat } = await import("@/mobile/tophat")
+          const available = await Tophat.available()
+          if (!available) {
+            toast.show({ message: "Tophat not installed (macOS 15+ required)", variant: "error", duration: 5000 })
+            return
+          }
+          const status = await Tophat.status()
+          const devices = status.devices.map((d: { name: string; platform: string }) => `${d.name} (${d.platform})`).join(", ") || "none"
+          toast.show({
+            message: `Tophat: ${status.providers.length} provider(s), devices: ${devices}`,
+            variant: "info",
+            duration: 6000,
+          })
+        })().catch((err: unknown) => {
+          toast.show({
+            message: err instanceof Error ? err.message : "Tophat status failed",
+            variant: "error",
+            duration: 4000,
+          })
+        })
+      },
+    },
+    {
       title: "Exit the app",
       value: "app.exit",
       slash: {
@@ -797,66 +870,67 @@ function App() {
     ),
   )
 
-  sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
-    command.trigger(evt.properties.command)
-  })
-
-  sdk.event.on(TuiEvent.ToastShow.type, (evt) => {
-    toast.show({
-      title: evt.properties.title,
-      message: evt.properties.message,
-      variant: evt.properties.variant,
-      duration: evt.properties.duration,
-    })
-  })
-
-  sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
-    route.navigate({
-      type: "session",
-      sessionID: evt.properties.sessionID,
-      workspaceID: sync.session.get(evt.properties.sessionID)?.workspaceID,
-    })
-  })
-
-  sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
-    if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
-      route.navigate({ type: "home", workspaceID: evt.properties.info.workspaceID })
-      toast.show({
-        variant: "info",
-        message: "The current session was deleted",
-      })
-    }
-  })
-
-  sdk.event.on(SessionApi.Event.Error.type, (evt) => {
-    const error = evt.properties.error
-    if (error && typeof error === "object" && error.name === "MessageAbortedError") return
-    const message = (() => {
-      if (!error) return "An error occurred"
-
-      if (typeof error === "object") {
-        const data = error.data
-        if ("message" in data && typeof data.message === "string") {
-          return data.message
+  onMount(() => {
+    const unsubs = [
+      sdk.event.on(TuiEvent.CommandExecute.type, (evt) => {
+        command.trigger(evt.properties.command)
+      }),
+      sdk.event.on(TuiEvent.ToastShow.type, (evt) => {
+        toast.show({
+          title: evt.properties.title,
+          message: evt.properties.message,
+          variant: evt.properties.variant,
+          duration: evt.properties.duration,
+        })
+      }),
+      sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
+        route.navigate({
+          type: "session",
+          sessionID: evt.properties.sessionID,
+          workspaceID: sync.session.get(evt.properties.sessionID)?.workspaceID,
+        })
+      }),
+      sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
+        if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
+          route.navigate({ type: "home", workspaceID: evt.properties.info.workspaceID })
+          toast.show({
+            variant: "info",
+            message: "The current session was deleted",
+          })
         }
-      }
-      return String(error)
-    })()
+      }),
+      sdk.event.on(SessionApi.Event.Error.type, (evt) => {
+        const error = evt.properties.error
+        if (error && typeof error === "object" && error.name === "MessageAbortedError") return
+        const message = (() => {
+          if (!error) return "An error occurred"
 
-    toast.show({
-      variant: "error",
-      message,
-      duration: 5000,
-    })
-  })
+          if (typeof error === "object") {
+            const data = error.data
+            if ("message" in data && typeof data.message === "string") {
+              return data.message
+            }
+          }
+          return String(error)
+        })()
 
-  sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
-    toast.show({
-      variant: "info",
-      title: "Update Available",
-      message: `Nikcli v${evt.properties.version} is available. Run 'nikcli upgrade' to update manually.`,
-      duration: 10000,
-    })
+        toast.show({
+          variant: "error",
+          message,
+          duration: 5000,
+        })
+      }),
+      sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
+        toast.show({
+          variant: "info",
+          title: "Update Available",
+          message: `Nikcli v${evt.properties.version} is available. Run 'nikcli upgrade' to update manually.`,
+          duration: 10000,
+        })
+      }),
+    ]
+
+    onCleanup(() => unsubs.forEach((fn) => fn()))
   })
 
   return (

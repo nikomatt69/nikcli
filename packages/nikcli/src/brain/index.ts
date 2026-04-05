@@ -8,6 +8,7 @@ import { Session } from "@/session"
 import { Storage } from "@/storage/storage"
 import { SessionPrompt } from "@/session/prompt"
 import { Provider } from "@/provider/provider"
+import { Flock } from "@/util/flock"
 
 export type BrainConfig = {
   minHours: number
@@ -25,6 +26,7 @@ const DEFAULTS: BrainConfig = {
 
 const LOCK_FILE = ".brain-lock"
 const LOCK_DURATION_MS = 60 * 60 * 1000 // 1 hour
+const BRAIN_SESSION_TIMEOUT_MS = 5 * 60 * 1000 // 5 minutes
 const SESSION_REVIEW_LIMIT = 10
 const SESSION_REVIEW_MAX_CHARS = 12_000
 
@@ -83,38 +85,6 @@ async function listProjectSessions(filter: (session: Session.Info) => boolean): 
     // no sessions found
   }
   return sessions.toSorted((a, b) => a.updated - b.updated).map((session) => session.id)
-}
-
-export async function tryAcquireBrainLock(): Promise<number | null> {
-  const lock = lockPath()
-  try {
-    const s = await fs.stat(lock)
-    if (Date.now() - s.mtimeMs < LOCK_DURATION_MS) {
-      return null
-    }
-    await fs.writeFile(lock, String(process.pid))
-    const verify = await fs.readFile(lock, "utf8")
-    if (parseInt(verify.trim(), 10) !== process.pid) return null
-    return s.mtimeMs
-  } catch {
-    await fs.mkdir(path.dirname(lock), { recursive: true })
-    await fs.writeFile(lock, String(process.pid))
-    return 0
-  }
-}
-
-export async function rollbackBrainLock(priorMtime: number): Promise<void> {
-  const lock = lockPath()
-  try {
-    if (priorMtime === 0) {
-      await fs.unlink(lock)
-      return
-    }
-    const t = priorMtime / 1000
-    await fs.utimes(lock, t, t)
-  } catch {
-    // ignore rollback errors
-  }
 }
 
 export async function recordBrain(): Promise<void> {
@@ -210,7 +180,17 @@ export namespace Brain {
     return true
   }
 
+  let pending: Promise<BrainResult> | null = null
+
   export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
+    if (pending) return pending
+    pending = runBrain(input).finally(() => {
+      pending = null
+    })
+    return pending
+  }
+
+  async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
     const log = Log.create({ service: "brain" })
 
     if (!(await isBrainEnabled())) {
@@ -230,18 +210,12 @@ export namespace Brain {
 
     const hoursSince = (Date.now() - lastAt) / HOUR_MS
 
-    let priorMtime: number | null
+    let lease: Flock.Lease
     try {
-      priorMtime = await tryAcquireBrainLock()
-    } catch (e) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: hoursSince, error: String(e) }
-    }
-
-    if (priorMtime === null) {
+      lease = await Flock.acquire("brain", { staleMs: LOCK_DURATION_MS, timeoutMs: 100 })
+    } catch {
       return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: hoursSince, error: "lock held" }
     }
-
-    log.info("brain triggered", { hoursSince, priorMtime })
 
     let sessionIds = await listSessionsSince(lastAt)
     if (input?.force && sessionIds.length === 0) {
@@ -249,14 +223,31 @@ export namespace Brain {
     }
 
     try {
+      log.info("brain triggered", { hoursSince })
+
+      const before = await getBrainMemoryContent()
       const sessionID = await executeBrain(sessionIds)
-      await recordBrain()
-      log.info("brain completed", { sessionsReviewed: sessionIds.length })
-      return { success: true, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, sessionID }
+      const after = await getBrainMemoryContent()
+
+      if (before !== after) {
+        await recordBrain()
+        log.info("brain completed", { sessionsReviewed: sessionIds.length, memoryUpdated: true })
+        return { success: true, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, sessionID }
+      }
+
+      log.warn("brain did not update memory file", { sessionsReviewed: sessionIds.length })
+      return {
+        success: false,
+        sessionsReviewed: sessionIds.length,
+        hoursSinceLastBrain: hoursSince,
+        sessionID,
+        error: "memory file unchanged",
+      }
     } catch (e) {
       log.error("brain failed", { error: String(e) })
-      await rollbackBrainLock(priorMtime)
       return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
+    } finally {
+      await lease.release()
     }
   }
 
@@ -293,15 +284,25 @@ export namespace Brain {
         log.info("brain session created", { sessionID: session.id })
         const model = await Provider.defaultModel()
         const parts = await SessionPrompt.resolvePromptParts(prompt)
-        await SessionPrompt.prompt({
-          sessionID: session.id,
-          model,
-          parts,
-        })
+
+        const timeout = setTimeout(() => {
+          log.warn("brain session timed out, cancelling", { sessionID: session.id })
+          SessionPrompt.cancel(session.id)
+        }, BRAIN_SESSION_TIMEOUT_MS)
+
+        try {
+          await SessionPrompt.prompt({
+            sessionID: session.id,
+            model,
+            parts,
+          })
+        } finally {
+          clearTimeout(timeout)
+        }
+
         return session.id
       } catch (sessionError) {
-        log.warn("could not create brain session, logging prompt instead", { error: String(sessionError) })
-        log.info("Brain prompt:", { prompt })
+        log.warn("could not run brain session", { error: String(sessionError) })
         return "brain-session-not-created"
       }
     } catch (e) {

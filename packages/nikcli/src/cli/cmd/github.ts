@@ -166,7 +166,7 @@ export const GithubCommand = cmd({
   command: "github",
   describe: "manage GitHub agent",
   builder: (yargs) => yargs.command(GithubInstallCommand).command(GithubRunCommand).demandCommand(),
-  async handler() { },
+  async handler() {},
 })
 
 export const GithubInstallCommand = cmd({
@@ -403,10 +403,9 @@ export const GithubRunCommand = cmd({
         type: "string",
         describe: "GitHub personal access token (github_pat_********)",
       }),
-  async handler(args) {
-    await bootstrap(process.cwd(), async () => {
-      // This is a simplified version - the full implementation is extensive
-      console.log("GitHub agent run initiated")
-    })
+  async handler(_args) {
+    prompts.log.error("GitHub agent run is not yet implemented.")
+    prompts.log.info("Track progress at: https://github.com/nikcli-ai/nikcli/issues")
+    process.exit(1)
   },
 })

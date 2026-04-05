@@ -28,6 +28,7 @@ mkdir -p \
   "$CTX/packages/plugin" \
   "$CTX/packages/companion" \
   "$CTX/packages/slack" \
+  "$CTX/packages/studio" \
   "$CTX/github"
 
 # Root workspace files
@@ -48,6 +49,7 @@ cp "$ROOT/packages/remote/package.json" "$CTX/packages/remote/package.json"
 cp "$ROOT/packages/plugin/package.json" "$CTX/packages/plugin/package.json"
 cp "$ROOT/packages/companion/package.json" "$CTX/packages/companion/package.json"
 cp "$ROOT/packages/slack/package.json" "$CTX/packages/slack/package.json"
+cp "$ROOT/packages/studio/package.json" "$CTX/packages/studio/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
 # Full source (excluding node_modules, dist, build artifacts)

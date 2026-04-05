@@ -61,6 +61,31 @@ export namespace Session {
       ref: "SessionGithub",
     })
 
+  const MobileInfo = z
+    .object({
+      platforms: z.array(z.enum(["ios", "android", "expo", "flutter", "react-native"])),
+      primaryPlatform: z.string(),
+      method: z.string(),
+      detectedAt: z.number(),
+      buildStatus: z.enum(["unknown", "building", "succeeded", "failed"]).optional(),
+      lastBuildAt: z.number().optional(),
+      artifacts: z
+        .array(
+          z.object({
+            platform: z.string(),
+            path: z.string(),
+            size: z.number().optional(),
+            createdAt: z.number().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .meta({
+      ref: "SessionMobile",
+    })
+
+  export type MobileInfo = z.infer<typeof MobileInfo>
+
   const parentTitlePrefix = "New session - "
   const childTitlePrefix = "Child session - "
   const DEFAULT_TITLE_REGEX = new RegExp(
@@ -97,6 +122,7 @@ export namespace Session {
         })
         .optional(),
       github: GithubInfo.optional(),
+      mobile: MobileInfo.optional(),
       title: z.string(),
       version: z.string(),
       time: z.object({
@@ -248,6 +274,7 @@ export namespace Session {
     permission?: PermissionNext.Ruleset
     skills?: string[]
     github?: z.infer<typeof GithubInfo>
+    mobile?: MobileInfo
   }) {
     const inheritedSkills =
       !input.skills && input.parentID ? (await get(input.parentID).catch(() => undefined))?.skills : undefined
@@ -263,6 +290,7 @@ export namespace Session {
       permission: input.permission,
       skills: input.skills ?? inheritedSkills ?? [],
       github: input.github,
+      mobile: input.mobile,
       time: {
         created: Date.now(),
         updated: Date.now(),

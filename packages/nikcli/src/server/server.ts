@@ -44,7 +44,9 @@ import { DBEditRoutes } from "./routes/dbedit"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
+import { StudioRoutes } from "./routes/studio"
 import { MobileRoutes } from "./routes/mobile"
+import { UserRoutes, userAuthMiddleware } from "./routes/users"
 import { WorkspaceContext } from "../workspace/workspace-context"
 import { ShareNext } from "@/share/share-next"
 import { MobileAuth } from "@/mobile/auth"
@@ -138,7 +140,18 @@ export namespace Server {
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
+        .use(userAuthMiddleware())
         .use(async (c, next) => {
+          // Public user endpoints — bypass server-level auth
+          const path = c.req.path
+          if (
+            path === "/user/login" ||
+            path === "/user/register" ||
+            path === "/user/status"
+          ) {
+            return next()
+          }
+
           if (c.req.method === "GET" && c.req.path === "/global/health") {
             return next()
           }
@@ -246,6 +259,11 @@ export namespace Server {
         )
         .route("/global", GlobalRoutes())
         .use(async (c, next) => {
+          // Skip instance/workspace context for user auth endpoints
+          if (c.req.path.startsWith("/user/")) {
+            return next()
+          }
+
           let directory = c.req.query("directory") || c.req.header("x-nikcli-directory") || process.cwd()
           try {
             directory = decodeURIComponent(directory)
@@ -296,6 +314,8 @@ export namespace Server {
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
         .route("/companion", CompanionRoutes())
+        .route("/user", UserRoutes())
+        .route("/studio", StudioRoutes())
         .route("/mobile", MobileRoutes())
         .route("/", FileRoutes())
         .route("/connectors", ConnectorsRoutes())
@@ -506,6 +526,74 @@ export namespace Server {
             return c.json(skills)
           },
         )
+        .post(
+          "/skill",
+          describeRoute({
+            summary: "Create skill",
+            description: "Create a new skill with a SKILL.md file.",
+            operationId: "app.skill.create",
+            responses: {
+              200: {
+                description: "Created skill",
+                content: {
+                  "application/json": {
+                    schema: resolver(Skill.Info),
+                  },
+                },
+              },
+              ...errors(400),
+            },
+          }),
+          validator(
+            "json",
+            z.object({
+              name: z.string().meta({ description: "Skill name" }),
+              description: z.string().meta({ description: "Skill description" }),
+              category: z.string().optional().meta({ description: "Optional category" }),
+              tags: z.array(z.string()).optional().meta({ description: "Optional tags" }),
+              content: z.string().optional().meta({ description: "Optional markdown content" }),
+              scope: z
+                .enum(["workspace", "global"])
+                .optional()
+                .meta({ description: "Where to create (default: workspace)" }),
+            }),
+          ),
+          async (c) => {
+            const input = c.req.valid("json")
+            const skill = await Skill.create(input)
+            return c.json(skill)
+          },
+        )
+        .delete(
+          "/skill/:name",
+          describeRoute({
+            summary: "Delete skill",
+            description: "Delete a skill by name.",
+            operationId: "app.skill.delete",
+            responses: {
+              200: {
+                description: "Deleted",
+                content: {
+                  "application/json": {
+                    schema: resolver(z.boolean()),
+                  },
+                },
+              },
+              ...errors(400),
+            },
+          }),
+          validator(
+            "param",
+            z.object({
+              name: z.string(),
+            }),
+          ),
+          async (c) => {
+            const { name } = c.req.valid("param")
+            await Skill.remove(name)
+            return c.json(true)
+          },
+        )
         .get(
           "/lsp",
           describeRoute({
@@ -700,7 +788,10 @@ export namespace Server {
   }
 
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
-    _corsWhitelist = opts.cors ?? []
+    const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
+      ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+      : []
+    _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname
 
     if (Flag.NIKCLI_SERVER_TAILSCALE_AUTH && !isLoopbackHostname(opts.hostname)) {

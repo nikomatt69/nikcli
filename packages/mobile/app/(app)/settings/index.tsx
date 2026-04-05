@@ -111,7 +111,7 @@ function githubConnectorKey(snapshot: HostConfigSnapshot | null) {
 }
 
 export default function SettingsScreen() {
-  const { client, config, bootstrap, bootstrapLoading, refreshBootstrap, save, clear } = useServer()
+  const { client, config, bootstrap, bootstrapLoading, refreshBootstrap, save, clear, currentUser, signOut } = useServer()
   const { palette, colorScheme } = useAppTheme()
   const { setColorScheme } = useColorScheme()
   const themeMode = useUIStore((state) => state.themeMode)
@@ -1212,6 +1212,21 @@ export default function SettingsScreen() {
                   onPress={() => void forgetHost()}
                 />
               </View>
+              {currentUser ? (
+                <View className="flex-1">
+                  <ActionButton
+                    label={`Sign out (${currentUser.display_name || currentUser.username})`}
+                    variant="secondary"
+                    disabled={saving}
+                    onPress={() => {
+                      void signOut().then(() => {
+                        const { router } = require("expo-router")
+                        router.replace("/login")
+                      })
+                    }}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
         </SurfaceCard>

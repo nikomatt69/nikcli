@@ -15,19 +15,24 @@ export function WorkspaceServerRoutes() {
       const handler = async (event: { directory?: string; payload: unknown }) => {
         await send(event.payload)
       }
-      GlobalBus.on("event", handler)
-      await send({ type: "server.connected", properties: {} })
-      const heartbeat = setInterval(() => {
-        void send({ type: "server.heartbeat", properties: {} })
-      }, 10_000)
 
-      await new Promise<void>((resolve) => {
-        stream.onAbort(() => {
-          clearInterval(heartbeat)
-          GlobalBus.off("event", handler)
-          resolve()
+      let heartbeat: ReturnType<typeof setInterval> | undefined
+      try {
+        GlobalBus.on("event", handler)
+        await send({ type: "server.connected", properties: {} })
+        heartbeat = setInterval(() => {
+          void send({ type: "server.heartbeat", properties: {} })
+        }, 10_000)
+
+        await new Promise<void>((resolve) => {
+          stream.onAbort(() => {
+            resolve()
+          })
         })
-      })
+      } finally {
+        if (heartbeat) clearInterval(heartbeat)
+        GlobalBus.off("event", handler)
+      }
     })
   })
 }

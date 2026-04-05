@@ -38,7 +38,7 @@ COPY github github
 # Build nikcli binary for the current platform (linux-x64)
 # NIKCLI_CHANNEL avoids git branch lookup in build script (no .git in Docker context)
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=0.0.4
+ENV NIKCLI_VERSION=0.0.7
 ENV XDG_DATA_HOME=/data
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state

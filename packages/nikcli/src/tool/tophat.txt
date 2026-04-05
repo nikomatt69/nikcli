@@ -1,0 +1,15 @@
+Install a mobile app build on a device or simulator via Shopify Tophat.
+
+Requires Tophat to be installed on the host machine (macOS 15+).
+Install from https://github.com/Shopify/tophat
+
+Provide either a local path to an artifact (.ipa, .apk, .zip) or a public URL.
+The tool spawns `tophatctl install` with the appropriate recipe.
+
+Usage:
+- path: Local file path to .ipa, .apk, or .zip
+- url: Public URL to download the artifact
+- platform: Target platform (ios, android)
+- destination: Install destination (device, simulator, emulator)
+
+If Tophat is not installed, the tool will throw an error with installation instructions.

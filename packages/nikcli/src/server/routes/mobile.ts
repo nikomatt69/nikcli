@@ -26,6 +26,8 @@ import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
+import { Tophat } from "@/mobile/tophat"
+import { MobileProjectDetect } from "@/mobile/project-detect"
 import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
 import { Config } from "@/config/config"
@@ -43,6 +45,23 @@ const log = Log.create({ service: "mobile-routes" })
 
 const MobileProject = Project.Info.extend({ current: z.boolean() }).meta({ ref: "MobileProject" })
 const MobileExecutionTarget = z.enum(["local", "container"]).meta({ ref: "MobileExecutionTarget" })
+
+const MobileTophatStatus = z
+  .object({
+    available: z.boolean(),
+    providers: z.array(z.object({ id: z.string() })),
+    devices: z.array(z.object({ name: z.string(), platform: z.string() })),
+  })
+  .meta({ ref: "MobileTophatStatus" })
+
+const MobileProjectType = z
+  .object({
+    detected: z.boolean(),
+    platforms: z.array(z.string()).optional(),
+    primaryPlatform: z.string().optional(),
+    method: z.string().optional(),
+  })
+  .meta({ ref: "MobileProjectType" })
 
 const MobileBootstrap = z
   .object({
@@ -73,6 +92,8 @@ const MobileBootstrap = z
         })
         .optional(),
     }),
+    tophat: MobileTophatStatus.optional(),
+    mobileProject: MobileProjectType.optional(),
   })
   .meta({ ref: "MobileBootstrap" })
 
@@ -793,6 +814,80 @@ export const MobileRoutes = lazy(() =>
                 }
               : undefined,
           },
+          tophat: await Tophat.status().then((s) => ({
+            available: s.available,
+            providers: s.providers.map((p) => ({ id: p.id })),
+            devices: s.devices.map((d) => ({ name: d.name, platform: d.platform })),
+          })),
+          mobileProject: await MobileProjectDetect.detect(Instance.directory).then((detected) =>
+            detected
+              ? {
+                  detected: true,
+                  platforms: detected.platforms,
+                  primaryPlatform: detected.primaryPlatform,
+                  method: detected.method,
+                  root: detected.root,
+                }
+              : { detected: false },
+          ),
+        })
+      },
+    )
+    .get(
+      "/tophat/status",
+      describeRoute({
+        summary: "Get Tophat integration status",
+        description: "Return Tophat availability, providers, and connected devices.",
+        operationId: "mobile.tophat.status",
+        responses: {
+          200: {
+            description: "Tophat status",
+            content: {
+              "application/json": {
+                schema: resolver(MobileTophatStatus),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const status = await Tophat.status()
+        return c.json({
+          available: status.available,
+          providers: status.providers.map((p) => ({ id: p.id })),
+          devices: status.devices.map((d) => ({ name: d.name, platform: d.platform })),
+        })
+      },
+    )
+    .get(
+      "/tophat/install-url",
+      describeRoute({
+        summary: "Generate Tophat install URLs for an artifact",
+        description: "Return tophat:// and localhost install URLs for a given artifact URL.",
+        operationId: "mobile.tophat.install-url",
+        responses: {
+          200: {
+            description: "Install URLs",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    deepLink: z.string(),
+                    localLink: z.string(),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("query", z.object({ url: z.string().url(), platform: z.enum(["ios", "android"]).optional() })),
+      async (c) => {
+        const { url, platform } = c.req.valid("query")
+        return c.json({
+          deepLink: Tophat.installUrl(url, { platform }),
+          localLink: Tophat.localInstallUrl(url, { platform }),
         })
       },
     )

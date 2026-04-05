@@ -801,6 +801,21 @@ export type SessionGithub = {
   publishError?: string
 }
 
+export type SessionMobile = {
+  platforms: Array<"ios" | "android" | "expo" | "flutter" | "react-native">
+  primaryPlatform: string
+  method: string
+  detectedAt: number
+  buildStatus?: "unknown" | "building" | "succeeded" | "failed"
+  lastBuildAt?: number
+  artifacts?: Array<{
+    platform: string
+    path: string
+    size?: number
+    createdAt?: number
+  }>
+}
+
 export type PermissionAction = "allow" | "deny" | "ask"
 
 export type PermissionRule = {
@@ -828,6 +843,7 @@ export type Session = {
     url: string
   }
   github?: SessionGithub
+  mobile?: SessionMobile
   title: string
   version: string
   time: {
@@ -1195,6 +1211,10 @@ export type KeybindsConfig = {
    * Interrupt current session
    */
   session_interrupt?: string
+  /**
+   * Open the Codebro dossier
+   */
+  session_codebro_open?: string
   /**
    * Background current subtask and return to parent session
    */
@@ -2244,6 +2264,22 @@ export type Config = {
      */
     continue_loop_on_deny?: boolean
     /**
+     * Enable automatic memory consolidation (brain) feature
+     */
+    brain?: boolean
+    /**
+     * Minimum hours between brain consolidation runs
+     */
+    brainMinHours?: number
+    /**
+     * Minimum number of sessions to trigger brain consolidation
+     */
+    brainMinSessions?: number
+    /**
+     * Enable memory file support for session context
+     */
+    memory?: boolean
+    /**
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
@@ -2399,6 +2435,33 @@ export type Config = {
          */
         suppress?: Array<"macos" | "slack" | "discord">
       }
+    }
+  }
+  /**
+   * Mobile development settings
+   */
+  mobile?: {
+    tophat?: {
+      /**
+       * Enable Tophat integration
+       */
+      enabled?: boolean
+      /**
+       * Custom path to tophatctl binary
+       */
+      cliPath?: string
+      /**
+       * Default target platform
+       */
+      defaultPlatform?: "ios" | "android"
+      /**
+       * Default install destination
+       */
+      defaultDestination?: "device" | "simulator" | "emulator"
+      /**
+       * Auto-detect mobile projects (default: true)
+       */
+      autoDetect?: boolean
     }
   }
 }
@@ -2635,6 +2698,24 @@ export type MobileProject = {
   current: boolean
 }
 
+export type MobileTophatStatus = {
+  available: boolean
+  providers: Array<{
+    id: string
+  }>
+  devices: Array<{
+    name: string
+    platform: string
+  }>
+}
+
+export type MobileProjectType = {
+  detected: boolean
+  platforms?: Array<string>
+  primaryPlatform?: string
+  method?: string
+}
+
 export type MobileBootstrap = {
   version: string
   auth: {
@@ -2661,6 +2742,8 @@ export type MobileBootstrap = {
       avatar_url?: string
     }
   }
+  tophat?: MobileTophatStatus
+  mobileProject?: MobileProjectType
 }
 
 export type MobilePromptHistoryEntry = {
@@ -5183,6 +5266,62 @@ export type ProviderOauthCallbackResponses = {
 
 export type ProviderOauthCallbackResponse = ProviderOauthCallbackResponses[keyof ProviderOauthCallbackResponses]
 
+export type PostUserRegisterData = {
+  body?: {
+    username: string
+    email: string
+    password: string
+    displayName?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/user/register"
+}
+
+export type PostUserRegisterResponses = {
+  200: unknown
+}
+
+export type PostUserLoginData = {
+  body?: {
+    email: string
+    password: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/user/login"
+}
+
+export type PostUserLoginResponses = {
+  200: unknown
+}
+
+export type PatchUserIdData = {
+  body?: {
+    displayName?: string
+    password?: string
+    role?: "admin" | "user"
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/user/{id}"
+}
+
+export type PatchUserIdResponses = {
+  200: unknown
+}
+
 export type MobileAuthTokenListData = {
   body?: never
   path?: never
@@ -5268,6 +5407,58 @@ export type MobileBootstrapResponses = {
 }
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
+
+export type MobileTophatStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/tophat/status"
+}
+
+export type MobileTophatStatusResponses = {
+  /**
+   * Tophat status
+   */
+  200: MobileTophatStatus
+}
+
+export type MobileTophatStatusResponse = MobileTophatStatusResponses[keyof MobileTophatStatusResponses]
+
+export type MobileTophatInstallUrlData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    url: string
+    platform?: "ios" | "android"
+  }
+  url: "/mobile/tophat/install-url"
+}
+
+export type MobileTophatInstallUrlErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileTophatInstallUrlError = MobileTophatInstallUrlErrors[keyof MobileTophatInstallUrlErrors]
+
+export type MobileTophatInstallUrlResponses = {
+  /**
+   * Install URLs
+   */
+  200: {
+    deepLink: string
+    localLink: string
+  }
+}
+
+export type MobileTophatInstallUrlResponse = MobileTophatInstallUrlResponses[keyof MobileTophatInstallUrlResponses]
 
 export type MobileMemoryHistoryData = {
   body?: never
@@ -7085,6 +7276,96 @@ export type AppSkillsResponses = {
 }
 
 export type AppSkillsResponse = AppSkillsResponses[keyof AppSkillsResponses]
+
+export type AppSkillCreateData = {
+  body?: {
+    /**
+     * Skill name
+     */
+    name: string
+    /**
+     * Skill description
+     */
+    description: string
+    /**
+     * Optional category
+     */
+    category?: string
+    /**
+     * Optional tags
+     */
+    tags?: Array<string>
+    /**
+     * Optional markdown content
+     */
+    content?: string
+    /**
+     * Where to create (default: workspace)
+     */
+    scope?: "workspace" | "global"
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/skill"
+}
+
+export type AppSkillCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AppSkillCreateError = AppSkillCreateErrors[keyof AppSkillCreateErrors]
+
+export type AppSkillCreateResponses = {
+  /**
+   * Created skill
+   */
+  200: {
+    name: string
+    description: string
+    location: string
+    category?: string
+    tags?: Array<string>
+    version?: string
+  }
+}
+
+export type AppSkillCreateResponse = AppSkillCreateResponses[keyof AppSkillCreateResponses]
+
+export type AppSkillDeleteData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/skill/{name}"
+}
+
+export type AppSkillDeleteErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type AppSkillDeleteError = AppSkillDeleteErrors[keyof AppSkillDeleteErrors]
+
+export type AppSkillDeleteResponses = {
+  /**
+   * Deleted
+   */
+  200: boolean
+}
+
+export type AppSkillDeleteResponse = AppSkillDeleteResponses[keyof AppSkillDeleteResponses]
 
 export type LspStatusData = {
   body?: never

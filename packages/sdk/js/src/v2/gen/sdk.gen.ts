@@ -7,6 +7,10 @@ import type {
   AppAgentsResponses,
   AppLogErrors,
   AppLogResponses,
+  AppSkillCreateErrors,
+  AppSkillCreateResponses,
+  AppSkillDeleteErrors,
+  AppSkillDeleteResponses,
   AppSkillsResponses,
   Auth as Auth7,
   AuthRemoveErrors,
@@ -127,6 +131,9 @@ import type {
   MobileSessionMessageResponses,
   MobileSessionRenameResponses,
   MobileSessionStreamResponses,
+  MobileTophatInstallUrlErrors,
+  MobileTophatInstallUrlResponses,
+  MobileTophatStatusResponses,
   MobileWorktreeCreateErrors,
   MobileWorktreeCreateResponses,
   MobileWorktreeRemoveResponses,
@@ -137,6 +144,7 @@ import type {
   PartDeleteResponses,
   PartUpdateErrors,
   PartUpdateResponses,
+  PatchUserIdResponses,
   PathGetResponses,
   PermissionListResponses,
   PermissionReplyErrors,
@@ -144,6 +152,8 @@ import type {
   PermissionRespondErrors,
   PermissionRespondResponses,
   PermissionRuleset,
+  PostUserLoginResponses,
+  PostUserRegisterResponses,
   ProjectCurrentResponses,
   ProjectListResponses,
   ProjectUpdateErrors,
@@ -2770,6 +2780,76 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
+export class Tophat extends HeyApiClient {
+  /**
+   * Get Tophat integration status
+   *
+   * Return Tophat availability, providers, and connected devices.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileTophatStatusResponses, unknown, ThrowOnError>({
+      url: "/mobile/tophat/status",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate Tophat install URLs for an artifact
+   *
+   * Return tophat:// and localhost install URLs for a given artifact URL.
+   */
+  public installUrl<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      url: string
+      platform?: "ios" | "android"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "url" },
+            { in: "query", key: "platform" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      MobileTophatInstallUrlResponses,
+      MobileTophatInstallUrlErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/tophat/install-url",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -4027,6 +4107,11 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
+  private _tophat?: Tophat
+  get tophat(): Tophat {
+    return (this._tophat ??= new Tophat({ client: this.client }))
+  }
+
   private _memory?: Memory
   get memory(): Memory {
     return (this._memory ??= new Memory({ client: this.client }))
@@ -5256,6 +5341,87 @@ export class Command3 extends HeyApiClient {
   }
 }
 
+export class Skill extends HeyApiClient {
+  /**
+   * Create skill
+   *
+   * Create a new skill with a SKILL.md file.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      description?: string
+      category?: string
+      tags?: Array<string>
+      content?: string
+      scope?: "workspace" | "global"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "description" },
+            { in: "body", key: "category" },
+            { in: "body", key: "tags" },
+            { in: "body", key: "content" },
+            { in: "body", key: "scope" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<AppSkillCreateResponses, AppSkillCreateErrors, ThrowOnError>({
+      url: "/skill",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete skill
+   *
+   * Delete a skill by name.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<AppSkillDeleteResponses, AppSkillDeleteErrors, ThrowOnError>({
+      url: "/skill/{name}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class App extends HeyApiClient {
   /**
    * Write log
@@ -5360,6 +5526,11 @@ export class App extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _skill?: Skill
+  get skill(): Skill {
+    return (this._skill ??= new Skill({ client: this.client }))
   }
 }
 
@@ -5593,6 +5764,116 @@ export class NikcliClient extends HeyApiClient {
       url: "/api/share/{shareID}/data",
       ...options,
       ...params,
+    })
+  }
+
+  public postUserRegister<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      username?: string
+      email?: string
+      password?: string
+      displayName?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "username" },
+            { in: "body", key: "email" },
+            { in: "body", key: "password" },
+            { in: "body", key: "displayName" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostUserRegisterResponses, unknown, ThrowOnError>({
+      url: "/user/register",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public postUserLogin<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      email?: string
+      password?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "email" },
+            { in: "body", key: "password" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostUserLoginResponses, unknown, ThrowOnError>({
+      url: "/user/login",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public patchUserId<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      displayName?: string
+      password?: string
+      role?: "admin" | "user"
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "displayName" },
+            { in: "body", key: "password" },
+            { in: "body", key: "role" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<PatchUserIdResponses, unknown, ThrowOnError>({
+      url: "/user/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

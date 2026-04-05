@@ -13,6 +13,10 @@ import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import type { ServerConfig } from "@/lib/types"
 
+function nextRouteAfterConnect(userToken: string | null) {
+  return userToken ? "/sessions" : "/login"
+}
+
 function fromLink(url: string): ServerConfig | null {
   try {
     const parsed = new URL(url)
@@ -35,7 +39,7 @@ function fromLink(url: string): ServerConfig | null {
 export default function ConnectScreen() {
   const { palette } = useAppTheme()
   const { top } = useSafeAreaInsets()
-  const { config, loading, ready, save } = useServer()
+  const { config, loading, ready, save, userToken } = useServer()
   const [url, setUrl] = useState(config?.url ?? "")
   const [token, setToken] = useState(config?.token ?? "")
   const [directory, setDirectory] = useState(config?.directory ?? "")
@@ -57,7 +61,7 @@ export default function ConnectScreen() {
       void client.ping().then((ok) => {
         if (!cancelled && ok) {
           setConnected(true)
-          router.replace("/sessions")
+          router.replace(nextRouteAfterConnect(userToken))
         }
       })
     }
@@ -114,7 +118,7 @@ export default function ConnectScreen() {
         ...form,
       })
       setConnected(true)
-      router.replace("/sessions")
+      router.replace(nextRouteAfterConnect(userToken))
     } catch (nextError) {
       setConnected(false)
       setError(nextError instanceof Error ? nextError.message : String(nextError))

@@ -3,6 +3,7 @@ import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Server } from "@/server/server"
 import { Flag } from "@/flag/flag"
 import { MobileAuth } from "@/mobile/auth"
+import { MobileTophatCommand } from "./mobile-tophat"
 import { generateQR } from "@nikcli-ai/remote"
 import { Installation } from "@/installation"
 import { Ssh } from "@/server/ssh"
@@ -218,6 +219,7 @@ export const MobileCommand = cmd({
           console.log(`Revoked mobile token ${args.id}`)
         },
       })
+      .command(MobileTophatCommand)
       .demandCommand(),
   async handler() {},
 })

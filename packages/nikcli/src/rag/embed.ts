@@ -69,9 +69,6 @@ export namespace RagEmbed {
     for (const batch of batches) {
       const embedded = await embedBatch(batch, chosen, chosenProvider)
       results.push(...embedded)
-      if (batches.indexOf(batch) < batches.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
-      }
     }
     return results
   }

@@ -382,7 +382,7 @@ export function MessageBubble(props: {
     >
       <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
         <View
-          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-[#0c3589]" : "border-border bg-assistant-bubble"}`}
+          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
           style={{
             shadowColor: palette.shadow,
             shadowOpacity: isDark ? 0.18 : 0.1,
@@ -406,8 +406,8 @@ export function MessageBubble(props: {
                         : "rgba(193,208,223,0.72)",
                     backgroundColor: isUser
                       ? isDark
-                        ? "rgba(10, 3, 131, 0.52)"
-                        : "rgba(14,165,233,0.08)"
+                        ? "rgba(135, 101, 101, 0.66)"
+                        : "rgba(14, 150, 212, 0.08)"
                       : isDark
                         ? "rgba(255,255,255,0.04)"
                         : "rgba(241,246,251,0.78)",

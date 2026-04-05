@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react-native"
-import { GitBranch, Settings, TerminalSquare } from "lucide-react-native"
+import { GitBranch, Settings, TerminalSquare, UserCircle2 } from "lucide-react-native"
 import type { MobileBootstrap } from "@/lib/types"
 
-export type AppTabRoute = "sessions" | "repos" | "settings"
+export type AppTabRoute = "sessions" | "repos" | "settings" | "user"
 export type AppRoutePath = `/${AppTabRoute}`
 
 export type AppTabConfig = {
@@ -34,6 +34,13 @@ export const APP_TABS: AppTabConfig[] = [
     label: "Settings",
     subtitle: "Control host trust, GitHub access, and operator preferences.",
     icon: Settings,
+  },
+  {
+    route: "user",
+    path: "/user",
+    label: "Profile",
+    subtitle: "Manage your account, credentials, and user administration.",
+    icon: UserCircle2,
   },
 ]
 

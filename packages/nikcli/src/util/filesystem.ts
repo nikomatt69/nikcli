@@ -1,8 +1,13 @@
 import { realpathSync, statSync } from "fs"
 import { mkdir } from "fs/promises"
-import { dirname, join, relative, resolve as pathResolve } from "path"
+import { dirname, isAbsolute, join, relative, resolve as pathResolve } from "path"
 
 export namespace Filesystem {
+  function isContained(parent: string, child: string) {
+    const rel = relative(parent, child)
+    return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))
+  }
+
   export function stat(p: string): import("fs").Stats | undefined {
     try {
       return statSync(p)
@@ -58,13 +63,21 @@ export namespace Filesystem {
     }
   }
   export function overlaps(a: string, b: string) {
-    const relA = relative(a, b)
-    const relB = relative(b, a)
-    return !relA || !relA.startsWith("..") || !relB || !relB.startsWith("..")
+    return isContained(a, b) || isContained(b, a)
   }
 
   export function contains(parent: string, child: string) {
-    return !relative(parent, child).startsWith("..")
+    return isContained(parent, child)
+  }
+
+  export function containsCanonical(parent: string, child: string): boolean {
+    try {
+      const canonicalParent = realpathSync.native(parent)
+      const canonicalChild = realpathSync.native(child)
+      return isContained(canonicalParent, canonicalChild)
+    } catch {
+      return contains(parent, child)
+    }
   }
 
   export async function findUp(target: string, start: string, stop?: string) {

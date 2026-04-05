@@ -49,6 +49,7 @@ import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
 import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
+import { TophatInstallTool } from "./tophat"
 
 const _toolDir = import.meta.dir
 
@@ -171,6 +172,7 @@ export namespace ToolRegistry {
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
       UseConnectorTool,
       SpeakTool,
+      TophatInstallTool,
       ...custom,
     ]
   }

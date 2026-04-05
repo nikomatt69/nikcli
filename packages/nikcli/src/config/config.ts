@@ -46,9 +46,12 @@ export namespace Config {
     let result: Info = {}
     for (const [key, value] of Object.entries(auth)) {
       if (value.type === "wellknown") {
-        process.env[value.key] = value.token
-        log.debug("fetching remote config", { url: `${key}/.well-known/nikcli` })
-        const response = await fetch(`${key}/.well-known/nikcli`)
+        if (!/^[A-Z_][A-Z0-9_]*$/.test(value.key)) {
+          log.warn("skipping well-known config with invalid env key", { url: key, env: value.key })
+          continue
+        }
+        log.warn("fetching remote config from well-known endpoint", { url: `${key}/.well-known/nikcli` })
+        const response = await Auth.fetchWellKnown(key)
         if (!response.ok) {
           throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
         }
@@ -56,7 +59,16 @@ export namespace Config {
         const remoteConfig = wellknown.config ?? {}
         // Add $schema to prevent load() from trying to write back to a non-existent file
         if (!remoteConfig.$schema) remoteConfig.$schema = "https://nikcli.store/config.json"
-        result = mergeConfigConcatArrays(result, await load(JSON.stringify(remoteConfig), `${key}/.well-known/nikcli`))
+        result = mergeConfigConcatArrays(
+          result,
+          await load(
+            JSON.stringify(remoteConfig),
+            `${key}/.well-known/nikcli`,
+            { [value.key]: value.token },
+            false,
+            false,
+          ),
+        )
         log.debug("loaded remote config from well-known", { url: key })
       }
     }
@@ -1462,6 +1474,25 @@ export namespace Config {
         })
         .optional()
         .describe("Notification settings for various events"),
+      mobile: z
+        .object({
+          tophat: z
+            .object({
+              enabled: z.boolean().optional().describe("Enable Tophat integration"),
+              cliPath: z.string().optional().describe("Custom path to tophatctl binary"),
+              defaultPlatform: z.enum(["ios", "android"]).optional().describe("Default target platform"),
+              defaultDestination: z
+                .enum(["device", "simulator", "emulator"])
+                .optional()
+                .describe("Default install destination"),
+              autoDetect: z.boolean().optional().describe("Auto-detect mobile projects (default: true)"),
+            })
+            .strict()
+            .optional(),
+        })
+        .strict()
+        .optional()
+        .describe("Mobile development settings"),
     })
     .strict()
     .meta({
@@ -1474,7 +1505,7 @@ export namespace Config {
     return await loadFile(path.join(Global.Path.config, "nikcli.json"))
   })
 
-  async function loadFile(filepath: string): Promise<Info> {
+  async function loadFile(filepath: string, env: Record<string, string> = {}): Promise<Info> {
     log.info("loading", { path: filepath })
     let text = await Bun.file(filepath)
       .text()
@@ -1483,17 +1514,23 @@ export namespace Config {
         throw new JsonError({ path: filepath }, { cause: err })
       })
     if (!text) return {}
-    return load(text, filepath)
+    return load(text, filepath, env)
   }
 
-  async function load(text: string, configFilepath: string) {
+  async function load(
+    text: string,
+    configFilepath: string,
+    env: Record<string, string> = {},
+    allowProcessEnv = true,
+    allowFileRefs = true,
+  ) {
     const original = text
     text = text.replace(/\{env:([^}]+)\}/g, (_, varName) => {
-      return process.env[varName] || ""
+      return env[varName] ?? (allowProcessEnv ? (process.env[varName] ?? "") : "")
     })
 
     const fileMatches = text.match(/\{file:[^}]+\}/g)
-    if (fileMatches) {
+    if (allowFileRefs && fileMatches) {
       const configDir = path.dirname(configFilepath)
       const lines = text.split("\n")
 
@@ -1559,7 +1596,23 @@ export namespace Config {
         parsed.data.$schema = "https://nikcli.store/config.json"
         // Write the $schema to the original text to preserve variables like {env:VAR}
         const updated = original.replace(/^\s*\{/, '{\n  "$schema": "https://nikcli.store/config.json",')
-        await Bun.write(configFilepath, updated).catch(() => {})
+        let tmp: string | undefined
+        try {
+          const target = await fs.realpath(configFilepath).catch(() => configFilepath)
+          const stat = await fs.stat(target).catch(() => undefined)
+          if (stat?.isFile()) {
+            tmp = target + ".tmp"
+            await Bun.write(tmp, updated)
+            await fs.chmod(tmp, stat.mode & 0o777)
+            await fs.rename(tmp, target)
+          }
+        } catch (error) {
+          log.debug("failed to persist config schema hint", { path: configFilepath, error })
+        } finally {
+          if (tmp) {
+            await fs.unlink(tmp).catch(() => undefined)
+          }
+        }
       }
       const data = parsed.data
       if (data.plugin) {

@@ -12,6 +12,19 @@ import type {
 
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
+const USER_TOKEN_KEY = "nikcli_user_token"
+
+export async function getUserToken(): Promise<string | null> {
+  return SecureStore.getItemAsync(USER_TOKEN_KEY)
+}
+
+export async function setUserToken(token: string): Promise<void> {
+  await SecureStore.setItemAsync(USER_TOKEN_KEY, token)
+}
+
+export async function clearUserToken(): Promise<void> {
+  await SecureStore.deleteItemAsync(USER_TOKEN_KEY)
+}
 
 const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   profile: true,

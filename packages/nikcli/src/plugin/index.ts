@@ -585,7 +585,7 @@ export async function NotifyPlugin(_input: PluginInput): Promise<Hooks> {
 export namespace Plugin {
   const log = Log.create({ service: "plugin" })
 
-  const BUILTIN = ["@gitlab/opencode-gitlab-auth@1.3.2"]
+  const BUILTIN: string[] = []
 
   // Built-in plugins that are directly imported (not installed from npm)
   const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, NotifyPlugin]

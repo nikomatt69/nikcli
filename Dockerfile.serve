@@ -18,7 +18,43 @@ COPY packages/remote/package.json /app/packages/remote/
 COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
+COPY packages/studio/package.json /app/packages/studio/
 COPY github/package.json /app/github/
+
+# Stub package.json for workspace packages not built in this image
+RUN set -e; \
+    for entry in \
+      "packages/app:@nikcli-ai/app" \
+      "packages/cloud:@nikcli-ai/cloud" \
+      "packages/companion/ui:@nikcli-ai/companion-ui" \
+      "packages/console/app:@nikcli-ai/console-app" \
+      "packages/console/core:@nikcli-ai/console-core" \
+      "packages/console/function:@nikcli-ai/console-function" \
+      "packages/console/mail:@nikcli-ai/console-mail" \
+      "packages/console/resource:@nikcli-ai/console-resource" \
+      "packages/desktop:@nikcli-ai/desktop" \
+      "packages/enterprise:@nikcli-ai/enterprise" \
+      "packages/function:@nikcli-ai/function" \
+      "packages/mobile:@nikcli-ai/mobile" \
+      "packages/plugin/plugins/agent-memory:@nikcli-ai/plugin-agent-memory" \
+      "packages/plugin/plugins/background-agents:@nikcli-ai/plugin-background-agents" \
+      "packages/plugin/plugins/background:@nikcli-ai/plugin-background" \
+      "packages/plugin/plugins/context-analysis:@nikcli-ai/plugin-context-analysis" \
+      "packages/plugin/plugins/direnv:@nikcli-ai/plugin-direnv" \
+      "packages/plugin/plugins/dynamic-context-pruning:@nikcli-ai/plugin-dynamic-context-pruning" \
+      "packages/plugin/plugins/envsitter-guard:@nikcli-ai/plugin-envsitter-guard" \
+      "packages/plugin/plugins/handoff:@nikcli-ai/plugin-handoff" \
+      "packages/plugin/plugins/safety-net:@nikcli-ai/plugin-safety-net" \
+      "packages/plugin/plugins/smart-title:@nikcli-ai/plugin-smart-title" \
+      "packages/remote/web-client:@nikcli-ai/remote-client" \
+      "packages/ui:@nikcli-ai/ui" \
+      "packages/web:@nikcli-ai/web" \
+      "packages/webrenderer:@opentui/webrenderer" \
+    ; do \
+      dir="${entry%%:*}"; name="${entry##*:}"; \
+      mkdir -p "/app/$dir" && \
+      printf '{"name":"%s","version":"0.0.0","private":true}\n' "$name" > "/app/$dir/package.json"; \
+    done
 
 RUN cd /app && bun install
 
@@ -62,6 +98,8 @@ ENV NIKCLI_SERVER_USERNAME=nikcli
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
 ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
+# Comma-separated list of extra origins to allow for CORS (e.g. your web domain)
+# Set NIKCLI_SERVER_CORS_ORIGINS=https://yourdomain.com in Railway environment variables
 
 EXPOSE 4096 2222
 

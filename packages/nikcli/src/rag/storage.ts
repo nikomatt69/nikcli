@@ -64,6 +64,18 @@ export namespace RagStorage {
       .map((line) => JSON.parse(line) as T)
   }
 
+  export async function* streamJsonl<T>(filepath: string): AsyncGenerator<T> {
+    const text = await Bun.file(filepath)
+      .text()
+      .catch(() => "")
+    if (!text.trim()) return
+    for (const line of text.split(/\r?\n/)) {
+      if (line.trim()) {
+        yield JSON.parse(line) as T
+      }
+    }
+  }
+
   export async function writeJsonl<T>(filepath: string, rows: T[]) {
     const lines = rows.map((row) => JSON.stringify(row))
     await Bun.write(filepath, lines.join("\n"))

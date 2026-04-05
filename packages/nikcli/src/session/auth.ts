@@ -13,6 +13,7 @@ import { Instance } from "../project/instance"
 import type { Hooks } from "@nikcli-ai/plugin"
 import { cmd } from "@/cli/cmd/cmd"
 import { UI } from "@/cli/ui"
+import z from "zod"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -231,22 +232,29 @@ export const AuthLoginCommand = cmd({
         UI.empty()
         prompts.intro("Add credential")
         if (args.url) {
-          const wellknown = await fetch(`${args.url}/.well-known/nikcli`).then((x) => x.json() as any)
-          prompts.log.info(`Running \`${wellknown.auth.command.join(" ")}\``)
-          const proc = Bun.spawn({
-            cmd: wellknown.auth.command,
-            stdout: "pipe",
-          })
-          const exit = await proc.exited
-          if (exit !== 0) {
-            prompts.log.error("Failed")
+          const wellknownResponse = await Auth.fetchWellKnown(args.url)
+            .then((x) => (x.ok ? x.json() : null))
+            .catch(() => null)
+          const wellknown = Auth.WellKnownAuthResponse.safeParse(wellknownResponse)
+
+          if (!wellknown.success) {
+            prompts.log.error("Invalid auth response from server")
             prompts.outro("Done")
             return
           }
-          const token = await new Response(proc.stdout).text()
+
+          let token: string
+          try {
+            token = await Auth.fetchWellKnownToken(args.url, wellknown.data.auth.command)
+          } catch (error) {
+            prompts.log.error(error instanceof Error ? error.message : "Failed")
+            prompts.outro("Done")
+            return
+          }
+
           await Auth.set(args.url, {
             type: "wellknown",
-            key: wellknown.auth.env,
+            key: wellknown.data.auth.env,
             token: token.trim(),
           })
           prompts.log.success("Logged into " + args.url)

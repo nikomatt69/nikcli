@@ -5,11 +5,29 @@ export interface CacheEntry<T> {
 
 const STATUS_CACHE_TTL = 5 * 60 * 1000
 const TOOLS_CACHE_TTL = 2 * 60 * 1000
+const MAX_CACHE_SIZE = 100
 
 class Cache<T> {
   private cache: Map<string, CacheEntry<T>> = new Map()
 
+  private evictIfNeeded(): void {
+    if (this.cache.size >= MAX_CACHE_SIZE) {
+      let oldestKey: string | null = null
+      let oldestTime = Infinity
+      for (const [key, entry] of this.cache) {
+        if (entry.expiresAt < oldestTime) {
+          oldestTime = entry.expiresAt
+          oldestKey = key
+        }
+      }
+      if (oldestKey) {
+        this.cache.delete(oldestKey)
+      }
+    }
+  }
+
   set(key: string, value: T, ttl: number): void {
+    this.evictIfNeeded()
     this.cache.set(key, {
       value,
       expiresAt: Date.now() + ttl,
@@ -34,6 +52,10 @@ class Cache<T> {
 
   clear(): void {
     this.cache.clear()
+  }
+
+  get size(): number {
+    return this.cache.size
   }
 }
 

@@ -550,19 +550,19 @@ export namespace MCP {
     const clientsSnapshot = await clients()
     const defaultTimeout = cfg.experimental?.mcp_timeout
 
+    // Collect failures first, then apply mutations atomically
+    const failedClients: string[] = []
+    const failedErrors: Record<string, string> = {}
+
     for (const [clientName, client] of Object.entries(clientsSnapshot)) {
       if (s.status[clientName]?.status !== "connected") {
         continue
       }
 
       const toolsResult = await client.listTools().catch((e) => {
-        log.error("failed to get tools", { clientName, error: e.message })
-        const failedStatus = {
-          status: "failed" as const,
-          error: e instanceof Error ? e.message : String(e),
-        }
-        s.status[clientName] = failedStatus
-        delete s.clients[clientName]
+        const errorMsg = e instanceof Error ? e.message : String(e)
+        failedClients.push(clientName)
+        failedErrors[clientName] = errorMsg
         return undefined
       })
       if (!toolsResult) {
@@ -577,6 +577,14 @@ export namespace MCP {
         result[sanitizedClientName + "_" + sanitizedToolName] = await convertMcpTool(mcpTool, client, timeout)
       }
     }
+
+    // Apply all failures after collecting (prevents race conditions)
+    for (const clientName of failedClients) {
+      log.error("failed to get tools", { clientName, error: failedErrors[clientName] })
+      s.status[clientName] = { status: "failed" as const, error: failedErrors[clientName] }
+      delete s.clients[clientName]
+    }
+
     return result
   }
 

@@ -7,5 +7,9 @@ directory = "./dist"
 binding = "ASSETS"
 
 [[kv_namespaces]]
-binding = "SESSION"
-id = "9472fcfbe18245438b2d4af7cbdaef81"
+binding = "SESSIONS"
+id = "e9dfbfcd44c14909b03cef0629b4f80f"
+
+[[kv_namespaces]]
+binding = "USERS"
+id = "bb2d5e50ff1644b482c71b7355a7684c"

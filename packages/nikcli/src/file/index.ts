@@ -110,6 +110,22 @@ export namespace File {
     return false
   }
 
+  async function countLines(filepath: string) {
+    const content = await fs.promises.readFile(filepath)
+    if (content.length === 0) return 0
+
+    let lines = 0
+    for (const byte of content) {
+      if (byte === 10) lines++
+    }
+
+    if (content[content.length - 1] !== 10) {
+      lines++
+    }
+
+    return lines
+  }
+
   export const Event = {
     Edited: BusEvent.define(
       "file.edited",
@@ -206,35 +222,64 @@ export namespace File {
     const project = Instance.project
     if (project.vcs !== "git") return []
 
-    const diffOutput = await $`git diff --numstat HEAD`.cwd(Instance.directory).quiet().nothrow().text()
-
-    const changedFiles: Info[] = []
-
-    if (diffOutput.trim()) {
-      const lines = diffOutput.trim().split("\n")
-      for (const line of lines) {
-        const [added, removed, filepath] = line.split("\t")
-        changedFiles.push({
-          path: filepath,
-          added: added === "-" ? 0 : parseInt(added, 10),
-          removed: removed === "-" ? 0 : parseInt(removed, 10),
-          status: "modified",
-        })
-      }
-    }
-
-    const untrackedOutput = await $`git ls-files --others --exclude-standard`
+    const diffOutput = await $`git diff --numstat --no-renames -z HEAD`.cwd(Instance.directory).quiet().nothrow().text()
+    const statusOutput = await $`git diff --name-status --no-renames -z HEAD`
       .cwd(Instance.directory)
       .quiet()
       .nothrow()
       .text()
 
-    if (untrackedOutput.trim()) {
-      const untrackedFiles = untrackedOutput.trim().split("\n")
+    const changedFiles: Info[] = []
+    const statusByPath = new Map<string, Info["status"]>()
+
+    if (statusOutput.length > 0) {
+      const entries = statusOutput.split("\0").filter(Boolean)
+      for (const entry of entries) {
+        const [statusCode, ...filepathParts] = entry.split("\t")
+        const filepath = filepathParts.join("\t")
+        if (!filepath) continue
+        statusByPath.set(filepath, statusCode === "A" ? "added" : statusCode === "D" ? "deleted" : "modified")
+      }
+    }
+
+    if (diffOutput.length > 0) {
+      const entries = diffOutput.split("\0").filter(Boolean)
+      for (const entry of entries) {
+        const [added, removed, ...filepathParts] = entry.split("\t")
+        const filepath = filepathParts.join("\t")
+        if (!filepath) continue
+        changedFiles.push({
+          path: filepath,
+          added: added === "-" ? 0 : parseInt(added, 10),
+          removed: removed === "-" ? 0 : parseInt(removed, 10),
+          status: statusByPath.get(filepath) ?? "modified",
+        })
+      }
+    }
+
+    const untrackedOutput = await $`git ls-files -z --others --exclude-standard`
+      .cwd(Instance.directory)
+      .quiet()
+      .nothrow()
+      .text()
+
+    if (untrackedOutput.length > 0) {
+      const untrackedFiles = untrackedOutput.split("\0").filter(Boolean)
       for (const filepath of untrackedFiles) {
         try {
-          const content = await Bun.file(path.join(Instance.directory, filepath)).text()
-          const lines = content.split("\n").length
+          const fullPath = path.join(Instance.directory, filepath)
+          const stat = await fs.promises.lstat(fullPath)
+          let lines = 0
+
+          if (stat.isSymbolicLink()) {
+            const target = await fs.promises.readlink(fullPath)
+            lines = target.length === 0 ? 0 : target.split(/\r\n|\r|\n/).length
+          } else {
+            if (!stat.isFile()) continue
+            if (!Instance.containsPath(fullPath)) continue
+            lines = await countLines(fullPath)
+          }
+
           changedFiles.push({
             path: filepath,
             added: lines,
@@ -247,28 +292,9 @@ export namespace File {
       }
     }
 
-    // Get deleted files
-    const deletedOutput = await $`git diff --name-only --diff-filter=D HEAD`
-      .cwd(Instance.directory)
-      .quiet()
-      .nothrow()
-      .text()
-
-    if (deletedOutput.trim()) {
-      const deletedFiles = deletedOutput.trim().split("\n")
-      for (const filepath of deletedFiles) {
-        changedFiles.push({
-          path: filepath,
-          added: 0,
-          removed: 0, // Could get original line count but would require another git command
-          status: "deleted",
-        })
-      }
-    }
-
     return changedFiles.map((x) => ({
       ...x,
-      path: path.relative(Instance.directory, x.path),
+      path: path.isAbsolute(x.path) ? path.relative(Instance.directory, x.path) : x.path,
     }))
   }
 

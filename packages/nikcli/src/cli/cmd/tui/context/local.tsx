@@ -40,10 +40,19 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         ),
       )
       const [agentStore, setAgentStore] = createStore<{
-        current: string
+        current: string | undefined
       }>({
-        current: agents()[0].name,
+        current: undefined,
       })
+
+      // Sync initial value when agents list is available
+      createEffect(() => {
+        const list = agents()
+        if (agentStore.current === undefined && list.length > 0) {
+          setAgentStore("current", list[0].name)
+        }
+      })
+
       const { theme } = useTheme()
       const colors = createMemo(() => [
         theme.secondary,
@@ -58,7 +67,10 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           return agents()
         },
         current() {
-          return agents().find((x) => x.name === agentStore.current)!
+          const list = agents()
+          const current = list.find((x) => x.name === agentStore.current)
+          // Fallback to first agent if current is not found
+          return current ?? list[0]
         },
         set(name: string) {
           if (!agents().some((x) => x.name === name))
@@ -75,7 +87,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             if (next < 0) next = agents().length - 1
             if (next >= agents().length) next = 0
             const value = agents()[next]
-            setAgentStore("current", value.name)
+            if (value) setAgentStore("current", value.name)
           })
         },
         color(name: string) {

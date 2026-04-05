@@ -24,6 +24,7 @@
       "packages/remote",
       "packages/sdk/js",
       "packages/slack",
+      "packages/studio",
       "github"
     ],
     "catalog": {

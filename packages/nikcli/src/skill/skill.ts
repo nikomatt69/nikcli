@@ -11,6 +11,7 @@ import { Filesystem } from "@/util/filesystem"
 import { Flag } from "@/flag/flag"
 import { Bus } from "@/bus"
 import { Session } from "@/session"
+import fs from "fs/promises"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -228,5 +229,65 @@ export namespace Skill {
       dir: path.dirname(skill.location),
       content: parsed.content.trim(),
     }
+  }
+
+  const CreateInput = z.object({
+    name: z.string().min(1).describe("Skill name (kebab-case recommended)"),
+    description: z.string().min(1).describe("Short description of the skill"),
+    category: z.string().optional().describe("Optional category"),
+    tags: z.array(z.string()).optional().describe("Optional tags"),
+    content: z.string().optional().describe("Optional markdown content body"),
+    scope: z.enum(["workspace", "global"]).optional().default("workspace").describe("Where to create the skill"),
+  })
+
+  export type CreateInput = z.input<typeof CreateInput>
+  export type CreateParsedInput = z.output<typeof CreateInput>
+
+  export async function create(input: CreateInput): Promise<Info> {
+    const parsed = CreateInput.parse(input)
+    const skills = await state()
+
+    if (skills[parsed.name]) {
+      throw new Error(`Skill "${parsed.name}" already exists at ${skills[parsed.name].location}`)
+    }
+
+    const skillDir =
+      parsed.scope === "global"
+        ? path.join(Global.Path.config, "skills", slug(parsed.name))
+        : path.join(Instance.directory, ".nikcli", "skill", slug(parsed.name))
+
+    await fs.mkdir(skillDir, { recursive: true })
+    const skillFile = path.join(skillDir, "SKILL.md")
+
+    const frontmatter: string[] = ["---", `name: |`, `  ${parsed.name}`, `description: |`, `  ${parsed.description}`]
+    if (parsed.category) frontmatter.push(`category: |`, `  ${parsed.category}`)
+    if (parsed.tags?.length) frontmatter.push(`tags:`, ...parsed.tags.map((t) => `  - ${t}`))
+    frontmatter.push("---", "")
+
+    const body = parsed.content ?? `# ${parsed.name}\n\n${parsed.description}\n`
+    await Bun.write(skillFile, frontmatter.join("\n") + body)
+
+    const info: Info = {
+      name: parsed.name,
+      description: parsed.description,
+      location: skillFile,
+      category: parsed.category,
+      tags: parsed.tags,
+    }
+    skills[parsed.name] = info
+
+    return info
+  }
+
+  export async function remove(name: string): Promise<boolean> {
+    const skills = await state()
+    const skill = skills[name]
+    if (!skill) {
+      throw new Error(`Skill "${name}" not found`)
+    }
+
+    await fs.rm(path.dirname(skill.location), { recursive: true, force: true })
+    delete skills[name]
+    return true
   }
 }
