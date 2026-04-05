@@ -681,7 +681,7 @@ export namespace Plugin {
   >(name: Name, input: Input, output: Output): Promise<Output> {
     if (!name) return output
     for (const hook of await state().then((x) => x.hooks)) {
-      const fn = hook[name]
+      const fn = hook[name as keyof Hooks]
       if (!fn) continue
       // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
       // give up.

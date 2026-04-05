@@ -205,9 +205,13 @@ export namespace ToolRegistry {
         })
         .map(async (t) => {
           using _ = log.time(t.id)
+          const def = await t.init({ agent })
           return {
             id: t.id,
-            ...(await t.init({ agent })),
+            description: def.description,
+            parameters: def.parameters,
+            execute: def.execute,
+            formatValidationError: def.formatValidationError,
           }
         }),
     )

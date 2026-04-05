@@ -183,13 +183,11 @@ export namespace Brain {
   let pending: Promise<BrainResult> | null = null
 
   export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
-    const existing = pending
-    if (existing) return existing
-    const task = runBrain(input).finally(() => {
-      if (pending === task) pending = null
+    if (pending) return pending
+    pending = runBrain(input).finally(() => {
+      pending = null
     })
-    pending = task
-    return task
+    return pending
   }
 
   async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
@@ -249,11 +247,7 @@ export namespace Brain {
       log.error("brain failed", { error: String(e) })
       return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
     } finally {
-      const released = await lease.release().catch((err) => {
-        log.warn("failed to release brain lock", { error: String(err) })
-        return false
-      })
-      if (released) log.debug("brain lock released")
+      await lease.release()
     }
   }
 

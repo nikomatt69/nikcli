@@ -15,6 +15,13 @@ import type { Provider } from "@/provider/provider"
 
 export namespace MessageV2 {
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
+  export const ContextOverflowError = NamedError.create(
+    "MessageContextOverflowError",
+    z.object({
+      message: z.string(),
+      responseBody: z.string().optional(),
+    }),
+  )
   export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
   export const StructuredOutputError = NamedError.create(
     "StructuredOutputError",
@@ -392,6 +399,7 @@ export namespace MessageV2 {
         AuthError.Schema,
         NamedError.Unknown.Schema,
         OutputLengthError.Schema,
+        ContextOverflowError.Schema,
         AbortedError.Schema,
         StructuredOutputError.Schema,
         APIError.Schema,
@@ -695,6 +703,26 @@ export namespace MessageV2 {
     )
   }
 
+  export const Cursor = z.object({
+    id: z.string(),
+    time: z.number(),
+  })
+
+  export const cursor = {
+    encode(input: z.infer<typeof Cursor>): string {
+      return Buffer.from(JSON.stringify(input)).toString("base64url")
+    },
+    decode(input: string): z.infer<typeof Cursor> {
+      return Cursor.parse(JSON.parse(Buffer.from(input, "base64url").toString("utf8")))
+    },
+  }
+
+  export const PageInput = z.object({
+    sessionID: Identifier.schema("session"),
+    limit: z.number().int().positive().default(50),
+    before: z.string().optional(),
+  })
+
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
     const list = await Array.fromAsync(await Storage.list(["message", sessionID]))
     for (let i = list.length - 1; i >= 0; i--) {
@@ -703,6 +731,38 @@ export namespace MessageV2 {
         messageID: list[i][2],
       })
     }
+  })
+
+  export const page = fn(PageInput, async (input) => {
+    const list = await Array.fromAsync(await Storage.list(["message", input.sessionID]))
+    list.sort()
+
+    let startIndex: number
+    if (input.before) {
+      const cursor = Cursor.parse(JSON.parse(Buffer.from(input.before, "base64url").toString("utf8")))
+      const idx = list.findIndex((item) => item[2] === cursor.id || (item[2] === cursor.id && Date.now() > cursor.time))
+      startIndex = idx === -1 ? list.length : idx
+    } else {
+      startIndex = list.length
+    }
+
+    const items: WithParts[] = []
+    for (let i = startIndex - 1; i >= 0 && items.length < input.limit; i--) {
+      const messageID = list[i][2]
+      if (!messageID) continue
+      try {
+        const msg = await get({ sessionID: input.sessionID, messageID })
+        items.push(msg)
+      } catch {
+        continue
+      }
+    }
+
+    const more = items.length === input.limit
+    const last = items[items.length - 1]
+    const nextCursor = more && last ? MessageV2.cursor.encode({ id: last.info.id, time: Date.now() }) : undefined
+
+    return { items, more, cursor: nextCursor }
   })
 
   export const parts = fn(Identifier.schema("message"), async (messageID) => {

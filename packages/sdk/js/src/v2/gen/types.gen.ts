@@ -155,6 +155,14 @@ export type MessageOutputLengthError = {
   }
 }
 
+export type MessageContextOverflowError = {
+  name: "MessageContextOverflowError"
+  data: {
+    message: string
+    responseBody?: string
+  }
+}
+
 export type MessageAbortedError = {
   name: "MessageAbortedError"
   data: {
@@ -198,6 +206,7 @@ export type AssistantMessage = {
     | ProviderAuthError
     | UnknownError
     | MessageOutputLengthError
+    | MessageContextOverflowError
     | MessageAbortedError
     | StructuredOutputError
     | ApiError
@@ -899,6 +908,7 @@ export type EventSessionError = {
       | ProviderAuthError
       | UnknownError
       | MessageOutputLengthError
+      | MessageContextOverflowError
       | MessageAbortedError
       | StructuredOutputError
       | ApiError
@@ -2714,6 +2724,7 @@ export type MobileProjectType = {
   platforms?: Array<string>
   primaryPlatform?: string
   method?: string
+  root?: string
 }
 
 export type MobileBootstrap = {

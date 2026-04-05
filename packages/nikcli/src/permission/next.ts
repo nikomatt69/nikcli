@@ -193,13 +193,16 @@ export namespace PermissionNext {
         return
       }
       if (input.reply === "always") {
+        const projectID = Instance.project.id
         for (const pattern of existing.info.always) {
-          s.approved.push({
+          const rule: Rule = {
             permission: existing.info.permission,
             pattern,
             action: "allow",
-          })
+          }
+          s.approved.push(rule)
         }
+        await Storage.write(["permission", projectID], s.approved)
 
         existing.resolve()
 

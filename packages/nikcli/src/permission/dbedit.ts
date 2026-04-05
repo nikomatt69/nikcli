@@ -7,6 +7,7 @@ import { Log } from "@/util/log"
 import { Identifier } from "@/id/id"
 import z from "zod"
 import type { DBEditRequest } from "../cli/cmd/tui/component/table-db/db/types"
+import { PermissionNext } from "./next"
 
 export namespace DBEditNext {
   const log = Log.create({ service: "dbedit" })
@@ -156,23 +157,54 @@ export namespace DBEditNext {
     }
   })
 
-  export const ask = fn(Request.partial({ id: true }), async (input) => {
-    const s = await state()
-    const id = input.id ?? Identifier.ascending("dbedit")
+  export const ask = fn(
+    Request.partial({ id: true }).extend({
+      ruleset: PermissionNext.Ruleset.optional(),
+    }),
+    async (input) => {
+      const s = await state()
+      const id = input.id ?? Identifier.ascending("dbedit")
 
-    return new Promise<Request | undefined>((resolve, reject) => {
-      const info: Request = {
-        id,
-        ...input,
+      const permission = "dbedit"
+      const pattern = input.filePath
+
+      const ruleset = input.ruleset ?? []
+      const rule = PermissionNext.evaluate(permission, pattern, ruleset)
+
+      log.info("evaluated", { permission, pattern, action: rule.action })
+
+      if (rule.action === "deny") {
+        throw new PermissionDeniedError(
+          ruleset.filter((r) => PermissionNext.evaluate(permission, pattern, [r]).action === "deny"),
+        )
       }
-      s.pending[id] = {
-        info,
-        resolve: (modified) => resolve(modified ?? info),
-        reject,
+
+      if (rule.action === "ask") {
+        return new Promise<Request | undefined>((resolve, reject) => {
+          const info: Request = {
+            id,
+            ...input,
+          }
+          s.pending[id] = {
+            info,
+            resolve: (modified) => resolve(modified ?? info),
+            reject,
+          }
+          Bus.publish(Event.Asked, info)
+        })
       }
-      Bus.publish(Event.Asked, info)
-    })
-  })
+
+      return undefined
+    },
+  )
+
+  export class PermissionDeniedError extends Error {
+    constructor(public readonly ruleset: PermissionNext.Ruleset) {
+      super(
+        `The user has specified a rule which prevents database edits. Here are the relevant rules: ${JSON.stringify(ruleset)}`,
+      )
+    }
+  }
 
   export const reply = fn(
     z.object({

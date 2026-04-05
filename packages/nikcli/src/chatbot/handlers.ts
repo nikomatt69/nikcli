@@ -1,6 +1,6 @@
 import { Chat, type Thread, type Message } from "chat"
 import { ChatBot } from "./index"
-import { streamText, type ModelMessage } from "ai"
+import { streamText, type ModelMessage, wrapLanguageModel } from "ai"
 import { Provider } from "../provider/provider"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
@@ -8,6 +8,7 @@ import { SystemPrompt } from "../session/system"
 import { Plugin } from "../plugin"
 import { clone } from "remeda"
 import { Instance } from "../project/instance"
+import { ProviderTransform } from "../provider/transform"
 
 const log = Log.create({ service: "chatbot-handlers" })
 
@@ -83,14 +84,36 @@ export namespace BotHandlers {
     const messages: ModelMessage[] = [{ role: "user", content: userMessage }]
 
     const result = await streamText({
-      model: language,
+      model: wrapLanguageModel({
+        model: language,
+        middleware: [
+          {
+            async transformParams(args) {
+              if (args.type === "stream") {
+                // @ts-expect-error
+                args.params.prompt = ProviderTransform.message(args.params.prompt, model, {})
+              }
+              return args.params
+            },
+          },
+        ],
+      }),
       system: systemParts.join("\n"),
       messages,
+      onError({ error }) {
+        log.error("stream error", { error })
+        throw error
+      },
     })
 
     let fullResponse = ""
     for await (const chunk of result.textStream) {
       fullResponse += chunk
+    }
+
+    const finishReason = await result.finishReason
+    if (!fullResponse && finishReason === "error") {
+      throw new Error("No output generated due to stream error")
     }
 
     return fullResponse
