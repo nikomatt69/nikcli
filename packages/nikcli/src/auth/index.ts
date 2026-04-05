@@ -176,18 +176,26 @@ export namespace Auth {
 
   export async function set(key: string, info: Info) {
     const tmp = filepath + ".tmp"
-    const data = await all()
-    await Bun.write(tmp, JSON.stringify({ ...data, [key]: info }, null, 2))
-    await fs.chmod(tmp, 0o600)
-    await fs.rename(tmp, filepath)
+    try {
+      const data = await all()
+      await Bun.write(tmp, JSON.stringify({ ...data, [key]: info }, null, 2))
+      await fs.chmod(tmp, 0o600)
+      await fs.rename(tmp, filepath)
+    } finally {
+      await fs.unlink(tmp).catch(() => {})
+    }
   }
 
   export async function remove(key: string) {
     const tmp = filepath + ".tmp"
-    const data = await all()
-    delete data[key]
-    await Bun.write(tmp, JSON.stringify(data, null, 2))
-    await fs.chmod(tmp, 0o600)
-    await fs.rename(tmp, filepath)
+    try {
+      const data = await all()
+      delete data[key]
+      await Bun.write(tmp, JSON.stringify(data, null, 2))
+      await fs.chmod(tmp, 0o600)
+      await fs.rename(tmp, filepath)
+    } finally {
+      await fs.unlink(tmp).catch(() => {})
+    }
   }
 }

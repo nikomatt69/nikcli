@@ -60,6 +60,7 @@ const MobileProjectType = z
     platforms: z.array(z.string()).optional(),
     primaryPlatform: z.string().optional(),
     method: z.string().optional(),
+    root: z.string().optional(),
   })
   .meta({ ref: "MobileProjectType" })
 
