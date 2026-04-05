@@ -131,58 +131,60 @@ export default function LoginScreen() {
           </View>
         )}
 
-        <SurfaceCard style={{ gap: 16, padding: 20 }}>
-          {!isLogin && (
-            <>
-              <TextField
-                label="Username"
-                value={username}
-                onChangeText={setUsername}
-                placeholder="yourname"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
-              <TextField
-                label="Display name (optional)"
-                value={displayName}
-                onChangeText={setDisplayName}
-                placeholder="Your Name"
-                returnKeyType="next"
-              />
-            </>
-          )}
+        <SurfaceCard className="p-5">
+          <View style={{ gap: 16 }}>
+            {!isLogin && (
+              <>
+                <TextField
+                  label="Username"
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="yourname"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+                <TextField
+                  label="Display name (optional)"
+                  value={displayName}
+                  onChangeText={setDisplayName}
+                  placeholder="Your Name"
+                  returnKeyType="next"
+                />
+              </>
+            )}
 
-          <TextField
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            autoCorrect={false}
-            returnKeyType="next"
-          />
+            <TextField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="you@example.com"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
 
-          <TextField
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            placeholder={isLogin ? "" : "At least 8 characters"}
-            secureTextEntry
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-          />
+            <TextField
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              placeholder={isLogin ? "" : "At least 8 characters"}
+              secureTextEntry
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+            />
 
-          {error ? <ErrorBanner message={error} /> : null}
+            {error ? <ErrorBanner message={error} /> : null}
 
-          <ActionButton
-            label={loading ? "" : isLogin ? "Sign in" : "Create account"}
-            loading={loading}
-            onPress={handleSubmit}
-            disabled={loading || !email || !password || (!isLogin && !username)}
-            style={{ marginTop: 4 }}
-          />
+            <ActionButton
+              label={loading ? "" : isLogin ? "Sign in" : "Create account"}
+              loading={loading}
+              onPress={handleSubmit}
+              disabled={loading || !email || !password || (!isLogin && !username)}
+              style={{ marginTop: 4 }}
+            />
+          </View>
         </SurfaceCard>
 
         {config && (
