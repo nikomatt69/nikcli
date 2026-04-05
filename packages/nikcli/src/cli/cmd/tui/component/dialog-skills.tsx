@@ -70,7 +70,7 @@ function parseSkillshOutput(raw: string): SkillshResult[] {
 
   while (i < lines.length) {
     const line = lines[i].trim()
-    const match = line.match(/^(\S+\/\S+)@(\S+)\s+(\d[\d.]*[KkMm]?\s+installs?)/)
+    const match = line.match(/^(\S+\/\S+)@(\S+)\s+(\d+(?:\.\d+)?[KkMm]?\s+installs?)/)
     if (match) {
       const repo = match[1]
       const name = match[2]

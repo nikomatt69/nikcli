@@ -1,6 +1,7 @@
 import { Database } from "bun:sqlite"
 import { createHash, randomBytes } from "node:crypto"
 import fs from "fs/promises"
+import { readFileSync } from "fs"
 import path from "path"
 import { Global } from "@/global"
 
@@ -224,15 +225,10 @@ export namespace UserDB {
 
   export function getActiveSessionSync(): string | null {
     try {
-      // Use Bun's synchronous file API
       const file = Bun.file(SESSION_FILE)
-      // existsSync check
       const exists = file.size >= 0
       if (!exists) return null
-      // Bun doesn't have synchronous text(), fall back to node fs
-      // This is only called at TUI startup before the event loop is busy
-      const fs = require("node:fs") as typeof import("fs")
-      const token = fs.readFileSync(SESSION_FILE, "utf8").trim()
+      const token = readFileSync(SESSION_FILE, "utf8").trim()
       return token || null
     } catch {
       return null

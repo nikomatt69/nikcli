@@ -52,6 +52,8 @@ if (version !== CACHE_VERSION) {
         }),
       ),
     )
-  } catch (e) { }
+  } catch (e) {
+    console.debug("[global] failed to clear cache, ignoring:", e)
+  }
   await Bun.file(path.join(Global.Path.cache, "version")).write(CACHE_VERSION)
 }

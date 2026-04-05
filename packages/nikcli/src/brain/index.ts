@@ -184,9 +184,13 @@ export namespace Brain {
 
   export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
     if (pending) return pending
-    pending = runBrain(input).finally(() => {
-      pending = null
-    })
+    const promise = runBrain(input)
+    pending = promise.catch((error) => ({
+      success: false,
+      sessionsReviewed: 0,
+      hoursSinceLastBrain: 0,
+      error: String(error),
+    }))
     return pending
   }
 
@@ -287,7 +291,11 @@ export namespace Brain {
 
         const timeout = setTimeout(() => {
           log.warn("brain session timed out, cancelling", { sessionID: session.id })
-          SessionPrompt.cancel(session.id)
+          try {
+            SessionPrompt.cancel(session.id)
+          } catch (cancelError) {
+            log.error("failed to cancel brain session", { sessionID: session.id, error: String(cancelError) })
+          }
         }, BRAIN_SESSION_TIMEOUT_MS)
 
         try {

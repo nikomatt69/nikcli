@@ -1,5 +1,5 @@
 import { Hono } from "hono"
-import { readFileSync, existsSync } from "fs"
+import { readFileSync, existsSync, realpathSync } from "fs"
 import { join, extname } from "path"
 
 const STUDIO_UI_DIST = join(import.meta.dir, "../../../../studio/dist")
@@ -81,6 +81,12 @@ export function StudioRoutes() {
     const relativePath = c.req.path.replace(/^\/studio\//, "")
     const filePath = join(STUDIO_UI_DIST, relativePath)
     if (!existsSync(filePath)) return c.notFound()
+    try {
+      const realPath = realpathSync(filePath)
+      if (!realPath.startsWith(STUDIO_UI_DIST)) return c.notFound()
+    } catch {
+      return c.notFound()
+    }
     const ext = extname(filePath).toLowerCase()
     const mimeTypes: Record<string, string> = {
       ".js": "application/javascript",

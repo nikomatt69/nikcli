@@ -406,6 +406,6 @@ export const GithubRunCommand = cmd({
   async handler(_args) {
     prompts.log.error("GitHub agent run is not yet implemented.")
     prompts.log.info("Track progress at: https://github.com/nikcli-ai/nikcli/issues")
-    process.exit(1)
+    throw new Error("GitHub agent run is not yet implemented")
   },
 })
