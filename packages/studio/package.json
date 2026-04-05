@@ -5,8 +5,9 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "vite --config vite.config.ts",
+    "dev": "bun run --bun src/server/index.ts & vite --config vite.config.ts & wait",
     "dev:server": "bun run src/server/index.ts",
+    "dev:ui": "vite --config vite.config.ts",
     "build": "vite build --config vite.config.ts",
     "typecheck": "tsc --noEmit",
     "deploy": "bun run build && wrangler pages deploy dist --commit-dirty=true"

@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useAuth } from "../auth/AuthContext"
+import { AuthProvider, useAuth } from "../auth/AuthContext"
 
 interface SettingsSectionProps {
   title: string
@@ -19,7 +19,7 @@ function SettingsSection({ title, description, children }: SettingsSectionProps)
   )
 }
 
-export function SettingsPage() {
+function SettingsPageInner() {
   const { user, logout } = useAuth()
   const [displayName, setDisplayName] = useState(user?.displayName || "")
   const [saving, setSaving] = useState(false)
@@ -132,5 +132,13 @@ export function SettingsPage() {
         </div>
       </SettingsSection>
     </div>
+  )
+}
+
+export function SettingsPage() {
+  return (
+    <AuthProvider>
+      <SettingsPageInner />
+    </AuthProvider>
   )
 }

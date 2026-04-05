@@ -12,5 +12,13 @@ export default defineConfig({
     define: {
       global: "globalThis",
     },
+    server: {
+      proxy: {
+        "/user": { target: "http://localhost:4096", changeOrigin: true },
+        "/session": { target: "http://localhost:4096", changeOrigin: true },
+        "/studio/api": { target: "http://localhost:4096", changeOrigin: true },
+        "/global": { target: "http://localhost:4096", changeOrigin: true },
+      },
+    },
   },
 })

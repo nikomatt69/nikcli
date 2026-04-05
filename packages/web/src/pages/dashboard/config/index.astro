@@ -1,0 +1,19 @@
+---
+import { DashboardShell } from "@/dashboard/components/DashboardShell"
+import { ConfigPage } from "@/dashboard/components/ConfigPage"
+import "../../../styles/global.css"
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Config | nikcli</title><link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <script is:inline>
+      const s=localStorage.getItem("theme"),d=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches
+      document.documentElement.setAttribute("data-theme",s||(d?"dark":"light"))
+    </script>
+  </head>
+  <body class="min-h-screen bg-terminal-bg font-sans antialiased">
+    <DashboardShell title="Config" client:load><ConfigPage client:load /></DashboardShell>
+  </body>
+</html>

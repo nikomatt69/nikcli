@@ -78,6 +78,8 @@ eval rsync $RSYNC_OPTS "$ROOT/packages/remote/"   "$CTX/packages/remote/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/plugin/"   "$CTX/packages/plugin/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/companion/" "$CTX/packages/companion/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/slack/"    "$CTX/packages/slack/"
+# Studio server source needed at build time (nikcli embeds studio API routes)
+eval rsync $RSYNC_OPTS "$ROOT/packages/studio/src/server/" "$CTX/packages/studio/src/server/"
 eval rsync $RSYNC_OPTS "$ROOT/github/"            "$CTX/github/"
 
 rm -rf \

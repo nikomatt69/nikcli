@@ -16,16 +16,16 @@ const SettingsPage = lazy(() => import("./pages/settings").then((m) => ({ defaul
 const UsersPage = lazy(() => import("./pages/users").then((m) => ({ default: m.UsersPage })))
 
 const NAV = [
-  { path: "/studio/mcp",      label: "MCP Servers", icon: "⚡" },
-  { path: "/studio/profiles", label: "Profiles",    icon: "👤" },
-  { path: "/studio/skills",   label: "Skills",      icon: "🧠" },
-  { path: "/studio/plugins",  label: "Plugins",     icon: "🔌" },
-  { path: "/studio/agents",   label: "Agents",      icon: "🤖" },
-  { path: "/studio/commands", label: "Commands",    icon: "⌘"  },
-  { path: "/studio/auth",     label: "Auth",        icon: "🔑" },
-  { path: "/studio/users",    label: "Users",       icon: "👥" },
-  { path: "/studio/backup",   label: "Backup",      icon: "💾" },
-  { path: "/studio/settings", label: "Settings",    icon: "⚙️" },
+  { path: "/studio/mcp", label: "MCP Servers", icon: "⚡" },
+  { path: "/studio/profiles", label: "Profiles", icon: "👤" },
+  { path: "/studio/skills", label: "Skills", icon: "🧠" },
+  { path: "/studio/plugins", label: "Plugins", icon: "🔌" },
+  { path: "/studio/agents", label: "Agents", icon: "🤖" },
+  { path: "/studio/commands", label: "Commands", icon: "⌘" },
+  { path: "/studio/auth", label: "Auth", icon: "🔑" },
+  { path: "/studio/users", label: "Users", icon: "👥" },
+  { path: "/studio/backup", label: "Backup", icon: "💾" },
+  { path: "/studio/settings", label: "Settings", icon: "⚙️" },
 ]
 
 function Sidebar() {
@@ -53,24 +53,26 @@ function Sidebar() {
 
 function App() {
   return (
-    <Router>
-      <div class="app">
-        <Sidebar />
-        <main class="main-content">
-          <Route path="/studio" component={() => <Navigate href="/studio/mcp" />} />
-          <Route path="/studio/mcp" component={McpPage} />
-          <Route path="/studio/profiles" component={ProfilesPage} />
-          <Route path="/studio/skills" component={SkillsPage} />
-          <Route path="/studio/plugins" component={PluginsPage} />
-          <Route path="/studio/agents" component={AgentsPage} />
-          <Route path="/studio/commands" component={CommandsPage} />
-          <Route path="/studio/auth" component={AuthPage} />
-          <Route path="/studio/users" component={UsersPage} />
-          <Route path="/studio/backup" component={BackupPage} />
-          <Route path="/studio/settings" component={SettingsPage} />
-          <Route path="*" component={() => <Navigate href="/studio/mcp" />} />
-        </main>
-      </div>
+    <Router
+      root={(props) => (
+        <div class="app">
+          <Sidebar />
+          <main class="main-content">{props.children}</main>
+        </div>
+      )}
+    >
+      <Route path="/studio" component={() => <Navigate href="/studio/mcp" />} />
+      <Route path="/studio/mcp" component={McpPage} />
+      <Route path="/studio/profiles" component={ProfilesPage} />
+      <Route path="/studio/skills" component={SkillsPage} />
+      <Route path="/studio/plugins" component={PluginsPage} />
+      <Route path="/studio/agents" component={AgentsPage} />
+      <Route path="/studio/commands" component={CommandsPage} />
+      <Route path="/studio/auth" component={AuthPage} />
+      <Route path="/studio/users" component={UsersPage} />
+      <Route path="/studio/backup" component={BackupPage} />
+      <Route path="/studio/settings" component={SettingsPage} />
+      <Route path="*" component={() => <Navigate href="/studio/mcp" />} />
     </Router>
   )
 }

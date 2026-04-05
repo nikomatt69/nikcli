@@ -1,11 +1,10 @@
 import { createSignal, createResource, For, Show } from "solid-js"
 import { userApi, type UserProfile } from "~/api"
 import { Loading } from "~/components/loading"
-
-const USER_TOKEN_KEY = "nikcli_user_token"
+import { EmptyState } from "~/components/empty"
 
 function getStoredToken() {
-  return typeof localStorage !== "undefined" ? localStorage.getItem(USER_TOKEN_KEY) : null
+  return userApi.getToken()
 }
 
 export function UsersPage() {
@@ -103,7 +102,10 @@ export function UsersPage() {
         password: regPassword(),
         displayName: regDisplay() || undefined,
       })
-      setRegUsername(""); setRegEmail(""); setRegPassword(""); setRegDisplay("")
+      setRegUsername("")
+      setRegEmail("")
+      setRegPassword("")
+      setRegDisplay("")
       setShowCreate(false)
       refetchUsers()
     } catch (err: any) {
@@ -118,64 +120,136 @@ export function UsersPage() {
       <div class="page-header">
         <h1>Users</h1>
         <Show when={currentUser()}>
-          <button class="btn" onClick={handleLogout}>Sign out</button>
+          <button class="btn btn-secondary" onClick={handleLogout}>
+            Sign out
+          </button>
         </Show>
       </div>
 
       {/* Not logged in */}
       <Show when={!token()}>
-        <Show when={status()?.hasUsers === false}>
-          {/* No users exist — show registration */}
-          <p class="page-desc">No users yet. Create the first account (will be admin).</p>
-          <form onSubmit={handleRegister} class="add-form" style="max-width:400px">
-            <input class="input" placeholder="Username" value={regUsername()} onInput={(e) => setRegUsername(e.currentTarget.value)} required />
-            <input class="input" placeholder="Display name (optional)" value={regDisplay()} onInput={(e) => setRegDisplay(e.currentTarget.value)} />
-            <input class="input" placeholder="Email" type="email" value={regEmail()} onInput={(e) => setRegEmail(e.currentTarget.value)} required />
-            <input class="input" placeholder="Password (min 8 chars)" type="password" value={regPassword()} onInput={(e) => setRegPassword(e.currentTarget.value)} required minLength={8} />
-            <Show when={regError()}>
-              <div class="page-error">{regError()}</div>
-            </Show>
-            <button class="btn btn-primary" type="submit" disabled={regBusy()}>
-              {regBusy() ? "Creating..." : "Create account"}
-            </button>
-          </form>
-        </Show>
-
-        <Show when={status()?.hasUsers !== false}>
-          {/* Users exist — show login */}
-          <p class="page-desc">Sign in to manage users.</p>
-          <form onSubmit={handleLogin} class="add-form" style="max-width:400px">
-            <input class="input" placeholder="Email" type="email" value={loginEmail()} onInput={(e) => setLoginEmail(e.currentTarget.value)} required />
-            <input class="input" placeholder="Password" type="password" value={loginPassword()} onInput={(e) => setLoginPassword(e.currentTarget.value)} required />
-            <Show when={loginError()}>
-              <div class="page-error">{loginError()}</div>
-            </Show>
-            <button class="btn btn-primary" type="submit" disabled={loginBusy()}>
-              {loginBusy() ? "Signing in..." : "Sign in"}
-            </button>
-          </form>
-        </Show>
-
         <Show when={status.loading}>
           <Loading />
+        </Show>
+        <Show when={!status.loading}>
+          <Show when={status()?.hasUsers === false}>
+            <div class="auth-container">
+              <div class="auth-logo">
+                <div class="auth-icon">N</div>
+                <h2>nikcli Studio</h2>
+                <p>Create your admin account to get started.</p>
+              </div>
+              <form onSubmit={handleRegister} class="auth-form">
+                <div class="form-field">
+                  <label>Username</label>
+                  <input
+                    class="input"
+                    placeholder="Username"
+                    value={regUsername()}
+                    onInput={(e) => setRegUsername(e.currentTarget.value)}
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label>Display name (optional)</label>
+                  <input
+                    class="input"
+                    placeholder="Display name"
+                    value={regDisplay()}
+                    onInput={(e) => setRegDisplay(e.currentTarget.value)}
+                  />
+                </div>
+                <div class="form-field">
+                  <label>Email</label>
+                  <input
+                    class="input"
+                    placeholder="email@example.com"
+                    type="email"
+                    value={regEmail()}
+                    onInput={(e) => setRegEmail(e.currentTarget.value)}
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label>Password</label>
+                  <input
+                    class="input"
+                    placeholder="Min 8 characters"
+                    type="password"
+                    value={regPassword()}
+                    onInput={(e) => setRegPassword(e.currentTarget.value)}
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <Show when={regError()}>
+                  <div class="page-error">{regError()}</div>
+                </Show>
+                <button class="btn btn-primary" type="submit" disabled={regBusy()} style="width:100%;margin-top:4px">
+                  {regBusy() ? "Creating..." : "Create account"}
+                </button>
+              </form>
+            </div>
+          </Show>
+          <Show when={status()?.hasUsers !== false}>
+            <div class="auth-container">
+              <div class="auth-logo">
+                <div class="auth-icon">N</div>
+                <h2>Sign in</h2>
+                <p>Access nikcli Studio.</p>
+              </div>
+              <form onSubmit={handleLogin} class="auth-form">
+                <div class="form-field">
+                  <label>Email</label>
+                  <input
+                    class="input"
+                    placeholder="email@example.com"
+                    type="email"
+                    value={loginEmail()}
+                    onInput={(e) => setLoginEmail(e.currentTarget.value)}
+                    required
+                  />
+                </div>
+                <div class="form-field">
+                  <label>Password</label>
+                  <input
+                    class="input"
+                    placeholder="Your password"
+                    type="password"
+                    value={loginPassword()}
+                    onInput={(e) => setLoginPassword(e.currentTarget.value)}
+                    required
+                  />
+                </div>
+                <Show when={loginError()}>
+                  <div class="page-error">{loginError()}</div>
+                </Show>
+                <button class="btn btn-primary" type="submit" disabled={loginBusy()} style="width:100%;margin-top:4px">
+                  {loginBusy() ? "Signing in..." : "Sign in"}
+                </button>
+              </form>
+            </div>
+          </Show>
         </Show>
       </Show>
 
       {/* Logged in */}
       <Show when={token() && currentUser()}>
-        <div class="current-user-info" style="margin-bottom:16px;padding:12px;background:var(--surface-2,#1e1e1e);border-radius:8px;border:1px solid var(--border,#333)">
-          <span style="font-weight:600;color:var(--text)">{currentUser()?.display_name || currentUser()?.username}</span>
-          <span style="margin-left:8px;font-size:12px;color:var(--text-muted)">{currentUser()?.email}</span>
-          <span style="margin-left:8px;font-size:11px;padding:2px 6px;border-radius:4px;background:var(--accent-bg,#2a2a2a);color:var(--accent,#7c7cff)">
-            {currentUser()?.role}
-          </span>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <div class="card-title">
+              {currentUser()?.display_name || currentUser()?.username}
+              <span class="tag">{currentUser()?.email}</span>
+            </div>
+            <div class="card-actions">
+              <span class={`tag ${currentUser()?.role === "admin" ? "tag-active" : ""}`}>{currentUser()?.role}</span>
+            </div>
+          </div>
         </div>
 
         <Show when={currentUser()?.role === "admin"}>
           <div class="page-header" style="margin-bottom:12px">
-            <span style="font-size:14px;font-weight:600;color:var(--text)">
-              All users ({users()?.length ?? 0})
-            </span>
+            <span style="font-size:14px;font-weight:600">All users ({users()?.length ?? 0})</span>
             <button class="btn btn-primary" onClick={() => setShowCreate(!showCreate())}>
               {showCreate() ? "Cancel" : "+ Add user"}
             </button>
@@ -183,10 +257,36 @@ export function UsersPage() {
 
           <Show when={showCreate()}>
             <form onSubmit={handleCreateUser} class="add-form" style="max-width:400px;margin-bottom:16px">
-              <input class="input" placeholder="Username" value={regUsername()} onInput={(e) => setRegUsername(e.currentTarget.value)} required />
-              <input class="input" placeholder="Display name (optional)" value={regDisplay()} onInput={(e) => setRegDisplay(e.currentTarget.value)} />
-              <input class="input" placeholder="Email" type="email" value={regEmail()} onInput={(e) => setRegEmail(e.currentTarget.value)} required />
-              <input class="input" placeholder="Password (min 8 chars)" type="password" value={regPassword()} onInput={(e) => setRegPassword(e.currentTarget.value)} required minLength={8} />
+              <input
+                class="input"
+                placeholder="Username"
+                value={regUsername()}
+                onInput={(e) => setRegUsername(e.currentTarget.value)}
+                required
+              />
+              <input
+                class="input"
+                placeholder="Display name (optional)"
+                value={regDisplay()}
+                onInput={(e) => setRegDisplay(e.currentTarget.value)}
+              />
+              <input
+                class="input"
+                placeholder="Email"
+                type="email"
+                value={regEmail()}
+                onInput={(e) => setRegEmail(e.currentTarget.value)}
+                required
+              />
+              <input
+                class="input"
+                placeholder="Password (min 8 chars)"
+                type="password"
+                value={regPassword()}
+                onInput={(e) => setRegPassword(e.currentTarget.value)}
+                required
+                minLength={8}
+              />
               <Show when={regError()}>
                 <div class="page-error">{regError()}</div>
               </Show>
@@ -200,35 +300,36 @@ export function UsersPage() {
             <Loading />
           </Show>
 
-          <div class="list">
+          <div class="card-list">
             <For each={users()}>
               {(u) => (
-                <div class="list-item" style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-                  <div style="min-width:0;flex:1">
-                    <div style="font-weight:600;font-size:13px;color:var(--text)">
+                <div class="card">
+                  <div class="card-header">
+                    <div class="card-title">
                       {u.display_name || u.username}
-                      {u.id === currentUser()?.id ? <span style="margin-left:6px;font-size:11px;color:var(--text-muted)">(you)</span> : null}
+                      {u.id === currentUser()?.id ? <span class="text-muted text-xs">(you)</span> : null}
                     </div>
-                    <div style="font-size:12px;color:var(--text-muted)">{u.email} · @{u.username}</div>
+                    <div class="card-actions">
+                      <span class="tag">{u.role}</span>
+                      <Show when={u.id !== currentUser()?.id}>
+                        <button class="btn btn-secondary btn-sm" onClick={() => handleRoleToggle(u)}>
+                          {u.role === "admin" ? "Demote" : "Promote"}
+                        </button>
+                        <button class="btn btn-danger btn-sm" onClick={() => handleDelete(u.id)}>
+                          Delete
+                        </button>
+                      </Show>
+                    </div>
                   </div>
-                  <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-                    <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:var(--surface-2,#1e1e1e);color:var(--text-muted)">
-                      {u.role}
-                    </span>
-                    <Show when={u.id !== currentUser()?.id}>
-                      <button class="btn" onClick={() => handleRoleToggle(u)} style="font-size:12px;padding:4px 8px">
-                        {u.role === "admin" ? "Demote" : "Promote"}
-                      </button>
-                      <button class="btn" onClick={() => handleDelete(u.id)} style="font-size:12px;padding:4px 8px;color:var(--error,#f44)">
-                        Delete
-                      </button>
-                    </Show>
+                  <div class="card-meta">
+                    <span>{u.email}</span>
+                    <code class="code-inline">@{u.username}</code>
                   </div>
                 </div>
               )}
             </For>
             <Show when={!users.loading && (users()?.length ?? 0) === 0}>
-              <div style="color:var(--text-muted);font-size:13px;padding:12px">No other users.</div>
+              <EmptyState title="No other users." />
             </Show>
           </div>
         </Show>

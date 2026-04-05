@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react"
-import { useAuth } from "../auth/AuthContext"
+import { useState, useEffect, useCallback } from "react"
+import { AuthProvider, useAuth } from "../auth/AuthContext"
 
 interface Session {
   id: string
@@ -8,6 +8,8 @@ interface Session {
   createdAt: string
   messages: number
 }
+
+const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
 function EmptyState() {
   return (
@@ -62,24 +64,50 @@ function SessionCard({ session }: { session: Session }) {
   )
 }
 
-export function SessionsPage() {
-  const { token } = useAuth()
+function SessionsPageInner() {
+  const { token, serverUrl, logout } = useAuth()
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    if (!token || (!isDev && !serverUrl)) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const base = isDev ? "" : serverUrl
+    fetch(`${base}/session`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(async (res) => {
+        if (res.status === 401 || res.status === 403) {
+          await logout()
+          throw new Error("Session expired")
+        }
+        if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+        return res.json()
+      })
+      .then((data) => setSessions(Array.isArray(data) ? data : []))
+      .catch((e) => {
+        setSessions([])
+        setError(e.message)
+      })
+      .finally(() => setLoading(false))
+  }, [token, serverUrl, logout])
 
   useEffect(() => {
-    if (!token) return
-    fetch("/session/list", { headers: { Authorization: `Bearer ${token}` } })
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => {
-        setSessions(Array.isArray(data) ? data : [])
-        setLoading(false)
-      })
-      .catch(() => {
-        setSessions([])
-        setLoading(false)
-      })
-  }, [token])
+    load()
+  }, [load])
+
+  if (!token || (!isDev && !serverUrl)) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
+        <div className="mb-4 text-4xl">🔒</div>
+        <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
+        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -93,6 +121,12 @@ export function SessionsPage() {
           <span>New Session</span>
         </button>
       </div>
+
+      {error && (
+        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -108,5 +142,13 @@ export function SessionsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export function SessionsPage() {
+  return (
+    <AuthProvider>
+      <SessionsPageInner />
+    </AuthProvider>
   )
 }

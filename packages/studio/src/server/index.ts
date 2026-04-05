@@ -46,10 +46,19 @@ function getIndexHtml(): string {
 export function StudioServer() {
   const app = new Hono()
 
-  app.use("*", cors({
-    origin: ["http://localhost:4200", "http://127.0.0.1:4200", "http://localhost:4096", "http://127.0.0.1:4096"],
-    credentials: true,
-  }))
+  app.use(
+    "*",
+    cors({
+      origin: [
+        "http://localhost:4200",
+        "http://127.0.0.1:4200",
+        "http://localhost:4096",
+        "http://127.0.0.1:4096",
+        "https://nikcli-mobile-production.up.railway.app",
+      ],
+      credentials: true,
+    }),
+  )
 
   app.get("/studio/api/health", (c) => c.json({ status: "ok", version: "0.0.1" }))
 
@@ -95,6 +104,25 @@ export function StudioServer() {
   return app
 }
 
+/**
+ * Returns only the studio API routes without any CORS middleware.
+ * Use this when embedding inside a parent server that handles CORS.
+ */
+export function StudioApiRoutes() {
+  const app = new Hono()
+  app.get("/studio/api/health", (c) => c.json({ status: "ok", version: "0.0.1" }))
+  app.route("/studio/api/config", ConfigRoutes())
+  app.route("/studio/api/profiles", ProfilesRoutes())
+  app.route("/studio/api/skills", SkillsRoutes())
+  app.route("/studio/api/plugins", PluginsRoutes())
+  app.route("/studio/api/auth", AuthRoutes())
+  app.route("/studio/api/agents", AgentsRoutes())
+  app.route("/studio/api/commands", CommandsRoutes())
+  app.route("/studio/api/backup", BackupRoutes())
+  app.route("/studio/api/github", GitHubRoutes())
+  return app
+}
+
 const DEFAULT_PORT = 4201
 
 async function findAvailablePort(start: number): Promise<number> {
@@ -117,7 +145,7 @@ export interface ServeOptions {
 }
 
 export async function serve(options: ServeOptions = {}) {
-  const port = options.port || await findAvailablePort(parseInt(process.env.PORT || String(DEFAULT_PORT)))
+  const port = options.port || (await findAvailablePort(parseInt(process.env.PORT || String(DEFAULT_PORT))))
   // @ts-ignore
   const hostname = options.hostname || "localhost"
 

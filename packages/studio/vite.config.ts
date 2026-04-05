@@ -21,7 +21,6 @@ export default defineConfig({
     },
   },
   server: {
-    port: 4200,
     proxy: {
       "/studio/api": {
         target: "http://localhost:4201",

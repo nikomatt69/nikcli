@@ -19,6 +19,7 @@ COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
 COPY packages/studio/package.json /app/packages/studio/
+COPY packages/studio/src /app/packages/studio/src
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -66,6 +67,7 @@ COPY packages/remote /app/packages/remote
 COPY packages/plugin /app/packages/plugin
 COPY packages/companion /app/packages/companion
 COPY packages/slack /app/packages/slack
+COPY packages/studio /app/packages/studio
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest

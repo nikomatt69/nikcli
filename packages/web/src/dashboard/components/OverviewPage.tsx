@@ -1,4 +1,4 @@
-import { useAuth } from "../auth/AuthContext"
+import { AuthProvider, useAuth } from "../auth/AuthContext"
 
 interface StatCardProps {
   label: string
@@ -46,7 +46,7 @@ function QuickAction({ label, href, icon, description }: QuickActionProps) {
   )
 }
 
-export function OverviewPage() {
+function OverviewPageInner() {
   const { user } = useAuth()
 
   return (
@@ -115,5 +115,13 @@ export function OverviewPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export function OverviewPage() {
+  return (
+    <AuthProvider>
+      <OverviewPageInner />
+    </AuthProvider>
   )
 }
