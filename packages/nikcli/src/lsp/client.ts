@@ -67,8 +67,8 @@ export namespace LSPClient {
     connection.onRequest("workspace/configuration", async () => {
       return [input.server.initialization ?? {}]
     })
-    connection.onRequest("client/registerCapability", async () => {})
-    connection.onRequest("client/unregisterCapability", async () => {})
+    connection.onRequest("client/registerCapability", async () => { })
+    connection.onRequest("client/unregisterCapability", async () => { })
     connection.onRequest("workspace/workspaceFolders", async () => [
       {
         name: "workspace",
@@ -144,21 +144,6 @@ export namespace LSPClient {
         return connection
       },
       notify: {
-        async close(input: { path: string }) {
-          input.path = path.isAbsolute(input.path) ? input.path : path.resolve(Instance.directory, input.path)
-          if (files[input.path] === undefined) return
-
-          log.info("textDocument/didClose", input)
-          await connection.sendNotification("textDocument/didClose", {
-            textDocument: {
-              uri: pathToFileURL(input.path).href,
-            },
-          })
-
-          diagnostics.delete(input.path)
-          delete files[input.path]
-          return
-        },
         async open(input: { path: string }) {
           input.path = path.isAbsolute(input.path) ? input.path : path.resolve(Instance.directory, input.path)
           const file = Bun.file(input.path)
@@ -243,7 +228,7 @@ export namespace LSPClient {
           }),
           3000,
         )
-          .catch(() => {})
+          .catch(() => { })
           .finally(() => {
             if (debounceTimer) clearTimeout(debounceTimer)
             unsub?.()
@@ -254,10 +239,6 @@ export namespace LSPClient {
         connection.end()
         connection.dispose()
         input.server.process.kill()
-        diagnostics.clear()
-        for (const key of Object.keys(files)) {
-          delete files[key]
-        }
         l.info("shutdown")
       },
     }

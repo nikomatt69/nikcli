@@ -339,6 +339,7 @@
         "react": "18.3.1",
         "react-dom": "18.3.1",
         "react-native": "0.76.7",
+        "react-native-css-interop": "0.2.3",
         "react-native-gesture-handler": "~2.20.2",
         "react-native-markdown-display": "^7.0.2",
         "react-native-safe-area-context": "4.12.0",
@@ -454,6 +455,7 @@
         "tree-sitter-bash": "0.25.0",
         "turndown": "7.2.0",
         "ulid": "catalog:",
+        "unique-names-generator": "^4.7.1",
         "vscode-jsonrpc": "8.2.1",
         "web-tree-sitter": "0.25.10",
         "xdg-basedir": "5.1.0",
@@ -5141,6 +5143,8 @@
     "unifont": ["unifont@0.7.4", "", { "dependencies": { "css-tree": "^3.1.0", "ofetch": "^1.5.1", "ohash": "^2.0.11" } }, "sha512-oHeis4/xl42HUIeHuNZRGEvxj5AaIKR+bHPNegRq5LV1gdc3jundpONbjglKpihmJf+dswygdMJn3eftGIMemg=="],
 
     "unique-filename": ["unique-filename@3.0.0", "", { "dependencies": { "unique-slug": "^4.0.0" } }, "sha512-afXhuC55wkAmZ0P18QsVE6kp8JaxrEokN2HGIoIVv2ijHQd419H0+6EigAFcIzXeMIkcIkNBpB3L/DXB3cTS/g=="],
+
+    "unique-names-generator": ["unique-names-generator@4.7.1", "", {}, "sha512-lMx9dX+KRmG8sq6gulYYpKWZc9RlGsgBR6aoO8Qsm3qvkSJ+3rAymr+TnV8EDMrIrwuFJ4kruzMWM/OpYzPoow=="],
 
     "unique-slug": ["unique-slug@4.0.0", "", { "dependencies": { "imurmurhash": "^0.1.4" } }, "sha512-WrcA6AyEfqDX5bWige/4NQfPZMtASNVxdmWR76WESYQVAACSgWcR6e9i0mofqqBxYFtL4oAxPIptY73/0YE1DQ=="],
 

@@ -1,7 +1,7 @@
 ---
 mode: primary
 hidden: true
-model: nikcli/claude-sonnet-4-5
+model: minimax-coding-plan/MiniMax-M2.7
 color: "#FF6B6B"
 tools:
   read: true

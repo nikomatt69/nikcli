@@ -27,6 +27,9 @@ import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Tophat } from "@/mobile/tophat"
+import { Expo } from "@/mobile/expo"
+import { Simulator } from "@/mobile/simulator"
+import { ReactNative } from "@/mobile/react-native"
 import { MobileProjectDetect } from "@/mobile/project-detect"
 import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
@@ -820,6 +823,15 @@ export const MobileRoutes = lazy(() =>
             providers: s.providers.map((p) => ({ id: p.id })),
             devices: s.devices.map((d) => ({ name: d.name, platform: d.platform })),
           })),
+          expo: await Expo.doctor().then((r) => ({
+            available: r.expoCli,
+            easAvailable: r.easCli,
+            details: r.details,
+          })),
+          reactNative: {
+            available: (await ReactNative.version()) !== "not available",
+            version: await ReactNative.version(),
+          },
           mobileProject: await MobileProjectDetect.detect(Instance.directory).then((detected) =>
             detected
               ? {
@@ -890,6 +902,119 @@ export const MobileRoutes = lazy(() =>
           deepLink: Tophat.installUrl(url, { platform }),
           localLink: Tophat.localInstallUrl(url, { platform }),
         })
+      },
+    )
+    .get(
+      "/expo/status",
+      describeRoute({
+        summary: "Get Expo environment status",
+        description: "Return Expo CLI, EAS CLI, and Node.js availability.",
+        operationId: "mobile.expo.status",
+        responses: {
+          200: {
+            description: "Expo status",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    available: z.boolean(),
+                    details: z.array(z.string()),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const report = await Expo.doctor()
+        return c.json({
+          available: report.expoCli,
+          details: report.details,
+        })
+      },
+    )
+    .get(
+      "/simulator/devices",
+      describeRoute({
+        summary: "List available simulators and emulators",
+        description: "Return iOS Simulators and/or Android Emulators with their state.",
+        operationId: "mobile.simulator.devices",
+        responses: {
+          200: {
+            description: "Simulator list",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    ios: z.array(
+                      z.object({
+                        id: z.string(),
+                        name: z.string(),
+                        state: z.string(),
+                        runtime: z.string().optional(),
+                      }),
+                    ),
+                    android: z.array(
+                      z.object({
+                        id: z.string(),
+                        name: z.string(),
+                        state: z.string(),
+                      }),
+                    ),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      validator("query", z.object({ platform: z.enum(["ios", "android", "all"]).optional() })),
+      async (c) => {
+        const { platform } = c.req.valid("query")
+        if (platform === "ios") {
+          const ios = await Simulator.list("ios")
+          return c.json({
+            ios: ios.map((d) => ({ id: d.id, name: d.name, state: d.state, runtime: d.runtime })),
+            android: [],
+          })
+        }
+        if (platform === "android") {
+          const android = await Simulator.list("android")
+          return c.json({ ios: [], android: android.map((d) => ({ id: d.id, name: d.name, state: d.state })) })
+        }
+        const [ios, android] = await Promise.all([Simulator.list("ios"), Simulator.list("android")])
+        return c.json({
+          ios: ios.map((d) => ({ id: d.id, name: d.name, state: d.state, runtime: d.runtime })),
+          android: android.map((d) => ({ id: d.id, name: d.name, state: d.state })),
+        })
+      },
+    )
+    .get(
+      "/react-native/version",
+      describeRoute({
+        summary: "Get React Native CLI version",
+        description: "Return the React Native CLI version if available.",
+        operationId: "mobile.react-native.version",
+        responses: {
+          200: {
+            description: "React Native version",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    version: z.string(),
+                    available: z.boolean(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        const version = await ReactNative.version()
+        return c.json({ version, available: version !== "not available" })
       },
     )
     .get(

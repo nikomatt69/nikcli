@@ -1,0 +1,14 @@
+Build and run a React Native app on an iOS Simulator or Android Emulator.
+
+Requires React Native CLI and Node.js installed. For iOS, Xcode is required.
+For Android, Android SDK and emulator/device must be available.
+
+The tool spawns `npx react-native run-ios` or `npx react-native run-android`.
+
+Usage:
+- platform: Target platform (ios or android). Required.
+- device: Specific device name or ID to run on (optional, uses default if omitted).
+- configuration: Build configuration (e.g., 'Debug' or 'Release').
+
+This command compiles the native code, installs the app, and launches it on the target device.
+Metro bundler will be started automatically if not already running.

@@ -1,5 +1,6 @@
 {
   "plugin": [
-    "oc-plugin-vault-tec"
+    "oc-plugin-vault-tec",
+    "oh-my-openagent"
   ]
 }

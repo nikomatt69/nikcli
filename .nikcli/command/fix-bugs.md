@@ -1,6 +1,6 @@
 ---
 description: fix critical bugs in nikcli codebase
-model: nikcli/claude-sonnet-4-5
+model: minimax-coding-plan/MiniMax-M2.7
 subtask: true
 ---
 

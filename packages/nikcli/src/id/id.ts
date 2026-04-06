@@ -13,6 +13,7 @@ export namespace Identifier {
     tool: "tool",
     dbedit: "dbe",
     workspace: "wrk",
+    sync: "syn",
   } as const
 
   export function schema(prefix: keyof typeof prefixes) {

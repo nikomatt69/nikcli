@@ -51,6 +51,7 @@ import type { ApplyPatchTool } from "@/tool/apply_patch"
 import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
 import type { QuestionTool } from "@/tool/question"
+import type { OpenTUIVizTool } from "@/tool/opentui"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -85,6 +86,7 @@ import { DBEditPrompt } from "./dbedit"
 import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
+import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
 import { DialogSelect } from "../../ui/dialog-select"
 
 addDefaultParsers(parsers.parsers)
@@ -1653,6 +1655,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         <Match when={props.part.tool === "question"}>
           <Question {...toolprops} />
         </Match>
+        <Match when={props.part.tool === "opentui"}>
+          <OpenTUIViz {...toolprops} />
+        </Match>
         <Match when={true}>
           <GenericTool {...toolprops} />
         </Match>
@@ -2011,6 +2016,57 @@ function WebFetch(props: ToolProps<typeof WebFetchTool>) {
   )
 }
 
+function OpenTUIViz(props: ToolProps<typeof OpenTUIVizTool>) {
+  const { theme } = useTheme()
+  const dialog = useDialog()
+  const metadata = props.metadata as any
+  const input = props.input as any
+
+  const spec = createMemo(() => metadata?.spec ?? input)
+  const title = createMemo(() => String(spec()?.title ?? input?.title ?? "Visualization"))
+  const count = createMemo(() => {
+    const c = spec()?.components ?? input?.components
+    return Array.isArray(c) ? c.length : 0
+  })
+
+  const openViz = () => {
+    const s = spec()
+    if (!s) return
+    dialog.replace(() => <DialogOpenTUIViz spec={s} />)
+  }
+
+  return (
+    <Switch>
+      <Match when={props.output !== undefined && count() > 0}>
+        <BlockTool
+          title={`# Visualization: ${title()}`}
+          accentColor={theme.accent ?? theme.primary}
+          titleColor={theme.accent ?? theme.primary}
+          onClick={openViz}
+          part={props.part}
+        >
+          <box gap={0}>
+            <box flexDirection="row" justifyContent="space-between" alignItems="center">
+              <text fg={theme.accent ?? theme.primary} attributes={TextAttributes.BOLD} flexGrow={1}>
+                {title()}
+              </text>
+              <text fg={theme.textMuted}>open visualization</text>
+            </box>
+            <text fg={theme.textMuted}>
+              {count()} component{count() === 1 ? "" : "s"} · Click to view in TUI
+            </text>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool icon="◈" pending="Generating visualization..." complete={input?.title} part={props.part}>
+          OpenTUI {input?.title ?? ""}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
 function CodeSearch(props: ToolProps<any>) {
   const input = props.input as any
   const metadata = props.metadata as any
@@ -2215,23 +2271,35 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const local = useLocal()
   const sync = useSync()
 
-  const current = createMemo(() => props.metadata.summary?.findLast((x) => x.state.status !== "pending"))
-  const color = createMemo(() => local.agent.color(props.input.subagent_type ?? "unknown"))
+  const meta = props.metadata as Record<string, any>
+  const input = props.input as Record<string, any>
+
+  const current = createMemo(() => {
+    const summary = meta.summary as
+      | Array<{ id: string; tool: string; state: { status: string; title?: string } }>
+      | undefined
+    if (!summary || summary.length === 0) return undefined
+    for (let i = summary.length - 1; i >= 0; i--) {
+      if (summary[i].state.status !== "pending") return summary[i]
+    }
+    return undefined
+  })
+  const color = createMemo(() => local.agent.color(input.subagent_type ?? "unknown"))
 
   return (
     <Switch>
-      <Match when={props.metadata.summary?.length}>
+      <Match when={meta.summary?.length}>
         <BlockTool
-          title={"# " + Locale.titlecase(props.input.subagent_type ?? "unknown") + " Task"}
+          title={"# " + Locale.titlecase(input.subagent_type ?? "unknown") + " Task"}
           titleColor={color()}
           accentColor={color()}
           onClick={
-            props.metadata.sessionId
+            meta.sessionId
               ? () =>
                   navigate({
                     type: "session",
-                    sessionID: props.metadata.sessionId!,
-                    workspaceID: sync.session.get(props.metadata.sessionId!)?.workspaceID,
+                    sessionID: meta.sessionId as string,
+                    workspaceID: sync.session.get(meta.sessionId as string)?.workspaceID,
                   })
               : undefined
           }
@@ -2239,7 +2307,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
         >
           <box>
             <text style={{ fg: theme.textMuted }}>
-              {props.input.description} ({props.metadata.summary?.length} toolcalls)
+              {input.description} ({meta.summary?.length} toolcalls)
             </text>
             <Show when={current()}>
               <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
@@ -2259,11 +2327,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
           icon="◉"
           iconColor={color()}
           pending="Delegating..."
-          complete={props.input.subagent_type ?? props.input.description}
+          complete={input.subagent_type ?? input.description}
           part={props.part}
         >
-          <span style={{ fg: theme.text }}>{Locale.titlecase(props.input.subagent_type ?? "unknown")}</span> Task "
-          {props.input.description}"
+          <span style={{ fg: theme.text }}>{Locale.titlecase(input.subagent_type ?? "unknown")}</span> Task "
+          {input.description}"
         </InlineTool>
       </Match>
     </Switch>

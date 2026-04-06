@@ -666,6 +666,16 @@ export type EventSessionCompacted = {
   }
 }
 
+export type EventDelegationCompleted = {
+  type: "delegation.completed"
+  properties: {
+    delegationID: string
+    parentSessionID: string
+    status: "running" | "complete" | "error" | "timeout" | "cancelled"
+    title: string
+  }
+}
+
 export type Todo = {
   /**
    * Brief description of the task
@@ -1089,6 +1099,7 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
+  | EventDelegationCompleted
   | EventTodoUpdated
   | EventFileWatcherUpdated
   | EventTuiPromptAppend
@@ -5470,6 +5481,83 @@ export type MobileTophatInstallUrlResponses = {
 }
 
 export type MobileTophatInstallUrlResponse = MobileTophatInstallUrlResponses[keyof MobileTophatInstallUrlResponses]
+
+export type MobileExpoStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/expo/status"
+}
+
+export type MobileExpoStatusResponses = {
+  /**
+   * Expo status
+   */
+  200: {
+    available: boolean
+    details: Array<string>
+  }
+}
+
+export type MobileExpoStatusResponse = MobileExpoStatusResponses[keyof MobileExpoStatusResponses]
+
+export type MobileSimulatorDevicesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    platform?: "ios" | "android" | "all"
+  }
+  url: "/mobile/simulator/devices"
+}
+
+export type MobileSimulatorDevicesResponses = {
+  /**
+   * Simulator list
+   */
+  200: {
+    ios: Array<{
+      id: string
+      name: string
+      state: string
+      runtime?: string
+    }>
+    android: Array<{
+      id: string
+      name: string
+      state: string
+    }>
+  }
+}
+
+export type MobileSimulatorDevicesResponse = MobileSimulatorDevicesResponses[keyof MobileSimulatorDevicesResponses]
+
+export type MobileReactNativeVersionData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/react-native/version"
+}
+
+export type MobileReactNativeVersionResponses = {
+  /**
+   * React Native version
+   */
+  200: {
+    version: string
+    available: boolean
+  }
+}
+
+export type MobileReactNativeVersionResponse =
+  MobileReactNativeVersionResponses[keyof MobileReactNativeVersionResponses]
 
 export type MobileMemoryHistoryData = {
   body?: never
