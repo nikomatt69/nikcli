@@ -2,7 +2,6 @@ import os from "os"
 import { Log } from "@/util/log"
 import { Tophat } from "./tophat"
 import { Expo } from "./expo"
-import { ReactNative } from "./react-native"
 
 const log = Log.create({ service: "tophat-doctor" })
 
@@ -166,18 +165,6 @@ export namespace MobileDoctor {
     }
   }
 
-  async function checkReactNative(): Promise<CheckResult> {
-    try {
-      const available = await ReactNative.available()
-      if (!available) return { name: "React Native CLI", ok: false, detail: "npx not found" }
-      const version = await ReactNative.version()
-      if (version === "not available") return { name: "React Native CLI", ok: false, detail: "react-native not found" }
-      return { name: "React Native CLI", ok: true, detail: version }
-    } catch {
-      return { name: "React Native CLI", ok: false, detail: "Failed to check" }
-    }
-  }
-
   async function checkEAS(): Promise<CheckResult> {
     try {
       const proc = Bun.spawn(["npx", "eas", "--version"], {
@@ -223,7 +210,6 @@ export namespace MobileDoctor {
       checkTophatProviders(),
       checkNode(),
       checkExpo(),
-      checkReactNative(),
       checkEAS(),
     ])
 

@@ -28,8 +28,6 @@ import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Tophat } from "@/mobile/tophat"
 import { Expo } from "@/mobile/expo"
-import { Simulator } from "@/mobile/simulator"
-import { ReactNative } from "@/mobile/react-native"
 import { MobileProjectDetect } from "@/mobile/project-detect"
 import { Storage } from "@/storage/storage"
 import { Flag } from "@/flag/flag"
@@ -812,10 +810,10 @@ export const MobileRoutes = lazy(() =>
             oauthClientSource: oauth.source,
             user: user
               ? {
-                  login: user.login,
-                  name: user.name,
-                  avatar_url: user.avatar_url,
-                }
+                login: user.login,
+                name: user.name,
+                avatar_url: user.avatar_url,
+              }
               : undefined,
           },
           tophat: await Tophat.status().then((s) => ({
@@ -828,19 +826,15 @@ export const MobileRoutes = lazy(() =>
             easAvailable: r.easCli,
             details: r.details,
           })),
-          reactNative: {
-            available: (await ReactNative.version()) !== "not available",
-            version: await ReactNative.version(),
-          },
           mobileProject: await MobileProjectDetect.detect(Instance.directory).then((detected) =>
             detected
               ? {
-                  detected: true,
-                  platforms: detected.platforms,
-                  primaryPlatform: detected.primaryPlatform,
-                  method: detected.method,
-                  root: detected.root,
-                }
+                detected: true,
+                platforms: detected.platforms,
+                primaryPlatform: detected.primaryPlatform,
+                method: detected.method,
+                root: detected.root,
+              }
               : { detected: false },
           ),
         })
@@ -932,89 +926,6 @@ export const MobileRoutes = lazy(() =>
           available: report.expoCli,
           details: report.details,
         })
-      },
-    )
-    .get(
-      "/simulator/devices",
-      describeRoute({
-        summary: "List available simulators and emulators",
-        description: "Return iOS Simulators and/or Android Emulators with their state.",
-        operationId: "mobile.simulator.devices",
-        responses: {
-          200: {
-            description: "Simulator list",
-            content: {
-              "application/json": {
-                schema: resolver(
-                  z.object({
-                    ios: z.array(
-                      z.object({
-                        id: z.string(),
-                        name: z.string(),
-                        state: z.string(),
-                        runtime: z.string().optional(),
-                      }),
-                    ),
-                    android: z.array(
-                      z.object({
-                        id: z.string(),
-                        name: z.string(),
-                        state: z.string(),
-                      }),
-                    ),
-                  }),
-                ),
-              },
-            },
-          },
-        },
-      }),
-      validator("query", z.object({ platform: z.enum(["ios", "android", "all"]).optional() })),
-      async (c) => {
-        const { platform } = c.req.valid("query")
-        if (platform === "ios") {
-          const ios = await Simulator.list("ios")
-          return c.json({
-            ios: ios.map((d) => ({ id: d.id, name: d.name, state: d.state, runtime: d.runtime })),
-            android: [],
-          })
-        }
-        if (platform === "android") {
-          const android = await Simulator.list("android")
-          return c.json({ ios: [], android: android.map((d) => ({ id: d.id, name: d.name, state: d.state })) })
-        }
-        const [ios, android] = await Promise.all([Simulator.list("ios"), Simulator.list("android")])
-        return c.json({
-          ios: ios.map((d) => ({ id: d.id, name: d.name, state: d.state, runtime: d.runtime })),
-          android: android.map((d) => ({ id: d.id, name: d.name, state: d.state })),
-        })
-      },
-    )
-    .get(
-      "/react-native/version",
-      describeRoute({
-        summary: "Get React Native CLI version",
-        description: "Return the React Native CLI version if available.",
-        operationId: "mobile.react-native.version",
-        responses: {
-          200: {
-            description: "React Native version",
-            content: {
-              "application/json": {
-                schema: resolver(
-                  z.object({
-                    version: z.string(),
-                    available: z.boolean(),
-                  }),
-                ),
-              },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        const version = await ReactNative.version()
-        return c.json({ version, available: version !== "not available" })
       },
     )
     .get(
@@ -1546,11 +1457,11 @@ export const MobileRoutes = lazy(() =>
         let workspace: Workspace.Info | undefined
         const sessionInput = body
           ? {
-              parentID: typeof body.parentID === "string" ? body.parentID : undefined,
-              title: typeof body.title === "string" ? body.title : undefined,
-              permission: body.permission as Session.Info["permission"],
-              github: body.github as Session.Info["github"],
-            }
+            parentID: typeof body.parentID === "string" ? body.parentID : undefined,
+            title: typeof body.title === "string" ? body.title : undefined,
+            permission: body.permission as Session.Info["permission"],
+            github: body.github as Session.Info["github"],
+          }
           : undefined
 
         try {
@@ -1564,9 +1475,9 @@ export const MobileRoutes = lazy(() =>
               return Session.create(
                 workspace?.id
                   ? {
-                      ...sessionInput,
-                      workspaceID: workspace.id,
-                    }
+                    ...sessionInput,
+                    workspaceID: workspace.id,
+                  }
                   : sessionInput,
               )
             },
@@ -2039,10 +1950,10 @@ export const MobileRoutes = lazy(() =>
                 .then((value) =>
                   value
                     ? {
-                        number: value.number,
-                        url: value.html_url,
-                        title: value.title,
-                      }
+                      number: value.number,
+                      url: value.html_url,
+                      title: value.title,
+                    }
                     : undefined,
                 )
                 .catch(() => undefined))
@@ -2051,18 +1962,18 @@ export const MobileRoutes = lazy(() =>
               existingPullRequest ||
               (aheadCount > 0
                 ? await GithubApi.createPullRequest(
-                    token,
-                    github.owner,
-                    github.repo,
-                    body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
-                    github.headBranch,
-                    github.baseBranch,
-                    body.body?.trim() || defaultPullRequestBody(session),
-                  ).then((value) => ({
-                    number: value.number,
-                    url: value.html_url,
-                    title: value.title,
-                  }))
+                  token,
+                  github.owner,
+                  github.repo,
+                  body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
+                  github.headBranch,
+                  github.baseBranch,
+                  body.body?.trim() || defaultPullRequestBody(session),
+                ).then((value) => ({
+                  number: value.number,
+                  url: value.html_url,
+                  title: value.title,
+                }))
                 : undefined)
 
             if (!pullRequest) {

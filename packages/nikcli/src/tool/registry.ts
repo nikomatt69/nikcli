@@ -7,8 +7,6 @@ import { GrepTool } from "./grep"
 import { BatchTool } from "./batch"
 import { ReadTool } from "./read"
 import { TaskTool } from "./task"
-import { DelegationReadTool } from "./delegation_read"
-import { DelegationListTool } from "./delegation_list"
 import { TodoWriteTool, TodoReadTool } from "./todo"
 import { WebFetchTool } from "./webfetch"
 import { WriteTool } from "./write"
@@ -52,9 +50,6 @@ import { ApplyPatchTool } from "./apply_patch"
 import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
 import { TophatInstallTool } from "./tophat"
-import { ExpoTool } from "./expo"
-import { SimulatorTool } from "./simulator"
-import { ReactNativeRunTool } from "./rn-run"
 import { OpenTUIVizTool } from "./opentui"
 
 const _toolDir = import.meta.dir
@@ -148,8 +143,6 @@ export namespace ToolRegistry {
       EditTool,
       WriteTool,
       TaskTool,
-      DelegationReadTool,
-      DelegationListTool,
       DocsAddTool,
       DocsSearchTool,
       DocsLoadTool,
@@ -181,9 +174,6 @@ export namespace ToolRegistry {
       UseConnectorTool,
       SpeakTool,
       TophatInstallTool,
-      ExpoTool,
-      SimulatorTool,
-      ReactNativeRunTool,
       OpenTUIVizTool,
       ...custom,
     ]

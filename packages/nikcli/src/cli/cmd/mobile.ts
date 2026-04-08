@@ -4,7 +4,6 @@ import { Server } from "@/server/server"
 import { Flag } from "@/flag/flag"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileTophatCommand } from "./mobile-tophat"
-import { MobileDevCommand } from "./mobile-dev"
 import { generateQR } from "@nikcli-ai/remote"
 import { Installation } from "@/installation"
 import { Ssh } from "@/server/ssh"
@@ -148,7 +147,7 @@ export const MobileCommand = cmd({
             )
           }
 
-          await new Promise(() => {})
+          await new Promise(() => { })
 
           await server.stop()
           if (sshServer) await Ssh.stop()
@@ -220,8 +219,7 @@ export const MobileCommand = cmd({
           console.log(`Revoked mobile token ${args.id}`)
         },
       })
-      .command(MobileDevCommand)
       .command(MobileTophatCommand)
       .demandCommand(),
-  async handler() {},
+  async handler() { },
 })
