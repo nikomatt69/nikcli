@@ -4,9 +4,11 @@ import z from "zod"
 import { DBEditNext } from "@/permission/dbedit"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { userAuthMiddleware, requireUser } from "./users"
 
 export const DBEditRoutes = lazy(() =>
   new Hono()
+    .use(userAuthMiddleware())
     .post(
       "/:requestID/reply",
       describeRoute({
@@ -22,7 +24,7 @@ export const DBEditRoutes = lazy(() =>
               },
             },
           },
-          ...errors(400, 404),
+          ...errors(400, 401, 404),
         },
       }),
       validator(
@@ -40,6 +42,7 @@ export const DBEditRoutes = lazy(() =>
         }),
       ),
       async (c) => {
+        if (!requireUser(c)) return c.json({ error: "Unauthorized" }, 401)
         const params = c.req.valid("param")
         const json = c.req.valid("json")
         await DBEditNext.reply({
@@ -66,9 +69,11 @@ export const DBEditRoutes = lazy(() =>
               },
             },
           },
+          ...errors(401),
         },
       }),
       async (c) => {
+        if (!requireUser(c)) return c.json({ error: "Unauthorized" }, 401)
         const dbedits = await DBEditNext.list()
         return c.json(dbedits)
       },

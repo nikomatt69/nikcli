@@ -134,7 +134,7 @@ export const ReadTool = Tool.define("read", {
     output += "\n</file>"
 
     LSP.touchFile(filepath, false)
-    FileTime.read(ctx.sessionID, filepath)
+    await FileTime.read(ctx.sessionID, filepath)
 
     return {
       title,

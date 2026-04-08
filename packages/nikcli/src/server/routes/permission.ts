@@ -4,9 +4,11 @@ import z from "zod"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { userAuthMiddleware, requireUser } from "./users"
 
 export const PermissionRoutes = lazy(() =>
   new Hono()
+    .use(userAuthMiddleware())
     .post(
       "/:requestID/reply",
       describeRoute({
@@ -22,7 +24,7 @@ export const PermissionRoutes = lazy(() =>
               },
             },
           },
-          ...errors(400, 404),
+          ...errors(400, 401, 404),
         },
       }),
       validator(
@@ -33,6 +35,7 @@ export const PermissionRoutes = lazy(() =>
       ),
       validator("json", z.object({ reply: PermissionNext.Reply, message: z.string().optional() })),
       async (c) => {
+        if (!requireUser(c)) return c.json({ error: "Unauthorized" }, 401)
         const params = c.req.valid("param")
         const json = c.req.valid("json")
         await PermissionNext.reply({
@@ -58,9 +61,11 @@ export const PermissionRoutes = lazy(() =>
               },
             },
           },
+          ...errors(401),
         },
       }),
       async (c) => {
+        if (!requireUser(c)) return c.json({ error: "Unauthorized" }, 401)
         const permissions = await PermissionNext.list()
         return c.json(permissions)
       },

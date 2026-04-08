@@ -6,6 +6,7 @@ import { Ripgrep } from "../../file/ripgrep"
 import { LSP } from "../../lsp"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
+import { log } from "../../util/log"
 
 export const FileRoutes = lazy(() =>
   new Hono()
@@ -167,8 +168,17 @@ export const FileRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        const path = c.req.valid("query").path
-        const content = await File.read(path)
+        const query = c.req.valid("query")
+        let resolvedPath = query.path
+        try {
+          resolvedPath = decodeURIComponent(query.path)
+        } catch (error) {
+          log.debug("path decode failed", { error: String(error) })
+        }
+        if (!Instance.containsPath(resolvedPath)) {
+          return c.json({ error: "Access denied: path escapes project directory" }, 403)
+        }
+        const content = await File.read(resolvedPath)
         return c.json(content)
       },
     )

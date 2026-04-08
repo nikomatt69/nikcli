@@ -155,8 +155,6 @@ export const Voice = Tool.define("voice", async () => {
           const result = (await response.json()) as { text?: string }
           const transcript = result.text ?? ""
 
-          await Bun.write(tempAudioPath, "")
-
           if (!transcript) {
             return {
               title: "Voice Transcription",
@@ -175,6 +173,11 @@ export const Voice = Tool.define("voice", async () => {
             title: "Voice Transcription Error",
             metadata: {},
             output: `Failed to transcribe audio: ${error instanceof Error ? error.message : "Unknown error"}`,
+          }
+        } finally {
+          if (tempAudioPath) {
+            await Bun.write(tempAudioPath, "").catch(() => {})
+            tempAudioPath = null
           }
         }
       }
