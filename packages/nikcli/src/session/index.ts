@@ -305,7 +305,7 @@ export namespace Session {
     if (!result.parentID && (Flag.NIKCLI_AUTO_SHARE || cfg.share === "auto"))
       share(result.id)
         .then((share) => {
-          update(result.id, (draft) => {
+          return update(result.id, (draft) => {
             draft.share = share
           })
         })

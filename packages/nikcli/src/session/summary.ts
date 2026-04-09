@@ -98,7 +98,7 @@ export namespace SessionSummary {
     await Session.updateMessage(userMsg)
 
     const textPart = msgWithParts.parts.find((p) => p.type === "text" && !p.synthetic) as MessageV2.TextPart
-    if (textPart && !userMsg.summary?.title) {
+    if (textPart && userMsg.summary?.title === undefined) {
       const agent = await Agent.get("title")
       if (!agent) return
       const stream = await LLM.stream({
@@ -126,7 +126,11 @@ export namespace SessionSummary {
         system: [],
         retries: 3,
       })
-      const result = await stream.text
+      const result = await stream.text.catch((error) => {
+        log.error("failed to generate title", { error })
+        return undefined
+      })
+      if (!result?.trim()) return
       log.info("title", { title: result })
       userMsg.summary.title = result
       await Session.updateMessage(userMsg)

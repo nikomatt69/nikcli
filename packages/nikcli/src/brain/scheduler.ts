@@ -20,7 +20,7 @@ export function initBrainScheduler(): void {
               sessionsReviewed: result.sessionsReviewed,
               hoursSinceLastBrain: result.hoursSinceLastBrain,
             })
-          } else {
+          } else if (result.error !== "lock held") {
             log.warn("brain failed", { error: result.error })
           }
         }

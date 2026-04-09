@@ -63,6 +63,27 @@ export namespace UserDB {
 
       CREATE INDEX IF NOT EXISTS idx_user_sessions_token_hash ON user_sessions(token_hash);
       CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+
+      CREATE TABLE IF NOT EXISTS chat_contacts (
+        user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        contact_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at  INTEGER NOT NULL,
+        PRIMARY KEY (user_id, contact_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id          TEXT PRIMARY KEY,
+        sender_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        receiver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content     TEXT NOT NULL,
+        read        INTEGER NOT NULL DEFAULT 0,
+        created_at  INTEGER NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation
+        ON chat_messages(sender_id, receiver_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_receiver
+        ON chat_messages(receiver_id, read);
     `)
   }
 
@@ -242,5 +263,109 @@ export namespace UserDB {
 
   export async function clearActiveSession(): Promise<void> {
     await fs.unlink(SESSION_FILE).catch(() => undefined)
+  }
+
+  // --- Chat ---
+
+  export type ChatMessage = {
+    id: string
+    sender_id: string
+    receiver_id: string
+    content: string
+    read: number
+    created_at: number
+  }
+
+  export function addContact(userId: string, contactId: string): void {
+    db().run(
+      `INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`,
+      [userId, contactId, Date.now()],
+    )
+    // Make it symmetric so both sides can see each other
+    db().run(
+      `INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`,
+      [contactId, userId, Date.now()],
+    )
+  }
+
+  export function removeContact(userId: string, contactId: string): void {
+    db().run(`DELETE FROM chat_contacts WHERE user_id = ? AND contact_id = ?`, [userId, contactId])
+  }
+
+  export function listContacts(userId: string): PublicUser[] {
+    return (
+      db()
+        .query(
+          `SELECT u.id, u.username, u.email, u.display_name, u.role, u.created_at, u.updated_at
+           FROM chat_contacts cc
+           JOIN users u ON u.id = cc.contact_id
+           WHERE cc.user_id = ?
+           ORDER BY cc.created_at ASC`,
+        )
+        .all(userId) as PublicUser[]
+    )
+  }
+
+  export function searchUsers(query: string, excludeUserId: string): PublicUser[] {
+    const like = `%${query.toLowerCase()}%`
+    return (
+      db()
+        .query(
+          `SELECT id, username, email, display_name, role, created_at, updated_at
+           FROM users
+           WHERE id != ?
+             AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(display_name) LIKE ?)
+           LIMIT 10`,
+        )
+        .all(excludeUserId, like, like, like) as PublicUser[]
+    )
+  }
+
+  export function sendMessage(senderId: string, receiverId: string, content: string): ChatMessage {
+    const id = generateId("msg")
+    const now = Date.now()
+    db().run(
+      `INSERT INTO chat_messages (id, sender_id, receiver_id, content, read, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+      [id, senderId, receiverId, content, now],
+    )
+    return { id, sender_id: senderId, receiver_id: receiverId, content, read: 0, created_at: now }
+  }
+
+  export function getMessages(userId: string, contactId: string, limit = 100): ChatMessage[] {
+    return db()
+      .query(
+        `SELECT * FROM chat_messages
+         WHERE (sender_id = ? AND receiver_id = ?)
+            OR (sender_id = ? AND receiver_id = ?)
+         ORDER BY created_at ASC
+         LIMIT ?`,
+      )
+      .all(userId, contactId, contactId, userId, limit) as ChatMessage[]
+  }
+
+  export function markMessagesRead(userId: string, senderId: string): void {
+    db().run(
+      `UPDATE chat_messages SET read = 1
+       WHERE receiver_id = ? AND sender_id = ? AND read = 0`,
+      [userId, senderId],
+    )
+  }
+
+  export function getUnreadCount(userId: string, senderId: string): number {
+    const row = db()
+      .query(
+        `SELECT COUNT(*) as count FROM chat_messages
+         WHERE receiver_id = ? AND sender_id = ? AND read = 0`,
+      )
+      .get(userId, senderId) as { count: number }
+    return row?.count ?? 0
+  }
+
+  export function getTotalUnreadCount(userId: string): number {
+    const row = db()
+      .query(`SELECT COUNT(*) as count FROM chat_messages WHERE receiver_id = ? AND read = 0`)
+      .get(userId) as { count: number }
+    return row?.count ?? 0
   }
 }

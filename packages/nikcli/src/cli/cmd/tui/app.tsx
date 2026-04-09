@@ -61,10 +61,12 @@ import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
 import { initBrainScheduler } from "@/brain/scheduler"
+import { BRAIN_SESSION_TITLE } from "@/brain"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { UserDB } from "@/db/users"
 import { DialogLogin } from "@tui/component/dialog-login"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
+import { DialogChat } from "@tui/component/dialog-chat"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -591,6 +593,18 @@ function App() {
       },
     },
     {
+      title: "Chat",
+      value: "chat.open",
+      category: "Account",
+      slash: {
+        name: "chat",
+        aliases: ["messages", "dm"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogChat />)
+      },
+    },
+    {
       title: "Settings",
       value: "settings.open",
       slash: { name: "settings" },
@@ -627,7 +641,7 @@ function App() {
             variant: "success",
           })
 
-          if (result.sessionID && result.sessionID !== "brain-session-not-created") {
+          if (result.sessionID) {
             route.navigate({
               type: "session",
               sessionID: result.sessionID,
@@ -904,6 +918,10 @@ function App() {
       sdk.event.on(SessionApi.Event.Error.type, (evt) => {
         const error = evt.properties.error
         if (error && typeof error === "object" && error.name === "MessageAbortedError") return
+        const sessionID = evt.properties.sessionID
+        const currentSession = route.data.type === "session" ? route.data.sessionID : undefined
+        const session = sessionID ? sync.session.get(sessionID) : undefined
+        if (session?.title === BRAIN_SESSION_TITLE && currentSession !== sessionID) return
         const message = (() => {
           if (!error) return "An error occurred"
 

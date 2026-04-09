@@ -155,7 +155,7 @@ export namespace LLM {
       })
     }
 
-    return streamText({
+    const result = streamText({
       onError(error) {
         l.error("stream error", {
           error,
@@ -247,6 +247,10 @@ export namespace LLM {
       }),
       experimental_telemetry: { isEnabled: cfg.experimental?.openTelemetry },
     })
+    // Suppress unhandled NoContentGeneratedError when model produces only tool calls (no text).
+    // processor.ts consumes fullStream only; stream.text rejects if no text is generated.
+    result.text.catch(() => {})
+    return result
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "user">) {

@@ -69,7 +69,7 @@ export namespace SessionRetry {
         if (json.type === "error" && json.error?.type === "too_many_requests") {
           return "Too Many Requests"
         }
-        if (json.code.includes("exhausted") || json.code.includes("unavailable")) {
+        if (json.code?.includes("exhausted") || json.code?.includes("unavailable")) {
           return "Provider is overloaded"
         }
         if (json.type === "error" && json.error?.code?.includes("rate_limit")) {

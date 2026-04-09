@@ -118,6 +118,7 @@ export namespace Ssh {
 
       client.on("close", () => {
         log.info("SSH client disconnected", { username })
+        if (connectedClient === client) connectedClient = undefined
       })
     })
 
@@ -138,9 +139,13 @@ export namespace Ssh {
 
   export function stop(): Promise<void> {
     return new Promise((resolve) => {
+      sshServer?.close()
+      sshServer = undefined
+      connectedClient = undefined
       if (server) {
         server.close(() => {
           log.info("SSH server stopped")
+          server = undefined
           resolve()
         })
       } else {

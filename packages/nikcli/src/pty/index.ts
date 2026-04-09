@@ -156,9 +156,6 @@ export namespace Pty {
       }
       session.subscribers.clear()
       Bus.publish(Event.Exited, { id, exitCode })
-      for (const ws of session.subscribers) {
-        ws.close()
-      }
       state().delete(id)
     })
     Bus.publish(Event.Created, { info })
@@ -217,13 +214,15 @@ export namespace Pty {
     if (session.buffer) {
       const buffer = session.buffer.length <= BUFFER_LIMIT ? session.buffer : session.buffer.slice(-BUFFER_LIMIT)
       session.buffer = ""
+      let sentUpTo = 0
       try {
         for (let i = 0; i < buffer.length; i += BUFFER_CHUNK) {
           ws.send(buffer.slice(i, i + BUFFER_CHUNK))
+          sentUpTo = i + BUFFER_CHUNK
         }
       } catch {
         session.subscribers.delete(ws)
-        session.buffer = buffer
+        session.buffer = buffer.slice(sentUpTo)
         ws.close()
         return
       }
