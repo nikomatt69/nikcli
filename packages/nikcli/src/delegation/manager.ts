@@ -50,7 +50,17 @@ export namespace Delegation {
   const activeDelegations = new Map<string, Record>()
   const sessionToDelegation = new Map<string, string>() // sessionID -> delegationID
   const timers = new Map<string, NodeJS.Timeout>() // delegationID -> timeout timer
+  const requestedFinalizations = new Map<string, { status: Exclude<Status, "running">; error?: string }>()
   const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+
+  function cleanup(record: Record): void {
+    clearTimer(record.id)
+    requestedFinalizations.delete(record.id)
+    activeDelegations.delete(record.id)
+    if (record.sessionID && sessionToDelegation.get(record.sessionID) === record.id) {
+      sessionToDelegation.delete(record.sessionID)
+    }
+  }
 
   function clearTimer(delegationID: string): void {
     const timer = timers.get(delegationID)
@@ -60,18 +70,42 @@ export namespace Delegation {
     }
   }
 
+  function requestFinalization(delegationID: string, status: Exclude<Status, "running">, error?: string): void {
+    if (!activeDelegations.has(delegationID)) return
+    requestedFinalizations.set(delegationID, { status, error })
+  }
+
+  function scheduleForcedFinalize(
+    delegationID: string,
+    status: Exclude<Status, "running">,
+    error?: string,
+    delayMs: number = 1000,
+  ): void {
+    clearTimer(delegationID)
+    const timer = setTimeout(() => {
+      void finalize(delegationID, status, "", error).catch((err) => {
+        log.error(`Failed to force finalize delegation ${delegationID}: ${err}`)
+      })
+    }, delayMs)
+    timers.set(delegationID, timer)
+  }
+
   function setTimer(delegationID: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): void {
     clearTimer(delegationID)
     const timer = setTimeout(async () => {
       try {
-        await finalize(delegationID, "timeout", "", "Timed out")
+        const record = activeDelegations.get(delegationID)
+        requestFinalization(delegationID, "timeout", "Timed out")
+        if (record?.sessionID) {
+          SessionPrompt.cancel(record.sessionID)
+        }
+        scheduleForcedFinalize(delegationID, "timeout", "Timed out")
       } catch (err) {
         log.error(`Failed to finalize delegation ${delegationID} on timeout: ${err}`)
       }
     }, timeoutMs)
     timers.set(delegationID, timer)
   }
-
 
   // Generate readable ID like "elegant-blue-tiger"
   function generateId(): string {
@@ -145,28 +179,33 @@ export namespace Delegation {
   export async function finalize(delegationID: string, status: Status, result: string, error?: string): Promise<void> {
     const record = activeDelegations.get(delegationID)
     if (!record) return
-    clearTimer(delegationID)
 
     // Prevent double finalization
     if (record.status !== "running") {
       return
     }
 
-    record.status = status
+    const requested = requestedFinalizations.get(delegationID)
+    const finalStatus = requested?.status ?? status
+    const finalError = requested?.error ?? error
+
+    record.status = finalStatus
     record.completedAt = Date.now()
 
     // Persist result to disk
-    await persistResult(record, result, error)
+    await persistResult(record, result, finalError)
 
     // Emit event for TUI notification
     Bus.publish(DelegationCompletedEvent, {
       delegationID: record.id,
       parentSessionID: record.parentSessionID,
-      status,
+      status: finalStatus,
       title: record.prompt.slice(0, 50),
     })
 
-    log.info(`Finalized delegation ${delegationID} with status ${status}`)
+    cleanup(record)
+
+    log.info(`Finalized delegation ${delegationID} with status ${finalStatus}`)
   }
   // Persist result to markdown file
   async function persistResult(record: Record, result: string, error?: string): Promise<void> {
@@ -304,17 +343,11 @@ ${result}
   export async function cancel(delegationID: string): Promise<boolean> {
     const record = activeDelegations.get(delegationID)
     if (!record) return false
-    clearTimer(delegationID)
-
-    if (record.status === "running") {
-      if (record.sessionID) {
-        SessionPrompt.cancel(record.sessionID)
-      }
-      record.status = "cancelled"
-      record.completedAt = Date.now()
-      await persistResult(record, "Delegation was cancelled by user.", "Cancelled")
+    requestFinalization(delegationID, "cancelled", "Cancelled")
+    if (record.sessionID) {
+      SessionPrompt.cancel(record.sessionID)
     }
-
+    scheduleForcedFinalize(delegationID, "cancelled", "Cancelled")
     return true
   }
 }

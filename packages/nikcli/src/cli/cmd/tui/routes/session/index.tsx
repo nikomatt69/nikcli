@@ -7,6 +7,8 @@ import {
   For,
   Match,
   on,
+  onCleanup,
+  onMount,
   Show,
   Switch,
   useContext,
@@ -119,6 +121,7 @@ const context = createContext<{
   showTimestamps: () => boolean
   showDetails: () => boolean
   diffWrapMode: () => "word" | "none"
+  messageCreatedAt: () => Record<string, number>
   sync: ReturnType<typeof useSync>
 }>()
 
@@ -144,6 +147,9 @@ export function Session() {
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
+  const messageCreatedAt = createMemo(() =>
+    Object.fromEntries(messages().map((message) => [message.id, message.time.created])),
+  )
   const permissions = createMemo(() => {
     if (session()?.parentID) return []
     return children().flatMap((x) => sync.data.permission[x.id] ?? [])
@@ -242,34 +248,43 @@ export function Session() {
   )
 
   let lastSwitch: string | undefined = undefined
-  const autoBackgroundedTaskSessions = new Set<string>()
-  sdk.event.on("message.part.updated", (evt) => {
-    const part = evt.properties.part
-    if (part.type !== "tool") return
-    if (part.sessionID !== route.sessionID) return
+  onMount(() => {
+    const autoBackgroundedTasks = new Set<string>()
+    const off = sdk.event.on("message.part.updated", (evt) => {
+      const part = evt.properties.part
+      if (part.type !== "tool") return
+      if (part.sessionID !== route.sessionID) return
 
-    // Auto-background newly launched subagent subtasks so they immediately show up
-    // in the prompt statusbar + Background Subtasks dialog (Claude Code-style).
-    if (part.tool === "task") {
-      const childSessionID = (part.state as any)?.metadata?.sessionId
-      if (typeof childSessionID === "string" && !autoBackgroundedTaskSessions.has(childSessionID)) {
-        autoBackgroundedTaskSessions.add(childSessionID)
-        const parentSessionID = part.sessionID
-        addToBackground(parentSessionID, childSessionID)
+      // Auto-background only explicit background subtasks so foreground child
+      // sessions do not disappear from the active flow.
+      if (part.tool === "task") {
+        const metadata = (part.state as any)?.metadata
+        const childSessionID = metadata?.sessionId
+        const backgroundID = metadata?.delegationId ?? part.id
+        if (
+          metadata?.background === true &&
+          typeof childSessionID === "string" &&
+          !autoBackgroundedTasks.has(backgroundID)
+        ) {
+          autoBackgroundedTasks.add(backgroundID)
+          addToBackground(part.sessionID, childSessionID)
+        }
+        return
       }
-      return
-    }
 
-    if (part.state.status !== "completed") return
-    if (part.id === lastSwitch) return
+      if (part.state.status !== "completed") return
+      if (part.id === lastSwitch) return
 
-    if (part.tool === "plan_exit") {
-      local.agent.set("build")
-      lastSwitch = part.id
-    } else if (part.tool === "plan_enter") {
-      local.agent.set("plan")
-      lastSwitch = part.id
-    }
+      if (part.tool === "plan_exit") {
+        local.agent.set("build")
+        lastSwitch = part.id
+      } else if (part.tool === "plan_enter") {
+        local.agent.set("plan")
+        lastSwitch = part.id
+      }
+    })
+
+    onCleanup(() => off())
   })
 
   let scroll: ScrollBoxRenderable
@@ -278,10 +293,19 @@ export function Session() {
   const status = createMemo(() => sync.data.session_status?.[route.sessionID] ?? { type: "idle" as const })
 
   type BackgroundSubtasksMap = Record<string, string[]>
+  type BackgroundDismissedMap = Record<string, string[]>
+  function getDismissed(parentID: string) {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    return new Set(map[parentID] ?? [])
+  }
   function addToBackground(parentID: string, childID: string) {
     const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
     const next = Array.from(new Set([...(map[parentID] ?? []), childID]))
     kv.set("background_subtasks", { ...map, [parentID]: next })
+
+    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    const dismissed = (dismissedMap[parentID] ?? []).filter((id) => id !== childID)
+    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
   }
 
   function removeFromBackground(parentID: string, childID: string) {
@@ -289,7 +313,33 @@ export function Session() {
     const list = map[parentID] ?? []
     if (!list.includes(childID)) return
     kv.set("background_subtasks", { ...map, [parentID]: list.filter((x) => x !== childID) })
+
+    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), childID]))
+    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
   }
+
+  createEffect(() => {
+    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
+    if (map[route.sessionID] !== undefined) return
+    const persisted = new Set<string>()
+    for (const message of messages()) {
+      const parts = sync.data.part[message.id] ?? []
+      for (const part of parts) {
+        if (part.type !== "tool" || part.tool !== "task") continue
+        const metadata = (part.state as any)?.metadata
+        const childSessionID = metadata?.sessionId
+        if (metadata?.background === true && typeof childSessionID === "string") {
+          persisted.add(childSessionID)
+        }
+      }
+    }
+    const dismissed = getDismissed(route.sessionID)
+    kv.set("background_subtasks", {
+      ...map,
+      [route.sessionID]: [...persisted].filter((id) => !dismissed.has(id)),
+    })
+  })
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
@@ -1146,6 +1196,7 @@ export function Session() {
         showTimestamps,
         showDetails,
         diffWrapMode,
+        messageCreatedAt,
         sync,
       }}
     >
@@ -1437,10 +1488,9 @@ function UserMessage(props: {
 }
 
 function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; last: boolean }) {
+  const ctx = use()
   const local = useLocal()
   const { theme } = useTheme()
-  const sync = useSync()
-  const messages = createMemo(() => sync.data.message[props.message.sessionID] ?? [])
 
   const final = createMemo(() => {
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
@@ -1449,9 +1499,9 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
   const duration = createMemo(() => {
     if (!final()) return 0
     if (!props.message.time.completed) return 0
-    const user = messages().find((x) => x.role === "user" && x.id === props.message.parentID)
-    if (!user || !user.time) return 0
-    return props.message.time.completed - user.time.created
+    const created = ctx.messageCreatedAt()[props.message.parentID]
+    if (!created) return 0
+    return props.message.time.completed - created
   })
 
   return (
@@ -2264,6 +2314,17 @@ function formatURLHost(value: string) {
   }
 }
 
+function summarizeTaskPreview(text: string) {
+  const cleaned = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^<[^>]+>$/.test(line))
+  if (cleaned.length === 0) return ""
+  const summary = cleaned.slice(-2).join(" ")
+  return summary.length > 180 ? summary.slice(0, 177).trimEnd() + "..." : summary
+}
+
 function Task(props: ToolProps<typeof TaskTool>) {
   const { theme } = useTheme()
   const keybind = useKeybind()
@@ -2273,6 +2334,42 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
   const meta = props.metadata as Record<string, any>
   const input = props.input as Record<string, any>
+  const sessionID = createMemo(() => (typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined))
+  const isBackground = createMemo(() => Boolean(meta.background || meta.delegationId))
+  const liveSummary = createMemo(() => (typeof meta.liveSummary === "string" ? meta.liveSummary.trim() : ""))
+  const derivedLiveSummary = createMemo(() => {
+    const child = sessionID()
+    if (!child) return ""
+    const childMessages = sync.data.message[child] ?? []
+    const lastAssistant = childMessages.findLast((message) => message.role === "assistant")
+    if (!lastAssistant) return ""
+    const parts = sync.data.part[lastAssistant.id] ?? []
+    for (let index = parts.length - 1; index >= 0; index--) {
+      const part = parts[index]
+      if (part.type !== "text" || part.synthetic || part.ignored) continue
+      const summary = summarizeTaskPreview(part.text)
+      if (summary) return summary
+    }
+    return ""
+  })
+  const displaySummary = createMemo(() => liveSummary() || derivedLiveSummary())
+  const childStatus = createMemo(() => {
+    const child = sessionID()
+    if (!child) return undefined
+    return sync.data.session_status[child]?.type ?? "idle"
+  })
+  const childStatusLabel = createMemo(() => {
+    switch (childStatus()) {
+      case "busy":
+        return "running in background"
+      case "retry":
+        return "retrying in background"
+      case "idle":
+        return isBackground() ? "background session ready" : "ready"
+      default:
+        return undefined
+    }
+  })
 
   const current = createMemo(() => {
     const summary = meta.summary as
@@ -2288,18 +2385,18 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
   return (
     <Switch>
-      <Match when={meta.summary?.length}>
+      <Match when={meta.summary?.length || displaySummary() || isBackground()}>
         <BlockTool
           title={"# " + Locale.titlecase(input.subagent_type ?? "unknown") + " Task"}
           titleColor={color()}
           accentColor={color()}
           onClick={
-            meta.sessionId
+            sessionID()
               ? () =>
                   navigate({
                     type: "session",
-                    sessionID: meta.sessionId as string,
-                    workspaceID: sync.session.get(meta.sessionId as string)?.workspaceID,
+                    sessionID: sessionID()!,
+                    workspaceID: sync.session.get(sessionID()!)?.workspaceID,
                   })
               : undefined
           }
@@ -2307,7 +2404,8 @@ function Task(props: ToolProps<typeof TaskTool>) {
         >
           <box>
             <text style={{ fg: theme.textMuted }}>
-              {input.description} ({meta.summary?.length} toolcalls)
+              {input.description}
+              <Show when={meta.summary?.length}> ({meta.summary?.length} toolcalls)</Show>
             </text>
             <Show when={current()}>
               <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
@@ -2315,10 +2413,25 @@ function Task(props: ToolProps<typeof TaskTool>) {
                 {current()!.state.status === "completed" ? current()!.state.title : ""}
               </text>
             </Show>
+            <Show when={displaySummary()}>
+              <text style={{ fg: theme.text }}>└ {displaySummary()}</text>
+            </Show>
+            <Show when={childStatusLabel()}>
+              <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
+            </Show>
+            <Show when={meta.delegationId && isBackground()}>
+              <text style={{ fg: theme.textMuted }}>└ delegation {meta.delegationId}</text>
+            </Show>
           </box>
           <text fg={theme.text}>
-            {keybind.print("session_child_cycle")}
-            <span style={{ fg: theme.textMuted }}> view subagents</span>
+            <Show when={isBackground()} fallback={keybind.print("session_child_cycle")}>
+              open session
+            </Show>
+            <span style={{ fg: theme.textMuted }}>
+              <Show when={isBackground()} fallback={" view subagents"}>
+                {" follow background task"}
+              </Show>
+            </span>
           </text>
         </BlockTool>
       </Match>

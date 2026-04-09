@@ -115,7 +115,6 @@ import type {
   MobilePermissionRespondResponses,
   MobileProjectListResponses,
   MobilePromptStashCreateInput,
-  MobileReactNativeVersionResponses,
   MobileSessionAbortResponses,
   MobileSessionCommandErrors,
   MobileSessionCommandInput,
@@ -133,7 +132,6 @@ import type {
   MobileSessionMessageResponses,
   MobileSessionRenameResponses,
   MobileSessionStreamResponses,
-  MobileSimulatorDevicesResponses,
   MobileTophatInstallUrlErrors,
   MobileTophatInstallUrlResponses,
   MobileTophatStatusResponses,
@@ -2885,72 +2883,6 @@ export class Expo extends HeyApiClient {
   }
 }
 
-export class Simulator extends HeyApiClient {
-  /**
-   * List available simulators and emulators
-   *
-   * Return iOS Simulators and/or Android Emulators with their state.
-   */
-  public devices<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-      platform?: "ios" | "android" | "all"
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-            { in: "query", key: "platform" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileSimulatorDevicesResponses, unknown, ThrowOnError>({
-      url: "/mobile/simulator/devices",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class ReactNative extends HeyApiClient {
-  /**
-   * Get React Native CLI version
-   *
-   * Return the React Native CLI version if available.
-   */
-  public version<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileReactNativeVersionResponses, unknown, ThrowOnError>({
-      url: "/mobile/react-native/version",
-      ...options,
-      ...params,
-    })
-  }
-}
-
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -4216,16 +4148,6 @@ export class Mobile extends HeyApiClient {
   private _expo?: Expo
   get expo(): Expo {
     return (this._expo ??= new Expo({ client: this.client }))
-  }
-
-  private _simulator?: Simulator
-  get simulator(): Simulator {
-    return (this._simulator ??= new Simulator({ client: this.client }))
-  }
-
-  private _reactNative?: ReactNative
-  get reactNative(): ReactNative {
-    return (this._reactNative ??= new ReactNative({ client: this.client }))
   }
 
   private _memory?: Memory

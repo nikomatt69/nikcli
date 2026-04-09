@@ -20,6 +20,18 @@ function stripSubagentSuffix(title: string): string {
 }
 
 type BackgroundSubtasksMap = Record<string, string[]>
+type BackgroundDismissedMap = Record<string, string[]>
+
+function statusLabel(status: string) {
+  switch (status) {
+    case "busy":
+      return "running"
+    case "retry":
+      return "retrying"
+    default:
+      return "ready"
+  }
+}
 
 export function DialogSubagent(props: { sessionID: string }) {
   const route = useRoute()
@@ -37,7 +49,7 @@ export function DialogSubagent(props: { sessionID: string }) {
 
   const options = createMemo(() => {
     const sessionsByID = new Map(sync.data.session.map((s) => [s.id, s] as const))
-    const out: { title: string; value: string; description?: string; agent?: string }[] = []
+    const out: { title: string; value: string; description?: string; agent?: string; status: string }[] = []
 
     for (const id of backgroundedIDs()) {
       const session = sessionsByID.get(id)
@@ -47,10 +59,16 @@ export function DialogSubagent(props: { sessionID: string }) {
       const agent = parseSubagentFromTitle(session.title)
       const title = stripSubagentSuffix(session.title)
 
-      out.push({ title, value: id, description: status, agent })
+      out.push({ title, value: id, description: statusLabel(status), agent, status })
     }
 
-    out.sort((a, b) => a.title.localeCompare(b.title))
+    out.sort((a, b) => {
+      if (a.status !== b.status) {
+        if (a.status === "busy") return -1
+        if (b.status === "busy") return 1
+      }
+      return a.title.localeCompare(b.title)
+    })
     return out
   })
 
@@ -60,6 +78,10 @@ export function DialogSubagent(props: { sessionID: string }) {
     const next = list.filter((x) => x !== childID)
     if (next.length === list.length) return
     kv.set("background_subtasks", { ...map, [parentID]: next })
+
+    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), childID]))
+    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
   }
 
   return (
@@ -87,9 +109,12 @@ export function DialogSubagent(props: { sessionID: string }) {
       keybind={[
         {
           keybind: Keybind.parse("k")[0],
-          title: "Kill",
+          title: "Cancel / Remove",
           onTrigger: (option) => {
-            sdk.client.session.abort({ sessionID: option.value }).catch(() => {})
+            removeFromBackground(props.sessionID, option.value)
+            if ((sync.data.session_status[option.value]?.type ?? "idle") !== "idle") {
+              sdk.client.session.abort({ sessionID: option.value }).catch(() => {})
+            }
           },
         },
         {

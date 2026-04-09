@@ -1,11 +1,14 @@
 import z from "zod"
 import os from "os"
+import fs from "fs/promises"
 import { Tool } from "./tool"
 import { Config } from "@/config/config"
 import { Auth } from "@/auth"
+import { Log } from "@/util/log"
 import DESCRIPTION from "./voice.txt"
 
 const OPENROUTER_STT_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
+const log = Log.create({ service: "tool.voice" })
 
 const parameters = z.object({
   action: z
@@ -18,6 +21,15 @@ const parameters = z.object({
 export const Voice = Tool.define("voice", async () => {
   let recordingProcess: ReturnType<typeof Bun.spawn> | null = null
   let tempAudioPath: string | null = null
+  let recordingToken = 0
+
+  async function cleanupTempAudio(filepath: string) {
+    try {
+      await fs.rm(filepath, { force: true })
+    } catch (error) {
+      log.warn("failed to clean up temp audio", { filepath, error })
+    }
+  }
 
   async function getApiKey(): Promise<string> {
     const config = await Config.get()
@@ -81,31 +93,34 @@ export const Voice = Tool.define("voice", async () => {
           }
         }
 
-        tempAudioPath = `${os.tmpdir()}/nikcli_voice_${Date.now()}.wav`
+        const audioPath = `${os.tmpdir()}/nikcli_voice_${Date.now()}.wav`
+        tempAudioPath = audioPath
+        const token = ++recordingToken
 
         if (recorder.cmd.includes("rec")) {
-          recordingProcess = Bun.spawn([recorder.cmd, tempAudioPath, "silence", "1", "0.1", "1%", "-1", "1.0", "1%"], {
+          recordingProcess = Bun.spawn([recorder.cmd, audioPath, "silence", "1", "0.1", "1%", "-1", "1.0", "1%"], {
             onExit() {
-              recordingProcess = null
+              if (recordingToken === token) {
+                recordingProcess = null
+              }
+              if (tempAudioPath === audioPath) {
+                tempAudioPath = null
+                void cleanupTempAudio(audioPath)
+              }
             },
           })
         } else if (recorder.cmd.includes("ffmpeg")) {
           recordingProcess = Bun.spawn(
-            [
-              recorder.cmd,
-              "-f",
-              "alsa",
-              "-i",
-              "default",
-              "-t",
-              String(duration),
-              "-acodec",
-              "pcm_s16le",
-              tempAudioPath,
-            ],
+            [recorder.cmd, "-f", "alsa", "-i", "default", "-t", String(duration), "-acodec", "pcm_s16le", audioPath],
             {
               onExit() {
-                recordingProcess = null
+                if (recordingToken === token) {
+                  recordingProcess = null
+                }
+                if (tempAudioPath === audioPath) {
+                  tempAudioPath = null
+                  void cleanupTempAudio(audioPath)
+                }
               },
             },
           )
@@ -127,12 +142,18 @@ export const Voice = Tool.define("voice", async () => {
           }
         }
 
-        recordingProcess.kill()
-        recordingProcess = null
+        const process = recordingProcess
+        const audioPath = tempAudioPath
+        tempAudioPath = null
+        process.kill()
+        await process.exited
+        if (recordingProcess === process) {
+          recordingProcess = null
+        }
 
         try {
           const apiKey = await getApiKey()
-          const audioData = await Bun.file(tempAudioPath).arrayBuffer()
+          const audioData = await Bun.file(audioPath).arrayBuffer()
 
           const formData = new FormData()
           formData.append("file", new Blob([audioData], { type: "audio/wav" }), "audio.wav")
@@ -155,8 +176,6 @@ export const Voice = Tool.define("voice", async () => {
           const result = (await response.json()) as { text?: string }
           const transcript = result.text ?? ""
 
-          await Bun.write(tempAudioPath, "")
-
           if (!transcript) {
             return {
               title: "Voice Transcription",
@@ -176,6 +195,8 @@ export const Voice = Tool.define("voice", async () => {
             metadata: {},
             output: `Failed to transcribe audio: ${error instanceof Error ? error.message : "Unknown error"}`,
           }
+        } finally {
+          await cleanupTempAudio(audioPath)
         }
       }
 

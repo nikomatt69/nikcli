@@ -21,6 +21,7 @@ import { ShareNext } from "@/share/share-next"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { WorkspaceContext } from "@/workspace/workspace-context"
+import { Delegation } from "@/delegation/manager"
 
 const log = Log.create({ service: "server" })
 
@@ -391,7 +392,13 @@ export const SessionRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        SessionPrompt.cancel(c.req.valid("param").sessionID)
+        const sessionID = c.req.valid("param").sessionID
+        const delegation = Delegation.getBySessionID(sessionID)
+        if (delegation) {
+          await Delegation.cancel(delegation.id)
+          return c.json(true)
+        }
+        SessionPrompt.cancel(sessionID)
         return c.json(true)
       },
     )

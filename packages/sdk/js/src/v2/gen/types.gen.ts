@@ -5504,61 +5504,6 @@ export type MobileExpoStatusResponses = {
 
 export type MobileExpoStatusResponse = MobileExpoStatusResponses[keyof MobileExpoStatusResponses]
 
-export type MobileSimulatorDevicesData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-    platform?: "ios" | "android" | "all"
-  }
-  url: "/mobile/simulator/devices"
-}
-
-export type MobileSimulatorDevicesResponses = {
-  /**
-   * Simulator list
-   */
-  200: {
-    ios: Array<{
-      id: string
-      name: string
-      state: string
-      runtime?: string
-    }>
-    android: Array<{
-      id: string
-      name: string
-      state: string
-    }>
-  }
-}
-
-export type MobileSimulatorDevicesResponse = MobileSimulatorDevicesResponses[keyof MobileSimulatorDevicesResponses]
-
-export type MobileReactNativeVersionData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/react-native/version"
-}
-
-export type MobileReactNativeVersionResponses = {
-  /**
-   * React Native version
-   */
-  200: {
-    version: string
-    available: boolean
-  }
-}
-
-export type MobileReactNativeVersionResponse =
-  MobileReactNativeVersionResponses[keyof MobileReactNativeVersionResponses]
-
 export type MobileMemoryHistoryData = {
   body?: never
   path?: never

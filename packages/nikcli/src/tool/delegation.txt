@@ -1,0 +1,14 @@
+Manage background subagent delegations.
+
+Use this tool after launching a task with `background: true` when you need to inspect or control the delegation lifecycle.
+
+Available actions:
+- `list`: show delegations for a parent session
+- `count`: count currently running delegations for a parent session
+- `read`: read the persisted result for a delegation
+- `cancel`: stop a running delegation
+
+Notes:
+- `parentSessionId` defaults to the current session
+- `delegationId` is required for `read` and `cancel`
+- Prefer `task(background=true)` to start work, then use `delegation` to monitor or cancel it

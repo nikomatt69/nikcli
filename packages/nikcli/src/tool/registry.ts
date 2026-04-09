@@ -51,6 +51,7 @@ import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
 import { TophatInstallTool } from "./tophat"
 import { OpenTUIVizTool } from "./opentui"
+import { DelegationTool } from "./delegation"
 
 const _toolDir = import.meta.dir
 
@@ -143,6 +144,7 @@ export namespace ToolRegistry {
       EditTool,
       WriteTool,
       TaskTool,
+      DelegationTool,
       DocsAddTool,
       DocsSearchTool,
       DocsLoadTool,
