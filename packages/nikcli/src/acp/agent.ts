@@ -78,16 +78,24 @@ export namespace ACP {
     private async runEventSubscription() {
       while (true) {
         if (this.eventAbort.signal.aborted) return
-        const events = await this.sdk.global.event({
-          signal: this.eventAbort.signal,
-        })
-        for await (const event of events.stream) {
-          if (this.eventAbort.signal.aborted) return
-          const payload = (event as any)?.payload
-          if (!payload) continue
-          await this.handleEvent(payload as Event).catch((error) => {
-            log.error("failed to handle event", { error, type: payload.type })
+        try {
+          const events = await this.sdk.global.event({
+            signal: this.eventAbort.signal,
           })
+          for await (const event of events.stream) {
+            if (this.eventAbort.signal.aborted) return
+            const payload = (event as any)?.payload
+            if (!payload) continue
+            await this.handleEvent(payload as Event).catch((error) => {
+              log.error("failed to handle event", { error, type: payload.type })
+            })
+          }
+        } catch (error) {
+          if (this.eventAbort.signal.aborted) return
+          log.error("event subscription failed", { error })
+        }
+        if (!this.eventAbort.signal.aborted) {
+          await Bun.sleep(250)
         }
       }
     }
@@ -739,9 +747,11 @@ export namespace ACP {
               })
           } else if (url.startsWith("data:")) {
             // Embedded content - parse data URL and send as appropriate block type
-            const base64Match = url.match(/^data:([^;]+);base64,(.*)$/)
-            const dataMime = base64Match?.[1]
-            const base64Data = base64Match?.[2] ?? ""
+            const commaIndex = url.indexOf(",")
+            const metadata = commaIndex === -1 ? "" : url.slice(5, commaIndex)
+            const payload = commaIndex === -1 ? "" : url.slice(commaIndex + 1)
+            const dataMime = metadata.split(";")[0] || undefined
+            const isBase64 = metadata.includes(";base64")
 
             const effectiveMime = dataMime || mime
 
@@ -755,7 +765,7 @@ export namespace ACP {
                     content: {
                       type: "image",
                       mimeType: effectiveMime,
-                      data: base64Data,
+                      data: payload,
                       uri: `file://${filename}`,
                     },
                   },
@@ -770,9 +780,9 @@ export namespace ACP {
                 ? {
                     uri: `file://${filename}`,
                     mimeType: effectiveMime,
-                    text: Buffer.from(base64Data, "base64").toString("utf-8"),
+                    text: decodeDataUrlTextPayload(metadata, payload),
                   }
-                : { uri: `file://${filename}`, mimeType: effectiveMime, blob: base64Data }
+                : { uri: `file://${filename}`, mimeType: effectiveMime, blob: payload }
 
               await this.connection
                 .sessionUpdate({
@@ -953,14 +963,15 @@ export namespace ACP {
     }
 
     async setSessionMode(params: SetSessionModeRequest): Promise<SetSessionModeResponse | void> {
-      this.sessionManager.get(params.sessionId)
-      await this.config.sdk.app
-        .agents({}, { throwOnError: true })
-        .then((x) => x.data)
-        .then((agent) => {
-          if (!agent) throw new Error(`Agent not found: ${params.modeId}`)
-        })
-      this.sessionManager.setMode(params.sessionId, params.modeId)
+      const session = this.sessionManager.get(params.sessionId)
+      const agents = await this.config.sdk.app
+        .agents({ directory: session.cwd }, { throwOnError: true })
+        .then((x) => x.data ?? [])
+      const availableModes = agents.filter((agent) => agent.mode !== "subagent" && !agent.hidden)
+      if (!availableModes.some((agent) => agent.name === params.modeId)) {
+        throw RequestError.invalidParams(JSON.stringify({ error: `Agent not found: ${params.modeId}` }))
+      }
+      this.sessionManager.setMode(session.id, params.modeId)
     }
 
     async prompt(params: PromptRequest) {
@@ -1290,6 +1301,39 @@ export namespace ACP {
         text: uri,
       }
     }
+  }
+
+  function decodeDataUrlTextPayload(metadata: string, payload: string) {
+    if (!metadata.includes(";base64")) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    const normalized = payload.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/")
+    const unpadded = normalized.replace(/=+$/, "")
+    if (!unpadded || unpadded.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, "=")
+    const bytes = Buffer.from(padded, "base64")
+    const roundTrip = bytes.toString("base64").replace(/=+$/, "")
+    if (roundTrip !== unpadded) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    return bytes.toString("utf-8")
   }
 
   function getNewContent(fileOriginal: string, unifiedDiff: string): string | undefined {

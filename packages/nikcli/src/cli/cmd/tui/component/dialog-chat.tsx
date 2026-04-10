@@ -1,14 +1,4 @@
-import {
-  createSignal,
-  createMemo,
-  createEffect,
-  For,
-  Show,
-  onMount,
-  onCleanup,
-  on,
-  batch,
-} from "solid-js"
+import { createSignal, createMemo, createEffect, For, Show, onMount, onCleanup, on, batch } from "solid-js"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { TextAttributes, type TextareaRenderable, type ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
@@ -35,27 +25,42 @@ export function DialogChat() {
   const [messages, setMessages] = createSignal<UserDB.ChatMessage[]>([])
   const [panel, setPanel] = createSignal<"contacts" | "messages">("contacts")
   const [unreadCounts, setUnreadCounts] = createSignal<Record<string, number>>({})
+  const [openContactID, setOpenContactID] = createSignal<string | null>(null)
 
   const selectedContact = createMemo(() => contacts()[contactIdx()] ?? null)
+  const openContact = createMemo(() => contacts().find((contact) => contact.id === openContactID()) ?? null)
 
   let scroll: ScrollBoxRenderable | undefined
   let textarea: TextareaRenderable | undefined
+
+  function clampContactIndex(index: number, length = contacts().length) {
+    if (length <= 0) return 0
+    return Math.max(0, Math.min(length - 1, index))
+  }
 
   function refreshContacts() {
     const user = me()
     if (!user) return
     const cs = UserDB.listContacts(user.id)
     setContacts(cs)
+    setContactIdx((index) => clampContactIndex(index, cs.length))
     const counts: Record<string, number> = {}
     for (const c of cs) {
       counts[c.id] = UserDB.getUnreadCount(user.id, c.id)
     }
     setUnreadCounts(counts)
+    if (openContactID() && !cs.some((contact) => contact.id === openContactID())) {
+      batch(() => {
+        setOpenContactID(null)
+        setPanel("contacts")
+        setMessages([])
+      })
+    }
   }
 
-  function refreshMessages() {
+  function refreshMessages(contactID = openContactID()) {
     const user = me()
-    const contact = selectedContact()
+    const contact = contacts().find((item) => item.id === contactID) ?? null
     if (!user || !contact) {
       setMessages([])
       return
@@ -77,7 +82,7 @@ export function DialogChat() {
   // Auto-scroll to bottom when new messages arrive
   createEffect(
     on(
-      () => messages().length,
+      () => [openContactID(), messages().length] as const,
       () => {
         setTimeout(() => {
           if (scroll && !scroll.isDestroyed) scroll.scrollTo(scroll.scrollHeight)
@@ -86,12 +91,12 @@ export function DialogChat() {
     ),
   )
 
-  // Focus textarea and scroll when switching to messages panel
+  // Focus textarea and scroll when switching threads or entering the message panel
   createEffect(
     on(
-      () => panel(),
-      (p) => {
-        if (p === "messages") {
+      () => [panel(), openContactID()] as const,
+      ([p, contactID]) => {
+        if (p === "messages" && contactID) {
           setTimeout(() => {
             textarea?.focus()
             if (scroll && !scroll.isDestroyed) scroll.scrollTo(scroll.scrollHeight)
@@ -101,19 +106,21 @@ export function DialogChat() {
     ),
   )
 
-  function openMessages() {
-    const contact = selectedContact()
+  function openMessages(contact = selectedContact()) {
     if (!contact) return
-    setPanel("messages")
-    refreshMessages()
+    batch(() => {
+      setOpenContactID(contact.id)
+      setPanel("messages")
+    })
+    refreshMessages(contact.id)
   }
 
   function sendMessage(text: string) {
     const user = me()
-    const contact = selectedContact()
+    const contact = openContact()
     if (!user || !contact || !text.trim()) return
     UserDB.sendMessage(user.id, contact.id, text.trim())
-    refreshMessages()
+    refreshMessages(contact.id)
   }
 
   async function addContact() {
@@ -163,6 +170,7 @@ export function DialogChat() {
     UserDB.removeContact(user.id, contact.id)
     batch(() => {
       setContactIdx(0)
+      setOpenContactID(null)
       setPanel("contacts")
     })
     refreshContacts()
@@ -171,12 +179,12 @@ export function DialogChat() {
   useKeyboard((evt) => {
     if (panel() === "contacts") {
       if (evt.name === "up" || (evt.ctrl && evt.name === "p")) {
-        setContactIdx((i) => Math.max(0, i - 1))
+        setContactIdx((i) => clampContactIndex(i - 1))
         evt.preventDefault()
         return
       }
       if (evt.name === "down" || (evt.ctrl && evt.name === "n")) {
-        setContactIdx((i) => Math.min(contacts().length - 1, i + 1))
+        setContactIdx((i) => clampContactIndex(i + 1))
         evt.preventDefault()
         return
       }
@@ -257,8 +265,9 @@ export function DialogChat() {
                       paddingRight={1}
                       backgroundColor={active() ? theme.primary : undefined}
                       onMouseUp={() => {
-                        batch(() => setContactIdx(idx()))
-                        openMessages()
+                        const next = contact
+                        setContactIdx(idx())
+                        openMessages(next)
                       }}
                       onMouseOver={() => setContactIdx(idx())}
                     >
@@ -291,7 +300,7 @@ export function DialogChat() {
         {/* Messages panel */}
         <box flexGrow={1} paddingLeft={2} paddingRight={2} gap={1}>
           <Show
-            when={selectedContact()}
+            when={panel() === "messages" ? openContact() : null}
             fallback={
               <box flexGrow={1} alignItems="center" justifyContent="center" paddingTop={4}>
                 <text fg={theme.textMuted}>Select a contact to chat</text>
@@ -329,10 +338,7 @@ export function DialogChat() {
                       return (
                         <box paddingBottom={1}>
                           <box flexDirection="row" gap={1}>
-                            <text
-                              fg={isMine ? theme.primary : theme.accent}
-                              attributes={TextAttributes.BOLD}
-                            >
+                            <text fg={isMine ? theme.primary : theme.accent} attributes={TextAttributes.BOLD}>
                               {isMine ? "You" : displayName(contact())}
                             </text>
                             <text fg={theme.textMuted}>{time}</text>
@@ -381,10 +387,8 @@ export function DialogChat() {
       <Show when={panel() === "contacts"}>
         <box paddingLeft={2} paddingRight={2} flexDirection="row" gap={3}>
           <text fg={theme.textMuted}>
-            <span style={{ fg: theme.primary }}>a</span> add ·{" "}
-            <span style={{ fg: theme.primary }}>d</span> remove ·{" "}
-            <span style={{ fg: theme.primary }}>enter</span> open ·{" "}
-            <span style={{ fg: theme.primary }}>esc</span> close
+            <span style={{ fg: theme.primary }}>a</span> add · <span style={{ fg: theme.primary }}>d</span> remove ·{" "}
+            <span style={{ fg: theme.primary }}>enter</span> open · <span style={{ fg: theme.primary }}>esc</span> close
           </text>
         </box>
       </Show>

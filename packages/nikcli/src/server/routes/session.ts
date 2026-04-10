@@ -971,5 +971,108 @@ export const SessionRoutes = lazy(() =>
         })
         return c.json(true)
       },
+    )
+    .get(
+      "/:sessionID/monitor/:monitorID",
+      describeRoute({
+        summary: "Get session monitor",
+        description: "Retrieve metadata for one background monitor attached to a session.",
+        operationId: "session.monitor",
+        responses: {
+          200: {
+            description: "Monitor metadata",
+            content: {
+              "application/json": {
+                schema: resolver(z.unknown()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+          monitorID: z.string().meta({ description: "Monitor ID" }),
+        }),
+      ),
+      async (c) => {
+        const params = c.req.valid("param")
+        const { Monitor } = await import("@/monitor/manager")
+        const record = await Monitor.get(params.sessionID, params.monitorID)
+        return c.json(record)
+      },
+    )
+    .get(
+      "/:sessionID/monitor/:monitorID/log",
+      describeRoute({
+        summary: "Get session monitor log",
+        description: "Read the latest output captured for a monitored background command.",
+        operationId: "session.monitorLog",
+        responses: {
+          200: {
+            description: "Monitor log snapshot",
+            content: {
+              "application/json": {
+                schema: resolver(z.unknown()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+          monitorID: z.string().meta({ description: "Monitor ID" }),
+        }),
+      ),
+      validator(
+        "query",
+        z.object({
+          lines: z.coerce.number().optional().default(200).meta({ description: "Number of lines to return" }),
+        }),
+      ),
+      async (c) => {
+        const params = c.req.valid("param")
+        const query = c.req.valid("query")
+        const { Monitor } = await import("@/monitor/manager")
+        const snapshot = await Monitor.readLog(params.sessionID, params.monitorID, query.lines)
+        return c.json(snapshot)
+      },
+    )
+    .post(
+      "/:sessionID/monitor/:monitorID/cancel",
+      describeRoute({
+        summary: "Cancel session monitor",
+        description: "Stop a monitored background command attached to a session.",
+        operationId: "session.monitorCancel",
+        responses: {
+          200: {
+            description: "Cancelled monitor",
+            content: {
+              "application/json": {
+                schema: resolver(z.unknown()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+          monitorID: z.string().meta({ description: "Monitor ID" }),
+        }),
+      ),
+      async (c) => {
+        const params = c.req.valid("param")
+        const { Monitor } = await import("@/monitor/manager")
+        const record = await Monitor.cancel(params.sessionID, params.monitorID)
+        return c.json(record)
+      },
     ),
 )

@@ -22,6 +22,80 @@ const DEFAULT_TIMEOUT = Flag.NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 
 
 export const log = Log.create({ service: "bash-tool" })
 
+export async function authorizeBashCommand(command: string, cwd: string, ctx: Tool.Context) {
+  const directories = new Set<string>()
+  if (!Instance.containsPath(cwd)) directories.add(cwd)
+  const patterns = new Set<string>()
+  const always = new Set<string>()
+
+  const tree = await parser().then((p) => p.parse(command))
+  if (!tree) {
+    throw new Error("Failed to parse command")
+  }
+
+  for (const node of tree.rootNode.descendantsOfType("command")) {
+    if (!node) continue
+    const cmd = []
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i)
+      if (!child) continue
+      if (
+        child.type !== "command_name" &&
+        child.type !== "word" &&
+        child.type !== "string" &&
+        child.type !== "raw_string" &&
+        child.type !== "concatenation"
+      ) {
+        continue
+      }
+      cmd.push(child.text)
+    }
+
+    if (["cd", "rm", "cp", "mv", "mkdir", "touch", "chmod", "chown"].includes(cmd[0])) {
+      for (const arg of cmd.slice(1)) {
+        if (arg.startsWith("-") || (cmd[0] === "chmod" && arg.startsWith("+"))) continue
+        const resolved = await $`realpath ${arg}`
+          .cwd(cwd)
+          .quiet()
+          .nothrow()
+          .text()
+          .then((x) => x.trim())
+        log.info("resolved path", { arg, resolved })
+        if (resolved) {
+          const normalized =
+            process.platform === "win32" && resolved.match(/^\/[a-z]\//)
+              ? resolved.replace(/^\/([a-z])\//, (_, drive) => `${drive.toUpperCase()}:\\`).replace(/\//g, "\\")
+              : resolved
+          if (!Instance.containsPath(normalized)) directories.add(normalized)
+        }
+      }
+    }
+
+    if (cmd.length && cmd[0] !== "cd") {
+      patterns.add(cmd.join(" "))
+      always.add(BashArity.prefix(cmd).join(" ") + "*")
+    }
+  }
+
+  if (directories.size > 0) {
+    await ctx.ask({
+      permission: "external_directory",
+      patterns: Array.from(directories),
+      always: Array.from(directories).map((x) => path.dirname(x) + "*"),
+      metadata: {},
+    })
+  }
+
+  if (patterns.size > 0) {
+    await ctx.ask({
+      permission: "bash",
+      patterns: Array.from(patterns),
+      always: Array.from(always),
+      metadata: {},
+    })
+  }
+}
+
 const resolveWasm = (asset: string) => {
   if (asset.startsWith("file://")) return fileURLToPath(asset)
   if (asset.startsWith("/") || /^[a-z]:/i.test(asset)) return asset

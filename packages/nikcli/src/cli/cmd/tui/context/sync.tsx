@@ -229,6 +229,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
 
         case "session.deleted": {
+          fullSyncedSessions.delete(event.properties.info.id)
+          const messageIDs = (store.message[event.properties.info.id] ?? []).map((message) => message.id)
           const result = Binary.search(store.session, event.properties.info.id, (s) => s.id)
           if (result.found) {
             setStore(
@@ -238,6 +240,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               }),
             )
           }
+          setStore(
+            produce((draft) => {
+              delete draft.message[event.properties.info.id]
+              delete draft.todo[event.properties.info.id]
+              delete draft.session_diff[event.properties.info.id]
+              delete draft.session_status[event.properties.info.id]
+              for (const messageID of messageIDs) {
+                delete draft.part[messageID]
+              }
+            }),
+          )
           break
         }
         case "session.updated": {
@@ -387,6 +400,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const args = useArgs()
 
     async function bootstrap() {
+      fullSyncedSessions.clear()
+      setStore(
+        produce((draft) => {
+          draft.message = {}
+          draft.part = {}
+          draft.todo = {}
+          draft.session_diff = {}
+          draft.session_status = {}
+        }),
+      )
       const start = Date.now() - 30 * 24 * 60 * 60 * 1000
       const sessionListPromise = sdk.client.session
         .list({ start: start })

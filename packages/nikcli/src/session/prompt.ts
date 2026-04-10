@@ -1072,6 +1072,10 @@ export namespace SessionPrompt {
           switch (url.protocol) {
             case "data:":
               if (part.mime === "text/plain") {
+                const commaIndex = part.url.indexOf(",")
+                const metadata = commaIndex === -1 ? part.url : part.url.slice(0, commaIndex)
+                const payload = commaIndex === -1 ? "" : part.url.slice(commaIndex + 1)
+                const text = decodeDataUrlTextPayload(metadata, payload)
                 return [
                   {
                     id: Identifier.ascending("part"),
@@ -1087,7 +1091,7 @@ export namespace SessionPrompt {
                     sessionID: input.sessionID,
                     type: "text",
                     synthetic: true,
-                    text: Buffer.from(part.url, "base64url").toString(),
+                    text,
                   },
                   {
                     ...part,
@@ -1938,5 +1942,38 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
         { touch: false },
       )
+  }
+
+  function decodeDataUrlTextPayload(metadata: string, payload: string) {
+    if (!metadata.includes(";base64")) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    const normalized = payload.replace(/\s+/g, "").replace(/-/g, "+").replace(/_/g, "/")
+    const unpadded = normalized.replace(/=+$/, "")
+    if (!unpadded || unpadded.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    const padded = unpadded.padEnd(Math.ceil(unpadded.length / 4) * 4, "=")
+    const bytes = Buffer.from(padded, "base64")
+    const roundTrip = bytes.toString("base64").replace(/=+$/, "")
+    if (roundTrip !== unpadded) {
+      try {
+        return decodeURIComponent(payload)
+      } catch {
+        return payload
+      }
+    }
+
+    return bytes.toString()
   }
 }

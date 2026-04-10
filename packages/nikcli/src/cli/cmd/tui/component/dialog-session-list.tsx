@@ -130,8 +130,8 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           title: "delete",
           onTrigger: async (option) => {
             if (toDelete() === option.value) {
-              const deleted = await sdk.client.session
-                .delete({
+              const deleted = await workspaceClient()
+                .session.delete({
                   sessionID: option.value,
                 })
                 .then(() => true)
@@ -161,7 +161,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           keybind: keybind.all.session_rename?.[0],
           title: "rename",
           onTrigger: async (option) => {
-            dialog.replace(() => <DialogSessionRename session={option.value} />)
+            dialog.replace(() => <DialogSessionRename session={option.value} workspaceID={props.workspaceID} />)
           },
         },
       ]}

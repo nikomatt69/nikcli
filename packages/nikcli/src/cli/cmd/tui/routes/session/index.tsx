@@ -52,6 +52,7 @@ import type { EditTool } from "@/tool/edit"
 import type { ApplyPatchTool } from "@/tool/apply_patch"
 import type { WebFetchTool } from "@/tool/webfetch"
 import type { TaskTool } from "@/tool/task"
+import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
 import type { OpenTUIVizTool } from "@/tool/opentui"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
@@ -204,8 +205,13 @@ export function Session() {
 
     return new CustomSpeedScroll(3)
   })
+  const toast = useToast()
+  const sdk = useSDK()
 
   createEffect(async () => {
+    if (route.workspaceID !== undefined) {
+      sdk.setWorkspace(route.workspaceID)
+    }
     await sync.session
       .sync(route.sessionID)
       .then(() => {
@@ -220,9 +226,6 @@ export function Session() {
         return navigate({ type: "home", workspaceID: sync.session.get(route.sessionID)?.workspaceID })
       })
   })
-
-  const toast = useToast()
-  const sdk = useSDK()
 
   createEffect(
     on(
@@ -1696,6 +1699,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         <Match when={props.part.tool === "task"}>
           <Task {...toolprops} />
         </Match>
+        <Match when={props.part.tool === "monitor"}>
+          <Monitor {...toolprops} />
+        </Match>
         <Match when={props.part.tool === "apply_patch"}>
           <ApplyPatch {...toolprops} />
         </Match>
@@ -2325,6 +2331,229 @@ function summarizeTaskPreview(text: string) {
   return summary.length > 180 ? summary.slice(0, 177).trimEnd() + "..." : summary
 }
 
+type MonitorLogSnapshot = {
+  record: {
+    id: string
+    sessionID: string
+    title: string
+    command: string
+    cwd: string
+    logPath: string
+    status: string
+    wake: boolean
+    exitCode?: number
+    preview?: string
+    time: {
+      created: number
+      completed?: number
+    }
+  }
+  output: string
+  truncated: boolean
+}
+
+function trimMonitorBuffer(value: string, maxChars: number = 120_000) {
+  if (value.length <= maxChars) return value
+  return value.slice(value.length - maxChars)
+}
+
+function monitorStatusLabel(status: string, exitCode?: number) {
+  switch (status) {
+    case "running":
+      return "running"
+    case "complete":
+      return typeof exitCode === "number" ? `completed (exit ${exitCode})` : "completed"
+    case "timeout":
+      return "timed out"
+    case "cancelled":
+      return "cancelled"
+    case "error":
+      return typeof exitCode === "number" ? `failed (exit ${exitCode})` : "failed"
+    default:
+      return status
+  }
+}
+
+async function fetchMonitorLog(
+  sdk: ReturnType<typeof useSDK>,
+  sessionID: string,
+  monitorID: string,
+  lines: number = 200,
+): Promise<MonitorLogSnapshot> {
+  const result = await sdk.client.session.monitorLog({
+    sessionID,
+    monitorID,
+    lines,
+  })
+  if (!result.data) {
+    throw new Error(shareErrorMessage(result.error) || "Failed to load monitor log")
+  }
+  return result.data as MonitorLogSnapshot
+}
+
+async function cancelMonitorRequest(sdk: ReturnType<typeof useSDK>, sessionID: string, monitorID: string) {
+  const result = await sdk.client.session.monitorCancel({
+    sessionID,
+    monitorID,
+  })
+  if (!result.data) {
+    throw new Error(shareErrorMessage(result.error) || "Failed to stop monitor")
+  }
+  return result.data
+}
+
+function DialogMonitorLog(props: {
+  sessionID: string
+  monitorID: string
+  title: string
+  command: string
+  status: string
+  logPath?: string
+}) {
+  const sdk = useSDK()
+  const toast = useToast()
+  const { theme } = useTheme()
+  const dimensions = useTerminalDimensions()
+  const [content, setContent] = createSignal("")
+  const [status, setStatus] = createSignal(props.status)
+  const [logPath, setLogPath] = createSignal(props.logPath ?? "")
+  const [exitCode, setExitCode] = createSignal<number | undefined>()
+  const [loading, setLoading] = createSignal(true)
+  const [truncated, setTruncated] = createSignal(false)
+  const [follow, setFollow] = createSignal(true)
+  const [error, setError] = createSignal<string>()
+  let scrollbox: ScrollBoxRenderable | undefined
+
+  const refresh = async () => {
+    setLoading(true)
+    try {
+      const snapshot = await fetchMonitorLog(sdk, props.sessionID, props.monitorID)
+      setContent(trimMonitorBuffer(snapshot.output))
+      setStatus(snapshot.record.status)
+      setLogPath(snapshot.record.logPath)
+      setExitCode(snapshot.record.exitCode)
+      setTruncated(snapshot.truncated)
+      setError(undefined)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to load monitor log")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const stopMonitor = async () => {
+    if (status() !== "running") return
+    try {
+      await cancelMonitorRequest(sdk, props.sessionID, props.monitorID)
+      toast.show({ message: `Stopped ${props.title}`, variant: "info" })
+      await refresh()
+    } catch (error) {
+      toast.show({ message: error instanceof Error ? error.message : "Failed to stop monitor", variant: "error" })
+    }
+  }
+
+  createEffect(
+    on(
+      () => content(),
+      () => {
+        if (!follow()) return
+        setTimeout(() => {
+          if (scrollbox && !scrollbox.isDestroyed) scrollbox.scrollTo(scrollbox.scrollHeight)
+        }, 10)
+      },
+    ),
+  )
+
+  onMount(() => {
+    void refresh()
+    const unsubs = [
+      sdk.event.on("monitor.output", (evt) => {
+        if (evt.properties.monitorID !== props.monitorID || evt.properties.sessionID !== props.sessionID) return
+        setContent((prev) => trimMonitorBuffer(prev + evt.properties.delta))
+        setStatus(evt.properties.status)
+        setError(undefined)
+      }),
+      sdk.event.on("monitor.updated", (evt) => {
+        if (evt.properties.record.id !== props.monitorID || evt.properties.sessionID !== props.sessionID) return
+        setStatus(evt.properties.record.status)
+        setExitCode(evt.properties.record.exitCode)
+        setLogPath(evt.properties.record.logPath)
+      }),
+      sdk.event.on("monitor.completed", (evt) => {
+        if (evt.properties.monitorID !== props.monitorID || evt.properties.sessionID !== props.sessionID) return
+        setStatus(evt.properties.status)
+        setExitCode(evt.properties.exitCode ?? undefined)
+        void refresh()
+      }),
+    ]
+    onCleanup(() => {
+      for (const unsub of unsubs) unsub()
+    })
+  })
+
+  useKeyboard((evt) => {
+    if (evt.ctrl || evt.meta) return
+    if (evt.name === "f") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setFollow((prev) => !prev)
+      return
+    }
+    if (evt.name === "r") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void refresh()
+      return
+    }
+    if (evt.name === "x") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void stopMonitor()
+      return
+    }
+    if (evt.name === "c") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void Clipboard.copy(content())
+        .then(() => toast.show({ message: "Monitor log copied", variant: "success" }))
+        .catch(() => toast.show({ message: "Failed to copy monitor log", variant: "error" }))
+    }
+  })
+
+  return (
+    <box flexDirection="column" width="100%" gap={1}>
+      <text fg={theme.text}>Monitor {props.title}</text>
+      <text fg={theme.textMuted}>{props.command}</text>
+      <text fg={status() === "complete" ? theme.success : status() === "running" ? theme.text : theme.error}>
+        {monitorStatusLabel(status(), exitCode())}
+      </text>
+      <Show when={logPath()}>
+        <text fg={theme.textMuted}>{normalizePath(logPath())}</text>
+      </Show>
+      <scrollbox
+        ref={(value: ScrollBoxRenderable) => {
+          scrollbox = value
+        }}
+        height={Math.max(10, dimensions().height - 16)}
+        focused={true}
+        border={["top", "bottom", "left", "right"]}
+        borderColor={theme.borderSubtle}
+        paddingLeft={1}
+        paddingRight={1}
+      >
+        <text fg={theme.text}>{content() || (loading() ? "Loading log output..." : "No output yet")}</text>
+      </scrollbox>
+      <Show when={truncated()}>
+        <text fg={theme.textMuted}>Showing the latest log window.</text>
+      </Show>
+      <Show when={error()}>
+        <text fg={theme.error}>{error()}</text>
+      </Show>
+      <text fg={theme.textMuted}>f follow {follow() ? "on" : "off"} • r refresh • c copy • x stop • esc close</text>
+    </box>
+  )
+}
+
 function Task(props: ToolProps<typeof TaskTool>) {
   const { theme } = useTheme()
   const keybind = useKeybind()
@@ -2445,6 +2674,84 @@ function Task(props: ToolProps<typeof TaskTool>) {
         >
           <span style={{ fg: theme.text }}>{Locale.titlecase(input.subagent_type ?? "unknown")}</span> Task "
           {input.description}"
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+function Monitor(props: ToolProps<typeof MonitorTool>) {
+  const { theme } = useTheme()
+  const dialog = useDialog()
+
+  const meta = props.metadata as Record<string, any>
+  const title = createMemo(() => {
+    if (typeof meta.title === "string" && meta.title.trim()) return meta.title.trim()
+    if (typeof props.input.title === "string" && props.input.title.trim()) return props.input.title.trim()
+    if (typeof props.input.command === "string" && props.input.command.trim()) return props.input.command.trim()
+    return "monitor"
+  })
+  const monitorID = createMemo(() => (typeof meta.monitorId === "string" ? meta.monitorId : undefined))
+  const sessionID = createMemo(() => (typeof meta.sessionId === "string" ? meta.sessionId : props.part.sessionID))
+  const status = createMemo(() => (typeof meta.status === "string" ? meta.status : "running"))
+  const recentOutput = createMemo(() => (typeof meta.recentOutput === "string" ? meta.recentOutput.trim() : ""))
+  const exitCode = createMemo(() => (typeof meta.exitCode === "number" ? meta.exitCode : undefined))
+  const logPath = createMemo(() => (typeof meta.logPath === "string" ? meta.logPath : undefined))
+  const statusColor = createMemo(() => {
+    if (status() === "complete") return theme.success
+    if (status() === "running") return theme.text
+    if (status() === "cancelled") return theme.textMuted
+    return theme.error
+  })
+
+  const openMonitor = () => {
+    if (!monitorID() || !sessionID()) return
+    dialog.setSize("xlarge")
+    dialog.replace(
+      () => (
+        <DialogMonitorLog
+          sessionID={sessionID()!}
+          monitorID={monitorID()!}
+          title={title()}
+          command={typeof props.input.command === "string" ? props.input.command : meta.command || title()}
+          status={status()}
+          logPath={logPath()}
+        />
+      ),
+      () => dialog.setSize("medium"),
+    )
+  }
+
+  return (
+    <Switch>
+      <Match when={monitorID()}>
+        <BlockTool title={`# Monitor ${title()}`} part={props.part} onClick={openMonitor}>
+          <box>
+            <text style={{ fg: theme.textMuted }}>{props.input.command}</text>
+            <text style={{ fg: statusColor() }}>└ {monitorStatusLabel(status(), exitCode())}</text>
+            <Show when={recentOutput()}>
+              <text style={{ fg: theme.text }}>└ {recentOutput()}</text>
+            </Show>
+            <Show when={logPath()}>
+              <text style={{ fg: theme.textMuted }}>└ {normalizePath(logPath())}</text>
+            </Show>
+            <Show when={meta.wake === true}>
+              <text style={{ fg: theme.textMuted }}>└ wakes the session on completion</text>
+            </Show>
+          </box>
+          <text fg={theme.text}>
+            follow logs<span style={{ fg: theme.textMuted }}> view monitor output</span>
+          </text>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool
+          icon="◌"
+          pending="Starting monitor..."
+          complete={props.input.title ?? props.input.command ?? title()}
+          part={props.part}
+        >
+          Monitor {title()}
         </InlineTool>
       </Match>
     </Switch>

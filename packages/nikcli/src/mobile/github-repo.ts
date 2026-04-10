@@ -102,7 +102,7 @@ export namespace MobileGithubRepo {
       throw new Error(stderr.trim() || stdout.trim() || `git ${args.join(" ")} failed`)
     }
 
-    return stdout.trim()
+    return (stdout.trim() ?? "").replace(/\0+$/, "")
   }
 
   export async function prepareManagedClone(input: ImportRequest, token: string) {

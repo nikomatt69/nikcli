@@ -6,15 +6,25 @@ export namespace SessionRetry {
   export const RETRY_BACKOFF_FACTOR = 2
   export const RETRY_MAX_DELAY_NO_HEADERS = 30_000
   export const RETRY_MAX_DELAY = 2_147_483_647
+  export const RETRY_MAX_ATTEMPTS = 5
 
   export async function sleep(ms: number, signal: AbortSignal): Promise<void> {
+    if (signal.aborted) {
+      throw new DOMException("Aborted", "AbortError")
+    }
+
     return new Promise((resolve, reject) => {
+      let settled = false
       const abortHandler = () => {
+        if (settled) return
+        settled = true
         clearTimeout(timeout)
+        signal.removeEventListener("abort", abortHandler)
         reject(new DOMException("Aborted", "AbortError"))
       }
       const timeout = setTimeout(
         () => {
+          settled = true
           signal.removeEventListener("abort", abortHandler)
           resolve()
         },

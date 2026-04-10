@@ -1,0 +1,11 @@
+Run a long-lived shell command in the background and follow it without blocking the current turn.
+
+Use this for builds, test suites, dev servers, log tails, PR polling scripts, or any command that should keep running while the agent continues working.
+
+What it does:
+- Starts the command in the background
+- Persists stdout/stderr to a log file on disk
+- Streams live status back into the session UI
+- Wakes the parent session when the command finishes by default
+
+Prefer this over `bash` when the command is expected to run for a while and the agent should avoid polling.

@@ -207,6 +207,12 @@ import type {
   SessionMessageResponses,
   SessionMessagesErrors,
   SessionMessagesResponses,
+  SessionMonitorCancelErrors,
+  SessionMonitorCancelResponses,
+  SessionMonitorErrors,
+  SessionMonitorLogErrors,
+  SessionMonitorLogResponses,
+  SessionMonitorResponses,
   SessionPromptAsyncErrors,
   SessionPromptAsyncResponses,
   SessionPromptErrors,
@@ -2052,6 +2058,114 @@ export class Session extends HeyApiClient {
     )
     return (options?.client ?? this.client).post<SessionUnrevertResponses, SessionUnrevertErrors, ThrowOnError>({
       url: "/session/{sessionID}/unrevert",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session monitor
+   *
+   * Retrieve metadata for one background monitor attached to a session.
+   */
+  public monitor<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      monitorID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "monitorID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionMonitorResponses, SessionMonitorErrors, ThrowOnError>({
+      url: "/session/{sessionID}/monitor/{monitorID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session monitor log
+   *
+   * Read the latest output captured for a monitored background command.
+   */
+  public monitorLog<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      monitorID: string
+      directory?: string
+      workspace?: string
+      lines?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "monitorID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "lines" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionMonitorLogResponses, SessionMonitorLogErrors, ThrowOnError>({
+      url: "/session/{sessionID}/monitor/{monitorID}/log",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel session monitor
+   *
+   * Stop a monitored background command attached to a session.
+   */
+  public monitorCancel<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      monitorID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "monitorID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      SessionMonitorCancelResponses,
+      SessionMonitorCancelErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/monitor/{monitorID}/cancel",
       ...options,
       ...params,
     })

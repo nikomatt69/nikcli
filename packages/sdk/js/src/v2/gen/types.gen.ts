@@ -666,6 +666,101 @@ export type EventSessionCompacted = {
   }
 }
 
+export type EventMonitorCreated = {
+  type: "monitor.created"
+  properties: {
+    sessionID: string
+    record: {
+      id: string
+      sessionID: string
+      messageID: string
+      callID: string
+      partID?: string
+      title: string
+      command: string
+      cwd: string
+      agent: string
+      wake: boolean
+      timeoutMs?: number
+      status: "running" | "complete" | "error" | "timeout" | "cancelled"
+      pid?: number
+      exitCode?: number
+      signal?: string
+      logPath: string
+      commandPath: string
+      pidPath: string
+      exitCodePath: string
+      preview?: string
+      bytes?: number
+      time: {
+        created: number
+        updated: number
+        completed?: number
+      }
+    }
+  }
+}
+
+export type EventMonitorUpdated = {
+  type: "monitor.updated"
+  properties: {
+    sessionID: string
+    record: {
+      id: string
+      sessionID: string
+      messageID: string
+      callID: string
+      partID?: string
+      title: string
+      command: string
+      cwd: string
+      agent: string
+      wake: boolean
+      timeoutMs?: number
+      status: "running" | "complete" | "error" | "timeout" | "cancelled"
+      pid?: number
+      exitCode?: number
+      signal?: string
+      logPath: string
+      commandPath: string
+      pidPath: string
+      exitCodePath: string
+      preview?: string
+      bytes?: number
+      time: {
+        created: number
+        updated: number
+        completed?: number
+      }
+    }
+  }
+}
+
+export type EventMonitorOutput = {
+  type: "monitor.output"
+  properties: {
+    sessionID: string
+    monitorID: string
+    delta: string
+    preview: string
+    bytes: number
+    status: "running" | "complete" | "error" | "timeout" | "cancelled"
+  }
+}
+
+export type EventMonitorCompleted = {
+  type: "monitor.completed"
+  properties: {
+    sessionID: string
+    monitorID: string
+    title: string
+    status: "running" | "complete" | "error" | "timeout" | "cancelled"
+    exitCode: number | null
+    logPath: string
+    wake: boolean
+  }
+}
+
 export type EventDelegationCompleted = {
   type: "delegation.completed"
   properties: {
@@ -1099,6 +1194,10 @@ export type Event =
   | EventQuestionReplied
   | EventQuestionRejected
   | EventSessionCompacted
+  | EventMonitorCreated
+  | EventMonitorUpdated
+  | EventMonitorOutput
+  | EventMonitorCompleted
   | EventDelegationCompleted
   | EventTodoUpdated
   | EventFileWatcherUpdated
@@ -4829,6 +4928,127 @@ export type PermissionRespondResponses = {
 }
 
 export type PermissionRespondResponse = PermissionRespondResponses[keyof PermissionRespondResponses]
+
+export type SessionMonitorData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Monitor ID
+     */
+    monitorID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/monitor/{monitorID}"
+}
+
+export type SessionMonitorErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionMonitorError = SessionMonitorErrors[keyof SessionMonitorErrors]
+
+export type SessionMonitorResponses = {
+  /**
+   * Monitor metadata
+   */
+  200: unknown
+}
+
+export type SessionMonitorLogData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Monitor ID
+     */
+    monitorID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    /**
+     * Number of lines to return
+     */
+    lines?: number
+  }
+  url: "/session/{sessionID}/monitor/{monitorID}/log"
+}
+
+export type SessionMonitorLogErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionMonitorLogError = SessionMonitorLogErrors[keyof SessionMonitorLogErrors]
+
+export type SessionMonitorLogResponses = {
+  /**
+   * Monitor log snapshot
+   */
+  200: unknown
+}
+
+export type SessionMonitorCancelData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+    /**
+     * Monitor ID
+     */
+    monitorID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/monitor/{monitorID}/cancel"
+}
+
+export type SessionMonitorCancelErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionMonitorCancelError = SessionMonitorCancelErrors[keyof SessionMonitorCancelErrors]
+
+export type SessionMonitorCancelResponses = {
+  /**
+   * Cancelled monitor
+   */
+  200: unknown
+}
 
 export type PermissionReplyData = {
   body?: {

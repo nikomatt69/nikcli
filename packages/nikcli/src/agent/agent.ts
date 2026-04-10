@@ -464,7 +464,7 @@ Apply small, safe refactors and verify results.`,
       return agent.name
     }
 
-    const primaryVisible = Object.values(agents).find((a) => a.mode !== "subagent" && a.hidden !== true)
+    const primaryVisible = (await list()).find((a) => a.mode !== "subagent" && a.hidden !== true)
     if (!primaryVisible) throw new Error("no primary visible agent found")
     return primaryVisible.name
   }

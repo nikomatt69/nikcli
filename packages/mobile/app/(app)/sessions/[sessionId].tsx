@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Ellipsis } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
-import { ActivityIndicator, FlatList, Pressable, Share, StyleSheet, Text, View } from "react-native"
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -768,7 +768,11 @@ export default function SessionScreen() {
   }
 
   return (
-    <View className="flex-1 bg-background">
+    <KeyboardAvoidingView
+      className="flex-1 bg-background"
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={0}
+    >
       <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
           <Pressable onPress={() => router.back()} style={chromeButtonStyle}>
@@ -962,6 +966,6 @@ export default function SessionScreen() {
         sheetRef={attachSheetRef}
         onFile={(mime, filename, base64) => void handleAttachFile(mime, filename, base64)}
       />
-    </View>
+    </KeyboardAvoidingView>
   )
 }

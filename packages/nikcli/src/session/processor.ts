@@ -317,7 +317,7 @@ export namespace SessionProcessor {
                     )
                     currentText.text = textOutput.text
                     currentText.time = {
-                      start: Date.now(),
+                      start: currentText.time?.start ?? Date.now(),
                       end: Date.now(),
                     }
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
@@ -346,16 +346,27 @@ export namespace SessionProcessor {
             // TODO: Handle context overflow error
             const retry = SessionRetry.retryable(error)
             if (retry !== undefined) {
-              attempt++
-              const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-              SessionStatus.set(input.sessionID, {
-                type: "retry",
-                attempt,
-                message: retry,
-                next: Date.now() + delay,
-              })
-              await SessionRetry.sleep(delay, input.abort).catch(() => {})
-              continue
+              const nextAttempt = attempt + 1
+              if (nextAttempt <= SessionRetry.RETRY_MAX_ATTEMPTS) {
+                attempt = nextAttempt
+                const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                SessionStatus.set(input.sessionID, {
+                  type: "retry",
+                  attempt,
+                  message: retry,
+                  next: Date.now() + delay,
+                })
+                try {
+                  await SessionRetry.sleep(delay, input.abort)
+                } catch (sleepError) {
+                  input.assistantMessage.error = MessageV2.fromError(sleepError, {
+                    providerID: input.model.providerID,
+                  })
+                  break
+                }
+                input.abort.throwIfAborted()
+                continue
+              }
             }
             input.assistantMessage.error = error
             Bus.publish(Session.Event.Error, {

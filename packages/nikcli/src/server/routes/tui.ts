@@ -168,7 +168,7 @@ export const TuiRoutes = lazy(() =>
       }),
       async (c) => {
         await Bus.publish(TuiEvent.CommandExecute, {
-          command: "session.list",
+          command: "theme.switch",
         })
         return c.json(true)
       },

@@ -168,6 +168,15 @@ export type FilePart = {
   url: string
 }
 
+export type PendingAttachment = {
+  id: string          // `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  mime: string
+  filename: string
+  base64: string
+  previewUri?: string // local file URI for image thumbnails
+  sizeLabel?: string  // e.g. "128 KB"
+}
+
 export type ToolState =
   | { status: "pending"; input: Record<string, unknown>; raw: string }
   | { status: "running"; input: Record<string, unknown>; title?: string; time: { start: number } }
@@ -468,6 +477,81 @@ export type FileDiff = {
   after: string
   additions: number
   deletions: number
+}
+
+export type GitFileStatus =
+  | { status: "added"; path: string; additions: number; deletions: number }
+  | { status: "modified"; path: string; additions: number; deletions: number }
+  | { status: "deleted"; path: string }
+  | { status: "renamed"; path: string; oldPath: string }
+  | { status: "untracked"; path: string }
+
+export type GitCommit = {
+  sha: string
+  message: string
+  author: { name: string; email: string }
+  timestamp: number
+  filesCount: number
+  additions: number
+  deletions: number
+}
+
+export type GitBranch = {
+  name: string
+  isCurrent: boolean
+  isProtected: boolean
+  aheadBy: number
+  behindBy: number
+}
+
+export type GitState = {
+  branch: string
+  staged: GitFileStatus[]
+  unstaged: GitFileStatus[]
+  untracked: string[]
+  commitsAhead: number
+  commitsBehind: number
+  lastCommit?: {
+    sha: string
+    message: string
+    author: string
+    timestamp: number
+  }
+}
+
+export type DiffLine = {
+  type: "add" | "remove" | "context"
+  text: string
+  oldLineNumber?: number
+  newLineNumber?: number
+}
+
+export type HunkHeader = {
+  oldStart: number
+  oldLines: number
+  newStart: number
+  newLines: number
+}
+
+export type DiffHunk = {
+  header: HunkHeader
+  lines: DiffLine[]
+}
+
+export type ParsedFileDiff = {
+  file: string
+  oldPath?: string
+  hunks: DiffHunk[]
+  isBinary: boolean
+  additions: number
+  deletions: number
+}
+
+export type CommitDraft = {
+  message: string
+  files: string[]
+  amend?: boolean
+  amendSha?: string
 }
 
 export type ManagedGithubImport = {

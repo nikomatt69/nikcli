@@ -163,14 +163,15 @@ export namespace LLM {
       },
       async experimental_repairToolCall(failed) {
         const lower = failed.toolCall.toolName.toLowerCase()
-        if (lower !== failed.toolCall.toolName && tools[lower]) {
+        const repaired = Object.keys(tools).find((toolName) => toolName.toLowerCase() === lower)
+        if (repaired && repaired !== failed.toolCall.toolName) {
           l.info("repairing tool call", {
             tool: failed.toolCall.toolName,
-            repaired: lower,
+            repaired,
           })
           return {
             ...failed.toolCall,
-            toolName: lower,
+            toolName: repaired,
           }
         }
         return {

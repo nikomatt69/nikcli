@@ -810,10 +810,10 @@ export const MobileRoutes = lazy(() =>
             oauthClientSource: oauth.source,
             user: user
               ? {
-                login: user.login,
-                name: user.name,
-                avatar_url: user.avatar_url,
-              }
+                  login: user.login,
+                  name: user.name,
+                  avatar_url: user.avatar_url,
+                }
               : undefined,
           },
           tophat: await Tophat.status().then((s) => ({
@@ -829,12 +829,12 @@ export const MobileRoutes = lazy(() =>
           mobileProject: await MobileProjectDetect.detect(Instance.directory).then((detected) =>
             detected
               ? {
-                detected: true,
-                platforms: detected.platforms,
-                primaryPlatform: detected.primaryPlatform,
-                method: detected.method,
-                root: detected.root,
-              }
+                  detected: true,
+                  platforms: detected.platforms,
+                  primaryPlatform: detected.primaryPlatform,
+                  method: detected.method,
+                  root: detected.root,
+                }
               : { detected: false },
           ),
         })
@@ -1457,11 +1457,11 @@ export const MobileRoutes = lazy(() =>
         let workspace: Workspace.Info | undefined
         const sessionInput = body
           ? {
-            parentID: typeof body.parentID === "string" ? body.parentID : undefined,
-            title: typeof body.title === "string" ? body.title : undefined,
-            permission: body.permission as Session.Info["permission"],
-            github: body.github as Session.Info["github"],
-          }
+              parentID: typeof body.parentID === "string" ? body.parentID : undefined,
+              title: typeof body.title === "string" ? body.title : undefined,
+              permission: body.permission as Session.Info["permission"],
+              github: body.github as Session.Info["github"],
+            }
           : undefined
 
         try {
@@ -1475,9 +1475,9 @@ export const MobileRoutes = lazy(() =>
               return Session.create(
                 workspace?.id
                   ? {
-                    ...sessionInput,
-                    workspaceID: workspace.id,
-                  }
+                      ...sessionInput,
+                      workspaceID: workspace.id,
+                    }
                   : sessionInput,
               )
             },
@@ -1701,10 +1701,10 @@ export const MobileRoutes = lazy(() =>
         }).catch((error) => {
           const message = error instanceof Error ? error.message : String(error)
           SessionStatus.set(sessionID, { type: "idle" })
-          Bus.publish(Session.Event.Error, {
+          void Bus.publish(Session.Event.Error, {
             sessionID,
             error: new NamedError.Unknown({ message }).toObject(),
-          })
+          }).catch(() => undefined)
           log.error("mobile session prompt failed", {
             sessionID,
             error: message,
@@ -1950,10 +1950,10 @@ export const MobileRoutes = lazy(() =>
                 .then((value) =>
                   value
                     ? {
-                      number: value.number,
-                      url: value.html_url,
-                      title: value.title,
-                    }
+                        number: value.number,
+                        url: value.html_url,
+                        title: value.title,
+                      }
                     : undefined,
                 )
                 .catch(() => undefined))
@@ -1962,18 +1962,18 @@ export const MobileRoutes = lazy(() =>
               existingPullRequest ||
               (aheadCount > 0
                 ? await GithubApi.createPullRequest(
-                  token,
-                  github.owner,
-                  github.repo,
-                  body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
-                  github.headBranch,
-                  github.baseBranch,
-                  body.body?.trim() || defaultPullRequestBody(session),
-                ).then((value) => ({
-                  number: value.number,
-                  url: value.html_url,
-                  title: value.title,
-                }))
+                    token,
+                    github.owner,
+                    github.repo,
+                    body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
+                    github.headBranch,
+                    github.baseBranch,
+                    body.body?.trim() || defaultPullRequestBody(session),
+                  ).then((value) => ({
+                    number: value.number,
+                    url: value.html_url,
+                    title: value.title,
+                  }))
                 : undefined)
 
             if (!pullRequest) {
@@ -2187,5 +2187,770 @@ export const MobileRoutes = lazy(() =>
         await Project.removeSandbox(Instance.project.id, input.directory).catch(() => undefined)
         return c.json({ success: true as const })
       },
+    )
+    .get(
+      "/git/status",
+      describeRoute({
+        summary: "Get git status for mobile",
+        description: "Return the current git state including branch, staged/unstaged changes, and untracked files.",
+        operationId: "mobile.git.status",
+        responses: {
+          200: {
+            description: "Git status",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    branch: z.string(),
+                    staged: z.array(
+                      z.union([
+                        z.object({
+                          status: z.literal("added"),
+                          path: z.string(),
+                          additions: z.number(),
+                          deletions: z.number(),
+                        }),
+                        z.object({
+                          status: z.literal("modified"),
+                          path: z.string(),
+                          additions: z.number(),
+                          deletions: z.number(),
+                        }),
+                        z.object({ status: z.literal("deleted"), path: z.string() }),
+                        z.object({ status: z.literal("renamed"), path: z.string(), oldPath: z.string() }),
+                      ]),
+                    ),
+                    unstaged: z.array(
+                      z.union([
+                        z.object({
+                          status: z.literal("added"),
+                          path: z.string(),
+                          additions: z.number(),
+                          deletions: z.number(),
+                        }),
+                        z.object({
+                          status: z.literal("modified"),
+                          path: z.string(),
+                          additions: z.number(),
+                          deletions: z.number(),
+                        }),
+                        z.object({ status: z.literal("deleted"), path: z.string() }),
+                        z.object({ status: z.literal("renamed"), path: z.string(), oldPath: z.string() }),
+                      ]),
+                    ),
+                    untracked: z.array(z.string()),
+                    commitsAhead: z.number(),
+                    commitsBehind: z.number(),
+                    lastCommit: z
+                      .object({ sha: z.string(), message: z.string(), author: z.string(), timestamp: z.number() })
+                      .optional(),
+                  }),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const [statusOutput, branchOutput, aheadBehind] = await Promise.all([
+              MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
+                cwd: Instance.directory,
+                token,
+              }) as Promise<string>,
+              MobileGithubRepo.runGit(["branch", "--show-current"], {
+                cwd: Instance.directory,
+                token,
+              }) as Promise<string>,
+              MobileGithubRepo.runGit(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], {
+                cwd: Instance.directory,
+                token,
+              }).catch(() => "0 0") as Promise<string>,
+            ])
+
+            const [behind = "0", ahead = "0"] = aheadBehind.trim().split(/\s+/)
+            const commitsAhead = Number.parseInt(ahead, 10) || 0
+            const commitsBehind = Number.parseInt(behind, 10) || 0
+
+            const staged: Array<{
+              status: string
+              path: string
+              additions?: number
+              deletions?: number
+              oldPath?: string
+            }> = []
+            const unstaged: Array<{
+              status: string
+              path: string
+              additions?: number
+              deletions?: number
+              oldPath?: string
+            }> = []
+            const untracked: string[] = []
+
+            const lines = statusOutput.split("\n").filter(Boolean)
+            for (const line of lines) {
+              const index = line.slice(0, 2)
+              const worktree = line.slice(3, 4)
+              const rest = line.slice(4)
+              const parts = rest.split("\t")
+              const path = parts[0]
+
+              if (index === "??" || worktree === "?") {
+                untracked.push(path)
+                continue
+              }
+
+              if (index === "!!") continue
+
+              const parsed = parseDiffStat(path)
+              if (index !== "  ") {
+                if (index === "A " || index === "AM" || index === "AD") {
+                  staged.push({ status: "added", path, additions: parsed.additions, deletions: parsed.deletions })
+                } else if (index === "M " || index === "MM" || index === "MD") {
+                  staged.push({ status: "modified", path, additions: parsed.additions, deletions: parsed.deletions })
+                } else if (index === "D " || index === "DM") {
+                  staged.push({ status: "deleted", path })
+                } else if (index === "R " || index === "RM") {
+                  staged.push({ status: "renamed", path, oldPath: parts[1] ?? path })
+                }
+              }
+
+              if (worktree === "M" || worktree === "MM" || worktree === "DM") {
+                unstaged.push({ status: "modified", path, additions: parsed.additions, deletions: parsed.deletions })
+              } else if (worktree === "D") {
+                unstaged.push({ status: "deleted", path })
+              } else if (worktree === "R") {
+                unstaged.push({ status: "renamed", path, oldPath: parts[1] ?? path })
+              }
+            }
+
+            let lastCommit: { sha: string; message: string; author: string; timestamp: number } | undefined
+            try {
+              const logOutput = await MobileGithubRepo.runGit(["log", "-1", "--format=%H%n%s%n%an%n%ae%n%at"], {
+                cwd: Instance.directory,
+                token,
+              })
+              const logLines = logOutput.split("\n")
+              if (logLines.length >= 5) {
+                lastCommit = {
+                  sha: logLines[0],
+                  message: logLines[1],
+                  author: logLines[2],
+                  timestamp: Number.parseInt(logLines[4], 10) * 1000,
+                }
+              }
+            } catch {}
+
+            return c.json({
+              branch: branchOutput.trim(),
+              staged,
+              unstaged,
+              untracked,
+              commitsAhead,
+              commitsBehind,
+              lastCommit,
+            })
+          },
+        })
+      },
+    )
+    .get(
+      "/git/diff",
+      describeRoute({
+        summary: "Get git diff for mobile",
+        description: "Return parsed file diffs with hunks for the current git state.",
+        operationId: "mobile.git.diff",
+        responses: {
+          200: {
+            description: "File diffs",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      file: z.string(),
+                      oldPath: z.string().optional(),
+                      hunks: z.array(
+                        z.object({
+                          header: z.object({
+                            oldStart: z.number(),
+                            oldLines: z.number(),
+                            newStart: z.number(),
+                            newLines: z.number(),
+                          }),
+                          lines: z.array(
+                            z.object({
+                              type: z.enum(["add", "remove", "context"]),
+                              text: z.string(),
+                              oldLineNumber: z.number().optional(),
+                              newLineNumber: z.number().optional(),
+                            }),
+                          ),
+                        }),
+                      ),
+                      isBinary: z.boolean(),
+                      additions: z.number(),
+                      deletions: z.number(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      validator("query", z.object({ file: z.string().optional() }).optional()),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const query = c.req.valid("query")
+            const args = ["diff", "--no-color", "-U1000"]
+            if (query?.file) {
+              args.push("--", query.file)
+            }
+
+            const output = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            return c.json(parseFileDiffs(output))
+          },
+        })
+      },
+    )
+    .get(
+      "/git/commits",
+      describeRoute({
+        summary: "Get git commit history for mobile",
+        description: "Return recent commits with stats for the current branch.",
+        operationId: "mobile.git.commits",
+        responses: {
+          200: {
+            description: "Commits",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      sha: z.string(),
+                      message: z.string(),
+                      author: z.object({ name: z.string(), email: z.string() }),
+                      timestamp: z.number(),
+                      filesCount: z.number(),
+                      additions: z.number(),
+                      deletions: z.number(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      validator("query", z.object({ limit: z.coerce.number().default(50) }).optional()),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const query = c.req.valid("query")
+            const limit = query?.limit ?? 50
+
+            const output = await MobileGithubRepo.runGit(
+              ["log", "--no-color", "--format=%H%n%s%n%an%n%ae%n%at", "-n", String(limit)],
+              { cwd: Instance.directory, token },
+            )
+
+            const commits: Array<{
+              sha: string
+              message: string
+              author: { name: string; email: string }
+              timestamp: number
+              filesCount: number
+              additions: number
+              deletions: number
+            }> = []
+            const commitBlocks = output.split("\n\n")
+            for (const block of commitBlocks) {
+              const lines = block.split("\n").filter(Boolean)
+              if (lines.length < 5) continue
+              const [sha, message, authorName, authorEmail, timestamp] = lines
+              const timestampMs = Number.parseInt(timestamp, 10) * 1000
+
+              const statOutput = await MobileGithubRepo.runGit(
+                ["show", "--stat", "--no-color", "--format=''", sha.trim()],
+                {
+                  cwd: Instance.directory,
+                  token,
+                },
+              ).catch(() => "")
+
+              const { filesCount, additions, deletions } = parseCommitStat(statOutput)
+
+              commits.push({
+                sha: sha.trim(),
+                message,
+                author: { name: authorName, email: authorEmail },
+                timestamp: timestampMs,
+                filesCount,
+                additions,
+                deletions,
+              })
+            }
+
+            return c.json(commits)
+          },
+        })
+      },
+    )
+    .get(
+      "/git/branches",
+      describeRoute({
+        summary: "Get git branches for mobile",
+        description: "Return local and remote branches with status.",
+        operationId: "mobile.git.branches",
+        responses: {
+          200: {
+            description: "Branches",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      name: z.string(),
+                      isCurrent: z.boolean(),
+                      isProtected: z.boolean(),
+                      aheadBy: z.number(),
+                      behindBy: z.number(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const branchOutput = await MobileGithubRepo.runGit(["branch", "-a", "-v"], {
+              cwd: Instance.directory,
+              token,
+            })
+            const branches: Array<{
+              name: string
+              isCurrent: boolean
+              isProtected: boolean
+              aheadBy: number
+              behindBy: number
+            }> = []
+
+            const branchLines = branchOutput.split("\n").filter(Boolean)
+            for (const line of branchLines) {
+              const match = line.match(/^([* ])\s*(\S+)\s*([a-f0-9]+)?\s*(.*)$/)
+              if (!match) continue
+              const [, indicator, name, , rest] = match
+              if (name.startsWith("->") || name.includes("HEAD")) continue
+
+              const ahead = rest.match(/ahead (\d+)/)?.[1] ?? "0"
+              const behind = rest.match(/behind (\d+)/)?.[1] ?? "0"
+
+              branches.push({
+                name,
+                isCurrent: indicator === "*",
+                isProtected: name === "main" || name === "master" || name === "develop",
+                aheadBy: Number.parseInt(ahead, 10) || 0,
+                behindBy: Number.parseInt(behind, 10) || 0,
+              })
+            }
+
+            return c.json(branches)
+          },
+        })
+      },
+    )
+    .post(
+      "/git/commit",
+      describeRoute({
+        summary: "Create git commit for mobile",
+        description: "Stage and commit changes in the current worktree.",
+        operationId: "mobile.git.commit",
+        responses: {
+          200: {
+            description: "Commit created",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    sha: z.string(),
+                    message: z.string(),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator(
+        "json",
+        z.object({ message: z.string().min(1), files: z.array(z.string()).optional(), amend: z.boolean().optional() }),
+      ),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const body = c.req.valid("json")
+            const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
+
+            if (body.files?.length) {
+              await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
+            } else {
+              await MobileGithubRepo.runGit(["add", "-A"], { cwd: Instance.directory, token })
+            }
+
+            const statusOutput = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+              cwd: Instance.directory,
+              token,
+            })
+            if (!statusOutput.trim() && !body.amend) {
+              return c.json({ error: "No changes to commit" }, 400)
+            }
+
+            const sha = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            const message = body.amend
+              ? await MobileGithubRepo.runGit(["log", "-1", "--format=%s"], { cwd: Instance.directory, token })
+              : body.message
+
+            return c.json({ sha: sha.trim(), message })
+          },
+        })
+      },
+    )
+    .post(
+      "/git/checkout",
+      describeRoute({
+        summary: "Checkout git branch for mobile",
+        description: "Switch to a different branch in the current worktree.",
+        operationId: "mobile.git.checkout",
+        responses: {
+          200: {
+            description: "Branch switched",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", z.object({ branch: z.string().min(1), create: z.boolean().optional() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const body = c.req.valid("json")
+            const args = body.create ? ["checkout", "-b", body.branch] : ["checkout", body.branch]
+            await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            return c.json({ success: true as const })
+          },
+        })
+      },
+    )
+    .post(
+      "/git/stage",
+      describeRoute({
+        summary: "Stage git files for mobile",
+        description: "Add files to the staging area.",
+        operationId: "mobile.git.stage",
+        responses: {
+          200: {
+            description: "Files staged",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("json", z.object({ files: z.array(z.string()) })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const body = c.req.valid("json")
+            await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
+            return c.json({ success: true as const })
+          },
+        })
+      },
+    )
+    .post(
+      "/git/unstage",
+      describeRoute({
+        summary: "Unstage git files for mobile",
+        description: "Remove files from the staging area.",
+        operationId: "mobile.git.unstage",
+        responses: {
+          200: {
+            description: "Files unstaged",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("json", z.object({ files: z.array(z.string()) })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const body = c.req.valid("json")
+            await MobileGithubRepo.runGit(["reset", "HEAD", "--", ...body.files], { cwd: Instance.directory, token })
+            return c.json({ success: true as const })
+          },
+        })
+      },
+    )
+    .post(
+      "/git/discard",
+      describeRoute({
+        summary: "Discard git changes for mobile",
+        description: "Discard uncommitted changes to files.",
+        operationId: "mobile.git.discard",
+        responses: {
+          200: {
+            description: "Changes discarded",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("json", z.object({ files: z.array(z.string()) })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const body = c.req.valid("json")
+            await MobileGithubRepo.runGit(["checkout", "--", ...body.files], { cwd: Instance.directory, token })
+            return c.json({ success: true as const })
+          },
+        })
+      },
+    )
+    .post(
+      "/git/push",
+      describeRoute({
+        summary: "Push git branch for mobile",
+        description: "Push the current branch to the remote.",
+        operationId: "mobile.git.push",
+        responses: {
+          200: {
+            description: "Branch pushed",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.literal(true), pushed: z.boolean() })),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("query", z.object({ upstream: z.string().optional() }).optional()),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            const query = c.req.valid("query")
+            const currentBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], {
+              cwd: Instance.directory,
+              token,
+            })
+            const args = query?.upstream
+              ? ["push", "--set-upstream", "origin", query.upstream]
+              : ["push", "--set-upstream", "origin", currentBranch.trim()]
+
+            try {
+              await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+              return c.json({ success: true as const, pushed: true })
+            } catch {
+              return c.json({ success: true as const, pushed: false })
+            }
+          },
+        })
+      },
+    )
+    .post(
+      "/git/pull",
+      describeRoute({
+        summary: "Pull git changes for mobile",
+        description: "Pull remote changes into the current branch.",
+        operationId: "mobile.git.pull",
+        responses: {
+          200: {
+            description: "Changes pulled",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    success: z.literal(true),
+                    pulled: z.boolean(),
+                    conflicts: z.array(z.string()).optional(),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const token = await githubToken()
+            try {
+              await MobileGithubRepo.runGit(["fetch", "origin"], { cwd: Instance.directory, token })
+              await MobileGithubRepo.runGit(["pull", "--no-rebase"], { cwd: Instance.directory, token })
+              return c.json({ success: true as const, pulled: true })
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              const hasConflicts = message.toLowerCase().includes("conflict")
+              if (hasConflicts) {
+                const statusOutput = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+                  cwd: Instance.directory,
+                  token,
+                })
+                const conflicts = statusOutput
+                  .split("\n")
+                  .filter((line) => line.startsWith("UU") || line.startsWith("AA") || line.startsWith("DD"))
+                  .map((line) => line.slice(4))
+                return c.json({ success: true as const, pulled: false, conflicts })
+              }
+              return c.json({ success: true as const, pulled: false })
+            }
+          },
+        })
+      },
     ),
 )
+
+function parseDiffStat(path: string): { additions: number; deletions: number } {
+  const match = path.match(/\s+\+(\d+)\s+(-(\d+))?$/)
+  if (match) {
+    return {
+      additions: Number.parseInt(match[1], 10) || 0,
+      deletions: Number.parseInt(match[3] ?? match[1], 10) || 0,
+    }
+  }
+  return { additions: 0, deletions: 0 }
+}
+
+function parseCommitStat(output: string): { filesCount: number; additions: number; deletions: number } {
+  let filesCount = 0
+  let additions = 0
+  let deletions = 0
+  for (const line of output.split("\n")) {
+    const fileMatch = line.match(/^\s+(\d+)\s+(\d+)\s+(.+)$/)
+    if (fileMatch) {
+      filesCount++
+      additions += Number.parseInt(fileMatch[1], 10) || 0
+      deletions += Number.parseInt(fileMatch[2], 10) || 0
+    }
+  }
+  return { filesCount, additions, deletions }
+}
+
+function parseFileDiffs(output: string): Array<{
+  file: string
+  oldPath?: string
+  hunks: Array<{
+    header: { oldStart: number; oldLines: number; newStart: number; newLines: number }
+    lines: Array<{ type: "add" | "remove" | "context"; text: string; oldLineNumber?: number; newLineNumber?: number }>
+  }>
+  isBinary: boolean
+  additions: number
+  deletions: number
+}> {
+  const results: ReturnType<typeof parseFileDiffs> = []
+  const fileBlocks = output.split(/^diff --git /m).filter(Boolean)
+
+  for (const block of fileBlocks) {
+    const headerMatch = block.match(/^diff --git a\/(.*) b\/(.*)$/m)
+    if (!headerMatch) continue
+
+    const [, oldPath, newPath] = headerMatch
+    const file = newPath || oldPath
+    const isRenamed = oldPath !== newPath && block.includes("rename from")
+
+    if (block.includes("Binary files")) {
+      results.push({
+        file,
+        oldPath: isRenamed ? oldPath : undefined,
+        hunks: [],
+        isBinary: true,
+        additions: 0,
+        deletions: 0,
+      })
+      continue
+    }
+
+    const hunks: ReturnType<typeof parseFileDiffs>[number]["hunks"] = []
+    let additions = 0
+    let deletions = 0
+
+    const hunkPattern = /@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@(.*)/g
+    let hunkMatch = hunkPattern.exec(block)
+    while (hunkMatch) {
+      const [, oldStart, oldLinesStr, newStart, newLinesStr] = hunkMatch
+      const hunkStart = hunkMatch.index!
+      const nextHunkStart = block.indexOf("@@ ", hunkStart + 1)
+      const hunkContent = nextHunkStart === -1 ? block.slice(hunkStart) : block.slice(hunkStart, nextHunkStart)
+
+      const lines: ReturnType<typeof parseFileDiffs>[number]["hunks"][number]["lines"] = []
+      let oldLine = Number.parseInt(oldStart, 10)
+      let newLine = Number.parseInt(newStart, 10)
+
+      for (const line of hunkContent.split("\n")) {
+        if (line.startsWith("+") && !line.startsWith("+++")) {
+          lines.push({ type: "add", text: line.slice(1), newLineNumber: newLine++ })
+          additions++
+        } else if (line.startsWith("-") && !line.startsWith("---")) {
+          lines.push({ type: "remove", text: line.slice(1), oldLineNumber: oldLine++ })
+          deletions++
+        } else if (line.startsWith(" ") || line === "") {
+          lines.push({
+            type: "context",
+            text: line.startsWith(" ") ? line.slice(1) : "",
+            oldLineNumber: oldLine++,
+            newLineNumber: newLine++,
+          })
+        }
+      }
+
+      hunks.push({
+        header: {
+          oldStart: Number.parseInt(oldStart, 10),
+          oldLines: Number.parseInt(oldLinesStr || "1", 10),
+          newStart: Number.parseInt(newStart, 10),
+          newLines: Number.parseInt(newLinesStr || "1", 10),
+        },
+        lines,
+      })
+      hunkMatch = hunkPattern.exec(block)
+    }
+
+    results.push({
+      file,
+      oldPath: isRenamed ? oldPath : undefined,
+      hunks,
+      isBinary: false,
+      additions,
+      deletions,
+    })
+  }
+
+  return results
+}

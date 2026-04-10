@@ -117,18 +117,27 @@ export namespace UserDB {
     database.run(
       `INSERT INTO users (id, username, email, password_hash, display_name, role, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [id, input.username.trim(), input.email.trim().toLowerCase(), hash, input.displayName?.trim() ?? null, role, now, now],
+      [
+        id,
+        input.username.trim(),
+        input.email.trim().toLowerCase(),
+        hash,
+        input.displayName?.trim() ?? null,
+        role,
+        now,
+        now,
+      ],
     )
 
     return toPublic(database.query("SELECT * FROM users WHERE id = ?").get(id) as User)
   }
 
   export function findByEmail(email: string): User | null {
-    return (db().query("SELECT * FROM users WHERE email = ?").get(email.toLowerCase()) as User | null)
+    return db().query("SELECT * FROM users WHERE email = ?").get(email.toLowerCase()) as User | null
   }
 
   export function findById(id: string): User | null {
-    return (db().query("SELECT * FROM users WHERE id = ?").get(id) as User | null)
+    return db().query("SELECT * FROM users WHERE id = ?").get(id) as User | null
   }
 
   export async function verifyPassword(user: User, password: string): Promise<boolean> {
@@ -155,9 +164,7 @@ export namespace UserDB {
     const hash = hashToken(rawToken)
     const now = Date.now()
 
-    const session = db()
-      .query("SELECT * FROM user_sessions WHERE token_hash = ?")
-      .get(hash) as Session | null
+    const session = db().query("SELECT * FROM user_sessions WHERE token_hash = ?").get(hash) as Session | null
 
     if (!session) return null
     if (session.expires_at && session.expires_at <= now) {
@@ -277,15 +284,17 @@ export namespace UserDB {
   }
 
   export function addContact(userId: string, contactId: string): void {
-    db().run(
-      `INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`,
-      [userId, contactId, Date.now()],
-    )
+    db().run(`INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`, [
+      userId,
+      contactId,
+      Date.now(),
+    ])
     // Make it symmetric so both sides can see each other
-    db().run(
-      `INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`,
-      [contactId, userId, Date.now()],
-    )
+    db().run(`INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`, [
+      contactId,
+      userId,
+      Date.now(),
+    ])
   }
 
   export function removeContact(userId: string, contactId: string): void {
@@ -293,32 +302,28 @@ export namespace UserDB {
   }
 
   export function listContacts(userId: string): PublicUser[] {
-    return (
-      db()
-        .query(
-          `SELECT u.id, u.username, u.email, u.display_name, u.role, u.created_at, u.updated_at
+    return db()
+      .query(
+        `SELECT u.id, u.username, u.email, u.display_name, u.role, u.created_at, u.updated_at
            FROM chat_contacts cc
            JOIN users u ON u.id = cc.contact_id
            WHERE cc.user_id = ?
            ORDER BY cc.created_at ASC`,
-        )
-        .all(userId) as PublicUser[]
-    )
+      )
+      .all(userId) as PublicUser[]
   }
 
   export function searchUsers(query: string, excludeUserId: string): PublicUser[] {
     const like = `%${query.toLowerCase()}%`
-    return (
-      db()
-        .query(
-          `SELECT id, username, email, display_name, role, created_at, updated_at
+    return db()
+      .query(
+        `SELECT id, username, email, display_name, role, created_at, updated_at
            FROM users
            WHERE id != ?
              AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(display_name) LIKE ?)
            LIMIT 10`,
-        )
-        .all(excludeUserId, like, like, like) as PublicUser[]
-    )
+      )
+      .all(excludeUserId, like, like, like) as PublicUser[]
   }
 
   export function sendMessage(senderId: string, receiverId: string, content: string): ChatMessage {
@@ -335,11 +340,14 @@ export namespace UserDB {
   export function getMessages(userId: string, contactId: string, limit = 100): ChatMessage[] {
     return db()
       .query(
-        `SELECT * FROM chat_messages
-         WHERE (sender_id = ? AND receiver_id = ?)
-            OR (sender_id = ? AND receiver_id = ?)
-         ORDER BY created_at ASC
-         LIMIT ?`,
+        `SELECT * FROM (
+           SELECT * FROM chat_messages
+           WHERE (sender_id = ? AND receiver_id = ?)
+              OR (sender_id = ? AND receiver_id = ?)
+           ORDER BY created_at DESC
+           LIMIT ?
+         ) AS recent_messages
+         ORDER BY created_at ASC`,
       )
       .all(userId, contactId, contactId, userId, limit) as ChatMessage[]
   }

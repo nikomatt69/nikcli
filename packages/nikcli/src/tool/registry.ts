@@ -1,6 +1,7 @@
 import { plugin } from "bun"
 import { QuestionTool } from "./question"
 import { BashTool } from "./bash"
+import { MonitorTool } from "./monitor"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
 import { GrepTool } from "./grep"
@@ -137,6 +138,7 @@ export namespace ToolRegistry {
       InvalidTool,
       ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
       BashTool,
+      MonitorTool,
       ReadTool,
       TreeTool,
       GlobTool,

@@ -81,6 +81,7 @@ async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
       clearTimeout(timeout)
     }
 
+
     const handler = (data: Buffer) => {
       const str = data.toString()
       const match = str.match(/\x1b]11;([^\x07\x1b]+)/)
@@ -240,40 +241,44 @@ function App() {
 
   onMount(() => {
     void (async () => {
-      // --- User session check ---
-      const storedToken = UserDB.getActiveSessionSync()
-      const validUser = storedToken ? UserDB.verifySession(storedToken) : null
-      if (!validUser) {
-        // No session or expired — run login/register flow
-        await DialogLogin.run(dialog)
-      }
-      // --- End user session check ---
+      try {
+        // --- User session check ---
+        const storedToken = UserDB.getActiveSessionSync()
+        const validUser = storedToken ? UserDB.verifySession(storedToken) : null
+        if (!validUser) {
+          // No session or expired — run login/register flow
+          await DialogLogin.run(dialog)
+        }
+        // --- End user session check ---
 
-      const tuiConfig = await Instance.provide({
-        directory: process.cwd(),
-        fn: async () => {
-          initBrainScheduler()
-          return TuiConfig.get()
-        },
-      })
-      const api = createTuiApi({
-        command,
-        tuiConfig,
-        dialog,
-        keybind,
-        kv,
-        route,
-        routes,
-        bump,
-        sdk,
-        sync,
-        theme: themeCtx,
-        toast,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        renderer: renderer as any,
-      })
-      await TuiPluginRuntime.init(api)
-      setPluginsReady(true)
+        const tuiConfig = await Instance.provide({
+          directory: sdk.directory || process.cwd(),
+          fn: async () => {
+            initBrainScheduler()
+            return TuiConfig.get()
+          },
+        })
+        const api = createTuiApi({
+          command,
+          tuiConfig,
+          dialog,
+          keybind,
+          kv,
+          route,
+          routes,
+          bump,
+          sdk,
+          sync,
+          theme: themeCtx,
+          toast,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          renderer: renderer as any,
+        })
+        await TuiPluginRuntime.init(api)
+        setPluginsReady(true)
+      } catch (error) {
+        await exit(error)
+      }
     })()
   })
 
@@ -299,10 +304,11 @@ function App() {
         enabled: terminalTitleEnabled(),
         type: route.data.type,
         sessionID: route.data.type === "session" ? route.data.sessionID : null,
+        title: route.data.type === "session" ? (sync.session.get(route.data.sessionID)?.title ?? null) : null,
       }),
       (state) => {
         if (!state.enabled || Flag.NIKCLI_DISABLE_TERMINAL_TITLE) {
-          renderer.setTerminalTitle("Nikcli")
+          renderer.setTerminalTitle("")
           return
         }
 
@@ -312,12 +318,11 @@ function App() {
         }
 
         if (state.type === "session" && state.sessionID) {
-          const session = sync.session.get(state.sessionID)
-          if (!session || SessionApi.isDefaultTitle(session.title)) {
+          if (!state.title || SessionApi.isDefaultTitle(state.title)) {
             renderer.setTerminalTitle("Nikcli")
             return
           }
-          const title = session.title.length > 40 ? session.title.slice(0, 37) + "..." : session.title
+          const title = state.title.length > 40 ? state.title.slice(0, 37) + "..." : state.title
           renderer.setTerminalTitle(`OC | ${title}`)
         }
       },
@@ -400,19 +405,19 @@ function App() {
     },
     ...(Flag.NIKCLI_EXPERIMENTAL_WORKSPACES_TUI || Installation.isLocal()
       ? [
-          {
-            title: "Manage workspaces",
-            value: "workspace.list",
-            category: "Workspace",
-            suggested: true,
-            slash: {
-              name: "workspaces",
-            },
-            onSelect: () => {
-              dialog.replace(() => <DialogWorkspaceList />)
-            },
+        {
+          title: "Manage workspaces",
+          value: "workspace.list",
+          category: "Workspace",
+          suggested: true,
+          slash: {
+            name: "workspaces",
           },
-        ]
+          onSelect: () => {
+            dialog.replace(() => <DialogWorkspaceList />)
+          },
+        },
+      ]
       : []),
     {
       title: "New session",
@@ -727,7 +732,7 @@ function App() {
       title: "Open docs",
       value: "docs.open",
       onSelect: () => {
-        open("https://nikcli.store/docs").catch(() => {})
+        open("https://nikcli.store/docs").catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -736,7 +741,7 @@ function App() {
       title: "Open WebUI",
       value: "webui.open",
       onSelect: () => {
-        open(sdk.url).catch(() => {})
+        open(sdk.url).catch(() => { })
         dialog.clear()
       },
       category: "System",
@@ -897,6 +902,17 @@ function App() {
           message: evt.properties.message,
           variant: evt.properties.variant,
           duration: evt.properties.duration,
+        })
+      }),
+      sdk.event.on("monitor.completed", (evt) => {
+        const variant =
+          evt.properties.status === "complete" ? "success" : evt.properties.status === "cancelled" ? "info" : "error"
+        const exit = evt.properties.exitCode
+        const suffix = exit === null ? "" : ` (exit ${exit})`
+        toast.show({
+          message: `${evt.properties.title} ${evt.properties.status}${suffix}`,
+          variant,
+          duration: evt.properties.status === "complete" ? 3500 : 5000,
         })
       }),
       sdk.event.on(TuiEvent.SessionSelect.type, (evt) => {
