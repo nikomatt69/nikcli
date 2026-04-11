@@ -1,208 +1,49 @@
 import { useCallback, useMemo, useState } from "react"
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native"
+import { ScrollView, Pressable, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Stack, useFocusEffect } from "expo-router"
-import {
-  AlertCircle,
-  ChevronDown,
-  ChevronUp,
-  Globe,
-  Key,
-  LogOut,
-  Play,
-  Plus,
-  RefreshCw,
-  Server,
-  Terminal,
-  Trash2,
-  Unplug,
-  Wifi,
-  WifiOff,
-} from "lucide-react-native"
-import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { ErrorBanner } from "@/components/ui/ErrorBanner"
+import { InfoChip } from "@/components/ui/InfoChip"
+import { SurfaceCard } from "@/components/ui/SurfaceCard"
+import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
-import { useAppTheme } from "@/lib/theme"
-import { triggerHaptic } from "@/lib/haptics"
 import { type HostConfigSnapshot, type HostMcpConfig, type HostMcpStatus } from "@/lib/types"
 
-function mcpStatusColors(status?: HostMcpStatus): { dot: string; label: string } {
-  if (!status) return { dot: "#8E8E93", label: "Unknown" }
+function optionChipClass(active: boolean) {
+  return active ? "border-accent/30 bg-accent/12" : "border-border bg-background/70"
+}
+
+function optionChipTextClass(active: boolean) {
+  return active ? "text-accent-light" : "text-ink"
+}
+
+function mcpTone(status?: HostMcpStatus): "accent" | "good" | "warn" | "neutral" {
+  if (!status) return "neutral"
+  if (status.status === "connected") return "good"
+  if (status.status === "needs_auth" || status.status === "failed" || status.status === "needs_client_registration")
+    return "warn"
+  return "neutral"
+}
+
+function mcpLabel(status?: HostMcpStatus) {
+  if (!status) return "Unknown"
   switch (status.status) {
-    case "connected": return { dot: "#34C759", label: "Connected" }
-    case "disabled": return { dot: "#8E8E93", label: "Disabled" }
-    case "needs_auth": return { dot: "#FF9500", label: "Needs auth" }
-    case "needs_client_registration": return { dot: "#FF9500", label: "Needs registration" }
-    case "failed": return { dot: "#FF3B30", label: "Failed" }
+    case "connected":
+      return "Connected"
+    case "disabled":
+      return "Disabled"
+    case "needs_auth":
+      return "Needs auth"
+    case "needs_client_registration":
+      return "Needs registration"
+    case "failed":
+      return "Failed"
   }
-}
-
-type McpServerCardProps = {
-  name: string
-  entry: HostMcpConfig
-  status: HostMcpStatus | undefined
-  saving: boolean
-  onToggle(enabled: boolean): void
-  onConnect(): void
-  onDisconnect(): void
-  onAuth(): void
-  onClearAuth(): void
-  onDelete(): void
-}
-
-function McpServerCard({ name, entry, status, saving, onToggle, onConnect, onDisconnect, onAuth, onClearAuth, onDelete }: McpServerCardProps) {
-  const { palette, isDark } = useAppTheme()
-  const [expanded, setExpanded] = useState(false)
-  const { dot, label: statusLabel } = mcpStatusColors(status)
-  const enabled = entry.enabled !== false
-  const isRemote = entry.type === "remote"
-  const isConnected = status?.status === "connected"
-  const needsAuth = status?.status === "needs_auth"
-
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: palette.surface,
-          borderColor: isConnected ? "rgba(52,199,89,0.30)" : palette.border,
-          shadowColor: palette.shadow,
-        },
-      ]}
-    >
-      <Pressable
-        onPress={() => {
-          void triggerHaptic("selection")
-          setExpanded((v) => !v)
-        }}
-        style={styles.cardHeader}
-      >
-        <View style={[styles.iconWrap, { backgroundColor: isRemote ? (isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)") : (isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)") }]}>
-          {isRemote
-            ? <Globe size={18} color={isConnected ? "#34C759" : palette.accentLight} strokeWidth={1.8} />
-            : <Terminal size={18} color={isConnected ? "#34C759" : palette.soft} strokeWidth={1.8} />}
-        </View>
-
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink, letterSpacing: -0.2 }} numberOfLines={1}>
-            {name}
-          </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 }}>
-            <View style={[styles.statusDot, { backgroundColor: dot }]} />
-            <Text style={{ fontSize: 12, fontWeight: "500", color: palette.muted }}>{statusLabel}</Text>
-            <Text style={{ fontSize: 11, color: palette.muted }}>· {entry.type}</Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Switch
-            value={enabled}
-            onValueChange={(val) => {
-              void triggerHaptic("selection")
-              onToggle(val)
-            }}
-            trackColor={{ false: palette.border, true: palette.accent }}
-            thumbColor="#ffffff"
-          />
-          {expanded
-            ? <ChevronUp size={15} color={palette.muted} strokeWidth={2} />
-            : <ChevronDown size={15} color={palette.muted} strokeWidth={2} />}
-        </View>
-      </Pressable>
-
-      {expanded ? (
-        <View style={styles.expandBody}>
-          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border, marginBottom: 12 }} />
-
-          {/* Endpoint */}
-          <View style={[styles.endpointRow, { backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderColor: palette.border }]}>
-            {isRemote
-              ? <Globe size={12} color={palette.muted} strokeWidth={2} />
-              : <Terminal size={12} color={palette.muted} strokeWidth={2} />}
-            <Text style={{ flex: 1, fontSize: 12, fontFamily: "monospace", lineHeight: 17, color: palette.soft }} numberOfLines={2} selectable>
-              {isRemote ? entry.url : entry.command.join(" ")}
-            </Text>
-          </View>
-
-          {/* Error */}
-          {status && "error" in status && status.error ? (
-            <View style={[styles.errorRow, { backgroundColor: isDark ? "rgba(255,59,48,0.10)" : "rgba(255,59,48,0.07)", borderColor: "rgba(255,59,48,0.22)", marginTop: 10 }]}>
-              <AlertCircle size={12} color="#FF3B30" strokeWidth={2} />
-              <Text style={{ fontSize: 12, color: "#FF3B30", flex: 1, lineHeight: 18 }}>{status.error}</Text>
-            </View>
-          ) : null}
-
-          {/* Actions */}
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 14 }}>
-            {!isConnected ? (
-              <Pressable
-                onPress={() => { void triggerHaptic("send"); onConnect() }}
-                disabled={saving}
-                style={({ pressed }) => [styles.actionBtn, { backgroundColor: "rgba(52,199,89,0.10)", borderColor: "rgba(52,199,89,0.25)", opacity: saving ? 0.5 : pressed ? 0.7 : 1 }]}
-              >
-                <Play size={13} color="#34C759" strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: "#34C759" }}>Connect</Text>
-              </Pressable>
-            ) : (
-              <Pressable
-                onPress={() => { void triggerHaptic("selection"); onDisconnect() }}
-                disabled={saving}
-                style={({ pressed }) => [styles.actionBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", borderColor: palette.border, opacity: saving ? 0.5 : pressed ? 0.7 : 1 }]}
-              >
-                <Unplug size={13} color={palette.soft} strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: palette.soft }}>Disconnect</Text>
-              </Pressable>
-            )}
-
-            {needsAuth ? (
-              <Pressable
-                onPress={() => { void triggerHaptic("send"); onAuth() }}
-                disabled={saving}
-                style={({ pressed }) => [styles.actionBtn, { backgroundColor: "rgba(255,149,0,0.10)", borderColor: "rgba(255,149,0,0.25)", opacity: saving ? 0.5 : pressed ? 0.7 : 1 }]}
-              >
-                <Key size={13} color="#FF9500" strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: "#FF9500" }}>Authenticate</Text>
-              </Pressable>
-            ) : null}
-
-            {(isConnected || needsAuth) ? (
-              <Pressable
-                onPress={() => { void triggerHaptic("error"); onClearAuth() }}
-                disabled={saving}
-                style={({ pressed }) => [styles.actionBtn, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", borderColor: palette.border, opacity: saving ? 0.5 : pressed ? 0.7 : 1 }]}
-              >
-                <LogOut size={13} color={palette.soft} strokeWidth={2} />
-                <Text style={{ fontSize: 13, fontWeight: "600", color: palette.soft }}>Clear auth</Text>
-              </Pressable>
-            ) : null}
-
-            <Pressable
-              onPress={() => { void triggerHaptic("error"); onDelete() }}
-              disabled={saving}
-              style={({ pressed }) => [styles.actionBtn, { backgroundColor: isDark ? "rgba(255,59,48,0.10)" : "rgba(255,59,48,0.07)", borderColor: "rgba(255,59,48,0.22)", opacity: saving ? 0.5 : pressed ? 0.7 : 1 }]}
-            >
-              <Trash2 size={13} color="#FF3B30" strokeWidth={2} />
-              <Text style={{ fontSize: 13, fontWeight: "600", color: "#FF3B30" }}>Remove</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  )
 }
 
 export default function McpSettingsScreen() {
   const { client } = useServer()
-  const { palette, isDark } = useAppTheme()
-  const { bottom } = useSafeAreaInsets()
   const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null)
   const [mcpStatus, setMcpStatus] = useState<Record<string, HostMcpStatus>>({})
   const [mcpName, setMcpName] = useState("")
@@ -212,10 +53,6 @@ export default function McpSettingsScreen() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [addOpen, setAddOpen] = useState(false)
-
-  const entries = useMemo(() => Object.entries(hostConfig?.mcp ?? {}), [hostConfig?.mcp])
-  const connectedCount = Object.values(mcpStatus).filter((s) => s.status === "connected").length
 
   const load = useCallback(async () => {
     if (!client) return
@@ -237,6 +74,8 @@ export default function McpSettingsScreen() {
     }, [load]),
   )
 
+  const entries = useMemo(() => Object.entries(hostConfig?.mcp ?? {}), [hostConfig?.mcp])
+
   async function saveConfig(nextMcp: NonNullable<HostConfigSnapshot["mcp"]>, successMessage: string) {
     if (!client || !hostConfig) return
     try {
@@ -256,9 +95,9 @@ export default function McpSettingsScreen() {
   async function addMcpServer() {
     if (!client) return
     const name = mcpName.trim()
-    if (!name) return setMessage("Server name is required")
-    if (mcpType === "remote" && !mcpUrl.trim()) return setMessage("Remote URL is required")
-    if (mcpType === "local" && !mcpCommand.trim()) return setMessage("Local command is required")
+    if (!name) return setMessage("MCP server name is required")
+    if (mcpType === "remote" && !mcpUrl.trim()) return setMessage("Remote MCP URL is required")
+    if (mcpType === "local" && !mcpCommand.trim()) return setMessage("Local MCP command is required")
 
     const nextMcp = { ...(hostConfig?.mcp ?? {}) }
     nextMcp[name] =
@@ -266,20 +105,10 @@ export default function McpSettingsScreen() {
         ? { type: "remote", url: mcpUrl.trim(), enabled: true }
         : { type: "local", command: mcpCommand.trim().split(/\s+/), enabled: true }
 
-    await saveConfig(nextMcp, `Added ${name}`)
+    await saveConfig(nextMcp, `Saved MCP server ${name}`)
     setMcpName("")
     setMcpUrl("")
     setMcpCommand("")
-    setAddOpen(false)
-    void triggerHaptic("success")
-  }
-
-  async function deleteMcpServer(name: string) {
-    if (!hostConfig?.mcp) return
-    const nextMcp = { ...hostConfig.mcp }
-    delete nextMcp[name]
-    await saveConfig(nextMcp, `Removed ${name}`)
-    void triggerHaptic("error")
   }
 
   async function toggleMcpEnabled(name: string, enabled: boolean) {
@@ -336,8 +165,7 @@ export default function McpSettingsScreen() {
       setSaving(true)
       await client.removeMcpAuth(name)
       await load()
-      setMessage(`Cleared auth for ${name}`)
-      void triggerHaptic("success")
+      setMessage(`Removed MCP auth for ${name}`)
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
     } finally {
@@ -347,295 +175,151 @@ export default function McpSettingsScreen() {
 
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: palette.background }}
+      className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: Math.max(bottom, 32) + 16, gap: 10 }}
+      contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 36 }}
     >
-      <Stack.Screen options={{ title: "MCP Servers" }} />
+      <Stack.Screen options={{ title: "MCP" }} />
 
-      {/* Header */}
-      <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border, shadowColor: palette.shadow, flexDirection: "row", alignItems: "center", gap: 14, padding: 16 }]}>
-        <View style={[styles.iconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)" }]}>
-          <Server size={20} color={palette.accentLight} strokeWidth={1.8} />
+      <SurfaceCard
+        eyebrow="Model Context Protocol"
+        title="Automation and capability endpoints"
+        description="Register remote or local MCP servers, monitor connection state, and recover auth flows without leaving mobile."
+      >
+        <View className="flex-row flex-wrap gap-2">
+          <InfoChip label={`${entries.length} configured`} tone={entries.length ? "accent" : "neutral"} />
+          <InfoChip label={`${Object.keys(mcpStatus).length} live statuses`} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: palette.ink, letterSpacing: -0.2 }}>Model Context Protocol</Text>
-          <Text style={{ fontSize: 12, lineHeight: 17, color: palette.muted, marginTop: 2 }}>
-            Register remote or local MCP servers and manage their lifecycle from mobile.
-          </Text>
-        </View>
-        <Pressable
-          onPress={() => { void triggerHaptic("selection"); void load() }}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          {loading
-            ? <ActivityIndicator size="small" color={palette.accent} />
-            : <RefreshCw size={16} color={palette.muted} strokeWidth={2} />}
-        </Pressable>
-      </View>
+      </SurfaceCard>
 
-      {/* Stats */}
-      <View style={{ flexDirection: "row", gap: 10 }}>
-        <View style={[styles.statPill, { backgroundColor: "rgba(52,199,89,0.10)", borderColor: "rgba(52,199,89,0.22)" }]}>
-          <Wifi size={13} color="#34C759" strokeWidth={2} />
-          <Text style={{ fontSize: 12, fontWeight: "600", color: "#34C759" }}>{connectedCount} live</Text>
-        </View>
-        <View style={[styles.statPill, { backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)", borderColor: palette.border }]}>
-          <Server size={13} color={palette.muted} strokeWidth={2} />
-          <Text style={{ fontSize: 12, fontWeight: "600", color: palette.muted }}>{entries.length} configured</Text>
-        </View>
-      </View>
+      {message ? <ErrorBanner message={message} /> : null}
 
-      {/* Error banner */}
-      {message ? (
-        <View style={[styles.errorRow, { backgroundColor: isDark ? "rgba(255,59,48,0.10)" : "rgba(255,59,48,0.07)", borderColor: "rgba(255,59,48,0.22)" }]}>
-          <AlertCircle size={14} color="#FF3B30" strokeWidth={2} />
-          <Text style={{ fontSize: 13, color: "#FF3B30", flex: 1, lineHeight: 18 }}>{message}</Text>
-        </View>
-      ) : null}
-
-      {/* Server list */}
-      {entries.length > 0 ? (
-        <>
-          <Text style={[styles.sectionLabel, { color: palette.muted }]}>Registered servers</Text>
-          {entries.map(([name, entry]) => (
-            <McpServerCard
-              key={name}
-              name={name}
-              entry={entry}
-              status={mcpStatus[name]}
-              saving={saving}
-              onToggle={(enabled) => void toggleMcpEnabled(name, enabled)}
-              onConnect={() => void connectMcp(name)}
-              onDisconnect={() => void disconnectMcp(name)}
-              onAuth={() => void authenticateMcp(name)}
-              onClearAuth={() => void clearMcpAuth(name)}
-              onDelete={() => void deleteMcpServer(name)}
-            />
-          ))}
-        </>
-      ) : !loading ? (
-        <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border, shadowColor: palette.shadow, padding: 20, alignItems: "center", gap: 10 }]}>
-          <WifiOff size={26} color={palette.muted} strokeWidth={1.6} />
-          <Text style={{ fontSize: 14, color: palette.muted, textAlign: "center", lineHeight: 20 }}>
-            No MCP servers configured yet. Add one below.
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Add server */}
-      <Text style={[styles.sectionLabel, { color: palette.muted, marginTop: 6 }]}>Add server</Text>
-      <View style={[styles.card, { backgroundColor: palette.surface, borderColor: palette.border, shadowColor: palette.shadow }]}>
-        <Pressable
-          onPress={() => { void triggerHaptic("selection"); setAddOpen((v) => !v) }}
-          style={styles.cardHeader}
-        >
-          <View style={[styles.iconWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)" }]}>
-            <Plus size={18} color={palette.accentLight} strokeWidth={2} />
-          </View>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: palette.ink, flex: 1, letterSpacing: -0.2 }}>
-            Register a new endpoint
-          </Text>
-          {addOpen
-            ? <ChevronUp size={15} color={palette.muted} strokeWidth={2} />
-            : <ChevronDown size={15} color={palette.muted} strokeWidth={2} />}
-        </Pressable>
-
-        {addOpen ? (
-          <View style={[styles.expandBody, { gap: 12 }]}>
-            <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border, marginBottom: 2 }} />
-
-            {/* Name */}
-            <View style={{ gap: 6 }}>
-              <Text style={[styles.inputLabel, { color: palette.muted }]}>Server name</Text>
-              <View style={[styles.inputWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", borderColor: palette.border }]}>
-                <TextInput
-                  value={mcpName}
-                  onChangeText={setMcpName}
-                  placeholder="github-enterprise"
-                  placeholderTextColor={palette.muted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={{ fontSize: 14, color: palette.ink }}
-                />
-              </View>
-            </View>
-
-            {/* Type */}
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              {(["remote", "local"] as const).map((type) => (
-                <Pressable
-                  key={type}
-                  onPress={() => setMcpType(type)}
-                  style={[
-                    styles.typeBtn,
-                    {
-                      flex: 1,
-                      backgroundColor: mcpType === type ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)") : (isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)"),
-                      borderColor: mcpType === type ? (isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.22)") : palette.border,
-                    },
-                  ]}
-                >
-                  {type === "remote"
-                    ? <Globe size={14} color={mcpType === type ? palette.accentLight : palette.muted} strokeWidth={2} />
-                    : <Terminal size={14} color={mcpType === type ? palette.accentLight : palette.muted} strokeWidth={2} />}
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: mcpType === type ? palette.accentLight : palette.muted }}>
-                    {type === "remote" ? "Remote" : "Local"}
-                  </Text>
-                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 1 }}>
-                    {type === "remote" ? "URL endpoint" : "Host command"}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* URL / command */}
-            <View style={{ gap: 6 }}>
-              <Text style={[styles.inputLabel, { color: palette.muted }]}>
-                {mcpType === "remote" ? "Remote URL" : "Command"}
-              </Text>
-              <View style={[styles.inputWrap, { backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)", borderColor: palette.border }]}>
-                <TextInput
-                  value={mcpType === "remote" ? mcpUrl : mcpCommand}
-                  onChangeText={mcpType === "remote" ? setMcpUrl : setMcpCommand}
-                  placeholder={mcpType === "remote" ? "https://mcp.example.com" : "bunx @modelcontextprotocol/server-github"}
-                  placeholderTextColor={palette.muted}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType={mcpType === "remote" ? "url" : "default"}
-                  style={{ fontSize: 14, color: palette.ink, fontFamily: mcpType === "remote" ? "monospace" : undefined }}
-                />
-              </View>
-            </View>
-
-            {/* Save button */}
+      <SurfaceCard
+        eyebrow="Add MCP server"
+        title="Register a new endpoint"
+        description="Create a remote URL-based MCP target or a host-local command endpoint."
+      >
+        <View className="gap-3">
+          <TextField
+            label="Server name"
+            value={mcpName}
+            onChangeText={setMcpName}
+            autoCapitalize="none"
+            placeholder="github-enterprise"
+          />
+          <View className="flex-row gap-2">
             <Pressable
-              onPress={() => void addMcpServer()}
-              disabled={saving}
-              style={({ pressed }) => [
-                styles.saveBtn,
-                {
-                  backgroundColor: isDark ? "rgba(255,255,255,0.90)" : palette.accent,
-                  opacity: saving ? 0.55 : pressed ? 0.78 : 1,
-                },
-              ]}
+              onPress={() => setMcpType("remote")}
+              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "remote")}`}
             >
-              {saving ? (
-                <ActivityIndicator size="small" color={isDark ? "#0a0a0a" : "#fff"} />
-              ) : (
-                <>
-                  <Plus size={15} color={isDark ? "#0a0a0a" : "#fff"} strokeWidth={2.4} />
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: isDark ? "#0a0a0a" : "#fff" }}>
-                    Add server
-                  </Text>
-                </>
-              )}
+              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}>Remote</Text>
+              <Text className="mt-1 text-xs leading-5 text-soft">URL-based MCP endpoint</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMcpType("local")}
+              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "local")}`}
+            >
+              <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}>Local</Text>
+              <Text className="mt-1 text-xs leading-5 text-soft">Host command launched by Nikcli</Text>
             </Pressable>
           </View>
-        ) : null}
-      </View>
+          {mcpType === "remote" ? (
+            <TextField
+              label="Remote URL"
+              value={mcpUrl}
+              onChangeText={setMcpUrl}
+              autoCapitalize="none"
+              placeholder="https://mcp.example.com"
+            />
+          ) : (
+            <TextField
+              label="Local command"
+              value={mcpCommand}
+              onChangeText={setMcpCommand}
+              autoCapitalize="none"
+              placeholder="bunx @modelcontextprotocol/server-github"
+            />
+          )}
+          <ActionButton label="Save MCP server" loading={saving} onPress={() => void addMcpServer()} />
+        </View>
+      </SurfaceCard>
+
+      <SurfaceCard
+        eyebrow="Configured servers"
+        title="Live status and auth"
+        description="Inspect host MCP endpoints and take focused actions per integration."
+      >
+        {loading ? (
+          <View className="items-center rounded-[22px] border border-border bg-background/60 px-4 py-5">
+            <Text className="text-sm text-soft">Loading MCP control plane…</Text>
+          </View>
+        ) : (
+          <View className="gap-3">
+            {entries.length ? (
+              entries.map(([name, entry]) => {
+                const status = mcpStatus[name]
+                const enabled = entry.enabled !== false
+                return (
+                  <View key={name} className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                    <View className="flex-row flex-wrap items-center gap-2">
+                      <Text className="text-base font-semibold text-ink">{name}</Text>
+                      <InfoChip label={entry.type} tone="accent" />
+                      <InfoChip label={mcpLabel(status)} tone={mcpTone(status)} />
+                      <InfoChip label={enabled ? "Enabled" : "Disabled"} />
+                    </View>
+                    <Text selectable className="mt-2 text-sm leading-5 text-soft">
+                      {entry.type === "remote" ? entry.url : entry.command.join(" ")}
+                    </Text>
+                    {status && "error" in status ? (
+                      <Text className="mt-2 text-xs leading-5 text-soft">{status.error}</Text>
+                    ) : null}
+                    <View className="mt-3 flex-row flex-wrap gap-2">
+                      <ActionButton
+                        label={enabled ? "Disable" : "Enable"}
+                        variant="secondary"
+                        loading={saving}
+                        onPress={() => void toggleMcpEnabled(name, !enabled)}
+                      />
+                      <ActionButton
+                        label="Connect"
+                        variant="ghost"
+                        loading={saving}
+                        onPress={() => void connectMcp(name)}
+                      />
+                      <ActionButton
+                        label="Disconnect"
+                        variant="ghost"
+                        loading={saving}
+                        onPress={() => void disconnectMcp(name)}
+                      />
+                      {status?.status === "needs_auth" ? (
+                        <ActionButton
+                          label="Auth"
+                          variant="secondary"
+                          loading={saving}
+                          onPress={() => void authenticateMcp(name)}
+                        />
+                      ) : null}
+                      {status?.status === "connected" || status?.status === "needs_auth" ? (
+                        <ActionButton
+                          label="Clear auth"
+                          variant="secondary"
+                          loading={saving}
+                          onPress={() => void clearMcpAuth(name)}
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                )
+              })
+            ) : (
+              <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </SurfaceCard>
     </ScrollView>
   )
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: 28,
-    borderWidth: 1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 14,
-    overflow: "hidden",
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    padding: 16,
-  },
-  iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  expandBody: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  endpointRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  errorRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  actionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  statPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-    paddingHorizontal: 4,
-    paddingTop: 4,
-  },
-  inputLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
-  inputWrap: {
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  typeBtn: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    gap: 4,
-  },
-  saveBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 16,
-  },
-})

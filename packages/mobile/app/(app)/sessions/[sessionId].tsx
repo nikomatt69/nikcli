@@ -8,17 +8,21 @@ import { AdaptiveBlur } from "@/components/GlassView"
 import { MessageBubble } from "@/components/MessageBubble"
 import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
-import { AttachmentPicker } from "@/components/session/AttachmentPicker"
+
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
+import { ComposerToolbar } from "@/components/session/ComposerToolbar"
+import { type ComposerTab } from "@/components/session/ComposerToolDrawer"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
+import { GitStatusBar } from "@/components/git/GitStatusBar"
+import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
 import { triggerHaptic } from "@/lib/haptics"
-import { sendLocalNotification } from "@/lib/notifications"
+import { sendLocalNotification, stopSessionLiveActivity, upsertSessionLiveActivity } from "@/lib/notifications"
 import { enqueueOp } from "@/lib/offline"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
@@ -27,11 +31,21 @@ import {
   MOBILE_DEFAULT_MODEL_ID,
   MOBILE_DEFAULT_PROVIDER_ID,
   type FileDiff,
+  type GitState,
   type MessageWithParts,
   type PromptStashEntry,
   type SessionDetail,
   type SessionStreamEvent,
 } from "@/lib/types"
+
+export type PendingAttachment = {
+  id: string
+  mime: string
+  filename: string
+  base64: string
+  previewUri?: string
+  sizeLabel?: string
+}
 import { useSessionStream } from "@/hooks/use-session-stream"
 
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
@@ -86,6 +100,59 @@ function messagePlainText(message: MessageWithParts) {
   return ""
 }
 
+function compactActivityText(value: string | null | undefined, limit = 72) {
+  if (!value) return ""
+  const normalized = value.replace(/\s+/g, " ").trim()
+  if (normalized.length <= limit) return normalized
+  return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
+}
+
+function buildLiveActivitySnapshot(detail: SessionDetail, input: { publishing: boolean; cleaning: boolean }) {
+  const title = compactActivityText(detail.info.title || "Nikcli session", 64)
+
+  if (input.publishing) {
+    return { mode: "upsert" as const, title, subtitle: "Publishing GitHub workflow" }
+  }
+
+  if (input.cleaning) {
+    return { mode: "upsert" as const, title, subtitle: "Cleaning GitHub worktree" }
+  }
+
+  if (detail.permissions.length > 0) {
+    const firstPermission = compactActivityText(detail.permissions[0]?.permission || "Approval needed", 54)
+    const subtitle =
+      detail.permissions.length === 1
+        ? `Approval needed: ${firstPermission}`
+        : `${detail.permissions.length} approvals pending`
+
+    return { mode: "upsert" as const, title, subtitle }
+  }
+
+  if (detail.status?.type === "retry") {
+    return {
+      mode: "upsert" as const,
+      title,
+      subtitle: compactActivityText(`Retry ${detail.status.attempt}: ${detail.status.message}`, 72),
+      countdownTo: detail.status.next,
+    }
+  }
+
+  if (detail.status?.type === "busy") {
+    const workspace = compactActivityText(
+      detail.info.github?.fullName || detail.info.directory || "Running session",
+      72,
+    )
+    return { mode: "upsert" as const, title, subtitle: workspace }
+  }
+
+  if (detail.status?.type === "idle") {
+    const subtitle = detail.info.github?.pullRequest ? "GitHub work ready" : "Ready for next command"
+    return { mode: "stop" as const, title, subtitle }
+  }
+
+  return null
+}
+
 export default function SessionScreen() {
   const { palette, isDark } = useAppTheme()
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>()
@@ -131,9 +198,13 @@ export default function SessionScreen() {
   const [activeMessageID, setActiveMessageID] = useState<string | null>(null)
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
-  const [attachPickerOpen, setAttachPickerOpen] = useState(false)
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [gitState, setGitState] = useState<GitState | null>(null)
+  const [gitLoading, setGitLoading] = useState(false)
+  const [gitReviewOpen, setGitReviewOpen] = useState(false)
+  const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; badge?: string }>>([])
+  const [mcpServers, setMcpServers] = useState<Array<{ name: string; connected: boolean; enabled: boolean }>>([])
   const actionsSheetRef = useActionSheetRef()
-  const attachSheetRef = useActionSheetRef()
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -177,12 +248,90 @@ export default function SessionScreen() {
     }
   }, [client])
 
+  const loadGitState = useCallback(async () => {
+    if (!client) {
+      setGitState(null)
+      return
+    }
+
+    try {
+      setGitLoading(true)
+      const state = await client.getGitStatus()
+      setGitState(state)
+    } catch (error) {
+      console.warn("Failed to load git state:", error)
+      setGitState(null)
+    } finally {
+      setGitLoading(false)
+    }
+  }, [client])
+
+  const loadPlugins = useCallback(async () => {
+    if (!client) {
+      setMcpServers([])
+      return
+    }
+
+    try {
+      const [hostConfig, mcpStatus] = await Promise.all([
+        client.getConfig(),
+        client.listMcpStatus(),
+      ])
+
+      const servers = Object.entries(hostConfig?.mcp ?? {}).map(([name, cfg]) => ({
+        name,
+        enabled: cfg.enabled !== false,
+        connected: mcpStatus[name]?.status === "connected",
+      }))
+      setMcpServers(servers)
+    } catch (error) {
+      console.warn("Failed to load plugins:", error)
+    }
+  }, [client])
+
+  const drawerSkills = useMemo(
+    () => commands.filter((c) => c.skill).map((c) => ({ name: c.name, description: c.description })),
+    [commands],
+  )
+
+  const drawerTools = useMemo(
+    () =>
+      commands
+        .filter((c) => !c.skill && !c.mcp && !c.subtask)
+        .map((c) => ({ name: c.name, description: c.description, enabled: true })),
+    [commands],
+  )
+
+  const loadAvailableModels = useCallback(async () => {
+    if (!client) return
+    try {
+      const providers = await client.listProviders()
+      const connectedSet = new Set(providers.connected)
+      const models = providers.all
+        .filter((p) => connectedSet.has(p.id))
+        .flatMap((p) =>
+          Object.values(p.models).map((m) => ({
+            id: `${p.id}/${m.id}`,
+            name: `${p.name} — ${m.name}`,
+            badge: m.id === providers.default[p.id] ? "Default" : undefined,
+          })),
+        )
+      setAvailableModels(models)
+    } catch (error) {
+      console.warn("Failed to load models:", error)
+      setAvailableModels([])
+    }
+  }, [client])
+
   useFocusEffect(
     useCallback(() => {
       void load()
       void loadCommands()
       void loadMemories()
-    }, [load, loadCommands, loadMemories]),
+      void loadGitState()
+      void loadPlugins()
+      void loadAvailableModels()
+    }, [load, loadCommands, loadMemories, loadGitState, loadPlugins, loadAvailableModels]),
   )
 
   useEffect(() => {
@@ -204,7 +353,7 @@ export default function SessionScreen() {
     if (!detail) return
     statusRef.current = detail.status
     permissionIDsRef.current = new Set(detail.permissions.map((item) => item.id))
-  }, [detail?.permissions, detail?.status])
+  }, [detail])
 
   useSessionStream({
     config,
@@ -215,11 +364,20 @@ export default function SessionScreen() {
       if (nextError) {
         setError(nextError)
         void triggerHaptic("error")
+        if (sessionId) {
+          void stopSessionLiveActivity({
+            sessionID: sessionId,
+            title: detail?.info.title || "Session failed",
+            subtitle: compactActivityText(nextError, 72),
+          })
+        }
         void sendLocalNotification({
           kind: "failures",
           title: detail?.info.title || "Session failed",
           body: nextError,
           dedupeKey: `${sessionId}:error:${nextError}`,
+          href: sessionId ? `/sessions/${sessionId}` : undefined,
+          sessionID: sessionId,
         })
         return
       }
@@ -234,6 +392,8 @@ export default function SessionScreen() {
             title: detail?.info.title || "Permission required",
             body: event.properties.permission,
             dedupeKey: `${sessionId}:permission:${requestID}`,
+            href: sessionId ? `/sessions/${sessionId}` : undefined,
+            sessionID: sessionId,
           })
         }
       }
@@ -254,6 +414,8 @@ export default function SessionScreen() {
             title: detail?.info.title || "Session ready",
             body: "Execution is idle and ready for the next command.",
             dedupeKey: `${sessionId}:idle`,
+            href: sessionId ? `/sessions/${sessionId}` : undefined,
+            sessionID: sessionId,
           })
         }
         statusRef.current = { type: "idle" }
@@ -304,6 +466,10 @@ export default function SessionScreen() {
   const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
   const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
+  const liveActivitySnapshot = useMemo(
+    () => (detail && sessionId ? buildLiveActivitySnapshot(detail, { publishing, cleaning }) : null),
+    [cleaning, detail, publishing, sessionId],
+  )
   const preferredModel = useMemo(
     () => ({
       providerID: config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID,
@@ -311,6 +477,30 @@ export default function SessionScreen() {
     }),
     [config?.modelID, config?.modelProviderID],
   )
+
+  useEffect(() => {
+    if (!sessionId || !liveActivitySnapshot) return
+
+    if (liveActivitySnapshot.mode === "upsert") {
+      void upsertSessionLiveActivity({
+        sessionID: sessionId,
+        title: liveActivitySnapshot.title,
+        subtitle: liveActivitySnapshot.subtitle,
+        countdownTo: liveActivitySnapshot.countdownTo,
+      })
+      return
+    }
+
+    void stopSessionLiveActivity({
+      sessionID: sessionId,
+      title: liveActivitySnapshot.title,
+      subtitle: liveActivitySnapshot.subtitle,
+    })
+  }, [liveActivitySnapshot, sessionId])
+  const modelLabel = useMemo(() => {
+    const id = config?.modelID ?? MOBILE_DEFAULT_MODEL_ID
+    return id.split(/[-/]/).pop() ?? id
+  }, [config?.modelID])
   const slashInput = useMemo(() => parseSlashCommand(input), [input])
   const slashSuggestions = useMemo(() => {
     if (!composerPreferences.slashSuggestions) return []
@@ -340,6 +530,7 @@ export default function SessionScreen() {
                 : undefined,
       }))
   }, [commands, composerPreferences.slashSuggestions, input])
+  const activeMcpCount = useMemo(() => commands.filter((c) => c.mcp).length, [commands])
 
   async function handleRename(title: string) {
     if (!client || !sessionId) return
@@ -381,23 +572,14 @@ export default function SessionScreen() {
     void triggerHaptic("success")
   }
 
-  function handleAttach() {
-    attachSheetRef.current?.present()
+  function handleAddAttachment(item: PendingAttachment) {
+    void triggerHaptic("selection")
+    setPendingAttachments((prev) => [...prev, item])
   }
 
-  async function handleAttachFile(mime: string, filename: string, base64: string) {
-    if (!client || !sessionId || cleaned) return
-    try {
-      setSending(true)
-      setError(null)
-      await client.sendParts(sessionId, [{ type: "file", mime, filename, url: `data:${mime};base64,${base64}` }])
-      void triggerHaptic("send")
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error))
-      void triggerHaptic("error")
-    } finally {
-      setSending(false)
-    }
+  function handleRemoveAttachment(id: string) {
+    void triggerHaptic("selection")
+    setPendingAttachments((prev) => prev.filter((a) => a.id !== id))
   }
 
   function openPublishModal() {
@@ -430,7 +612,22 @@ export default function SessionScreen() {
         mode === "plan"
           ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${text}`
           : text
-      await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
+      if (pendingAttachments.length > 0) {
+        const fileParts = pendingAttachments.map((a) => ({
+          type: "file" as const,
+          mime: a.mime,
+          filename: a.filename,
+          url: `data:${a.mime};base64,${a.base64}`,
+        }))
+        await client.sendParts(
+          sessionId,
+          [{ type: "text", text: payload }, ...fileParts],
+          hasUserPrompt ? undefined : { model: preferredModel },
+        )
+        setPendingAttachments([])
+      } else {
+        await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
+      }
       void triggerHaptic("send")
       setInput("")
     } catch (error) {
@@ -558,6 +755,8 @@ export default function SessionScreen() {
         title: detail.info.title,
         body: "GitHub publish workflow completed successfully.",
         dedupeKey: `${sessionId}:publish`,
+        href: `/sessions/${sessionId}`,
+        sessionID: sessionId,
       })
       setPublishOpen(false)
       await load()
@@ -885,7 +1084,56 @@ export default function SessionScreen() {
             description="Send the first instruction to start this execution timeline, stream tool activity, and capture approvals here."
           />
         }
-        contentContainerStyle={{ paddingBottom: 100, paddingTop: 10 }}
+        contentContainerStyle={{ paddingBottom: 16, paddingTop: 10 }}
+      />
+
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        {detail?.info.github && (
+          <GitStatusBar
+            gitState={gitState}
+            loading={gitLoading}
+            onPress={() => setGitReviewOpen(true)}
+            onRefresh={() => void loadGitState()}
+          />
+        )}
+      </View>
+
+      <ComposerToolbar
+        onAttach={() => void triggerHaptic("selection")}
+        onGitPress={() => setGitReviewOpen(true)}
+        onModelSelect={(id) => {
+          if (!client || id === "default") return
+          void (async () => {
+            try {
+              const [providerID, modelID] = id.split("/")
+              await client.updateConfig({ modelID, modelProviderID: providerID })
+              void triggerHaptic("selection")
+            } catch (error) {
+              console.warn("Failed to update model:", error)
+              void triggerHaptic("error")
+            }
+          })()
+        }}
+        onMcpToggle={(name, enabled) => {
+          if (!client) return
+          void (async () => {
+            try {
+              await client.toggleMcp(name, enabled)
+              await loadPlugins()
+              void triggerHaptic("selection")
+            } catch (error) {
+              console.warn("Failed to toggle MCP:", error)
+              void triggerHaptic("error")
+            }
+          })()
+        }}
+        modelLabel={modelLabel}
+        availableModels={availableModels}
+        mcpServers={mcpServers}
+        skills={drawerSkills}
+        tools={drawerTools}
+        onSkillSelect={insertSlashCommand}
+        onToolSelect={insertSlashCommand}
       />
 
       <SessionComposer
@@ -898,13 +1146,15 @@ export default function SessionScreen() {
         sending={sending}
         sessionBlocked={sessionBlocked}
         cleaned={cleaned}
-        onOpenCommands={() => {
-          setCommandQuery("")
-          setCommandPaletteOpen(true)
-        }}
+        onOpenCommands={() => setCommandPaletteOpen(true)}
         onSelectSlash={insertSlashCommand}
         onSend={() => void send()}
-        onAttach={handleAttach}
+        onStop={() => void abort()}
+        pendingAttachments={pendingAttachments}
+        onAddAttachment={handleAddAttachment}
+        onRemoveAttachment={handleRemoveAttachment}
+        modelLabel={modelLabel}
+        activeMcpCount={activeMcpCount}
       />
 
       <CommandPaletteSheet
@@ -962,9 +1212,26 @@ export default function SessionScreen() {
         onSave={(title) => void handleRename(title)}
       />
 
-      <AttachmentPicker
-        sheetRef={attachSheetRef}
-        onFile={(mime, filename, base64) => void handleAttachFile(mime, filename, base64)}
+      <GitReviewModal
+        visible={gitReviewOpen}
+        onClose={() => setGitReviewOpen(false)}
+        sessionID={sessionId ?? ""}
+        github={
+          detail?.info.github
+            ? {
+                owner: detail.info.github.owner,
+                repo: detail.info.github.repo,
+                baseBranch: detail.info.github.baseBranch,
+                headBranch: detail.info.github.headBranch,
+                pullRequest: detail.info.github.pullRequest,
+              }
+            : undefined
+        }
+        onCommit={async (message, files) => {
+          if (!client) return
+          await client.createGitCommit(message, files)
+        }}
+        onPublish={openPublishModal}
       />
     </KeyboardAvoidingView>
   )

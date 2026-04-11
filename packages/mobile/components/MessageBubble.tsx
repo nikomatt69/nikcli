@@ -175,7 +175,7 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
   return (
     <View
       key={props.node.key}
-      className="mt-2 overflow-hidden rounded-2xl border"
+      className="mt-1 mb-0 overflow-hidden rounded-2xl border"
       style={{ backgroundColor: palette.codeBlockBackground, borderColor: palette.border }}
     >
       <View
@@ -183,9 +183,9 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         style={{ backgroundColor: `${palette.codeBlockBackground}dd`, borderBottomColor: palette.border }}
       >
         <View className="flex-row items-center gap-2">
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.danger }} />
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#f59e0b" }} />
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: palette.success }} />
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#ff5f57" }} />
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#ffbd2e" }} />
+          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#28c840" }} />
         </View>
         <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: palette.accentLight }}>
           {language}
@@ -406,8 +406,8 @@ export function MessageBubble(props: {
                         : "rgba(193,208,223,0.72)",
                     backgroundColor: isUser
                       ? isDark
-                        ? "rgba(135, 101, 101, 0.66)"
-                        : "rgba(14, 150, 212, 0.08)"
+                        ? "rgba(255,255,255,0.08)"
+                        : "rgba(14,165,233,0.10)"
                       : isDark
                         ? "rgba(255,255,255,0.04)"
                         : "rgba(241,246,251,0.78)",
@@ -425,7 +425,7 @@ export function MessageBubble(props: {
             <View className="items-end gap-1">
               {assistantInfo && (cost > 0 || tokens > 0) ? (
                 <Text className="text-[10px] text-muted" style={{ fontVariant: ["tabular-nums"] }}>
-                  ${cost.toFixed(5)} · {tokens.toLocaleString()} tok
+                  {cost > 0 ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}` : null}{cost > 0 && tokens > 0 ? " · " : null}{tokens > 0 ? `${tokens.toLocaleString()} tok` : null}
                 </Text>
               ) : null}
               <Text className="text-[10px] text-muted">{timeLabel}</Text>
@@ -433,13 +433,13 @@ export function MessageBubble(props: {
           </View>
 
           {text || assistantError ? (
-            <View className="min-w-0 border-t border-border/80 px-3.5 py-3">
+            <View className="min-w-0 border-t border-border/80 px-3.5 pt-3 pb-2">
               {text ? (
                 <Markdown
                   rules={markdownRules}
                   style={{
-                    body: { color: palette.ink, fontSize: 14, lineHeight: 22 },
-                    paragraph: { marginTop: 0, marginBottom: 10 },
+                    body: { color: palette.ink, fontSize: 14, lineHeight: 22, marginBottom: 0 },
+                    paragraph: { marginTop: 0, marginBottom: 8 },
                     heading1: { color: palette.ink, fontSize: 18, fontWeight: "700", marginTop: 12, marginBottom: 8 },
                     heading2: { color: palette.ink, fontSize: 16, fontWeight: "700", marginTop: 10, marginBottom: 6 },
                     heading3: { color: palette.ink, fontSize: 14, fontWeight: "700", marginTop: 8, marginBottom: 4 },

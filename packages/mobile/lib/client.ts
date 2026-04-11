@@ -5,10 +5,6 @@ import type {
   ConnectorStatus,
   FilePart,
   FileDiff,
-  GitBranch,
-  GitCommit,
-  GitFileStatus,
-  GitState,
   GitHubBranch,
   GitHubDeviceAuthPollResult,
   GitHubDeviceAuthStart,
@@ -24,7 +20,6 @@ import type {
   MobileExecutionTarget,
   ModelRef,
   MobileBootstrap,
-  ParsedFileDiff,
   ProviderCatalog,
   PromptHistoryEntry,
   PromptPreset,
@@ -219,6 +214,39 @@ export class MobileClient {
     })
   }
 
+  toggleMcp(name: string, enabled: boolean) {
+    return this.request<Record<string, HostMcpStatus>>(`/mcp/${encodeURIComponent(name)}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  getGitStatus() {
+    return this.request<import("@/lib/types").GitState>("/git/status")
+  }
+
+  getGitCommits(limit: number = 20) {
+    return this.request<import("@/lib/types").GitCommit[]>(`/git/commits?limit=${limit}`)
+  }
+
+  getGitDiff() {
+    return this.request<import("@/lib/types").ParsedFileDiff[]>("/git/diff")
+  }
+
+  stageGitFiles(paths: string[]) {
+    return this.request<boolean>("/git/stage", {
+      method: "POST",
+      body: JSON.stringify({ paths }),
+    })
+  }
+
+  createGitCommit(message: string, files?: string[]) {
+    return this.request<boolean>("/git/commit", {
+      method: "POST",
+      body: JSON.stringify({ message, files }),
+    })
+  }
+
   startMcpAuth(name: string) {
     return this.request<{ authorizationUrl: string }>(`/mcp/${encodeURIComponent(name)}/auth`, {
       method: "POST",
@@ -395,74 +423,6 @@ export class MobileClient {
     return this.request<{ success: true }>(`/mobile/session/${encodeURIComponent(sessionID)}/rename`, {
       method: "POST",
       body: JSON.stringify({ title }),
-    })
-  }
-
-  getGitStatus() {
-    return this.request<GitState>("/mobile/git/status")
-  }
-
-  getGitDiff(filePath?: string) {
-    const query = filePath ? `?file=${encodeURIComponent(filePath)}` : ""
-    return this.request<ParsedFileDiff[]>(`/mobile/git/diff${query}`)
-  }
-
-  getGitCommits(limit?: number) {
-    const query = limit ? `?limit=${limit}` : ""
-    return this.request<GitCommit[]>(`/mobile/git/commits${query}`)
-  }
-
-  getGitBranches() {
-    return this.request<GitBranch[]>("/mobile/git/branches")
-  }
-
-  createGitCommit(message: string, files?: string[]) {
-    return this.request<{ sha: string; message: string }>("/mobile/git/commit", {
-      method: "POST",
-      body: JSON.stringify({ message, files }),
-    })
-  }
-
-  checkoutGitBranch(branchName: string) {
-    return this.request<{ success: true }>("/mobile/git/checkout", {
-      method: "POST",
-      body: JSON.stringify({ branch: branchName }),
-    })
-  }
-
-  stageGitFiles(files: string[]) {
-    return this.request<{ success: true }>("/mobile/git/stage", {
-      method: "POST",
-      body: JSON.stringify({ files }),
-    })
-  }
-
-  unstageGitFiles(files: string[]) {
-    return this.request<{ success: true }>("/mobile/git/unstage", {
-      method: "POST",
-      body: JSON.stringify({ files }),
-    })
-  }
-
-  discardGitChanges(files: string[]) {
-    return this.request<{ success: true }>("/mobile/git/discard", {
-      method: "POST",
-      body: JSON.stringify({ files }),
-    })
-  }
-
-  pushGitBranch(upstream?: string) {
-    return this.request<{ success: true; pushed: boolean }>(
-      `/mobile/git/push${upstream ? `?upstream=${encodeURIComponent(upstream)}` : ""}`,
-      {
-        method: "POST",
-      },
-    )
-  }
-
-  pullGitBranch() {
-    return this.request<{ success: true; pulled: boolean; conflicts?: string[] }>("/mobile/git/pull", {
-      method: "POST",
     })
   }
 

@@ -221,5 +221,39 @@ export const McpRoutes = lazy(() =>
         await MCP.disconnect(name)
         return c.json(true)
       },
+    )
+    .post(
+      "/:name/toggle",
+      describeRoute({
+        description: "Enable or disable an MCP server",
+        operationId: "mcp.toggle",
+        responses: {
+          200: {
+            description: "MCP server toggled successfully",
+            content: {
+              "application/json": {
+                schema: resolver(z.record(z.string(), MCP.Status)),
+              },
+            },
+          },
+          ...errors(404),
+        },
+      }),
+      validator("param", z.object({ name: z.string() })),
+      validator(
+        "json",
+        z.object({
+          enabled: z.boolean(),
+        }),
+      ),
+      async (c) => {
+        const { name } = c.req.valid("param")
+        const { enabled } = c.req.valid("json")
+        await Config.update({ mcp: { [name]: { enabled } } })
+        if (!enabled) {
+          await MCP.disconnect(name)
+        }
+        return c.json(await MCP.status())
+      },
     ),
 )

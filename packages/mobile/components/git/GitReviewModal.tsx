@@ -1,5 +1,5 @@
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
-import { useCallback, useEffect, useState } from "react"
+import { Animated, Easing, Modal, Pressable, ScrollView, Text, View } from "react-native"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ArrowLeft,
   ChevronLeft,
@@ -70,6 +70,113 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
   const [refreshKey, setRefreshKey] = useState(0)
 
   const headerHeight = top + 52
+  const entranceAnim = useRef(new Animated.Value(0)).current
+  const tabIndicatorAnim = useRef(new Animated.Value(0)).current
+  const contentFadeAnim = useRef(new Animated.Value(1)).current
+  const commitItemAnims = useRef<Map<string, Animated.Value>>(new Map())
+
+  useEffect(() => {
+    if (visible) {
+      contentFadeAnim.setValue(0)
+      Animated.parallel([
+        Animated.spring(entranceAnim, {
+          toValue: 1,
+          friction: 18,
+          tension: 65,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentFadeAnim, {
+          toValue: 1,
+          duration: 200,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start()
+    } else {
+      entranceAnim.setValue(0)
+    }
+  }, [visible, entranceAnim, contentFadeAnim])
+
+  const handleTabChange = (newTab: TabType) => {
+    Animated.sequence([
+      Animated.timing(contentFadeAnim, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.in(Easing.ease),
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentFadeAnim, {
+        toValue: 1,
+        duration: 180,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start()
+    setTab(newTab)
+  }
+
+  const getCommitItemAnim = (sha: string) => {
+    if (!commitItemAnims.current.has(sha)) {
+      commitItemAnims.current.set(sha, new Animated.Value(0))
+    }
+    return commitItemAnims.current.get(sha)!
+  }
+
+  useEffect(() => {
+    commits.forEach((commit, index) => {
+      const anim = getCommitItemAnim(commit.sha)
+      Animated.spring(anim, {
+        toValue: 1,
+        friction: 20,
+        tension: 80,
+        delay: index * 50,
+        useNativeDriver: true,
+      }).start()
+    })
+  }, [commits])
+
+  const headerAnimStyle = {
+    opacity: entranceAnim,
+    transform: [
+      {
+        translateY: entranceAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-20, 0],
+        }),
+      },
+    ],
+  }
+
+  const contentAnimStyle = {
+    opacity: contentFadeAnim,
+  }
+
+  const createPressAnim = () => {
+    const pressAnim = new Animated.Value(1)
+    return {
+      onPressIn: () => {
+        Animated.spring(pressAnim, {
+          toValue: 0.97,
+          friction: 20,
+          tension: 170,
+          useNativeDriver: true,
+        }).start()
+      },
+      onPressOut: () => {
+        Animated.spring(pressAnim, {
+          toValue: 1,
+          friction: 16,
+          tension: 150,
+          useNativeDriver: true,
+        }).start()
+      },
+      scaleAnim: pressAnim,
+    }
+  }
+
+  const closeButtonAnim = createPressAnim()
+  const refreshButtonAnim = createPressAnim()
+  const stageAllAnim = createPressAnim()
 
   const fetchGitData = useCallback(async () => {
     setLoading(true)
@@ -90,7 +197,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
           sha: c.sha,
           message: c.message,
           author: c.author.name,
-          timestamp: c.timestamp,
+          timestamp: c.author.timestamp,
           additions: c.additions,
           deletions: c.deletions,
           filesCount: c.filesCount,
@@ -153,50 +260,58 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={{ flex: 1, backgroundColor: palette.background }}>
+      <Animated.View style={[{ flex: 1, backgroundColor: palette.background }, headerAnimStyle]}>
         {/* Header */}
         <View
           style={{
-            height: headerHeight,
-            paddingTop: top,
+            paddingTop: top + 8,
+            paddingBottom: 0,
             borderBottomWidth: 1,
             borderBottomColor: palette.border,
             backgroundColor: isDark ? palette.surface : palette.background,
           }}
         >
-          <View style={{ flex: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 }}>
-            <Pressable
-              onPress={onClose}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <ArrowLeft size={18} color={palette.ink} />
-            </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12 }}>
+            <Animated.View style={{ transform: [{ scale: closeButtonAnim.scaleAnim }] }}>
+              <Pressable
+                onPress={onClose}
+                onPressIn={closeButtonAnim.onPressIn}
+                onPressOut={closeButtonAnim.onPressOut}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <ArrowLeft size={18} color={palette.ink} />
+              </Pressable>
+            </Animated.View>
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={{ fontSize: 17, fontWeight: "600", color: palette.ink }}>Review Changes</Text>
               <Text style={{ fontSize: 12, color: palette.soft }}>
                 {github ? `${github.owner}/${github.repo}` : "Local repository"}
               </Text>
             </View>
-            <Pressable
-              onPress={handleRefresh}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <RefreshCw size={16} color={palette.ink} />
-            </Pressable>
+            <Animated.View style={{ transform: [{ scale: refreshButtonAnim.scaleAnim }] }}>
+              <Pressable
+                onPress={handleRefresh}
+                onPressIn={refreshButtonAnim.onPressIn}
+                onPressOut={refreshButtonAnim.onPressOut}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <RefreshCw size={16} color={palette.ink} />
+              </Pressable>
+            </Animated.View>
           </View>
 
           {/* Branch info */}
@@ -223,30 +338,49 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
 
           {/* Tabs */}
           <View style={{ flexDirection: "row", paddingHorizontal: 16, gap: 8 }}>
-            {(["changes", "commits", "review"] as TabType[]).map((t) => (
-              <Pressable
-                key={t}
-                onPress={() => setTab(t)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  borderRadius: 12,
-                  backgroundColor: tab === t ? palette.accent : "transparent",
-                  borderWidth: 1,
-                  borderColor: tab === t ? palette.accent : palette.border,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 12, fontWeight: "600", color: tab === t ? "#fff" : palette.soft }}>
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </Text>
-              </Pressable>
-            ))}
+            {(["changes", "commits", "review"] as TabType[]).map((t) => {
+              const tabAnim = useRef(new Animated.Value(1)).current
+              return (
+                <Animated.View key={t} style={{ flex: 1, transform: [{ scale: tabAnim }] }}>
+                  <Pressable
+                    onPress={() => handleTabChange(t)}
+                    onPressIn={() => {
+                      Animated.spring(tabAnim, {
+                        toValue: 0.96,
+                        friction: 20,
+                        tension: 170,
+                        useNativeDriver: true,
+                      }).start()
+                    }}
+                    onPressOut={() => {
+                      Animated.spring(tabAnim, {
+                        toValue: 1,
+                        friction: 16,
+                        tension: 150,
+                        useNativeDriver: true,
+                      }).start()
+                    }}
+                    style={{
+                      paddingVertical: 10,
+                      borderRadius: 12,
+                      backgroundColor: tab === t ? palette.accent : "transparent",
+                      borderWidth: 1,
+                      borderColor: tab === t ? palette.accent : palette.border,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: tab === t ? "#fff" : palette.soft }}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </Text>
+                  </Pressable>
+                </Animated.View>
+              )
+            })}
           </View>
         </View>
 
         {/* Content */}
-        <View style={{ flex: 1 }}>
+        <Animated.View style={[{ flex: 1 }, contentAnimStyle]}>
           {/* Changes Tab */}
           {tab === "changes" && (
             <View style={{ flex: 1 }}>
@@ -282,19 +416,23 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
                     </Text>
                   </View>
                 </View>
-                <Pressable
-                  onPress={handleStageAll}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 8,
-                    backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.10)",
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(34,197,94,0.3)" : "rgba(34,197,94,0.2)",
-                  }}
-                >
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#22c55e" }}>Stage All</Text>
-                </Pressable>
+                <Animated.View style={{ transform: [{ scale: stageAllAnim.scaleAnim }] }}>
+                  <Pressable
+                    onPress={handleStageAll}
+                    onPressIn={stageAllAnim.onPressIn}
+                    onPressOut={stageAllAnim.onPressOut}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      backgroundColor: isDark ? "rgba(34,197,94,0.15)" : "rgba(34,197,94,0.10)",
+                      borderWidth: 1,
+                      borderColor: isDark ? "rgba(34,197,94,0.3)" : "rgba(34,197,94,0.2)",
+                    }}
+                  >
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#22c55e" }}>Stage All</Text>
+                  </Pressable>
+                </Animated.View>
               </View>
 
               {/* File tree */}
@@ -353,50 +491,88 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
                   <Text style={{ marginTop: 12, color: palette.soft }}>No commits yet</Text>
                 </View>
               ) : (
-                commits.map((commit, index) => (
-                  <Pressable
-                    key={commit.sha}
-                    style={{
-                      flexDirection: "row",
-                      paddingHorizontal: 16,
-                      paddingVertical: 14,
-                      borderBottomWidth: 1,
-                      borderBottomColor: palette.border,
-                      backgroundColor: commit.isHead
-                        ? isDark
-                          ? "rgba(14,165,233,0.08)"
-                          : "rgba(14,165,233,0.05)"
-                        : "transparent",
-                    }}
-                  >
-                    <View style={{ width: 36, alignItems: "center" }}>
-                      <Circle
-                        size={10}
-                        fill={commit.isHead ? palette.accent : "transparent"}
-                        color={palette.accent}
-                        strokeWidth={2}
-                      />
-                      {index < commits.length - 1 && (
-                        <View style={{ flex: 1, width: 2, backgroundColor: palette.border, marginTop: 4 }} />
-                      )}
-                    </View>
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "500", color: palette.ink }} numberOfLines={2}>
-                        {commit.message}
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-                        <Text style={{ fontSize: 11, color: palette.muted }}>{commit.author}</Text>
-                        <Text style={{ fontSize: 10, color: palette.muted }}>·</Text>
-                        <Text style={{ fontSize: 11, color: palette.muted }}>{commit.sha.slice(0, 7)}</Text>
-                      </View>
-                      <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-                        <Text style={{ fontSize: 10, color: "#22c55e", fontWeight: "600" }}>+{commit.additions}</Text>
-                        <Text style={{ fontSize: 10, color: "#ef4444", fontWeight: "600" }}>-{commit.deletions}</Text>
-                        <Text style={{ fontSize: 10, color: palette.muted }}>{commit.filesCount} files</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))
+                commits.map((commit, index) => {
+                  const itemAnim = getCommitItemAnim(commit.sha)
+                  return (
+                    <Animated.View
+                      key={commit.sha}
+                      style={{
+                        transform: [
+                          {
+                            scale: itemAnim ? itemAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) : 1,
+                          },
+                        ],
+                        opacity: itemAnim ? itemAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }) : 1,
+                      }}
+                    >
+                      <Pressable
+                        onPressIn={() => {
+                          const itemScale = new Animated.Value(1)
+                          Animated.spring(itemScale, {
+                            toValue: 0.98,
+                            friction: 20,
+                            tension: 170,
+                            useNativeDriver: true,
+                          }).start()
+                        }}
+                        onPressOut={() => {
+                          const itemScale = new Animated.Value(1)
+                          Animated.spring(itemScale, {
+                            toValue: 1,
+                            friction: 16,
+                            tension: 150,
+                            useNativeDriver: true,
+                          }).start()
+                        }}
+                        style={({ pressed }) => ({
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
+                          opacity: pressed ? 0.8 : 1,
+                          flexDirection: "row",
+                          paddingHorizontal: 16,
+                          paddingVertical: 14,
+                          borderBottomWidth: 1,
+                          borderBottomColor: palette.border,
+                          backgroundColor: commit.isHead
+                            ? isDark
+                              ? "rgba(14,165,233,0.08)"
+                              : "rgba(14,165,233,0.05)"
+                            : "transparent",
+                        })}
+                      >
+                        <View style={{ width: 36, alignItems: "center" }}>
+                          <Circle
+                            size={10}
+                            fill={commit.isHead ? palette.accent : "transparent"}
+                            color={palette.accent}
+                            strokeWidth={2}
+                          />
+                          {index < commits.length - 1 && (
+                            <View style={{ flex: 1, width: 2, backgroundColor: palette.border, marginTop: 4 }} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={{ fontSize: 14, fontWeight: "500", color: palette.ink }} numberOfLines={2}>
+                            {commit.message}
+                          </Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+                            <Text style={{ fontSize: 11, color: palette.muted }}>{commit.author}</Text>
+                            <Text style={{ fontSize: 10, color: palette.muted }}>·</Text>
+                            <Text style={{ fontSize: 11, color: palette.muted }}>{commit.sha.slice(0, 7)}</Text>
+                          </View>
+                          <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                            <Text style={{ fontSize: 10, color: "#22c55e", fontWeight: "600" }}>
+                              +{commit.additions}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: "#ef4444", fontWeight: "600" }}>
+                              -{commit.deletions}
+                            </Text>
+                            <Text style={{ fontSize: 10, color: palette.muted }}>{commit.filesCount} files</Text>
+                          </View>
+                        </View>
+                      </Pressable>
+                    </Animated.View>
+                  )
+                })
               )}
             </ScrollView>
           )}
@@ -425,8 +601,8 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
               )}
             </View>
           )}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   )
 }

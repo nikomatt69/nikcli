@@ -1,5 +1,6 @@
 import {
-  ActivityIndicator,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -9,7 +10,18 @@ import {
   Text,
   View,
 } from "react-native"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
+
+const ENTRANCE_CONFIG = {
+  damping: 20,
+  stiffness: 260,
+  mass: 0.8,
+}
+
+const PRESS_CONFIG = {
+  friction: 20,
+  tension: 170,
+}
 import { AdaptiveBlur } from "@/components/GlassView"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
@@ -59,6 +71,147 @@ export function GitCommitSheet({
   const hasFilesToCommit = staged.length > 0 || selectedCount > 0
   const commitableFiles = tab === "staged" ? staged : allFiles
 
+  const entranceAnim = useRef(new Animated.Value(0)).current
+
+  interface AnimatedTabProps {
+    tab: string
+    active: boolean
+    label: string
+    isDark: boolean
+    palette: { border: string; ink: string; muted: string }
+    onPress: () => void
+  }
+
+  const AnimatedTab = ({ active, label, isDark, palette, onPress }: AnimatedTabProps) => {
+    const pressAnim = useRef(new Animated.Value(1)).current
+
+    return (
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => {
+          Animated.spring(pressAnim, {
+            toValue: 0.96,
+            ...PRESS_CONFIG,
+            useNativeDriver: true,
+          }).start()
+        }}
+        onPressOut={() => {
+          Animated.spring(pressAnim, {
+            toValue: 1,
+            friction: 16,
+            tension: 150,
+            useNativeDriver: true,
+          }).start()
+        }}
+      >
+        <Animated.View
+          style={{
+            flex: 1,
+            paddingVertical: 10,
+            borderRadius: 14,
+            backgroundColor: active ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)") : "transparent",
+            borderWidth: 1,
+            borderColor: active ? palette.border : "transparent",
+            alignItems: "center",
+            transform: [{ scale: pressAnim }],
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "600",
+              color: active ? palette.ink : palette.muted,
+            }}
+          >
+            {label}
+          </Text>
+        </Animated.View>
+      </Pressable>
+    )
+  }
+
+  const sheetAnim = useRef(new Animated.Value(0)).current
+  const backdropAnim = useRef(new Animated.Value(0)).current
+  const fileItemAnims = useRef<Map<string, Animated.Value>>(new Map())
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(backdropAnim, {
+          toValue: 1,
+          friction: 20,
+          tension: 65,
+          useNativeDriver: true,
+        }),
+        Animated.spring(sheetAnim, {
+          toValue: 1,
+          ...ENTRANCE_CONFIG,
+          useNativeDriver: true,
+        }),
+      ]).start()
+    } else {
+      Animated.parallel([
+        Animated.timing(backdropAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(sheetAnim, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start()
+    }
+  }, [visible, backdropAnim, sheetAnim])
+
+  useEffect(() => {
+    allFiles.forEach((file, index) => {
+      const key = file.path
+      if (!fileItemAnims.current.has(key)) {
+        fileItemAnims.current.set(key, new Animated.Value(0))
+      }
+      const anim = fileItemAnims.current.get(key)!
+      Animated.spring(anim, {
+        toValue: 1,
+        friction: 20,
+        tension: 80,
+        delay: index * 30,
+        useNativeDriver: true,
+      }).start()
+    })
+  }, [allFiles])
+
+  const getFileItemAnim = (path: string) => fileItemAnims.current.get(path) || new Animated.Value(1)
+
+  const createPressAnim = () => {
+    const pressAnim = useRef(new Animated.Value(1)).current
+    return {
+      pressAnim,
+      onPressIn: () => {
+        Animated.spring(pressAnim, {
+          toValue: 0.97,
+          ...PRESS_CONFIG,
+          useNativeDriver: true,
+        }).start()
+      },
+      onPressOut: () => {
+        Animated.spring(pressAnim, {
+          toValue: 1,
+          friction: 16,
+          tension: 150,
+          useNativeDriver: true,
+        }).start()
+      },
+    }
+  }
+
+  const closePressAnim = createPressAnim()
+  const commitPressAnim = createPressAnim()
+  const tabChangePressAnim = createPressAnim()
+
   async function handleCommit() {
     if (!commitMessage.trim() || committing) return
     try {
@@ -85,9 +238,14 @@ export function GitCommitSheet({
     })
   }
 
+  const sheetTranslateY = sheetAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [300, 0],
+  })
+
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
-      <View style={{ flex: 1 }}>
+    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
+      <Animated.View style={{ flex: 1, opacity: backdropAnim }}>
         <AdaptiveBlur
           tint={isDark ? "dark" : "light"}
           intensity={isDark ? 22 : 15}
@@ -113,7 +271,7 @@ export function GitCommitSheet({
               style={{ width: "100%", maxHeight: "88%" }}
               contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
             >
-              <View
+              <Animated.View
                 style={{
                   overflow: "hidden",
                   borderRadius: 34,
@@ -124,6 +282,7 @@ export function GitCommitSheet({
                   shadowRadius: 32,
                   shadowOffset: { width: 0, height: -6 },
                   elevation: 22,
+                  transform: [{ translateY: sheetTranslateY }, { scale: sheetAnim }],
                 }}
               >
                 <AdaptiveBlur
@@ -158,52 +317,22 @@ export function GitCommitSheet({
 
                   {/* Tabs */}
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
-                    <Pressable
+                    <AnimatedTab
+                      tab="changes"
+                      active={tab === "changes"}
+                      label={`Changes (${unstaged.length + untracked.length})`}
+                      isDark={isDark}
+                      palette={palette}
                       onPress={() => setTab("changes")}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 10,
-                        borderRadius: 14,
-                        backgroundColor:
-                          tab === "changes" ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)") : "transparent",
-                        borderWidth: 1,
-                        borderColor: tab === "changes" ? palette.border : "transparent",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "600",
-                          color: tab === "changes" ? palette.ink : palette.muted,
-                        }}
-                      >
-                        Changes ({unstaged.length + untracked.length})
-                      </Text>
-                    </Pressable>
-                    <Pressable
+                    />
+                    <AnimatedTab
+                      tab="staged"
+                      active={tab === "staged"}
+                      label={`Staged (${staged.length})`}
+                      isDark={isDark}
+                      palette={palette}
                       onPress={() => setTab("staged")}
-                      style={{
-                        flex: 1,
-                        paddingVertical: 10,
-                        borderRadius: 14,
-                        backgroundColor:
-                          tab === "staged" ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)") : "transparent",
-                        borderWidth: 1,
-                        borderColor: tab === "staged" ? palette.border : "transparent",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          fontWeight: "600",
-                          color: tab === "staged" ? palette.ink : palette.muted,
-                        }}
-                      >
-                        Staged ({staged.length})
-                      </Text>
-                    </Pressable>
+                    />
                   </View>
 
                   {/* File tree */}
@@ -251,11 +380,11 @@ export function GitCommitSheet({
                     </View>
                   </View>
                 </View>
-              </View>
+              </Animated.View>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
-      </View>
+      </Animated.View>
     </Modal>
   )
 }

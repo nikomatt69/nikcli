@@ -6571,6 +6571,379 @@ export type MobileSessionRenameResponses = {
 
 export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
+export type MobileGitStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/status"
+}
+
+export type MobileGitStatusResponses = {
+  /**
+   * Git status
+   */
+  200: {
+    branch: string
+    staged: Array<
+      | {
+          status: "added"
+          path: string
+          additions: number
+          deletions: number
+        }
+      | {
+          status: "modified"
+          path: string
+          additions: number
+          deletions: number
+        }
+      | {
+          status: "deleted"
+          path: string
+        }
+      | {
+          status: "renamed"
+          path: string
+          oldPath: string
+        }
+    >
+    unstaged: Array<
+      | {
+          status: "added"
+          path: string
+          additions: number
+          deletions: number
+        }
+      | {
+          status: "modified"
+          path: string
+          additions: number
+          deletions: number
+        }
+      | {
+          status: "deleted"
+          path: string
+        }
+      | {
+          status: "renamed"
+          path: string
+          oldPath: string
+        }
+    >
+    untracked: Array<string>
+    commitsAhead: number
+    commitsBehind: number
+    lastCommit?: {
+      sha: string
+      message: string
+      author: string
+      timestamp: number
+    }
+  }
+}
+
+export type MobileGitStatusResponse = MobileGitStatusResponses[keyof MobileGitStatusResponses]
+
+export type MobileGitDiffData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    file?: string
+  }
+  url: "/mobile/git/diff"
+}
+
+export type MobileGitDiffResponses = {
+  /**
+   * File diffs
+   */
+  200: Array<{
+    file: string
+    oldPath?: string
+    hunks: Array<{
+      header: {
+        oldStart: number
+        oldLines: number
+        newStart: number
+        newLines: number
+      }
+      lines: Array<{
+        type: "add" | "remove" | "context"
+        text: string
+        oldLineNumber?: number
+        newLineNumber?: number
+      }>
+    }>
+    isBinary: boolean
+    additions: number
+    deletions: number
+  }>
+}
+
+export type MobileGitDiffResponse = MobileGitDiffResponses[keyof MobileGitDiffResponses]
+
+export type MobileGitCommitsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/mobile/git/commits"
+}
+
+export type MobileGitCommitsResponses = {
+  /**
+   * Commits
+   */
+  200: Array<{
+    sha: string
+    message: string
+    author: {
+      name: string
+      email: string
+    }
+    timestamp: number
+    filesCount: number
+    additions: number
+    deletions: number
+  }>
+}
+
+export type MobileGitCommitsResponse = MobileGitCommitsResponses[keyof MobileGitCommitsResponses]
+
+export type MobileGitBranchesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/branches"
+}
+
+export type MobileGitBranchesResponses = {
+  /**
+   * Branches
+   */
+  200: Array<{
+    name: string
+    isCurrent: boolean
+    isProtected: boolean
+    aheadBy: number
+    behindBy: number
+  }>
+}
+
+export type MobileGitBranchesResponse = MobileGitBranchesResponses[keyof MobileGitBranchesResponses]
+
+export type MobileGitCommitData = {
+  body?: {
+    message: string
+    files?: Array<string>
+    amend?: boolean
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/commit"
+}
+
+export type MobileGitCommitErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGitCommitError = MobileGitCommitErrors[keyof MobileGitCommitErrors]
+
+export type MobileGitCommitResponses = {
+  /**
+   * Commit created
+   */
+  200: {
+    sha: string
+    message: string
+  }
+}
+
+export type MobileGitCommitResponse = MobileGitCommitResponses[keyof MobileGitCommitResponses]
+
+export type MobileGitCheckoutData = {
+  body?: {
+    branch: string
+    create?: boolean
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/checkout"
+}
+
+export type MobileGitCheckoutErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGitCheckoutError = MobileGitCheckoutErrors[keyof MobileGitCheckoutErrors]
+
+export type MobileGitCheckoutResponses = {
+  /**
+   * Branch switched
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGitCheckoutResponse = MobileGitCheckoutResponses[keyof MobileGitCheckoutResponses]
+
+export type MobileGitStageData = {
+  body?: {
+    files: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/stage"
+}
+
+export type MobileGitStageResponses = {
+  /**
+   * Files staged
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGitStageResponse = MobileGitStageResponses[keyof MobileGitStageResponses]
+
+export type MobileGitUnstageData = {
+  body?: {
+    files: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/unstage"
+}
+
+export type MobileGitUnstageResponses = {
+  /**
+   * Files unstaged
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGitUnstageResponse = MobileGitUnstageResponses[keyof MobileGitUnstageResponses]
+
+export type MobileGitDiscardData = {
+  body?: {
+    files: Array<string>
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/discard"
+}
+
+export type MobileGitDiscardResponses = {
+  /**
+   * Changes discarded
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileGitDiscardResponse = MobileGitDiscardResponses[keyof MobileGitDiscardResponses]
+
+export type MobileGitPushData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    upstream?: string
+  }
+  url: "/mobile/git/push"
+}
+
+export type MobileGitPushErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGitPushError = MobileGitPushErrors[keyof MobileGitPushErrors]
+
+export type MobileGitPushResponses = {
+  /**
+   * Branch pushed
+   */
+  200: {
+    success: true
+    pushed: boolean
+  }
+}
+
+export type MobileGitPushResponse = MobileGitPushResponses[keyof MobileGitPushResponses]
+
+export type MobileGitPullData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/git/pull"
+}
+
+export type MobileGitPullErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGitPullError = MobileGitPullErrors[keyof MobileGitPullErrors]
+
+export type MobileGitPullResponses = {
+  /**
+   * Changes pulled
+   */
+  200: {
+    success: true
+    pulled: boolean
+    conflicts?: Array<string>
+  }
+}
+
+export type MobileGitPullResponse = MobileGitPullResponses[keyof MobileGitPullResponses]
+
 export type FindTextData = {
   body?: never
   path?: never
@@ -7065,6 +7438,40 @@ export type McpDisconnectResponses = {
 }
 
 export type McpDisconnectResponse = McpDisconnectResponses[keyof McpDisconnectResponses]
+
+export type McpToggleData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mcp/{name}/toggle"
+}
+
+export type McpToggleErrors = {
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type McpToggleError = McpToggleErrors[keyof McpToggleErrors]
+
+export type McpToggleResponses = {
+  /**
+   * MCP server toggled successfully
+   */
+  200: {
+    [key: string]: McpStatus
+  }
+}
+
+export type McpToggleResponse = McpToggleResponses[keyof McpToggleResponses]
 
 export type TuiAppendPromptData = {
   body?: {

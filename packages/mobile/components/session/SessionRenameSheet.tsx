@@ -1,5 +1,15 @@
-import { useRef, useState } from "react"
-import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native"
+import { useEffect, useRef, useState } from "react"
+import {
+  Animated,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { useAppTheme } from "@/lib/theme"
@@ -18,6 +28,22 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
   const { palette, isDark } = useAppTheme()
   const [title, setTitle] = useState(currentTitle)
   const inputRef = useRef<TextInput>(null)
+  const translateY = useRef(new Animated.Value(80)).current
+  const opacityAnim = useRef(new Animated.Value(0)).current
+  const cancelScaleAnim = useRef(new Animated.Value(1)).current
+  const saveScaleAnim = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, damping: 20, stiffness: 260, mass: 0.8, useNativeDriver: true }),
+        Animated.spring(opacityAnim, { toValue: 1, damping: 18, stiffness: 280, mass: 0.85, useNativeDriver: true }),
+      ]).start()
+    } else {
+      translateY.setValue(80)
+      opacityAnim.setValue(0)
+    }
+  }, [visible])
 
   const trimmed = title.trim()
   const disabled = !trimmed || trimmed === currentTitle.trim()
@@ -43,25 +69,19 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
           fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
         />
         <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? "rgba(0,0,0,0.74)" : "rgba(15,23,42,0.24)" },
-          ]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.74)" : "rgba(15,23,42,0.24)" }]}
         />
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
           <Pressable style={{ flex: 1 }} onPress={onClose} />
 
           {/* Glass card */}
-          <View
+          <Animated.View
             style={{
               marginHorizontal: 16,
               marginBottom: Platform.OS === "ios" ? 28 : 16,
               overflow: "hidden",
-              borderRadius: 28,
+              borderRadius: 20,
               borderWidth: 1,
               borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
               shadowColor: "#000",
@@ -69,6 +89,8 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
               shadowRadius: 28,
               shadowOffset: { width: 0, height: -4 },
               elevation: 14,
+              transform: [{ translateY }],
+              opacity: opacityAnim,
             }}
           >
             <AdaptiveBlur
@@ -172,7 +194,9 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
                 />
               </View>
 
-              <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View
+                style={{ marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
+              >
                 <Text style={{ fontSize: 12, lineHeight: 16, color: palette.soft }}>
                   {title.length > 0 ? `${trimmed.length} characters` : "Start typing a title"}
                 </Text>
@@ -192,18 +216,68 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
             {/* Actions */}
             <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingBottom: 28, paddingTop: 12 }}>
               <View style={{ flex: 1 }}>
-                <ActionButton label="Cancel" variant="secondary" onPress={onClose} disabled={saving} />
+                <Pressable
+                  onPress={onClose}
+                  disabled={saving}
+                  onPressIn={() =>
+                    Animated.spring(cancelScaleAnim, {
+                      toValue: 0.94,
+                      damping: 20,
+                      stiffness: 300,
+                      useNativeDriver: true,
+                    }).start()
+                  }
+                  onPressOut={() =>
+                    Animated.spring(cancelScaleAnim, {
+                      toValue: 1,
+                      damping: 20,
+                      stiffness: 300,
+                      useNativeDriver: true,
+                    }).start()
+                  }
+                  style={({ pressed }) => ({
+                    transform: [{ scale: pressed ? 0.94 : cancelScaleAnim }],
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <ActionButton label="Cancel" variant="secondary" onPress={() => {}} disabled={saving} />
+                </Pressable>
               </View>
               <View style={{ flex: 1 }}>
-                <ActionButton
-                  label={saving ? "Saving…" : "Save"}
-                  disabled={disabled || saving || overLimit}
-                  loading={saving}
+                <Pressable
                   onPress={() => onSave(trimmed)}
-                />
+                  disabled={disabled || saving || overLimit}
+                  onPressIn={() =>
+                    Animated.spring(saveScaleAnim, {
+                      toValue: 0.94,
+                      damping: 20,
+                      stiffness: 300,
+                      useNativeDriver: true,
+                    }).start()
+                  }
+                  onPressOut={() =>
+                    Animated.spring(saveScaleAnim, {
+                      toValue: 1,
+                      damping: 20,
+                      stiffness: 300,
+                      useNativeDriver: true,
+                    }).start()
+                  }
+                  style={({ pressed }) => ({
+                    transform: [{ scale: pressed ? 0.94 : saveScaleAnim }],
+                    opacity: pressed ? 0.7 : 1,
+                  })}
+                >
+                  <ActionButton
+                    label={saving ? "Saving…" : "Save"}
+                    disabled={true}
+                    loading={saving}
+                    onPress={() => {}}
+                  />
+                </Pressable>
               </View>
             </View>
-          </View>
+          </Animated.View>
         </KeyboardAvoidingView>
       </View>
     </Modal>

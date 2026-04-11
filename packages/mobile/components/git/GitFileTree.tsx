@@ -30,7 +30,7 @@ function buildTree(files: GitFileStatus[]): FileTreeItem[] {
   const allPaths = new Set<string>()
   for (const file of files) {
     allPaths.add(file.path)
-    if (file.status === "renamed" && "oldPath" in file) {
+    if (file.status === "renamed" && file.oldPath) {
       allPaths.add(file.oldPath)
     }
   }

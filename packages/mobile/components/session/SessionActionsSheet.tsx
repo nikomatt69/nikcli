@@ -1,8 +1,9 @@
 import type { RefObject } from "react"
-import { Pressable, Text, View } from "react-native"
+import { Animated, Pressable, Text, View } from "react-native"
 import { Braces, Copy, FileText, PencilLine, type LucideIcon } from "lucide-react-native"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { useAppTheme } from "@/lib/theme"
+import { useRef } from "react"
 
 type Props = {
   sheetRef: RefObject<ActionSheetRef>
@@ -23,6 +24,27 @@ type RowProps = {
 
 function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowProps) {
   const { palette, isDark } = useAppTheme()
+  const scaleAnim = useRef(new Animated.Value(1)).current
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      damping: 20,
+      stiffness: 280,
+      mass: 0.85,
+      useNativeDriver: true,
+    }).start()
+  }
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      damping: 18,
+      stiffness: 300,
+      mass: 0.8,
+      useNativeDriver: true,
+    }).start()
+  }
 
   const iconBg =
     tone === "success"
@@ -55,8 +77,9 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row items-center gap-3.5 px-5 py-3.5"
-      style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : scaleAnim }], opacity: pressed ? 0.7 : 1 }]}
     >
       <View
         className="shrink-0 items-center justify-center rounded-[14px]"

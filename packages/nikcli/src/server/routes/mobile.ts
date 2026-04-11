@@ -623,7 +623,7 @@ async function pollGithubDeviceAuth(deviceCode: string) {
 }
 
 async function githubUser() {
-  const token = await githubToken()
+  const token = (await githubToken()) ?? undefined
   if (!token) return
   return GithubApi.getUser(token).catch(() => undefined)
 }
@@ -1106,7 +1106,7 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const token = await githubToken()
+        const token = (await githubToken()) ?? undefined
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
         const [repos, imports] = await Promise.all([GithubApi.listRepos(token, "all", "updated"), githubImports()])
         return c.json(
@@ -1138,7 +1138,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ owner: z.string(), repo: z.string() })),
       async (c) => {
-        const token = await githubToken()
+        const token = (await githubToken()) ?? undefined
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
         const params = c.req.valid("param")
         const branches = await GithubApi.listBranches(token, params.owner, params.repo)
@@ -1277,7 +1277,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", MobileGithubRepo.ImportRequest),
       async (c) => {
-        const token = await githubToken()
+        const token = (await githubToken()) ?? undefined
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
         const result = await MobileGithubRepo.importRepo(c.req.valid("json"), token)
         return c.json(result)
@@ -1300,7 +1300,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", MobileGithubSessionCreateInput),
       async (c) => {
-        const token = await githubToken()
+        const token = (await githubToken()) ?? undefined
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
 
         const body = c.req.valid("json")
@@ -1879,7 +1879,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       validator("json", MobileGithubPublishInput),
       async (c) => {
-        const token = await githubToken()
+        const token = (await githubToken()) ?? undefined
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
 
         const body = c.req.valid("json") ?? {}
@@ -2255,7 +2255,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const [statusOutput, branchOutput, aheadBehind] = await Promise.all([
               MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
                 cwd: Instance.directory,
@@ -2408,7 +2408,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const args = ["diff", "--no-color", "-U1000"]
             if (query?.file) {
@@ -2455,7 +2455,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const limit = query?.limit ?? 50
 
@@ -2537,7 +2537,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const branchOutput = await MobileGithubRepo.runGit(["branch", "-a", "-v"], {
               cwd: Instance.directory,
               token,
@@ -2605,7 +2605,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
 
@@ -2652,7 +2652,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             const args = body.create ? ["checkout", "-b", body.branch] : ["checkout", body.branch]
             await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
@@ -2679,7 +2679,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
@@ -2705,7 +2705,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["reset", "HEAD", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
@@ -2731,7 +2731,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["checkout", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
@@ -2762,7 +2762,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const currentBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], {
               cwd: Instance.directory,
@@ -2810,7 +2810,7 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const token = await githubToken()
+            const token = (await githubToken()) ?? undefined
             try {
               await MobileGithubRepo.runGit(["fetch", "origin"], { cwd: Instance.directory, token })
               await MobileGithubRepo.runGit(["pull", "--no-rebase"], { cwd: Instance.directory, token })

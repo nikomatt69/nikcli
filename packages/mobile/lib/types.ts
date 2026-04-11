@@ -168,15 +168,6 @@ export type FilePart = {
   url: string
 }
 
-export type PendingAttachment = {
-  id: string          // `${Date.now()}-${Math.random().toString(36).slice(2)}`
-  mime: string
-  filename: string
-  base64: string
-  previewUri?: string // local file URI for image thumbnails
-  sizeLabel?: string  // e.g. "128 KB"
-}
-
 export type ToolState =
   | { status: "pending"; input: Record<string, unknown>; raw: string }
   | { status: "running"; input: Record<string, unknown>; title?: string; time: { start: number } }
@@ -479,81 +470,6 @@ export type FileDiff = {
   deletions: number
 }
 
-export type GitFileStatus =
-  | { status: "added"; path: string; additions: number; deletions: number }
-  | { status: "modified"; path: string; additions: number; deletions: number }
-  | { status: "deleted"; path: string }
-  | { status: "renamed"; path: string; oldPath: string }
-  | { status: "untracked"; path: string }
-
-export type GitCommit = {
-  sha: string
-  message: string
-  author: { name: string; email: string }
-  timestamp: number
-  filesCount: number
-  additions: number
-  deletions: number
-}
-
-export type GitBranch = {
-  name: string
-  isCurrent: boolean
-  isProtected: boolean
-  aheadBy: number
-  behindBy: number
-}
-
-export type GitState = {
-  branch: string
-  staged: GitFileStatus[]
-  unstaged: GitFileStatus[]
-  untracked: string[]
-  commitsAhead: number
-  commitsBehind: number
-  lastCommit?: {
-    sha: string
-    message: string
-    author: string
-    timestamp: number
-  }
-}
-
-export type DiffLine = {
-  type: "add" | "remove" | "context"
-  text: string
-  oldLineNumber?: number
-  newLineNumber?: number
-}
-
-export type HunkHeader = {
-  oldStart: number
-  oldLines: number
-  newStart: number
-  newLines: number
-}
-
-export type DiffHunk = {
-  header: HunkHeader
-  lines: DiffLine[]
-}
-
-export type ParsedFileDiff = {
-  file: string
-  oldPath?: string
-  hunks: DiffHunk[]
-  isBinary: boolean
-  additions: number
-  deletions: number
-}
-
-export type CommitDraft = {
-  message: string
-  files: string[]
-  amend?: boolean
-  amendSha?: string
-}
-
 export type ManagedGithubImport = {
   owner: string
   repo: string
@@ -613,6 +529,57 @@ export type GitHubDeviceAuthStart = {
   interval: number
 }
 
+export type GitFileStatus = {
+  status: "added" | "modified" | "deleted" | "renamed" | "untracked"
+  path: string
+  oldPath?: string
+  additions?: number
+  deletions?: number
+}
+
+export type ParsedFileDiff = {
+  file: string
+  additions?: number
+  deletions?: number
+  hunks: Array<{
+    header: {
+      oldStart: number
+      oldLines: number
+      newStart: number
+      newLines: number
+    }
+    lines: Array<{
+      type: "add" | "remove" | "context"
+      text: string
+      oldLineNumber?: number
+      newLineNumber?: number
+    }>
+  }>
+}
+
+export type DiffHunk = ParsedFileDiff["hunks"][number]
+
+export type DiffLine = DiffHunk["lines"][number]
+
+export type GitCommit = {
+  sha: string
+  message: string
+  author: { name: string; email: string; timestamp: number }
+  timestamp: number
+  additions: number
+  deletions: number
+  filesCount: number
+}
+
+export type GitState = {
+  branch: string
+  staged: GitFileStatus[]
+  unstaged: GitFileStatus[]
+  untracked: string[]
+  commitsAhead: number
+  commitsBehind: number
+}
+
 export type GitHubDeviceAuthPollResult = {
   status: "pending" | "approved" | "denied" | "expired"
   interval?: number
@@ -633,6 +600,10 @@ export type SessionStreamEvent =
   | { type: "session.updated"; properties: { info: Session } }
   | { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
   | { type: "session.idle"; properties: { sessionID: string } }
+  | {
+      type: "session.error"
+      properties: { sessionID?: string; error?: { message?: string; data?: { message?: string } } }
+    }
   | { type: "permission.asked"; properties: PermissionRequest }
   | {
       type: "permission.replied"

@@ -15,7 +15,7 @@ import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 
-type SessionComposerProps = {
+export type SessionComposerProps = {
   mode: "plan" | "code"
   setMode(mode: "plan" | "code"): void
   input: string
@@ -33,6 +33,32 @@ type SessionComposerProps = {
   onSelectSlash(name: string): void
   onSend(): void
   onAttach?(): void
+  onStop?(): void
+  pendingAttachments?: Array<{
+    id: string
+    mime?: string
+    filename?: string
+    base64?: string
+    previewUri?: string
+    sizeLabel?: string
+    uri?: string
+    name?: string
+    type?: string
+  }>
+  onAddAttachment?(item: {
+    id: string
+    mime?: string
+    filename?: string
+    base64?: string
+    previewUri?: string
+    sizeLabel?: string
+    uri?: string
+    name?: string
+    type?: string
+  }): void
+  onRemoveAttachment?(id: string): void
+  modelLabel?: string
+  activeMcpCount?: number
 }
 
 const CHAR_COUNT_THRESHOLD = 100
@@ -193,19 +219,13 @@ export function SessionComposer({
 
   const borderColor = focusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [
-      palette.border,
-      isDark ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.38)",
-    ],
+    outputRange: [palette.border, isDark ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.38)"],
   })
 
   // Inactive → topbar glass; active → accent fill
   const sendBg = sendColorAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [
-      isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
-      palette.accent,
-    ],
+    outputRange: [isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)", palette.accent],
   })
 
   // Pill slides from left-edge-gap (2) to second segment start (SEGMENT_W + 2)
@@ -241,7 +261,7 @@ export function SessionComposer({
   return (
     <View
       style={{
-        backgroundColor: isDark ? "rgba(0,0,0,0.0)" : "rgba(241,246,251,0.0)",
+        backgroundColor: isDark ? palette.surface : palette.background,
         paddingBottom: Math.max(insets.bottom, 10),
       }}
     >
@@ -313,21 +333,27 @@ export function SessionComposer({
               borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
               shadowColor: palette.shadow,
               shadowOffset: { width: 0, height: 6 },
-              shadowOpacity: isDark ? 0.20 : 0.08,
+              shadowOpacity: isDark ? 0.2 : 0.08,
               shadowRadius: 14,
             }}
           >
             {/* Glass background */}
             <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)" }]}
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: isDark ? "rgba(17,17,17,0.94)" : "rgba(255,255,255,0.96)" },
+              ]}
               pointerEvents="none"
             />
             <View
-              style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(232,240,248,0.12)" }]}
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: isDark ? "rgba(255,255,255,0.012)" : "rgba(232,240,248,0.12)" },
+              ]}
               pointerEvents="none"
             />
 
-            {/* Header label */}
+            {/* Header */}
             <View
               style={{
                 flexDirection: "row",
@@ -348,7 +374,9 @@ export function SessionComposer({
                   color: palette.muted,
                 }}
               >
-                Commands
+                {slashSuggestions.length
+                  ? `${slashSuggestions.length} command${slashSuggestions.length > 1 ? "s" : ""}`
+                  : "Commands"}
               </Text>
               {slashLoading && <ActivityIndicator size="small" color={palette.accent} />}
             </View>
@@ -364,49 +392,40 @@ export function SessionComposer({
                   style={({ pressed }) => ({
                     flexDirection: "row",
                     alignItems: "center",
-                    paddingLeft: 14,
-                    paddingRight: 14,
-                    paddingVertical: 11,
+                    paddingHorizontal: 14,
+                    paddingVertical: 10,
                     backgroundColor: pressed
                       ? isDark
-                        ? "rgba(255,255,255,0.06)"
-                        : "rgba(14,165,233,0.05)"
+                        ? "rgba(255,255,255,0.07)"
+                        : "rgba(14,165,233,0.06)"
                       : "transparent",
                     borderBottomWidth: i < Math.min(slashSuggestions.length, 5) - 1 ? StyleSheet.hairlineWidth : 0,
                     borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
                   })}
                 >
-                  {/* Left accent — slash indicator */}
-                  <View
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 8,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.07)",
-                      marginRight: 12,
-                    }}
-                  >
+                  {/* Command name + description */}
+                  <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
                       style={{
-                        fontSize: 13,
-                        fontWeight: "700",
+                        fontSize: 14,
+                        fontWeight: "600",
+                        letterSpacing: -0.2,
                         color: palette.accentLight,
-                        lineHeight: 16,
                       }}
+                      numberOfLines={1}
                     >
-                      /
-                    </Text>
-                  </View>
-
-                  {/* Content */}
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={{ color: palette.ink, fontSize: 14, fontWeight: "500", letterSpacing: -0.1 }}>
-                      {item.name}
+                      /{item.name}
                     </Text>
                     {item.description ? (
-                      <Text style={{ color: palette.muted, fontSize: 11.5, marginTop: 1.5, lineHeight: 16 }} numberOfLines={1}>
+                      <Text
+                        style={{
+                          color: palette.soft,
+                          fontSize: 11.5,
+                          marginTop: 2,
+                          lineHeight: 15,
+                        }}
+                        numberOfLines={1}
+                      >
                         {item.description}
                       </Text>
                     ) : null}
@@ -420,20 +439,21 @@ export function SessionComposer({
                         borderRadius: 6,
                         borderWidth: 1,
                         borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.14)",
-                        paddingHorizontal: 8,
+                        paddingHorizontal: 7,
                         paddingVertical: 3,
                         marginLeft: 10,
+                        flexShrink: 0,
                       }}
                     >
-                      <Text style={{ color: palette.accentLight, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
-                        {item.badge}
+                      <Text style={{ color: palette.accentLight, fontSize: 9, fontWeight: "700", letterSpacing: 0.5 }}>
+                        {item.badge.toUpperCase()}
                       </Text>
                     </View>
                   ) : null}
                 </Pressable>
               ))
             ) : !slashLoading ? (
-              <View style={{ alignItems: "center", paddingVertical: 20 }}>
+              <View style={{ alignItems: "center", paddingVertical: 16 }}>
                 <Text style={{ color: palette.muted, fontSize: 13, fontWeight: "500" }}>No matching commands</Text>
               </View>
             ) : null}
@@ -494,11 +514,7 @@ export function SessionComposer({
               keyboardAppearance={isDark ? "dark" : "light"}
               returnKeyType="default"
               placeholder={
-                cleaned
-                  ? "Worktree cleaned up"
-                  : mode === "plan"
-                    ? "What would you like to plan?"
-                    : "Reply to Nikcli…"
+                cleaned ? "Worktree cleaned up" : mode === "plan" ? "What would you like to plan?" : "Reply to Nikcli…"
               }
               placeholderTextColor={palette.muted}
               style={{
@@ -578,7 +594,12 @@ export function SessionComposer({
                     transform: [{ scale: pressed ? 0.97 : 1 }],
                   })}
                 >
-                  <View style={[styles.segment, { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.78)" }]}>
+                  <View
+                    style={[
+                      styles.segment,
+                      { borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.78)" },
+                    ]}
+                  >
                     {/* Sliding pill indicator */}
                     <Animated.View
                       style={[
@@ -592,17 +613,21 @@ export function SessionComposer({
                     />
                     {/* Plan segment */}
                     <View style={styles.segmentItem}>
-                      <MapPin size={10} color={mode === "plan" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>
-                        Plan
-                      </Animated.Text>
+                      <MapPin
+                        size={10}
+                        color={mode === "plan" ? palette.accentLight : palette.muted}
+                        strokeWidth={2.2}
+                      />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelPlan }]}>Plan</Animated.Text>
                     </View>
                     {/* Code segment */}
                     <View style={styles.segmentItem}>
-                      <Code2 size={10} color={mode === "code" ? palette.accentLight : palette.muted} strokeWidth={2.2} />
-                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>
-                        Code
-                      </Animated.Text>
+                      <Code2
+                        size={10}
+                        color={mode === "code" ? palette.accentLight : palette.muted}
+                        strokeWidth={2.2}
+                      />
+                      <Animated.Text style={[styles.segmentLabel, { color: segmentLabelCode }]}>Code</Animated.Text>
                     </View>
                   </View>
                 </Pressable>
@@ -669,9 +694,7 @@ export function SessionComposer({
                         transform: [{ scale: pressed && !sendDisabled ? 0.93 : 1 }],
                       })}
                     >
-                      <Animated.View
-                        style={[StyleSheet.absoluteFill, { borderRadius: 13, backgroundColor: sendBg }]}
-                      />
+                      <Animated.View style={[StyleSheet.absoluteFill, { borderRadius: 13, backgroundColor: sendBg }]} />
                       <ArrowUp
                         size={20}
                         color={hasText && !sendBlocked ? (isDark ? "#0a0a0a" : "#ffffff") : palette.muted}

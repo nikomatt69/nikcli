@@ -13,6 +13,31 @@ import type {
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
 const USER_TOKEN_KEY = "nikcli_user_token"
+const REMEMBERED_USER_KEY = "nikcli_remembered_user"
+const LIVE_ACTIVITY_REGISTRY_KEY = "nikcli_live_activity_registry"
+
+export type RememberedUser = {
+  email: string
+  timestamp: number
+}
+
+export async function getRememberedUser(): Promise<RememberedUser | null> {
+  const raw = await SecureStore.getItemAsync(REMEMBERED_USER_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as RememberedUser
+  } catch {
+    return null
+  }
+}
+
+export async function setRememberedUser(email: string): Promise<void> {
+  await SecureStore.setItemAsync(REMEMBERED_USER_KEY, JSON.stringify({ email, timestamp: Date.now() }))
+}
+
+export async function clearRememberedUser(): Promise<void> {
+  await SecureStore.deleteItemAsync(REMEMBERED_USER_KEY)
+}
 
 export async function getUserToken(): Promise<string | null> {
   return SecureStore.getItemAsync(USER_TOKEN_KEY)
@@ -176,4 +201,29 @@ export async function getAppPreferences(): Promise<AppPreferences> {
 
 export async function setAppPreferences(preferences: AppPreferences): Promise<void> {
   await SecureStore.setItemAsync(APP_PREFERENCES_KEY, JSON.stringify(preferences))
+}
+
+export async function getLiveActivityRegistry(): Promise<Record<string, string>> {
+  const raw = await SecureStore.getItemAsync(LIVE_ACTIVITY_REGISTRY_KEY)
+  if (!raw) return {}
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] => typeof entry[0] === "string" && typeof entry[1] === "string",
+      ),
+    )
+  } catch {
+    return {}
+  }
+}
+
+export async function setLiveActivityRegistry(registry: Record<string, string>): Promise<void> {
+  if (!Object.keys(registry).length) {
+    await SecureStore.deleteItemAsync(LIVE_ACTIVITY_REGISTRY_KEY)
+    return
+  }
+
+  await SecureStore.setItemAsync(LIVE_ACTIVITY_REGISTRY_KEY, JSON.stringify(registry))
 }

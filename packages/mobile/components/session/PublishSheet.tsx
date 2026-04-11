@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Animated,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,6 +11,7 @@ import {
   View,
 } from "react-native"
 import type { Dispatch, SetStateAction } from "react"
+import { useEffect, useRef } from "react"
 import { AdaptiveBlur } from "@/components/GlassView"
 import type { SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -48,6 +50,38 @@ export function PublishSheet({
   onPublish,
 }: PublishSheetProps) {
   const { palette, isDark } = useAppTheme()
+  const translateY = useRef(new Animated.Value(100)).current
+  const opacityAnim = useRef(new Animated.Value(0)).current
+  const cancelScaleAnim = useRef(new Animated.Value(1)).current
+  const publishScaleAnim = useRef(new Animated.Value(1)).current
+  const pulseAnim = useRef(new Animated.Value(1)).current
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(translateY, { toValue: 0, damping: 20, stiffness: 240, mass: 0.85, useNativeDriver: true }),
+        Animated.spring(opacityAnim, { toValue: 1, damping: 18, stiffness: 280, mass: 0.8, useNativeDriver: true }),
+      ]).start()
+    } else {
+      translateY.setValue(100)
+      opacityAnim.setValue(0)
+    }
+  }, [visible])
+
+  useEffect(() => {
+    if (publishing) {
+      const pulse = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, { toValue: 1.15, duration: 800, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        ]),
+      )
+      pulse.start()
+      return () => pulse.stop()
+    } else {
+      pulseAnim.setValue(1)
+    }
+  }, [publishing])
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -60,27 +94,28 @@ export function PublishSheet({
           fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
         />
         <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)" },
-          ]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)" }]}
         />
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", paddingHorizontal: 16, paddingBottom: 24 }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "flex-end",
+              paddingHorizontal: 16,
+              paddingBottom: 24,
+            }}
+          >
             <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
             <ScrollView
               style={{ width: "100%", maxHeight: "88%" }}
               contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
             >
-              {/* Glass card */}
-              <View
+              <Animated.View
                 style={{
                   overflow: "hidden",
-                  borderRadius: 34,
+                  borderRadius: 20,
                   borderWidth: 1,
                   borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.82)",
                   shadowColor: "#000",
@@ -88,6 +123,8 @@ export function PublishSheet({
                   shadowRadius: 32,
                   shadowOffset: { width: 0, height: -6 },
                   elevation: 22,
+                  transform: [{ translateY }],
+                  opacity: opacityAnim,
                 }}
               >
                 <AdaptiveBlur
@@ -161,25 +198,78 @@ export function PublishSheet({
 
                   <View style={{ marginTop: 20, flexDirection: "row", gap: 8 }}>
                     <View style={{ flex: 1 }}>
-                      <ActionButton label="Cancel" variant="secondary" onPress={onClose} />
+                      <Pressable
+                        onPress={onClose}
+                        onPressIn={() =>
+                          Animated.spring(cancelScaleAnim, {
+                            toValue: 0.94,
+                            damping: 20,
+                            stiffness: 300,
+                            useNativeDriver: true,
+                          }).start()
+                        }
+                        onPressOut={() =>
+                          Animated.spring(cancelScaleAnim, {
+                            toValue: 1,
+                            damping: 20,
+                            stiffness: 300,
+                            useNativeDriver: true,
+                          }).start()
+                        }
+                        style={({ pressed }) => ({
+                          transform: [{ scale: pressed ? 0.94 : cancelScaleAnim }],
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <ActionButton label="Cancel" variant="secondary" onPress={() => {}} />
+                      </Pressable>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <ActionButton
-                        label="Publish now"
-                        disabled={publishing || sessionBlocked || cleaned}
+                      <Pressable
                         onPress={onPublish}
-                      />
+                        disabled={publishing || sessionBlocked || cleaned}
+                        onPressIn={() =>
+                          Animated.spring(publishScaleAnim, {
+                            toValue: 0.94,
+                            damping: 20,
+                            stiffness: 300,
+                            useNativeDriver: true,
+                          }).start()
+                        }
+                        onPressOut={() =>
+                          Animated.spring(publishScaleAnim, {
+                            toValue: 1,
+                            damping: 20,
+                            stiffness: 300,
+                            useNativeDriver: true,
+                          }).start()
+                        }
+                        style={({ pressed }) => ({
+                          transform: [{ scale: pressed ? 0.94 : publishScaleAnim }],
+                          opacity: pressed ? 0.7 : 1,
+                        })}
+                      >
+                        <ActionButton label="Publish now" disabled={true} onPress={() => {}} />
+                      </Pressable>
                     </View>
                   </View>
 
                   {publishing ? (
-                    <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Animated.View
+                      style={{
+                        marginTop: 12,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 8,
+                        transform: [{ scale: pulseAnim }],
+                      }}
+                    >
                       <ActivityIndicator color={palette.accent} size="small" />
                       <Text style={{ fontSize: 14, color: palette.soft }}>Publishing changes to GitHub…</Text>
-                    </View>
+                    </Animated.View>
                   ) : null}
                 </View>
-              </View>
+              </Animated.View>
             </ScrollView>
           </View>
         </KeyboardAvoidingView>

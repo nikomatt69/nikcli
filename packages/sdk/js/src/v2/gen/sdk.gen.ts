@@ -77,12 +77,22 @@ import type {
   McpLocalConfig,
   McpRemoteConfig,
   McpStatusResponses,
+  McpToggleErrors,
+  McpToggleResponses,
   MobileAuthTokenCreateResponses,
   MobileAuthTokenListResponses,
   MobileAuthTokenRevokeResponses,
   MobileBootstrapResponses,
   MobileCommandListResponses,
   MobileExpoStatusResponses,
+  MobileGitBranchesResponses,
+  MobileGitCheckoutErrors,
+  MobileGitCheckoutResponses,
+  MobileGitCommitErrors,
+  MobileGitCommitResponses,
+  MobileGitCommitsResponses,
+  MobileGitDiffResponses,
+  MobileGitDiscardResponses,
   MobileGithubAuthRemoveResponses,
   MobileGithubAuthSetErrors,
   MobileGithubAuthSetResponses,
@@ -105,6 +115,13 @@ import type {
   MobileGithubSessionCreateResponses,
   MobileGithubSessionPublishErrors,
   MobileGithubSessionPublishResponses,
+  MobileGitPullErrors,
+  MobileGitPullResponses,
+  MobileGitPushErrors,
+  MobileGitPushResponses,
+  MobileGitStageResponses,
+  MobileGitStatusResponses,
+  MobileGitUnstageResponses,
   MobileMemoryHistoryResponses,
   MobileMemorySearchResponses,
   MobileMemoryStashCreateErrors,
@@ -4218,6 +4235,385 @@ export class Worktree2 extends HeyApiClient {
   }
 }
 
+export class Git extends HeyApiClient {
+  /**
+   * Get git status for mobile
+   *
+   * Return the current git state including branch, staged/unstaged changes, and untracked files.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGitStatusResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/status",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get git diff for mobile
+   *
+   * Return parsed file diffs with hunks for the current git state.
+   */
+  public diff<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      file?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "file" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGitDiffResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/diff",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get git commit history for mobile
+   *
+   * Return recent commits with stats for the current branch.
+   */
+  public commits<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGitCommitsResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/commits",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get git branches for mobile
+   *
+   * Return local and remote branches with status.
+   */
+  public branches<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileGitBranchesResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/branches",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create git commit for mobile
+   *
+   * Stage and commit changes in the current worktree.
+   */
+  public commit<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      message?: string
+      files?: Array<string>
+      amend?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "message" },
+            { in: "body", key: "files" },
+            { in: "body", key: "amend" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitCommitResponses, MobileGitCommitErrors, ThrowOnError>({
+      url: "/mobile/git/commit",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Checkout git branch for mobile
+   *
+   * Switch to a different branch in the current worktree.
+   */
+  public checkout<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      branch?: string
+      create?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "branch" },
+            { in: "body", key: "create" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitCheckoutResponses, MobileGitCheckoutErrors, ThrowOnError>({
+      url: "/mobile/git/checkout",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Stage git files for mobile
+   *
+   * Add files to the staging area.
+   */
+  public stage<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      files?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "files" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitStageResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/stage",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Unstage git files for mobile
+   *
+   * Remove files from the staging area.
+   */
+  public unstage<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      files?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "files" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitUnstageResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/unstage",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Discard git changes for mobile
+   *
+   * Discard uncommitted changes to files.
+   */
+  public discard<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      files?: Array<string>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "files" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitDiscardResponses, unknown, ThrowOnError>({
+      url: "/mobile/git/discard",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Push git branch for mobile
+   *
+   * Push the current branch to the remote.
+   */
+  public push<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      upstream?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "upstream" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitPushResponses, MobileGitPushErrors, ThrowOnError>({
+      url: "/mobile/git/push",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Pull git changes for mobile
+   *
+   * Pull remote changes into the current branch.
+   */
+  public pull<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileGitPullResponses, MobileGitPullErrors, ThrowOnError>({
+      url: "/mobile/git/pull",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Mobile extends HeyApiClient {
   /**
    * Get mobile bootstrap payload
@@ -4297,6 +4693,11 @@ export class Mobile extends HeyApiClient {
   private _worktree?: Worktree2
   get worktree(): Worktree2 {
     return (this._worktree ??= new Worktree2({ client: this.client }))
+  }
+
+  private _git?: Git
+  get git(): Git {
+    return (this._git ??= new Git({ client: this.client }))
   }
 }
 
@@ -4925,6 +5326,43 @@ export class Mcp extends HeyApiClient {
       url: "/mcp/{name}/disconnect",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Enable or disable an MCP server
+   */
+  public toggle<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<McpToggleResponses, McpToggleErrors, ThrowOnError>({
+      url: "/mcp/{name}/toggle",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

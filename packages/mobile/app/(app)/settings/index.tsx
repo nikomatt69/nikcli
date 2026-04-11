@@ -111,7 +111,8 @@ function githubConnectorKey(snapshot: HostConfigSnapshot | null) {
 }
 
 export default function SettingsScreen() {
-  const { client, config, bootstrap, bootstrapLoading, refreshBootstrap, save, clear, currentUser, signOut } = useServer()
+  const { client, config, bootstrap, bootstrapLoading, refreshBootstrap, save, clear, currentUser, signOut } =
+    useServer()
   const { palette, colorScheme } = useAppTheme()
   const { setColorScheme } = useColorScheme()
   const themeMode = useUIStore((state) => state.themeMode)

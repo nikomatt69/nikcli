@@ -67,7 +67,7 @@ export namespace MobileGithubRepo {
     return entry
   }
 
-  function gitEnv(token?: string) {
+  function gitEnv(token?: string | null) {
     if (!token) return process.env
 
     const auth = Buffer.from(`x-access-token:${token}`).toString("base64")
@@ -80,29 +80,28 @@ export namespace MobileGithubRepo {
     }
   }
 
-  export async function runGit(args: string[], options: { cwd?: string; token?: string }) {
+  export async function runGit(args: string[], options: { cwd?: string; token?: string | null }) {
+    const entries = Object.entries(gitEnv(options.token)).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    )
     const proc = Bun.spawn(["git", ...args], {
       cwd: options.cwd,
-      env: Object.fromEntries(
-        Object.entries(gitEnv(options.token)).filter(
-          (entry): entry is [string, string] => typeof entry[1] === "string",
-        ),
-      ),
+      env: Object.fromEntries(entries),
       stdout: "pipe",
       stderr: "pipe",
     })
 
     const [exitCode, stdout, stderr] = await Promise.all([
       proc.exited,
-      new Response(proc.stdout).text(),
-      new Response(proc.stderr).text(),
+      new Response(proc.stdout).text().then((s): string => s ?? ""),
+      new Response(proc.stderr).text().then((s): string => s ?? ""),
     ])
 
     if (exitCode !== 0) {
       throw new Error(stderr.trim() || stdout.trim() || `git ${args.join(" ")} failed`)
     }
 
-    return (stdout.trim() ?? "").replace(/\0+$/, "")
+    return String(stdout.trim() || "").replace(/\0+$/, "")
   }
 
   export async function prepareManagedClone(input: ImportRequest, token: string) {

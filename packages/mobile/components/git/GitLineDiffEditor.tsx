@@ -150,8 +150,8 @@ export function GitLineDiffEditor({
   const stats = useMemo(() => {
     if (!currentDiff) return { additions: 0, deletions: 0, files: 0 }
     return {
-      additions: diffs.reduce((sum, d) => sum + d.additions, 0),
-      deletions: diffs.reduce((sum, d) => sum + d.deletions, 0),
+      additions: diffs.reduce((sum, d) => sum + (d.additions ?? 0), 0),
+      deletions: diffs.reduce((sum, d) => sum + (d.deletions ?? 0), 0),
       files: diffs.length,
     }
   }, [diffs])

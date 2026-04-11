@@ -34,6 +34,8 @@ PODS:
     - ExpoModulesCore
   - ExpoLinking (7.0.5):
     - ExpoModulesCore
+  - ExpoLiveActivity (0.4.2):
+    - ExpoModulesCore
   - ExpoModulesCore (2.2.3):
     - DoubleConversion
     - glog
@@ -1768,6 +1770,7 @@ DEPENDENCIES:
   - "ExpoImagePicker (from `../../../node_modules/.bun/expo-image-picker@16.0.6+bf6b56a936c68753/node_modules/expo-image-picker/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.bun/expo-keep-awake@14.0.3+541c8e18387bd8d5/node_modules/expo-keep-awake/ios`)"
   - "ExpoLinking (from `../../../node_modules/.bun/expo-linking@7.0.5+bf6b56a936c68753/node_modules/expo-linking/ios`)"
+  - "ExpoLiveActivity (from `../../../node_modules/.bun/expo-live-activity@0.4.2+bf6b56a936c68753/node_modules/expo-live-activity/ios`)"
   - "ExpoModulesCore (from `../../../node_modules/.bun/expo-modules-core@2.2.3/node_modules/expo-modules-core`)"
   - "ExpoSecureStore (from `../../../node_modules/.bun/expo-secure-store@14.0.1+bf6b56a936c68753/node_modules/expo-secure-store/ios`)"
   - "ExpoSplashScreen (from `../../../node_modules/.bun/expo-splash-screen@0.29.24+bf6b56a936c68753/node_modules/expo-splash-screen/ios`)"
@@ -1881,6 +1884,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/expo-keep-awake@14.0.3+541c8e18387bd8d5/node_modules/expo-keep-awake/ios"
   ExpoLinking:
     :path: "../../../node_modules/.bun/expo-linking@7.0.5+bf6b56a936c68753/node_modules/expo-linking/ios"
+  ExpoLiveActivity:
+    :path: "../../../node_modules/.bun/expo-live-activity@0.4.2+bf6b56a936c68753/node_modules/expo-live-activity/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/.bun/expo-modules-core@2.2.3/node_modules/expo-modules-core"
   ExpoSecureStore:
@@ -2040,6 +2045,7 @@ SPEC CHECKSUMS:
   ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
   ExpoLinking: 8d12bee174ba0cdf31239706578e29e74a417402
+  ExpoLiveActivity: d0dd0e8e1460b6b26555b611c4826cdb1036eea2
   ExpoModulesCore: 98297c2cc7977c43740a2e52d850d94ac8dbf176
   ExpoSecureStore: 9a3665d7161dd1031be386e278bffd623658f316
   ExpoSplashScreen: 8261985ce9778f904abc7e31bed3538dce67ed4d
