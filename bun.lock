@@ -41,7 +41,7 @@
     },
     "packages/app": {
       "name": "@nikcli-ai/app",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@kobalte/core": "catalog:",
         "@nikcli-ai/sdk": "workspace:*",
@@ -91,7 +91,7 @@
     },
     "packages/cloud": {
       "name": "@nikcli-ai/cloud",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "hono": "catalog:",
         "jose": "5.9.6",
@@ -105,7 +105,7 @@
     },
     "packages/companion": {
       "name": "@nikcli-ai/companion",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@hono/node-server": "1.13.2",
         "@nikcli-ai/sdk": "workspace:*",
@@ -125,7 +125,7 @@
     },
     "packages/console/app": {
       "name": "@nikcli-ai/console-app",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@cloudflare/vite-plugin": "1.15.2",
         "@ibm/plex": "6.4.1",
@@ -159,7 +159,7 @@
     },
     "packages/console/core": {
       "name": "@nikcli-ai/console-core",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@aws-sdk/client-sts": "3.782.0",
         "@jsx-email/render": "1.1.1",
@@ -186,7 +186,7 @@
     },
     "packages/console/function": {
       "name": "@nikcli-ai/console-function",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@ai-sdk/anthropic": "2.0.0",
         "@ai-sdk/openai": "2.0.2",
@@ -210,7 +210,7 @@
     },
     "packages/console/mail": {
       "name": "@nikcli-ai/console-mail",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@jsx-email/all": "2.2.3",
         "@jsx-email/cli": "1.4.3",
@@ -222,7 +222,7 @@
     },
     "packages/console/resource": {
       "name": "@nikcli-ai/console-resource",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@cloudflare/workers-types": "catalog:",
       },
@@ -235,7 +235,7 @@
     },
     "packages/desktop": {
       "name": "@nikcli-ai/desktop",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@nikcli-ai/app": "workspace:*",
         "@nikcli-ai/ui": "workspace:*",
@@ -267,7 +267,7 @@
     },
     "packages/enterprise": {
       "name": "@nikcli-ai/enterprise",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@nikcli-ai/sdk": "workspace:*",
         "@nikcli-ai/ui": "workspace:*",
@@ -297,7 +297,7 @@
     },
     "packages/function": {
       "name": "@nikcli-ai/function",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "hono": "catalog:",
         "zod": "catalog:",
@@ -309,7 +309,7 @@
     },
     "packages/mobile": {
       "name": "@nikcli-ai/mobile",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@babel/runtime": "7.28.6",
         "@expo/metro-runtime": "~4.0.1",
@@ -363,7 +363,7 @@
     },
     "packages/nikcli": {
       "name": "nikcli",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "bin": {
         "nikcli": "./bin/nikcli",
       },
@@ -493,7 +493,7 @@
     },
     "packages/plugin": {
       "name": "@nikcli-ai/plugin",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@nikcli-ai/sdk": "workspace:*",
         "@opentui/core": "0.1.91",
@@ -509,7 +509,7 @@
     },
     "packages/plugin/plugins/agent-memory": {
       "name": "@nikcli-ai/plugin-agent-memory",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -519,7 +519,7 @@
     },
     "packages/plugin/plugins/background": {
       "name": "@nikcli-ai/plugin-background",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -529,7 +529,7 @@
     },
     "packages/plugin/plugins/background-agents": {
       "name": "@nikcli-ai/plugin-background-agents",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -539,7 +539,7 @@
     },
     "packages/plugin/plugins/context-analysis": {
       "name": "@nikcli-ai/plugin-context-analysis",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -549,7 +549,7 @@
     },
     "packages/plugin/plugins/direnv": {
       "name": "@nikcli-ai/plugin-direnv",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -559,7 +559,7 @@
     },
     "packages/plugin/plugins/dynamic-context-pruning": {
       "name": "@nikcli-ai/plugin-dynamic-context-pruning",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -569,7 +569,7 @@
     },
     "packages/plugin/plugins/envsitter-guard": {
       "name": "@nikcli-ai/plugin-envsitter-guard",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -579,7 +579,7 @@
     },
     "packages/plugin/plugins/handoff": {
       "name": "@nikcli-ai/plugin-handoff",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -589,7 +589,7 @@
     },
     "packages/plugin/plugins/safety-net": {
       "name": "@nikcli-ai/plugin-safety-net",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -599,7 +599,7 @@
     },
     "packages/plugin/plugins/smart-title": {
       "name": "@nikcli-ai/plugin-smart-title",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@nikcli-ai/plugin": "workspace:*",
         "@tsconfig/node22": "catalog:",
@@ -609,7 +609,7 @@
     },
     "packages/remote": {
       "name": "@nikcli-ai/remote",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "bin": {
         "nikcli-remote": "./dist/nikcli-remote",
       },
@@ -634,14 +634,14 @@
     },
     "packages/script": {
       "name": "@nikcli-ai/script",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "devDependencies": {
         "@types/bun": "catalog:",
       },
     },
     "packages/sdk/js": {
       "name": "@nikcli-ai/sdk",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "devDependencies": {
         "@hey-api/openapi-ts": "0.90.4",
         "@tsconfig/node22": "catalog:",
@@ -652,7 +652,7 @@
     },
     "packages/slack": {
       "name": "@nikcli-ai/slack",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@nikcli-ai/sdk": "workspace:*",
         "@slack/bolt": "^4.6.0",
@@ -670,7 +670,7 @@
     },
     "packages/studio": {
       "name": "@nikcli-ai/studio",
-      "version": "0.0.1",
+      "version": "0.0.8",
       "dependencies": {
         "@nikcli-ai/sdk": "workspace:*",
         "@nikcli-ai/ui": "workspace:*",
@@ -696,7 +696,7 @@
     },
     "packages/ui": {
       "name": "@nikcli-ai/ui",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@kobalte/core": "catalog:",
         "@nikcli-ai/sdk": "workspace:*",
@@ -738,7 +738,7 @@
     },
     "packages/util": {
       "name": "@nikcli-ai/util",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -749,7 +749,7 @@
     },
     "packages/web": {
       "name": "@nikcli-ai/web",
-      "version": "0.0.6",
+      "version": "0.0.8",
       "dependencies": {
         "@astrojs/cloudflare": "^12.0.0",
         "@astrojs/mdx": "^4.0.2",
@@ -779,7 +779,7 @@
     },
     "packages/webrenderer": {
       "name": "@opentui/webrenderer",
-      "version": "0.0.1",
+      "version": "0.0.8",
       "devDependencies": {
         "@tsconfig/bun": "catalog:",
         "@types/bun": "catalog:",
