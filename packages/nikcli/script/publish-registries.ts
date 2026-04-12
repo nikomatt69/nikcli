@@ -13,8 +13,8 @@ if (!Script.preview) {
 
   // arch
   const binaryPkgbuild = [
-    "# Maintainer: dax",
-    "# Maintainer: adam",
+    "# Maintainer: nikomatt69",
+    "# Maintainer: nikomatt69",
     "",
     "pkgname='nikcli-bin'",
     `pkgver=${pkgver}`,
@@ -43,8 +43,8 @@ if (!Script.preview) {
 
   // Source-based PKGBUILD for nikcli
   const sourcePkgbuild = [
-    "# Maintainer: dax",
-    "# Maintainer: adam",
+    "# Maintainer: nikcli",
+    "# Maintainer: nikomatt69",
     "",
     "pkgname='nikcli'",
     `pkgver=${pkgver}`,

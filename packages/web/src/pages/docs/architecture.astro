@@ -4,47 +4,66 @@ import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
   { title: "Runtime Flow", href: "#runtime-flow", depth: 2 },
-  { title: "Instance Bootstrap", href: "#instance-bootstrap", depth: 2 },
-  { title: "Core Modules", href: "#core-modules", depth: 2 },
+  { title: "Runtime Layers", href: "#runtime-layers", depth: 2 },
+  { title: "Mobile Stack", href: "#mobile-stack", depth: 2 },
+  { title: "Extension Points", href: "#extension-points", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Architecture"
-  subtitle="High-level architecture derived from Instance, Session, Server, and Tool layers."
+  subtitle="High-level architecture and package boundaries across the CLI, server, connectors, and mobile app."
   toc={toc}
 >
   <section id="runtime-flow" class="mb-16 scroll-mt-24">
     <h2>Runtime Flow</h2>
     <p>
-      The CLI initializes the Instance context, bootstraps subsystems (plugins, LSP, file watchers),
-      then executes commands through the session engine. Server mode exposes the same runtime via Hono.
+      The runtime starts in <code>packages/nikcli/src/index.ts</code>, resolves config and auth,
+      then boots either the TUI, a one-shot command, or an HTTP server-backed workflow. Sessions
+      orchestrate agents, tools, permissions, storage, and optional sharing layers.
     </p>
   </section>
 
-  <section id="instance-bootstrap" class="mb-16 scroll-mt-24">
-    <h2>Instance Bootstrap</h2>
-    <p>
-      Instance bootstrap is defined in <code>packages/nikcli/src/project/bootstrap.ts</code> and
-      initializes plugins, share, formatters, LSP, file watchers, VCS, snapshots, and truncation.
-    </p>
-  </section>
-
-  <section id="core-modules" class="mb-16 scroll-mt-24">
-    <h2>Core Modules</h2>
+  <section id="runtime-layers" class="mb-16 scroll-mt-24">
+    <h2>Runtime Layers</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="Session" eyebrow="State">
-        <p>Session storage, messages, tool parts, and sharing in <code>src/session</code>.</p>
+      <DocCard title="CLI + TUI" eyebrow="packages/nikcli/src/cli">
+        <p>Owns command registration, the default terminal UI, worker threads, and interactive slash flows.</p>
       </DocCard>
-      <DocCard title="Server" eyebrow="API">
-        <p>HTTP + SSE API surface in <code>src/server</code> and <code>src/server/routes</code>.</p>
+      <DocCard title="Agents + Tools" eyebrow="packages/nikcli/src/agent + src/tool">
+        <p>Combines primary agents, delegated subagents, permissions, and the public tool registry.</p>
       </DocCard>
-      <DocCard title="Tools" eyebrow="Execution">
-        <p>Tool definitions and registry in <code>src/tool</code>.</p>
+      <DocCard title="Sessions + Storage" eyebrow="packages/nikcli/src/session + src/storage">
+        <p>Persists messages, tool parts, todos, share metadata, and background execution state.</p>
       </DocCard>
-      <DocCard title="Providers" eyebrow="Models">
-        <p>Model loading, auth, and SDK adapters in <code>src/provider</code>.</p>
+      <DocCard title="HTTP Services" eyebrow="packages/nikcli/src/server">
+        <p>Exposes TUI, companion, user, connector, mobile, MCP, and experimental workspace endpoints.</p>
+      </DocCard>
+      <DocCard title="Connectors + Bots" eyebrow="packages/nikcli/src/connectors + src/chatbot">
+        <p>Integrates Figma, Slack, GitHub, Lovable, and bot transports for chat-driven workflows.</p>
+      </DocCard>
+      <DocCard title="Docs + Retrieval" eyebrow="packages/nikcli/src/docs + src/rag + src/brain">
+        <p>Handles local docs ingestion, semantic search, memory files, and automatic consolidation features.</p>
       </DocCard>
     </div>
+  </section>
+
+  <section id="mobile-stack" class="mb-16 scroll-mt-24">
+    <h2>Mobile Stack</h2>
+    <p>
+      Mobile spans both the host CLI and the app in <code>packages/mobile</code>. The host is served
+      by <code>nikcli mobile</code> and <code>packages/nikcli/src/server/routes/mobile.ts</code>,
+      while the app streams sessions over SSE, responds to permissions, manages GitHub-backed repos,
+      and surfaces local notifications and iOS Live Activities.
+    </p>
+  </section>
+
+  <section id="extension-points" class="mb-16 scroll-mt-24">
+    <h2>Extension Points</h2>
+    <p>
+      nikcli is extensible through config overlays, plugins, custom providers, MCP servers,
+      connectors, workspace servers, and custom agent definitions. The docs site mirrors those
+      boundaries rather than treating the CLI as a single monolith.
+    </p>
   </section>
 </DocsLayout>

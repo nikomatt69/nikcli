@@ -1,11 +1,13 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro"
 import DocCallout from "../../components/docs/DocCallout.astro"
+import DocCode from "../../components/docs/DocCode.astro"
 
 const toc = [
-  { title: "Plugins", href: "#plugins", depth: 2 },
-  { title: "Built-ins", href: "#built-ins", depth: 2 },
+  { title: "Plugin Install", href: "#plugin-install", depth: 2 },
+  { title: "Config Patching", href: "#config-patching", depth: 2 },
   { title: "Skills", href: "#skills", depth: 2 },
+  { title: "Built-ins", href: "#built-ins", depth: 2 },
 ]
 ---
 
@@ -14,38 +16,45 @@ const toc = [
   subtitle="Plugin loading and skill discovery from packages/nikcli/src/plugin and packages/nikcli/src/skill."
   toc={toc}
 >
-  <section id="plugins" class="mb-16 scroll-mt-24">
-    <h2>Plugins</h2>
+  <section id="plugin-install" class="mb-16 scroll-mt-24">
+    <h2>Plugin Install</h2>
     <p>
-      Plugins are loaded via <code>Config.plugin</code> and initialized with a Nikcli client, project context, and server
-      URL. See <code>packages/nikcli/src/plugin/index.ts</code>.
+      <code>nikcli plugin &lt;module&gt;</code> installs a module, reads its manifest, and merges the
+      plugin config into the chosen nikcli config file.
     </p>
-    <DocCallout type="info" title="Disable defaults">
-      <p>Set <code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> to skip built-in plugins.</p>
-    </DocCallout>
+    <DocCode language="bash">
+      nikcli plugin my-nikcli-plugin
+      nikcli plugin my-nikcli-plugin --global
+    </DocCode>
   </section>
 
-  <section id="built-ins" class="mb-16 scroll-mt-24">
-    <h2>Built-ins</h2>
-    <table class="doc-table">
-      <tbody>
-        <tr><td><code>@gitlab/opencode-gitlab-auth@1.3.2</code></td><td>GitLab auth plugin.</td></tr>
-        <tr><td><code>CodexAuthPlugin</code></td><td>Internal OpenAI/Codex auth.</td></tr>
-        <tr><td><code>CopilotAuthPlugin</code></td><td>Internal Copilot auth.</td></tr>
-      </tbody>
-    </table>
+  <section id="config-patching" class="mb-16 scroll-mt-24">
+    <h2>Config Patching</h2>
+    <p>
+      The install flow can target project or global config, respects existing <code>nikcli.json</code>
+      files, and supports forceful merge paths when a plugin needs to write overlapping config.
+    </p>
   </section>
 
   <section id="skills" class="mb-16 scroll-mt-24">
     <h2>Skills</h2>
     <p>
       Skills are discovered via <code>{`{skill,skills}`}</code> globs in config directories, plus
-      <code>.claude/skills</code> when Claude Code skills are enabled.
+      <code>.claude/skills</code> and plugin-provided skill folders when available.
     </p>
     <DocCallout type="info" title="Skill format">
       <p>
         Each skill requires a <code>SKILL.md</code> with frontmatter <code>name</code> and <code>description</code>.
       </p>
     </DocCallout>
+  </section>
+
+  <section id="built-ins" class="mb-16 scroll-mt-24">
+    <h2>Built-ins</h2>
+    <p>
+      nikcli also ships built-in plugin behavior for core auth and runtime integrations. Set
+      <code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> to skip those defaults when you need a tighter
+      environment.
+    </p>
   </section>
 </DocsLayout>

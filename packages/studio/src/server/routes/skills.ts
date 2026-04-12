@@ -35,7 +35,14 @@ export function SkillsRoutes() {
   })
 
   app.post("/", async (c) => {
-    const body = await c.req.json<{ name: string; description?: string; category?: string; tags?: string[]; content?: string; scope?: string }>()
+    const body = await c.req.json<{
+      name: string
+      description?: string
+      category?: string
+      tags?: string[]
+      content?: string
+      scope?: string
+    }>()
     if (!body.name) return c.json({ error: "Name required" }, 400)
     const dirs = getSkillDirs()
     const root = dirs[0]?.root || path.join(process.env.HOME || "", ".config", "nikcli")
@@ -43,7 +50,12 @@ export function SkillsRoutes() {
     const skillDir = path.join(scopeDir, "skill")
     if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true })
     const skillPath = path.join(skillDir, `${body.name}`, "SKILL.md")
-    const frontmatter = { name: body.name, description: body.description || "", category: body.category, tags: body.tags || [] }
+    const frontmatter = {
+      name: body.name,
+      description: body.description || "",
+      category: body.category,
+      tags: body.tags || [],
+    }
     const fileContent = buildFrontmatter(frontmatter, body.content || "")
     atomicWriteFileSync(skillPath, fileContent)
     return c.json({ success: true, path: skillPath })
@@ -99,7 +111,12 @@ export function SkillsRoutes() {
         }
         const content = await response.text()
         const { data, body } = parseFrontmatter(content)
-        const name = data.name || path.basename(url).replace(/[?#].*$/, "").replace(/\.md$/i, "")
+        const name =
+          data.name ||
+          path
+            .basename(url)
+            .replace(/[?#].*$/, "")
+            .replace(/\.md$/i, "")
         const dirs = getSkillDirs()
         const root = dirs[0]?.root || path.join(process.env.HOME || "", ".config", "nikcli")
         const skillDir = path.join(root, "skill", name)
@@ -111,7 +128,11 @@ export function SkillsRoutes() {
         results.push({ url, success: false, error: e.message })
       }
     }
-    return c.json({ results })
+    return c.json({
+      success: results.every((item) => item.success),
+      imported: results.filter((item) => item.success).length,
+      results,
+    })
   })
 
   app.post("/:name/toggle", (c) => {

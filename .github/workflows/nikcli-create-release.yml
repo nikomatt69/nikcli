@@ -1,0 +1,97 @@
+name: nikcli-create-release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v0.0.8)"
+        required: true
+        type: string
+
+concurrency:
+  group: nikcli-create-release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: github.repository == 'nikomatt69/nikcli'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SST_GITHUB_TOKEN }}
+
+      - run: git fetch --force --tags
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Determine tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build nikcli binaries
+        working-directory: packages/nikcli
+        run: bun run build
+
+      - name: Create archives
+        working-directory: packages/nikcli
+        run: |
+          DIST="$(pwd)/dist"
+          for src in "$DIST"/*/; do
+            name=$(basename "$src")
+            if echo "$name" | grep -q "linux"; then
+              tar -czf "${DIST}/${name}.tar.gz" -C "$src" .
+              echo "created: ${name}.tar.gz"
+            elif echo "$name" | grep -qE "windows|darwin"; then
+              (cd "$src" && zip -r "${DIST}/${name}.zip" .)
+              echo "created: ${name}.zip"
+            fi
+          done
+
+      - name: Build changelog notes
+        id: notes
+        run: |
+          PREV=$(gh release list --limit 2 --json tagName --jq '.[1].tagName // ""')
+          TAG="${{ steps.tag.outputs.value }}"
+          if [ -n "$PREV" ]; then
+            NOTES=$(git log --oneline "${PREV}..HEAD" --pretty=format:"- %s" 2>/dev/null || echo "Release ${TAG}")
+          else
+            NOTES="Release ${TAG}"
+          fi
+          echo "notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$NOTES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+
+      - name: Create GitHub release
+        run: |
+          TAG="${{ steps.tag.outputs.value }}"
+          DIST="packages/nikcli/dist"
+          FILES=$(find "$DIST" -maxdepth 1 \( -name "*.tar.gz" -o -name "*.zip" \) | tr '\n' ' ')
+
+          if gh release view "$TAG" &>/dev/null; then
+            echo "Release $TAG already exists — uploading assets only"
+            gh release upload "$TAG" $FILES --clobber
+          else
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes "${{ steps.notes.outputs.notes }}" \
+              --draft \
+              $FILES
+            echo "Draft release $TAG created"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}

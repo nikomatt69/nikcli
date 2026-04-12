@@ -26,6 +26,7 @@
     "@solidjs/meta": "catalog:",
     "solid-js": "catalog:",
     "hono": "catalog:",
+    "jsonc-parser": "3.3.1",
     "zod": "catalog:",
     "yaml": "2.6.1"
   },

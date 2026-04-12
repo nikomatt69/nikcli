@@ -8,37 +8,87 @@ interface Props {
 
 const { type = "info", title } = Astro.props;
 
-const styles = {
-  info: "bg-terminal-accent/10 border-terminal-accent/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
-  note: "bg-surface-active border-terminal-border/60 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
-  warn: "bg-terminal-warning/10 border-terminal-warning/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
-  error: "bg-terminal-error/10 border-terminal-error/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm",
-  success: "bg-terminal-success/10 border-terminal-success/20 text-terminal-text [&_strong]:text-terminal-text shadow-sm"
+const config: Record<CalloutType, {
+  border: string;
+  bg: string;
+  iconColor: string;
+  titleColor: string;
+  accentBar: string;
+  icon: string;
+  label: string;
+}> = {
+  info: {
+    border: "border-terminal-accent/25",
+    bg: "bg-terminal-accent/6",
+    iconColor: "text-terminal-accent",
+    titleColor: "text-terminal-text",
+    accentBar: "bg-terminal-accent",
+    label: "Info",
+    icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  },
+  note: {
+    border: "border-terminal-border/60",
+    bg: "bg-surface-active",
+    iconColor: "text-terminal-muted",
+    titleColor: "text-terminal-text",
+    accentBar: "bg-terminal-muted",
+    label: "Note",
+    icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
+  },
+  warn: {
+    border: "border-terminal-warning/25",
+    bg: "bg-terminal-warning/6",
+    iconColor: "text-terminal-warning",
+    titleColor: "text-terminal-text",
+    accentBar: "bg-terminal-warning",
+    label: "Warning",
+    icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
+  },
+  error: {
+    border: "border-terminal-error/25",
+    bg: "bg-terminal-error/6",
+    iconColor: "text-terminal-error",
+    titleColor: "text-terminal-text",
+    accentBar: "bg-terminal-error",
+    label: "Error",
+    icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  },
+  success: {
+    border: "border-terminal-success/25",
+    bg: "bg-terminal-success/6",
+    iconColor: "text-terminal-success",
+    titleColor: "text-terminal-text",
+    accentBar: "bg-terminal-success",
+    label: "Success",
+    icon: `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
+  },
 };
 
-const iconColors = {
-  info: "text-terminal-accent",
-  note: "text-terminal-muted",
-  warn: "text-terminal-warning",
-  error: "text-terminal-error",
-  success: "text-terminal-success"
-}
-
-const icons = {
-  info: `<svg class="w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
-  note: `<svg class="w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>`,
-  warn: `<svg class="w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`,
-  error: `<svg class="w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`,
-  success: `<svg class="w-5 h-5 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
-};
+const c = config[type];
 ---
 
-<div class={`flex gap-3 my-8 p-5 rounded-2xl border ${styles[type]} text-[15px] leading-relaxed not-prose shadow-sm transition-colors duration-300`}>
-  <div class={`shrink-0 ${iconColors[type]}`} set:html={icons[type]}></div>
-  <div class="flex-1">
-    {title && <strong class="block font-semibold mb-1 text-inherit">{title}</strong>}
-    <div class="text-inherit opacity-90 prose-p:mt-0 prose-p:mb-2 last:prose-p:mb-0 prose-a:underline prose-a:underline-offset-2 hover:prose-a:opacity-80 transition-opacity">
-      <slot />
+<div
+  class={`my-6 flex overflow-hidden rounded-[var(--radius-md)] border ${c.border} ${c.bg} not-prose`}
+  role="note"
+  aria-label={title ?? c.label}
+>
+  <!-- Left accent bar -->
+  <div class={`shrink-0 w-[3px] ${c.accentBar} rounded-r-full my-2`} aria-hidden="true" />
+
+  <!-- Content -->
+  <div class="flex flex-1 gap-3 px-4 py-3.5">
+    <!-- Icon -->
+    <div class={`shrink-0 ${c.iconColor} mt-[1px]`} aria-hidden="true" set:html={c.icon} />
+
+    <div class="flex-1 min-w-0">
+      <!-- Type label + optional title -->
+      <div class={`font-display text-[13px] font-bold tracking-tight ${c.iconColor} mb-1 flex items-center gap-1.5`}>
+        <span>{title ?? c.label}</span>
+      </div>
+      <!-- Body -->
+      <div class="text-[14px] font-normal leading-[1.65] text-terminal-muted [&_a]:underline [&_a]:underline-offset-3 [&_a]:text-terminal-text hover:[&_a]:text-terminal-accent [&_a]:transition-colors [&_a]:duration-100 [&_code]:rounded [&_code]:border [&_code]:border-terminal-border/60 [&_code]:bg-terminal-code [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.875em] [&_code]:font-medium [&_code]:text-terminal-text [&_p]:m-0 [&_p+p]:mt-2">
+        <slot />
+      </div>
     </div>
   </div>
 </div>

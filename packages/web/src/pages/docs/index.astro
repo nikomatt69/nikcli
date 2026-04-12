@@ -7,7 +7,7 @@ import DocCode from "../../components/docs/DocCode.astro";
 const toc = [
   { title: "Install & Run", href: "#install-run", depth: 2 },
   { title: "Architecture Snapshot", href: "#architecture-snapshot", depth: 2 },
-  { title: "Core Concepts", href: "#core-concepts", depth: 2 },
+  { title: "Platform Surfaces", href: "#platform-surfaces", depth: 2 },
   { title: "Codebase Roadmap", href: "#codebase-roadmap", depth: 2 },
   { title: "Next Steps", href: "#next-steps", depth: 2 },
 ];
@@ -15,14 +15,14 @@ const toc = [
 
 <DocsLayout
   title="Getting Started"
-  subtitle="A source-of-truth overview of nikcli, generated directly from the codebase in packages/nikcli."
+  subtitle="A source-of-truth overview of nikcli across the CLI, server, connectors, and mobile app."
   toc={toc}
 >
   <section id="install-run" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Install & Run</h2>
     <p>
-      nikcli ships as a CLI with a full TUI experience. The default entrypoint is the TUI command
-      defined in <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code>.
+      nikcli is a Bun-based coding agent with a terminal UI, HTTP server, connector system, and a
+      mobile companion app. The CLI entrypoint is <code>packages/nikcli/src/index.ts</code>.
     </p>
     <DocCode language="bash" title="Terminal">
       curl -fsSL https://nikcli.store/install | bash
@@ -32,7 +32,8 @@ const toc = [
     </DocCode>
     <DocCallout type="info" title="Runtime">
       <p>
-        Local execution uses Bun. The CLI entrypoint is <code>packages/nikcli/src/index.ts</code>.
+        For local development in this repo, run <code>bun dev</code> inside
+        <code>packages/nikcli</code>.
       </p>
     </DocCallout>
   </section>
@@ -42,57 +43,69 @@ const toc = [
     <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <DocCard title="CLI + TUI" eyebrow="Interface">
         <p>
-          All CLI commands are registered in <code>packages/nikcli/src/index.ts</code>. The TUI is
-          powered by a worker model in <code>packages/nikcli/src/cli/cmd/tui/</code>.
+          Commands are registered in <code>packages/nikcli/src/index.ts</code>. The default TUI and
+          worker flow live in <code>packages/nikcli/src/cli/cmd/tui/</code>.
         </p>
       </DocCard>
       <DocCard title="Session Engine" eyebrow="Core">
         <p>
-          Sessions, messages, tool parts, and sharing live under
-          <code>packages/nikcli/src/session/</code> and <code>packages/nikcli/src/share/</code>.
+          Sessions, messages, tool parts, sharing, and todo state live under
+          <code>packages/nikcli/src/session/</code>.
         </p>
       </DocCard>
       <DocCard title="Tools & Permissions" eyebrow="Execution">
         <p>
-          Tool registry and permission rules are defined in <code>packages/nikcli/src/tool/</code>
-          and <code>packages/nikcli/src/permission/</code>.
+          The public tool surface is defined in <code>packages/nikcli/src/tool/registry.ts</code>
+          and guarded by <code>packages/nikcli/src/permission/</code>.
         </p>
       </DocCard>
       <DocCard title="Server + API" eyebrow="Services">
         <p>
-          HTTP + SSE endpoints are built on Hono in <code>packages/nikcli/src/server/</code> with
-          OpenAPI generation.
+          HTTP and SSE endpoints for TUI, companion, connectors, and mobile are built in
+          <code>packages/nikcli/src/server/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Connectors" eyebrow="Automation">
+        <p>
+          External service connectors, auth, and <code>use_connector</code> operations live under
+          <code>packages/nikcli/src/connectors/</code>.
+        </p>
+      </DocCard>
+      <DocCard title="Mobile App" eyebrow="Companion">
+        <p>
+          The Expo app in <code>packages/mobile</code> streams sessions, approvals, tool output,
+          GitHub worktrees, and notifications from the host server.
         </p>
       </DocCard>
     </div>
   </section>
 
-  <section id="core-concepts" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
-    <h2>Core Concepts</h2>
+  <section id="platform-surfaces" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
+    <h2>Platform Surfaces</h2>
     <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-      <DocCard title="Agents">
+      <DocCard title="CLI Reference" eyebrow="Commands" href="/docs/cli">
         <p>
-          Default agents (<code>build</code>, <code>plan</code>) and subagents
-          (<code>general</code>, <code>explore</code>, <code>code-reviewer</code>, etc.) are
-          configured in <code>packages/nikcli/src/agent/agent.ts</code>.
+          Covers the default TUI flow plus <code>serve</code>, <code>remote</code>,
+          <code>companion</code>, <code>mobile</code>, <code>connectors</code>, and model commands.
         </p>
       </DocCard>
-      <DocCard title="Providers">
+      <DocCard title="Tools" eyebrow="Execution" href="/docs/tools">
         <p>
-          Provider orchestration lives in <code>packages/nikcli/src/provider/</code> with bundled
-          SDK loaders and model catalogs.
+          The registry now includes <code>monitor</code>, <code>delegation</code>,
+          <code>use_connector</code>, <code>generate_image</code>, <code>speak</code>, and
+          docs/context tools.
         </p>
       </DocCard>
-      <DocCard title="Config Stack">
+      <DocCard title="Connectors" eyebrow="External services" href="/docs/connectors">
         <p>
-          Config resolution merges remote, global, project, and inline sources via
-          <code>packages/nikcli/src/config/config.ts</code>.
+          Figma, Slack, GitHub, Lovable, and bot transports are configured under
+          <code>config.connectors</code> and exposed through CLI and tool APIs.
         </p>
       </DocCard>
-      <DocCard title="RAG + Docs">
+      <DocCard title="Mobile" eyebrow="Host + app" href="/docs/mobile">
         <p>
-          Documentation indexing and vector search live in <code>packages/nikcli/src/docs/</code>
-          and <code>packages/nikcli/src/rag/</code>.
+          Documents host pairing, session streaming, approvals, notifications, offline retry, and
+          Tophat install flows.
         </p>
       </DocCard>
     </div>
@@ -101,18 +114,19 @@ const toc = [
   <section id="codebase-roadmap" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Codebase Roadmap</h2>
     <p>
-      Every page in this docs section links directly to the source files that implement the
-      feature. The full file index is available in <a href="/docs/source-map">Source Map</a>.
+      The runtime surface is split across three main packages: <code>packages/nikcli</code> for the
+      CLI and server, <code>packages/mobile</code> for the Expo app, and <code>packages/web</code>
+      for this documentation site.
     </p>
     <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
-      <DocCard title="CLI Reference" eyebrow="Command Surface" href="/docs/cli">
+      <DocCard title="Core runtime" eyebrow="packages/nikcli" href="/docs/architecture">
         <p>
-          All commands, flags, and flows. See CLI Quickstart and CLI Debug.
+          Commands, agents, sessions, tools, connectors, sharing, storage, and HTTP routes.
         </p>
       </DocCard>
-      <DocCard title="System Reference" eyebrow="Server + Infra" href="/docs/server-api">
+      <DocCard title="Supporting surfaces" eyebrow="packages/mobile + packages/web" href="/docs/mobile">
         <p>
-          Server routes, MCP, LSP, RAG, storage, and diagnostics.
+          Mobile session control, notifications, GitHub flows, and the docs experience itself.
         </p>
       </DocCard>
     </div>
@@ -122,8 +136,8 @@ const toc = [
     <h2>Next Steps</h2>
     <DocCallout type="success" title="Ready to roll">
       <p>
-        Configure providers and agents in <a href="/docs/configuration">Configuration</a>, then
-        browse tools in <a href="/docs/tools">Tools</a>.
+        Start with <a href="/docs/cli">CLI Reference</a>, then configure providers and connectors
+        in <a href="/docs/configuration">Configuration</a>.
       </p>
     </DocCallout>
   </section>

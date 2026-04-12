@@ -1,12 +1,17 @@
-/* docs.css specific overrides, delegating most to tailwind typography */
+/* docs.css — typography and layout overrides for documentation */
+
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 6rem;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   Scrollbar (narrow)
+───────────────────────────────────────────────────────────── */
+
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -16,80 +21,64 @@ html {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgb(var(--terminal-border));
   border-radius: 9999px;
-  border: 1px solid transparent;
-  background-clip: padding-box;
 }
 
 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: rgb(var(--terminal-muted) / 0.5);
-  border: 1px solid transparent;
-  background-clip: padding-box;
+  background: rgb(var(--terminal-muted) / 0.4);
 }
 
-/* Callout / Blockquote styling inside typography */
+/* ─────────────────────────────────────────────────────────────
+   Prose — headings use Syne
+───────────────────────────────────────────────────────────── */
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  font-family: 'Syne', system-ui, sans-serif;
+  color: rgb(var(--terminal-text));
+}
+
+.prose h2,
+.prose h3,
+.prose h4 {
+  scroll-margin-top: calc(var(--topbar-height) + 1.5rem);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Callout / Blockquote
+───────────────────────────────────────────────────────────── */
+
 .prose blockquote {
   font-style: normal;
-  border-left-width: 4px;
-  border-left-color: rgb(var(--terminal-accent));
-  background-color: var(--surface-hover);
-  padding: var(--space-5) var(--space-5);
+  border-left: 3px solid rgb(var(--terminal-accent));
+  background-color: rgb(var(--terminal-accent) / 0.06);
+  padding: var(--space-4) var(--space-5);
   margin-top: 2rem;
   margin-bottom: 2rem;
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: rgb(var(--terminal-text));
   box-shadow: var(--shadow-soft);
   font-weight: 500;
 }
 
-.prose blockquote p:first-of-type {
-  margin-top: 0;
-}
+.prose blockquote p:first-of-type { margin-top: 0; }
+.prose blockquote p:last-of-type  { margin-bottom: 0; }
 
-.prose blockquote p:last-of-type {
-  margin-bottom: 0;
-}
+/* ─────────────────────────────────────────────────────────────
+   Code blocks
+───────────────────────────────────────────────────────────── */
 
-/* Base Code Adjustments */
 .prose pre {
-  margin-top: 2rem;
-  margin-bottom: 2rem;
-  border-radius: var(--radius-lg);
-  padding: var(--space-5) var(--space-5);
+  margin-top: 1.75rem;
+  margin-bottom: 1.75rem;
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
   font-size: var(--type-body-sm);
-  line-height: 1.7;
+  line-height: 1.75;
   border: 1px solid rgb(var(--terminal-window-border));
   background-color: rgb(var(--terminal-window-code));
   box-shadow: var(--shadow-soft);
-}
-
-.prose h2,
-.prose h3,
-.prose h4 {
-  scroll-margin-top: calc(var(--topbar-height) + 1.25rem);
-}
-
-.prose p,
-.prose ul,
-.prose ol {
-  font-size: var(--type-body-md);
-}
-
-.prose strong,
-.prose th,
-.prose h2,
-.prose h3,
-.prose h4 {
-  color: rgb(var(--terminal-text));
-}
-
-.prose ul > li::marker,
-.prose ol > li::marker {
-  color: rgb(var(--terminal-muted));
-}
-
-.prose hr {
-  margin-block: 2.5rem;
-  border-color: rgb(var(--terminal-border));
 }
 
 .prose pre code {
@@ -100,24 +89,68 @@ html {
   font-weight: inherit;
   color: inherit;
   font-size: inherit;
-  font-family: "JetBrains Mono", monospace;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
   line-height: inherit;
 }
 
-/* Table styling for Enterprise look */
+/* ─────────────────────────────────────────────────────────────
+   Body text
+───────────────────────────────────────────────────────────── */
+
+.prose p,
+.prose ul,
+.prose ol {
+  font-size: var(--type-body-md);
+}
+
+.prose strong,
+.prose th {
+  color: rgb(var(--terminal-text));
+}
+
+.prose ul > li::marker,
+.prose ol > li::marker {
+  color: rgb(var(--terminal-accent) / 0.6);
+}
+
+.prose hr {
+  margin-block: 2.5rem;
+  border-color: rgb(var(--terminal-border));
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Links
+───────────────────────────────────────────────────────────── */
+
+.prose a {
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+  color: rgb(var(--terminal-text));
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.prose a:hover {
+  color: rgb(var(--terminal-accent));
+  text-decoration-color: rgb(var(--terminal-accent));
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Tables
+───────────────────────────────────────────────────────────── */
+
 .prose table {
   width: 100%;
   min-width: 100%;
   table-layout: auto;
   text-align: left;
-  margin-top: 2.5rem;
-  margin-bottom: 2.5rem;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
   font-size: var(--type-body-sm);
   line-height: 1.6;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid rgb(var(--terminal-border));
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
 }
@@ -130,30 +163,10 @@ html {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
-
-  .prose thead,
-  .prose tbody {
-    width: 100%;
-  }
-
-  .prose th,
-  .prose td {
-    min-width: 8rem;
-    white-space: normal;
-    word-break: break-word;
-  }
-
-  .prose td code,
-  .prose th code {
-    white-space: nowrap;
-  }
 }
 
 @media (min-width: 768px) {
-  .prose table {
-    display: table;
-    width: 100%;
-  }
+  .prose table { display: table; width: 100%; }
 }
 
 .prose thead {
@@ -161,16 +174,18 @@ html {
 }
 
 .prose thead th {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  font-family: 'Syne', system-ui, sans-serif;
   font-weight: 700;
+  font-size: 12.5px;
   color: rgb(var(--terminal-text));
   vertical-align: bottom;
   border-bottom: 1px solid rgb(var(--terminal-border));
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
 }
 
 .prose tbody tr {
-  transition: background-color 0.2s ease;
+  transition: background-color 120ms ease;
 }
 
 .prose tbody tr:last-child td {
@@ -178,11 +193,11 @@ html {
 }
 
 .prose tbody td {
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-3) var(--space-5);
   vertical-align: top;
   color: rgb(var(--terminal-muted));
-  border-bottom: 1px solid rgb(var(--terminal-border));
-  font-weight: 500;
+  border-bottom: 1px solid rgb(var(--terminal-border) / 0.7);
+  font-weight: 400;
 }
 
 .prose tbody tr:hover td {
@@ -190,8 +205,12 @@ html {
   color: rgb(var(--terminal-text));
 }
 
-/* Improve links inside Prose */
-.prose a {
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
+/* ─────────────────────────────────────────────────────────────
+   Sidebar nav active states (docs sidebar)
+───────────────────────────────────────────────────────────── */
+
+.docs-nav-active {
+  color: rgb(var(--terminal-accent)) !important;
+  background-color: rgb(var(--terminal-accent) / 0.08) !important;
+  border: 1px solid rgb(var(--terminal-accent) / 0.2) !important;
 }

@@ -8,100 +8,188 @@ const navItems = [
 const pathname = Astro.url.pathname;
 ---
 
-<nav class="sticky top-0 z-50 w-full border-b border-terminal-border/60 dark:border-white/5 bg-terminal-bg/70 dark:bg-terminal-bg/80 backdrop-blur-xl transition-all duration-300 shadow-sm" aria-label="Primary">
+<header
+  class="sticky top-0 z-50 w-full"
+  aria-label="Primary navigation"
+>
+  <!-- Backdrop -->
+  <div class="absolute inset-0 bg-terminal-bg/80 backdrop-blur-xl border-b border-terminal-border/50 -z-10"></div>
+
   <div class="page-shell flex h-[var(--topbar-height)] items-center justify-between gap-4">
-    <a href="/" class="flex items-center gap-2.5 font-mono font-bold text-lg tracking-tight hover:text-terminal-accent transition-colors group">
-      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-terminal-accent/20 to-terminal-accent/5 flex items-center justify-center border border-terminal-accent/30 group-hover:bg-terminal-accent/30 group-hover:shadow-[0_0_20px_-3px_rgb(var(--terminal-accent)/0.4)] group-active:scale-95 transition-all">
-        <svg viewBox="0 0 24 24" class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 17l6-6-6-6M12 19h8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+    <!-- Logo -->
+    <a
+      href="/"
+      class="group flex items-center gap-2.5 shrink-0"
+      aria-label="nikcli home"
+    >
+      <!-- Icon mark -->
+      <div class="relative flex h-8 w-8 items-center justify-center rounded-[8px] bg-terminal-accent/12 border border-terminal-accent/25 transition-all duration-200 ease-out-expo group-hover:bg-terminal-accent/20 group-hover:border-terminal-accent/40 group-hover:shadow-[0_0_16px_-2px_rgb(var(--terminal-accent)/0.35)] group-active:scale-[0.94]">
+        <svg viewBox="0 0 16 16" class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
+          <path d="M9 12.5H13.5" />
+        </svg>
       </div>
-      <span class="text-terminal-text">nikcli</span>
+      <!-- Wordmark -->
+      <span class="font-display text-[15px] font-bold tracking-[0.04em] text-terminal-text uppercase transition-colors duration-150 group-hover:text-terminal-accent">
+        nikcli
+      </span>
     </a>
 
-    <!-- Desktop Nav -->
-    <div class="hidden md:flex items-center gap-4 lg:gap-6">
-      <div class="flex items-center gap-1.5 rounded-xl border border-terminal-border/30 bg-surface-hover/50 p-1">
+    <!-- Desktop nav -->
+    <nav class="hidden md:flex items-center gap-1" aria-label="Main">
+      <!-- Nav links pill container -->
+      <div class="flex items-center rounded-xl border border-terminal-border/40 bg-terminal-bg/60 p-[3px] shadow-soft">
         {navItems.map((item) => {
           const isActive = !item.external && pathname.startsWith(item.href);
           return (
-          <a
-            href={item.href}
-            class={`px-3.5 py-1.5 rounded-lg text-[13px] font-semibold transition-all duration-300 ${isActive ? "bg-terminal-panel text-terminal-text shadow-sm ring-1 ring-terminal-border/50" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-active"}`}
-            aria-current={isActive ? "page" : undefined}
-            target={item.external ? "_blank" : undefined}
-            rel={item.external ? "noreferrer" : undefined}
-          >
-            {item.label}
-            {item.external && <span class="ml-1 inline-block text-[10px] opacity-40">↗</span>}
-          </a>
-        );
+            <a
+              href={item.href}
+              class={[
+                "relative px-3.5 py-[6px] rounded-[9px] text-[13px] font-semibold transition-all duration-150",
+                isActive
+                  ? "bg-terminal-panel text-terminal-text shadow-soft ring-1 ring-terminal-border/50"
+                  : "text-terminal-muted hover:text-terminal-text",
+              ].join(" ")}
+              aria-current={isActive ? "page" : undefined}
+              target={item.external ? "_blank" : undefined}
+              rel={item.external ? "noreferrer" : undefined}
+            >
+              {isActive && (
+                <span
+                  class="absolute inset-x-3 -top-[3px] h-[2px] rounded-full bg-terminal-accent"
+                  aria-hidden="true"
+                />
+              )}
+              {item.label}
+              {item.external && (
+                <span class="ml-0.5 inline-block opacity-35 text-[10px]" aria-hidden="true">↗</span>
+              )}
+            </a>
+          );
         })}
       </div>
-      
-      <div class="h-5 w-px bg-terminal-border/60 mx-1"></div>
 
-      <div class="flex items-center gap-3">
-        <button
-          id="theme-toggle"
-          class="flex h-10 w-10 items-center justify-center rounded-full border border-terminal-border/60 bg-terminal-panel/80 text-terminal-muted shadow-sm transition-all hover:bg-surface-hover hover:text-terminal-text active:scale-90"
-          type="button"
-          aria-label="Toggle theme"
-          aria-pressed="false"
-        >
-          <span class="theme-icon block dark:hidden" data-theme-icon="sun" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" />
-              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </span>
-          <span class="theme-icon hidden dark:block" data-theme-icon="moon" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </button>
-        <a href="/docs#installation" class="inline-flex items-center justify-center px-4 py-2 text-[13px] font-bold rounded-lg bg-terminal-text text-terminal-bg hover:-translate-y-0.5 active:translate-y-0 transition-all shadow-[0_4px_14px_0_rgb(var(--terminal-shadow)/0.15)] hover:shadow-[0_6px_20px_rgba(var(--terminal-shadow)/0.2)]">
-          Install
-        </a>
-      </div>
-    </div>
+      <!-- Divider -->
+      <div class="h-5 w-px bg-terminal-border/50 mx-2" aria-hidden="true" />
 
-    <!-- Mobile Menu Button -->
-    <button id="mobile-menu-btn" type="button" class="md:hidden rounded-md p-2 -mr-2 text-terminal-muted hover:text-terminal-text hover:bg-surface-hover active:scale-95 transition-all" aria-label="Open menu" aria-controls="mobile-menu" aria-expanded="false">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+      <!-- Theme toggle -->
+      <button
+        id="theme-toggle"
+        type="button"
+        class="flex h-9 w-9 items-center justify-center rounded-full border border-terminal-border/50 bg-terminal-panel/70 text-terminal-muted transition-all duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terminal-accent focus-visible:ring-offset-1 active:scale-[0.94]"
+        aria-label="Toggle theme"
+        aria-pressed="false"
+      >
+        <span class="block dark:hidden" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2" />
+            <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M19.1 4.9l-2.1 2.1M7.1 16.9l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="hidden dark:block" aria-hidden="true">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </span>
+      </button>
+
+      <!-- Install CTA -->
+      <a
+        href="/docs#installation"
+        class="ml-1 inline-flex items-center justify-center gap-1.5 px-4 py-[7px] rounded-[9px] bg-terminal-accent text-terminal-bg text-[13px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_2px_12px_-2px_rgb(var(--terminal-accent)/0.5)]"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        Install
+      </a>
+    </nav>
+
+    <!-- Mobile menu toggle -->
+    <button
+      id="mobile-menu-btn"
+      type="button"
+      class="md:hidden flex h-9 w-9 items-center justify-center rounded-lg border border-terminal-border/50 bg-terminal-panel/70 text-terminal-muted -mr-1 transition-all duration-150 hover:text-terminal-text active:scale-[0.94]"
+      aria-label="Open menu"
+      aria-controls="mobile-menu"
+      aria-expanded="false"
+    >
+      <svg id="icon-hamburger" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+      <svg id="icon-close" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
   </div>
 
-  <!-- Mobile Menu Dropdown -->
-  <div id="mobile-menu" class="hidden md:hidden absolute top-full left-0 z-50 flex max-h-[calc(100dvh-var(--topbar-height))] w-full flex-col gap-5 overflow-y-auto border-b border-terminal-border bg-terminal-bg/95 px-[var(--page-gutter)] py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-3xl transition-all origin-top">
-    <div class="flex flex-col gap-2">
+  <!-- Mobile menu -->
+  <div
+    id="mobile-menu"
+    class="hidden md:hidden absolute top-full inset-x-0 z-50 border-b border-terminal-border bg-terminal-bg/96 backdrop-blur-xl shadow-strong px-[var(--page-gutter)] pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+    aria-label="Mobile navigation"
+  >
+    <nav class="flex flex-col gap-1 mb-4">
       {navItems.map((item) => {
         const isActive = !item.external && pathname.startsWith(item.href);
         return (
-        <a
-          href={item.href}
-          data-mobile-menu-link
-          class={`px-4 py-3.5 rounded-xl text-base font-bold transition-colors flex items-center justify-between ${isActive ? "bg-surface-active text-terminal-text shadow-sm ring-1 ring-terminal-border/50" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover"}`}
-        >
-          {item.label}
-          {item.external && <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>}
-        </a>
-      );
+          <a
+            href={item.href}
+            data-mobile-menu-link
+            class={[
+              "flex items-center justify-between px-3.5 py-3 rounded-xl text-[15px] font-semibold transition-colors duration-100",
+              isActive
+                ? "bg-terminal-accent/10 text-terminal-accent border border-terminal-accent/20"
+                : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover",
+            ].join(" ")}
+            target={item.external ? "_blank" : undefined}
+            rel={item.external ? "noreferrer" : undefined}
+          >
+            {item.label}
+            {item.external && (
+              <svg class="w-3.5 h-3.5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            )}
+          </a>
+        );
       })}
-    </div>
-    <div class="pt-5 border-t border-terminal-border/60 flex items-center justify-between px-2">
-      <span class="text-sm font-semibold text-terminal-muted">Toggle Theme</span>
-      <button id="theme-toggle-mobile" class="p-2.5 rounded-full bg-surface-active text-terminal-text shadow-sm ring-1 ring-terminal-border/50 active:scale-90 transition-transform">
-        <span class="theme-icon block dark:hidden" data-theme-icon="sun"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.2 2.2M16.9 16.9l2.2 2.2M19.1 4.9l-2.2 2.2M7.1 16.9l-2.2 2.2"/></svg></span>
-        <span class="theme-icon hidden dark:block" data-theme-icon="moon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z"/></svg></span>
+    </nav>
+
+    <div class="border-t border-terminal-border/50 pt-3 flex items-center justify-between px-1">
+      <span class="text-[13px] font-medium text-terminal-muted">Theme</span>
+      <button
+        id="theme-toggle-mobile"
+        type="button"
+        class="flex h-9 w-9 items-center justify-center rounded-full border border-terminal-border/60 bg-terminal-panel text-terminal-muted active:scale-[0.94] transition-transform duration-100"
+        aria-label="Toggle theme"
+      >
+        <span class="block dark:hidden" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M19.1 4.9l-2.1 2.1M7.1 16.9l-2.1 2.1"/>
+          </svg>
+        </span>
+        <span class="hidden dark:block" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 14.5A7.5 7.5 0 1 1 9.5 4a6.2 6.2 0 0 0 10.5 10.5Z" stroke-linejoin="round"/>
+          </svg>
+        </span>
       </button>
     </div>
-    <a href="/docs#installation" data-mobile-menu-link class="w-full text-center py-4 rounded-xl bg-terminal-text text-terminal-bg font-bold mt-2 shadow-strong active:scale-95 transition-transform">
+
+    <a
+      href="/docs#installation"
+      data-mobile-menu-link
+      class="mt-3 flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-terminal-accent text-terminal-bg font-bold text-[15px] tracking-[0.01em] active:scale-[0.97] transition-transform duration-100 shadow-[0_2px_16px_-2px_rgb(var(--terminal-accent)/0.45)]"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+      </svg>
       Install nikcli
     </a>
   </div>
-</nav>
+</header>
 
 <script>
   const initNavbar = () => {
@@ -111,136 +199,102 @@ const pathname = Astro.url.pathname;
     };
 
     win.__nikcliNavbarCleanup?.();
-
     const cleanups: Array<() => void> = [];
+
     const root = document.documentElement;
-    const resolveTheme = () => {
-      const current = root.getAttribute("data-theme");
-      if (current === "dark" || current === "light") return current;
+
+    const resolveTheme = (): "light" | "dark" => {
       const stored = localStorage.getItem("theme");
       if (stored === "dark" || stored === "light") return stored;
-      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-      return prefersDark ? "dark" : "light";
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     };
 
-    const syncPressedState = (theme: "light" | "dark") => {
-      document.querySelectorAll<HTMLElement>("#theme-toggle, #theme-toggle-mobile").forEach((toggle) => {
-        toggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    const applyTheme = (theme: "light" | "dark") => {
+      root.setAttribute("data-theme", theme);
+      localStorage.setItem("theme", theme);
+      document.querySelectorAll<HTMLElement>("#theme-toggle, #theme-toggle-mobile").forEach((el) => {
+        el.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
       });
     };
 
-    const attachToggle = (id: string): HTMLElement | null => {
-      const current = document.getElementById(id);
-      if (!current || !current.parentNode) return null;
-      const next = current.cloneNode(true);
-      if (!(next instanceof HTMLElement)) return null;
-      current.parentNode.replaceChild(next, current);
-      return next;
+    applyTheme(resolveTheme());
+
+    const attachToggle = (id: string) => {
+      const el = document.getElementById(id);
+      if (!el || !el.parentNode) return;
+      const clone = el.cloneNode(true) as HTMLElement;
+      el.parentNode.replaceChild(clone, el);
+      const handler = () => applyTheme(resolveTheme() === "dark" ? "light" : "dark");
+      clone.addEventListener("click", handler);
+      cleanups.push(() => clone.removeEventListener("click", handler));
     };
 
-    const toggles = [attachToggle("theme-toggle"), attachToggle("theme-toggle-mobile")];
-    const initial = resolveTheme();
+    attachToggle("theme-toggle");
+    attachToggle("theme-toggle-mobile");
 
-    root.setAttribute("data-theme", initial);
-    syncPressedState(initial);
+    // Mobile menu
+    const btn = document.getElementById("mobile-menu-btn");
+    const menu = document.getElementById("mobile-menu");
+    const iconOpen = document.getElementById("icon-hamburger");
+    const iconClose = document.getElementById("icon-close");
 
-    toggles.forEach((toggle) => {
-      if (!toggle) return;
-      const handleToggle = () => {
-        const next = resolveTheme() === "dark" ? "light" : "dark";
-        root.setAttribute("data-theme", next);
-        localStorage.setItem("theme", next);
-        syncPressedState(next);
-      };
+    const newBtn = btn?.cloneNode(true) as HTMLElement | null;
+    if (btn && newBtn && btn.parentNode) btn.parentNode.replaceChild(newBtn, btn);
 
-      toggle.addEventListener("click", handleToggle);
-      cleanups.push(() => toggle.removeEventListener("click", handleToggle));
-    });
+    let menuOpen = false;
 
-    const btn = document.getElementById('mobile-menu-btn');
-    const menu = document.getElementById('mobile-menu');
-    let isOpen = false;
-
-    const newBtn = btn?.cloneNode(true) ?? null;
-    const mobileBtn = newBtn instanceof HTMLElement ? newBtn : null;
-    if(btn && mobileBtn && btn.parentNode) {
-      btn.parentNode.replaceChild(mobileBtn, btn);
-    }
-
-    const renderButton = (open: boolean) => {
-      if (!mobileBtn) return;
-      mobileBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      mobileBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-      mobileBtn.innerHTML = open
-        ? `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>`
-        : `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>`;
+    const setMenuState = (open: boolean) => {
+      menuOpen = open;
+      menu?.classList.toggle("hidden", !open);
+      document.body.style.overflow = open ? "hidden" : "";
+      newBtn?.setAttribute("aria-expanded", open ? "true" : "false");
+      newBtn?.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      document.getElementById("icon-hamburger")?.classList.toggle("hidden", open);
+      document.getElementById("icon-close")?.classList.toggle("hidden", !open);
+      if (open) window.dispatchEvent(new CustomEvent("nikcli:mobile-overlay-open", { detail: { source: "navbar" } }));
     };
 
-    const closeMenu = () => {
-      isOpen = false;
-      menu?.classList.add('hidden');
-      document.body.style.overflow = '';
-      renderButton(false);
+    const handleToggle = () => setMenuState(!menuOpen);
+    newBtn?.addEventListener("click", handleToggle);
+    cleanups.push(() => newBtn?.removeEventListener("click", handleToggle));
+
+    const handleExternalOpen = (e: Event) => {
+      if (!(e instanceof CustomEvent) || e.detail?.source === "navbar") return;
+      setMenuState(false);
     };
+    window.addEventListener("nikcli:mobile-overlay-open", handleExternalOpen);
+    cleanups.push(() => window.removeEventListener("nikcli:mobile-overlay-open", handleExternalOpen));
 
-    const openMenu = () => {
-      isOpen = true;
-      menu?.classList.remove('hidden');
-      document.body.style.overflow = 'hidden';
-      renderButton(true);
-      window.dispatchEvent(new CustomEvent('nikcli:mobile-overlay-open', { detail: { source: 'navbar' } }));
-    };
+    const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuState(false); };
+    window.addEventListener("keydown", handleEscape);
+    cleanups.push(() => window.removeEventListener("keydown", handleEscape));
 
-    renderButton(false);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const handleBreakpoint = (e: MediaQueryListEvent) => { if (e.matches) setMenuState(false); };
+    mq.addEventListener("change", handleBreakpoint);
+    cleanups.push(() => mq.removeEventListener("change", handleBreakpoint));
 
-    const handleMobileToggle = () => {
-      if (isOpen) closeMenu();
-      else openMenu();
-    };
-    mobileBtn?.addEventListener('click', handleMobileToggle);
-    cleanups.push(() => mobileBtn?.removeEventListener('click', handleMobileToggle));
+    const handleBeforeSwap = () => setMenuState(false);
+    document.addEventListener("astro:before-swap", handleBeforeSwap);
+    cleanups.push(() => document.removeEventListener("astro:before-swap", handleBeforeSwap));
 
-    const handleExternalOpen = (event: Event) => {
-      if (!(event instanceof CustomEvent) || event.detail?.source === 'navbar') return;
-      closeMenu();
-    };
-    window.addEventListener('nikcli:mobile-overlay-open', handleExternalOpen);
-    cleanups.push(() => window.removeEventListener('nikcli:mobile-overlay-open', handleExternalOpen));
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMenu();
-    };
-    window.addEventListener('keydown', handleEscape);
-    cleanups.push(() => window.removeEventListener('keydown', handleEscape));
-
-    const mobileBreakpoint = window.matchMedia('(min-width: 768px)');
-    const handleBreakpoint = (event: MediaQueryListEvent) => {
-      if (event.matches) closeMenu();
-    };
-    mobileBreakpoint.addEventListener?.('change', handleBreakpoint);
-    cleanups.push(() => mobileBreakpoint.removeEventListener?.('change', handleBreakpoint));
-
-    const handleBeforeSwap = () => closeMenu();
-    document.addEventListener('astro:before-swap', handleBeforeSwap);
-    cleanups.push(() => document.removeEventListener('astro:before-swap', handleBeforeSwap));
-
-    menu?.querySelectorAll('[data-mobile-menu-link]').forEach((link) => {
-      link.addEventListener('click', closeMenu);
-      cleanups.push(() => link.removeEventListener('click', closeMenu));
+    menu?.querySelectorAll("[data-mobile-menu-link]").forEach((link) => {
+      const close = () => setMenuState(false);
+      link.addEventListener("click", close);
+      cleanups.push(() => link.removeEventListener("click", close));
     });
 
     win.__nikcliNavbarCleanup = () => {
-      closeMenu();
-      cleanups.forEach((cleanup) => cleanup());
+      setMenuState(false);
+      cleanups.forEach((fn) => fn());
     };
   };
 
   const win = window as Window & { __nikcliNavbarPageLoad?: () => void };
   if (win.__nikcliNavbarPageLoad) {
-    document.removeEventListener('astro:page-load', win.__nikcliNavbarPageLoad);
+    document.removeEventListener("astro:page-load", win.__nikcliNavbarPageLoad);
   }
   win.__nikcliNavbarPageLoad = () => initNavbar();
-
   initNavbar();
-  document.addEventListener('astro:page-load', win.__nikcliNavbarPageLoad);
+  document.addEventListener("astro:page-load", win.__nikcliNavbarPageLoad);
 </script>

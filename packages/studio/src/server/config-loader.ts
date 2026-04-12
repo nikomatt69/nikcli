@@ -2,6 +2,7 @@ import fs from "fs"
 import path from "path"
 import os from "os"
 import YAML from "yaml"
+import { parse as parseJsonc } from "jsonc-parser"
 import { atomicWriteFileSync } from "./atomic"
 
 const HOME_DIR = os.homedir()
@@ -49,14 +50,18 @@ export function saveStudioConfig(config: StudioConfig): boolean {
 
 export function getNikcliConfigPath(): string | null {
   const candidates = [
+    path.join(HOME_DIR, ".config", "nikcli", "nikcli.jsonc"),
     path.join(HOME_DIR, ".config", "nikcli", "nikcli.json"),
+    path.join(HOME_DIR, ".nikcli", "nikcli.jsonc"),
     path.join(HOME_DIR, ".nikcli", "nikcli.json"),
+    path.join(HOME_DIR, ".local", "share", "nikcli", "nikcli.jsonc"),
+    path.join(HOME_DIR, ".local", "share", "nikcli", "nikcli.json"),
     path.join(HOME_DIR, ".config", "opencode", "opencode.json"),
     path.join(HOME_DIR, ".opencode", "opencode.json"),
-    path.join(HOME_DIR, ".local", "share", "nikcli", "nikcli.json"),
     path.join(HOME_DIR, ".local", "share", "opencode", "opencode.json"),
   ]
   if (process.platform === "win32" && process.env.APPDATA) {
+    candidates.push(path.join(process.env.APPDATA, "nikcli", "nikcli.jsonc"))
     candidates.push(path.join(process.env.APPDATA, "nikcli", "nikcli.json"))
     candidates.push(path.join(process.env.APPDATA, "opencode", "opencode.json"))
   }
@@ -66,6 +71,16 @@ export function getNikcliConfigPath(): string | null {
     if (fs.existsSync(p)) return p
   }
   return candidates[0]
+}
+
+function parseConfigFile(text: string): Record<string, any> | null {
+  try {
+    const parsed = parseJsonc(text, undefined, { allowTrailingComma: true })
+    if (parsed && typeof parsed === "object") return parsed as Record<string, any>
+    return null
+  } catch {
+    return null
+  }
 }
 
 export function getSearchRoots(): string[] {
@@ -92,7 +107,7 @@ export function loadNikcliConfig(): Record<string, any> | null {
   const configPath = getNikcliConfigPath()
   if (!configPath || !fs.existsSync(configPath)) return null
   try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8"))
+    return parseConfigFile(fs.readFileSync(configPath, "utf8"))
   } catch {
     return null
   }
@@ -217,8 +232,7 @@ export function loadPluginsFromDir(dir: { path: string; root: string }): PluginI
   const plugins: PluginInfo[] = []
   if (!fs.existsSync(dir.path)) return plugins
   try {
-    const files = fs.readdirSync(dir.path)
-      .filter((f) => f.endsWith(".js") || f.endsWith(".ts"))
+    const files = fs.readdirSync(dir.path).filter((f) => f.endsWith(".js") || f.endsWith(".ts"))
     for (const file of files) {
       const filePath = path.join(dir.path, file)
       plugins.push({

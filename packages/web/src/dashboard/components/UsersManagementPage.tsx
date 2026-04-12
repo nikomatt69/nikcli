@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
+import { DashboardApiError, getErrorMessage, requestJson } from "../lib/studio-api"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -7,6 +8,7 @@ type UserProfile = {
   id: string
   username: string
   email: string
+  displayName?: string | null
   display_name?: string | null
   role: "admin" | "user"
   created_at?: number
@@ -28,21 +30,15 @@ function UsersManagementPageInner() {
     async <T,>(path: string, init?: RequestInit): Promise<T> => {
       if (!isDev && !serverUrl) throw new Error("No server configured")
       if (!token) throw new Error("Not authenticated")
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
+      try {
+        return await requestJson<T>(`/user${path}`, { ...init, token, serverUrl })
+      } catch (err) {
+        if (err instanceof DashboardApiError && (err.status === 401 || err.status === 403)) {
+          await logout()
+          throw new Error("Session expired")
+        }
+        throw err
       }
-      const base = isDev ? "" : serverUrl
-      const res = await fetch(`${base}/user${path}`, { ...init, headers })
-      if (res.status === 401 || res.status === 403) {
-        await logout()
-        throw new Error("Session expired")
-      }
-      if (!res.ok) {
-        const err = (await res.json().catch(() => ({ error: res.statusText }))) as { error?: string }
-        throw new Error(err.error ?? `Request failed: ${res.status}`)
-      }
-      return res.json() as Promise<T>
     },
     [serverUrl, token, logout],
   )
@@ -56,7 +52,7 @@ function UsersManagementPageInner() {
     setError(null)
     userReq<UserProfile[]>("/list")
       .then(setUsers)
-      .catch((e) => setError(e.message))
+      .catch((e) => setError(getErrorMessage(e)))
       .finally(() => setLoading(false))
   }, [userReq, token, currentUser?.role])
 
@@ -84,7 +80,7 @@ function UsersManagementPageInner() {
       setShowCreate(false)
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Create failed")
+      setError(getErrorMessage(e) || "Create failed")
     } finally {
       setBusy(false)
     }
@@ -96,7 +92,7 @@ function UsersManagementPageInner() {
       await userReq(`/${id}`, { method: "PATCH", body: JSON.stringify({ role }) })
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Update failed")
+      setError(getErrorMessage(e) || "Update failed")
     }
   }
 
@@ -107,7 +103,7 @@ function UsersManagementPageInner() {
       await userReq(`/${id}`, { method: "DELETE" })
       load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Delete failed")
+      setError(getErrorMessage(e) || "Delete failed")
     }
   }
 
@@ -203,10 +199,12 @@ function UsersManagementPageInner() {
             >
               <div className="flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-terminal-accent/20 text-sm font-semibold text-terminal-accent">
-                  {(u.display_name || u.username)[0].toUpperCase()}
+                  {(u.displayName || u.display_name || u.username)[0].toUpperCase()}
                 </div>
                 <div>
-                  <div className="font-semibold text-terminal-text">{u.display_name || u.username}</div>
+                  <div className="font-semibold text-terminal-text">
+                    {u.displayName || u.display_name || u.username}
+                  </div>
                   <div className="text-xs text-terminal-muted">{u.email}</div>
                 </div>
               </div>

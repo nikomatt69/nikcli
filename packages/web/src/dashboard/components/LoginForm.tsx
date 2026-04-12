@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
+import { getErrorMessage } from "../lib/studio-api"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -8,13 +9,19 @@ function LoginFormInner() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [urlInput, setUrlInput] = useState(serverUrl || "http://localhost:4096")
+  const [connectError, setConnectError] = useState<string | null>(null)
 
   const isConnected = isDev || !!serverUrl
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isConnected) {
-      setServerUrl(urlInput)
+      try {
+        setConnectError(null)
+        setServerUrl(urlInput)
+      } catch (err) {
+        setConnectError(getErrorMessage(err))
+      }
       return
     }
     await login(email, password)
@@ -23,9 +30,9 @@ function LoginFormInner() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {error && (
+      {(connectError || error) && (
         <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
-          {error}
+          {connectError || error}
         </div>
       )}
 

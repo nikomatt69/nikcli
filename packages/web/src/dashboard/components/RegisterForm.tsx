@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
+import { getErrorMessage, requestJson } from "../lib/studio-api"
 
 const isDev = typeof import.meta !== "undefined" && (import.meta as any).env?.DEV === true
 
@@ -17,24 +18,26 @@ function RegisterFormInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!isConnected) {
-      setServerUrl(urlInput)
+      try {
+        setError(null)
+        setServerUrl(urlInput)
+      } catch (err) {
+        setError(getErrorMessage(err))
+      }
       return
     }
     setError(null)
     setBusy(true)
     try {
-      const base = isDev ? "" : serverUrl
-      const res = await fetch(`${base}/user/register`, {
+      await requestJson<{ token: string; user: unknown }>("/user/register", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, email, password }),
+        serverUrl,
       })
-      const data = (await res.json()) as { error?: string }
-      if (!res.ok) throw new Error(data.error || "Registration failed")
       await login(email, password)
       window.location.href = "/dashboard"
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed")
+      setError(getErrorMessage(err) || "Registration failed")
     } finally {
       setBusy(false)
     }

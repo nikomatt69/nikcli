@@ -7,6 +7,16 @@ export function GitHubRoutes() {
 
   function ghAvailable(): boolean {
     try {
+      execSync("gh --version", { stdio: "ignore" })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  function ghAuthenticated(): boolean {
+    if (!ghAvailable()) return false
+    try {
       execSync("gh auth status", { stdio: "ignore" })
       return true
     } catch {
@@ -14,16 +24,32 @@ export function GitHubRoutes() {
     }
   }
 
+  function ghUsername(): string | undefined {
+    if (!ghAuthenticated()) return undefined
+    try {
+      return (
+        execSync("gh api user --jq .login", { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() ||
+        undefined
+      )
+    } catch {
+      return undefined
+    }
+  }
+
   app.get("/", (c) => {
     const available = ghAvailable()
+    const authenticated = ghAuthenticated()
+    const username = ghUsername()
     const studio = getStudioConfig()
-    return c.json({ available, repo: studio.githubRepo || null })
+    return c.json({ available, authenticated, username, repo: studio.githubRepo || null })
   })
 
   app.get("/status", (c) => {
     const available = ghAvailable()
+    const authenticated = ghAuthenticated()
+    const username = ghUsername()
     const studio = getStudioConfig()
-    return c.json({ available, repo: studio.githubRepo || null })
+    return c.json({ available, authenticated, username, repo: studio.githubRepo || null })
   })
 
   app.post("/sync/push", async (c) => {

@@ -164,6 +164,11 @@ export namespace Server {
 
           const bearer = MobileAuth.bearer(c.req.raw)
           if (bearer) {
+            const userSession = (c as any).get?.("userSession")
+            if (userSession) {
+              return next()
+            }
+
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
             ;(c as any).set("mobileAuth", token)
@@ -315,7 +320,7 @@ export namespace Server {
         .route("/provider", ProviderRoutes())
         .route("/companion", CompanionRoutes())
         .route("/user", UserRoutes())
-        .route("/studio", StudioRoutes())
+        .route("/", StudioRoutes())
         .route("/mobile", MobileRoutes())
         .route("/", FileRoutes())
         .route("/connectors", ConnectorsRoutes())

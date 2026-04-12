@@ -1,9 +1,9 @@
 import { Hono } from "hono"
 import { readFileSync, existsSync, realpathSync } from "fs"
 import { join, extname } from "path"
+import { StudioApiRoutes } from "@nikcli-ai/studio/server"
 
 const STUDIO_UI_DIST = join(import.meta.dir, "../../../../studio/dist")
-const STUDIO_TARGET = "http://localhost:4201"
 
 function getStudioHtml(): string {
   const indexPath = join(STUDIO_UI_DIST, "index.html")
@@ -37,32 +37,6 @@ function getStudioHtml(): string {
 </html>`
 }
 
-async function proxyToStudio(c: any) {
-  const url = new URL(c.req.url)
-  const targetUrl = `${STUDIO_TARGET}${url.pathname}${url.search}`
-  const headers: Record<string, string> = {}
-  c.req.headers.forEach((value: string, key: string) => {
-    if (key.toLowerCase() !== "host") headers[key] = value
-  })
-  let body: undefined | BodyInit
-  const method = c.req.method
-  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    try {
-      body = await c.req.raw.clone().text()
-    } catch {}
-  }
-  try {
-    const res = await fetch(targetUrl, { method, headers, body, redirect: "manual" })
-    const resBody = await res.text()
-    return new Response(resBody, {
-      status: res.status,
-      headers: res.headers,
-    })
-  } catch {
-    return c.json({ error: "Studio server not running. Start with: bun run packages/studio/src/server/index.ts" }, 503)
-  }
-}
-
 export function StudioRoutes() {
   const app = new Hono()
 
@@ -74,7 +48,7 @@ export function StudioRoutes() {
     return next()
   })
 
-  app.all("/studio/api/*", (c) => proxyToStudio(c))
+  app.route("/", StudioApiRoutes())
 
   // Serve built static assets (CSS, JS, images, etc.)
   app.get("/studio/assets/*", async (c) => {

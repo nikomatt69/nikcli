@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
+import { DashboardApiError, getErrorMessage, requestJson } from "../lib/studio-api"
 
 interface Session {
   id: string
@@ -77,20 +78,17 @@ function SessionsPageInner() {
     }
     setLoading(true)
     setError(null)
-    const base = isDev ? "" : serverUrl
-    fetch(`${base}/session`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(async (res) => {
-        if (res.status === 401 || res.status === 403) {
-          await logout()
-          throw new Error("Session expired")
-        }
-        if (!res.ok) throw new Error(`Request failed: ${res.status}`)
-        return res.json()
-      })
+    requestJson<Session[]>("/session", { token, serverUrl })
       .then((data) => setSessions(Array.isArray(data) ? data : []))
-      .catch((e) => {
+      .catch(async (e) => {
+        if (e instanceof DashboardApiError && (e.status === 401 || e.status === 403)) {
+          await logout()
+          setSessions([])
+          setError("Session expired")
+          return
+        }
         setSessions([])
-        setError(e.message)
+        setError(getErrorMessage(e))
       })
       .finally(() => setLoading(false))
   }, [token, serverUrl, logout])

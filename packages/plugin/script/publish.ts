@@ -9,6 +9,7 @@ await $`bun tsc`
 const pkg = await import("../package.json").then((m) => m.default)
 const original = JSON.parse(JSON.stringify(pkg))
 for (const [key, value] of Object.entries(pkg.exports)) {
+  if (typeof value !== "string") continue
   const file = value.replace("./src/", "./dist/").replace(".ts", "")
   // @ts-ignore
   pkg.exports[key] = {

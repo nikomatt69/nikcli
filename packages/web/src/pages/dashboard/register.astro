@@ -1,6 +1,7 @@
 ---
 import "../../styles/global.css"
 import { RegisterForm } from "@/dashboard/components/RegisterForm"
+import Navbar from "../../components/Navbar.astro"
 ---
 
 <!doctype html>
@@ -8,94 +9,66 @@ import { RegisterForm } from "@/dashboard/components/RegisterForm"
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Register | nikcli</title>
+    <title>Create Account | nikcli</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" />
+    <script is:inline>
+      const stored = localStorage.getItem("theme");
+      const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.setAttribute("data-theme", stored || (prefersDark ? "dark" : "light"));
+    </script>
   </head>
-  <body class="min-h-screen bg-terminal-bg font-sans antialiased">
-    <div class="flex min-h-screen">
-      <div class="hidden w-1/2 lg:flex lg:flex-col lg:justify-between bg-terminal-panel p-12">
-        <div class="flex items-center gap-3">
-          <div
-            class="flex h-12 w-12 items-center justify-center rounded-2xl bg-terminal-accent text-2xl font-bold text-white"
-          >
-            N
-          </div>
-          <div>
-            <div class="text-xl font-bold text-terminal-text">nikcli</div>
-            <div class="text-sm text-terminal-muted">AI Development Agent</div>
-          </div>
-        </div>
+  <body class="bg-terminal-bg font-sans antialiased">
+    <Navbar />
 
-        <div class="space-y-6">
-          <h2 class="text-4xl font-bold leading-tight text-terminal-text">
-            Start your AI-powered<br />development journey
-          </h2>
-          <p class="max-w-md text-lg text-terminal-muted">
+    <div class="flex min-h-[calc(100vh-var(--topbar-height))]">
+      <!-- Left panel — brand -->
+      <div class="hidden w-1/2 lg:flex lg:flex-col lg:justify-between bg-terminal-panel border-r border-terminal-border p-12">
+        <div>
+          <div class="inline-flex items-center gap-2 mb-2">
+            <div class="h-px w-5 bg-terminal-accent" aria-hidden="true"></div>
+            <span class="font-mono text-[11px] uppercase tracking-[0.2em] text-terminal-accent">Studio</span>
+          </div>
+          <p class="font-display text-[clamp(1.6rem,3vw,2.5rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-terminal-text mt-4">
+            Start your AI-powered<br />development<br />journey
+          </p>
+          <p class="mt-4 text-[14.5px] text-terminal-muted leading-relaxed max-w-xs">
             Create your account and unlock the full power of nikcli's AI agent capabilities.
           </p>
         </div>
 
-        <div class="grid grid-cols-2 gap-6 text-sm text-terminal-muted">
-          <div class="space-y-1">
+        <div class="grid grid-cols-2 gap-5 text-[13px] text-terminal-muted">
+          {[
+            "Unlimited sessions",
+            "Real-time sync",
+            "Secure access",
+            "Always free",
+          ].map((feat) => (
             <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+              <svg class="h-4 w-4 shrink-0 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path>
               </svg>
-              <span class="font-medium text-terminal-text">Unlimited sessions</span>
+              <span class="font-medium text-terminal-text">{feat}</span>
             </div>
-            <p class="pl-7">Create and manage as many sessions as you need</p>
-          </div>
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-              <span class="font-medium text-terminal-text">Real-time sync</span>
-            </div>
-            <p class="pl-7">Access your work from any device</p>
-          </div>
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-              <span class="font-medium text-terminal-text">Secure access</span>
-            </div>
-            <p class="pl-7">Your data is encrypted and protected</p>
-          </div>
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <svg class="h-5 w-5 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-              <span class="font-medium text-terminal-text">Always free</span>
-            </div>
-            <p class="pl-7">No credit card required</p>
-          </div>
+          ))}
         </div>
       </div>
 
+      <!-- Right panel — form -->
       <div class="flex w-full items-center justify-center px-8 lg:w-1/2">
-        <div class="w-full max-w-md space-y-8">
-          <div class="lg:hidden flex items-center gap-3 mb-8">
-            <div
-              class="flex h-10 w-10 items-center justify-center rounded-xl bg-terminal-accent text-lg font-bold text-white"
-            >
-              N
-            </div>
-            <div class="text-lg font-semibold text-terminal-text">nikcli</div>
-          </div>
-
+        <div class="w-full max-w-sm space-y-8">
           <div>
-            <h1 class="text-2xl font-bold text-terminal-text">Create account</h1>
-            <p class="mt-2 text-terminal-muted">Get started with nikcli today</p>
+            <h1 class="font-display text-[1.6rem] font-extrabold tracking-tight text-terminal-text">Create account</h1>
+            <p class="mt-2 text-[14px] text-terminal-muted">Get started with nikcli today</p>
           </div>
 
           <RegisterForm client:load />
 
-          <p class="text-center text-sm text-terminal-muted">
-            Already have an account?
-            <a href="/dashboard/login" class="font-medium text-terminal-accent hover:underline">Sign in</a>
+          <p class="text-center text-[13px] text-terminal-muted">
+            Already have an account?{" "}
+            <a href="/dashboard/login" class="font-semibold text-terminal-accent hover:underline underline-offset-3">Sign in</a>
           </p>
         </div>
       </div>

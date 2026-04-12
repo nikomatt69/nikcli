@@ -8,11 +8,9 @@ const toc = [
   { title: "Resolution Order", href: "#resolution-order", depth: 2 },
   { title: "Config Schema", href: "#config-schema", depth: 2 },
   { title: "Top-Level Fields", href: "#top-level-fields", depth: 2 },
-  { title: "Agents & Permissions", href: "#agents-permissions", depth: 2 },
-  { title: "Providers", href: "#providers", depth: 2 },
-  { title: "MCP", href: "#mcp", depth: 2 },
-  { title: "LSP", href: "#lsp", depth: 2 },
-  { title: "RAG", href: "#rag", depth: 2 },
+  { title: "Providers & Connectors", href: "#providers-connectors", depth: 2 },
+  { title: "RAG, Image & Speak", href: "#rag-media", depth: 2 },
+  { title: "Notifications & Mobile", href: "#notifications-mobile", depth: 2 },
   { title: "Keybinds", href: "#keybinds", depth: 2 },
   { title: "Flags & Env", href: "#flags-env", depth: 2 },
   { title: "Experimental", href: "#experimental", depth: 2 },
@@ -61,42 +59,46 @@ const flags = [
 
 const topFields = [
   { key: "$schema", desc: "Schema URL for validation." },
-  { key: "theme", desc: "Theme name for UI." },
+  { key: "theme", desc: "Theme name for the UI." },
   { key: "logLevel", desc: "Log level (DEBUG/INFO/WARN/ERROR)." },
-  { key: "tui", desc: "TUI settings (scroll, layout, etc.)." },
-  { key: "server", desc: "Server defaults for serve/web commands." },
-  { key: "remote", desc: "Remote Control defaults (auto-enable, tunnel provider)." },
+  { key: "tui", desc: "TUI settings such as scroll and layout behavior." },
+  { key: "server", desc: "Server defaults for serve and web commands." },
+  { key: "remote", desc: "Remote session defaults and tunnel behavior." },
   { key: "command", desc: "Command templates and presets." },
-  { key: "watcher", desc: "File watcher ignore list." },
+  { key: "watcher", desc: "File watcher ignore rules." },
   { key: "plugin", desc: "Plugin entrypoints to load." },
   { key: "snapshot", desc: "Enable snapshot tracking." },
   { key: "share", desc: "manual | auto | disabled." },
-  { key: "autoshare", desc: "Deprecated, use share." },
   { key: "autoupdate", desc: "true | false | notify." },
   { key: "disabled_providers", desc: "Disable providers by ID." },
   { key: "enabled_providers", desc: "Enable only these providers." },
   { key: "model", desc: "Default model in provider/model format." },
-  { key: "small_model", desc: "Small model for titles/summary." },
-  { key: "default_agent", desc: "Primary agent name (defaults to build)." },
+  { key: "small_model", desc: "Small model for titles and summaries." },
+  { key: "default_agent", desc: "Primary agent name." },
   { key: "username", desc: "Custom username label." },
   { key: "agent", desc: "Agent configuration objects." },
   { key: "provider", desc: "Provider config overrides." },
   { key: "mcp", desc: "MCP server configs." },
+  { key: "connectors", desc: "External service connectors and auth targets." },
   { key: "formatter", desc: "Formatter config or false." },
   { key: "lsp", desc: "LSP config or false." },
-  { key: "instructions", desc: "Extra instruction files/patterns." },
+  { key: "instructions", desc: "Extra instruction files or patterns." },
   { key: "permission", desc: "Permission ruleset." },
   { key: "tools", desc: "Legacy tool allow/deny map." },
   { key: "enterprise", desc: "Enterprise settings." },
   { key: "compaction", desc: "Auto compaction settings." },
-  { key: "experimental", desc: "Experimental flags and hooks." },
-  { key: "rag", desc: "RAG embedding config." },
+  { key: "experimental", desc: "Experimental flags, hooks, and feature toggles." },
+  { key: "rag", desc: "RAG embedding configuration." },
+  { key: "image", desc: "Image generation defaults." },
+  { key: "speak", desc: "Text-to-speech defaults." },
+  { key: "notifications", desc: "Todo and general notification settings." },
+  { key: "mobile", desc: "Mobile development settings including Tophat." },
 ];
 ---
 
 <DocsLayout
   title="Configuration"
-  subtitle="Complete config reference derived from packages/nikcli/src/config/config.ts."
+  subtitle="Config resolution and schema reference derived from packages/nikcli/src/config/config.ts."
   toc={toc}
 >
   <section id="resolution-order" class="mb-16 scroll-mt-24">
@@ -110,22 +112,10 @@ const topFields = [
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td>Remote</td>
-          <td><code>/.well-known/nikcli</code> for OAuth providers (loaded via Auth)</td>
-        </tr>
-        <tr>
-          <td>Global</td>
-          <td><code>~/.config/nikcli/nikcli.jsonc</code> (or <code>nikcli.json</code>, <code>config.json</code>)</td>
-        </tr>
-        <tr>
-          <td>Custom path</td>
-          <td><code>NIKCLI_CONFIG</code> or <code>NIKCLI_CONFIG_CONTENT</code></td>
-        </tr>
-        <tr>
-          <td>Project</td>
-          <td><code>nikcli.jsonc</code> or <code>nikcli.json</code> discovered upward</td>
-        </tr>
+        <tr><td>Remote</td><td><code>/.well-known/nikcli</code> for compatible OAuth providers.</td></tr>
+        <tr><td>Global</td><td><code>~/.config/nikcli/nikcli.jsonc</code> and sibling config names.</td></tr>
+        <tr><td>Custom path/content</td><td><code>NIKCLI_CONFIG</code> or <code>NIKCLI_CONFIG_CONTENT</code>.</td></tr>
+        <tr><td>Project</td><td><code>nikcli.jsonc</code> or <code>nikcli.json</code> discovered upward.</td></tr>
       </tbody>
     </table>
     <DocCallout type="info" title="Config tokens">
@@ -138,28 +128,46 @@ const topFields = [
     <DocCode language="json">
 {`{
   "$schema": "https://nikcli.store/config.json",
-  "theme": "dark",
   "model": "anthropic/claude-sonnet-4-20250514",
   "small_model": "anthropic/claude-haiku-4-20250514",
   "default_agent": "build",
-  "username": "dev",
   "share": "manual",
-  "autoupdate": true,
-  "remote": {
-    "enabled": false,
-    "enableTunnel": true,
-    "provider": "localtunnel",
-    "askOnExistingSession": true
+  "provider": {
+    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
   },
-  "disabled_providers": [],
-  "enabled_providers": [],
-  "permission": {},
-  "agent": {},
-  "provider": {},
-  "mcp": {},
-  "lsp": {},
-  "rag": {},
-  "experimental": {}
+  "connectors": {
+    "github": { "type": "github", "enabled": true }
+  },
+  "mcp": {
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    }
+  },
+  "rag": {
+    "provider": "openai",
+    "model": "text-embedding-3-small"
+  },
+  "image": {
+    "provider": "openrouter",
+    "model": "openai/gpt-5-image"
+  },
+  "speak": {
+    "provider": "elevenlabs",
+    "model": "YOq2y2Up4RgXP2HyXjE5"
+  },
+  "notifications": {
+    "todo": { "enabled": true },
+    "notify": { "enabled": true, "events": { "permissionAsked": true } }
+  },
+  "mobile": {
+    "tophat": { "enabled": true, "defaultPlatform": "ios" }
+  },
+  "experimental": {
+    "primary_tools": ["bash", "task"],
+    "brain": true,
+    "memory": true
+  }
 }`}
     </DocCode>
   </section>
@@ -184,84 +192,68 @@ const topFields = [
     </table>
   </section>
 
-  <section id="agents-permissions" class="mb-16 scroll-mt-24">
-    <h2>Agents & Permissions</h2>
-    <p>Agents use the <code>AgentConfig</code> schema and merge permissions from config + defaults.</p>
-    <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>agent</code></td>
-          <td>Primary/subagent definitions. Supports additional custom agents by name.</td>
-        </tr>
-        <tr>
-          <td><code>permission</code></td>
-          <td>Tool allow/deny/ask rules. Accepts per-tool rules and wildcard patterns.</td>
-        </tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="providers" class="mb-16 scroll-mt-24">
-    <h2>Providers</h2>
-    <p>Provider configuration is scoped per provider ID under <code>provider</code>.</p>
+  <section id="providers-connectors" class="mb-16 scroll-mt-24">
+    <h2>Providers & Connectors</h2>
+    <p>
+      Providers live under <code>provider</code>, MCP servers under <code>mcp</code>, and external
+      service integrations under <code>connectors</code>.
+    </p>
     <DocCode language="json">
 {`{
   "provider": {
-    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } },
     "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
     "amazon-bedrock": { "options": { "region": "us-east-1" } }
-  }
-}`}
-    </DocCode>
-  </section>
-
-  <section id="mcp" class="mb-16 scroll-mt-24">
-    <h2>MCP</h2>
-    <p>MCP server entries live under <code>mcp</code> and support local or remote configurations.</p>
-    <DocCode language="json">
-{`{
+  },
+  "connectors": {
+    "figma": { "type": "figma", "enabled": true },
+    "slack": { "type": "slack", "enabled": true },
+    "github": { "type": "github", "enabled": true }
+  },
   "mcp": {
-    "filesystem": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+    "remote-docs": { "type": "remote", "url": "https://example.com/mcp" }
+  }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="rag-media" class="mb-16 scroll-mt-24">
+    <h2>RAG, Image & Speak</h2>
+    <DocCallout type="warn" title="RAG requires explicit config">
+      <p>
+        RAG no longer assumes a bundled embedding model. Set both <code>rag.provider</code> and
+        <code>rag.model</code>, or use <code>nikcli rag-model</code>.
+      </p>
+    </DocCallout>
+    <DocCode language="json">
+{`{
+  "rag": { "provider": "openai", "model": "text-embedding-3-small" },
+  "image": { "provider": "openrouter", "model": "openai/gpt-5-image" },
+  "speak": { "provider": "elevenlabs", "model": "YOq2y2Up4RgXP2HyXjE5" }
+}`}
+    </DocCode>
+  </section>
+
+  <section id="notifications-mobile" class="mb-16 scroll-mt-24">
+    <h2>Notifications & Mobile</h2>
+    <DocCode language="json">
+{`{
+  "notifications": {
+    "todo": {
+      "enabled": true,
+      "slack": { "enabled": true, "connector": "slack", "channel": "#builds" }
     },
-    "remote-docs": {
-      "type": "remote",
-      "url": "https://example.com/mcp"
+    "notify": {
+      "enabled": true,
+      "events": { "sessionIdle": true, "permissionAsked": true }
+    }
+  },
+  "mobile": {
+    "tophat": {
+      "enabled": true,
+      "defaultPlatform": "ios",
+      "defaultDestination": "simulator"
     }
   }
-}`}
-    </DocCode>
-  </section>
-
-  <section id="lsp" class="mb-16 scroll-mt-24">
-    <h2>LSP</h2>
-    <p>Built-in LSP servers can be disabled or overridden. Custom servers require explicit extensions.</p>
-    <DocCode language="json">
-{`{
-  "lsp": {
-    "pyright": { "disabled": true },
-    "custom-lua": {
-      "command": ["lua-language-server"],
-      "extensions": [".lua"]
-    }
-  }
-}`}
-    </DocCode>
-  </section>
-
-  <section id="rag" class="mb-16 scroll-mt-24">
-    <h2>RAG</h2>
-    <p>RAG embedding defaults are in <code>packages/nikcli/src/rag/index.ts</code>.</p>
-    <DocCode language="json">
-{`{
-  "rag": { "model": "nvidia/llama-embed-nemotron-8b", "provider": "nvidia" }
 }`}
     </DocCode>
   </section>
@@ -312,6 +304,10 @@ const topFields = [
 
   <section id="experimental" class="mb-16 scroll-mt-24">
     <h2>Experimental</h2>
-    <p>Experimental flags are defined under <code>experimental</code> and via env flags in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
+    <p>
+      The <code>experimental</code> block now includes higher-level features such as
+      <code>primary_tools</code>, <code>brain</code>, <code>memory</code>, hook configuration, and
+      other runtime toggles in addition to env-gated flags.
+    </p>
   </section>
 </DocsLayout>

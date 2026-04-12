@@ -1,0 +1,73 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Connector Model", href: "#connector-model", depth: 2 },
+  { title: "CLI Workflow", href: "#cli-workflow", depth: 2 },
+  { title: "Tool Operations", href: "#tool-operations", depth: 2 },
+  { title: "Chat Bots", href: "#chat-bots", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Connectors"
+  subtitle="External service connectors, auth flows, and operations in packages/nikcli/src/connectors and packages/nikcli/src/cli/cmd/connectors.ts."
+  toc={toc}
+>
+  <section id="connector-model" class="mb-16 scroll-mt-24">
+    <h2>Connector Model</h2>
+    <p>
+      Connectors are declared in <code>config.connectors</code> and authenticated separately from the
+      JSON config file. Built-in types include Figma, Slack, GitHub, Lovable, plus bot-oriented
+      transports such as Discord, Teams, Google Chat, and Linear.
+    </p>
+    <DocCallout type="info" title="Config vs credentials">
+      <p>
+        Config stores connector metadata and enablement. Credentials are resolved through the
+        connector auth layer and can be refreshed without rewriting the whole config.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="cli-workflow" class="mb-16 scroll-mt-24">
+    <h2>CLI Workflow</h2>
+    <p>
+      The connector CLI supports list, add, auth, and logout flows so users can manage integrations
+      without editing raw JSON by hand.
+    </p>
+    <DocCode language="bash">
+      nikcli connectors list
+      nikcli connectors add
+      nikcli connectors auth github
+    </DocCode>
+  </section>
+
+  <section id="tool-operations" class="mb-16 scroll-mt-24">
+    <h2>Tool Operations</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Connector</th>
+          <th>Operations</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>figma</code></td><td><code>figma_get_file</code>, <code>figma_get_components</code>, <code>figma_get_styles</code>, <code>figma_get_comments</code></td></tr>
+        <tr><td><code>slack</code></td><td><code>slack_list_channels</code>, <code>slack_send_message</code>, <code>slack_search_messages</code>, <code>slack_get_channel_info</code>, <code>slack_reply_to_thread</code></td></tr>
+        <tr><td><code>github</code></td><td><code>github_get_repo</code>, <code>github_get_file</code>, <code>github_create_issue</code>, <code>github_list_issues</code>, <code>github_search_code</code>, <code>github_list_repos</code></td></tr>
+        <tr><td><code>lovable</code></td><td><code>lovable_get_projects</code>, <code>lovable_get_project</code>, <code>lovable_get_chats</code>, <code>lovable_send_message</code>, <code>lovable_get_project_files</code>, <code>lovable_run_prompt</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="chat-bots" class="mb-16 scroll-mt-24">
+    <h2>Chat Bots</h2>
+    <p>
+      The separate <code>nikcli bot</code> command manages webhook-backed bots for Slack, Discord,
+      Teams, Google Chat, Linear, and GitHub. Those bots build on the same connector registry but
+      focus on chat-driven automation instead of direct tool calls.
+    </p>
+  </section>
+</DocsLayout>

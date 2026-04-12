@@ -2,74 +2,187 @@
 const features = [
   {
     title: 'Open Source Freedom',
-    description: '100% open source under MIT license. Build, modify, and deploy without lock-in or hidden subscription costs.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>'
+    description: '100% open source under MIT license. Build, modify, and deploy without lock-in or hidden subscription costs. Fork it. Own it.',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>`,
+    size: 'wide', // spans 2 columns on desktop
   },
   {
-    title: 'Provider Agnostic AI',
-    description: 'Bring your own keys. Seamlessly switch between Claude, OpenAI, Gemini, or self-hosted local models on the fly.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>'
+    title: 'Provider Agnostic',
+    description: 'Bring your own keys. Switch between Claude, OpenAI, Gemini, or local models at any time.',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>`,
+    size: 'normal',
   },
   {
     title: 'Native LSP Intelligence',
     description: 'Deep code understanding via built-in Language Server Protocol. Nikcli reads your types, not just your text.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>'
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>`,
+    size: 'normal',
   },
   {
     title: 'Built for the Terminal',
     description: 'Designed by and for keyboard warriors. Zero GUI overhead, pure speed, and total integration with your dotfiles.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>'
-  },
-  {
-    title: 'Remote Execution',
-    description: 'Run the heavy lifting on a server, control it locally. Client-server architecture built for modern dev workflows.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>'
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>`,
+    size: 'normal',
   },
   {
     title: 'MCP Native Integration',
-    description: 'First-class support for Model Context Protocol. Extend Nikcli\'s capabilities with standard community tools.',
-    icon: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>'
+    description: 'First-class Model Context Protocol support. Extend capabilities with any community-built tool instantly.',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>`,
+    size: 'normal',
+  },
+  {
+    title: 'Remote Execution',
+    description: 'Run the heavy lifting on a server. Control it locally. Client-server architecture built for modern distributed workflows.',
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>`,
+    size: 'wide',
   },
 ];
 ---
 
-<section class="page-section border-y border-terminal-border/60 bg-surface-hover/30">
+<section class="page-section relative" aria-label="Features">
+  <!-- Section header -->
   <div class="page-shell">
-    
-    <div class="mx-auto mb-14 max-w-3xl text-center sm:mb-20">
-      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-terminal-accent/10 text-[11px] font-mono font-bold text-terminal-accent mb-6 uppercase tracking-widest border border-terminal-accent/20">
-        Engineered for speed
+    <div class="mb-12 sm:mb-16 max-w-2xl">
+      <!-- Eyebrow -->
+      <div class="inline-flex items-center gap-2 mb-5">
+        <div class="h-px w-8 bg-terminal-accent" aria-hidden="true"></div>
+        <span class="font-mono text-eyebrow uppercase tracking-[0.2em] text-terminal-accent">
+          Capabilities
+        </span>
       </div>
-      <h2 class="mb-5 text-3xl font-extrabold leading-[1.1] tracking-tight text-terminal-text sm:mb-6 sm:text-4xl md:text-5xl">Powerful primitives</h2>
-      <p class="text-base font-medium leading-relaxed text-terminal-muted sm:text-lg md:text-xl">
-        Everything you need to automate your development workflow, packed into a single blazing-fast binary.
+      <!-- Heading -->
+      <h2 class="font-display text-[clamp(1.75rem,4vw,3rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-terminal-text mb-4">
+        Powerful primitives.<br class="hidden sm:block"/>
+        <span class="text-terminal-muted font-semibold">Everything included.</span>
+      </h2>
+      <p class="text-[clamp(0.95rem,1.5vw,1.05rem)] font-normal leading-[1.7] text-terminal-muted max-w-lg">
+        One binary with everything you need to automate your entire development workflow.
       </p>
     </div>
 
-    <!-- Bento Grid -->
-    <div class="mx-auto grid max-w-[var(--content-max)] grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-      {features.map((feature) => (
-        <div class="feature-card group card-surface relative z-10 overflow-hidden border border-terminal-border/80 bg-terminal-panel p-6 shadow-soft transition-all duration-500 hover:-translate-y-1 hover:border-terminal-accent/50 hover:shadow-strong dark:border-white/5 dark:hover:border-terminal-accent/40 sm:p-7 md:p-8">
-          
-          <!-- Hover Gradient Background -->
-          <div class="absolute inset-0 bg-gradient-to-br from-terminal-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>
-          
-          <!-- Icon Container -->
-           <div class="mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-terminal-border/60 bg-surface-active text-terminal-text shadow-inner transition-all duration-500 ease-out group-hover:scale-110 group-hover:text-terminal-accent dark:border-white/5 sm:mb-8">
-             <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" set:html={feature.icon}></svg>
+    <!-- Bento grid — asymmetric -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+      {features.map((feature, index) => (
+        <div
+          class={[
+            "feature-card group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-panel transition-all duration-200",
+            feature.size === 'wide' ? 'lg:col-span-2' : '',
+          ].join(" ")}
+          style={`animation-delay: ${index * 60}ms`}
+        >
+          <!-- Amber reveal bar on left edge (clip-path technique) -->
+          <div
+            class="absolute left-0 top-4 bottom-4 w-[2.5px] rounded-full overflow-hidden"
+            aria-hidden="true"
+          >
+            <div class="h-full w-full bg-terminal-accent feature-bar" />
           </div>
-          
-           <h3 class="mb-3 text-xl font-bold tracking-tight text-terminal-text transition-colors duration-300 group-hover:text-terminal-accent sm:mb-4 sm:text-2xl">
-             {feature.title}
-           </h3>
-           
-           <p class="text-[15px] font-medium leading-[1.7] text-terminal-muted sm:text-[16px] md:text-[17px]">
-             {feature.description}
-           </p>
 
+          <!-- Hover bg gradient -->
+          <div
+            class="absolute inset-0 bg-gradient-to-br from-terminal-accent/4 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none -z-0"
+            aria-hidden="true"
+          />
+
+          <!-- Content -->
+          <div class={["relative z-10 p-6 sm:p-7", feature.size === 'wide' ? 'md:flex md:gap-8 md:items-start' : ''].join(" ")}>
+            <!-- Icon -->
+            <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-200 group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" set:html={feature.icon} />
+            </div>
+
+            <div class={feature.size === 'wide' ? 'md:flex-1' : ''}>
+              <!-- Title -->
+              <h3 class="font-display text-[1.05rem] font-bold tracking-[-0.02em] text-terminal-text mb-2.5 transition-colors duration-150 group-hover:text-terminal-text">
+                {feature.title}
+              </h3>
+
+              <!-- Description -->
+              <p class="text-[14.5px] font-normal leading-[1.7] text-terminal-muted">
+                {feature.description}
+              </p>
+            </div>
+          </div>
         </div>
       ))}
     </div>
-
   </div>
 </section>
+
+<style>
+  /* Clip-path bar reveal on hover (Emil's technique) */
+  .feature-bar {
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .feature-card:hover .feature-bar {
+    clip-path: inset(0 0 0 0);
+  }
+
+  /* Card hover lift */
+  @media (hover: hover) and (pointer: fine) {
+    .feature-card {
+      transition:
+        transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+        border-color 200ms ease,
+        box-shadow 200ms ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-2px);
+      border-color: rgb(var(--terminal-border));
+      box-shadow: var(--shadow-strong);
+    }
+  }
+
+  /* Staggered entrance */
+  .feature-card {
+    opacity: 0;
+    animation: slideUpFade 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    animation-play-state: paused;
+  }
+
+  .feature-card.is-visible {
+    animation-play-state: running;
+  }
+
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .feature-card {
+      animation: none;
+      opacity: 1;
+    }
+    .feature-bar {
+      transition: none;
+    }
+  }
+</style>
+
+<script>
+  const initFeatures = () => {
+    const cards = document.querySelectorAll<HTMLElement>(".feature-card");
+    if (!cards.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("is-visible");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.12, rootMargin: "-40px" }
+    );
+
+    cards.forEach((card) => observer.observe(card));
+  };
+
+  initFeatures();
+  document.addEventListener("astro:page-load", initFeatures);
+</script>

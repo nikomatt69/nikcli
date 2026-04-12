@@ -1,120 +1,248 @@
 ---
 ---
 
-<section class="page-section relative overflow-hidden flex min-h-[82vh] flex-col justify-center pt-20 sm:pt-24 md:min-h-[88vh] md:pt-28">
-  <!-- Dynamic Background Glow & Noise -->
-  <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-terminal-accent/10 dark:bg-terminal-accent/15 blur-[120px] rounded-full pointer-events-none -z-10 animate-pulse-slow mix-blend-screen"></div>
+<section
+  class="relative isolate overflow-hidden min-h-[92vh] flex items-center pt-16 pb-10 md:pt-20 md:pb-16"
+  aria-label="Hero"
+>
+  <!-- Ambient background glow -->
+  <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+    <div class="absolute top-[-10%] left-[-5%] w-[700px] h-[500px] rounded-full bg-terminal-accent/8 dark:bg-terminal-accent/10 blur-[140px] animate-pulse-slow"></div>
+    <div class="absolute bottom-[-5%] right-[-5%] w-[500px] h-[400px] rounded-full bg-terminal-accent/5 dark:bg-terminal-accent/7 blur-[120px]"></div>
+  </div>
 
-  <div class="page-shell relative z-10">
-    <div class="max-w-4xl mx-auto flex flex-col items-center text-center animate-fade-in-up">
-      
-      <!-- Pill Badge -->
-      <a href="/docs" class="mb-8 inline-flex items-center gap-2 rounded-full border border-terminal-border bg-surface-hover px-3.5 py-1.5 text-[13px] font-semibold text-terminal-text shadow-sm transition-all duration-300 group hover:bg-terminal-panel hover:shadow-soft active:scale-95 sm:mb-10">
-        <span class="relative flex h-2.5 w-2.5">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-terminal-accent opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-terminal-accent"></span>
-        </span>
-        <span class="text-terminal-muted group-hover:text-terminal-text transition-colors">Nikcli is now open source</span>
-        <svg class="w-4 h-4 text-terminal-muted group-hover:text-terminal-text group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path></svg>
-      </a>
+  <div class="page-shell w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-10 xl:gap-16 items-center">
 
-      <!-- Headline -->
-      <h1 class="mb-6 text-[2.75rem] font-black leading-[1.03] tracking-[-0.03em] text-terminal-text drop-shadow-sm sm:mb-8 sm:text-[4rem] md:text-[5rem]">
-        Your AI Development
-        <br />
-        <span class="bg-gradient-to-r from-terminal-accent via-teal-400 to-blue-500 bg-clip-text text-transparent relative">
-          Partner
-          <!-- Subtle highlight behind the gradient text -->
-          <span class="absolute inset-x-0 bottom-0 h-[20%] bg-terminal-accent/10 blur-xl -z-10"></span>
-        </span>
-      </h1>
+      <!-- Left: Copy -->
+      <div class="flex flex-col items-start max-w-[640px]">
 
-      <!-- Subheadline -->
-      <p class="mb-10 max-w-2xl text-base font-medium leading-relaxed text-terminal-muted sm:text-lg md:mb-12 md:text-xl">
-        Open source. Provider agnostic. Built for developers who demand absolute perfection from their terminal tools.
-      </p>
+        <!-- Badge -->
+        <a
+          href="/docs"
+          class="hero-anim mb-7 inline-flex items-center gap-2 rounded-full border border-terminal-border bg-terminal-panel/80 px-3 py-1.5 text-[12.5px] font-semibold text-terminal-muted transition-all duration-200 hover:border-terminal-accent/40 hover:text-terminal-text hover:bg-terminal-panel active:scale-[0.97] group"
+          style="animation-delay: 0ms"
+        >
+          <span class="relative flex h-2 w-2 shrink-0">
+            <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-terminal-accent opacity-70"></span>
+            <span class="relative inline-flex h-2 w-2 rounded-full bg-terminal-accent"></span>
+          </span>
+          <span>Nikcli is now open source</span>
+          <svg class="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
 
-      <!-- Terminal Window (Hyper-Polished) -->
-      <div class="group relative mx-auto mb-12 w-full max-w-[min(100%,52rem)] overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border/80 bg-terminal-window-bg text-left shadow-strong transition-transform duration-500 hover:scale-[1.01] hover:shadow-glow dark:border-white/10 md:mb-14">
-        
-        <!-- Terminal Header -->
-        <div class="flex items-center justify-between border-b border-terminal-window-border/60 bg-gradient-to-b from-surface-hover to-terminal-window-bg px-4 py-3 sm:px-5 sm:py-3.5">
-          <div class="flex gap-2">
-            <div class="w-3 h-3 rounded-full bg-[#FF5F56] border border-black/10 dark:border-white/10 shadow-sm"></div>
-            <div class="w-3 h-3 rounded-full bg-[#FFBD2E] border border-black/10 dark:border-white/10 shadow-sm"></div>
-            <div class="w-3 h-3 rounded-full bg-[#27C93F] border border-black/10 dark:border-white/10 shadow-sm"></div>
-          </div>
-          <div class="hidden items-center gap-2 rounded-md border border-terminal-border/30 bg-surface-active/50 px-3 py-1 font-mono text-[12px] font-medium text-terminal-muted sm:flex">
-            <svg class="w-3.5 h-3.5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-            ~/projects/nikcli
-          </div>
-          <div class="w-12"></div> <!-- Spacer for centering -->
+        <!-- Headline -->
+        <h1
+          class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] tracking-[-0.04em] text-[clamp(2.8rem,7vw,5.5rem)] mb-6 sm:mb-7"
+          style="animation-delay: 80ms"
+        >
+          The&nbsp;
+          <span class="relative inline-block">
+            <span
+              class="bg-gradient-to-br from-terminal-accent via-blue-400 to-blue-300 dark:from-terminal-accent dark:via-blue-300 dark:to-sky-200 bg-clip-text text-transparent"
+            >AI</span>
+          </span>
+          <br class="hidden sm:block" />
+          Development<br />
+          <span class="text-terminal-muted">Agent.</span>
+        </h1>
+
+        <!-- Subheadline -->
+        <p
+          class="hero-anim mb-8 max-w-[480px] text-[clamp(1rem,1.5vw,1.15rem)] font-normal leading-[1.65] text-terminal-muted"
+          style="animation-delay: 160ms"
+        >
+          Open source. Provider agnostic. Built for developers who demand
+          absolute perfection from their terminal&nbsp;tools.
+        </p>
+
+        <!-- CTAs -->
+        <div
+          class="hero-anim flex flex-col sm:flex-row items-start sm:items-center gap-3"
+          style="animation-delay: 240ms"
+        >
+          <a
+            href="/docs#installation"
+            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+            </svg>
+            Start Building
+          </a>
+          <a
+            href="/docs"
+            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-all duration-150 hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
+          >
+            Documentation
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </a>
         </div>
 
-        <!-- Terminal Body -->
-        <div class="relative min-h-[128px] overflow-x-auto bg-terminal-window-code p-5 font-mono text-[13px] leading-relaxed sm:min-h-[140px] sm:p-6 md:p-8 md:text-[15px]">
-          <!-- Inner Shadow -->
-          <div class="absolute inset-0 shadow-[inset_0_4px_15px_rgba(0,0,0,0.02)] pointer-events-none"></div>
-          
-          <div class="flex items-start gap-3 relative z-10">
-            <span class="text-terminal-accent shrink-0 select-none font-bold mt-0.5">❯</span>
-            <div class="flex-1 whitespace-pre-wrap break-all sm:whitespace-nowrap sm:break-normal">
-              <span id="typewriter-cmd" class="text-terminal-window-text font-bold"></span>
-              <span id="typewriter-flags" class="text-terminal-muted"></span>
-              <span class="animate-cursor inline-block w-2.5 h-5 bg-terminal-text align-middle ml-1 -mt-0.5 shadow-[0_0_8px_rgba(var(--terminal-text)/0.5)] rounded-sm"></span>
-            </div>
+        <!-- Stats row -->
+        <div
+          class="hero-anim mt-10 flex items-center gap-6 border-t border-terminal-border/50 pt-6"
+          style="animation-delay: 320ms"
+        >
+          <div>
+            <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">MIT</div>
+            <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">License</div>
+          </div>
+          <div class="w-px h-8 bg-terminal-border/60"></div>
+          <div>
+            <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">21+</div>
+            <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">AI Providers</div>
+          </div>
+          <div class="w-px h-8 bg-terminal-border/60"></div>
+          <div>
+            <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">42</div>
+            <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Built-in Tools</div>
           </div>
         </div>
       </div>
 
-      <!-- Actions -->
-      <div class="flex w-full flex-col items-center justify-center gap-4 sm:flex-row sm:gap-5">
-        <a href="/docs#installation" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-[15px] font-bold rounded-xl bg-terminal-text text-terminal-bg hover:bg-terminal-text/90 hover:-translate-y-0.5 transition-all shadow-[0_4px_14px_0_rgb(var(--terminal-shadow)/0.2)] hover:shadow-[0_6px_20px_rgba(var(--terminal-shadow)/0.3)] active:translate-y-0 active:scale-95 group relative overflow-hidden">
-          <span class="absolute inset-0 bg-white/20 dark:bg-black/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></span>
-          <span class="relative">Start Building</span>
-        </a>
-        <a href="/docs" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 text-[15px] font-bold rounded-xl bg-surface-hover text-terminal-text hover:bg-terminal-panel border border-terminal-border/80 hover:border-terminal-accent/50 transition-all shadow-sm hover:shadow-soft hover:-translate-y-0.5 active:translate-y-0 active:scale-95">
-          Read Documentation
-        </a>
+      <!-- Right: Terminal window -->
+      <div
+        class="hero-anim w-full lg:w-[min(460px,50vw)] xl:w-[500px] shrink-0"
+        style="animation-delay: 120ms"
+      >
+        <div
+          id="hero-terminal"
+          class="group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border bg-terminal-window-bg shadow-strong transition-transform duration-500 ease-out-expo"
+          style="transform: perspective(1100px) rotateY(-6deg) rotateX(1.5deg);"
+        >
+          <!-- Window chrome -->
+          <div class="flex items-center justify-between border-b border-terminal-window-border/70 bg-gradient-to-b from-surface-hover/50 to-terminal-window-bg px-4 py-3 sm:px-5">
+            <div class="flex gap-1.5" aria-hidden="true">
+              <div class="w-3 h-3 rounded-full bg-[#FF5F56] shadow-sm border border-black/8"></div>
+              <div class="w-3 h-3 rounded-full bg-[#FFBD2E] shadow-sm border border-black/8"></div>
+              <div class="w-3 h-3 rounded-full bg-[#27C93F] shadow-sm border border-black/8"></div>
+            </div>
+            <div class="hidden sm:flex items-center gap-2 rounded-md border border-terminal-border/25 bg-surface-active/40 px-3 py-1 font-mono text-[11px] font-medium text-terminal-muted">
+              <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              ~/projects
+            </div>
+            <div class="w-10" aria-hidden="true"></div>
+          </div>
+
+          <!-- Terminal body -->
+          <div class="min-h-[180px] overflow-x-auto bg-terminal-window-code p-5 font-mono text-[13px] leading-[1.8] sm:p-6 md:p-7 md:text-[14px]">
+            <!-- Command line -->
+            <div class="flex items-start gap-2.5 mb-3">
+              <span class="text-terminal-accent shrink-0 font-bold select-none mt-[2px]">$</span>
+              <div>
+                <span id="typewriter-cmd" class="text-terminal-window-text font-semibold"></span>
+                <span id="typewriter-flags" class="text-terminal-muted"></span>
+                <span class="animate-cursor inline-block w-[7px] h-[15px] bg-terminal-accent/80 align-middle ml-0.5 -mt-px rounded-[1px]" aria-hidden="true"></span>
+              </div>
+            </div>
+
+            <!-- Simulated output lines -->
+            <div class="mt-1 space-y-1 text-[12px]" aria-hidden="true">
+              <div class="flex items-center gap-2">
+                <span class="text-terminal-accent/70 font-semibold">✓</span>
+                <span class="text-terminal-muted/80">Connecting to model provider...</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-terminal-accent/70 font-semibold">✓</span>
+                <span class="text-terminal-muted/80">LSP initialized — 3 servers active</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-terminal-success/80 font-semibold">→</span>
+                <span class="text-terminal-muted/80">Session <span class="text-terminal-accent font-semibold">ses_f9a2b</span> started</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom status bar -->
+          <div class="border-t border-terminal-window-border/60 bg-surface-hover/30 px-5 py-2 flex items-center justify-between">
+            <div class="flex items-center gap-3 font-mono text-[10.5px] text-terminal-muted/70">
+              <span class="flex items-center gap-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-terminal-success inline-block"></span>
+                claude-sonnet-4
+              </span>
+              <span>·</span>
+              <span>LSP</span>
+              <span>·</span>
+              <span>MCP</span>
+            </div>
+            <span class="font-mono text-[10.5px] text-terminal-muted/50">v0.0.8</span>
+          </div>
+        </div>
+
+        <!-- Decorative shadow card behind terminal -->
+        <div
+          class="absolute -z-10 inset-4 rounded-[var(--radius-card)] bg-terminal-accent/8 blur-2xl"
+          aria-hidden="true"
+        ></div>
       </div>
 
     </div>
   </div>
 </section>
 
-<script>
-  const cmdText = "nikcli ";
-  const flagsText = "--agent=build --model=claude-sonnet-4";
-  
-  const cmdEl = document.getElementById("typewriter-cmd");
-  const flagsEl = document.getElementById("typewriter-flags");
-  
-  let i = 0;
-  let j = 0;
-  const prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+<style>
+  .hero-anim {
+    opacity: 0;
+    animation: slideUpFade 0.6s var(--ease-out-expo, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  }
 
-  function typeWriter() {
-    if (i < cmdText.length && cmdEl) {
-      cmdEl.textContent += cmdText.charAt(i);
-      i++;
-      setTimeout(typeWriter, 40);
-    } else if (j < flagsText.length && flagsEl) {
-      flagsEl.textContent += flagsText.charAt(j);
-      j++;
-      setTimeout(typeWriter, 30);
+  @keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    #hero-terminal:hover {
+      transform: perspective(1100px) rotateY(-2deg) rotateX(0.5deg) translateY(-4px) !important;
     }
   }
 
-  // Clear initially so it doesn't blink pre-rendered text before animation
-  if(cmdEl) cmdEl.textContent = '';
-  if(flagsEl) flagsEl.textContent = '';
-
-  if (cmdEl && flagsEl) {
-    if (prefersReduced) {
-      cmdEl.textContent = cmdText;
-      flagsEl.textContent = flagsText;
-    } else {
-      setTimeout(typeWriter, 800);
+  @media (prefers-reduced-motion: reduce) {
+    .hero-anim {
+      animation: none;
+      opacity: 1;
     }
+    #hero-terminal {
+      transform: none !important;
+    }
+  }
+</style>
+
+<script>
+  const cmdText = "nikcli ";
+  const flagsText = "--agent=build --model=claude-sonnet-4";
+
+  const cmdEl = document.getElementById("typewriter-cmd");
+  const flagsEl = document.getElementById("typewriter-flags");
+
+  const prefersReduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+  if (prefersReduced) {
+    if (cmdEl) cmdEl.textContent = cmdText;
+    if (flagsEl) flagsEl.textContent = flagsText;
+  } else {
+    if (cmdEl) cmdEl.textContent = "";
+    if (flagsEl) flagsEl.textContent = "";
+
+    let i = 0, j = 0;
+
+    const type = () => {
+      if (cmdEl && i < cmdText.length) {
+        cmdEl.textContent += cmdText[i++];
+        setTimeout(type, 42);
+      } else if (flagsEl && j < flagsText.length) {
+        flagsEl.textContent += flagsText[j++];
+        setTimeout(type, 28);
+      }
+    };
+
+    setTimeout(type, 900);
   }
 </script>

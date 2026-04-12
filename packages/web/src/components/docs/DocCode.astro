@@ -5,44 +5,185 @@ interface Props {
 }
 const { language, title } = Astro.props;
 
-function normalizeCodeBlock(value: string) {
-  const trimmed = value.replace(/^\s*\n/, "").replace(/\n\s*$/, "")
-  if (!trimmed) return ""
+function decodeHtmlEntities(value: string) {
+  return value.replace(/&(#(?:x[\da-fA-F]+|\d+)|quot|apos|amp|lt|gt);/g, (entity, token: string) => {
+    switch (token) {
+      case "quot":
+        return '"';
+      case "apos":
+        return "'";
+      case "amp":
+        return "&";
+      case "lt":
+        return "<";
+      case "gt":
+        return ">";
+      default:
+        if (token.startsWith("#x") || token.startsWith("#X")) {
+          return String.fromCodePoint(Number.parseInt(token.slice(2), 16));
+        }
+        if (token.startsWith("#")) {
+          return String.fromCodePoint(Number.parseInt(token.slice(1), 10));
+        }
+        return entity;
+    }
+  });
+}
 
-  const lines = trimmed.split("\n")
+function normalizeCodeBlock(value: string) {
+  const trimmed = decodeHtmlEntities(value).replace(/^\s*\n/, "").replace(/\n\s*$/, "");
+  if (!trimmed) return "";
+  const lines = trimmed.split("\n");
   const indentation = lines
     .filter((line) => line.trim().length > 0)
     .reduce((smallest, line) => {
-      const leading = line.match(/^\s*/)?.[0].length ?? 0
-      return Math.min(smallest, leading)
-    }, Number.POSITIVE_INFINITY)
-
-  if (!Number.isFinite(indentation)) return trimmed
-
-  return lines.map((line) => line.slice(indentation)).join("\n")
+      const leading = line.match(/^\s*/)?.[0].length ?? 0;
+      return Math.min(smallest, leading);
+    }, Number.POSITIVE_INFINITY);
+  if (!Number.isFinite(indentation)) return trimmed;
+  return lines.map((line) => line.slice(indentation)).join("\n");
 }
 
-const rawCode = Astro.slots.has("default") ? await Astro.slots.render("default") : ""
-const code = normalizeCodeBlock(rawCode)
+const rawCode = Astro.slots.has("default") ? await Astro.slots.render("default") : "";
+const code = normalizeCodeBlock(rawCode);
+const lineCount = code.split("\n").length;
+const isShell = language === "bash" || language === "sh" || language === "shell" || language === "zsh";
 ---
 
-<div class="group relative my-8 overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border/80 bg-terminal-window-bg shadow-soft transition-colors duration-300 not-prose">
-  <div class="flex items-center justify-between gap-3 border-b border-terminal-window-border/80 bg-gradient-to-b from-surface-hover to-terminal-window-bg px-4 py-3 sm:px-5">
+<div class="doc-code-block group relative my-7 overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border bg-terminal-window-bg shadow-soft not-prose transition-all duration-200 hover:border-terminal-border hover:shadow-strong">
+
+  <!-- Window chrome -->
+  <div class="flex items-center justify-between gap-3 border-b border-terminal-window-border px-4 py-2.5 sm:px-5">
     <div class="flex items-center gap-3">
-      <div class="flex gap-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-        <div class="h-3 w-3 rounded-full border border-black/10 bg-[#FF5F56] shadow-sm dark:border-white/10"></div>
-        <div class="h-3 w-3 rounded-full border border-black/10 bg-[#FFBD2E] shadow-sm dark:border-white/10"></div>
-        <div class="h-3 w-3 rounded-full border border-black/10 bg-[#27C93F] shadow-sm dark:border-white/10"></div>
+      <!-- Traffic lights -->
+      <div class="flex gap-1.5" aria-hidden="true">
+        <div class="h-2.5 w-2.5 rounded-full bg-[#FF5F56] border border-black/8 dark:border-white/8 shadow-sm"></div>
+        <div class="h-2.5 w-2.5 rounded-full bg-[#FFBD2E] border border-black/8 dark:border-white/8 shadow-sm"></div>
+        <div class="h-2.5 w-2.5 rounded-full bg-[#27C93F] border border-black/8 dark:border-white/8 shadow-sm"></div>
       </div>
-      {title && <span class="flex items-center gap-2 text-[13px] font-medium text-terminal-window-muted">
-        {title}
-      </span>}
+
+      <!-- Title or shell indicator -->
+      {title ? (
+        <span class="font-mono text-[12px] font-medium text-terminal-window-muted">
+          {title}
+        </span>
+      ) : isShell ? (
+        <span class="flex items-center gap-1.5 font-mono text-[12px] font-medium text-terminal-window-muted">
+          <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          Terminal
+        </span>
+      ) : null}
     </div>
-    {language && (
-      <span class="rounded-lg border border-terminal-window-border/80 bg-surface-active px-2.5 py-1 text-[10px] font-mono font-bold uppercase tracking-[0.2em] text-terminal-window-muted transition-colors">
-        {language}
-      </span>
-    )}
+
+    <div class="flex items-center gap-2">
+      {language && (
+        <span class="rounded-md border border-terminal-window-border/80 bg-surface-active px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-terminal-window-muted">
+          {language}
+        </span>
+      )}
+
+      <!-- Copy button -->
+      <button
+        type="button"
+        class="doc-copy-btn flex items-center gap-1.5 rounded-md border border-terminal-border/40 bg-surface-hover/60 px-2 py-0.5 font-mono text-[10.5px] font-medium text-terminal-muted transition-all duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 active:scale-[0.94]"
+        aria-label="Copy code"
+        aria-live="polite"
+      >
+        <svg class="icon-copy w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        <svg class="icon-ok w-3 h-3 hidden text-terminal-success" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+        </svg>
+        <span class="copy-label">Copy</span>
+      </button>
+    </div>
   </div>
-  <pre class="overflow-x-auto bg-terminal-window-code/80 p-5 text-[13px] leading-[1.7] text-terminal-window-text md:text-sm"><code class="block min-w-fit whitespace-pre font-mono">{code}</code></pre>
+
+  <!-- Code body -->
+  <div class="relative flex overflow-x-auto bg-terminal-window-code">
+    <!-- Line numbers (only if > 3 lines and not a shell snippet) -->
+    {lineCount > 3 && !isShell && (
+      <div
+        class="select-none border-r border-terminal-window-border/50 bg-surface-hover/30 px-3 py-5 text-right font-mono text-[12px] leading-[1.75] text-terminal-muted/40"
+        aria-hidden="true"
+      >
+        {Array.from({ length: lineCount }, (_, i) => (
+          <div>{i + 1}</div>
+        ))}
+      </div>
+    )}
+
+    <!-- Code content — no radius, no border, flush background -->
+    <pre class="code-pre flex-1 overflow-x-auto p-5 text-[13px] leading-[1.75] text-terminal-window-text md:text-[13.5px]"><code class="doc-code-content block min-w-fit whitespace-pre font-mono">{code}</code></pre>
+  </div>
+
+  <!-- Shell prompt indicator strip -->
+  {isShell && (
+    <div class="border-t border-terminal-window-border/50 bg-surface-hover/20 px-5 py-2 flex items-center gap-2 font-mono text-[11px] text-terminal-muted/60" aria-hidden="true">
+      <span class="text-terminal-accent font-bold">$</span>
+      <span>shell · paste into your terminal</span>
+    </div>
+  )}
 </div>
+
+<style>
+  /* Strip all inherited prose/global styles from pre and code inside doc blocks */
+  .doc-code-block .code-pre {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .doc-code-block .code-pre code,
+  .doc-code-block .doc-code-content {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: inherit !important;
+    color: inherit !important;
+  }
+</style>
+
+<script>
+  const initCodeBlocks = () => {
+    document.querySelectorAll<HTMLElement>(".doc-code-block").forEach((block) => {
+      const btn = block.querySelector<HTMLButtonElement>(".doc-copy-btn");
+      if (!btn) return;
+
+      const newBtn = btn.cloneNode(true) as HTMLElement;
+      btn.parentNode?.replaceChild(newBtn, btn);
+
+      const iconCopy = newBtn.querySelector(".icon-copy") as HTMLElement | null;
+      const iconOk   = newBtn.querySelector(".icon-ok") as HTMLElement | null;
+      const lbl      = newBtn.querySelector(".copy-label") as HTMLElement | null;
+      const codeEl   = block.querySelector<HTMLElement>(".doc-code-content");
+
+      newBtn.addEventListener("click", async () => {
+        const text = codeEl?.textContent?.trim() ?? "";
+        try {
+          await navigator.clipboard.writeText(text);
+          iconCopy?.classList.add("hidden");
+          iconOk?.classList.remove("hidden");
+          if (lbl) lbl.textContent = "Copied!";
+          newBtn.classList.add("border-terminal-success/40", "text-terminal-success");
+
+          setTimeout(() => {
+            iconCopy?.classList.remove("hidden");
+            iconOk?.classList.add("hidden");
+            if (lbl) lbl.textContent = "Copy";
+            newBtn.classList.remove("border-terminal-success/40", "text-terminal-success");
+          }, 2000);
+        } catch { /* silent */ }
+      });
+    });
+  };
+
+  initCodeBlocks();
+  document.addEventListener("astro:page-load", initCodeBlocks);
+</script>

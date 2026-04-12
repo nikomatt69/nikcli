@@ -678,6 +678,7 @@
         "@solidjs/meta": "catalog:",
         "@solidjs/router": "catalog:",
         "hono": "catalog:",
+        "jsonc-parser": "3.3.1",
         "solid-js": "catalog:",
         "yaml": "2.6.1",
         "zod": "catalog:",

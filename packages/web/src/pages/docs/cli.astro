@@ -5,169 +5,140 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 
 const toc = [
   { title: "Entry Point", href: "#entry-point", depth: 2 },
-  { title: "Core Commands", href: "#core-commands", depth: 2 },
-  { title: "Session & Export", href: "#session-export", depth: 2 },
-  { title: "Server & Web", href: "#server-web", depth: 2 },
-  { title: "Remote & ACP", href: "#remote-acp", depth: 2 },
-  { title: "GitHub", href: "#github", depth: 2 },
+  { title: "Interactive Workflows", href: "#interactive-workflows", depth: 2 },
+  { title: "Services & Remote", href: "#services-remote", depth: 2 },
+  { title: "Integration & Automation", href: "#integration-automation", depth: 2 },
+  { title: "Models & Config", href: "#models-config", depth: 2 },
   { title: "Maintenance", href: "#maintenance", depth: 2 },
 ];
 ---
 
 <DocsLayout
-  title="CLI Quickstart"
+  title="CLI Reference"
   subtitle="Command surface defined in packages/nikcli/src/index.ts and packages/nikcli/src/cli/cmd."
   toc={toc}
 >
   <section id="entry-point" class="mb-16 scroll-mt-24">
     <h2>Entry Point</h2>
-    <p>The CLI registers commands in <code>packages/nikcli/src/index.ts</code> using yargs.</p>
+    <p>
+      Running <code>nikcli</code> without a subcommand opens the default terminal UI. From the same
+      binary you can also boot servers, attach to shared sessions, manage connectors, configure
+      models, and control companion or mobile workflows.
+    </p>
     <DocCode language="bash">
-      nikcli --help
+      nikcli
     </DocCode>
     <DocCallout type="info" title="Default TUI">
       <p>
-        Running <code>nikcli</code> starts the TUI command (<code>$0 [project]</code>) with options:
-        <code>--model</code>, <code>--agent</code>, <code>--session</code>, <code>--continue</code>,
-        <code>--prompt</code>, plus network flags.
+        The default TUI command is <code>$0 [project]</code> and accepts session, model, agent,
+        continue, prompt, and network flags.
       </p>
     </DocCallout>
   </section>
 
-  <section id="core-commands" class="mb-16 scroll-mt-24">
-    <h2>Core Commands</h2>
+  <section id="interactive-workflows" class="mb-16 scroll-mt-24">
+    <h2>Interactive Workflows</h2>
     <table class="doc-table">
       <thead>
         <tr>
           <th>Command</th>
-          <th>Description</th>
-          <th>Source</th>
+          <th>Purpose</th>
         </tr>
       </thead>
       <tbody>
-        <tr>
-          <td><code>run [message..]</code></td>
-          <td>Run a single-shot session with optional attachments and flags.</td>
-          <td><code>src/cli/cmd/run.ts</code></td>
-        </tr>
-        <tr>
-          <td><code>generate</code></td>
-          <td>Emit OpenAPI schema with code samples injected.</td>
-          <td><code>src/cli/cmd/generate.ts</code></td>
-        </tr>
-        <tr>
-          <td><code>auth</code></td>
-          <td>Manage provider credentials (login/logout/list).</td>
-          <td><code>src/cli/cmd/auth.ts</code></td>
-        </tr>
-        <tr>
-          <td><code>agent</code></td>
-          <td>Create and list agents from prompts.</td>
-          <td><code>src/cli/cmd/agent.ts</code></td>
-        </tr>
-        <tr>
-          <td><code>models</code></td>
-          <td>List models (optionally refresh cache).</td>
-          <td><code>src/cli/cmd/models.ts</code></td>
-        </tr>
+        <tr><td><code>nikcli</code></td><td>Open the TUI in the current workspace.</td></tr>
+        <tr><td><code>nikcli [project]</code></td><td>Open the TUI in another project directory.</td></tr>
+        <tr><td><code>nikcli run [message..]</code></td><td>Run a one-shot prompt without entering the TUI.</td></tr>
+        <tr><td><code>nikcli attach &lt;url&gt;</code></td><td>Attach a local TUI to a shared session URL.</td></tr>
+        <tr><td><code>nikcli session</code></td><td>List, inspect, export, or import sessions.</td></tr>
+        <tr><td><code>nikcli debug</code></td><td>Print environment and runtime diagnostics.</td></tr>
       </tbody>
     </table>
-    <DocCallout type="info" title="Run command options">
+    <DocCode language="bash">
+      nikcli run "audit this repo and summarize risks"
+      nikcli attach https://example.nikcli.store/share/abcd
+    </DocCode>
+  </section>
+
+  <section id="services-remote" class="mb-16 scroll-mt-24">
+    <h2>Services & Remote</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>nikcli serve</code></td><td>Start the local HTTP API server.</td></tr>
+        <tr><td><code>nikcli web</code></td><td>Start the local web UI.</td></tr>
+        <tr><td><code>nikcli companion serve</code></td><td>Boot the server with the companion web UI enabled.</td></tr>
+        <tr><td><code>nikcli companion open</code></td><td>Open the companion UI in the browser.</td></tr>
+        <tr><td><code>nikcli mobile</code></td><td>Serve pairing, token, and mobile host flows.</td></tr>
+        <tr><td><code>nikcli workspace-serve</code></td><td>Expose workspace event streams for remote consumers.</td></tr>
+        <tr><td><code>nikcli remote</code></td><td>Start, inspect, share, or stop a remote session server.</td></tr>
+        <tr><td><code>nikcli acp</code></td><td>Start the ACP server.</td></tr>
+        <tr><td><code>nikcli mcp</code></td><td>Start the MCP server.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Remote attach">
       <p>
-        <code>run</code> supports <code>--model</code>, <code>--agent</code>, <code>--file</code>,
-        <code>--format</code>, <code>--attach</code>, <code>--share</code>, <code>--session</code>,
-        <code>--continue</code>, <code>--title</code>, and provider-specific <code>--variant</code>.
+        The <code>remote</code> command documents server lifecycle and sharing, but
+        <code>remote attach</code> is not implemented in the current command surface.
       </p>
     </DocCallout>
   </section>
 
-  <section id="session-export" class="mb-16 scroll-mt-24">
-    <h2>Session & Export</h2>
+  <section id="integration-automation" class="mb-16 scroll-mt-24">
+    <h2>Integration & Automation</h2>
     <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr>
-          <td><code>session list</code></td>
-          <td>List sessions with paging support.</td>
-        </tr>
-        <tr>
-          <td><code>export [sessionID]</code></td>
-          <td>Export session data as JSON.</td>
-        </tr>
-        <tr>
-          <td><code>import &lt;file|url&gt;</code></td>
-          <td>Import session data from file or share URL.</td>
-        </tr>
-        <tr>
-          <td><code>stats</code></td>
-          <td>Usage statistics across sessions.</td>
-        </tr>
+        <tr><td><code>nikcli connectors</code></td><td>Add, list, auth, or revoke service connectors.</td></tr>
+        <tr><td><code>nikcli bot</code></td><td>Manage chat bots for Slack, Discord, Teams, Google Chat, Linear, and GitHub.</td></tr>
+        <tr><td><code>nikcli plugin &lt;module&gt;</code></td><td>Install and merge a plugin module into config.</td></tr>
+        <tr><td><code>nikcli github</code></td><td>Install GitHub app integrations and helpers.</td></tr>
+        <tr><td><code>nikcli pr [number]</code></td><td>Inspect a pull request inside the CLI.</td></tr>
+        <tr><td><code>nikcli lovable build</code></td><td>Open a Lovable build flow from the terminal.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="server-web" class="mb-16 scroll-mt-24">
-    <h2>Server & Web</h2>
-    <p>Server flags are defined in <code>src/cli/network.ts</code>.</p>
-    <DocCode language="bash">
-      nikcli serve --hostname 0.0.0.0 --port 4096
-    </DocCode>
-    <DocCode language="bash">
-      nikcli web --mdns
-    </DocCode>
-  </section>
-
-  <section id="remote-acp" class="mb-16 scroll-mt-24">
-    <h2>Remote & ACP</h2>
+  <section id="models-config" class="mb-16 scroll-mt-24">
+    <h2>Models & Config</h2>
     <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr>
-          <td><code>remote-control</code></td>
-          <td>Start or continue a Remote Control session, then keep it running locally.</td>
-        </tr>
-        <tr>
-          <td><code>remote-control stop</code></td>
-          <td>Stop the active Remote Control session (works across terminals).</td>
-        </tr>
-        <tr>
-          <td><code>remote start</code></td>
-          <td>Compatibility entrypoint for starting a remote session.</td>
-        </tr>
-        <tr>
-          <td><code>remote status</code></td>
-          <td>Show current remote session state and share URL.</td>
-        </tr>
-        <tr>
-          <td><code>acp</code></td>
-          <td>Start an ACP server (Agent Client Protocol).</td>
-        </tr>
+        <tr><td><code>nikcli auth</code></td><td>Manage provider credentials.</td></tr>
+        <tr><td><code>nikcli models [provider]</code></td><td>Inspect or refresh the model catalog.</td></tr>
+        <tr><td><code>nikcli agent</code></td><td>Inspect or update agent defaults.</td></tr>
+        <tr><td><code>nikcli rag-model</code></td><td>List or set the embedding provider and model for RAG.</td></tr>
+        <tr><td><code>nikcli image-model</code></td><td>List or set the default image generation provider and model.</td></tr>
+        <tr><td><code>nikcli speak-model</code></td><td>List or set the default text-to-speech provider and voice.</td></tr>
       </tbody>
     </table>
-  </section>
-
-  <section id="github" class="mb-16 scroll-mt-24">
-    <h2>GitHub</h2>
-    <p>The GitHub agent is managed via <code>nikcli github</code>.</p>
-    <DocCode language="bash">
-      nikcli github install
-    </DocCode>
   </section>
 
   <section id="maintenance" class="mb-16 scroll-mt-24">
     <h2>Maintenance</h2>
     <table class="doc-table">
       <tbody>
-        <tr>
-          <td><code>upgrade [target]</code></td>
-          <td>Upgrade to the latest or a specific version. Optional <code>--method</code>.</td>
-        </tr>
-        <tr>
-          <td><code>uninstall</code></td>
-          <td>Remove nikcli; supports <code>--keep-config</code>, <code>--keep-data</code>, <code>--dry-run</code>, <code>--force</code>.</td>
-        </tr>
-        <tr>
-          <td><code>pr &lt;number&gt;</code></td>
-          <td>Fetch GitHub PR, checkout, optionally import linked session.</td>
-        </tr>
+        <tr><td><code>generate</code></td><td>Generate OpenAPI and related assets.</td></tr>
+        <tr><td><code>stats</code></td><td>Inspect usage and runtime statistics.</td></tr>
+        <tr><td><code>export [sessionID]</code></td><td>Export session data as JSON.</td></tr>
+        <tr><td><code>import &lt;file|url&gt;</code></td><td>Import session data from file or share URL.</td></tr>
+        <tr><td><code>upgrade [target]</code></td><td>Upgrade to the latest or a specific version.</td></tr>
+        <tr><td><code>uninstall</code></td><td>Remove nikcli with optional keep-config, keep-data, dry-run, and force flags.</td></tr>
       </tbody>
     </table>
   </section>

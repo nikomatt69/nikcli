@@ -1,7 +1,7 @@
 export type DocsNavGroup = {
-  title: string;
-  items: Array<{ title: string; href: string }>;
-};
+  title: string
+  items: Array<{ title: string; href: string }>
+}
 
 export const docsSidebar: DocsNavGroup[] = [
   {
@@ -9,7 +9,7 @@ export const docsSidebar: DocsNavGroup[] = [
     items: [
       { title: "Overview", href: "/docs" },
       { title: "Architecture", href: "/docs/architecture" },
-      { title: "CLI Quickstart", href: "/docs/cli" },
+      { title: "CLI Reference", href: "/docs/cli" },
     ],
   },
   {
@@ -19,6 +19,7 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "Agents", href: "/docs/agents" },
       { title: "Tools", href: "/docs/tools" },
       { title: "Providers", href: "/docs/providers" },
+      { title: "Connectors", href: "/docs/connectors" },
       { title: "Sessions", href: "/docs/sessions" },
       { title: "Permissions", href: "/docs/permissions" },
       { title: "Plugins & Skills", href: "/docs/plugins" },
@@ -28,6 +29,7 @@ export const docsSidebar: DocsNavGroup[] = [
     title: "Systems",
     items: [
       { title: "Server & API", href: "/docs/server-api" },
+      { title: "Mobile", href: "/docs/mobile" },
       { title: "MCP", href: "/docs/mcp" },
       { title: "LSP", href: "/docs/lsp" },
       { title: "RAG", href: "/docs/rag" },
@@ -42,4 +44,4 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "CLI Debug", href: "/docs/cli-debug" },
     ],
   },
-];
+]

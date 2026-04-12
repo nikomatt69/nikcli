@@ -4,64 +4,82 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 
 const toc = [
   { title: "HTTP Server", href: "#http-server", depth: 2 },
-  { title: "Routes", href: "#routes", depth: 2 },
+  { title: "Core Routes", href: "#core-routes", depth: 2 },
+  { title: "Mobile & Companion", href: "#mobile-companion", depth: 2 },
+  { title: "Transport & Auth", href: "#transport-auth", depth: 2 },
   { title: "OpenAPI", href: "#openapi", depth: 2 },
-  { title: "Networking Flags", href: "#networking-flags", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Server & API"
-  subtitle="Hono server and route definitions in packages/nikcli/src/server."
+  subtitle="Hono server composition in packages/nikcli/src/server/server.ts and packages/nikcli/src/server/routes."
   toc={toc}
 >
   <section id="http-server" class="mb-16 scroll-mt-24">
     <h2>HTTP Server</h2>
     <p>
-      The server is implemented with Hono and SSE streaming. It supports CORS, optional basic auth,
-      and exposes REST + event APIs.
+      The server is implemented with Hono and SSE streaming. It exposes REST, event, companion,
+      connector, and mobile APIs while resolving workspace context from request headers or query
+      params before most handlers run.
     </p>
-    <DocCallout type="info" title="Auth">
-      <p>Basic auth is enabled when <code>NIKCLI_SERVER_PASSWORD</code> is set.</p>
-    </DocCallout>
   </section>
 
-  <section id="routes" class="mb-16 scroll-mt-24">
-    <h2>Routes</h2>
+  <section id="core-routes" class="mb-16 scroll-mt-24">
+    <h2>Core Routes</h2>
     <table class="doc-table">
       <thead>
         <tr>
           <th>Namespace</th>
-          <th>Route File</th>
+          <th>Purpose</th>
         </tr>
       </thead>
       <tbody>
-        <tr><td>/project</td><td><code>src/server/routes/project.ts</code></td></tr>
-        <tr><td>/session</td><td><code>src/server/routes/session.ts</code></td></tr>
-        <tr><td>/provider</td><td><code>src/server/routes/provider.ts</code></td></tr>
-        <tr><td>/mcp</td><td><code>src/server/routes/mcp.ts</code></td></tr>
-        <tr><td>/tui</td><td><code>src/server/routes/tui.ts</code></td></tr>
+        <tr><td><code>/global</code></td><td>Global runtime information and top-level helpers.</td></tr>
+        <tr><td><code>/project</code></td><td>Project metadata and discovery.</td></tr>
+        <tr><td><code>/pty</code></td><td>Pseudo-terminal and shell streaming endpoints.</td></tr>
+        <tr><td><code>/config</code></td><td>Config inspection and mutation helpers.</td></tr>
+        <tr><td><code>/experimental</code></td><td>Experimental APIs including workspace flows.</td></tr>
+        <tr><td><code>/session</code></td><td>Session CRUD, messages, share, and stream endpoints.</td></tr>
+        <tr><td><code>/permission</code></td><td>Permission prompt responses.</td></tr>
+        <tr><td><code>/question</code></td><td>Interactive question responses.</td></tr>
+        <tr><td><code>/provider</code></td><td>Provider catalog and model APIs.</td></tr>
+        <tr><td><code>/companion</code></td><td>Companion web UI endpoints.</td></tr>
+        <tr><td><code>/user</code></td><td>User auth and profile endpoints.</td></tr>
+        <tr><td><code>/mobile</code></td><td>Mobile app pairing, tokens, and session streaming.</td></tr>
+        <tr><td><code>/connectors</code></td><td>Connector configuration and auth flows.</td></tr>
+        <tr><td><code>/chatbot</code></td><td>Chat bot integrations and webhook flows.</td></tr>
+        <tr><td><code>/mcp</code></td><td>MCP server routes.</td></tr>
+        <tr><td><code>/tui</code></td><td>TUI-side control and session helpers.</td></tr>
+        <tr><td><code>/</code></td><td>Studio and file routes mounted at the root.</td></tr>
       </tbody>
     </table>
+  </section>
+
+  <section id="mobile-companion" class="mb-16 scroll-mt-24">
+    <h2>Mobile & Companion</h2>
+    <p>
+      The server powers the browser companion UI, mobile session streaming, approval responses,
+      repo import flows, and experimental workspace events in addition to the core CLI APIs.
+    </p>
+  </section>
+
+  <section id="transport-auth" class="mb-16 scroll-mt-24">
+    <h2>Transport & Auth</h2>
+    <DocCallout type="info" title="Workspace context">
+      <p>
+        Most routes accept <code>x-nikcli-directory</code> or <code>x-nikcli-workspace</code> to
+        resolve the active workspace before handling the request.
+      </p>
+    </DocCallout>
+    <p>
+      The server supports CORS, optional basic auth, bearer flows for mobile and remote clients, and
+      origin handling for localhost plus approved domains.
+    </p>
   </section>
 
   <section id="openapi" class="mb-16 scroll-mt-24">
     <h2>OpenAPI</h2>
-    <p>OpenAPI specs are exposed at <code>/doc</code> and generated with <code>hono-openapi</code>.</p>
-  </section>
-
-  <section id="networking-flags" class="mb-16 scroll-mt-24">
-    <h2>Networking Flags</h2>
-    <table class="doc-table">
-      <tbody>
-        <tr><td><code>--port</code></td><td>Port to listen on (default 0 = random).</td></tr>
-        <tr><td><code>--hostname</code></td><td>Hostname to bind (default 127.0.0.1).</td></tr>
-        <tr><td><code>--mdns</code></td><td>Enable mDNS; defaults hostname to 0.0.0.0.</td></tr>
-        <tr><td><code>--cors</code></td><td>Additional CORS origins.</td></tr>
-      </tbody>
-    </table>
-    <DocCallout type="info" title="CORS">
-      <p>Localhost and <code>*.nikcli.store</code> are always allowed.</p>
-    </DocCallout>
+    <p>OpenAPI specs are exposed at <code>/doc</code> and generated with <code>@hono/zod-openapi</code>.</p>
   </section>
 </DocsLayout>

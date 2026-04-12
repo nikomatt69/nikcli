@@ -52,7 +52,12 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
     
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={`https://nikcli.store${pathname}`} />
-    
+
+    <!-- Fonts: Syne (display) + Figtree (body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" />
+
     <ClientRouter />
     <script is:inline>
       const initTheme = () => {
@@ -65,7 +70,7 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
       document.addEventListener('astro:after-swap', initTheme);
     </script>
   </head>
-  <body class="bg-terminal-bg text-terminal-text antialiased font-sans min-h-screen flex flex-col selection:bg-terminal-accent/30 selection:text-terminal-text transition-colors duration-300">
+  <body class="bg-terminal-bg text-terminal-text antialiased font-sans min-h-screen flex flex-col">
     <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
     <Navbar />
     
@@ -94,7 +99,7 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
           <nav class="flex flex-col gap-8 text-sm">
             {docsSidebar.map((group) => (
               <div class="flex flex-col gap-3 docs-nav-group-anim">
-                <h4 class="font-bold text-terminal-text tracking-widest uppercase text-[11px] mb-1 opacity-90">{group.title}</h4>
+                <h4 class="font-display font-bold text-terminal-muted tracking-[0.18em] uppercase text-[10.5px] mb-2">{group.title}</h4>
                 <ul class="flex flex-col gap-1">
                   {group.items.map((item) => {
                     const isActive = pathname === item.href;
@@ -103,7 +108,7 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
                         <a
                           href={item.href}
                           data-mobile-docs-link
-                          class={`block px-3.5 py-2 rounded-lg transition-all duration-200 relative ${isActive ? "bg-surface-active text-terminal-accent font-semibold shadow-sm ring-1 ring-terminal-border/50 before:absolute before:inset-y-1.5 before:-left-0.5 before:w-1.5 before:bg-terminal-accent before:rounded-full" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-medium"}`}
+                          class={`block px-3.5 py-[7px] rounded-[8px] text-[13.5px] transition-colors duration-100 relative ${isActive ? "bg-terminal-accent/10 text-terminal-accent font-semibold border border-terminal-accent/20 pl-4 before:absolute before:left-0 before:inset-y-2 before:w-[3px] before:bg-terminal-accent before:rounded-full" : "text-terminal-muted hover:text-terminal-text hover:bg-surface-hover font-normal"}`}
                         >
                           {item.title}
                         </a>
@@ -143,6 +148,28 @@ const ogImage = "https://nikcli.store/og.png"; // Placeholder/Example
         </div>
       )}
     </div>
+
+    <footer class="border-t border-terminal-border/50 bg-terminal-panel/50 py-8 sm:py-10 mt-auto">
+      <div class="page-shell flex flex-col items-center justify-between gap-5 sm:flex-row">
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 rounded-[6px] bg-terminal-accent/12 border border-terminal-accent/25 flex items-center justify-center" aria-hidden="true">
+            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
+              <path d="M9 12.5H13.5" />
+            </svg>
+          </div>
+          <span class="text-[13px] font-medium text-terminal-muted">
+            &copy; {new Date().getFullYear()} <span class="font-display font-bold text-terminal-text uppercase tracking-[0.06em] text-[12px]">nikcli</span>. MIT License.
+          </span>
+        </div>
+        <nav class="flex gap-5" aria-label="Footer">
+          <a href="https://github.com/nikomatt69/nikcli" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100" rel="noreferrer" target="_blank">GitHub</a>
+          <a href="/docs" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Docs</a>
+          <a href="/dashboard" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Studio</a>
+          <a href="/app" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Web App</a>
+        </nav>
+      </div>
+    </footer>
 
     <script>
       const initDocs = async () => {

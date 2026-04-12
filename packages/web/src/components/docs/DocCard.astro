@@ -9,33 +9,82 @@ const { title, eyebrow, href } = Astro.props;
 const Element = href ? 'a' : 'div';
 ---
 
-<Element 
-  href={href} 
-  class={`doc-card card-surface relative z-10 block overflow-hidden border border-terminal-border/80 bg-terminal-panel p-5 shadow-soft transition-all duration-500 group not-prose sm:p-6 lg:p-7 ${href ? 'cursor-pointer hover:-translate-y-1 hover:border-terminal-accent/50 hover:bg-surface-hover hover:shadow-strong' : ''}`}
+<Element
+  href={href}
+  class={[
+    "doc-card card-surface group relative block overflow-hidden border border-terminal-border/60 bg-terminal-panel not-prose",
+    "transition-all duration-200",
+    href
+      ? "cursor-pointer hover:-translate-y-[2px] hover:border-terminal-accent/40 hover:shadow-strong"
+      : "",
+    "p-5 sm:p-6",
+  ].join(" ")}
 >
-  <!-- Background Glow on hover -->
-  {href && <div class="absolute inset-0 bg-gradient-to-br from-terminal-accent/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700 -z-10 pointer-events-none"></div>}
+  <!-- Amber clip-path reveal bar -->
+  {href && (
+    <div class="doc-card-bar absolute left-0 top-4 bottom-4 w-[3px] rounded-full overflow-hidden" aria-hidden="true">
+      <div class="h-full w-full bg-terminal-accent doc-card-bar-inner" />
+    </div>
+  )}
 
-  <div class="flex items-start justify-between gap-4">
-    <div class="min-w-0">
-      {eyebrow && <div class="mb-4 inline-flex items-center gap-2 rounded-md border border-terminal-accent/20 bg-terminal-accent/10 px-2.5 py-1 font-mono text-eyebrow uppercase text-terminal-accent">
+  <!-- Hover tint -->
+  {href && (
+    <div class="absolute inset-0 bg-gradient-to-br from-terminal-accent/4 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none -z-0" aria-hidden="true" />
+  )}
+
+  <div class="relative z-10">
+    <!-- Eyebrow -->
+    {eyebrow && (
+      <div class="mb-3.5 inline-flex items-center gap-1.5 rounded-md border border-terminal-accent/20 bg-terminal-accent/8 px-2 py-0.5 font-mono text-[10.5px] font-bold uppercase tracking-[0.18em] text-terminal-accent">
         {eyebrow}
-      </div>}
+      </div>
+    )}
 
-      {title && <h3 class="text-card-title text-terminal-text transition-colors duration-300 group-hover:text-terminal-accent">{title}</h3>}
+    <div class="flex items-start justify-between gap-4">
+      <div class="min-w-0 flex-1">
+        {title && (
+          <h3 class="font-display text-card-title font-bold tracking-tight text-terminal-text transition-colors duration-150 group-hover:text-terminal-text mb-0">
+            {title}
+          </h3>
+        )}
+      </div>
+
+      {href && (
+        <span class="shrink-0 flex h-8 w-8 items-center justify-center rounded-lg border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-150 group-hover:border-terminal-accent/40 group-hover:bg-terminal-accent/10 group-hover:text-terminal-accent" aria-hidden="true">
+          <svg class="h-3.5 w-3.5 transition-transform duration-150 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
+          </svg>
+        </span>
+      )}
     </div>
 
-    {href && <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-terminal-border/70 bg-terminal-code text-terminal-muted transition-all duration-300 group-hover:border-terminal-accent/30 group-hover:bg-terminal-accent/10 group-hover:text-terminal-accent">
-      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path></svg>
-    </span>}
-  </div>
-  
-  <div class="mt-4 text-body-sm text-terminal-muted [&_code]:whitespace-normal [&_code]:break-words [&_code]:rounded-md [&_code]:border [&_code]:border-terminal-border/70 [&_code]:bg-terminal-code [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.92em] [&_code]:font-medium [&_code]:text-terminal-text [&_p]:m-0 [&_p+*]:mt-3">
-    <slot />
-  </div>
+    <!-- Body content -->
+    <div class="mt-3 text-[14px] font-normal leading-[1.7] text-terminal-muted [&_code]:whitespace-normal [&_code]:break-words [&_code]:rounded [&_code]:border [&_code]:border-terminal-border/60 [&_code]:bg-terminal-code [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[0.875em] [&_code]:font-medium [&_code]:text-terminal-text [&_p]:m-0 [&_p+*]:mt-2.5">
+      <slot />
+    </div>
 
-  {href && <div class="mt-5 flex items-center justify-between border-t border-terminal-border/70 pt-4 text-sm font-semibold text-terminal-text">
-    <span>Open reference</span>
-    <span class="text-terminal-accent transition-transform duration-300 group-hover:translate-x-1">&rarr;</span>
-  </div>}
+    {href && (
+      <div class="mt-4 flex items-center justify-between border-t border-terminal-border/50 pt-3.5">
+        <span class="text-[12.5px] font-semibold text-terminal-muted group-hover:text-terminal-text transition-colors duration-100">Open reference</span>
+        <span class="text-[12.5px] font-bold text-terminal-accent transition-transform duration-150 group-hover:translate-x-0.5 inline-block">&rarr;</span>
+      </div>
+    )}
+  </div>
 </Element>
+
+<style>
+  .doc-card-bar-inner {
+    clip-path: inset(100% 0 0 0);
+    transition: clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .doc-card:hover .doc-card-bar-inner {
+    clip-path: inset(0 0 0 0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .doc-card-bar-inner {
+      transition: none;
+    }
+  }
+</style>

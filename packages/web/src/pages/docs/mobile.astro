@@ -1,0 +1,83 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+
+const toc = [
+  { title: "Host CLI", href: "#host-cli", depth: 2 },
+  { title: "Pairing & Auth", href: "#pairing-auth", depth: 2 },
+  { title: "App Capabilities", href: "#app-capabilities", depth: 2 },
+  { title: "Notifications & Live Activities", href: "#notifications-live", depth: 2 },
+  { title: "Tophat", href: "#tophat", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Mobile"
+  subtitle="Host-side mobile commands in packages/nikcli and the Expo app in packages/mobile."
+  toc={toc}
+>
+  <section id="host-cli" class="mb-16 scroll-mt-24">
+    <h2>Host CLI</h2>
+    <p>
+      Mobile starts from the host machine. <code>nikcli mobile</code> serves the pairing and mobile
+      API surface, while <code>nikcli mobile tophat</code> and <code>tophat_install</code> help push
+      builds onto devices or simulators.
+    </p>
+    <DocCode language="bash">
+      nikcli mobile serve --pair
+      nikcli mobile token list
+      nikcli mobile token revoke
+    </DocCode>
+  </section>
+
+  <section id="pairing-auth" class="mb-16 scroll-mt-24">
+    <h2>Pairing & Auth</h2>
+    <p>
+      Mobile has three distinct auth layers: host pairing via bearer tokens, in-app user login, and
+      GitHub authentication for repo import and PR workflows.
+    </p>
+    <DocCallout type="info" title="Public exposure">
+      <p>
+        Public mobile servers should require additional protection such as basic auth instead of
+        exposing a raw host endpoint.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="app-capabilities" class="mb-16 scroll-mt-24">
+    <h2>App Capabilities</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>What ships today</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Sessions</td><td>Realtime SSE streaming, plan/code composer modes, slash suggestions, and command palette actions.</td></tr>
+        <tr><td>Approvals</td><td>Permission prompts and question responses rendered directly in the app.</td></tr>
+        <tr><td>Tool output</td><td>Dedicated tool call cards, attachment previews, and message history.</td></tr>
+        <tr><td>GitHub</td><td>Repo import, worktree creation, publish PR, cleanup, status, diff, stage, and commit flows.</td></tr>
+        <tr><td>Settings</td><td>Providers, connectors, MCP, skills, agents, commands, memories, tokens, GitHub, and plugin settings.</td></tr>
+        <tr><td>Offline</td><td>Queued send retry when the app returns to the foreground.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="notifications-live" class="mb-16 scroll-mt-24">
+    <h2>Notifications & Live Activities</h2>
+    <p>
+      The app supports local notifications and iOS Live Activities for session readiness, approval
+      requests, and other foreground-worthy state changes.
+    </p>
+  </section>
+
+  <section id="tophat" class="mb-16 scroll-mt-24">
+    <h2>Tophat</h2>
+    <p>
+      Tophat support is configurable under <code>config.mobile.tophat</code> and lets nikcli install
+      local or remote mobile build artifacts on iOS and Android targets.
+    </p>
+  </section>
+</DocsLayout>

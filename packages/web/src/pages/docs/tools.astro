@@ -5,51 +5,56 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 
 const toc = [
   { title: "Tool Registry", href: "#tool-registry", depth: 2 },
-  { title: "File Ops", href: "#file-ops", depth: 2 },
-  { title: "Search & Context", href: "#search-context", depth: 2 },
-  { title: "Docs & RAG", href: "#docs-rag", depth: 2 },
-  { title: "System & Agent", href: "#system-agent", depth: 2 },
+  { title: "Files & Search", href: "#files-search", depth: 2 },
+  { title: "Orchestration", href: "#orchestration", depth: 2 },
+  { title: "Docs & Context", href: "#docs-context", depth: 2 },
+  { title: "Integrations & Media", href: "#integrations-media", depth: 2 },
   { title: "Full Tool Index", href: "#full-tool-index", depth: 2 },
 ];
 
 const toolIndex = [
-  { id: "invalid", file: "src/tool/invalid.ts", desc: "Fallback for unknown tool ids." },
-  { id: "question", file: "src/tool/question.ts", desc: "Ask the user a question (CLI only)." },
+  { id: "question", file: "src/tool/question.ts", desc: "Ask the user a structured question." },
   { id: "bash", file: "src/tool/bash.ts", desc: "Run shell commands." },
+  { id: "monitor", file: "src/tool/monitor.ts", desc: "Run long-lived shell commands in the background." },
   { id: "read", file: "src/tool/read.ts", desc: "Read file contents." },
-  { id: "tree", file: "src/tool/tree.ts", desc: "Directory tree listing." },
-  { id: "glob", file: "src/tool/glob.ts", desc: "Glob file discovery." },
-  { id: "grep", file: "src/tool/grep.ts", desc: "Regex search in files." },
-  { id: "edit", file: "src/tool/edit.ts", desc: "Exact text replacements." },
-  { id: "write", file: "src/tool/write.ts", desc: "Write/overwrite files." },
-  { id: "subagents", file: "src/tool/subagents.ts", desc: "Discover or run subagents." },
-  { id: "task", file: "src/tool/task.ts", desc: "Run a subagent task." },
-  { id: "docs_add", file: "src/tool/docs_add.ts", desc: "Add documentation from URL." },
-  { id: "docs_search", file: "src/tool/docs_search.ts", desc: "Search local docs library." },
+  { id: "tree", file: "src/tool/tree.ts", desc: "Show a directory tree." },
+  { id: "glob", file: "src/tool/glob.ts", desc: "Find files by glob pattern." },
+  { id: "grep", file: "src/tool/grep.ts", desc: "Search file contents with regex." },
+  { id: "edit", file: "src/tool/edit.ts", desc: "Apply exact in-place text edits." },
+  { id: "write", file: "src/tool/write.ts", desc: "Write or overwrite files." },
+  { id: "task", file: "src/tool/task.ts", desc: "Launch a delegated subagent." },
+  { id: "delegation", file: "src/tool/delegation.ts", desc: "Inspect or control background delegations." },
+  { id: "docs_add", file: "src/tool/docs_add.ts", desc: "Add documentation from a URL." },
+  { id: "docs_search", file: "src/tool/docs_search.ts", desc: "Search the local docs library." },
   { id: "docs_load", file: "src/tool/docs_load.ts", desc: "Load docs into context." },
   { id: "docs_unload", file: "src/tool/docs_unload.ts", desc: "Unload docs from context." },
-  { id: "docs_context", file: "src/tool/docs_context.ts", desc: "Show docs context." },
-  { id: "docs_request", file: "src/tool/docs_request.ts", desc: "Suggest docs when missing." },
-  { id: "docs_gap_report", file: "src/tool/docs_gap_report.ts", desc: "Report docs gaps." },
-  { id: "smart_docs", file: "src/tool/smart_docs.ts", desc: "Search + auto-load docs." },
-  { id: "context_collect", file: "src/tool/context_collect.ts", desc: "Collect workspace context." },
+  { id: "docs_context", file: "src/tool/docs_context.ts", desc: "Show current docs context." },
+  { id: "docs_request", file: "src/tool/docs_request.ts", desc: "Request missing documentation." },
+  { id: "docs_gap_report", file: "src/tool/docs_gap_report.ts", desc: "Report documentation gaps." },
+  { id: "smart_docs", file: "src/tool/smart_docs.ts", desc: "Search and optionally auto-load docs." },
+  { id: "context_collect", file: "src/tool/context_collect.ts", desc: "Collect workspace context from files." },
   { id: "context_search", file: "src/tool/context_search.ts", desc: "Search workspace text." },
-  { id: "context_related", file: "src/tool/context_related.ts", desc: "Find related files." },
-  { id: "context_diagnostics", file: "src/tool/context_diagnostics.ts", desc: "LSP diagnostics." },
-  { id: "memory_search", file: "src/tool/memory_search.ts", desc: "Search stored memory." },
-  { id: "rag_index", file: "src/tool/rag_index.ts", desc: "Index content for RAG." },
-  { id: "rag_search", file: "src/tool/rag_search.ts", desc: "Vector search." },
-  { id: "rag_status", file: "src/tool/rag_status.ts", desc: "RAG status." },
-  { id: "rag_reset", file: "src/tool/rag_reset.ts", desc: "Reset RAG index." },
-  { id: "webfetch", file: "src/tool/webfetch.ts", desc: "Fetch URL content." },
-  { id: "todowrite", file: "src/tool/todo.ts", desc: "Write todo list." },
-  { id: "todoread", file: "src/tool/todo.ts", desc: "Read todo list." },
-  { id: "websearch", file: "src/tool/websearch.ts", desc: "Web search via Exa." },
-  { id: "codesearch", file: "src/tool/codesearch.ts", desc: "Code search via Exa." },
-  { id: "skill", file: "src/tool/skill.ts", desc: "Load skills." },
-  { id: "apply_patch", file: "src/tool/apply_patch.ts", desc: "Patch-based edits." },
-  { id: "lsp", file: "src/tool/lsp.ts", desc: "LSP tool (experimental flag)." },
-  { id: "batch", file: "src/tool/batch.ts", desc: "Batch tool calls (experimental)." },
+  { id: "context_related", file: "src/tool/context_related.ts", desc: "List files related to an entry file." },
+  { id: "context_diagnostics", file: "src/tool/context_diagnostics.ts", desc: "List LSP diagnostics." },
+  { id: "memory_search", file: "src/tool/memory_search.ts", desc: "Search past session memory." },
+  { id: "rag_index", file: "src/tool/rag_index.ts", desc: "Index workspace content for RAG." },
+  { id: "rag_search", file: "src/tool/rag_search.ts", desc: "Run semantic RAG search." },
+  { id: "rag_status", file: "src/tool/rag_status.ts", desc: "Show RAG index status." },
+  { id: "rag_reset", file: "src/tool/rag_reset.ts", desc: "Reset the local RAG index." },
+  { id: "generate_image", file: "src/tool/generate_image.ts", desc: "Generate images from prompts." },
+  { id: "webfetch", file: "src/tool/webfetch.ts", desc: "Fetch and convert URL content." },
+  { id: "todowrite", file: "src/tool/todo.ts", desc: "Write the session todo list." },
+  { id: "todoread", file: "src/tool/todo.ts", desc: "Read the current todo list." },
+  { id: "websearch", file: "src/tool/websearch.ts", desc: "Search the web via Exa when enabled." },
+  { id: "codesearch", file: "src/tool/codesearch.ts", desc: "Search code via Exa when enabled." },
+  { id: "skill", file: "src/tool/skill.ts", desc: "Load a skill definition." },
+  { id: "apply_patch", file: "src/tool/apply_patch.ts", desc: "Patch files with structured diffs." },
+  { id: "use_connector", file: "src/tool/use-connector.ts", desc: "Run an operation on a configured connector." },
+  { id: "speak", file: "src/tool/speak.ts", desc: "Convert text to speech and play audio." },
+  { id: "tophat_install", file: "src/tool/tophat.ts", desc: "Install a mobile build on a device or simulator." },
+  { id: "opentui", file: "src/tool/opentui.ts", desc: "Render terminal dashboards and rich visualizations." },
+  { id: "lsp", file: "src/tool/lsp.ts", desc: "LSP tool exposed behind experimental flags." },
+  { id: "batch", file: "src/tool/batch.ts", desc: "Batch tool calls behind experimental flags." },
   { id: "plan_enter", file: "src/tool/plan.ts", desc: "Enter plan mode." },
   { id: "plan_exit", file: "src/tool/plan.ts", desc: "Exit plan mode." },
 ];
@@ -57,76 +62,86 @@ const toolIndex = [
 
 <DocsLayout
   title="Tools"
-  subtitle="All tools registered in packages/nikcli/src/tool/registry.ts with descriptions in *.txt files."
+  subtitle="Public tools registered in packages/nikcli/src/tool/registry.ts plus tool-gating behavior."
   toc={toc}
 >
   <section id="tool-registry" class="mb-16 scroll-mt-24">
     <h2>Tool Registry</h2>
     <p>
-      Tools are registered in <code>ToolRegistry.all()</code>. The registry filters tools depending on the model
-      (e.g., <code>apply_patch</code> vs <code>edit/write</code>) and experimental flags.
+      Tools are registered in <code>packages/nikcli/src/tool/registry.ts</code>. The registry filters
+      them based on model capabilities, client type, and experimental flags.
     </p>
-    <DocCallout type="info" title="Custom tools">
-      <p>Custom tools can be injected from plugins or from <code>.nikcli/tool/*.ts</code>.</p>
+    <DocCallout type="info" title="Model gating">
+      <p>
+        Some GPT-family models use <code>apply_patch</code> instead of <code>edit</code> and
+        <code>write</code>. Search tools like <code>websearch</code> and <code>codesearch</code> are
+        also gated behind provider or env checks.
+      </p>
     </DocCallout>
-    <DocCallout type="note" title="Search tools">
-      <p><code>codesearch</code> and <code>websearch</code> are enabled only for the nikcli provider or when <code>NIKCLI_ENABLE_EXA</code> is set.</p>
-    </DocCallout>
   </section>
 
-  <section id="file-ops" class="mb-16 scroll-mt-24">
-    <h2>File Ops</h2>
+  <section id="files-search" class="mb-16 scroll-mt-24">
+    <h2>Files & Search</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="read / write / edit" eyebrow="Core">
-        <p>Primary file I/O tools with strict validation in <code>Tool.define()</code>.</p>
+      <DocCard title="read / tree / glob / grep" eyebrow="Discovery">
+        <p>Read files, inspect directory structure, and search local content quickly.</p>
       </DocCard>
-      <DocCard title="glob / list / tree" eyebrow="Discovery">
-        <p>Filesystem enumeration utilities backed by ripgrep where applicable.</p>
+      <DocCard title="edit / write / apply_patch" eyebrow="Editing">
+        <p>Perform in-place edits, full writes, or structured patch-based updates.</p>
       </DocCard>
-      <DocCard title="apply_patch / multiedit" eyebrow="Atomic">
-        <p>Patch-based and atomic multi-edit workflows for complex changes.</p>
+      <DocCard title="webfetch / websearch / codesearch" eyebrow="External lookup">
+        <p>Fetch web pages and optionally search the web or remote code indexes when enabled.</p>
       </DocCard>
     </div>
   </section>
 
-  <section id="search-context" class="mb-16 scroll-mt-24">
-    <h2>Search & Context</h2>
+  <section id="orchestration" class="mb-16 scroll-mt-24">
+    <h2>Orchestration</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="grep / codesearch / websearch" eyebrow="Search">
-        <p>Local regex search, Exa-backed code search, and web search.</p>
+      <DocCard title="bash / monitor" eyebrow="Execution">
+        <p>Run shell commands directly or keep them alive in the background with persisted logs.</p>
       </DocCard>
-      <DocCard title="context_collect / context_search / context_related" eyebrow="Context">
-        <p>Workspace context extraction, symbol analysis, and dependency mapping.</p>
+      <DocCard title="task / delegation" eyebrow="Subagents">
+        <p>Launch delegated agents, then inspect, read, count, or cancel those delegations.</p>
       </DocCard>
-      <DocCard title="memory_search" eyebrow="Memory">
-        <p>Searches persisted memory for relevant prior context.</p>
+      <DocCard title="todowrite / todoread" eyebrow="Task tracking">
+        <p>Track structured task state inside a session and surface progress to the user.</p>
+      </DocCard>
+      <DocCard title="opentui" eyebrow="Visualization">
+        <p>Render tables, charts, timelines, and progress widgets directly in the terminal UI.</p>
       </DocCard>
     </div>
   </section>
 
-  <section id="docs-rag" class="mb-16 scroll-mt-24">
-    <h2>Docs & RAG</h2>
+  <section id="docs-context" class="mb-16 scroll-mt-24">
+    <h2>Docs & Context</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="docs_* tools" eyebrow="Docs">
-        <p>Docs load/search/add/unload are defined in <code>packages/nikcli/src/tool/docs_*.ts</code>.</p>
+      <DocCard title="docs_* / smart_docs" eyebrow="Docs library">
+        <p>Ingest external docs, search them locally, and load relevant entries into prompt context.</p>
       </DocCard>
-      <DocCard title="rag_* tools" eyebrow="RAG">
-        <p>Index/search/reset/status wrappers around <code>packages/nikcli/src/rag</code>.</p>
+      <DocCard title="context_* / memory_search" eyebrow="Workspace context">
+        <p>Collect repo context, related files, diagnostics, and prior-session memory.</p>
+      </DocCard>
+      <DocCard title="rag_*" eyebrow="Semantic retrieval">
+        <p>Index workspace files with embeddings, search them semantically, and inspect index status.</p>
       </DocCard>
     </div>
   </section>
 
-  <section id="system-agent" class="mb-16 scroll-mt-24">
-    <h2>System & Agent</h2>
+  <section id="integrations-media" class="mb-16 scroll-mt-24">
+    <h2>Integrations & Media</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="bash / lsp" eyebrow="System">
-        <p>Shell execution and LSP intelligence (optional tool via flags).</p>
+      <DocCard title="use_connector" eyebrow="Connectors">
+        <p>Run typed operations against configured Figma, Slack, GitHub, and Lovable connectors.</p>
       </DocCard>
-      <DocCard title="task / subagents / todo" eyebrow="Agentic">
-        <p>Subagent orchestration and todo tracking for multi-step tasks.</p>
+      <DocCard title="generate_image / speak" eyebrow="Generative media">
+        <p>Create images and play text-to-speech output using the configured providers.</p>
       </DocCard>
-      <DocCard title="plan_enter / plan_exit" eyebrow="Flow">
-        <p>Plan mode coordination when <code>NIKCLI_EXPERIMENTAL_PLAN_MODE</code> is enabled.</p>
+      <DocCard title="tophat_install" eyebrow="Mobile">
+        <p>Install mobile artifacts on devices or simulators through Shopify Tophat.</p>
+      </DocCard>
+      <DocCard title="skill" eyebrow="Instruction packs">
+        <p>Load a skill to bring focused instructions into the current session.</p>
       </DocCard>
     </div>
   </section>

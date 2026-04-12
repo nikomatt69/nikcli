@@ -1,50 +1,66 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
 
 const toc = [
-  { title: "Overview", href: "#overview", depth: 2 },
-  { title: "Indexing", href: "#indexing", depth: 2 },
-  { title: "Search", href: "#search", depth: 2 },
-  { title: "Defaults", href: "#defaults", depth: 2 },
+  { title: "Docs Library", href: "#docs-library", depth: 2 },
+  { title: "RAG Indexing", href: "#rag-indexing", depth: 2 },
+  { title: "RAG Search", href: "#rag-search", depth: 2 },
+  { title: "Model Config", href: "#model-config", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="RAG"
-  subtitle="RAG indexing and search in packages/nikcli/src/rag."
+  subtitle="Workspace retrieval and local docs ingestion in packages/nikcli/src/rag and packages/nikcli/src/docs."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
-    <h2>Overview</h2>
-    <p>RAG uses local chunking + vector storage with configurable embedding models.</p>
-  </section>
-
-  <section id="indexing" class="mb-16 scroll-mt-24">
-    <h2>Indexing</h2>
+  <section id="docs-library" class="mb-16 scroll-mt-24">
+    <h2>Docs Library</h2>
     <p>
-      <code>Rag.index()</code> discovers files, chunks text, and stores vectors in
-      <code>RagStorage</code>.
+      nikcli has two retrieval systems. The docs library stores fetched documentation pages for
+      keyword search and loading via <code>docs_add</code>, <code>docs_search</code>,
+      <code>docs_load</code>, <code>docs_context</code>, and <code>smart_docs</code>.
     </p>
   </section>
 
-  <section id="search" class="mb-16 scroll-mt-24">
-    <h2>Search</h2>
-    <DocCallout type="info" title="Defaults">
-      <p>Default embed model is <code>nvidia/llama-embed-nemotron-8b</code> with provider <code>nvidia</code>.</p>
-    </DocCallout>
+  <section id="rag-indexing" class="mb-16 scroll-mt-24">
+    <h2>RAG Indexing</h2>
+    <p>
+      RAG is separate from the docs library. It chunks workspace files, embeds them with the
+      configured embedding provider and model, and stores vectors locally.
+    </p>
+    <DocCode language="bash">
+      nikcli rag-model openai text-embedding-3-small
+    </DocCode>
   </section>
 
-  <section id="defaults" class="mb-16 scroll-mt-24">
-    <h2>Defaults</h2>
+  <section id="rag-search" class="mb-16 scroll-mt-24">
+    <h2>RAG Search</h2>
+    <p>
+      Search uses the stored index plus the same configured embedding provider to produce query
+      vectors. The runtime exposes <code>rag_index</code>, <code>rag_search</code>,
+      <code>rag_status</code>, and <code>rag_reset</code> tools.
+    </p>
+  </section>
+
+  <section id="model-config" class="mb-16 scroll-mt-24">
+    <h2>Model Config</h2>
+    <DocCallout type="warn" title="Explicit configuration required">
+      <p>
+        RAG no longer assumes a bundled default embedding model. Set both provider and model first,
+        or indexing and search will fail.
+      </p>
+    </DocCallout>
     <table class="doc-table">
       <tbody>
         <tr><td><code>chunkLines</code></td><td>200</td></tr>
         <tr><td><code>maxFiles</code></td><td>200</td></tr>
         <tr><td><code>maxChunks</code></td><td>5000</td></tr>
         <tr><td><code>maxFileBytes</code></td><td>1,000,000</td></tr>
-        <tr><td><code>model</code></td><td>nvidia/llama-embed-nemotron-8b</td></tr>
-        <tr><td><code>provider</code></td><td>nvidia</td></tr>
+        <tr><td><code>model</code></td><td>Configured by <code>nikcli rag-model</code> or <code>config.rag</code></td></tr>
+        <tr><td><code>provider</code></td><td>Configured by <code>nikcli rag-model</code> or <code>config.rag</code></td></tr>
       </tbody>
     </table>
   </section>

@@ -5,17 +5,18 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Space Grotesk", "sans-serif"],
-        mono: ["JetBrains Mono", "monospace"],
+        sans: ["Figtree", "system-ui", "sans-serif"],
+        display: ["Syne", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
-        eyebrow: ["var(--type-eyebrow)", { lineHeight: "1", letterSpacing: "0.18em", fontWeight: "700" }],
+        eyebrow: ["var(--type-eyebrow)", { lineHeight: "1", letterSpacing: "0.2em", fontWeight: "700" }],
         "body-sm": ["var(--type-body-sm)", { lineHeight: "1.75" }],
         "body-md": ["var(--type-body-md)", { lineHeight: "1.75" }],
         "card-title": ["var(--type-card-title)", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
-        "panel-title": ["var(--type-panel-title)", { lineHeight: "1.12", letterSpacing: "-0.02em", fontWeight: "650" }],
-        "page-title": ["var(--type-page-title)", { lineHeight: "1.05", letterSpacing: "-0.03em", fontWeight: "800" }],
-        "page-subtitle": ["var(--type-page-subtitle)", { lineHeight: "1.75", fontWeight: "500" }],
+        "panel-title": ["var(--type-panel-title)", { lineHeight: "1.12", letterSpacing: "-0.025em", fontWeight: "700" }],
+        "page-title": ["var(--type-page-title)", { lineHeight: "1.0", letterSpacing: "-0.035em", fontWeight: "800" }],
+        "page-subtitle": ["var(--type-page-subtitle)", { lineHeight: "1.7", fontWeight: "400" }],
       },
       borderRadius: {
         card: "var(--radius-card)",
@@ -53,19 +54,33 @@ export default {
         strong: "var(--shadow-strong)",
         glow: "var(--shadow-glow)",
       },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "in-out-expo": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "drawer": "cubic-bezier(0.32, 0.72, 0, 1)",
+      },
       animation: {
         cursor: "cursor 1s step-end infinite",
-        "fade-in-up": "fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards",
-        "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "slide-up-fade": "slideUpFade 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards",
+        "fade-in-up": "slideUpFade 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards",
+        "pulse-slow": "pulseGlow 5s ease-in-out infinite",
+        "ping-slow": "ping 1.5s cubic-bezier(0.23, 1, 0.32, 1) infinite",
       },
       keyframes: {
         cursor: {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0" },
         },
-        fadeInUp: {
-          "0%": { opacity: "0", transform: "translateY(12px)" },
+        slideUpFade: {
+          "0%": { opacity: "0", transform: "translateY(14px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { opacity: "0.6", transform: "scale(1)" },
+          "50%": { opacity: "1", transform: "scale(1.05)" },
+        },
+        ping: {
+          "75%, 100%": { transform: "scale(2)", opacity: "0" },
         },
       },
       typography: (theme) => ({
@@ -115,6 +130,7 @@ export default {
               textDecoration: "underline",
               fontWeight: "500",
               textDecorationColor: theme("colors.terminal.border"),
+              textUnderlineOffset: "4px",
               "&:hover": {
                 color: theme("colors.terminal.accent"),
                 textDecorationColor: theme("colors.terminal.accent"),
@@ -123,17 +139,14 @@ export default {
             code: {
               color: "var(--tw-prose-code)",
               backgroundColor: theme("colors.terminal.panel"),
-              padding: "0.25rem 0.375rem",
-              borderRadius: "0.375rem",
+              padding: "0.2rem 0.35rem",
+              borderRadius: "0.3rem",
               fontWeight: "500",
+              fontSize: "0.88em",
               border: `1px solid ${theme("colors.terminal.border")}`,
             },
-            "code::before": {
-              content: '""',
-            },
-            "code::after": {
-              content: '""',
-            },
+            "code::before": { content: '""' },
+            "code::after": { content: '""' },
             pre: {
               backgroundColor: "var(--tw-prose-pre-bg)",
               color: "var(--tw-prose-pre-code)",
@@ -142,17 +155,21 @@ export default {
               border: `1px solid ${theme("colors.terminal.border")}`,
             },
             h1: {
+              fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "800",
-              letterSpacing: "-0.025em",
+              letterSpacing: "-0.03em",
             },
             h2: {
+              fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "700",
               letterSpacing: "-0.025em",
               marginTop: "2em",
               marginBottom: "1em",
             },
             h3: {
+              fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "600",
+              letterSpacing: "-0.015em",
               marginTop: "1.5em",
               marginBottom: "0.75em",
             },

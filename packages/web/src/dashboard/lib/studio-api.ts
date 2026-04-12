@@ -1,18 +1,165 @@
-const SERVER_CONFIG_KEY = "nikcli_server_config"
-const USER_TOKEN_KEY = "nikcli_dashboard_token"
+export const SERVER_CONFIG_KEY = "nikcli_server_config"
+export const USER_TOKEN_KEY = "nikcli_dashboard_token"
+export const DASHBOARD_USER_KEY = "nikcli_dashboard_user"
 const DEFAULT_SERVER_URL = (typeof import.meta !== "undefined" && (import.meta as any).env?.PROD_SERVER_URL) || ""
 
-function getServerBase(): string {
+type StoredServerConfig = { url?: string }
+
+function isLoopbackHostname(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname === "[::1]"
+}
+
+function sameOriginFallback(): string {
+  if (typeof window === "undefined") return ""
+  const hostname = window.location.hostname
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") return ""
+  if (hostname === "nikcli.store" || hostname.endsWith(".nikcli.store")) return ""
+  return window.location.origin.replace(/\/$/, "")
+}
+
+export function normalizeServerUrl(input: string): string {
+  const value = input.trim()
+  if (!value) return ""
+  const url = new URL(value)
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("Server URL must start with http:// or https://")
+  }
+  return url.toString().replace(/\/$/, "")
+}
+
+function assertBrowserSafeServerUrl(url: string) {
+  if (typeof window === "undefined") return
+  if (window.location.protocol !== "https:") return
+  const parsed = new URL(url)
+  if (parsed.protocol === "http:" && !isLoopbackHostname(parsed.hostname)) {
+    throw new Error("Use an HTTPS nikcli server URL from this dashboard")
+  }
+}
+
+function loadStoredServerUrl(): string {
   if (typeof localStorage === "undefined") return ""
-  if (import.meta.env.DEV) return ""
   try {
     const raw = localStorage.getItem(SERVER_CONFIG_KEY)
-    if (raw) {
-      const cfg = JSON.parse(raw) as { url?: string }
-      if (cfg.url) return cfg.url.replace(/\/$/, "")
+    if (!raw) return ""
+    const cfg = JSON.parse(raw) as StoredServerConfig
+    return cfg.url ? normalizeServerUrl(cfg.url) : ""
+  } catch {
+    return ""
+  }
+}
+
+export function saveServerConfig(url: string): string {
+  const normalized = normalizeServerUrl(url)
+  assertBrowserSafeServerUrl(normalized)
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(SERVER_CONFIG_KEY, JSON.stringify({ url: normalized }))
+  }
+  return normalized
+}
+
+export function clearServerConfig() {
+  if (typeof localStorage === "undefined") return
+  localStorage.removeItem(SERVER_CONFIG_KEY)
+}
+
+export function clearDashboardSession() {
+  if (typeof localStorage !== "undefined") {
+    localStorage.removeItem(USER_TOKEN_KEY)
+    localStorage.removeItem(DASHBOARD_USER_KEY)
+  }
+}
+
+export function resolveServerBase(override?: string | null): string {
+  if (import.meta.env.DEV) return ""
+  const candidate = override
+    ? normalizeServerUrl(override)
+    : loadStoredServerUrl() || sameOriginFallback() || DEFAULT_SERVER_URL
+  if (!candidate) return ""
+  assertBrowserSafeServerUrl(candidate)
+  return candidate
+}
+
+export function buildApiUrl(path: string, serverUrl?: string | null): string {
+  const base = resolveServerBase(serverUrl)
+  if (!base && !import.meta.env.DEV) {
+    throw new Error("No server configured. Connect to a nikcli server first.")
+  }
+  return `${base}${path}`
+}
+
+function parseResponseBody(text: string): unknown {
+  if (!text) return undefined
+  try {
+    return JSON.parse(text)
+  } catch {
+    return text
+  }
+}
+
+export function getErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error
+  if (error && typeof error === "object") {
+    const message = Reflect.get(error, "message")
+    if (typeof message === "string" && message.trim()) return message
+    const body = Reflect.get(error, "body")
+    if (body && typeof body === "object") {
+      const nested = Reflect.get(body, "error")
+      if (typeof nested === "string" && nested.trim()) return nested
     }
-  } catch {}
-  return DEFAULT_SERVER_URL
+    const nestedError = Reflect.get(error, "error")
+    if (typeof nestedError === "string" && nestedError.trim()) return nestedError
+  }
+  return "Request failed"
+}
+
+export class DashboardApiError extends Error {
+  status: number
+  body: unknown
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message)
+    this.name = "DashboardApiError"
+    this.status = status
+    this.body = body
+  }
+}
+
+type DashboardRequestInit = RequestInit & {
+  serverUrl?: string | null
+  token?: string | null
+}
+
+export async function requestJson<T>(path: string, init: DashboardRequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers)
+  if (init.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json")
+  }
+  if (init.token && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${init.token}`)
+  }
+
+  const response = await fetch(buildApiUrl(path, init.serverUrl), {
+    ...init,
+    headers,
+  })
+
+  const text = await response.text()
+  const body = parseResponseBody(text)
+  if (!response.ok) {
+    const message =
+      typeof body === "object" && body && "error" in body && typeof (body as { error?: unknown }).error === "string"
+        ? (body as { error: string }).error || response.statusText
+        : typeof body === "string" && body.trim()
+          ? body
+          : response.statusText || `Request failed: ${response.status}`
+    throw new DashboardApiError(message, response.status, body)
+  }
+
+  return body as T
+}
+
+function getServerBase(): string {
+  return resolveServerBase()
 }
 
 function getToken(): string | null {
@@ -21,33 +168,24 @@ function getToken(): string | null {
 }
 
 function handle401() {
-  if (typeof localStorage !== "undefined") {
-    localStorage.removeItem(USER_TOKEN_KEY)
-    localStorage.removeItem("nikcli_dashboard_user")
-  }
+  clearDashboardSession()
   if (typeof window !== "undefined") window.location.href = "/dashboard/login"
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const base = getServerBase()
   const token = getToken()
-  if (!base) throw new Error("No server configured. Connect to a nikcli server first.")
-  const url = `${base}/studio/api${path}`
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (token) headers["Authorization"] = `Bearer ${token}`
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...headers, ...((init?.headers as Record<string, string>) ?? {}) },
-  })
-  if (res.status === 401) {
-    handle401()
-    throw new Error("Session expired. Please log in again.")
+  try {
+    return await requestJson<T>(`/studio/api${path}`, {
+      ...init,
+      token,
+    })
+  } catch (error) {
+    if (error instanceof DashboardApiError && error.status === 401) {
+      handle401()
+      throw new Error("Session expired. Please log in again.")
+    }
+    throw error
   }
-  if (!res.ok) {
-    const err = (await res.json().catch(() => ({ error: res.statusText }))) as { error?: string }
-    throw new Error(err.error ?? `Request failed: ${res.status}`)
-  }
-  return res.json() as Promise<T>
 }
 
 function json(body: unknown): RequestInit {
