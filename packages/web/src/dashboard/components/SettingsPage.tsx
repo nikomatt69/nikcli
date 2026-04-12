@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { AuthProvider, useAuth } from "../auth/AuthContext"
+import { USER_TOKEN_KEY, normalizeServerUrl } from "../lib/studio-api"
 
 interface SettingsSectionProps {
   title: string
@@ -20,10 +21,19 @@ function SettingsSection({ title, description, children }: SettingsSectionProps)
 }
 
 function SettingsPageInner() {
-  const { user, logout } = useAuth()
+  const { user, logout, serverUrl, setServerUrl } = useAuth()
   const [displayName, setDisplayName] = useState(user?.displayName || "")
+  const [serverUrlInput, setServerUrlInput] = useState(serverUrl || "")
+  const [authToken, setAuthToken] = useState(() => {
+    if (typeof window === "undefined") return ""
+    return localStorage.getItem(USER_TOKEN_KEY) || ""
+  })
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [serverSaved, setServerSaved] = useState(false)
+  const [tokenSaved, setTokenSaved] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [showToken, setShowToken] = useState(false)
 
   const handleSave = async () => {
     if (!user) return
@@ -32,6 +42,34 @@ function SettingsPageInner() {
     await new Promise((r) => setTimeout(r, 500))
     setSaving(false)
     setSaved(true)
+  }
+
+  const handleSaveServer = async () => {
+    setServerError(null)
+    setServerSaved(false)
+    const trimmed = serverUrlInput.trim()
+    if (!trimmed) {
+      setServerUrl("")
+      setServerSaved(true)
+      return
+    }
+    try {
+      const normalized = normalizeServerUrl(trimmed)
+      setServerUrl(normalized)
+      setServerSaved(true)
+    } catch (err) {
+      setServerError(err instanceof Error ? err.message : "Invalid URL")
+    }
+  }
+
+  const handleSaveToken = () => {
+    if (typeof window === "undefined") return
+    if (authToken.trim()) {
+      localStorage.setItem(USER_TOKEN_KEY, authToken.trim())
+    } else {
+      localStorage.removeItem(USER_TOKEN_KEY)
+    }
+    setTokenSaved(true)
   }
 
   return (
@@ -83,6 +121,67 @@ function SettingsPageInner() {
               {saving ? "Saving..." : "Save Changes"}
             </button>
             {saved && <span className="text-sm text-terminal-success">✓ Saved</span>}
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection title="Server & Connection" description="Configure the nikcli server and authentication">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-terminal-text">Server URL</label>
+            <input
+              type="url"
+              value={serverUrlInput}
+              onChange={(e) => {
+                setServerUrlInput(e.target.value)
+                setServerSaved(false)
+                setServerError(null)
+              }}
+              placeholder="http://localhost:4096"
+              className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+            />
+            {serverError && <p className="text-sm text-terminal-error">{serverError}</p>}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveServer}
+                className="rounded-xl bg-terminal-accent px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+              >
+                Save Server
+              </button>
+              {serverSaved && <span className="text-sm text-terminal-success">Saved</span>}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-terminal-text">Auth Token</label>
+            <div className="relative">
+              <input
+                type={showToken ? "text" : "password"}
+                value={authToken}
+                onChange={(e) => {
+                  setAuthToken(e.target.value)
+                  setTokenSaved(false)
+                }}
+                placeholder="Bearer token or API key"
+                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 pr-20 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowToken((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs text-terminal-muted hover:text-terminal-text transition-colors"
+              >
+                {showToken ? "Hide" : "Show"}
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSaveToken}
+                className="rounded-xl bg-terminal-accent px-6 py-2 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+              >
+                Save Token
+              </button>
+              {tokenSaved && <span className="text-sm text-terminal-success">Saved</span>}
+            </div>
           </div>
         </div>
       </SettingsSection>
