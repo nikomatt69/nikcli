@@ -1,12 +1,14 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
 
 const toc = [
-  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "TUI Entry", href: "#tui-entry", depth: 2 },
   { title: "Worker Model", href: "#worker-model", depth: 2 },
+  { title: "Companion UI", href: "#companion-ui", depth: 2 },
   { title: "Remote Control", href: "#remote-control", depth: 2 },
-  { title: "Remote Attach", href: "#remote-attach", depth: 2 },
+  { title: "Attach", href: "#attach", depth: 2 },
 ];
 ---
 
@@ -15,21 +17,52 @@ const toc = [
   subtitle="Terminal UI entrypoint and worker model in packages/nikcli/src/cli/cmd/tui."
   toc={toc}
 >
-  <section id="overview" class="mb-16 scroll-mt-24">
-    <h2>Overview</h2>
-    <p>The TUI command is the default CLI route and supports local or server-backed sessions.</p>
+  <section id="tui-entry" class="mb-16 scroll-mt-24">
+    <h2>TUI Entry</h2>
+    <p>
+      The TUI is the default CLI route. It spawns a worker thread and communicates with it over an
+      RPC channel. The entrypoint is <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code> and the
+      command is registered as <code>$0 [project]</code>.
+    </p>
+    <DocCallout type="info" title="Local vs server mode">
+      <p>
+        The TUI can run fully locally or connect to an existing nikcli server via network flags.
+        When <code>--server</code> flags are present, the TUI boots an HTTP server and uses events
+        to stream state to connected clients.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="worker-model" class="mb-16 scroll-mt-24">
     <h2>Worker Model</h2>
     <p>
-      The TUI spawns a worker process and communicates over an RPC channel. When server flags are
-      present, the TUI starts an HTTP server and connects via events.
+      The worker process runs the session engine, agent loops, tool execution, and permission
+      evaluation off the main thread. The main thread handles UI rendering and user I/O.
+    </p>
+  </section>
+
+  <section id="companion-ui" class="mb-16 scroll-mt-24">
+    <h2>Companion UI</h2>
+    <p>
+      nikcli ships a web-based companion UI that runs in the browser and connects to the same
+      session stream as the TUI.
+    </p>
+    <DocCode language="bash">
+      nikcli companion serve
+      nikcli companion open
+    </DocCode>
+    <p>
+      This is distinct from the mobile app; the companion UI targets desktop browser access to a
+      nikcli session.
     </p>
   </section>
 
   <section id="remote-control" class="mb-16 scroll-mt-24">
     <h2>Remote Control</h2>
+    <p>
+      Remote Control exposes a running nikcli session to remote clients over a tunneled URL. Inside
+      a TUI session, use the <code>/remote-control</code> (alias <code>/rc</code>) slash command.
+    </p>
     <DocCallout type="info" title="Slash commands">
       <p>
         Use <code>/remote-control</code> (or alias <code>/rc</code>) inside a TUI session to open the
@@ -37,15 +70,16 @@ const toc = [
       </p>
     </DocCallout>
     <p>
-      If a remote session already exists for the running instance, Nikcli reuses it and keeps the QR
-      URL in sync. Remote defaults can be configured under <code>config.remote</code>.
+      If a remote session already exists for the running instance, nikcli reuses it and keeps the
+      share URL in sync. Remote defaults are configurable under <code>config.remote</code>.
     </p>
   </section>
 
-  <section id="remote-attach" class="mb-16 scroll-mt-24">
-    <h2>Remote Attach</h2>
-    <DocCallout type="info" title="Attach">
-      <p><code>nikcli attach &lt;url&gt;</code> connects a local TUI to a remote server.</p>
-    </DocCallout>
+  <section id="attach" class="mb-16 scroll-mt-24">
+    <h2>Attach</h2>
+    <p>
+      <code>nikcli attach &lt;url&gt;</code> connects a local TUI to a shared session hosted by a
+      remote nikcli server.
+    </p>
   </section>
 </DocsLayout>

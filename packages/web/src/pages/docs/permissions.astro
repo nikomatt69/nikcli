@@ -1,11 +1,13 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
 
 const toc = [
   { title: "Permission Model", href: "#permission-model", depth: 2 },
   { title: "Rules & Patterns", href: "#rules-patterns", depth: 2 },
-  { title: "Runtime Flow", href: "#runtime-flow", depth: 2 },
+  { title: "Responses", href: "#responses", depth: 2 },
+  { title: "Mobile Approvals", href: "#mobile-approvals", depth: 2 },
 ];
 ---
 
@@ -17,27 +19,74 @@ const toc = [
   <section id="permission-model" class="mb-16 scroll-mt-24">
     <h2>Permission Model</h2>
     <p>
-      Permissions are evaluated per tool call. The ruleset merges defaults, agent permissions,
-      and session overrides. Core logic lives in <code>packages/nikcli/src/permission</code>.
+      Permissions are evaluated per tool call. The ruleset merges defaults, agent-level
+      permissions, and session overrides. Core logic lives in
+      <code>packages/nikcli/src/permission/index.ts</code>.
     </p>
   </section>
 
   <section id="rules-patterns" class="mb-16 scroll-mt-24">
     <h2>Rules & Patterns</h2>
     <p>
-      Rules support wildcards for tools and file patterns. Legacy per-tool <code>tools</code> config
-      is converted into permissions during config parsing.
+      Rules support wildcards for tool names and file path patterns. The legacy per-tool
+      <code>tools</code> config is converted into the permissions format during config parsing.
     </p>
-    <DocCallout type="info" title="Edit permissions">
-      <p>Write/edit/patch/multiedit map to the single <code>edit</code> permission.</p>
+    <DocCode language="json">
+{`{
+  "permission": {
+    "edit": "ask",
+    "bash": "ask",
+    "read": "allow",
+    "read *.env": "ask"
+  }
+}`}
+    </DocCode>
+    <DocCallout type="info" title="Edit permission">
+      <p>Write, edit, patch, and multiedit all map to the single <code>edit</code> permission.</p>
     </DocCallout>
   </section>
 
-  <section id="runtime-flow" class="mb-16 scroll-mt-24">
-    <h2>Runtime Flow</h2>
+  <section id="responses" class="mb-16 scroll-mt-24">
+    <h2>Responses</h2>
     <p>
-      Permission requests are stored in an in-memory queue. Responses can be once/always/reject and
-      are broadcast on the Bus. See <code>packages/nikcli/src/permission/index.ts</code>.
+      When a tool call triggers a permission prompt, the user or an automated response handler can
+      answer in three ways. These are defined in <code>Permission.Response</code>.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Response</th>
+          <th>Effect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>once</code></td>
+          <td>Approves this call only. Future identical calls will prompt again.</td>
+        </tr>
+        <tr>
+          <td><code>always</code></td>
+          <td>Approves this and all future matching calls for the current session.</td>
+        </tr>
+        <tr>
+          <td><code>reject</code></td>
+          <td>Denies this call. The agent receives a <code>RejectedError</code> and can retry with different parameters.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      Responses are broadcast on the internal Bus so the TUI, companion UI, and mobile app all stay
+      in sync when a permission is answered.
+    </p>
+  </section>
+
+  <section id="mobile-approvals" class="mb-16 scroll-mt-24">
+    <h2>Mobile Approvals</h2>
+    <p>
+      When a session is connected to the mobile app, permission prompts surface in the app as
+      interactive approval cards. The same <code>once</code> / <code>always</code> /
+      <code>reject</code> responses are available from the app, and the result propagates back to
+      the host session in real time.
     </p>
   </section>
 </DocsLayout>

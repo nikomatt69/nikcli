@@ -1,15 +1,42 @@
-# js
+# nikcli
 
-To install dependencies:
+nikcli is a Bun-based AI coding agent combining a terminal UI, an HTTP server API, external service connectors, and a mobile companion app.
+
+nikcli is a **fork of [opencode](https://opencode.ai)**. It builds on the opencode foundation and extends it with additional capabilities including connectors, a mobile companion, and a structured CLI command surface.
+
+## Core Surfaces
+
+| Surface         | Entry               |
+| --------------- | ------------------- |
+| Terminal UI     | `nikcli` (default)  |
+| HTTP API        | `nikcli serve`      |
+| Mobile host     | `nikcli mobile`     |
+| Remote sessions | `nikcli remote`     |
+| Connectors      | `nikcli connectors` |
+| Bots            | `nikcli bot`        |
+
+Run `nikcli --help` to see all available commands.
+
+## Development
 
 ```bash
 bun install
+bun dev
 ```
 
-To run:
+Local development runs the CLI entrypoint at `packages/nikcli/src/index.ts`.
 
-```bash
-bun run index.ts
-```
+## Packages
 
-This project was created using `bun init` in bun v1.2.12. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+| Package           | Purpose                                    |
+| ----------------- | ------------------------------------------ |
+| `packages/nikcli` | CLI, TUI, agent engine, server, connectors |
+| `packages/mobile` | Expo mobile companion app                  |
+| `packages/web`    | Documentation site (nikcli.store)          |
+| `packages/sdk`    | Shared TypeScript SDK                      |
+
+## Resources
+
+- [Documentation](https://nikcli.store/docs)
+- [Configuration reference](https://nikcli.store/docs/configuration)
+- [CLI reference](https://nikcli.store/docs/cli)

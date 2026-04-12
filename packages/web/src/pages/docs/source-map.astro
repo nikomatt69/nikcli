@@ -3,73 +3,130 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 
 const toc = [
-  { title: "Top-Level Modules", href: "#top-level", depth: 2 },
-  { title: "CLI", href: "#cli", depth: 2 },
-  { title: "Core Runtime", href: "#runtime", depth: 2 },
-  { title: "Server", href: "#server", depth: 2 },
-  { title: "Provider & Models", href: "#providers", depth: 2 },
-  { title: "Tools & Docs", href: "#tools", depth: 2 },
+  { title: "Top-Level Entry", href: "#top-level-entry", depth: 2 },
+  { title: "CLI Commands", href: "#cli-commands", depth: 2 },
+  { title: "Core Runtime", href: "#core-runtime", depth: 2 },
+  { title: "Server & Routes", href: "#server-routes", depth: 2 },
+  { title: "Tools & Docs", href: "#tools-docs", depth: 2 },
+  { title: "Connectors & Bots", href: "#connectors-bots", depth: 2 },
+  { title: "Mobile", href: "#mobile", depth: 2 },
 ];
 
 const directories = [
-  { name: "acp", desc: "Agent Client Protocol implementation." },
+  { name: "acp", desc: "Agent Client Protocol." },
   { name: "agent", desc: "Agent definitions, prompts, and generation." },
   { name: "auth", desc: "Credential storage and auth flows." },
-  { name: "bun", desc: "Bun process helpers." },
-  { name: "bus", desc: "Event bus and global bus." },
-  { name: "cli", desc: "CLI commands, UI, network, TUI." },
+  { name: "brain", desc: "Automatic consolidation and context features." },
+  { name: "bus", desc: "Event bus and global broadcast." },
+  { name: "chatbot", desc: "Chat bot integrations (Slack, Discord, etc.)." },
+  { name: "cli", desc: "CLI commands, UI, networking, and TUI." },
   { name: "command", desc: "Command templates and execution." },
-  { name: "config", desc: "Config schema and parsing." },
+  { name: "config", desc: "Config schema, parsing, and resolution." },
+  { name: "connectors", desc: "External service connectors and auth." },
+  { name: "delegation", desc: "Background delegation manager." },
   { name: "docs", desc: "Local docs library and context." },
-  { name: "env", desc: "Environment access helpers." },
-  { name: "file", desc: "Filesystem utilities and watchers." },
   { name: "flag", desc: "Environment flag parsing." },
-  { name: "format", desc: "Formatting utilities." },
   { name: "global", desc: "Global paths and cache." },
-  { name: "id", desc: "Identifier helpers." },
-  { name: "ide", desc: "IDE integration hooks." },
-  { name: "installation", desc: "Installer detection + upgrades." },
+  { name: "installation", desc: "Installer detection and upgrades." },
   { name: "lsp", desc: "Language server integration." },
   { name: "mcp", desc: "Model Context Protocol integration." },
-  { name: "patch", desc: "Patch helpers for apply_patch." },
+  { name: "mobile", desc: "Mobile host server and session streaming." },
+  { name: "monitor", desc: "Long-lived background process monitoring." },
   { name: "permission", desc: "Permission model and rules." },
   { name: "plugin", desc: "Plugin loading and hooks." },
   { name: "project", desc: "Project discovery and instance context." },
-  { name: "provider", desc: "Provider SDK adapters and models." },
-  { name: "pty", desc: "PTY integration." },
-  { name: "question", desc: "Question tooling." },
-  { name: "rag", desc: "RAG indexing/search/storage." },
-  { name: "scheduler", desc: "Scheduled tasks." },
-  { name: "server", desc: "HTTP server, routes, SSE." },
-  { name: "session", desc: "Session lifecycle and messages." },
+  { name: "provider", desc: "Provider SDK adapters and model catalog." },
+  { name: "rag", desc: "RAG indexing, search, and storage." },
+  { name: "server", desc: "HTTP server, routes, and SSE." },
+  { name: "session", desc: "Session lifecycle, messages, and storage." },
   { name: "share", desc: "Session sharing utilities." },
-  { name: "shell", desc: "Shell integration helpers." },
   { name: "skill", desc: "Skill discovery and loading." },
-  { name: "snapshot", desc: "Snapshot/diff tracking." },
-  { name: "storage", desc: "Persistent storage layer." },
-  { name: "tool", desc: "Tool definitions + registry." },
+  { name: "snapshot", desc: "Snapshot and diff tracking." },
+  { name: "storage", desc: "Persistent JSON storage and migrations." },
+  { name: "tool", desc: "Tool definitions and registry." },
   { name: "util", desc: "Utility helpers." },
-  { name: "worktree", desc: "Worktree helpers." },
+  { name: "worktree", desc: "Git worktree helpers." },
 ];
 ---
 
 <DocsLayout
   title="Source Map"
-  subtitle="Complete high-level map of packages/nikcli/src with file-level entrypoints."
+  subtitle="High-level map of packages/nikcli/src with directory-level entrypoints."
   toc={toc}
 >
-  <section id="top-level" class="mb-16 scroll-mt-24">
-    <h2>Top-Level Modules</h2>
+  <section id="top-level-entry" class="mb-16 scroll-mt-24">
+    <h2>Top-Level Entry</h2>
     <table class="doc-table">
       <tbody>
-        <tr><td><code>src/index.ts</code></td><td>CLI entrypoint & command registration.</td></tr>
-        <tr><td><code>src/cli/</code></td><td>CLI commands, UI, networking, TUI.</td></tr>
-        <tr><td><code>src/session/</code></td><td>Session lifecycle, prompts, messages, compaction.</td></tr>
-        <tr><td><code>src/tool/</code></td><td>Tool definitions + registry.</td></tr>
-        <tr><td><code>src/server/</code></td><td>HTTP + SSE server and routes.</td></tr>
+        <tr><td><code>src/index.ts</code></td><td>CLI entrypoint and command registration via yargs.</td></tr>
+        <tr><td><code>src/cli/</code></td><td>All CLI commands, TUI, networking, and worker threads.</td></tr>
+        <tr><td><code>src/session/</code></td><td>Session lifecycle, messages, compaction, and storage.</td></tr>
+        <tr><td><code>src/tool/</code></td><td>Tool definitions and the public tool registry.</td></tr>
+        <tr><td><code>src/server/</code></td><td>HTTP + SSE server and all route groups.</td></tr>
       </tbody>
     </table>
-    <h3>Directory Index</h3>
+  </section>
+
+  <section id="cli-commands" class="mb-16 scroll-mt-24">
+    <h2>CLI Commands</h2>
+    <p>
+      Primary command implementations live in <code>src/cli/cmd</code>. The default command is
+      <code>$0 [project]</code> from <code>src/cli/cmd/tui/thread.ts</code>.
+    </p>
+  </section>
+
+  <section id="core-runtime" class="mb-16 scroll-mt-24">
+    <h2>Core Runtime</h2>
+    <table class="doc-table">
+      <tbody>
+        <tr><td><code>src/agent/</code></td><td>Agent definitions and generation.</td></tr>
+        <tr><td><code>src/permission/</code></td><td>Permission prompts, rules, and responses.</td></tr>
+        <tr><td><code>src/brain/</code></td><td>Automatic consolidation and context features.</td></tr>
+        <tr><td><code>src/project/</code></td><td>Project discovery and instance context.</td></tr>
+        <tr><td><code>src/storage/</code></td><td>Persistent JSON storage and migrations.</td></tr>
+        <tr><td><code>src/monitor/</code></td><td>Long-lived shell job monitoring with persisted logs.</td></tr>
+        <tr><td><code>src/delegation/</code></td><td>Background subagent delegation manager.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="server-routes" class="mb-16 scroll-mt-24">
+    <h2>Server & Routes</h2>
+    <p>
+      Routes are organized by capability in <code>src/server/routes</code>. See the
+      <a href="/docs/server-api">Server & API</a> page for a full route listing.
+    </p>
+  </section>
+
+  <section id="tools-docs" class="mb-16 scroll-mt-24">
+    <h2>Tools & Docs</h2>
+    <p>
+      Tool descriptions live in <code>src/tool/*.txt</code> and are wired into the registry at
+      <code>src/tool/registry.ts</code>. Docs and RAG tools live under <code>src/docs/</code> and
+      <code>src/rag/</code>.
+    </p>
+  </section>
+
+  <section id="connectors-bots" class="mb-16 scroll-mt-24">
+    <h2>Connectors & Bots</h2>
+    <p>
+      External service integrations live under <code>src/connectors/</code> (Figma, Slack, GitHub,
+      Lovable) and <code>src/chatbot/</code> (Slack bots, Discord, Teams, Google Chat, Linear).
+      See the <a href="/docs/connectors">Connectors</a> page.
+    </p>
+  </section>
+
+  <section id="mobile" class="mb-16 scroll-mt-24">
+    <h2>Mobile</h2>
+    <p>
+      Mobile host server and session streaming are under <code>src/mobile/</code> and
+      <code>src/server/routes/mobile.ts</code>. The companion app is in
+      <code>packages/mobile</code>. See the <a href="/docs/mobile">Mobile</a> page.
+    </p>
+  </section>
+
+  <section id="directories" class="mb-16 scroll-mt-24">
+    <h2>Directory Index</h2>
     <table class="doc-table">
       <thead>
         <tr>
@@ -86,40 +143,5 @@ const directories = [
         ))}
       </tbody>
     </table>
-  </section>
-
-  <section id="cli" class="mb-16 scroll-mt-24">
-    <h2>CLI</h2>
-    <p>Primary command implementations live in <code>src/cli/cmd</code>.</p>
-    <DocCallout type="info" title="TUI">
-      <p>Default command is <code>$0 [project]</code> from <code>src/cli/cmd/tui/thread.ts</code>.</p>
-    </DocCallout>
-  </section>
-
-  <section id="runtime" class="mb-16 scroll-mt-24">
-    <h2>Core Runtime</h2>
-    <table class="doc-table">
-      <tbody>
-        <tr><td><code>src/agent/</code></td><td>Agent definitions and generation.</td></tr>
-        <tr><td><code>src/permission/</code></td><td>Permission prompts and rules.</td></tr>
-        <tr><td><code>src/project/</code></td><td>Project discovery + instance context.</td></tr>
-        <tr><td><code>src/storage/</code></td><td>Persistent JSON storage + migrations.</td></tr>
-      </tbody>
-    </table>
-  </section>
-
-  <section id="server" class="mb-16 scroll-mt-24">
-    <h2>Server</h2>
-    <p>Routes are organized by capability in <code>src/server/routes</code>.</p>
-  </section>
-
-  <section id="providers" class="mb-16 scroll-mt-24">
-    <h2>Provider & Models</h2>
-    <p>Model metadata is cached from <code>models.dev</code> and merged with config.</p>
-  </section>
-
-  <section id="tools" class="mb-16 scroll-mt-24">
-    <h2>Tools & Docs</h2>
-    <p>Tool descriptions live in <code>src/tool/*.txt</code> and are wired into the registry.</p>
   </section>
 </DocsLayout>
