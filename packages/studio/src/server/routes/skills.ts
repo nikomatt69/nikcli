@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import fs from "fs"
 import path from "path"
+import os from "os"
 import { getSkillDirs, loadSkillsFromDir, parseFrontmatter, buildFrontmatter } from "../config-loader"
 import { getStudioConfig, saveStudioConfig } from "../config-loader"
 import { atomicWriteFileSync } from "../atomic"
@@ -45,7 +46,7 @@ export function SkillsRoutes() {
     }>()
     if (!body.name) return c.json({ error: "Name required" }, 400)
     const dirs = getSkillDirs()
-    const root = dirs[0]?.root || path.join(process.env.HOME || "", ".config", "nikcli")
+    const root = dirs[0]?.root || path.join(os.homedir(), ".config", "nikcli")
     const scopeDir = body.scope === "project" ? process.cwd() : root
     const skillDir = path.join(scopeDir, "skill")
     if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true })
@@ -118,7 +119,7 @@ export function SkillsRoutes() {
             .replace(/[?#].*$/, "")
             .replace(/\.md$/i, "")
         const dirs = getSkillDirs()
-        const root = dirs[0]?.root || path.join(process.env.HOME || "", ".config", "nikcli")
+        const root = dirs[0]?.root || path.join(os.homedir(), ".config", "nikcli")
         const skillDir = path.join(root, "skill", name)
         if (!fs.existsSync(skillDir)) fs.mkdirSync(skillDir, { recursive: true })
         const skillPath = path.join(skillDir, "SKILL.md")

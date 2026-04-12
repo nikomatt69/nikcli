@@ -1006,13 +1006,14 @@ export function Prompt(props: PromptProps) {
           }
           if (!props.sessionID) return
 
-          setStore("interrupt", store.interrupt + 1)
+          const newCount = store.interrupt + 1
+          setStore("interrupt", newCount)
 
           setTimeout(() => {
             setStore("interrupt", 0)
           }, 5000)
 
-          if (store.interrupt >= 2) {
+          if (newCount >= 2) {
             sdk.client.session.abort({
               sessionID: props.sessionID,
             })

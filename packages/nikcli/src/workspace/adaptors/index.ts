@@ -4,7 +4,7 @@ import { createServer } from "node:net"
 import { fileURLToPath } from "node:url"
 import { Global } from "@/global"
 import type { Config } from "../config"
-import type { Adaptor } from "./types"
+import type { Adaptor, Target } from "./types"
 import { WorktreeAdaptor } from "./worktree"
 
 type ContainerConfig = Extract<Config, { type: "container" }>
@@ -251,13 +251,12 @@ const ContainerAdaptor: Adaptor<ContainerConfig> = {
   async remove(config) {
     await runContainerCommand(config.runtime, ["rm", "-f", config.containerName], true)
   },
-  async request(config, method, url, data, signal, headers) {
-    return fetch(new URL(url, config.serverUrl), {
-      method,
-      body: data,
-      headers: proxyHeaders(config, headers),
-      signal,
-    })
+  target(config: ContainerConfig): Target {
+    return {
+      type: "remote",
+      url: config.serverUrl,
+      headers: proxyHeaders(config),
+    }
   },
 }
 

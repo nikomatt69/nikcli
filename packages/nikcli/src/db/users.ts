@@ -265,7 +265,10 @@ export namespace UserDB {
 
   export async function saveActiveSession(token: string): Promise<void> {
     await Bun.write(SESSION_FILE, token)
-    await fs.chmod(SESSION_FILE, 0o600).catch(() => undefined)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(SESSION_FILE, 0o600).catch(() => undefined)
+    }
   }
 
   export async function clearActiveSession(): Promise<void> {

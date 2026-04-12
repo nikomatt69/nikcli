@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import fs from "fs"
 import path from "path"
+import os from "os"
 import { getPluginDirs, loadPluginsFromDir, loadNikcliConfig } from "../config-loader"
 import { getStudioConfig, saveStudioConfig } from "../config-loader"
 import { atomicWriteFileSync } from "../atomic"
@@ -79,7 +80,7 @@ export function PluginsRoutes() {
     const body = await c.req.json<{ name: string; template?: string; content?: string }>()
     if (!body.name) return c.json({ error: "Name required" }, 400)
     const dirs = getPluginDirs()
-    const root = dirs[0]?.root || path.join(process.env.HOME || "", ".config", "nikcli")
+    const root = dirs[0]?.root || path.join(os.homedir(), ".config", "nikcli")
     const pluginDir = path.join(root, "plugin")
     if (!fs.existsSync(pluginDir)) fs.mkdirSync(pluginDir, { recursive: true })
     const filename = `${body.name}.ts`

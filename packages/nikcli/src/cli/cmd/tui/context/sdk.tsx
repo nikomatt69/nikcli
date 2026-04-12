@@ -4,15 +4,13 @@ import { createGlobalEmitter } from "@solid-primitives/event-bus"
 import { batch, onCleanup, onMount } from "solid-js"
 
 export type EventSource = {
-  on: (handler: (event: Event) => void) => () => void
-  setWorkspace?: (workspaceID?: string) => void
+  subscribe: (directory: string | undefined, handler: (event: Event) => void) => Promise<() => void>
 }
 
 export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
   name: "SDK",
   init: (props: { url: string; directory?: string; fetch?: typeof fetch; events?: EventSource }) => {
     const abort = new AbortController()
-    let workspaceID: string | undefined
     let sse: AbortController | undefined
 
     function createSDK() {
@@ -20,7 +18,6 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
         baseUrl: props.url,
         signal: abort.signal,
         directory: props.directory,
-        workspace: workspaceID,
         fetch: props.fetch,
       })
     }
@@ -91,7 +88,7 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
 
     onMount(async () => {
       if (props.events) {
-        const unsub = props.events.on(handleEvent)
+        const unsub = await props.events.subscribe(props.directory, handleEvent)
         onCleanup(unsub)
         return
       }
@@ -109,19 +106,9 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       get client() {
         return sdk
       },
-      get workspaceID() {
-        return workspaceID
-      },
       directory: props.directory,
       event: emitter,
       fetch: props.fetch ?? fetch,
-      setWorkspace(next?: string) {
-        if (workspaceID === next) return
-        workspaceID = next
-        sdk = createSDK()
-        props.events?.setWorkspace?.(next)
-        if (!props.events) startSSE()
-      },
       url: props.url,
     }
   },

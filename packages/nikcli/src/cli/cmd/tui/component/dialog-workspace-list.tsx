@@ -11,7 +11,7 @@ import { useToast } from "../ui/toast"
 import { useKeybind } from "../context/keybind"
 import { DialogSessionList } from "./dialog-session-list"
 
-async function openWorkspace(input: {
+export async function openWorkspace(input: {
   dialog: ReturnType<typeof useDialog>
   route: ReturnType<typeof useRoute>
   sdk: ReturnType<typeof useSDK>
@@ -84,7 +84,7 @@ async function openWorkspace(input: {
   input.dialog.clear()
 }
 
-function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) => Promise<void> }) {
+export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) => Promise<void> }) {
   const dialog = useDialog()
   const sync = useSync()
   const sdk = useSDK()
@@ -194,7 +194,6 @@ export function DialogWorkspaceList() {
         dialog.replace(() => <DialogSessionList localOnly={true} />)
         return
       }
-      sdk.setWorkspace(undefined)
       route.navigate({
         type: "home",
       })
@@ -336,7 +335,6 @@ export function DialogWorkspaceList() {
               return
             }
             if (currentWorkspaceID() === option.value) {
-              sdk.setWorkspace(undefined)
               route.navigate({
                 type: "home",
               })

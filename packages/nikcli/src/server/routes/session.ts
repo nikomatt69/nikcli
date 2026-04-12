@@ -22,6 +22,7 @@ import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Delegation } from "@/delegation/manager"
+import { Monitor } from "@/monitor/manager"
 
 const log = Log.create({ service: "server" })
 
@@ -396,8 +397,8 @@ export const SessionRoutes = lazy(() =>
         const delegation = Delegation.getBySessionID(sessionID)
         if (delegation) {
           await Delegation.cancel(delegation.id)
-          return c.json(true)
         }
+        await Monitor.cancelAll(sessionID)
         SessionPrompt.cancel(sessionID)
         return c.json(true)
       },

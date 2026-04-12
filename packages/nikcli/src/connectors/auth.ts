@@ -29,7 +29,10 @@ export namespace ConnectorAuth {
     const file = Bun.file(filepath)
     const data = await all()
     await Bun.write(file, JSON.stringify({ ...data, [connectorName]: entry }, null, 2))
-    await fs.chmod(file.name!, 0o600)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(file.name!, 0o600)
+    }
   }
 
   export async function remove(connectorName: string): Promise<void> {
@@ -37,7 +40,10 @@ export namespace ConnectorAuth {
     const data = await all()
     delete data[connectorName]
     await Bun.write(file, JSON.stringify(data, null, 2))
-    await fs.chmod(file.name!, 0o600)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(file.name!, 0o600)
+    }
   }
 
   export async function updateToken(connectorName: string, token: string, expiresAt?: number): Promise<void> {

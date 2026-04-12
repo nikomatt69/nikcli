@@ -162,7 +162,21 @@ export namespace Auth {
 
   export async function all(): Promise<Record<string, Info>> {
     const file = Bun.file(filepath)
-    const data = await file.json().catch(() => ({}) as Record<string, unknown>)
+    // On Windows, Bun.file might have issues with certain paths
+    // Use fs.readFile as fallback for better Windows compatibility
+    let data: Record<string, unknown> = {}
+    try {
+      data = await file.json()
+    } catch {
+      // Fallback: try reading with fs for better Windows compatibility
+      try {
+        const text = await fs.readFile(filepath, "utf-8")
+        data = JSON.parse(text)
+      } catch {
+        // File doesn't exist or is corrupted, return empty
+        return {}
+      }
+    }
     return Object.entries(data).reduce(
       (acc, [key, value]) => {
         const parsed = Info.safeParse(value)
@@ -179,7 +193,10 @@ export namespace Auth {
     try {
       const data = await all()
       await Bun.write(tmp, JSON.stringify({ ...data, [key]: info }, null, 2))
-      await fs.chmod(tmp, 0o600)
+      // chmod is Unix-only, skip on Windows
+      if (process.platform !== "win32") {
+        await fs.chmod(tmp, 0o600)
+      }
       await fs.rename(tmp, filepath)
     } finally {
       await fs.unlink(tmp).catch(() => {})
@@ -192,7 +209,10 @@ export namespace Auth {
       const data = await all()
       delete data[key]
       await Bun.write(tmp, JSON.stringify(data, null, 2))
-      await fs.chmod(tmp, 0o600)
+      // chmod is Unix-only, skip on Windows
+      if (process.platform !== "win32") {
+        await fs.chmod(tmp, 0o600)
+      }
       await fs.rename(tmp, filepath)
     } finally {
       await fs.unlink(tmp).catch(() => {})

@@ -175,10 +175,19 @@ export namespace Workspace {
   const log = Log.create({ service: "workspace-sync" })
 
   async function workspaceEventLoop(space: Info, stop: AbortSignal) {
+    const adaptor = getAdaptor(space.config)
+    const target = await Promise.resolve(adaptor.target(space.config))
+
+    if (target.type === "local") return
+
+    const baseURL = String(target.url).replace(/\/?$/, "/")
+
     while (!stop.aborted) {
-      const res = await getAdaptor(space.config)
-        .request(space.config, "GET", "/event", undefined, stop)
-        .catch(() => undefined)
+      const res = await fetch(new URL(baseURL + "event"), {
+        method: "GET",
+        headers: target.headers,
+        signal: stop,
+      }).catch(() => undefined)
       if (!res || !res.ok || !res.body) {
         await Bun.sleep(1000)
         continue

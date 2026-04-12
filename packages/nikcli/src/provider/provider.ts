@@ -429,9 +429,12 @@ export namespace Provider {
       }
     },
     openrouter: async () => {
+      // Support both NIKCLI_OPENROUTER_API_KEY and OPENROUTER_API_KEY for Windows compatibility
+      const apiKey = process.env.NIKCLI_OPENROUTER_API_KEY ?? process.env.OPENROUTER_API_KEY
       return {
         autoload: false,
         options: {
+          ...(apiKey && { apiKey }),
           headers: {
             "HTTP-Referer": "https://nikcli.store/",
             "X-Title": "nikcli",
@@ -1347,7 +1350,7 @@ export namespace Provider {
       const openaiSDK = createOpenAI({
         name: providerID,
         baseURL,
-        apiKey: provider?.key,
+        apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
       })
 
       const image = openaiSDK.imageModel(model.api.id)

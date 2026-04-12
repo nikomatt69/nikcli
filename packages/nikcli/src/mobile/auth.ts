@@ -29,7 +29,10 @@ export namespace MobileAuth {
 
   async function write(tokens: Token[]) {
     await Bun.write(Bun.file(FILE), JSON.stringify(tokens, null, 2))
-    await fs.chmod(FILE, 0o600).catch(() => undefined)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(FILE, 0o600).catch(() => undefined)
+    }
   }
 
   export async function all(): Promise<Token[]> {

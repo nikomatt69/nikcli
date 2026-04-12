@@ -8,6 +8,7 @@ import { Instance } from "@/project/instance"
 import { SessionPrompt } from "@/session/prompt"
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
+import { Monitor } from "@/monitor/manager"
 
 const DelegationCompletedEvent = BusEvent.define(
   "delegation.completed",
@@ -346,6 +347,7 @@ ${result}
     requestFinalization(delegationID, "cancelled", "Cancelled")
     if (record.sessionID) {
       SessionPrompt.cancel(record.sessionID)
+      await Monitor.cancelAll(record.sessionID)
     }
     scheduleForcedFinalize(delegationID, "cancelled", "Cancelled")
     return true

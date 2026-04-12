@@ -14,14 +14,11 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
-import { useSDK } from "../context/sdk"
-
 export function Home() {
   const sync = useSync()
   const kv = useKV()
   const { theme } = useTheme()
   const route = useRouteData("home")
-  const sdk = useSDK()
   const promptRef = usePromptRef()
   const command = useCommandDialog()
   const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
@@ -87,10 +84,6 @@ export function Home() {
   const directory = useDirectory()
 
   const keybind = useKeybind()
-
-  createEffect(() => {
-    sdk.setWorkspace(route.workspaceID)
-  })
 
   return (
     <>

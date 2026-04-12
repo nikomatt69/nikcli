@@ -39,14 +39,12 @@ GlobalBus.on("event", (event) => {
 
 let server: Bun.Server<BunWebSocketData> | undefined
 
-const eventStream = {
-  abort: undefined as AbortController | undefined,
-}
+const eventStreams = new Map<string, AbortController>()
 
-const startEventStream = (input: { directory: string; workspaceID?: string }) => {
-  if (eventStream.abort) eventStream.abort.abort()
+function startEventStream(directory: string) {
+  const id = crypto.randomUUID()
   const abort = new AbortController()
-  eventStream.abort = abort
+  eventStreams.set(id, abort)
   const signal = abort.signal
 
   const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -58,8 +56,7 @@ const startEventStream = (input: { directory: string; workspaceID?: string }) =>
 
   const sdk = createNikcliClient({
     baseUrl: "http://nikcli.local",
-    directory: input.directory,
-    workspace: input.workspaceID,
+    directory,
     fetch: fetchFn,
     signal,
   })
@@ -81,7 +78,7 @@ const startEventStream = (input: { directory: string; workspaceID?: string }) =>
       }
 
       for await (const event of events.stream) {
-        Rpc.emit("event", event as Event)
+        Rpc.emit("event", { id, event: event as Event })
       }
 
       if (!signal.aborted) {
@@ -93,9 +90,14 @@ const startEventStream = (input: { directory: string; workspaceID?: string }) =>
       error: error instanceof Error ? error.message : error,
     })
   })
+
+  return id
 }
 
-startEventStream({ directory: process.cwd() })
+function stopEventStream(id: string) {
+  eventStreams.get(id)?.abort()
+  eventStreams.delete(id)
+}
 
 export const rpc = {
   async fetch(input: { url: string; method: string; headers: Record<string, string>; body?: string }) {
@@ -135,12 +137,17 @@ export const rpc = {
     Config.global.reset()
     await Instance.disposeAll()
   },
-  async setWorkspace(input: { workspaceID?: string }) {
-    startEventStream({ directory: process.cwd(), workspaceID: input.workspaceID })
+  async subscribe(input: { directory: string | undefined }) {
+    return startEventStream(input.directory || process.cwd())
+  },
+  async unsubscribe(input: { id: string }) {
+    stopEventStream(input.id)
   },
   async shutdown() {
     Log.Default.info("worker shutting down")
-    if (eventStream.abort) eventStream.abort.abort()
+    for (const id of [...eventStreams.keys()]) {
+      stopEventStream(id)
+    }
     await Instance.disposeAll()
     if (server) server.stop(true)
   },

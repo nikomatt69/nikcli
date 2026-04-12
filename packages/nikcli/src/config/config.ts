@@ -1603,7 +1603,10 @@ export namespace Config {
           if (stat?.isFile()) {
             tmp = target + ".tmp"
             await Bun.write(tmp, updated)
-            await fs.chmod(tmp, stat.mode & 0o777)
+            // chmod is Unix-only, skip on Windows
+            if (process.platform !== "win32") {
+              await fs.chmod(tmp, stat.mode & 0o777)
+            }
             await fs.rename(tmp, target)
           }
         } catch (error) {

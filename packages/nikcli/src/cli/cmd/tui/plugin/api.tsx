@@ -17,7 +17,6 @@ import { DialogPrompt } from "../ui/dialog-prompt"
 import { DialogSelect, type DialogSelectOption as SelectOption } from "../ui/dialog-select"
 import type { useToast } from "../ui/toast"
 import { Installation } from "@/installation"
-import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/v2"
 import { TuiPluginRuntime } from "./runtime"
 
 type RouteEntry = {
@@ -41,11 +40,6 @@ type Input = {
   theme: ReturnType<typeof useTheme>
   toast: ReturnType<typeof useToast>
   renderer: TuiPluginApi["renderer"]
-}
-
-type TuiHostPluginApi = TuiPluginApi & {
-  map: Map<string | undefined, NikcliClient>
-  dispose: () => void
 }
 
 function routeRegister(routes: RouteMap, list: TuiRouteDefinition[], bump: () => void) {
@@ -206,29 +200,7 @@ function appApi(): TuiPluginApi["app"] {
   }
 }
 
-export function createTuiApi(input: Input): TuiHostPluginApi {
-  const map = new Map<string | undefined, NikcliClient>()
-  const scoped: TuiPluginApi["scopedClient"] = (workspaceID) => {
-    const hit = map.get(workspaceID)
-    if (hit) return hit
-
-    const next = createNikcliClient({
-      baseUrl: input.sdk.url,
-      fetch: input.sdk.fetch,
-      directory: input.sync.data.path.directory || input.sdk.directory,
-      workspace: workspaceID,
-    })
-    map.set(workspaceID, next)
-    return next
-  }
-  const workspace: TuiPluginApi["workspace"] = {
-    current() {
-      return input.sdk.workspaceID
-    },
-    set(workspaceID) {
-      input.sdk.setWorkspace(workspaceID)
-    },
-  }
+export function createTuiApi(input: Input): TuiPluginApi {
   const lifecycle: TuiPluginApi["lifecycle"] = {
     signal: new AbortController().signal,
     onDispose() {
@@ -346,8 +318,6 @@ export function createTuiApi(input: Input): TuiHostPluginApi {
     get client() {
       return input.sdk.client
     },
-    scopedClient: scoped,
-    workspace,
     event: input.sdk.event,
     renderer: input.renderer,
     slots: {
@@ -398,10 +368,6 @@ export function createTuiApi(input: Input): TuiHostPluginApi {
       get ready() {
         return input.theme.ready
       },
-    },
-    map,
-    dispose() {
-      map.clear()
     },
   }
 }

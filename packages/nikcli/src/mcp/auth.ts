@@ -56,7 +56,10 @@ export namespace McpAuth {
       entry.serverUrl = serverUrl
     }
     await Bun.write(file, JSON.stringify({ ...data, [mcpName]: entry }, null, 2))
-    await fs.chmod(file.name!, 0o600)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(file.name!, 0o600)
+    }
   }
 
   export async function remove(mcpName: string): Promise<void> {
@@ -64,7 +67,10 @@ export namespace McpAuth {
     const data = await all()
     delete data[mcpName]
     await Bun.write(file, JSON.stringify(data, null, 2))
-    await fs.chmod(file.name!, 0o600)
+    // chmod is Unix-only, skip on Windows
+    if (process.platform !== "win32") {
+      await fs.chmod(file.name!, 0o600)
+    }
   }
 
   export async function updateTokens(mcpName: string, tokens: Tokens, serverUrl?: string): Promise<void> {

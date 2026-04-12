@@ -213,6 +213,7 @@ export namespace MessageV2 {
       })
       .optional(),
     command: z.string().optional(),
+    background: z.boolean().optional(),
   }).meta({
     ref: "SubtaskPart",
   })

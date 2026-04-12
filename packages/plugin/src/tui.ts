@@ -364,11 +364,6 @@ export type TuiPluginInstallResult =
       missing?: boolean
     }
 
-export type TuiWorkspace = {
-  current: () => string | undefined
-  set: (workspaceID?: string) => void
-}
-
 export type TuiPluginApi = {
   app: TuiApp
   command: {
@@ -399,8 +394,6 @@ export type TuiPluginApi = {
   state: TuiState
   theme: TuiTheme
   client: NikcliClient
-  scopedClient: (workspaceID?: string) => NikcliClient
-  workspace: TuiWorkspace
   event: TuiEventBus
   renderer: CliRenderer
   slots: TuiSlots

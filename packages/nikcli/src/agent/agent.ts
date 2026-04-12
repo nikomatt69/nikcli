@@ -7,16 +7,21 @@ import { Instance } from "../project/instance"
 import { Truncate } from "../tool/truncation"
 import { Auth } from "../auth"
 import { ProviderTransform } from "../provider/transform"
-
+import { PermissionNext } from "@/permission/next"
+import { mergeDeep, pipe, sortBy, values } from "remeda"
+import { Global } from "@/global"
+import path from "path"
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
-import { PermissionNext } from "@/permission/next"
-import { mergeDeep, pipe, sortBy, values } from "remeda"
-import { Global } from "@/global"
-import path from "path"
+import PROMPT_DELEGATION from "./prompt/delegation.txt"
+
+const PRIMARY_AGENT_DELEGATION_AWARENESS = `
+
+${PROMPT_DELEGATION}
+`
 
 export namespace Agent {
   export const Info = z
@@ -85,6 +90,10 @@ export namespace Agent {
         name: "ralph",
         description:
           "Autonomous loop agent that iterates on a task until complete. Best for large refactors, migrations, and multi-step tasks with clear done criteria.",
+        prompt: `You are an autonomous agent that iterates on a task until complete.
+
+You are aware of the project context (directory, worktree) and can use all available tools.
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -99,6 +108,10 @@ export namespace Agent {
       },
       build: {
         name: "build",
+        prompt: `You are a build agent focused on creating and implementing features.
+
+You are aware of the project context (directory, worktree) and can use all available tools.
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -113,6 +126,10 @@ export namespace Agent {
       },
       plan: {
         name: "plan",
+        prompt: `You are a planning agent for multi-step implementation strategies.
+
+You are aware of the project context (directory, worktree) and can use all available tools.
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -514,7 +531,7 @@ Apply small, safe refactors and verify results.`,
           instructions: SystemPrompt.instructions(),
           store: false,
         }),
-        onError: () => {},
+        onError: () => { },
       })
       for await (const part of result.fullStream) {
         if (part.type === "error") throw part.error

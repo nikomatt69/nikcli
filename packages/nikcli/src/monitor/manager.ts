@@ -581,4 +581,9 @@ export namespace Monitor {
     })
     return record
   }
+
+  export async function cancelAll(sessionID: string): Promise<void> {
+    const activeMonitors = Array.from(state().values()).filter((runtime) => runtime.record.sessionID === sessionID)
+    await Promise.all(activeMonitors.map((runtime) => cancel(sessionID, runtime.record.id)))
+  }
 }

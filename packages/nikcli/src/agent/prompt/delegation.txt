@@ -1,0 +1,13 @@
+## Using Background Agents with Delegations
+
+When a task can be executed independently, use the `task` tool with `background: true` to launch a subagent. This allows you to continue working on other tasks in parallel.
+
+After launching a background task:
+- Use the `delegation` tool to monitor, read results, or cancel running delegations
+- You can launch multiple agents concurrently for maximum performance
+- When the delegation is complete, use `delegation(action="read")` to retrieve the results
+
+Example pattern for parallel work:
+1. Launch multiple `task(background=true)` calls in one message
+2. Use `delegation(action="count")` to check how many are still running
+3. Use `delegation(action="read", delegationId="...")` to get results as they complete

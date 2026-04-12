@@ -33,6 +33,7 @@ import { spawn } from "child_process"
 import { Command } from "../command"
 import { $, fileURLToPath } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
+import { Config } from "../config/config"
 import { SessionSummary } from "./summary"
 import { NamedError } from "@nikcli-ai/util/error"
 import { fn } from "@/util/fn"
@@ -45,8 +46,21 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
+import { Delegation } from "@/delegation/manager"
+import { BusEvent } from "@/bus/bus-event"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
+
+// Local event definition for delegation completion (mirrors delegation/manager.ts)
+const DelegationCompletedEvent = BusEvent.define(
+  "delegation.completed",
+  z.object({
+    delegationID: z.string(),
+    parentSessionID: z.string(),
+    status: z.enum(["running", "complete", "error", "timeout", "cancelled"]),
+    title: z.string(),
+  }),
+)
 
 const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
 
@@ -71,6 +85,11 @@ export namespace SessionPrompt {
             resolve(input: MessageV2.WithParts): void
             reject(): void
           }[]
+          toolsCache?: {
+            modelId: string
+            tools: Record<string, AITool>
+            timestamp: number
+          }
         }
       > = {}
       return data
@@ -313,6 +332,23 @@ export namespace SessionPrompt {
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
         lastUser.id < lastAssistant.id
       ) {
+        // Check if new messages arrived while we were running
+        // This handles the race condition in prompt where messages can arrive
+        // while the runner is transitioning between states
+        const latestMsgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
+        const newUserMsg = latestMsgs.findLast((m) => m.info.role === "user" && m.info.id > lastAssistant!.id)
+
+        // If a new user message arrived, continue the loop to process it
+        if (newUserMsg) {
+          log.info("detected new message during exit, continuing loop", {
+            sessionID,
+            lastAssistantId: lastAssistant!.id,
+            newMsgId: newUserMsg.info.id,
+          })
+          step = 0
+          continue
+        }
+
         log.info("exiting loop", { sessionID })
         break
       }
@@ -356,7 +392,7 @@ export namespace SessionPrompt {
             created: Date.now(),
           },
         })) as MessageV2.Assistant
-        let part = (await Session.updatePart({
+        const part = (await Session.updatePart({
           id: Identifier.ascending("part"),
           messageID: assistantMessage.id,
           sessionID: assistantMessage.sessionID,
@@ -370,12 +406,153 @@ export namespace SessionPrompt {
               description: task.description,
               subagent_type: task.agent,
               command: task.command,
+              background: task.background,
             },
             time: {
               start: Date.now(),
             },
           },
         })) as MessageV2.ToolPart
+
+        // Handle background subtasks via Delegation
+        if (task.background === true) {
+          // Create Delegation first
+          const delegation = await Delegation.create({
+            parentSessionID: sessionID,
+            agent: task.agent,
+            prompt: task.prompt,
+          })
+
+          // Create session for the subagent
+          const config = await Config.get()
+          const taskAgent = await Agent.get(task.agent)
+          const hasTaskPermission = taskAgent.permission.some((rule) => rule.permission === "task")
+
+          const subSession = await Session.create({
+            parentID: sessionID,
+            title: task.description + ` (@${task.agent} subagent)`,
+            permission: [
+              {
+                permission: "todowrite",
+                pattern: "*",
+                action: "deny",
+              },
+              {
+                permission: "todoread",
+                pattern: "*",
+                action: "deny",
+              },
+              ...(hasTaskPermission
+                ? []
+                : [
+                    {
+                      permission: "task" as const,
+                      pattern: "*" as const,
+                      action: "deny" as const,
+                    },
+                  ]),
+              ...(config.experimental?.primary_tools?.map((t) => ({
+                pattern: "*",
+                action: "allow" as const,
+                permission: t,
+              })) ?? []),
+            ],
+          })
+
+          // Link session to delegation
+          Delegation.setSessionID(delegation.id, subSession.id)
+
+          // Get time from part state (may not exist if pending status)
+          const partTime = "time" in part.state ? part.state.time : { start: Date.now() }
+
+          // Update tool part metadata with delegation info
+          await Session.updatePart({
+            ...part,
+            type: "tool",
+            state: {
+              status: "running",
+              title: task.description,
+              metadata: {
+                sessionId: subSession.id,
+                delegationId: delegation.id,
+                background: true,
+              },
+              input: part.state.input,
+              time: partTime,
+            },
+          } satisfies MessageV2.ToolPart)
+
+          // Prepare prompt input for subagent session
+          const promptParts = await SessionPrompt.resolvePromptParts(task.prompt)
+          const promptInput = {
+            messageID: Identifier.ascending("message"),
+            sessionID: subSession.id,
+            model: {
+              modelID: taskModel.id,
+              providerID: taskModel.providerID,
+            },
+            agent: task.agent,
+            tools: {
+              todowrite: false,
+              todoread: false,
+              ...(hasTaskPermission ? {} : { task: false }),
+              ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
+            },
+            parts: promptParts,
+          } satisfies SessionPrompt.PromptInput
+
+          // Fire-and-forget: run subagent and finalize delegation on completion
+          void SessionPrompt.prompt(promptInput)
+            .then(async () => {
+              const messages = await Session.messages({ sessionID: subSession.id })
+              const assistantWithParts = messages.findLast((item) => item.info.role === "assistant")
+              const assistant = assistantWithParts?.info.role === "assistant" ? assistantWithParts.info : undefined
+              const text =
+                assistantWithParts?.parts.findLast((part): part is MessageV2.TextPart => part.type === "text")?.text ??
+                ""
+              const error = assistant?.error
+
+              if (error) {
+                const status = MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error"
+                const errorMessage = "message" in error && typeof error.message === "string" ? error.message : undefined
+                await Delegation.finalize(delegation.id, status, text, errorMessage)
+                return
+              }
+              await Delegation.finalize(delegation.id, "complete", text)
+            })
+            .catch(async (err) => {
+              await Delegation.finalize(delegation.id, "error", "", err instanceof Error ? err.message : String(err))
+            })
+
+          // Update assistant message and return immediately (main agent continues)
+          assistantMessage.finish = "tool-calls"
+          assistantMessage.time.completed = Date.now()
+          await Session.updateMessage(assistantMessage)
+
+          // Update part with completion (it started and returned)
+          await Session.updatePart({
+            ...part,
+            state: {
+              status: "completed",
+              input: part.state.input,
+              title: task.description,
+              metadata: {
+                sessionId: subSession.id,
+                delegationId: delegation.id,
+                background: true,
+              },
+              output: `Background task started for @${task.agent}. Use delegation tools to monitor progress.`,
+              time: {
+                start: partTime.start,
+                end: Date.now(),
+              },
+            },
+          } satisfies MessageV2.ToolPart)
+
+          continue
+        }
+
+        // Foreground subtask handling (existing behavior)
         const taskArgs = {
           prompt: task.prompt,
           description: task.description,
@@ -561,14 +738,37 @@ export namespace SessionPrompt {
       const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
       const bypassAgentCheck = lastUserMsg?.parts.some((p) => p.type === "agent") ?? false
 
-      const tools = await resolveTools({
-        agent,
-        session,
-        model,
-        tools: lastUser.tools,
-        processor,
-        bypassAgentCheck,
-      })
+      // Use cached tools if model hasn't changed (cache for 30 seconds)
+      const sessionState = state()[sessionID]
+      const cacheKey = `${model.providerID}/${model.id}`
+      const cacheMaxAge = 30_000
+
+      let tools: Record<string, AITool>
+      if (
+        sessionState?.toolsCache &&
+        sessionState.toolsCache.modelId === cacheKey &&
+        Date.now() - sessionState.toolsCache.timestamp < cacheMaxAge
+      ) {
+        tools = sessionState.toolsCache.tools
+        log.info("using cached tools", { modelId: cacheKey })
+      } else {
+        tools = await resolveTools({
+          agent,
+          session,
+          model,
+          tools: lastUser.tools,
+          processor,
+          bypassAgentCheck,
+        })
+        // Update cache
+        if (sessionState) {
+          sessionState.toolsCache = {
+            modelId: cacheKey,
+            tools,
+            timestamp: Date.now(),
+          }
+        }
+      }
 
       // Inject StructuredOutput tool if JSON schema mode is enabled
       if (lastUser.format?.type === "json_schema") {

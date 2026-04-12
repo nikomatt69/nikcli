@@ -91,6 +91,7 @@ import { formatTranscript } from "../../util/transcript"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
 import { DialogSelect } from "../../ui/dialog-select"
+import { DialogBgAgents } from "./dialog-bg-agents"
 
 addDefaultParsers(parsers.parsers)
 
@@ -209,9 +210,6 @@ export function Session() {
   const sdk = useSDK()
 
   createEffect(async () => {
-    if (route.workspaceID !== undefined) {
-      sdk.setWorkspace(route.workspaceID)
-    }
     await sync.session
       .sync(route.sessionID)
       .then(() => {
@@ -226,16 +224,6 @@ export function Session() {
         return navigate({ type: "home", workspaceID: sync.session.get(route.sessionID)?.workspaceID })
       })
   })
-
-  createEffect(
-    on(
-      () => route.workspaceID ?? session()?.workspaceID,
-      (workspaceID) => {
-        sdk.setWorkspace(workspaceID)
-      },
-      { defer: true },
-    ),
-  )
 
   // Handle initial prompt from fork
   createEffect(
@@ -467,6 +455,38 @@ export function Session() {
         addToBackground(parentID, route.sessionID)
         navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
         dialog.clear()
+      },
+    },
+    {
+      title: "Background agents",
+      value: "session.bg_agents",
+      category: "Session",
+      slash: {
+        name: "bg-agents",
+        aliases: ["monitors", "agents"],
+      },
+      onSelect: (dialog) => {
+        dialog.replace(() => (
+          <DialogBgAgents
+            sessionID={route.sessionID}
+            onOpenMonitor={(monitorID, title, command, status, logPath) => {
+              dialog.setSize("xlarge")
+              dialog.replace(
+                () => (
+                  <DialogMonitorLog
+                    sessionID={route.sessionID}
+                    monitorID={monitorID}
+                    title={title}
+                    command={command}
+                    status={status}
+                    logPath={logPath}
+                  />
+                ),
+                () => dialog.setSize("medium"),
+              )
+            }}
+          />
+        ))
       },
     },
     {

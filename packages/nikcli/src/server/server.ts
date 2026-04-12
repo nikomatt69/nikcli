@@ -53,6 +53,8 @@ import { MobileAuth } from "@/mobile/auth"
 import { Installation } from "@/installation"
 import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
+import { getAdaptor } from "@/workspace/adaptors"
+import { ServerProxy } from "./proxy"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -278,8 +280,18 @@ export namespace Server {
           const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace")
           const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
 
-          if (workspace?.config.type === "worktree") {
-            directory = workspace.config.directory
+          if (workspace) {
+            const adaptor = getAdaptor(workspace.config)
+            const target = await Promise.resolve(adaptor.target(workspace.config))
+
+            if (target.type === "remote") {
+              if (c.req.header("upgrade")?.toLowerCase() === "websocket") {
+                return ServerProxy.websocket(target, c.req.raw, c.env)
+              }
+              return ServerProxy.http(target, c.req.raw)
+            }
+
+            directory = target.directory
           }
 
           return WorkspaceContext.provide({

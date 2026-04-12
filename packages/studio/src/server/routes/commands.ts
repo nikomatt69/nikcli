@@ -1,10 +1,11 @@
 import { Hono } from "hono"
 import fs from "fs"
 import path from "path"
+import os from "os"
 import { getCommandDirs, loadCommandsFromDir, parseFrontmatter, buildFrontmatter } from "../config-loader"
 import { atomicWriteFileSync } from "../atomic"
 
-const HOME_DIR = process.env.HOME || ""
+const HOME_DIR = os.homedir()
 
 export function CommandsRoutes() {
   const app = new Hono()

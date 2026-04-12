@@ -2,17 +2,19 @@ import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
-import { createMemo, createSignal, createResource, onMount, Show } from "solid-js"
+import { createMemo, createSignal, createResource, onMount } from "solid-js"
 import { Locale } from "@/util/locale"
 import { useKeybind } from "../context/keybind"
 import { useTheme } from "../context/theme"
 import { useSDK } from "../context/sdk"
 import { DialogSessionRename } from "./dialog-session-rename"
-import { useKV } from "../context/kv"
 import { createDebouncedSignal } from "../util/signal"
 import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import { useToast } from "../ui/toast"
-import "opentui-spinner/solid"
+import { Keybind } from "@/util/keybind"
+import { Spinner } from "./spinner"
+import { DialogWorkspaceCreate, openWorkspace } from "./dialog-workspace-list"
+type WorkspaceStatus = "connected" | "connecting" | "disconnected" | "error"
 
 export function DialogSessionList(props: { workspaceID?: string; localOnly?: boolean } = {}) {
   const dialog = useDialog()
@@ -21,7 +23,6 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
   const keybind = useKeybind()
   const { theme } = useTheme()
   const sdk = useSDK()
-  const kv = useKV()
   const toast = useToast()
 
   const [toDelete, setToDelete] = createSignal<string>()
@@ -58,14 +59,22 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
 
   const currentSessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
 
-  const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-
   const sessions = createMemo(() => {
     if (searchResults()) return searchResults()!
     if (props.workspaceID) return listed() ?? []
     if (props.localOnly) return sync.data.session.filter((session) => !session.workspaceID)
     return sync.data.session
   })
+
+  function createWorkspaceDialog() {
+    dialog.replace(() => (
+      <DialogWorkspaceCreate
+        onSelect={(workspaceID) =>
+          openWorkspace({ dialog, route, sdk, sync, toast, workspaceID })
+        }
+      />
+    ))
+  }
 
   const options = createMemo(() => {
     const today = new Date().toDateString()
@@ -87,17 +96,32 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
         const isDeleting = toDelete() === x.id
         const status = sync.data.session_status?.[x.id]
         const isWorking = status?.type === "busy"
+
+        const workspace = x.workspaceID ? sync.workspace.get(x.workspaceID) : undefined
+        let workspaceStatus: WorkspaceStatus | null = null
+        if (x.workspaceID) {
+          workspaceStatus = workspace ? "connected" : "disconnected"
+        }
+
+        const footer = x.workspaceID
+          ? workspace
+            ? `${workspace.config.type}: ${workspace.id}`
+            : "unknown workspace"
+          : Locale.time(x.time.updated)
+
+        const gutter = isWorking ? (
+          <Spinner />
+        ) : workspaceStatus ? (
+          <text fg={workspaceStatus === "connected" ? theme.success : theme.textMuted}>■</text>
+        ) : undefined
+
         return {
           title: isDeleting ? `Press ${keybind.print("session_delete")} again to confirm` : x.title,
           bg: isDeleting ? theme.error : undefined,
           value: x.id,
           category,
-          footer: Locale.time(x.time.updated),
-          gutter: isWorking ? (
-            <Show when={kv.get("animations_enabled", true)} fallback={<text fg={theme.textMuted}>[⋯]</text>}>
-              <spinner frames={spinnerFrames} interval={80} color={theme.primary} />
-            </Show>
-          ) : undefined,
+          footer,
+          gutter,
         }
       })
   })
@@ -162,6 +186,13 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           title: "rename",
           onTrigger: async (option) => {
             dialog.replace(() => <DialogSessionRename session={option.value} workspaceID={props.workspaceID} />)
+          },
+        },
+        {
+          keybind: Keybind.parse("ctrl+w")[0],
+          title: "new workspace",
+          onTrigger: () => {
+            createWorkspaceDialog()
           },
         },
       ]}

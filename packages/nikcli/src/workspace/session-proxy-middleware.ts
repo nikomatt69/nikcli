@@ -4,6 +4,7 @@ import { Session } from "../session"
 import { getAdaptor } from "./adaptors"
 import { Workspace } from "."
 import { WorkspaceContext } from "./workspace-context"
+import { ServerProxy } from "../server/proxy"
 
 export async function proxyWorkspaceRequest(input: {
   workspaceID: string
@@ -22,15 +23,19 @@ export async function proxyWorkspaceRequest(input: {
       },
     })
   }
-  if (workspace.config.type === "worktree") return
 
-  return getAdaptor(workspace.config).request(
-    workspace.config,
-    input.method,
-    input.url,
-    input.body,
-    input.signal,
-    input.headers,
+  const adaptor = getAdaptor(workspace.config)
+  const target = await Promise.resolve(adaptor.target(workspace.config))
+  if (target.type === "local") return
+
+  return ServerProxy.http(
+    target,
+    new Request(input.url, {
+      method: input.method,
+      body: input.body,
+      headers: input.headers,
+      signal: input.signal,
+    }),
   )
 }
 
@@ -70,18 +75,12 @@ async function proxySessionRequest(req: Request) {
       },
     })
   }
-  if (workspace.config.type === "worktree") return
 
-  const url = new URL(req.url)
-  const body = req.method === "HEAD" ? undefined : await req.arrayBuffer()
-  return getAdaptor(workspace.config).request(
-    workspace.config,
-    req.method,
-    `${url.pathname}${url.search}`,
-    body,
-    req.signal,
-    req.headers,
-  )
+  const adaptor = getAdaptor(workspace.config)
+  const target = await Promise.resolve(adaptor.target(workspace.config))
+  if (target.type === "local") return
+
+  return ServerProxy.http(target, req)
 }
 
 export const SessionProxyMiddleware: MiddlewareHandler = async (c, next) => {
