@@ -123,7 +123,7 @@
     "hono-openapi": "catalog:",
     "ignore": "7.0.5",
     "jsonc-parser": "3.3.1",
-    "minimatch": "10.0.3",
+    "minimatch": "10.2.3",
     "mysql2": "3.16.1",
     "node-pty": "1.1.0",
     "open": "10.1.2",
