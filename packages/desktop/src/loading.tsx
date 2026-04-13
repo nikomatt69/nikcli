@@ -34,42 +34,67 @@ render(() => {
 
   return (
     <MetaProvider>
-      <div class="w-screen h-screen bg-background-base flex items-center justify-center">
+      <div class="w-screen h-screen bg-background-base flex items-center justify-center overflow-hidden relative">
         <Font />
-        <div class="flex flex-col items-center gap-10">
-          <Splash ref={splash} class="h-25 animate-[pulse-splash_2s_ease-in-out_infinite]" />
-          <span class="text-text-base">
-            <Switch fallback="Just a moment...">
-              <Match when={state()?.phase === "done"}>
-                {(_) => {
-                  onMount(() => {
-                    setTimeout(() => events.loadingWindowComplete.emit(null), 1000)
-                  })
+        {/* Ambient glow orbs matching web design */}
+        <div
+          class="absolute pointer-events-none"
+          style="width:700px;height:500px;left:50%;top:50%;transform:translate(-50%,-50%);background:radial-gradient(ellipse 700px 500px at 50% 50%, var(--text-accent, #2563EB) / 0.06, transparent 70%);filter:blur(60px)"
+        />
+        <div class="flex flex-col items-center gap-8 relative z-10">
+          <div class="relative">
+            {/* Glow ring behind logo */}
+            <div
+              class="absolute inset-0 rounded-full animate-[pulse-splash_2s_ease-in-out_infinite]"
+              style="background:radial-gradient(circle, var(--text-accent, #2563EB) / 0.15, transparent 70%);transform:scale(1.8);filter:blur(20px)"
+            />
+            <Splash ref={splash} class="h-20 relative z-10 animate-[pulse-splash_2s_ease-in-out_infinite]" />
+          </div>
+          <div class="flex flex-col items-center gap-3">
+            <span class="text-text-base text-sm font-medium tracking-wide">
+              <Switch fallback="Just a moment...">
+                <Match when={state()?.phase === "done"}>
+                  {(_) => {
+                    onMount(() => {
+                      setTimeout(() => events.loadingWindowComplete.emit(null), 1000)
+                    })
 
-                  return "All done"
-                }}
-              </Match>
-              <Match when={state()?.phase === "sqlite_waiting"}>
-                {(_) => {
-                  const textItems = [
-                    "Just a moment...",
-                    "Migrating your database",
-                    "This could take a couple of minutes",
-                  ]
-                  const [textIndex, setTextIndex] = createSignal(0)
+                    return "All done"
+                  }}
+                </Match>
+                <Match when={state()?.phase === "sqlite_waiting"}>
+                  {(_) => {
+                    const textItems = [
+                      "Just a moment...",
+                      "Migrating your database",
+                      "This could take a couple of minutes",
+                    ]
+                    const [textIndex, setTextIndex] = createSignal(0)
 
-                  onMount(async () => {
-                    await new Promise((res) => setTimeout(res, 3000))
-                    setTextIndex(1)
-                    await new Promise((res) => setTimeout(res, 6000))
-                    setTextIndex(2)
-                  })
+                    onMount(async () => {
+                      await new Promise((res) => setTimeout(res, 3000))
+                      setTextIndex(1)
+                      await new Promise((res) => setTimeout(res, 6000))
+                      setTextIndex(2)
+                    })
 
-                  return <>{textItems[textIndex()]}</>
-                }}
-              </Match>
-            </Switch>
-          </span>
+                    return <>{textItems[textIndex()]}</>
+                  }}
+                </Match>
+              </Switch>
+            </span>
+            {/* Pinging status indicator matching web design */}
+            <span class="relative flex items-center justify-center w-3 h-3">
+              <span
+                class="absolute inline-flex w-full h-full rounded-full opacity-75 animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite]"
+                style="background-color: var(--text-accent, #2563EB)"
+              />
+              <span
+                class="relative inline-flex w-2 h-2 rounded-full"
+                style="background-color: var(--text-accent, #2563EB)"
+              />
+            </span>
+          </div>
         </div>
       </div>
     </MetaProvider>
