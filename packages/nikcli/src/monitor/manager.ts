@@ -134,7 +134,7 @@ export namespace Monitor {
             await Shell.killTree(runtime.process, { exited: () => runtime.exited })
           } catch {}
           try {
-            runtime.logStream.end()
+            if (!runtime.logStream.writableEnded) runtime.logStream.end()
           } catch {}
         }),
       )
