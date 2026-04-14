@@ -19,6 +19,15 @@ function stripSubagentSuffix(title: string): string {
   return title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
 }
 
+function isSupervisorSession(title: string): boolean {
+  return title.startsWith("supervisor:") || title.startsWith("delegator:")
+}
+
+function getSupervisorTaskTitle(title: string): string {
+  const match = title.match(/^(?:supervisor|delegator):\s*(.+)$/i)
+  return match ? match[1] : title
+}
+
 type BackgroundSubtasksMap = Record<string, string[]>
 type BackgroundDismissedMap = Record<string, string[]>
 
@@ -49,7 +58,14 @@ export function DialogSubagent(props: { sessionID: string }) {
 
   const options = createMemo(() => {
     const sessionsByID = new Map(sync.data.session.map((s) => [s.id, s] as const))
-    const out: { title: string; value: string; description?: string; agent?: string; status: string }[] = []
+    const out: {
+      title: string
+      value: string
+      description?: string
+      agent?: string
+      status: string
+      isSupervisor?: boolean
+    }[] = []
 
     for (const id of backgroundedIDs()) {
       const session = sessionsByID.get(id)
@@ -57,8 +73,22 @@ export function DialogSubagent(props: { sessionID: string }) {
 
       const status = sync.data.session_status[id]?.type ?? "idle"
       const agent = parseSubagentFromTitle(session.title)
-      const title = stripSubagentSuffix(session.title)
+      const isSupervisor = isSupervisorSession(session.title)
 
+      if (isSupervisor) {
+        const taskTitle = getSupervisorTaskTitle(session.title)
+        out.push({
+          title: taskTitle,
+          value: id,
+          description: statusLabel(status),
+          agent: "supervisor",
+          status,
+          isSupervisor: true,
+        })
+        continue
+      }
+
+      const title = stripSubagentSuffix(session.title)
       out.push({ title, value: id, description: statusLabel(status), agent, status })
     }
 
@@ -88,13 +118,14 @@ export function DialogSubagent(props: { sessionID: string }) {
     <DialogSelect
       title="Background Subtasks"
       options={options().map((opt) => {
-        const color = opt.agent ? local.agent.color(opt.agent) : undefined
+        const color = opt.isSupervisor ? theme.primary : opt.agent ? local.agent.color(opt.agent) : undefined
+        const gutterText = opt.isSupervisor ? "supervisor" : opt.agent ? `@${opt.agent}` : undefined
         return {
           title: opt.title,
           value: opt.value,
           description: opt.description,
           bg: color,
-          gutter: opt.agent ? <text fg={color ?? theme.textMuted}>@{opt.agent}</text> : undefined,
+          gutter: gutterText ? <text fg={color ?? theme.textMuted}>{gutterText}</text> : undefined,
           onSelect: (ctx: DialogContext) => {
             removeFromBackground(props.sessionID, opt.value)
             route.navigate({

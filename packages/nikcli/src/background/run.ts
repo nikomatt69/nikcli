@@ -39,6 +39,10 @@ export namespace BackgroundRun {
     ownerID: z.string().optional(),
     ownerPID: z.number().int().positive().optional(),
     heartbeatAt: z.number().optional(),
+    // Delegator fields
+    delegatorID: z.string().optional(),
+    delegatorSessionID: z.string().optional(),
+    delegatorEnabled: z.boolean().optional(),
   })
   export type Record = z.infer<typeof Record>
 
@@ -105,6 +109,9 @@ ${result}
     prompt: string
     title?: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
+    delegatorID?: string
+    delegatorSessionID?: string
+    delegatorEnabled?: boolean
   }): Promise<Record> {
     const id = generateID()
     const record: Record = {
@@ -122,6 +129,9 @@ ${result}
       ownerID: OWNER_ID,
       ownerPID: process.pid,
       heartbeatAt: Date.now(),
+      delegatorID: params.delegatorID,
+      delegatorSessionID: params.delegatorSessionID,
+      delegatorEnabled: params.delegatorEnabled,
     }
 
     if (params.session) {

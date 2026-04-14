@@ -13,7 +13,7 @@ import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
 import { File } from "../file"
-import { isDBFile, readDBSchema } from "./db-diff"
+
 
 const PatchParams = z.object({
   patchText: z.string().describe("The full patch text that describes all changes to be made"),
@@ -256,8 +256,6 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     const files = await Promise.all(
       fileChanges.map(async (change) => {
         const targetPath = change.movePath ?? change.filePath
-        const isDb = isDBFile(targetPath)
-        const dbSchema = isDb ? await readDBSchema(targetPath) : null
 
         return {
           filePath: change.filePath,
@@ -268,9 +266,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
           after: change.newContent,
           additions: change.additions,
           deletions: change.deletions,
-          movePath: change.movePath,
-          isDB: isDb,
-          dbSchema,
+          movePath: change.movePath
         }
       }),
     )

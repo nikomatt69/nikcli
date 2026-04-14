@@ -3,11 +3,39 @@
 When a task can be executed independently, use the `task` tool with `background: true` to launch a subagent. This allows you to continue working on other tasks in parallel.
 
 After launching a background task:
+- A supervisor session is automatically launched alongside the subagent to monitor its progress
 - Use the `delegation` tool to monitor, read results, or cancel running delegations
 - You can launch multiple agents concurrently for maximum performance
 - When the delegation is complete, use `delegation(action="read")` to retrieve the results
+- The supervisor session provides periodic status updates and a final summary
 
 Example pattern for parallel work:
 1. Launch multiple `task(background=true)` calls in one message
 2. Use `delegation(action="count")` to check how many are still running
 3. Use `delegation(action="read", delegationId="...")` to get results as they complete
+4. The supervisor sessions will automatically track and summarize each task
+
+## Delegator/Supervisor Sessions
+
+Every background task automatically spawns a supervisor session that:
+- Monitors the subagent's progress via delegation artifacts
+- Provides periodic status updates without blocking the main agent
+- Generates a final summary when the task completes
+- Uses the same model as the parent agent
+
+You can:
+- Open the supervisor session to see progress updates
+- Use the `delegator` tool with `action="status"` to check a delegation's current state
+- Use the `delegator` tool with `action="summarize"` for a quick summary of results
+
+## Advisor Brain (background strategic guidance)
+
+If the `advisor` tool is available, it runs entirely in the background — it returns a `delegation_id` immediately and does not block your work.
+
+Pattern:
+1. Call `advisor` with the context/question when you hit a complex decision point
+2. You receive a `delegation_id` — continue working on independent steps right away
+3. When you reach the point where you need the guidance, call `delegation(action="read", delegationId="...")` to retrieve the recommendation
+4. Act on the advisor's plan
+
+Use the advisor for architectural decisions, multi-path trade-offs, or when you need a second opinion before committing to an approach. Do not call it for routine tasks you can resolve directly.

@@ -30,6 +30,18 @@ type BgOption = SessionOption | MonitorOption
 type BackgroundSubtasksMap = Record<string, string[]>
 type BackgroundDismissedMap = Record<string, string[]>
 
+function isDelegatorSession(title: string): boolean {
+  return title.startsWith("supervisor:") || title.startsWith("delegator:")
+}
+
+function getSupervisorInfo(title: string): { isSupervisor: boolean; taskTitle: string } {
+  const supervisorMatch = title.match(/^(?:supervisor|delegator):\s*(.+)$/i)
+  if (supervisorMatch) {
+    return { isSupervisor: true, taskTitle: supervisorMatch[1] }
+  }
+  return { isSupervisor: false, taskTitle: title }
+}
+
 function monitorStatusLabel(status: string, exitCode?: number) {
   switch (status) {
     case "running":
@@ -117,6 +129,22 @@ export function DialogBgAgents(props: {
       const isRunning = statusType === "busy" || statusType === "retry"
       const label = statusType === "busy" ? "running" : statusType === "retry" ? "retrying" : "ready"
       const agent = session.title.match(/\(@([^\s]+)\s+subagent\)$/)?.[1]
+      const { isSupervisor, taskTitle } = getSupervisorInfo(session.title)
+
+      // Check if this is a supervisor/delegator session
+      if (isSupervisor) {
+        const color = theme.primary
+        out.push({
+          title: taskTitle,
+          value: { kind: "session", id } satisfies BgOption,
+          description: label,
+          category: "Supervisors",
+          footer: "supervisor",
+          gutter: isRunning ? <Spinner /> : <text fg={color}>◉</text>,
+        })
+        continue
+      }
+
       const title = session.title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
       const color = agent ? local.agent.color(agent) : undefined
       out.push({
@@ -136,11 +164,7 @@ export function DialogBgAgents(props: {
     for (const mon of monitors()) {
       const isRunning = mon.status === "running"
       const statusColor =
-        mon.status === "complete"
-          ? theme.success
-          : mon.status === "running"
-            ? theme.text
-            : theme.error
+        mon.status === "complete" ? theme.success : mon.status === "running" ? theme.text : theme.error
       out.push({
         title: mon.title,
         value: mon satisfies BgOption,
@@ -187,9 +211,7 @@ export function DialogBgAgents(props: {
                 sdk.client.session.abort({ sessionID: value.id }).catch(() => {})
               }
             } else if (value.status === "running") {
-              sdk.client.session
-                .monitorCancel({ sessionID: props.sessionID, monitorID: value.id })
-                .catch(() => {})
+              sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => {})
             }
           },
         },

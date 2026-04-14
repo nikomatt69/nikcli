@@ -12,6 +12,8 @@ import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
+import { generateText } from "ai"
+import { Provider } from "@/provider/provider"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -30,6 +32,7 @@ type TaskMetadata = {
   summary?: ToolSummaryItem[]
   sessionId: string
   delegationId?: string
+  delegatorSessionId?: string
   background?: boolean
   liveSummary?: string
 }
@@ -193,15 +196,82 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
 
     Delegation.setSessionID(delegation.id, session.id)
 
+    // Launch delegator session alongside the subagent
+    const delegatorSession = await Session.create({
+      parentID: ctx.sessionID,
+      title: `supervisor: ${params.description}`,
+      permission: [
+        { permission: "todowrite", pattern: "*", action: "deny" },
+        { permission: "todoread", pattern: "*", action: "deny" },
+        { permission: "task", pattern: "*", action: "deny" },
+      ],
+    })
+
     ctx.metadata({
       title: params.description,
       metadata: {
         background: true,
         delegationId: delegation.id,
         sessionId: session.id,
+        delegatorSessionId: delegatorSession.id,
       },
     })
 
+    const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
+    if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
+
+    // Get model for delegator (use same model as parent or fallback to default)
+    const delegatorModel = agent.model ?? {
+      modelID: msg.info.modelID,
+      providerID: msg.info.providerID,
+    }
+    const delegatorFullModel = await Provider.getModel(delegatorModel.providerID, delegatorModel.modelID)
+    const delegatorLanguage = await Provider.getLanguage(delegatorFullModel)
+
+    // Delegator system prompt
+    const delegatorSystemPrompt = `You are a delegation supervisor for a background task.
+
+Task: ${params.prompt}
+Agent: ${agent.name}
+Delegation ID: ${delegation.id}
+
+Your role:
+- Monitor the subagent's progress by checking the delegation artifact
+- Provide periodic status updates and summaries
+- Keep your output concise and actionable
+
+Guidelines:
+- Check the delegation status using the delegation tool
+- Summarize progress made and remaining work
+- Highlight any issues or blockers
+- When the task completes, provide a final summary
+
+You do not execute tools or perform the task yourself — you only observe and report.`
+
+    const delegatorMessageID = Identifier.ascending("message")
+    const delegatorPromptInput = {
+      messageID: delegatorMessageID,
+      sessionID: delegatorSession.id,
+      model: {
+        modelID: delegatorModel.modelID,
+        providerID: delegatorModel.providerID,
+      },
+      agent: "delegator",
+      tools: {
+        todowrite: false,
+        todoread: false,
+        task: false,
+        delegation: true,
+      },
+      parts: [
+        {
+          type: "text" as const,
+          text: `Supervise this background task:\n\nTask: ${params.prompt}\nAgent: ${agent.name}\nDelegation ID: ${delegation.id}\n\nProvide periodic status updates and a final summary when complete.`,
+        },
+      ],
+    } satisfies SessionPrompt.PromptInput
+
+    // Launch subagent (fire-and-forget)
     void SessionPrompt.prompt(promptInput)
       .then(async (result) => {
         const summary = await summarizeSubtaskSession(session.id, result)
@@ -217,15 +287,28 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         await Delegation.finalize(delegation.id, "error", "", error instanceof Error ? error.message : String(error))
       })
 
+    // Launch delegator (fire-and-forget) - monitors the subagent
+    void SessionPrompt.prompt(delegatorPromptInput).catch(() => {
+      // Silently handle delegator errors - it's a lightweight monitor
+    })
+
     return {
       title: params.description,
       metadata: {
         background: true,
         delegationId: delegation.id,
         sessionId: session.id,
+        delegatorSessionId: delegatorSession.id,
       },
       output: formatTaskOutput(
-        `Background task started for @${agent.name}. Open the linked subagent session to follow progress.`,
+        [
+          `Background task started for @${agent.name}.`,
+          ``,
+          `**Delegation:** ${delegation.id}`,
+          `**Delegator:** ${delegatorSession.id}`,
+          ``,
+          `Use the delegation tool to monitor progress or check the delegator session for status updates.`,
+        ].join("\n"),
         session.id,
         delegation.id,
       ),

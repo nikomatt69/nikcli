@@ -11,7 +11,7 @@ When to use the Task tool:
 When NOT to use the Task tool:
 - If you want to read a specific file path, use the Read or Glob tool instead of the Task tool, to find the match more quickly
 - If you are searching for a specific class definition like "class Foo", use the Glob tool instead, to find the match more quickly
-- If you are searching for code within a specific file or set of 2-3 files, use the Read tool instead of the Task tool, to find the match more quickly
+- If you are searching for code within a specific file or set of 2-3 files, use the Read tool instead, to find the match more quickly
 - Other tasks that are not related to the agent descriptions above
 
 
@@ -24,6 +24,8 @@ Usage notes:
 6. If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
 7. Set `background: true` when the task should keep running after you continue working elsewhere; this returns immediately with linked task metadata instead of waiting for the subagent to finish.
 8. Use the `delegation` tool to inspect, read, count, or cancel background tasks after launching them.
+
+Background tasks automatically spawn a supervisor session that monitors progress and provides status updates. The supervisor appears in the background subtasks list alongside the subagent session.
 
 Example usage (NOTE: The agents below are fictional examples for illustration only - use the actual agents listed above):
 

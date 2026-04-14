@@ -32,8 +32,7 @@ import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk"
 import { readFileSync } from "fs"
-import { isDBFile, createDBSchemaFromSQL, readDBSchema } from "@/tool/db-diff"
-import type { DBSchema, DBEditRequest } from "../component/table-db/db/types"
+
 
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
@@ -49,7 +48,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       config: Config
       permission: Record<string, PermissionRequest[]>
       question: Record<string, QuestionRequest[]>
-      dbedit: Record<string, DBEditRequest[]>
       session: Session[]
       session_status: Record<string, SessionStatus>
       session_diff: Record<string, FileDiff[]>
@@ -64,7 +62,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       vcs: VcsInfo | undefined
       path: Path
       workspaceList: Workspace[]
-      dbschema: Record<string, DBSchema>
     }>({
       status: "loading",
       provider: [],
@@ -76,7 +73,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       config: {} as Config,
       permission: {},
       question: {},
-      dbedit: {},
       session: [],
       session_status: {},
       session_diff: {},
@@ -91,7 +87,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       vcs: undefined,
       path: { state: "", config: "", worktree: "", directory: "" },
       workspaceList: [],
-      dbschema: {},
     })
 
     const sdk = useSDK()
@@ -183,42 +178,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
-        case "dbedit.replied": {
-          const requests = store.dbedit[event.properties.sessionID]
-          if (!requests) break
-          const match = Binary.search(requests, event.properties.requestID, (r) => r.id)
-          if (!match.found) break
-          setStore(
-            "dbedit",
-            event.properties.sessionID,
-            produce((draft) => {
-              draft.splice(match.index, 1)
-            }),
-          )
-          break
-        }
 
-        case "dbedit.asked": {
-          const request = event.properties
-          const requests = store.dbedit[request.sessionID]
-          if (!requests) {
-            setStore("dbedit", request.sessionID, [request])
-            break
-          }
-          const match = Binary.search(requests, request.id, (r) => r.id)
-          if (match.found) {
-            setStore("dbedit", request.sessionID, match.index, reconcile(request))
-            break
-          }
-          setStore(
-            "dbedit",
-            request.sessionID,
-            produce((draft) => {
-              draft.splice(match.index, 0, request)
-            }),
-          )
-          break
-        }
 
         case "todo.updated":
           setStore("todo", event.properties.sessionID, event.properties.todos)
@@ -358,29 +318,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                 draft.splice(result.index, 1)
               }),
             )
-          break
-        }
-
-        case "file.edited": {
-          const file = event.properties.file
-          if (!isDBFile(file)) break
-          const processSchema = async () => {
-            try {
-              let schema: DBSchema | null = null
-              if (file.endsWith(".sql") || file.endsWith(".prisma")) {
-                const content = readFileSync(file, "utf-8")
-                schema = await createDBSchemaFromSQL(content)
-              } else {
-                schema = await readDBSchema(file)
-              }
-              if (schema?.tables && schema.tables.length > 0) {
-                setStore("dbschema", file, schema)
-              }
-            } catch {
-              // Silent fail - file might be invalid or still being written
-            }
-          }
-          processSchema()
           break
         }
 

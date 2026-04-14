@@ -14,9 +14,7 @@ import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
 import { Global } from "@/global"
-import { isDBFile } from "@/tool/db-diff"
-import { DBVisualizer } from "../../component/table-db/ui"
-import type { DBSchema } from "../../component/table-db/db/types"
+
 
 type PermissionStage = "permission" | "always" | "reject"
 
@@ -57,8 +55,6 @@ function EditBody(props: { request: PermissionRequest }) {
     () =>
       (props.request.metadata?.files as Array<{
         filePath: string
-        isDB?: boolean
-        dbSchema?: DBSchema
         diff: string
       }>) ?? [],
   )
@@ -75,12 +71,6 @@ function EditBody(props: { request: PermissionRequest }) {
     return singleDiff()
   })
 
-  const dbSchema = createMemo(() => {
-    if (files().length > 0) return files()[0]?.dbSchema ?? null
-    return (props.request.metadata?.dbSchema as DBSchema | null) ?? null
-  })
-
-  const isDB = createMemo(() => filepath() && isDBFile(filepath()))
 
   const view = createMemo(() => {
     const diffStyle = sync.data.config.tui?.diff_style
@@ -99,12 +89,9 @@ function EditBody(props: { request: PermissionRequest }) {
           <text fg={theme.textMuted}>(+{files().length - 1} more)</text>
         </Show>
       </box>
-      <Show when={diff() || (isDB() && dbSchema())}>
+      <Show when={diff()}>
         <scrollbox height="100%">
           <Switch>
-            <Match when={isDB() && dbSchema() && dbSchema()!.tables.length > 0}>
-              <DBVisualizer tables={dbSchema()!.tables} mode="schema" />
-            </Match>
             <Match when={diff()}>
               <diff
                 diff={diff()}
@@ -468,13 +455,13 @@ function Prompt<const T extends Record<string, string>>(props: {
       {...(store.expanded
         ? { top: dimensions().height * -1 + 1, bottom: 1, left: 2, right: 2, position: "absolute" }
         : {
-            top: 0,
-            maxHeight: 15,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            position: "relative",
-          })}
+          top: 0,
+          maxHeight: 15,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          position: "relative",
+        })}
     >
       <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1} flexGrow={1}>
         <box flexDirection="row" gap={1} paddingLeft={1} flexShrink={0}>

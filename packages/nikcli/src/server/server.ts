@@ -40,7 +40,6 @@ import { HTTPException } from "hono/http-exception"
 import { errors } from "./error"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
-import { DBEditRoutes } from "./routes/dbedit"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
@@ -168,7 +167,7 @@ export namespace Server {
 
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-            ;(c as any).set("mobileAuth", token)
+              ; (c as any).set("mobileAuth", token)
             return next()
           }
 
@@ -324,7 +323,6 @@ export namespace Server {
         .route("/experimental", ExperimentalRoutes())
         .route("/session", SessionRoutes())
         .route("/permission", PermissionRoutes())
-        .route("/dbedit", DBEditRoutes())
         .route("/question", QuestionRoutes())
         .route("/provider", ProviderRoutes())
         .route("/companion", CompanionRoutes())
@@ -804,8 +802,8 @@ export namespace Server {
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
       ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
+        .map((s) => s.trim())
+        .filter(Boolean)
       : []
     _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname

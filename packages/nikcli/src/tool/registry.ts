@@ -54,6 +54,7 @@ import { TophatInstallTool } from "./tophat"
 import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
+import { DelegatorTool } from "./delegator"
 
 const _toolDir = import.meta.dir
 
@@ -181,6 +182,7 @@ export namespace ToolRegistry {
       TophatInstallTool,
       OpenTUIVizTool,
       AdvisorTool,
+      DelegatorTool,
       ...custom,
     ]
   }

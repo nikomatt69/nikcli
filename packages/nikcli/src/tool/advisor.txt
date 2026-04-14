@@ -1,4 +1,4 @@
-Consult the strategic advisor model for guidance on complex decisions.
+Consult the strategic advisor model for guidance on complex decisions. The advisor runs in the background and returns a delegation ID immediately — you can continue working while it thinks.
 
 Use this tool when you face:
 - Ambiguous architectural or design decisions with multiple valid approaches
@@ -11,4 +11,4 @@ Do NOT call this tool for:
 - Simple lookups, reads, or writes
 - Situations where you already know the correct approach
 
-The advisor does not execute tools or produce user-facing output. It returns a concise plan or recommendation only. You must then act on that guidance yourself.
+After calling you will receive a delegation_id. Continue your work; when you need the advisory guidance use the delegation tool with action "read" and the delegation_id to retrieve the recommendation. The advisor returns a concise plan or recommendation only — you must then act on that guidance yourself.

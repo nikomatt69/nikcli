@@ -3,6 +3,7 @@ import { Tool } from "./tool"
 import { Provider } from "@/provider/provider"
 import { generateText } from "ai"
 import DESCRIPTION from "./advisor.txt"
+import { Delegation } from "@/delegation/manager"
 
 const parameters = z.object({
   context: z
@@ -16,6 +17,7 @@ type AdvisorMetadata = {
   advisorModel: string
   advisorProvider: string
   usesLeft: number
+  delegationId?: string
 }
 
 export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>(
@@ -32,7 +34,7 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>(
     return {
       description: DESCRIPTION,
       parameters,
-      async execute({ context }, _ctx) {
+      async execute({ context }, ctx) {
         if (usesLeft <= 0) {
           return {
             title: "Advisor (limit reached)",
@@ -47,7 +49,25 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>(
 
         usesLeft--
 
-        const result = await generateText({
+        const modelLabel = advisorFullModel.name ?? advisor.model.modelID
+
+        const delegation = await Delegation.create({
+          parentSessionID: ctx.sessionID,
+          agent: `advisor:${advisor.model.modelID}`,
+          prompt: context,
+        })
+
+        ctx.metadata({
+          title: `Advisor · ${modelLabel}`,
+          metadata: {
+            advisorModel: advisor.model.modelID,
+            advisorProvider: advisor.model.providerID,
+            usesLeft,
+            delegationId: delegation.id,
+          },
+        })
+
+        void generateText({
           model: advisorLanguage,
           maxOutputTokens: 2048,
           messages: [
@@ -59,14 +79,34 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>(
             { role: "user", content: context },
           ],
         })
+          .then(async (result) => {
+            await Delegation.finalize(delegation.id, "complete", result.text)
+          })
+          .catch(async (error) => {
+            await Delegation.finalize(
+              delegation.id,
+              "error",
+              "",
+              error instanceof Error ? error.message : String(error),
+            )
+          })
 
         return {
-          title: `Advisor · ${advisorFullModel.name ?? advisor.model.modelID}`,
-          output: result.text,
+          title: `Advisor · ${modelLabel}`,
+          output: [
+            `Advisory request dispatched in background.`,
+            `Continue your work and use \`delegation read ${delegation.id}\` when you need the guidance.`,
+            ``,
+            `<advisor_metadata>`,
+            `delegation_id: ${delegation.id}`,
+            `uses_left: ${usesLeft}`,
+            `</advisor_metadata>`,
+          ].join("\n"),
           metadata: {
             advisorModel: advisor.model.modelID,
             advisorProvider: advisor.model.providerID,
             usesLeft,
+            delegationId: delegation.id,
           },
         }
       },
