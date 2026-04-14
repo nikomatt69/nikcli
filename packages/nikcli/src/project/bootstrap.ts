@@ -13,6 +13,7 @@ import { ShareNext } from "@/share/share-next"
 import { Snapshot } from "../snapshot"
 import { Truncate } from "../tool/truncation"
 import { Todo } from "../session/todo"
+import { Delegation } from "@/delegation/manager"
 
 export async function InstanceBootstrap() {
   Log.Default.info("bootstrapping", { directory: Instance.directory })
@@ -26,6 +27,7 @@ export async function InstanceBootstrap() {
   Snapshot.init()
   Truncate.init()
   Todo.init()
+  await Delegation.init()
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {

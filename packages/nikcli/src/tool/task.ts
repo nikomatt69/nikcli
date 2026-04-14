@@ -188,6 +188,7 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       parentSessionID: ctx.sessionID,
       agent: agent.name,
       prompt: params.prompt,
+      session,
     })
 
     Delegation.setSessionID(delegation.id, session.id)

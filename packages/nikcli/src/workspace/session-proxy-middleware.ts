@@ -1,7 +1,6 @@
 import type { MiddlewareHandler } from "hono"
 import { Installation } from "../installation"
 import { Session } from "../session"
-import { getAdaptor } from "./adaptors"
 import { Workspace } from "."
 import { WorkspaceContext } from "./workspace-context"
 import { ServerProxy } from "../server/proxy"
@@ -24,9 +23,8 @@ export async function proxyWorkspaceRequest(input: {
     })
   }
 
-  const adaptor = getAdaptor(workspace.config)
-  const target = await Promise.resolve(adaptor.target(workspace.config))
-  if (target.type === "local") return
+  const target = await Workspace.target(workspace.id)
+  if (!target || target.type === "local") return
 
   return ServerProxy.http(
     target,
@@ -76,9 +74,8 @@ async function proxySessionRequest(req: Request) {
     })
   }
 
-  const adaptor = getAdaptor(workspace.config)
-  const target = await Promise.resolve(adaptor.target(workspace.config))
-  if (target.type === "local") return
+  const target = await Workspace.target(workspace.id)
+  if (!target || target.type === "local") return
 
   return ServerProxy.http(target, req)
 }

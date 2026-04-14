@@ -53,7 +53,6 @@ import { MobileAuth } from "@/mobile/auth"
 import { Installation } from "@/installation"
 import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
-import { getAdaptor } from "@/workspace/adaptors"
 import { ServerProxy } from "./proxy"
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
@@ -146,11 +145,7 @@ export namespace Server {
         .use(async (c, next) => {
           // Public user endpoints — bypass server-level auth
           const path = c.req.path
-          if (
-            path === "/user/login" ||
-            path === "/user/register" ||
-            path === "/user/status"
-          ) {
+          if (path === "/user/login" || path === "/user/register" || path === "/user/status") {
             return next()
           }
 
@@ -281,8 +276,10 @@ export namespace Server {
           const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
 
           if (workspace) {
-            const adaptor = getAdaptor(workspace.config)
-            const target = await Promise.resolve(adaptor.target(workspace.config))
+            const target = await Workspace.target(workspace.id)
+            if (!target) {
+              return c.text(`Workspace not found: ${workspace.id}`, 404)
+            }
 
             if (target.type === "remote") {
               if (c.req.header("upgrade")?.toLowerCase() === "websocket") {
@@ -806,7 +803,9 @@ export namespace Server {
 
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
-      ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+      ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
       : []
     _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname

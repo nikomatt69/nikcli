@@ -41,6 +41,15 @@ export namespace Agent {
           providerID: z.string(),
         })
         .optional(),
+      advisor: z
+        .object({
+          model: z.object({
+            modelID: z.string(),
+            providerID: z.string(),
+          }),
+          maxUses: z.number().int().positive().optional(),
+        })
+        .optional(),
       variant: z.string().optional(),
       prompt: z.string().optional(),
       options: z.record(z.string(), z.any()),
@@ -424,6 +433,14 @@ Apply small, safe refactors and verify results.`,
           native: false,
         }
       if (value.model) item.model = Provider.parseModel(value.model)
+      if (value.advisor) {
+        item.advisor = {
+          model: Provider.parseModel(value.advisor),
+          maxUses: value.advisor_max_uses,
+        }
+      } else {
+        item.advisor = undefined
+      }
       item.variant = value.variant ?? item.variant
       item.prompt = value.prompt ?? item.prompt
       item.description = value.description ?? item.description

@@ -103,30 +103,38 @@ function init() {
 
   return {
     clear() {
-      for (const item of store.stack) {
-        if (item.onClose) item.onClose()
-      }
+      // Collect onClose callbacks BEFORE updating store to avoid recursion
+      const callbacks = store.stack.map((item) => item.onClose).filter(Boolean)
       batch(() => {
         setStore("size", "medium")
         setStore("stack", [])
       })
+      // Call onClose callbacks AFTER store update to prevent recursive loops
+      for (const callback of callbacks) {
+        callback!()
+      }
       refocus()
     },
     replace(input: any, onClose?: () => void) {
+      // Collect onClose callbacks BEFORE updating store to avoid recursion
+      const callbacks = store.stack.map((item) => item.onClose).filter(Boolean)
       if (store.stack.length === 0) {
         focus = renderer.currentFocusedRenderable
         focus?.blur()
       }
-      for (const item of store.stack) {
-        if (item.onClose) item.onClose()
+      batch(() => {
+        setStore("size", "medium")
+        setStore("stack", [
+          {
+            element: input,
+            onClose,
+          },
+        ])
+      })
+      // Call onClose callbacks AFTER store update to prevent recursive loops
+      for (const callback of callbacks) {
+        callback!()
       }
-      setStore("size", "medium")
-      setStore("stack", [
-        {
-          element: input,
-          onClose,
-        },
-      ])
     },
     get stack() {
       return store.stack

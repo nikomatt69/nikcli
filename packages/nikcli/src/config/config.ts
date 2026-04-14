@@ -744,6 +744,18 @@ export namespace Config {
         .describe("Maximum number of agentic iterations before forcing text-only response"),
       maxSteps: z.number().int().positive().optional().describe("@deprecated Use 'steps' field instead."),
       permission: Permission.optional(),
+      advisor: z
+        .string()
+        .optional()
+        .describe(
+          "Advisor model in provider/model format (e.g. anthropic/claude-opus-4-6). Invoked by the executor for strategic guidance.",
+        ),
+      advisor_max_uses: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .describe("Max advisor invocations per request (default: 3)."),
     })
     .catchall(z.any())
     .transform((agent, ctx) => {
@@ -764,6 +776,8 @@ export namespace Config {
         "permission",
         "disable",
         "tools",
+        "advisor",
+        "advisor_max_uses",
       ])
 
       // Extract unknown properties into options

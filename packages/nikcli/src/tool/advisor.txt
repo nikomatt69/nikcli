@@ -1,0 +1,14 @@
+Consult the strategic advisor model for guidance on complex decisions.
+
+Use this tool when you face:
+- Ambiguous architectural or design decisions with multiple valid approaches
+- Complex multi-step problems where you are unsure which path to take
+- Situations where you have attempted something and need a second opinion before continuing
+- Tasks that require deep reasoning about trade-offs, risk, or long-term consequences
+
+Do NOT call this tool for:
+- Routine coding tasks you can solve directly
+- Simple lookups, reads, or writes
+- Situations where you already know the correct approach
+
+The advisor does not execute tools or produce user-facing output. It returns a concise plan or recommendation only. You must then act on that guidance yourself.

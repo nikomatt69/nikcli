@@ -370,6 +370,7 @@ export namespace Monitor {
       const text = `\n[monitor error] ${error instanceof Error ? error.message : String(error)}\n`
       runtime.pendingDelta += text
       runtime.outputTail = appendTail(runtime.outputTail, text)
+      runtime.logStream.write(text)
       scheduleFlush(runtime)
       void finalize(runtime, "error", 1, null)
     })
@@ -542,6 +543,7 @@ export namespace Monitor {
   export async function cancel(sessionID: string, monitorID: string): Promise<Record> {
     const active = state().get(key(monitorID))
     if (active && active.record.sessionID === sessionID) {
+      clearRuntimeTimers(active)
       active.requestedFinalization = { status: "cancelled", error: "Cancelled" }
       active.record.status = "cancelled"
       active.record.time.updated = Date.now()

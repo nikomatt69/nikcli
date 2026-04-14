@@ -13,6 +13,7 @@ import { Log } from "@/util/log"
 import { getAdaptor } from "./adaptors"
 import { Config } from "./config"
 import { parseSSE } from "./sse"
+import { SandboxRegistry } from "@/sandbox/registry"
 
 export namespace Workspace {
   export const Event = {
@@ -163,6 +164,21 @@ export namespace Workspace {
     return undefined
   })
 
+  export const sandbox = fn(Identifier.schema("workspace"), async (id) => {
+    const info = await get(id)
+    if (!info) return undefined
+    return SandboxRegistry.resolve({
+      type: "workspace",
+      workspaceID: info.id,
+    })
+  })
+
+  export const target = fn(Identifier.schema("workspace"), async (id) => {
+    const resolved = await sandbox(id)
+    if (!resolved) return undefined
+    return resolved.target()
+  })
+
   export const remove = fn(Identifier.schema("workspace"), async (id) => {
     const info = await get(id)
     if (info) {
@@ -175,10 +191,9 @@ export namespace Workspace {
   const log = Log.create({ service: "workspace-sync" })
 
   async function workspaceEventLoop(space: Info, stop: AbortSignal) {
-    const adaptor = getAdaptor(space.config)
-    const target = await Promise.resolve(adaptor.target(space.config))
+    const target = await Workspace.target(space.id)
 
-    if (target.type === "local") return
+    if (!target || target.type === "local") return
 
     const baseURL = String(target.url).replace(/\/?$/, "/")
 

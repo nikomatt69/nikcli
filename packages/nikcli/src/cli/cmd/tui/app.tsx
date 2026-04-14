@@ -33,6 +33,7 @@ import { DialogConfig } from "@tui/component/dialog-config"
 import { DialogHelp } from "./ui/dialog-help"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
+import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
 import { DialogSkills } from "@tui/component/dialog-skills"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
@@ -395,22 +396,18 @@ function App() {
         dialog.replace(() => <DialogSessionList />)
       },
     },
-    ...(Flag.NIKCLI_EXPERIMENTAL_WORKSPACES_TUI || Installation.isLocal()
-      ? [
-          {
-            title: "Manage workspaces",
-            value: "workspace.list",
-            category: "Workspace",
-            suggested: true,
-            slash: {
-              name: "workspaces",
-            },
-            onSelect: () => {
-              dialog.replace(() => <DialogWorkspaceList />)
-            },
-          },
-        ]
-      : []),
+    {
+      title: "Manage workspaces",
+      value: "workspace.list",
+      category: "Workspace",
+      suggested: true,
+      slash: {
+        name: "workspaces",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogWorkspaceList />)
+      },
+    },
     {
       title: "New session",
       suggested: route.data.type === "session",
@@ -500,6 +497,19 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogAgent />)
+      },
+    },
+    {
+      title: "Set advisor model",
+      value: "agent.advisor",
+      category: "Agent",
+      slash: {
+        name: "advisor",
+      },
+      onSelect: () => {
+        const name = local.agent.current()?.name
+        if (!name) return
+        dialog.replace(() => <DialogAdvisorModel agentName={name} />)
       },
     },
     {

@@ -416,13 +416,6 @@ export namespace SessionPrompt {
 
         // Handle background subtasks via Delegation
         if (task.background === true) {
-          // Create Delegation first
-          const delegation = await Delegation.create({
-            parentSessionID: sessionID,
-            agent: task.agent,
-            prompt: task.prompt,
-          })
-
           // Create session for the subagent
           const config = await Config.get()
           const taskAgent = await Agent.get(task.agent)
@@ -457,6 +450,13 @@ export namespace SessionPrompt {
                 permission: t,
               })) ?? []),
             ],
+          })
+
+          const delegation = await Delegation.create({
+            parentSessionID: sessionID,
+            agent: task.agent,
+            prompt: task.prompt,
+            session: subSession,
           })
 
           // Link session to delegation

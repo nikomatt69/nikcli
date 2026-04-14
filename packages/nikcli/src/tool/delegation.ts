@@ -48,7 +48,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
     }
 
     if (params.action === "count") {
-      const count = Delegation.getRunningCount(parentSessionID)
+      const count = await Delegation.getRunningCount(parentSessionID)
       return {
         title: `${count} running delegations`,
         metadata: {

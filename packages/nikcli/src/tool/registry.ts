@@ -53,6 +53,7 @@ import { SpeakTool } from "./speak"
 import { TophatInstallTool } from "./tophat"
 import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
+import { AdvisorTool } from "./advisor"
 
 const _toolDir = import.meta.dir
 
@@ -179,6 +180,7 @@ export namespace ToolRegistry {
       SpeakTool,
       TophatInstallTool,
       OpenTUIVizTool,
+      AdvisorTool,
       ...custom,
     ]
   }
@@ -206,6 +208,8 @@ export namespace ToolRegistry {
             model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
           if (t.id === "apply_patch") return usePatch
           if (t.id === "edit" || t.id === "write") return !usePatch
+
+          if (t.id === "advisor") return !!agent?.advisor
 
           return true
         })
