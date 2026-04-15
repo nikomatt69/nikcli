@@ -63,7 +63,7 @@ export const EditTool = Tool.define("edit", {
         await Bus.publish(File.Event.Edited, {
           file: filePath,
         })
-        FileTime.read(ctx.sessionID, filePath)
+        await FileTime.read(ctx.sessionID, filePath)
         return
       }
 
@@ -96,7 +96,7 @@ export const EditTool = Tool.define("edit", {
       diff = trimDiff(
         createTwoFilesPatch(filePath, filePath, normalizeLineEndings(contentOld), normalizeLineEndings(contentNew)),
       )
-      FileTime.read(ctx.sessionID, filePath)
+      await FileTime.read(ctx.sessionID, filePath)
     })
 
     const filediff: Snapshot.FileDiff = {

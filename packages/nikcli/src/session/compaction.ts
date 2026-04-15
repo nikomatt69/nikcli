@@ -100,11 +100,16 @@ export namespace SessionCompaction {
     abort: AbortSignal
     auto: boolean
   }) {
-    const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)!.info as MessageV2.User
+    const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)
+    if (!userMessage) {
+      log.error("parent message not found", { parentID: input.parentID })
+      throw new Error(`Parent message not found: ${input.parentID}`)
+    }
+    const userMessageInfo = userMessage.info as MessageV2.User
     const agent = await Agent.get("compaction")
     const model = agent.model
       ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
-      : await Provider.getModel(userMessage.model.providerID, userMessage.model.modelID)
+      : await Provider.getModel(userMessageInfo.model.providerID, userMessageInfo.model.modelID)
     const msg = (await Session.updateMessage({
       id: Identifier.ascending("message"),
       role: "assistant",
@@ -170,7 +175,7 @@ When constructing the summary, try to stick to this template:
 ---`
     const promptText = compacting.prompt ?? [defaultPrompt, ...compacting.context].join("\n\n")
     const result = await processor.process({
-      user: userMessage,
+      user: userMessageInfo,
       agent,
       abort: input.abort,
       sessionID: input.sessionID,
@@ -199,8 +204,8 @@ When constructing the summary, try to stick to this template:
         time: {
           created: Date.now(),
         },
-        agent: userMessage.agent,
-        model: userMessage.model,
+        agent: userMessageInfo.agent,
+        model: userMessageInfo.model,
       })
       await Session.updatePart({
         id: Identifier.ascending("part"),

@@ -204,18 +204,22 @@ export namespace Delegation {
     const requested = requestedFinalizations.get(delegationID)
     const finalStatus = requested?.status ?? status
     const finalError = requested?.error ?? error
-    const finalized = await BackgroundRun.finalize(delegationID, finalStatus, result, finalError)
-    if (!finalized) return
+    let finalized: Awaited<ReturnType<typeof BackgroundRun.finalize>>
+    try {
+      finalized = await BackgroundRun.finalize(delegationID, finalStatus, result, finalError)
+      if (!finalized) return
 
-    await Bus.publish(DelegationCompletedEvent, {
-      delegationID: finalized.id,
-      parentSessionID: finalized.parentSessionID,
-      status: finalStatus,
-      title: finalized.prompt.slice(0, 50),
-    })
+      await Bus.publish(DelegationCompletedEvent, {
+        delegationID: finalized.id,
+        parentSessionID: finalized.parentSessionID,
+        status: finalStatus,
+        title: finalized.prompt.slice(0, 50),
+      })
 
-    cleanup(active ?? finalized)
-    log.info(`Finalized delegation ${delegationID} with status ${finalStatus}`)
+      log.info(`Finalized delegation ${delegationID} with status ${finalStatus}`)
+    } finally {
+      cleanup(active ?? { id: delegationID, sessionID: persisted.sessionID })
+    }
   }
 
   export async function read(delegationID: string): Promise<string> {

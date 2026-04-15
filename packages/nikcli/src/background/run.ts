@@ -172,35 +172,29 @@ ${result}
     return Storage.read<Record>(key(id))
   }
 
-  export async function listForParent(parentSessionID: string): Promise<Record[]> {
+  async function listAll(): Promise<Record[]> {
     const result: Record[] = []
     for (const item of await Storage.list(["background_run", Instance.project.id])) {
       try {
         const record = await Storage.read<Record>(item)
-        if (record.parentSessionID === parentSessionID) result.push(record)
+        result.push(record)
       } catch {
         continue
       }
     }
     return result.sort((a, b) => a.id.localeCompare(b.id))
+  }
+
+  export async function listForParent(parentSessionID: string): Promise<Record[]> {
+    return (await listAll()).filter((r) => r.parentSessionID === parentSessionID)
   }
 
   export async function listRunning(): Promise<Record[]> {
-    const result: Record[] = []
-    for (const item of await Storage.list(["background_run", Instance.project.id])) {
-      try {
-        const record = await Storage.read<Record>(item)
-        if (record.status === "running") result.push(record)
-      } catch {
-        continue
-      }
-    }
-    return result.sort((a, b) => a.id.localeCompare(b.id))
+    return (await listAll()).filter((r) => r.status === "running")
   }
 
   export async function countRunningForParent(parentSessionID: string) {
-    const items = await listForParent(parentSessionID)
-    return items.filter((item) => item.status === "running").length
+    return (await listAll()).filter((r) => r.parentSessionID === parentSessionID && r.status === "running").length
   }
 
   export async function summarizeSession(sessionID: string, result?: MessageV2.WithParts) {

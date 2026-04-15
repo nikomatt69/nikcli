@@ -747,7 +747,12 @@ export function Prompt(props: PromptProps) {
     return map[props.sessionID] ?? []
   })
 
-  const backgroundedSubtaskCount = createMemo(() => backgroundedSubtaskIDs().length)
+  const backgroundedSubtaskCount = createMemo(() =>
+    backgroundedSubtaskIDs().filter((id) => {
+      const title = sync.session.get(id)?.title ?? ""
+      return !title.startsWith("supervisor:") && !title.startsWith("delegator:")
+    }).length,
+  )
 
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
@@ -771,15 +776,16 @@ export function Prompt(props: PromptProps) {
 
     // Resurface the first task that transitioned to idle.
     for (const id of ids) {
+      const sessionTitle = sync.data.session.find((s) => s.id === id)?.title ?? ""
+      if (sessionTitle.startsWith("supervisor:") || sessionTitle.startsWith("delegator:")) continue
       const current = sync.data.session_status?.[id]?.type ?? "idle"
       const prev = previousSubtaskStatus.get(id)
       previousSubtaskStatus.set(id, current)
       if (!prev) continue
       if (prev !== "idle" && current === "idle") {
-        const title = sync.data.session.find((s) => s.id === id)?.title
         toast.show({
           variant: "success",
-          message: `${stripSubagentSuffix(title ?? "Subtask")} finished`,
+          message: `${stripSubagentSuffix(sessionTitle || "Subtask")} finished`,
           duration: 3000,
         })
         removeBackgroundSubtask(props.sessionID, id)
@@ -1768,8 +1774,9 @@ export function Prompt(props: PromptProps) {
                   }
                 }
 
-                // Background subtasks picker (Down arrow when prompt is empty)
+                // Background subtasks picker (Down arrow when prompt textarea is focused and empty)
                 if (
+                  input.focused &&
                   !autocomplete.visible &&
                   store.mode === "normal" &&
                   props.sessionID &&

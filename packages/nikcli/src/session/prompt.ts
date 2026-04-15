@@ -521,7 +521,11 @@ export namespace SessionPrompt {
               await Delegation.finalize(delegation.id, "complete", text)
             })
             .catch(async (err) => {
-              await Delegation.finalize(delegation.id, "error", "", err instanceof Error ? err.message : String(err))
+              await Delegation.finalize(delegation.id, "error", "", err instanceof Error ? err.message : String(err)).catch(
+                (finalizeErr) => {
+                  log.error("delegation finalize failed", { delegationID: delegation.id, error: String(finalizeErr) })
+                },
+              )
             })
 
           // Update assistant message and return immediately (main agent continues)

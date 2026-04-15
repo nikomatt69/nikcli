@@ -193,6 +193,7 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
           tokens: {
             input: number
             output: number
+            reasoning: number
           }
           cost: number
         }
@@ -206,7 +207,7 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
           if (!sessionModelUsage[modelKey]) {
             sessionModelUsage[modelKey] = {
               messages: 0,
-              tokens: { input: 0, output: 0 },
+              tokens: { input: 0, output: 0, reasoning: 0 },
               cost: 0,
             }
           }
@@ -221,8 +222,8 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
             sessionTokens.cache.write += message.info.tokens.cache?.write || 0
 
             sessionModelUsage[modelKey].tokens.input += message.info.tokens.input || 0
-            sessionModelUsage[modelKey].tokens.output +=
-              (message.info.tokens.output || 0) + (message.info.tokens.reasoning || 0)
+            sessionModelUsage[modelKey].tokens.output += message.info.tokens.output || 0
+            sessionModelUsage[modelKey].tokens.reasoning += message.info.tokens.reasoning || 0
           }
         }
 

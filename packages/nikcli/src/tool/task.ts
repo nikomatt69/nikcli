@@ -12,8 +12,6 @@ import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
-import { generateText } from "ai"
-import { Provider } from "@/provider/provider"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -32,6 +30,7 @@ type TaskMetadata = {
   summary?: ToolSummaryItem[]
   sessionId: string
   delegationId?: string
+  delegatorDelegationId?: string
   delegatorSessionId?: string
   background?: boolean
   liveSummary?: string
@@ -196,119 +195,108 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
 
     Delegation.setSessionID(delegation.id, session.id)
 
-    // Launch delegator session alongside the subagent
+    // Delegator: session created now (pending), woken up after subagent completes.
+    // NOTE: no task:deny — agent.ts delegator definition has task:allow for DelegationTool reads.
     const delegatorSession = await Session.create({
       parentID: ctx.sessionID,
-      title: `supervisor: ${params.description}`,
+      title: `delegator: ${params.description} (@delegator)`,
       permission: [
         { permission: "todowrite", pattern: "*", action: "deny" },
         { permission: "todoread", pattern: "*", action: "deny" },
-        { permission: "task", pattern: "*", action: "deny" },
       ],
     })
+    const delegatorDelegation = await Delegation.create({
+      parentSessionID: ctx.sessionID,
+      agent: "delegator",
+      prompt: `Synthesize @${agent.name}: ${params.prompt}`,
+      session: delegatorSession,
+    })
+    Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
 
     ctx.metadata({
       title: params.description,
       metadata: {
         background: true,
         delegationId: delegation.id,
-        sessionId: session.id,
+        delegatorDelegationId: delegatorDelegation.id,
         delegatorSessionId: delegatorSession.id,
+        sessionId: session.id,
       },
     })
 
-    const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
-    if (msg.info.role !== "assistant") throw new Error("Not an assistant message")
-
-    // Get model for delegator (use same model as parent or fallback to default)
-    const delegatorModel = agent.model ?? {
-      modelID: msg.info.modelID,
-      providerID: msg.info.providerID,
-    }
-    const delegatorFullModel = await Provider.getModel(delegatorModel.providerID, delegatorModel.modelID)
-    const delegatorLanguage = await Provider.getLanguage(delegatorFullModel)
-
-    // Delegator system prompt
-    const delegatorSystemPrompt = `You are a delegation supervisor for a background task.
-
-Task: ${params.prompt}
-Agent: ${agent.name}
-Delegation ID: ${delegation.id}
-
-Your role:
-- Monitor the subagent's progress by checking the delegation artifact
-- Provide periodic status updates and summaries
-- Keep your output concise and actionable
-
-Guidelines:
-- Check the delegation status using the delegation tool
-- Summarize progress made and remaining work
-- Highlight any issues or blockers
-- When the task completes, provide a final summary
-
-You do not execute tools or perform the task yourself — you only observe and report.`
-
-    const delegatorMessageID = Identifier.ascending("message")
-    const delegatorPromptInput = {
-      messageID: delegatorMessageID,
-      sessionID: delegatorSession.id,
-      model: {
-        modelID: delegatorModel.modelID,
-        providerID: delegatorModel.providerID,
-      },
-      agent: "delegator",
-      tools: {
-        todowrite: false,
-        todoread: false,
-        task: false,
-        delegation: true,
-      },
-      parts: [
-        {
-          type: "text" as const,
-          text: `Supervise this background task:\n\nTask: ${params.prompt}\nAgent: ${agent.name}\nDelegation ID: ${delegation.id}\n\nProvide periodic status updates and a final summary when complete.`,
-        },
-      ],
-    } satisfies SessionPrompt.PromptInput
-
-    // Launch subagent (fire-and-forget)
+    // Subagent runs fire-and-forget. On completion, the delegator is woken with the result.
     void SessionPrompt.prompt(promptInput)
       .then(async (result) => {
         const summary = await summarizeSubtaskSession(session.id, result)
         const error = summary.assistant?.error
-        if (error) {
-          const status = MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error"
-          await Delegation.finalize(delegation.id, status, summary.text, extractErrorMessage(error))
-          return
-        }
-        await Delegation.finalize(delegation.id, "complete", summary.text)
+        const status = error
+          ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error")
+          : "complete"
+        const errMsg = error ? extractErrorMessage(error) : undefined
+
+        await Delegation.finalize(delegation.id, status, summary.text, errMsg)
+
+        const wakeText = [
+          `Background task completed with status: **${status}**.`,
+          ``,
+          `Agent: @${agent.name}`,
+          `Task: ${params.prompt}`,
+          `Delegation: ${delegation.id}`,
+          ``,
+          `## Result`,
+          summary.text || "(no output)",
+          ...(errMsg ? [``, `## Error`, errMsg] : []),
+        ].join("\n")
+
+        void SessionPrompt.prompt({
+          messageID: Identifier.ascending("message"),
+          sessionID: delegatorSession.id,
+          model: { modelID: model.modelID, providerID: model.providerID },
+          agent: "delegator",
+          tools: { todowrite: false, todoread: false },
+          parts: [{ type: "text" as const, text: wakeText }],
+        })
+          .then(async (r) => {
+            const s = await summarizeSubtaskSession(delegatorSession.id, r)
+            const delegatorErr = s.assistant?.error
+            const delegatorStatus = delegatorErr
+              ? MessageV2.AbortedError.isInstance(delegatorErr)
+                ? "cancelled"
+                : "error"
+              : "complete"
+            await Delegation.finalize(
+              delegatorDelegation.id,
+              delegatorStatus,
+              s.text,
+              delegatorErr ? extractErrorMessage(delegatorErr) : undefined,
+            )
+          })
+          .catch(async (e) => {
+            await Delegation.finalize(
+              delegatorDelegation.id,
+              "error",
+              "",
+              e instanceof Error ? e.message : String(e),
+            )
+          })
       })
       .catch(async (error) => {
-        await Delegation.finalize(delegation.id, "error", "", error instanceof Error ? error.message : String(error))
+        const errMsg = error instanceof Error ? error.message : String(error)
+        await Delegation.finalize(delegation.id, "error", "", errMsg)
+        await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
       })
-
-    // Launch delegator (fire-and-forget) - monitors the subagent
-    void SessionPrompt.prompt(delegatorPromptInput).catch(() => {
-      // Silently handle delegator errors - it's a lightweight monitor
-    })
 
     return {
       title: params.description,
       metadata: {
         background: true,
         delegationId: delegation.id,
-        sessionId: session.id,
+        delegatorDelegationId: delegatorDelegation.id,
         delegatorSessionId: delegatorSession.id,
+        sessionId: session.id,
       },
       output: formatTaskOutput(
-        [
-          `Background task started for @${agent.name}.`,
-          ``,
-          `**Delegation:** ${delegation.id}`,
-          `**Delegator:** ${delegatorSession.id}`,
-          ``,
-          `Use the delegation tool to monitor progress or check the delegator session for status updates.`,
-        ].join("\n"),
+        `Background task started for @${agent.name}. Delegator will synthesize results.\nDelegator: ${delegatorDelegation.id}`,
         session.id,
         delegation.id,
       ),

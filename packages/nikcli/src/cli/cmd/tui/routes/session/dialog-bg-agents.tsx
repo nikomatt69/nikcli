@@ -30,10 +30,6 @@ type BgOption = SessionOption | MonitorOption
 type BackgroundSubtasksMap = Record<string, string[]>
 type BackgroundDismissedMap = Record<string, string[]>
 
-function isDelegatorSession(title: string): boolean {
-  return title.startsWith("supervisor:") || title.startsWith("delegator:")
-}
-
 function getSupervisorInfo(title: string): { isSupervisor: boolean; taskTitle: string } {
   const supervisorMatch = title.match(/^(?:supervisor|delegator):\s*(.+)$/i)
   if (supervisorMatch) {

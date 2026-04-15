@@ -282,6 +282,7 @@ export type SubtaskPart = {
     modelID: string
   }
   command?: string
+  background?: boolean
 }
 
 export type ReasoningPart = {
@@ -761,6 +762,20 @@ export type EventMonitorCompleted = {
   }
 }
 
+export type EventWorkspaceReady = {
+  type: "workspace.ready"
+  properties: {
+    name: string
+  }
+}
+
+export type EventWorkspaceFailed = {
+  type: "workspace.failed"
+  properties: {
+    message: string
+  }
+}
+
 export type EventDelegationCompleted = {
   type: "delegation.completed"
   properties: {
@@ -1027,20 +1042,6 @@ export type EventVcsBranchUpdated = {
   }
 }
 
-export type EventWorkspaceReady = {
-  type: "workspace.ready"
-  properties: {
-    name: string
-  }
-}
-
-export type EventWorkspaceFailed = {
-  type: "workspace.failed"
-  properties: {
-    message: string
-  }
-}
-
 export type Pty = {
   id: string
   title: string
@@ -1080,98 +1081,6 @@ export type EventPtyDeleted = {
   }
 }
 
-export type DbEditRequest = {
-  id: string
-  sessionID: string
-  type: "db_create" | "db_edit" | "db_query"
-  filePath: string
-  schema?: {
-    tables: Array<{
-      name: string
-      columns: Array<{
-        name: string
-        type: string
-        notNull: boolean
-        defaultValue?: string
-        primaryKey: boolean
-      }>
-      primaryKey: Array<string>
-      foreignKeys?: Array<{
-        table: string
-        column: string
-        referencedTable: string
-        referencedColumn: string
-        onDelete: "CASCADE" | "RESTRICT" | "SET NULL" | "NO ACTION"
-      }>
-      rowCount?: number
-      sql?: string
-    }>
-    views?: Array<{
-      name: string
-      sql: string
-    }>
-    indexes?: Array<{
-      name: string
-      tableName: string
-      columns: Array<string>
-      unique: boolean
-    }>
-  }
-  preview?: Array<{
-    tableName: string
-    columns: Array<{
-      name: string
-      type: string
-      notNull: boolean
-      defaultValue?: string
-      primaryKey: boolean
-    }>
-    sampleData: Array<{
-      [key: string]: unknown
-    }>
-    rowCount: number
-  }>
-  changes?: Array<{
-    type: "add_table" | "drop_table" | "add_column" | "drop_column" | "modify_column"
-    tableName: string
-    columnName?: string
-    oldDefinition?: {
-      name: string
-      type: string
-      notNull: boolean
-      defaultValue?: string
-      primaryKey: boolean
-    }
-    newDefinition?: {
-      name: string
-      type: string
-      notNull: boolean
-      defaultValue?: string
-      primaryKey: boolean
-    }
-  }>
-  sql?: string
-  always: Array<string>
-  tool?: {
-    messageID: string
-    callID: string
-  }
-}
-
-export type EventDbeditAsked = {
-  type: "dbedit.asked"
-  properties: DbEditRequest
-}
-
-export type EventDbeditReplied = {
-  type: "dbedit.replied"
-  properties: {
-    sessionID: string
-    requestID: string
-    reply: "accept" | "edit" | "reject"
-  }
-}
-
 export type Event =
   | EventProjectUpdated
   | EventServerInstanceDisposed
@@ -1198,6 +1107,8 @@ export type Event =
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
+  | EventWorkspaceReady
+  | EventWorkspaceFailed
   | EventDelegationCompleted
   | EventTodoUpdated
   | EventFileWatcherUpdated
@@ -1214,14 +1125,10 @@ export type Event =
   | EventSessionDiff
   | EventSessionError
   | EventVcsBranchUpdated
-  | EventWorkspaceReady
-  | EventWorkspaceFailed
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
   | EventPtyDeleted
-  | EventDbeditAsked
-  | EventDbeditReplied
 
 export type GlobalEvent = {
   directory: string
@@ -1820,6 +1727,14 @@ export type AgentConfig = {
    */
   maxSteps?: number
   permission?: PermissionConfig
+  /**
+   * Advisor model in provider/model format (e.g. anthropic/claude-opus-4-6). Invoked by the executor for strategic guidance.
+   */
+  advisor?: string
+  /**
+   * Max advisor invocations per request (default: 3).
+   */
+  advisor_max_uses?: number
   [key: string]:
     | unknown
     | string
@@ -2778,6 +2693,7 @@ export type SubtaskPartInput = {
     modelID: string
   }
   command?: string
+  background?: boolean
 }
 
 export type ProviderAuthMethod = {
@@ -3163,6 +3079,13 @@ export type Agent = {
   model?: {
     modelID: string
     providerID: string
+  }
+  advisor?: {
+    model: {
+      modelID: string
+      providerID: string
+    }
+    maxUses?: number
   }
   variant?: string
   prompt?: string
@@ -5105,63 +5028,6 @@ export type PermissionListResponses = {
 }
 
 export type PermissionListResponse = PermissionListResponses[keyof PermissionListResponses]
-
-export type DbeditReplyData = {
-  body?: {
-    reply: "accept" | "edit" | "reject"
-    modified?: DbEditRequest
-    message?: string
-  }
-  path: {
-    requestID: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/dbedit/{requestID}/reply"
-}
-
-export type DbeditReplyErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type DbeditReplyError = DbeditReplyErrors[keyof DbeditReplyErrors]
-
-export type DbeditReplyResponses = {
-  /**
-   * DB edit processed successfully
-   */
-  200: boolean
-}
-
-export type DbeditReplyResponse = DbeditReplyResponses[keyof DbeditReplyResponses]
-
-export type DbeditListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/dbedit"
-}
-
-export type DbeditListResponses = {
-  /**
-   * List of pending DB edits
-   */
-  200: Array<DbEditRequest>
-}
-
-export type DbeditListResponse = DbeditListResponses[keyof DbeditListResponses]
 
 export type QuestionListData = {
   body?: never

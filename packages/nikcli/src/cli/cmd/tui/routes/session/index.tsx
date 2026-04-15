@@ -40,6 +40,7 @@ import {
 } from "@nikcli-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
+import { Token } from "@/util/token"
 import type { Tool } from "@/tool/tool"
 import type { ReadTool } from "@/tool/read"
 import type { WriteTool } from "@/tool/write"
@@ -239,25 +240,32 @@ export function Session() {
     const off = sdk.event.on("message.part.updated", (evt) => {
       const part = evt.properties.part
       if (part.type !== "tool") return
-      if (part.sessionID !== route.sessionID) return
 
-      // Auto-background only explicit background subtasks so foreground child
-      // sessions do not disappear from the active flow.
+      // Auto-background: handle task parts for ANY session that is a known
+      // parent (not just the currently active route) so events aren't lost
+      // when the user navigates away during background task startup.
       if (part.tool === "task") {
         const metadata = (part.state as any)?.metadata
         const childSessionID = metadata?.sessionId
         const backgroundID = metadata?.delegationId ?? part.id
+        const parentID = part.sessionID
         if (
           metadata?.background === true &&
           typeof childSessionID === "string" &&
           !autoBackgroundedTasks.has(backgroundID)
         ) {
           autoBackgroundedTasks.add(backgroundID)
-          addToBackground(part.sessionID, childSessionID)
+          addToBackground(parentID, childSessionID)
+          const delegatorSessionID = metadata?.delegatorSessionId
+          if (typeof delegatorSessionID === "string") {
+            addToBackground(parentID, delegatorSessionID)
+          }
         }
         return
       }
 
+      // plan_enter/plan_exit only matter for the currently active session
+      if (part.sessionID !== route.sessionID) return
       if (part.state.status !== "completed") return
       if (part.id === lastSwitch) return
 
@@ -307,7 +315,6 @@ export function Session() {
 
   createEffect(() => {
     const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    if (map[route.sessionID] !== undefined) return
     const persisted = new Set<string>()
     for (const message of messages()) {
       const parts = sync.data.part[message.id] ?? []
@@ -319,17 +326,17 @@ export function Session() {
         if (metadata?.background === true && typeof childSessionID === "string") {
           persisted.add(childSessionID)
         }
-        // Also track delegator sessions
         if (metadata?.background === true && typeof delegatorSessionID === "string") {
           persisted.add(delegatorSessionID)
         }
       }
     }
     const dismissed = getDismissed(route.sessionID)
-    kv.set("background_subtasks", {
-      ...map,
-      [route.sessionID]: [...persisted].filter((id) => !dismissed.has(id)),
-    })
+    const existing = map[route.sessionID] ?? []
+    const merged = Array.from(new Set([...existing, ...[...persisted].filter((id) => !dismissed.has(id))]))
+    if (merged.length !== existing.length) {
+      kv.set("background_subtasks", { ...map, [route.sessionID]: merged })
+    }
   })
 
   // Allow exit when in child session (prompt is hidden)
@@ -1416,7 +1423,6 @@ function UserMessage(props: {
   const local = useLocal()
   const text = createMemo(() => props.parts.flatMap((x) => (x.type === "text" && !x.synthetic ? [x] : []))[0])
   const files = createMemo(() => props.parts.flatMap((x) => (x.type === "file" ? [x] : [])))
-  const sync = useSync()
   const { theme } = useTheme()
   const [hover, setHover] = createSignal(false)
   const queued = createMemo(() => props.pending && props.message.id > props.pending)
@@ -1511,12 +1517,40 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
     return props.message.finish && !["tool-calls", "unknown"].includes(props.message.finish)
   })
 
-  const duration = createMemo(() => {
-    if (!final()) return 0
-    if (!props.message.time.completed) return 0
+  const stats = createMemo(() => {
     const created = ctx.messageCreatedAt()[props.message.parentID]
-    if (!created) return 0
-    return props.message.time.completed - created
+    if (!created) return null
+
+    const completedAt = props.message.time.completed ?? Date.now()
+    const duration = completedAt - created
+
+    let text = ""
+    let streamStart: number | undefined
+    let streamEnd: number | undefined
+
+    for (const part of props.parts) {
+      if (part.type !== "text") continue
+      text += part.text
+      if (!part.time?.start) continue
+      streamStart = streamStart === undefined ? part.time.start : Math.min(streamStart, part.time.start)
+      const end = part.time.end ?? completedAt
+      streamEnd = streamEnd === undefined ? end : Math.max(streamEnd, end)
+    }
+
+    if (streamStart === undefined || streamEnd === undefined) {
+      return {
+        duration,
+        tps: 0,
+      }
+    }
+
+    const streamDuration = Math.max(0, streamEnd - streamStart)
+    const outputTokens = props.message.tokens.output > 0 ? props.message.tokens.output : Token.estimate(text)
+
+    return {
+      duration,
+      tps: streamDuration > 0 && outputTokens > 0 ? outputTokens / (streamDuration / 1000) : 0,
+    }
   })
 
   return (
@@ -1566,8 +1600,14 @@ function AssistantMessage(props: { message: AssistantMessage; parts: Part[]; las
               </span>{" "}
               <span style={{ fg: theme.text }}>{Locale.titlecase(props.message.mode)}</span>
               <span style={{ fg: theme.textMuted }}> · {props.message.modelID}</span>
-              <Show when={duration()}>
-                <span style={{ fg: theme.textMuted }}> · {Locale.duration(duration())}</span>
+              <Show when={stats()}>
+                {(value) => (
+                  <span style={{ fg: theme.textMuted }}>
+                    {" "}
+                    · {Locale.duration(value().duration)}
+                    <Show when={value().tps > 0}> · {value().tps.toFixed(0)} tok/s</Show>
+                  </span>
+                )}
               </Show>
               <Show when={props.message.error?.name === "MessageAbortedError"}>
                 <span style={{ fg: theme.textMuted }}> · interrupted</span>
@@ -1747,17 +1787,6 @@ function GenericTool(props: ToolProps<any>) {
     <InlineTool icon="⚙" pending="Writing command..." complete={true} part={props.part}>
       {props.tool} {input(props.input)}
     </InlineTool>
-  )
-}
-
-function ToolTitle(props: { fallback: string; when: any; icon: string; children: JSX.Element }) {
-  const { theme } = useTheme()
-  return (
-    <text paddingLeft={3} fg={props.when ? theme.textMuted : theme.text}>
-      <Show fallback={<>~ {props.fallback}</>} when={props.when}>
-        <span style={{ bold: true }}>{props.icon}</span> {props.children}
-      </Show>
-    </text>
   )
 }
 
@@ -2662,6 +2691,9 @@ function Task(props: ToolProps<typeof TaskTool>) {
             </Show>
             <Show when={meta.delegationId && isBackground()}>
               <text style={{ fg: theme.textMuted }}>└ delegation {meta.delegationId}</text>
+            </Show>
+            <Show when={meta.delegatorDelegationId && isBackground()}>
+              <text style={{ fg: theme.textMuted }}>└ delegator {meta.delegatorDelegationId}</text>
             </Show>
           </box>
           <text fg={theme.text}>

@@ -17,6 +17,7 @@ import PROMPT_EXPLORE from "./prompt/explore.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
+import PROMPT_DELEGATOR from "./prompt/delegator.txt"
 
 const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 
@@ -369,6 +370,28 @@ Apply small, safe refactors and verify results.`,
         options: {},
         mode: "all",
         native: true,
+      },
+      delegator: {
+        name: "delegator",
+        description: "Coordination agent that synthesizes background subagent results.",
+        mode: "subagent",
+        native: true,
+        hidden: true,
+        prompt: PROMPT_DELEGATOR,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            task: "allow", // required: DelegationTool.execute calls ctx.ask({ permission: "task" })
+            read: "allow",
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
       },
       compaction: {
         name: "compaction",

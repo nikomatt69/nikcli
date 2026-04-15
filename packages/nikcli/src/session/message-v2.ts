@@ -741,7 +741,7 @@ export namespace MessageV2 {
     let startIndex: number
     if (input.before) {
       const cursor = Cursor.parse(JSON.parse(Buffer.from(input.before, "base64url").toString("utf8")))
-      const idx = list.findIndex((item) => item[2] === cursor.id || (item[2] === cursor.id && Date.now() > cursor.time))
+      const idx = list.findIndex((item) => item[2] === cursor.id)
       startIndex = idx === -1 ? list.length : idx
     } else {
       startIndex = list.length

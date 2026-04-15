@@ -268,6 +268,7 @@ export namespace Brain {
         { permission: "*", pattern: "*", action: "deny" },
         { permission: "read", pattern: "*", action: "allow" },
         { permission: "edit", pattern: "*", action: "allow" },
+        { permission: "write", pattern: "*", action: "allow" },
         { permission: "glob", pattern: "*", action: "allow" },
         { permission: "grep", pattern: "*", action: "allow" },
         { permission: "list", pattern: "*", action: "allow" },

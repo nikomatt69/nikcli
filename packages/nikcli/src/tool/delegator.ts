@@ -1,11 +1,7 @@
 import z from "zod"
 import { Tool } from "./tool"
-import { Provider } from "@/provider/provider"
-import { generateText } from "ai"
 import DESCRIPTION from "./delegator.txt"
 import { Delegation } from "@/delegation/manager"
-import { Session } from "@/session"
-import { SessionPrompt } from "@/session/prompt"
 
 const parameters = z.object({
   delegationId: z.string().describe("The delegation ID to monitor"),
@@ -18,16 +14,6 @@ type DelegatorMetadata = {
   action: string
   result?: string
 }
-
-const DELEGATOR_SYSTEM_PROMPT = `You are a delegation supervisor. Your role is to monitor background tasks and provide concise status updates.
-
-Guidelines:
-- Keep responses brief and actionable
-- Focus on progress made and remaining work
-- Highlight any issues or blockers
-- Summarize results clearly when complete
-
-You do not execute tools or perform the task yourself — you only observe and report.`
 
 export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("delegator", async () => {
   return {
