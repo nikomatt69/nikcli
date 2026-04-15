@@ -21,6 +21,17 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
         setReady(true)
       })
 
+    // Debounced writer: coalesces rapid set() calls into a single file write,
+    // preventing concurrent writes from racing each other.
+    let writeTimer: ReturnType<typeof setTimeout> | undefined
+    function scheduleWrite() {
+      if (writeTimer) clearTimeout(writeTimer)
+      writeTimer = setTimeout(() => {
+        writeTimer = undefined
+        Bun.write(file, JSON.stringify(store, null, 2)).catch(() => {})
+      }, 200)
+    }
+
     const result = {
       get ready() {
         return ready()
@@ -44,7 +55,7 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
       },
       set(key: string, value: any) {
         setStore(key, value)
-        Bun.write(file, JSON.stringify(store, null, 2))
+        scheduleWrite()
       },
     }
     return result

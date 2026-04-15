@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events"
 import fs from "node:fs"
 import path from "node:path"
 import os from "node:os"
+import { Log } from "@/util/log"
 import {
   checkTunnelAvailability,
   createTunnel,
@@ -720,8 +721,11 @@ export class RemoteService extends EventEmitter {
     try {
       const filePath = this.getSessionFilePath(session.sessionId)
       fs.writeFileSync(filePath, JSON.stringify(session, null, 2))
-    } catch {
-      // ignore
+    } catch (error) {
+      Log.Default.warn("failed to persist remote session", {
+        sessionId: session.sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      })
     }
   }
 

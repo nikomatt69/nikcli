@@ -698,7 +698,9 @@ export namespace MessageV2 {
     return convertToModelMessages(
       result.filter((msg) => msg.parts.some((part) => part.type !== "step-start")),
       {
-        //@ts-expect-error (convertToModelMessages expects a ToolSet but only actually needs tools[name]?.toModelOutput)
+        // @ts-expect-error: convertToModelMessages expects a full ToolSet (with .inputSchema, .execute, etc.)
+        // but at runtime only accesses tools[name]?.toModelOutput. We pass a minimal shape to avoid
+        // importing/constructing the full ToolSet, which isn't available in this context.
         tools,
       },
     )

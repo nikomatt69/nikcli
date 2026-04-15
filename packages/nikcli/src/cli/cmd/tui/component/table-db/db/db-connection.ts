@@ -1,6 +1,11 @@
 import type { DBSchema, DBTable, DBColumn, TablePreview, QueryResult } from "./types"
 import { detectDBType } from "./types"
 
+/** Safely escape a SQLite identifier by wrapping in double-quotes and doubling any internal double-quotes. */
+function escapeIdentifier(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`
+}
+
 export class DBConnection {
   private _path: string
   private _dbType: ReturnType<typeof detectDBType>
@@ -104,7 +109,7 @@ export class DBConnection {
   private _parseIndexColumns(indexName: string): string[] {
     const db = this._getDb()
     try {
-      const info = db.prepare(`PRAGMA index_info('${indexName}')`).all()
+      const info = db.prepare(`PRAGMA index_info(${escapeIdentifier(indexName)})`).all()
       return info.map((c: any) => c.name)
     } catch {
       return []
@@ -113,7 +118,7 @@ export class DBConnection {
 
   private _getTableInfo(tableName: string): DBColumn[] {
     const db = this._getDb()
-    const info = db.prepare(`PRAGMA table_info('${tableName}')`).all()
+    const info = db.prepare(`PRAGMA table_info(${escapeIdentifier(tableName)})`).all()
 
     return info.map((col: any) => ({
       name: col.name,
@@ -133,7 +138,7 @@ export class DBConnection {
   }> {
     const db = this._getDb()
     try {
-      const fkInfo = db.prepare(`PRAGMA foreign_key_list('${tableName}')`).all()
+      const fkInfo = db.prepare(`PRAGMA foreign_key_list(${escapeIdentifier(tableName)})`).all()
 
       return fkInfo.map((fk: any) => ({
         table: tableName,
@@ -149,7 +154,7 @@ export class DBConnection {
 
   private _getRowCount(tableName: string): number {
     const db = this._getDb()
-    const result = db.prepare(`SELECT COUNT(*) as count FROM '${tableName}'`).get()
+    const result = db.prepare(`SELECT COUNT(*) as count FROM ${escapeIdentifier(tableName)}`).get()
     return result?.count ?? 0
   }
 
@@ -162,7 +167,8 @@ export class DBConnection {
       return { tableName, columns: [], sampleData: [], rowCount: 0 }
     }
 
-    const data = db.prepare(`SELECT * FROM '${tableName}' LIMIT ${limit}`).all()
+    const safeLimit = Math.max(1, Math.floor(limit))
+    const data = db.prepare(`SELECT * FROM ${escapeIdentifier(tableName)} LIMIT ?`).all(safeLimit)
 
     return {
       tableName,

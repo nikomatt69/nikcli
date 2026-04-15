@@ -202,6 +202,7 @@ export namespace SessionProcessor {
                       state: {
                         status: "error",
                         input: value.input ?? match.state.input,
+                        // value.error is typed as `unknown` by the AI SDK stream; cast to any to call toString()
                         error: (value.error as any).toString(),
                         time: {
                           start: match.state.time.start,

@@ -28,6 +28,9 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       [key in Event["type"]]: Extract<Event, { type: key }>
     }>()
 
+    // Cap the in-flight event queue to avoid unbounded memory growth under load.
+    const MAX_QUEUE_SIZE = 500
+
     let queue: Event[] = []
     let timer: Timer | undefined
     let last = 0
@@ -47,6 +50,10 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
     }
 
     const handleEvent = (event: Event) => {
+      // Drop the oldest event when the queue is full rather than growing without bound
+      if (queue.length >= MAX_QUEUE_SIZE) {
+        queue.shift()
+      }
       queue.push(event)
       const elapsed = Date.now() - last
 
@@ -65,19 +72,31 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       const ctrl = new AbortController()
       sse = ctrl
       ;(async () => {
+        let backoff = 1000
         while (true) {
           if (abort.signal.aborted || ctrl.signal.aborted) break
 
-          const events = await sdk.event.subscribe(
-            {},
-            {
-              signal: ctrl.signal,
-            },
-          )
+          try {
+            const events = await sdk.event.subscribe(
+              {},
+              {
+                signal: ctrl.signal,
+              },
+            )
 
-          for await (const event of events.stream) {
-            if (ctrl.signal.aborted) break
-            handleEvent(event)
+            // Reset backoff on a successful connection
+            backoff = 1000
+
+            for await (const event of events.stream) {
+              if (ctrl.signal.aborted) break
+              handleEvent(event)
+            }
+          } catch {
+            // Stream error — wait before reconnecting (exponential backoff, max 30s)
+            if (abort.signal.aborted || ctrl.signal.aborted) break
+            await new Promise<void>((res) => setTimeout(res, backoff))
+            backoff = Math.min(backoff * 2, 30_000)
+            continue
           }
 
           if (timer) clearTimeout(timer)

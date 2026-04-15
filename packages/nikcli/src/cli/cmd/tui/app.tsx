@@ -266,7 +266,9 @@ function App() {
         sync,
         theme: themeCtx,
         toast,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // renderer is a @nikcli-ai/openink Renderer; TuiPluginRuntime.init expects its own
+        // internal Renderer type. The shapes are structurally compatible at runtime, but the
+        // nominal types diverge across packages so the cast is needed.
         renderer: renderer as any,
       })
       await TuiPluginRuntime.init(api)
