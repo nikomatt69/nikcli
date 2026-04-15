@@ -35,6 +35,26 @@ export namespace Delegation {
     description?: string
   }
 
+  export interface InspectResult {
+    id: string
+    status: Status
+    title: string
+    agent: string
+    source?: BackgroundRun.Source
+    prompt: string
+    parentSessionID: string
+    sessionID?: string
+    delegatorID?: string
+    delegatorSessionID?: string
+    createdAt: number
+    updatedAt: number
+    completedAt?: number
+    lastActivityAt?: number
+    progressSummary?: string
+    resultSummary?: string
+    error?: string
+  }
+
   const activeDelegations = new Map<string, Record>()
   const sessionToDelegation = new Map<string, string>()
   const timers = new Map<string, NodeJS.Timeout>()
@@ -51,6 +71,34 @@ export namespace Delegation {
     const dir = getDelegationsDir(parentSessionID)
     await fs.mkdir(dir, { recursive: true })
     return dir
+  }
+
+  function toInspectResult(record: Record): InspectResult {
+    return {
+      id: record.id,
+      status: record.status,
+      title: record.title,
+      agent: record.agent,
+      source: record.source,
+      prompt: record.prompt,
+      parentSessionID: record.parentSessionID,
+      sessionID: record.sessionID,
+      delegatorID: record.delegatorID,
+      delegatorSessionID: record.delegatorSessionID,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      completedAt: record.completedAt,
+      lastActivityAt: record.lastActivityAt,
+      progressSummary: record.progressSummary,
+      resultSummary: record.resultSummary,
+      error: record.error,
+    }
+  }
+
+  function hasAccess(record: Pick<Record, "parentSessionID" | "sessionID" | "delegatorSessionID">, sessionID: string) {
+    return (
+      record.parentSessionID === sessionID || record.sessionID === sessionID || record.delegatorSessionID === sessionID
+    )
   }
 
   function cleanup(record: Pick<Record, "id" | "sessionID">): void {
@@ -151,6 +199,10 @@ export namespace Delegation {
     agent: string
     prompt: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
+    source?: BackgroundRun.Source
+    delegatorID?: string
+    delegatorSessionID?: string
+    delegatorEnabled?: boolean
   }): Promise<Record> {
     await ensureDelegationsDir(params.parentSessionID)
 
@@ -159,6 +211,10 @@ export namespace Delegation {
       agent: params.agent,
       prompt: params.prompt,
       session: params.session,
+      source: params.source,
+      delegatorID: params.delegatorID,
+      delegatorSessionID: params.delegatorSessionID,
+      delegatorEnabled: params.delegatorEnabled,
     })
 
     activeDelegations.set(record.id, record)
@@ -222,49 +278,42 @@ export namespace Delegation {
     }
   }
 
+  export async function updateProgress(delegationID: string, progressSummary?: string): Promise<void> {
+    const active = activeDelegations.get(delegationID)
+    if (active) active.progressSummary = progressSummary
+    await BackgroundRun.updateProgress(delegationID, progressSummary)
+  }
+
+  export async function inspect(delegationID: string): Promise<InspectResult | undefined> {
+    const record = await BackgroundRun.get(delegationID).catch(() => undefined)
+    if (!record) return undefined
+    return toInspectResult(record)
+  }
+
+  export async function inspectForSession(sessionID: string, delegationID: string): Promise<InspectResult | undefined> {
+    const record = await BackgroundRun.get(delegationID).catch(() => undefined)
+    if (!record || !hasAccess(record, sessionID)) return undefined
+    return toInspectResult(record)
+  }
+
   export async function read(delegationID: string): Promise<string> {
     return BackgroundRun.readArtifact(delegationID)
   }
 
+  export async function readForSession(sessionID: string, delegationID: string): Promise<string | undefined> {
+    const record = await BackgroundRun.get(delegationID).catch(() => undefined)
+    if (!record || !hasAccess(record, sessionID)) return undefined
+    return BackgroundRun.readArtifact(delegationID)
+  }
+
   export async function list(parentSessionID: string): Promise<ListItem[]> {
-    const results: ListItem[] = (await BackgroundRun.listForParent(parentSessionID)).map((record) => ({
+    return (await BackgroundRun.listForParent(parentSessionID)).map((record) => ({
       id: record.id,
       status: record.status,
       title: record.title,
       agent: record.agent,
       description: record.status === "running" ? "(running)" : undefined,
     }))
-
-    const dir = getDelegationsDir(parentSessionID)
-    try {
-      const files = await fs.readdir(dir)
-      for (const file of files) {
-        if (!file.endsWith(".md")) continue
-        const id = file.replace(".md", "")
-        if (results.find((item) => item.id === id)) continue
-
-        try {
-          const content = await fs.readFile(path.join(dir, file), "utf8")
-          const titleMatch = content.match(/^# .+? (.+)$/m)
-          const agentMatch = content.match(/\*\*Agent:\*\* (.+)$/m)
-          const statusMatch = content.match(/\*\*Status:\*\* (.+)$/m)
-          const rawStatus = statusMatch?.[1]?.trim()
-
-          results.push({
-            id,
-            status: Status.catch("complete").parse(rawStatus),
-            title: titleMatch?.[1]?.trim() || id,
-            agent: agentMatch?.[1]?.trim() || "unknown",
-          })
-        } catch {
-          continue
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    return results.sort((a, b) => a.id.localeCompare(b.id))
   }
 
   export async function getRunningCount(parentSessionID: string): Promise<number> {
@@ -289,5 +338,30 @@ export namespace Delegation {
 
     await finalize(delegationID, "cancelled", persisted.resultSummary ?? "", "Cancelled")
     return true
+  }
+
+  export async function cancelForSession(sessionID: string, delegationID: string): Promise<boolean> {
+    const record = await BackgroundRun.get(delegationID).catch(() => undefined)
+    if (!record || !hasAccess(record, sessionID)) return false
+    return cancel(delegationID)
+  }
+
+  export async function cancelBySessionID(sessionID: string): Promise<boolean> {
+    const related = await BackgroundRun.listForRelatedSession(sessionID)
+    const running = related.filter((item) => item.status === "running")
+    if (running.length === 0) return false
+    const ids = new Set<string>()
+    for (const item of running) {
+      if (item.sessionID === sessionID || item.parentSessionID === sessionID || item.delegatorSessionID === sessionID) {
+        ids.add(item.id)
+      }
+    }
+    if (ids.size === 0) return false
+    const result = await Promise.all([...ids].map((id) => cancel(id)))
+    return result.some(Boolean)
+  }
+
+  export function outputPreview(record: Pick<Record, "status" | "progressSummary" | "resultSummary">) {
+    return BackgroundRun.outputPreview(record)
   }
 }

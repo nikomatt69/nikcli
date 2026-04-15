@@ -5,7 +5,7 @@ The delegator provides status updates, progress reports, and summaries for backg
 Available actions:
 - `status`: Get the current status of a delegation (running, complete, error, etc.)
 - `progress`: Preview the current progress/output of a running or completed delegation
-- `summarize`: Generate a brief summary of a completed delegation's results
+- `summarize`: Generate a brief summary of a delegation's latest available results
 
 When to use the delegator:
 - After launching a background task with `task(background: true)`, use the delegator to check on its progress
@@ -18,4 +18,4 @@ Example pattern:
 3. Check status: `delegator(delegationId="purple-fish-xyz", action="status")`
 4. Get summary when done: `delegator(delegationId="purple-fish-xyz", action="summarize")`
 
-Note: The delegator reads the persisted delegation artifact and provides structured feedback. It does not execute the task itself or spawn additional agents.
+Note: The delegator reads structured delegation state and provides structured feedback. It does not execute the task itself or spawn additional agents.

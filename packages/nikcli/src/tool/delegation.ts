@@ -24,7 +24,14 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
   async execute(params, ctx) {
     const parentSessionID = params.parentSessionId ?? ctx.sessionID
     if (parentSessionID !== ctx.sessionID) {
-      throw new Error("delegation can only manage background tasks for the current session")
+      return {
+        title: "Delegation access denied",
+        metadata: {
+          action: params.action,
+          parentSessionId: parentSessionID,
+        },
+        output: "Delegation management is scoped to the current session only.",
+      }
     }
 
     if (params.action === "list") {
@@ -61,27 +68,31 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
     }
 
     if (!params.delegationId) {
-      throw new Error(`delegationId is required for action \"${params.action}\"`)
+      return {
+        title: "Delegation ID required",
+        metadata: {
+          action: params.action,
+          parentSessionId: parentSessionID,
+        },
+        output: `Provide \`delegationId\` for action \`${params.action}\`.`,
+      }
     }
 
-    const items = await Delegation.list(parentSessionID)
-    const match = items.find((item) => item.id === params.delegationId)
-    if (!match) {
-      throw new Error(`Delegation \"${params.delegationId}\" does not belong to the current session.`)
+    const delegation = await Delegation.inspectForSession(parentSessionID, params.delegationId)
+    if (!delegation) {
+      return {
+        title: "Delegation not found",
+        metadata: {
+          action: params.action,
+          parentSessionId: parentSessionID,
+          delegationId: params.delegationId,
+        },
+        output: `Delegation \"${params.delegationId}\" does not belong to the current session.`,
+      }
     }
-
-    await ctx.ask({
-      permission: "task",
-      patterns: [match.agent],
-      always: [match.agent],
-      metadata: {
-        action: params.action,
-        delegationId: params.delegationId,
-      },
-    })
 
     if (params.action === "read") {
-      const output = await Delegation.read(params.delegationId)
+      const output = await Delegation.readForSession(parentSessionID, params.delegationId)
       return {
         title: `Delegation ${params.delegationId}`,
         metadata: {
@@ -89,13 +100,22 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
           parentSessionId: parentSessionID,
           delegationId: params.delegationId,
         },
-        output,
+        output: output ?? `Delegation \"${params.delegationId}\" is not available in this session.`,
       }
     }
 
-    const cancelled = await Delegation.cancel(params.delegationId)
+    const cancelled = await Delegation.cancelForSession(parentSessionID, params.delegationId)
     if (!cancelled) {
-      throw new Error(`Delegation \"${params.delegationId}\" is not running or does not exist.`)
+      return {
+        title: "Delegation not running",
+        metadata: {
+          action: params.action,
+          parentSessionId: parentSessionID,
+          delegationId: params.delegationId,
+          cancelled: false,
+        },
+        output: `Delegation \"${params.delegationId}\" is not running or cannot be cancelled from this session.`,
+      }
     }
 
     return {

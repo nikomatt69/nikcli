@@ -106,6 +106,10 @@ export namespace SessionCompaction {
       throw new Error(`Parent message not found: ${input.parentID}`)
     }
     const userMessageInfo = userMessage.info as MessageV2.User
+    if (!userMessageInfo) {
+      log.error("parent message info not found", { parentID: input.parentID })
+      throw new Error(`Parent message info not found: ${input.parentID}`)
+    }
     const agent = await Agent.get("compaction")
     const model = agent.model
       ? await Provider.getModel(agent.model.providerID, agent.model.modelID)

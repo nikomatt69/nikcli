@@ -394,10 +394,7 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const delegation = Delegation.getBySessionID(sessionID)
-        if (delegation) {
-          await Delegation.cancel(delegation.id)
-        }
+        await Delegation.cancelBySessionID(sessionID)
         await Monitor.cancelAll(sessionID)
         SessionPrompt.cancel(sessionID)
         return c.json(true)

@@ -49,6 +49,15 @@ import type {
   FindSymbolsResponses,
   FindTextResponses,
   FormatterStatusResponses,
+  GatewayBalanceResponses,
+  GatewayDeviceAuthInitiateResponses,
+  GatewayDeviceAuthPollErrors,
+  GatewayDeviceAuthPollResponses,
+  GatewayModesResponses,
+  GatewayOrganizationErrors,
+  GatewayOrganizationResponses,
+  GatewayProfileResponses,
+  GatewaySessionsResponses,
   GetApiShareShareIdDataResponses,
   GetApiShareShareIdResponses,
   GetShareShareIdResponses,
@@ -166,6 +175,7 @@ import type {
   PermissionRespondErrors,
   PermissionRespondResponses,
   PermissionRuleset,
+  PostGatewayDeviceAuthApproveResponses,
   PostUserLoginResponses,
   PostUserRegisterResponses,
   ProjectCurrentResponses,
@@ -5724,6 +5734,244 @@ export class Tui extends HeyApiClient {
   }
 }
 
+export class DeviceAuth extends HeyApiClient {
+  /**
+   * Initiate device auth
+   *
+   * Start device authorization flow
+   */
+  public initiate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GatewayDeviceAuthInitiateResponses, unknown, ThrowOnError>({
+      url: "/gateway/device-auth/codes",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Poll device auth status
+   *
+   * Check authorization status for a device auth code
+   */
+  public poll<ThrowOnError extends boolean = false>(
+    parameters: {
+      code: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "code" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      GatewayDeviceAuthPollResponses,
+      GatewayDeviceAuthPollErrors,
+      ThrowOnError
+    >({
+      url: "/gateway/device-auth/codes/{code}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Gateway extends HeyApiClient {
+  /**
+   * Get nikcli profile
+   *
+   * Fetch user profile, organizations, and balance
+   */
+  public profile<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GatewayProfileResponses, unknown, ThrowOnError>({
+      url: "/gateway/profile",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get balance
+   *
+   * Fetch current balance for user or organization
+   */
+  public balance<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GatewayBalanceResponses, unknown, ThrowOnError>({
+      url: "/gateway/balance",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Switch organization
+   *
+   * Update the current active organization
+   */
+  public organization<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      organizationId?: string | null
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "organizationId" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<GatewayOrganizationResponses, GatewayOrganizationErrors, ThrowOnError>(
+      {
+        url: "/gateway/organization",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Get organization modes
+   *
+   * Fetch custom modes defined for the current organization
+   */
+  public modes<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GatewayModesResponses, unknown, ThrowOnError>({
+      url: "/gateway/modes",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List cloud sessions
+   *
+   * Fetch CLI sessions from nikcli cloud
+   */
+  public sessions<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      cursor?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "cursor" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<GatewaySessionsResponses, unknown, ThrowOnError>({
+      url: "/gateway/sessions",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _deviceAuth?: DeviceAuth
+  get deviceAuth(): DeviceAuth {
+    return (this._deviceAuth ??= new DeviceAuth({ client: this.client }))
+  }
+}
+
 export class Instance extends HeyApiClient {
   /**
    * Dispose instance
@@ -6388,6 +6636,38 @@ export class NikcliClient extends HeyApiClient {
     })
   }
 
+  public postGatewayDeviceAuthApprove<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      code?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "code" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostGatewayDeviceAuthApproveResponses, unknown, ThrowOnError>({
+      url: "/gateway/device-auth/approve",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
   private _global?: Global
   get global(): Global {
     return (this._global ??= new Global({ client: this.client }))
@@ -6476,6 +6756,11 @@ export class NikcliClient extends HeyApiClient {
   private _tui?: Tui
   get tui(): Tui {
     return (this._tui ??= new Tui({ client: this.client }))
+  }
+
+  private _gateway?: Gateway
+  get gateway(): Gateway {
+    return (this._gateway ??= new Gateway({ client: this.client }))
   }
 
   private _instance?: Instance

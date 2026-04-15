@@ -18,6 +18,8 @@ export namespace BackgroundRun {
 
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
+  export const Source = z.enum(["task", "model-subtask", "advisor", "delegator", "other"])
+  export type Source = z.infer<typeof Source>
 
   export const Record = z.object({
     id: z.string(),
@@ -34,11 +36,14 @@ export namespace BackgroundRun {
     workspaceID: z.string().optional(),
     sandboxRef: Sandbox.Ref.optional(),
     sandboxState: Sandbox.State.optional(),
+    source: Source.optional(),
     resultSummary: z.string().optional(),
+    progressSummary: z.string().optional(),
     error: z.string().optional(),
     ownerID: z.string().optional(),
     ownerPID: z.number().int().positive().optional(),
     heartbeatAt: z.number().optional(),
+    lastActivityAt: z.number().optional(),
     // Delegator fields
     delegatorID: z.string().optional(),
     delegatorSessionID: z.string().optional(),
@@ -81,24 +86,31 @@ export namespace BackgroundRun {
     return dir
   }
 
-  async function persistArtifact(record: Record, result: string, error?: string) {
-    await ensureArtifactDirectory(record.parentSessionID)
-    const content = `# ${statusGlyph(record.status)} ${record.title}
+  function renderArtifact(record: Record, result = record.resultSummary ?? "", error = record.error) {
+    return `# ${statusGlyph(record.status)} ${record.title}
 
 ${record.prompt.slice(0, 200)}
 
 **ID:** ${record.id}
 **Agent:** ${record.agent}
 **Status:** ${record.status}
+**Source:** ${record.source ?? "other"}
 **Session:** ${record.sessionID ?? "N/A"}
 **Started:** ${new Date(record.createdAt).toISOString()}
 **Completed:** ${record.completedAt ? new Date(record.completedAt).toISOString() : "N/A"}
+**Last Activity:** ${record.lastActivityAt ? new Date(record.lastActivityAt).toISOString() : "N/A"}
+${record.progressSummary ? `**Progress:** ${record.progressSummary}` : ""}
 ${error ? `**Error:** ${error}` : ""}
 
 ---
 
 ${result}
 `
+  }
+
+  async function persistArtifact(record: Record, result: string, error?: string) {
+    await ensureArtifactDirectory(record.parentSessionID)
+    const content = renderArtifact(record, result, error)
 
     await fs.writeFile(record.artifactPath, content, "utf8")
   }
@@ -109,6 +121,7 @@ ${result}
     prompt: string
     title?: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
+    source?: Source
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
@@ -126,9 +139,11 @@ ${result}
       artifactPath: artifactPath(params.parentSessionID, id),
       title: (params.title ?? params.prompt).slice(0, 50).replace(/\n/g, " "),
       workspaceID: params.session?.workspaceID,
+      source: params.source,
       ownerID: OWNER_ID,
       ownerPID: process.pid,
       heartbeatAt: Date.now(),
+      lastActivityAt: Date.now(),
       delegatorID: params.delegatorID,
       delegatorSessionID: params.delegatorSessionID,
       delegatorEnabled: params.delegatorEnabled,
@@ -155,6 +170,7 @@ ${result}
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
+      draft.lastActivityAt = Date.now()
     })
   }
 
@@ -165,6 +181,18 @@ ${result}
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
       draft.updatedAt = Date.now()
+    })
+  }
+
+  export async function updateProgress(id: string, progressSummary?: string) {
+    return Storage.update<Record>(key(id), (draft) => {
+      if (draft.status !== "running") return
+      draft.progressSummary = progressSummary || undefined
+      draft.lastActivityAt = Date.now()
+      draft.updatedAt = Date.now()
+      draft.ownerID = OWNER_ID
+      draft.ownerPID = process.pid
+      draft.heartbeatAt = Date.now()
     })
   }
 
@@ -187,6 +215,12 @@ ${result}
 
   export async function listForParent(parentSessionID: string): Promise<Record[]> {
     return (await listAll()).filter((r) => r.parentSessionID === parentSessionID)
+  }
+
+  export async function listForRelatedSession(sessionID: string): Promise<Record[]> {
+    return (await listAll()).filter(
+      (r) => r.parentSessionID === sessionID || r.sessionID === sessionID || r.delegatorSessionID === sessionID,
+    )
   }
 
   export async function listRunning(): Promise<Record[]> {
@@ -217,8 +251,10 @@ ${result}
       draft.updatedAt = Date.now()
       draft.completedAt = Date.now()
       draft.resultSummary = result || undefined
+      draft.progressSummary = undefined
       draft.error = error
       draft.heartbeatAt = Date.now()
+      draft.lastActivityAt = Date.now()
       finalized = true
     })
     if (!finalized) return undefined
@@ -285,31 +321,19 @@ ${result}
 
   export async function readArtifact(id: string): Promise<string> {
     const record = await get(id).catch(() => undefined)
-    if (record) {
-      try {
-        return await fs.readFile(record.artifactPath, "utf8")
-      } catch {
-        if (record.status === "running") {
-          return `Delegation \"${id}\" is still running...\nAgent: ${record.agent}\nStarted: ${new Date(record.createdAt).toISOString()}`
-        }
-      }
+    if (!record) {
+      throw new Error(`Delegation \"${id}\" not found.`)
     }
 
-    const delegationsBase = path.join(Global.Path.data, "delegations")
     try {
-      const dirs = await fs.readdir(delegationsBase)
-      for (const dir of dirs) {
-        const filePath = path.join(delegationsBase, dir, `${id}.md`)
-        try {
-          return await fs.readFile(filePath, "utf8")
-        } catch {
-          continue
-        }
-      }
+      return await fs.readFile(record.artifactPath, "utf8")
     } catch {
-      // ignore
+      return renderArtifact(record, record.resultSummary ?? record.progressSummary ?? "", record.error)
     }
+  }
 
-    throw new Error(`Delegation \"${id}\" not found. Use delegation_list() to see available delegations.`)
+  export function outputPreview(record: Pick<Record, "status" | "progressSummary" | "resultSummary">) {
+    if (record.status === "running") return record.progressSummary
+    return record.resultSummary ?? record.progressSummary
   }
 }

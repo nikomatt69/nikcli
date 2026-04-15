@@ -11,13 +11,13 @@ import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Flag } from "../flag/flag"
 import { Instance } from "../project/instance"
-import { Server } from "../server/server"
 import { Session } from "../session"
 import { Log } from "../util/log"
 import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./copilot"
+import { NikcliGatewayPlugin } from "./gateway"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
 
@@ -588,9 +588,10 @@ export namespace Plugin {
   const BUILTIN: string[] = []
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, NotifyPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, NikcliGatewayPlugin, NotifyPlugin]
 
   const state = Instance.state(async () => {
+    const { Server } = await import("../server/server")
     const client = createNikcliClient({
       baseUrl: "http://localhost:4096",
       // @ts-ignore - fetch type incompatibility

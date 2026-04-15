@@ -77,13 +77,6 @@ export type EventLspUpdated = {
   }
 }
 
-export type EventFileEdited = {
-  type: "file.edited"
-  properties: {
-    file: string
-  }
-}
-
 export type OutputFormatText = {
   type: "text"
 }
@@ -762,6 +755,13 @@ export type EventMonitorCompleted = {
   }
 }
 
+export type EventFileEdited = {
+  type: "file.edited"
+  properties: {
+    file: string
+  }
+}
+
 export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
@@ -781,7 +781,7 @@ export type EventDelegationCompleted = {
   properties: {
     delegationID: string
     parentSessionID: string
-    status: "running" | "complete" | "error" | "timeout" | "cancelled"
+    status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
     title: string
   }
 }
@@ -1090,7 +1090,6 @@ export type Event =
   | EventGlobalDisposed
   | EventLspClientDiagnostics
   | EventLspUpdated
-  | EventFileEdited
   | EventMessageUpdated
   | EventMessageRemoved
   | EventMessagePartUpdated
@@ -1107,6 +1106,7 @@ export type Event =
   | EventMonitorUpdated
   | EventMonitorOutput
   | EventMonitorCompleted
+  | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventDelegationCompleted
@@ -7645,6 +7645,171 @@ export type TuiControlResponseResponses = {
 }
 
 export type TuiControlResponseResponse = TuiControlResponseResponses[keyof TuiControlResponseResponses]
+
+export type GatewayProfileData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/profile"
+}
+
+export type GatewayProfileResponses = {
+  /**
+   * Profile with balance
+   */
+  200: unknown
+}
+
+export type GatewayBalanceData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/balance"
+}
+
+export type GatewayBalanceResponses = {
+  /**
+   * Balance data
+   */
+  200: unknown
+}
+
+export type GatewayOrganizationData = {
+  body?: {
+    organizationId: string | null
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/organization"
+}
+
+export type GatewayOrganizationErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type GatewayOrganizationError = GatewayOrganizationErrors[keyof GatewayOrganizationErrors]
+
+export type GatewayOrganizationResponses = {
+  /**
+   * Organization updated
+   */
+  200: unknown
+}
+
+export type GatewayModesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/modes"
+}
+
+export type GatewayModesResponses = {
+  /**
+   * Organization modes
+   */
+  200: unknown
+}
+
+export type GatewayDeviceAuthInitiateData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/device-auth/codes"
+}
+
+export type GatewayDeviceAuthInitiateResponses = {
+  /**
+   * Auth code created
+   */
+  200: unknown
+}
+
+export type GatewayDeviceAuthPollData = {
+  body?: never
+  path: {
+    code: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/device-auth/codes/{code}"
+}
+
+export type GatewayDeviceAuthPollErrors = {
+  /**
+   * Denied
+   */
+  403: unknown
+  /**
+   * Expired
+   */
+  410: unknown
+}
+
+export type GatewayDeviceAuthPollResponses = {
+  /**
+   * Auth approved
+   */
+  200: unknown
+  /**
+   * Still pending
+   */
+  202: unknown
+}
+
+export type PostGatewayDeviceAuthApproveData = {
+  body?: {
+    code: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/gateway/device-auth/approve"
+}
+
+export type PostGatewayDeviceAuthApproveResponses = {
+  200: unknown
+}
+
+export type GatewaySessionsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    cursor?: string
+    limit?: number
+  }
+  url: "/gateway/sessions"
+}
+
+export type GatewaySessionsResponses = {
+  /**
+   * Session list
+   */
+  200: unknown
+}
 
 export type InstanceDisposeData = {
   body?: never

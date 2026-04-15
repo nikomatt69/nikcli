@@ -20,12 +20,12 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
     description: DESCRIPTION,
     parameters,
     async execute({ delegationId, action }, ctx) {
-      const delegation = await Delegation.read(delegationId).catch(() => null)
+      const delegation = await Delegation.inspectForSession(ctx.sessionID, delegationId)
 
       if (!delegation) {
         return {
           title: "Delegator (not found)",
-          output: `Delegation "${delegationId}" not found or has been cleaned up.`,
+          output: `Delegation "${delegationId}" not found or is not accessible from this session.`,
           metadata: {
             delegationId,
             action,
@@ -35,24 +35,21 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
 
       switch (action) {
         case "status": {
-          const statusMatch = delegation.match(/\*\*Status:\*\* (.+)$/m)
-          const agentMatch = delegation.match(/\*\*Agent:\*\* (.+)$/m)
-          const sessionMatch = delegation.match(/\*\*Session:\*\* (.+)$/m)
-          const startedMatch = delegation.match(/\*\*Started:\*\* (.+)$/m)
-          const completedMatch = delegation.match(/\*\*Completed:\*\* (.+)$/m)
-
-          const status = statusMatch?.[1]?.trim() || "unknown"
-          const isRunning = status === "running"
+          const isRunning = delegation.status === "running"
 
           return {
-            title: `Delegator · ${status}`,
+            title: `Delegator · ${delegation.status}`,
             output: [
               `**Delegation ID:** ${delegationId}`,
-              `**Status:** ${status}`,
-              `**Agent:** ${agentMatch?.[1]?.trim() || "unknown"}`,
-              `**Session:** ${sessionMatch?.[1]?.trim() || "N/A"}`,
-              `**Started:** ${startedMatch?.[1]?.trim() || "unknown"}`,
-              isRunning ? `**Completed:** Still running...` : `**Completed:** ${completedMatch?.[1]?.trim() || "N/A"}`,
+              `**Status:** ${delegation.status}`,
+              `**Agent:** ${delegation.agent}`,
+              `**Session:** ${delegation.sessionID || "N/A"}`,
+              `**Started:** ${new Date(delegation.createdAt).toISOString()}`,
+              isRunning
+                ? `**Completed:** Still running...`
+                : `**Completed:** ${delegation.completedAt ? new Date(delegation.completedAt).toISOString() : "N/A"}`,
+              `**Last Activity:** ${delegation.lastActivityAt ? new Date(delegation.lastActivityAt).toISOString() : "N/A"}`,
+              delegation.progressSummary ? `**Progress:** ${delegation.progressSummary}` : "",
               "",
               isRunning
                 ? 'The delegation is still running in the background. Use `delegation(action="read", delegationId="' +
@@ -70,11 +67,13 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
         }
 
         case "progress": {
-          // Extract the result section from the artifact
-          const lines = delegation.split("\n---\n")
-          const resultSection = lines.slice(1).join("\n---\n").trim()
+          const progress = Delegation.outputPreview({
+            status: delegation.status,
+            progressSummary: delegation.progressSummary,
+            resultSummary: delegation.resultSummary,
+          })
 
-          if (!resultSection) {
+          if (!progress) {
             return {
               title: "Delegator · Progress",
               output: "The delegation is still running or no progress has been recorded yet. Check back shortly.",
@@ -85,36 +84,33 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
             }
           }
 
-          // Get first 500 chars of result for progress preview
-          const progress = resultSection.slice(0, 500)
-          const truncated = resultSection.length > 500
+          const preview = progress.slice(0, 500)
+          const truncated = progress.length > 500
 
           return {
             title: "Delegator · Progress",
             output:
               (truncated ? "[Progress preview - first 500 chars]\n\n" : "[Progress]\n\n") +
-              progress +
+              preview +
               (truncated ? '\n\n... (truncated, use `delegation(action="read")` for full result)' : ""),
             metadata: {
               delegationId,
               action,
-              result: truncated ? "(truncated)" : resultSection,
+              result: truncated ? "(truncated)" : progress,
             },
           }
         }
 
         case "summarize": {
-          // For completed delegations, generate a brief summary
-          const statusMatch = delegation.match(/\*\*Status:\*\* (.+)$/m)
-          const status = statusMatch?.[1]?.trim()
+          const summarySource = delegation.resultSummary ?? delegation.progressSummary
 
-          if (status !== "complete") {
+          if (!summarySource) {
             return {
               title: "Delegator · Summary",
               output:
-                status === "running"
-                  ? "The delegation is still running. Unable to provide summary until complete."
-                  : `The delegation ended with status: ${status || "unknown"}. No summary available.`,
+                delegation.status === "running"
+                  ? "The delegation is still running. No summary is available yet."
+                  : `The delegation ended with status: ${delegation.status}. No summary is available.`,
               metadata: {
                 delegationId,
                 action,
@@ -122,33 +118,12 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
             }
           }
 
-          const lines = delegation.split("\n---\n")
-          const resultSection = lines.slice(1).join("\n---\n").trim()
-
-          if (!resultSection) {
-            return {
-              title: "Delegator · Summary",
-              output: "The delegation completed but produced no output.",
-              metadata: {
-                delegationId,
-                action,
-              },
-            }
-          }
-
-          // Extract task info from header
-          const agentMatch = delegation.match(/\*\*Agent:\*\* (.+)$/m)
-          const titleMatch = delegation.match(/^# .+? (.+)$/m)
-          const agent = agentMatch?.[1]?.trim() || "unknown"
-          const title = titleMatch?.[1]?.trim() || delegationId
-
-          // Create a quick summary without calling the model
-          const summary = `**Task:** ${title}
-**Agent:** ${agent}
-**Status:** ✓ Complete
+          const summary = `**Task:** ${delegation.title}
+**Agent:** ${delegation.agent}
+**Status:** ${delegation.status}
 
 **Summary:**
-${resultSection.slice(0, 800)}${resultSection.length > 800 ? "\n\n...(truncated)" : ""}
+${summarySource.slice(0, 800)}${summarySource.length > 800 ? "\n\n...(truncated)" : ""}
 
 ---
 Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full result.`
@@ -159,7 +134,7 @@ Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full r
             metadata: {
               delegationId,
               action,
-              result: resultSection.slice(0, 1000),
+              result: summarySource.slice(0, 1000),
             },
           }
         }

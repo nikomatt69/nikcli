@@ -25,7 +25,7 @@ Usage notes:
 7. Set `background: true` when the task should keep running after you continue working elsewhere; this returns immediately with linked task metadata instead of waiting for the subagent to finish.
 8. Use the `delegation` tool to inspect, read, count, or cancel background tasks after launching them.
 
-Background tasks automatically spawn a supervisor session that monitors progress and provides status updates. The supervisor appears in the background subtasks list alongside the subagent session.
+Background tasks automatically spawn a supervisor session that synthesizes the final result and can be inspected alongside the subagent session.
 
 Example usage (NOTE: The agents below are fictional examples for illustration only - use the actual agents listed above):
 

@@ -92,7 +92,9 @@ export namespace SessionRetry {
         ) {
           return "Provider Server Error"
         }
-      } catch {}
+      } catch {
+        // Not JSON, fall through
+      }
     }
 
     return undefined

@@ -31,25 +31,25 @@ function LoginFormInner() {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {(connectError || error) && (
-        <div className="rounded-xl border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
+        <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-[13px] text-terminal-error">
           {connectError || error}
         </div>
       )}
 
       {!isConnected && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-terminal-text">Server URL</label>
+          <label className="block text-[13px] font-medium text-terminal-text">Server URL</label>
           <input
             type="url"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             required
             placeholder="http://localhost:4096"
-            className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+            className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-[13px] text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20 transition-colors duration-150"
           />
           <button
             type="submit"
-            className="w-full rounded-xl bg-terminal-accent px-4 py-3 font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+            className="w-full rounded-[var(--radius-md)] bg-terminal-accent px-4 py-3 text-[13px] font-semibold text-terminal-bg transition-all duration-150 hover:opacity-90 active:scale-[0.97]"
           >
             Connect to Server
           </button>
@@ -59,12 +59,12 @@ function LoginFormInner() {
       {isConnected && (
         <>
           {!isDev && serverUrl && (
-            <div className="flex items-center justify-between rounded-xl border border-terminal-border bg-terminal-panel px-4 py-2">
-              <span className="text-xs text-terminal-muted">{serverUrl}</span>
+            <div className="flex items-center justify-between rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-2">
+              <span className="text-[11px] text-terminal-muted">{serverUrl}</span>
               <button
                 type="button"
                 onClick={() => setServerUrl("")}
-                className="text-xs text-terminal-accent hover:underline"
+                className="text-[11px] text-terminal-accent hover:underline"
               >
                 Change
               </button>
@@ -73,7 +73,7 @@ function LoginFormInner() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-medium text-terminal-text">
+              <label htmlFor="email" className="block text-[13px] font-medium text-terminal-text">
                 Email
               </label>
               <input
@@ -83,11 +83,11 @@ function LoginFormInner() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="you@example.com"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-[13px] text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20 transition-colors duration-150"
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="password" className="block text-sm font-medium text-terminal-text">
+              <label htmlFor="password" className="block text-[13px] font-medium text-terminal-text">
                 Password
               </label>
               <input
@@ -97,14 +97,14 @@ function LoginFormInner() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="••••••••"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-panel px-4 py-3 text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-4 py-3 text-[13px] text-terminal-text placeholder:text-terminal-muted/50 focus:border-terminal-accent focus:outline-none focus:ring-2 focus:ring-terminal-accent/20 transition-colors duration-150"
               />
             </div>
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-terminal-accent px-4 py-3 font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+            className="w-full rounded-[var(--radius-md)] bg-terminal-accent px-4 py-3 text-[13px] font-semibold text-terminal-bg transition-all duration-150 hover:opacity-90 disabled:opacity-50 active:scale-[0.97]"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>

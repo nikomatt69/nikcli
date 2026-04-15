@@ -7,7 +7,7 @@ After launching a background task:
 - Use the `delegation` tool to monitor, read results, or cancel running delegations
 - You can launch multiple agents concurrently for maximum performance
 - When the delegation is complete, use `delegation(action="read")` to retrieve the results
-- The supervisor session provides periodic status updates and a final summary
+- The supervisor session synthesizes the final result, while live status/progress comes from delegation state
 
 Example pattern for parallel work:
 1. Launch multiple `task(background=true)` calls in one message
@@ -18,8 +18,8 @@ Example pattern for parallel work:
 ## Delegator/Supervisor Sessions
 
 Every background task automatically spawns a supervisor session that:
-- Monitors the subagent's progress via delegation artifacts
-- Provides periodic status updates without blocking the main agent
+- Reads delegation state linked to the background task
+- Can be inspected separately from the subagent session
 - Generates a final summary when the task completes
 - Uses the same model as the parent agent
 

@@ -64,7 +64,7 @@ export const Voice = Tool.define("voice", async () => {
   return {
     description: DESCRIPTION,
     parameters,
-    async execute(args) {
+    async execute(args, ctx) {
       const { action, duration, language } = args
 
       if (action === "status") {
@@ -97,9 +97,23 @@ export const Voice = Tool.define("voice", async () => {
         tempAudioPath = audioPath
         const token = ++recordingToken
 
+        // Clean up on abort
+        const abortHandler = () => {
+          if (recordingToken === token) {
+            recordingProcess?.kill()
+            recordingProcess = null
+          }
+          if (tempAudioPath === audioPath) {
+            tempAudioPath = null
+            void cleanupTempAudio(audioPath)
+          }
+        }
+        ctx.abort.addEventListener("abort", abortHandler, { once: true })
+
         if (recorder.cmd.includes("rec")) {
           recordingProcess = Bun.spawn([recorder.cmd, audioPath, "silence", "1", "0.1", "1%", "-1", "1.0", "1%"], {
             onExit() {
+              ctx.abort.removeEventListener("abort", abortHandler)
               if (recordingToken === token) {
                 recordingProcess = null
               }
@@ -114,6 +128,7 @@ export const Voice = Tool.define("voice", async () => {
             [recorder.cmd, "-f", "alsa", "-i", "default", "-t", String(duration), "-acodec", "pcm_s16le", audioPath],
             {
               onExit() {
+                ctx.abort.removeEventListener("abort", abortHandler)
                 if (recordingToken === token) {
                   recordingProcess = null
                 }

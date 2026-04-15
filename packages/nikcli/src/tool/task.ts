@@ -36,6 +36,19 @@ type TaskMetadata = {
   liveSummary?: string
 }
 
+type BackgroundTaskResult = {
+  delegationId: string
+  delegatorDelegationId: string
+  delegatorSessionId: string
+}
+
+type ReusableSessionValidation = {
+  parentSessionID: string
+  parentWorkspaceID?: string
+  sessionID: string
+  agentName: string
+}
+
 function extractErrorMessage(error: unknown): string | undefined {
   if (!error || typeof error !== "object") return undefined
   const value = error as {
@@ -92,6 +105,231 @@ function summarizeLiveText(text: string) {
   return summary.length > 180 ? summary.slice(0, 177).trimEnd() + "..." : summary
 }
 
+async function validateReusableSession({
+  parentSessionID,
+  parentWorkspaceID,
+  sessionID,
+  agentName,
+}: ReusableSessionValidation) {
+  const found = await Session.get(sessionID).catch(() => undefined)
+  if (!found) return undefined
+  if (found.parentID !== parentSessionID) {
+    throw new Error(`Task session \"${sessionID}\" does not belong to the current parent session.`)
+  }
+  if (parentWorkspaceID && found.workspaceID && found.workspaceID !== parentWorkspaceID) {
+    throw new Error(`Task session \"${sessionID}\" belongs to a different workspace.`)
+  }
+
+  const messages = await Session.messages({ sessionID: found.id })
+  const mismatchedAgent = messages.find(
+    (item) => item.info.role === "assistant" && item.info.agent && item.info.agent !== agentName,
+  )
+  if (mismatchedAgent?.info.role === "assistant") {
+    throw new Error(
+      `Task session \"${sessionID}\" is already associated with @${mismatchedAgent.info.agent ?? "unknown"}.`,
+    )
+  }
+
+  return found
+}
+
+function buildSubtaskPermission(
+  hasTaskPermission: boolean,
+  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined,
+) {
+  return [
+    {
+      permission: "todowrite",
+      pattern: "*",
+      action: "deny" as const,
+    },
+    {
+      permission: "todoread",
+      pattern: "*",
+      action: "deny" as const,
+    },
+    ...(hasTaskPermission
+      ? []
+      : [
+          {
+            permission: "task" as const,
+            pattern: "*" as const,
+            action: "deny" as const,
+          },
+        ]),
+    ...(primaryTools?.map((t) => ({
+      pattern: "*",
+      action: "allow" as const,
+      permission: t,
+    })) ?? []),
+  ]
+}
+
+async function createPromptInput(params: {
+  sessionID: string
+  prompt: string
+  agentName: string
+  hasTaskPermission: boolean
+  model: {
+    modelID: string
+    providerID: string
+  }
+  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+}) {
+  const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
+  return {
+    messageID: Identifier.ascending("message"),
+    sessionID: params.sessionID,
+    model: params.model,
+    agent: params.agentName,
+    tools: {
+      todowrite: false,
+      todoread: false,
+      ...(params.hasTaskPermission ? {} : { task: false }),
+      ...Object.fromEntries((params.primaryTools ?? []).map((t) => [t, false])),
+    },
+    parts: promptParts,
+  } satisfies SessionPrompt.PromptInput
+}
+
+function subscribeDelegationProgress(sessionID: string, delegationID: string) {
+  let lastSummary: string | undefined = "Starting background task"
+  void Delegation.updateProgress(delegationID, lastSummary)
+  return Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
+    if (evt.properties.part.sessionID !== sessionID) return
+    const part = evt.properties.part
+    let nextSummary: string | undefined
+    if (part.type === "tool") {
+      nextSummary = `Tool ${part.tool}: ${part.state.status}${
+        part.state.status === "completed" && part.state.title ? ` (${part.state.title})` : ""
+      }`
+    } else if (part.type === "text" && !part.synthetic && !part.ignored) {
+      nextSummary = summarizeLiveText(part.text)
+    }
+    if (!nextSummary || nextSummary === lastSummary) return
+    lastSummary = nextSummary
+    await Delegation.updateProgress(delegationID, nextSummary).catch(() => undefined)
+  })
+}
+
+async function launchBackgroundSubtask(params: {
+  description: string
+  prompt: string
+  source: "task" | "model-subtask"
+  parentSessionID: string
+  agent: Agent.Info
+  session: Session.Info
+  model: {
+    modelID: string
+    providerID: string
+  }
+  hasTaskPermission: boolean
+  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+}): Promise<BackgroundTaskResult> {
+  const delegatorSession = await Session.create({
+    parentID: params.parentSessionID,
+    title: `delegator: ${params.description} (@delegator)`,
+    permission: buildSubtaskPermission(false, params.primaryTools),
+  })
+
+  const delegation = await Delegation.create({
+    parentSessionID: params.parentSessionID,
+    agent: params.agent.name,
+    prompt: params.prompt,
+    session: params.session,
+    source: params.source,
+    delegatorSessionID: delegatorSession.id,
+    delegatorEnabled: true,
+  })
+  Delegation.setSessionID(delegation.id, params.session.id)
+
+  const delegatorDelegation = await Delegation.create({
+    parentSessionID: params.parentSessionID,
+    agent: "delegator",
+    prompt: `Synthesize @${params.agent.name}: ${params.prompt}`,
+    session: delegatorSession,
+    source: "delegator",
+  })
+  Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
+
+  const promptInput = await createPromptInput({
+    sessionID: params.session.id,
+    prompt: params.prompt,
+    agentName: params.agent.name,
+    hasTaskPermission: params.hasTaskPermission,
+    model: params.model,
+    primaryTools: params.primaryTools,
+  })
+  const unsubProgress = subscribeDelegationProgress(params.session.id, delegation.id)
+
+  void SessionPrompt.prompt(promptInput)
+    .then(async (result) => {
+      unsubProgress()
+      const summary = await summarizeSubtaskSession(params.session.id, result)
+      const error = summary.assistant?.error
+      const status = error ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error") : "complete"
+      const errMsg = error ? extractErrorMessage(error) : undefined
+
+      await Delegation.finalize(delegation.id, status, summary.text, errMsg)
+
+      const wakeText = [
+        `Background task completed with status: **${status}**.`,
+        "",
+        `Agent: @${params.agent.name}`,
+        `Task: ${params.prompt}`,
+        `Delegation: ${delegation.id}`,
+        "",
+        "## Result",
+        summary.text || "(no output)",
+        ...(errMsg ? ["", "## Error", errMsg] : []),
+      ].join("\n")
+
+      void SessionPrompt.prompt({
+        messageID: Identifier.ascending("message"),
+        sessionID: delegatorSession.id,
+        model: params.model,
+        agent: "delegator",
+        tools: { todowrite: false, todoread: false, task: false },
+        parts: [{ type: "text" as const, text: wakeText }],
+      })
+        .then(async (r) => {
+          const s = await summarizeSubtaskSession(delegatorSession.id, r)
+          const delegatorErr = s.assistant?.error
+          const delegatorStatus = delegatorErr
+            ? MessageV2.AbortedError.isInstance(delegatorErr)
+              ? "cancelled"
+              : "error"
+            : "complete"
+          await Delegation.finalize(
+            delegatorDelegation.id,
+            delegatorStatus,
+            s.text,
+            delegatorErr ? extractErrorMessage(delegatorErr) : undefined,
+          )
+        })
+        .catch(async (error) => {
+          await Delegation.finalize(
+            delegatorDelegation.id,
+            "error",
+            "",
+            error instanceof Error ? error.message : String(error),
+          )
+        })
+    })
+    .catch(async (error) => {
+      unsubProgress()
+      const errMsg = error instanceof Error ? error.message : String(error)
+      await Delegation.finalize(delegation.id, "error", "", errMsg)
+      await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
+    })
+
+  return {
+    delegationId: delegation.id,
+    delegatorDelegationId: delegatorDelegation.id,
+    delegatorSessionId: delegatorSession.id,
+  }
+}
+
 export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetadata>) {
   const config = await Config.get()
   const bypass = Boolean(ctx.extra?.bypassAgentCheck)
@@ -112,42 +350,23 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
   if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
 
   const hasTaskPermission = agent.permission.some((rule) => rule.permission === "task")
+  const parentSession = await Session.get(ctx.sessionID)
 
   const session = await iife(async () => {
     if (params.session_id) {
-      const found = await Session.get(params.session_id).catch(() => {})
+      const found = await validateReusableSession({
+        parentSessionID: ctx.sessionID,
+        parentWorkspaceID: parentSession.workspaceID,
+        sessionID: params.session_id,
+        agentName: agent.name,
+      })
       if (found) return found
     }
 
     return await Session.create({
       parentID: ctx.sessionID,
       title: params.description + ` (@${agent.name} subagent)`,
-      permission: [
-        {
-          permission: "todowrite",
-          pattern: "*",
-          action: "deny",
-        },
-        {
-          permission: "todoread",
-          pattern: "*",
-          action: "deny",
-        },
-        ...(hasTaskPermission
-          ? []
-          : [
-              {
-                permission: "task" as const,
-                pattern: "*" as const,
-                action: "deny" as const,
-              },
-            ]),
-        ...(config.experimental?.primary_tools?.map((t) => ({
-          pattern: "*",
-          action: "allow" as const,
-          permission: t,
-        })) ?? []),
-      ],
+      permission: buildSubtaskPermission(hasTaskPermission, config.experimental?.primary_tools),
     })
   })
 
@@ -161,144 +380,51 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
     },
   })
 
-  const messageID = Identifier.ascending("message")
   const model = agent.model ?? {
     modelID: msg.info.modelID,
     providerID: msg.info.providerID,
   }
 
-  const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
-  const promptInput = {
-    messageID,
-    sessionID: session.id,
-    model: {
-      modelID: model.modelID,
-      providerID: model.providerID,
-    },
-    agent: agent.name,
-    tools: {
-      todowrite: false,
-      todoread: false,
-      ...(hasTaskPermission ? {} : { task: false }),
-      ...Object.fromEntries((config.experimental?.primary_tools ?? []).map((t) => [t, false])),
-    },
-    parts: promptParts,
-  } satisfies SessionPrompt.PromptInput
-
   if (params.background) {
-    const delegation = await Delegation.create({
-      parentSessionID: ctx.sessionID,
-      agent: agent.name,
+    const backgroundTask = await launchBackgroundSubtask({
+      description: params.description,
       prompt: params.prompt,
-      session,
-    })
-
-    Delegation.setSessionID(delegation.id, session.id)
-
-    // Delegator: session created now (pending), woken up after subagent completes.
-    // NOTE: no task:deny — agent.ts delegator definition has task:allow for DelegationTool reads.
-    const delegatorSession = await Session.create({
-      parentID: ctx.sessionID,
-      title: `delegator: ${params.description} (@delegator)`,
-      permission: [
-        { permission: "todowrite", pattern: "*", action: "deny" },
-        { permission: "todoread", pattern: "*", action: "deny" },
-      ],
-    })
-    const delegatorDelegation = await Delegation.create({
+      source: ctx.extra?.backgroundSource === "model-subtask" ? "model-subtask" : "task",
       parentSessionID: ctx.sessionID,
-      agent: "delegator",
-      prompt: `Synthesize @${agent.name}: ${params.prompt}`,
-      session: delegatorSession,
+      agent,
+      session,
+      model: {
+        modelID: model.modelID,
+        providerID: model.providerID,
+      },
+      hasTaskPermission,
+      primaryTools: config.experimental?.primary_tools,
     })
-    Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
 
     ctx.metadata({
       title: params.description,
       metadata: {
         background: true,
-        delegationId: delegation.id,
-        delegatorDelegationId: delegatorDelegation.id,
-        delegatorSessionId: delegatorSession.id,
+        delegationId: backgroundTask.delegationId,
+        delegatorDelegationId: backgroundTask.delegatorDelegationId,
+        delegatorSessionId: backgroundTask.delegatorSessionId,
         sessionId: session.id,
       },
     })
-
-    // Subagent runs fire-and-forget. On completion, the delegator is woken with the result.
-    void SessionPrompt.prompt(promptInput)
-      .then(async (result) => {
-        const summary = await summarizeSubtaskSession(session.id, result)
-        const error = summary.assistant?.error
-        const status = error
-          ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error")
-          : "complete"
-        const errMsg = error ? extractErrorMessage(error) : undefined
-
-        await Delegation.finalize(delegation.id, status, summary.text, errMsg)
-
-        const wakeText = [
-          `Background task completed with status: **${status}**.`,
-          ``,
-          `Agent: @${agent.name}`,
-          `Task: ${params.prompt}`,
-          `Delegation: ${delegation.id}`,
-          ``,
-          `## Result`,
-          summary.text || "(no output)",
-          ...(errMsg ? [``, `## Error`, errMsg] : []),
-        ].join("\n")
-
-        void SessionPrompt.prompt({
-          messageID: Identifier.ascending("message"),
-          sessionID: delegatorSession.id,
-          model: { modelID: model.modelID, providerID: model.providerID },
-          agent: "delegator",
-          tools: { todowrite: false, todoread: false },
-          parts: [{ type: "text" as const, text: wakeText }],
-        })
-          .then(async (r) => {
-            const s = await summarizeSubtaskSession(delegatorSession.id, r)
-            const delegatorErr = s.assistant?.error
-            const delegatorStatus = delegatorErr
-              ? MessageV2.AbortedError.isInstance(delegatorErr)
-                ? "cancelled"
-                : "error"
-              : "complete"
-            await Delegation.finalize(
-              delegatorDelegation.id,
-              delegatorStatus,
-              s.text,
-              delegatorErr ? extractErrorMessage(delegatorErr) : undefined,
-            )
-          })
-          .catch(async (e) => {
-            await Delegation.finalize(
-              delegatorDelegation.id,
-              "error",
-              "",
-              e instanceof Error ? e.message : String(e),
-            )
-          })
-      })
-      .catch(async (error) => {
-        const errMsg = error instanceof Error ? error.message : String(error)
-        await Delegation.finalize(delegation.id, "error", "", errMsg)
-        await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
-      })
 
     return {
       title: params.description,
       metadata: {
         background: true,
-        delegationId: delegation.id,
-        delegatorDelegationId: delegatorDelegation.id,
-        delegatorSessionId: delegatorSession.id,
+        delegationId: backgroundTask.delegationId,
+        delegatorDelegationId: backgroundTask.delegatorDelegationId,
+        delegatorSessionId: backgroundTask.delegatorSessionId,
         sessionId: session.id,
       },
       output: formatTaskOutput(
-        `Background task started for @${agent.name}. Delegator will synthesize results.\nDelegator: ${delegatorDelegation.id}`,
+        `Background task started for @${agent.name}. Delegator will synthesize results.\nDelegator: ${backgroundTask.delegatorDelegationId}`,
         session.id,
-        delegation.id,
+        backgroundTask.delegationId,
       ),
     }
   }
@@ -342,6 +468,17 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
     updateForegroundMetadata()
   })
   try {
+    const promptInput = await createPromptInput({
+      sessionID: session.id,
+      prompt: params.prompt,
+      agentName: agent.name,
+      hasTaskPermission,
+      model: {
+        modelID: model.modelID,
+        providerID: model.providerID,
+      },
+      primaryTools: config.experimental?.primary_tools,
+    })
     const result = await SessionPrompt.prompt(promptInput)
     const summary = await summarizeSubtaskSession(session.id, result)
 
