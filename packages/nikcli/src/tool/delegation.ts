@@ -91,6 +91,17 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
       }
     }
 
+    await ctx.ask({
+      permission: "task",
+      patterns: [delegation.agent],
+      always: [delegation.agent],
+      metadata: {
+        action: params.action,
+        delegationId: params.delegationId,
+        agent: delegation.agent,
+      },
+    })
+
     if (params.action === "read") {
       const output = await Delegation.readForSession(parentSessionID, params.delegationId)
       return {

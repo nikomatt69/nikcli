@@ -347,10 +347,25 @@ export namespace ProviderTransform {
   const WIDELY_SUPPORTED_EFFORTS = ["low", "medium", "high"]
   const OPENAI_EFFORTS = ["none", "minimal", ...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
 
+  function anthropicAdaptiveEfforts(apiId: string): string[] | null {
+    const id = apiId.toLowerCase()
+
+    if (["opus-4-7", "opus-4.7"].some((value) => id.includes(value))) {
+      return ["low", "medium", "high", "xhigh", "max"]
+    }
+
+    if (["opus-4-6", "opus-4.6", "sonnet-4-6", "sonnet-4.6"].some((value) => id.includes(value))) {
+      return ["low", "medium", "high", "max"]
+    }
+
+    return null
+  }
+
   export function variants(model: Provider.Model): Record<string, Record<string, any>> {
     if (!model.capabilities.reasoning) return {}
 
     const id = model.id.toLowerCase()
+    const adaptiveEfforts = anthropicAdaptiveEfforts(model.api.id)
     if (
       id.includes("deepseek") ||
       id.includes("minimax") ||
@@ -384,6 +399,19 @@ export namespace ProviderTransform {
 
       // Note: gateway reasoningEffort conflicts with max_tokens
       case "@ai-sdk/gateway":
+        if ((id.includes("anthropic") || id.includes("claude")) && adaptiveEfforts) {
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                thinking: {
+                  type: "adaptive",
+                },
+                effort,
+              },
+            ]),
+          )
+        }
         return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
 
       case "@ai-sdk/github-copilot":
@@ -475,6 +503,19 @@ export namespace ProviderTransform {
       // https://v5.ai-sdk.dev/providers/ai-sdk-providers/anthropic
       case "@ai-sdk/google-vertex/anthropic":
         // https://v5.ai-sdk.dev/providers/ai-sdk-providers/google-vertex#anthropic-provider
+        if (adaptiveEfforts) {
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                thinking: {
+                  type: "adaptive",
+                },
+                effort,
+              },
+            ]),
+          )
+        }
         return {
           high: {
             thinking: {
@@ -492,6 +533,19 @@ export namespace ProviderTransform {
 
       case "@ai-sdk/amazon-bedrock":
         // https://v5.ai-sdk.dev/providers/ai-sdk-providers/amazon-bedrock
+        if (adaptiveEfforts) {
+          return Object.fromEntries(
+            adaptiveEfforts.map((effort) => [
+              effort,
+              {
+                reasoningConfig: {
+                  type: "adaptive",
+                  maxReasoningEffort: effort,
+                },
+              },
+            ]),
+          )
+        }
         // For Anthropic models on Bedrock, use reasoningConfig with budgetTokens
         if (model.api.id.includes("anthropic")) {
           return {
@@ -581,6 +635,19 @@ export namespace ProviderTransform {
       case "@mymediset/sap-ai-provider":
       case "@jerome-benoit/sap-ai-provider-v2":
         if (model.api.id.includes("anthropic")) {
+          if (adaptiveEfforts) {
+            return Object.fromEntries(
+              adaptiveEfforts.map((effort) => [
+                effort,
+                {
+                  thinking: {
+                    type: "adaptive",
+                  },
+                  effort,
+                },
+              ]),
+            )
+          }
           return {
             high: {
               thinking: {

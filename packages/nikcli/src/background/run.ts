@@ -196,6 +196,13 @@ ${result}
     })
   }
 
+  export async function setDelegatorID(id: string, delegatorID: string) {
+    return Storage.update<Record>(key(id), (draft) => {
+      draft.delegatorID = delegatorID
+      draft.updatedAt = Date.now()
+    })
+  }
+
   export async function get(id: string) {
     return Storage.read<Record>(key(id))
   }

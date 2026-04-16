@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cache-bust: 2026-01-31T00-16-00Z
+# Cache-bust: 2026-04-16T00-00-00Z
 set -euo pipefail
 APP=nikcli
 
@@ -354,7 +354,7 @@ download_and_install() {
         unzip -q "$tmp_dir/$filename" -d "$tmp_dir"
     fi
 
-    local extracted_binary="$tmp_dir/$APP-$target/bin/$APP"
+    local extracted_binary="$tmp_dir/bin/$APP"
     if [ ! -f "$extracted_binary" ]; then
         echo -e "${RED}Error: Binary not found in archive at expected path${NC}"
         rm -rf "$tmp_dir"

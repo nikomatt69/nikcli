@@ -747,11 +747,12 @@ export function Prompt(props: PromptProps) {
     return map[props.sessionID] ?? []
   })
 
-  const backgroundedSubtaskCount = createMemo(() =>
-    backgroundedSubtaskIDs().filter((id) => {
-      const title = sync.session.get(id)?.title ?? ""
-      return !title.startsWith("supervisor:") && !title.startsWith("delegator:")
-    }).length,
+  const backgroundedSubtaskCount = createMemo(
+    () =>
+      backgroundedSubtaskIDs().filter((id) => {
+        const title = sync.session.get(id)?.title ?? ""
+        return !title.startsWith("delegator:")
+      }).length,
   )
 
   function openBackgroundSubtasks() {
@@ -777,7 +778,7 @@ export function Prompt(props: PromptProps) {
     // Resurface the first task that transitioned to idle.
     for (const id of ids) {
       const sessionTitle = sync.data.session.find((s) => s.id === id)?.title ?? ""
-      if (sessionTitle.startsWith("supervisor:") || sessionTitle.startsWith("delegator:")) continue
+      if (sessionTitle.startsWith("delegator:")) continue
       const current = sync.data.session_status?.[id]?.type ?? "idle"
       const prev = previousSubtaskStatus.get(id)
       previousSubtaskStatus.set(id, current)

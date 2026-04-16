@@ -20,7 +20,7 @@ export function stripSubagentSuffix(title: string): string {
 }
 
 export function isSupervisorSession(title: string): boolean {
-  return title.startsWith("supervisor:") || title.startsWith("delegator:")
+  return title.startsWith("delegator:")
 }
 
 type BackgroundSubtasksMap = Record<string, string[]>

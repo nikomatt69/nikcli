@@ -108,7 +108,7 @@ export namespace ModelsDev {
     const nikcliCodingPlanModels: Model[] = [
       {
         id: "claude-sonnet-4-20250514",
-        name: "Claude Sonnet 4.6",
+        name: "Claude Sonnet 4",
         family: "claude",
         release_date: "2025-05-14",
         attachment: true,

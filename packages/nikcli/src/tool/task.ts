@@ -251,6 +251,9 @@ async function launchBackgroundSubtask(params: {
     source: "delegator",
   })
   Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
+  // Close the forward link advertised by the BackgroundRun schema so callers
+  // can resolve a subagent delegation's supervisor in O(1) via its record.
+  await Delegation.linkDelegator(delegation.id, delegatorDelegation.id)
 
   const promptInput = await createPromptInput({
     sessionID: params.session.id,

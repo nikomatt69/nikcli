@@ -67,6 +67,7 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>("advi
       void generateText({
         model: advisorLanguage,
         maxOutputTokens: 2048,
+        abortSignal: ctx.abort,
         messages: [
           {
             role: "system",
@@ -77,9 +78,13 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>("advi
         ],
       })
         .then(async (result) => {
+          // If the parent session cancelled us, the delegation has likely been
+          // finalized as "cancelled" already; skip to avoid a no-op write.
+          if (ctx.abort.aborted) return
           await Delegation.finalize(delegation.id, "complete", result.text)
         })
         .catch(async (error) => {
+          if (ctx.abort.aborted) return
           await Delegation.finalize(delegation.id, "error", "", error instanceof Error ? error.message : String(error))
         })
 

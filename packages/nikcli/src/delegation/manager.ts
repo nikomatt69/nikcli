@@ -242,7 +242,21 @@ export namespace Delegation {
       })
   }
 
-  export function get(id: string): Record | undefined {
+  /**
+   * Returns a delegation record from the in-memory active map only.
+   * Use {@link inspect} / {@link getDurable} for cross-process / durable lookups.
+   */
+  export function getActive(id: string): Record | undefined {
+    return activeDelegations.get(id)
+  }
+
+  /**
+   * Returns a delegation record from durable storage, falling back to the
+   * in-memory active map so callers get a consistent view across processes.
+   */
+  export async function getDurable(id: string): Promise<Record | undefined> {
+    const persisted = await BackgroundRun.get(id).catch(() => undefined)
+    if (persisted) return persisted
     return activeDelegations.get(id)
   }
 
@@ -282,6 +296,17 @@ export namespace Delegation {
     const active = activeDelegations.get(delegationID)
     if (active) active.progressSummary = progressSummary
     await BackgroundRun.updateProgress(delegationID, progressSummary)
+  }
+
+  /**
+   * Attach the supervising delegator record's ID to a subagent delegation so
+   * UIs and `inspect()` consumers can jump from a task record to its
+   * synthesizing delegator without scanning every delegation.
+   */
+  export async function linkDelegator(delegationID: string, delegatorID: string): Promise<void> {
+    const active = activeDelegations.get(delegationID)
+    if (active) active.delegatorID = delegatorID
+    await BackgroundRun.setDelegatorID(delegationID, delegatorID)
   }
 
   export async function inspect(delegationID: string): Promise<InspectResult | undefined> {
@@ -346,19 +371,31 @@ export namespace Delegation {
     return cancel(delegationID)
   }
 
+  /**
+   * Cancels every running delegation related to the given session (as parent,
+   * worker, or delegator). Intended for explicit "cancel everything" flows.
+   * HTTP handlers scoping to a single delegation should use {@link cancelOwnedBySessionID}.
+   */
   export async function cancelBySessionID(sessionID: string): Promise<boolean> {
     const related = await BackgroundRun.listForRelatedSession(sessionID)
     const running = related.filter((item) => item.status === "running")
     if (running.length === 0) return false
-    const ids = new Set<string>()
-    for (const item of running) {
-      if (item.sessionID === sessionID || item.parentSessionID === sessionID || item.delegatorSessionID === sessionID) {
-        ids.add(item.id)
-      }
-    }
-    if (ids.size === 0) return false
-    const result = await Promise.all([...ids].map((id) => cancel(id)))
+    const result = await Promise.all(running.map((item) => cancel(item.id)))
     return result.some(Boolean)
+  }
+
+  /**
+   * Cancels the single delegation that owns the given worker session, if any.
+   * O(1) via the in-memory worker-session→delegation index; falls back to the
+   * durable store when the delegation was created by another process.
+   */
+  export async function cancelOwnedBySessionID(sessionID: string): Promise<boolean> {
+    const active = getBySessionID(sessionID)
+    if (active) return cancel(active.id)
+    const related = await BackgroundRun.listForRelatedSession(sessionID)
+    const owned = related.find((item) => item.sessionID === sessionID && item.status === "running")
+    if (!owned) return false
+    return cancel(owned.id)
   }
 
   export function outputPreview(record: Pick<Record, "status" | "progressSummary" | "resultSummary">) {
