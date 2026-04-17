@@ -55,6 +55,7 @@ import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
+import { ComputerUseTool } from "./computer"
 
 const _toolDir = import.meta.dir
 
@@ -167,6 +168,7 @@ export namespace ToolRegistry {
       RagStatusTool,
       RagResetTool,
       GenerateImageTool,
+      ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_USE ? [ComputerUseTool] : []),
       WebFetchTool,
       TodoWriteTool,
       TodoReadTool,

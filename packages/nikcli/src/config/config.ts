@@ -683,6 +683,7 @@ export namespace Config {
           rag_status: PermissionRule.optional(),
           rag_reset: PermissionRule.optional(),
           generate_image: PermissionRule.optional(),
+          computer_use: PermissionRule.optional(),
           external_directory: PermissionRule.optional(),
           todowrite: PermissionAction.optional(),
           todoread: PermissionAction.optional(),
@@ -1082,6 +1083,37 @@ export namespace Config {
     })
   export type Image = z.infer<typeof Image>
 
+  export const Computer = z
+    .object({
+      enabled: z.boolean().optional(),
+      display: z
+        .object({
+          width: z.number().int().min(320).max(4096).optional(),
+          height: z.number().int().min(240).max(4096).optional(),
+          number: z.number().int().min(0).optional(),
+        })
+        .strict()
+        .optional(),
+      forbidden_regions: z
+        .array(
+          z
+            .object({
+              x: z.number().int(),
+              y: z.number().int(),
+              w: z.number().int().positive(),
+              h: z.number().int().positive(),
+            })
+            .strict(),
+        )
+        .optional(),
+      rate_limit_hz: z.number().int().min(1).max(200).optional(),
+    })
+    .strict()
+    .meta({
+      ref: "ComputerConfig",
+    })
+  export type Computer = z.infer<typeof Computer>
+
   export const Speak = z
     .object({
       provider: z.string().optional().describe("TTS provider (e.g., elevenlabs, openrouter)"),
@@ -1392,6 +1424,7 @@ export namespace Config {
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
+      computer: Computer.optional().describe("Computer-use tool configuration"),
       speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z
         .object({
