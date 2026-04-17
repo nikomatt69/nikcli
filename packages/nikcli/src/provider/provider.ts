@@ -733,13 +733,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-              cache: {
-                read: model.cost.context_over_200k.cache_read ?? 0,
-                write: model.cost.context_over_200k.cache_write ?? 0,
-              },
-              input: model.cost.context_over_200k.input,
-              output: model.cost.context_over_200k.output,
-            }
+            cache: {
+              read: model.cost.context_over_200k.cache_read ?? 0,
+              write: model.cost.context_over_200k.cache_write ?? 0,
+            },
+            input: model.cost.context_over_200k.input,
+            output: model.cost.context_over_200k.output,
+          }
           : undefined,
       },
       limit: {
@@ -1275,6 +1275,13 @@ export namespace Provider {
       s.sdk.set(key, loaded)
       return loaded as SDK
     } catch (e) {
+      log.error("getSDK failed", {
+        providerID: model.providerID,
+        modelID: model.id,
+        npm: model.api.npm,
+        error: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+      })
       throw new InitError({ providerID: model.providerID }, { cause: e })
     }
   }

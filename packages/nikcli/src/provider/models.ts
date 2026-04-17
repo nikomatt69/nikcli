@@ -97,49 +97,6 @@ export namespace ModelsDev {
     ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M2.5", minimaxM25Free)
     ensureModel(database, "openrouter", "minimax/minimax-m2.5", openrouterM25)
 
-    // nikcli Coding Plan - free tier models
-    database["nikcli-coding-plan"] = {
-      id: "nikcli-coding-plan",
-      name: "Nikcli Coding Plan",
-      env: [],
-      models: {},
-    }
-
-    const nikcliCodingPlanModels: Model[] = [
-      {
-        id: "claude-sonnet-4-20250514",
-        name: "Claude Sonnet 4",
-        family: "claude",
-        release_date: "2025-05-14",
-        attachment: true,
-        reasoning: true,
-        tool_call: true,
-        temperature: true,
-        cost: { input: 0, output: 0 },
-        limit: { context: 200_000, output: 32_768 },
-        modalities: { input: ["text"], output: ["text"] },
-        options: {},
-      },
-      {
-        id: "claude-3-5-haiku-20241022",
-        name: "Claude 3.5 Haiku",
-        family: "claude",
-        release_date: "2024-10-22",
-        attachment: true,
-        reasoning: false,
-        tool_call: true,
-        temperature: true,
-        cost: { input: 0, output: 0 },
-        limit: { context: 200_000, output: 8_192 },
-        modalities: { input: ["text"], output: ["text"] },
-        options: {},
-      },
-    ]
-
-    for (const model of nikcliCodingPlanModels) {
-      ensureModel(database, "nikcli-coding-plan", model.id, model)
-    }
-
     return database
   }
 
@@ -214,7 +171,7 @@ export namespace ModelsDev {
       refresh()
     }
     const file = Bun.file(filepath)
-    const result = await file.json().catch(() => {})
+    const result = await file.json().catch(() => { })
     if (result) return patch(result as Record<string, Provider>)
     if (typeof data === "function" && !Flag.NIKCLI_DISABLE_MODELS_FETCH) {
       try {
