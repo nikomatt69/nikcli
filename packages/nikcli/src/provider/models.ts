@@ -5,6 +5,7 @@ import z from "zod"
 import { data } from "./models-macro" with { type: "macro" }
 import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
+import { cursorModelsDevProvider } from "../plugin/cursor"
 
 export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
@@ -96,6 +97,11 @@ export namespace ModelsDev {
     ensureModel(database, "minimax-coding-plan", "MiniMax-M2.5", minimaxM25Free)
     ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M2.5", minimaxM25Free)
     ensureModel(database, "openrouter", "minimax/minimax-m2.5", openrouterM25)
+
+    // Cursor is not in models.dev; inject it so /connect dialog can offer it.
+    if (!database["cursor"]) {
+      database["cursor"] = cursorModelsDevProvider() as Provider
+    }
 
     return database
   }

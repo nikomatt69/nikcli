@@ -258,6 +258,18 @@ export namespace Provider {
         options: {},
       }
     },
+    cursor: async () => {
+      return {
+        autoload: false,
+        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
+          return sdk.chatModel(modelID)
+        },
+        options: {
+          baseURL: "http://127.0.0.1:32124/v1",
+          name: "cursor",
+        },
+      }
+    },
     azure: async () => {
       return {
         autoload: false,
@@ -733,13 +745,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-            cache: {
-              read: model.cost.context_over_200k.cache_read ?? 0,
-              write: model.cost.context_over_200k.cache_write ?? 0,
-            },
-            input: model.cost.context_over_200k.input,
-            output: model.cost.context_over_200k.output,
-          }
+              cache: {
+                read: model.cost.context_over_200k.cache_read ?? 0,
+                write: model.cost.context_over_200k.cache_write ?? 0,
+              },
+              input: model.cost.context_over_200k.input,
+              output: model.cost.context_over_200k.output,
+            }
           : undefined,
       },
       limit: {
