@@ -11,7 +11,6 @@ import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Flag } from "../flag/flag"
 import { Instance } from "../project/instance"
-import { Server } from "../server/server"
 import { Session } from "../session"
 import { Log } from "../util/log"
 import { AsyncQueue } from "../util/queue"
@@ -592,6 +591,7 @@ export namespace Plugin {
   const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, NotifyPlugin]
 
   const state = Instance.state(async () => {
+    const { Server } = await import("../server/server")
     const client = createNikcliClient({
       baseUrl: "http://localhost:4096",
       // @ts-ignore - fetch type incompatibility

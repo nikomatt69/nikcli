@@ -155,9 +155,13 @@ export namespace Auth {
     return (await response.text()).trim()
   }
 
+  function normalizeKey(key: string): string {
+    return key.replace(/\/+$/, "")
+  }
+
   export async function get(providerID: string) {
     const auth = await all()
-    return auth[providerID]
+    return auth[normalizeKey(providerID)]
   }
 
   export async function all(): Promise<Record<string, Info>> {
@@ -173,26 +177,46 @@ export namespace Auth {
         const text = await fs.readFile(filepath, "utf-8")
         data = JSON.parse(text)
       } catch {
-        // File doesn't exist or is corrupted, return empty
-        return {}
+        // File doesn't exist or is corrupted, leave data empty
       }
     }
-    return Object.entries(data).reduce(
+
+    const result = Object.entries(data).reduce(
       (acc, [key, value]) => {
         const parsed = Info.safeParse(value)
         if (!parsed.success) return acc
-        acc[key] = parsed.data
+        acc[normalizeKey(key)] = parsed.data
         return acc
       },
       {} as Record<string, Info>,
     )
+
+    const envRaw = process.env.NIKCLI_AUTH_CONTENT
+    if (envRaw) {
+      try {
+        const envData = JSON.parse(envRaw)
+        if (envData && typeof envData === "object") {
+          for (const [key, value] of Object.entries(envData)) {
+            const parsed = Info.safeParse(value)
+            if (parsed.success) {
+              result[normalizeKey(key)] = parsed.data
+            }
+          }
+        }
+      } catch {
+        // Invalid JSON in env, ignore
+      }
+    }
+
+    return result
   }
 
   export async function set(key: string, info: Info) {
+    const normalized = normalizeKey(key)
     const tmp = filepath + ".tmp"
     try {
       const data = await all()
-      await Bun.write(tmp, JSON.stringify({ ...data, [key]: info }, null, 2))
+      await Bun.write(tmp, JSON.stringify({ ...data, [normalized]: info }, null, 2))
       // chmod is Unix-only, skip on Windows
       if (process.platform !== "win32") {
         await fs.chmod(tmp, 0o600)
@@ -204,10 +228,11 @@ export namespace Auth {
   }
 
   export async function remove(key: string) {
+    const normalized = normalizeKey(key)
     const tmp = filepath + ".tmp"
     try {
       const data = await all()
-      delete data[key]
+      delete data[normalized]
       await Bun.write(tmp, JSON.stringify(data, null, 2))
       // chmod is Unix-only, skip on Windows
       if (process.platform !== "win32") {

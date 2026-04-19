@@ -6,6 +6,7 @@ import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Global } from "@/global"
 import { Monitor } from "@/monitor/manager"
+import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Log } from "@/util/log"
@@ -26,6 +27,9 @@ export namespace Delegation {
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
   export type Record = BackgroundRun.Record
+  export const Event = {
+    Completed: DelegationCompletedEvent,
+  }
 
   export interface ListItem {
     id: string
@@ -55,13 +59,59 @@ export namespace Delegation {
     error?: string
   }
 
-  const activeDelegations = new Map<string, Record>()
-  const sessionToDelegation = new Map<string, string>()
-  const timers = new Map<string, NodeJS.Timeout>()
-  const heartbeats = new Map<string, NodeJS.Timeout>()
-  let reconcileTimer: NodeJS.Timeout | undefined
-  const requestedFinalizations = new Map<string, { status: Exclude<Status, "running" | "orphaned">; error?: string }>()
   const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
+
+  export interface SynthesisItem {
+    id: string
+    status: Status
+    title: string
+    agent: string
+    source?: BackgroundRun.Source
+    resultSummary?: string
+    progressSummary?: string
+    error?: string
+  }
+
+  interface ManagerState {
+    activeDelegations: Map<string, Record>
+    sessionToDelegation: Map<string, string>
+    timers: Map<string, NodeJS.Timeout>
+    heartbeats: Map<string, NodeJS.Timeout>
+    requestedFinalizations: Map<string, { status: Exclude<Status, "running" | "orphaned">; error?: string }>
+    reconcileTimer?: NodeJS.Timeout
+  }
+
+  const state = Instance.state<ManagerState>(
+    () => ({
+      activeDelegations: new Map<string, Record>(),
+      sessionToDelegation: new Map<string, string>(),
+      timers: new Map<string, NodeJS.Timeout>(),
+      heartbeats: new Map<string, NodeJS.Timeout>(),
+      requestedFinalizations: new Map<string, { status: Exclude<Status, "running" | "orphaned">; error?: string }>(),
+      reconcileTimer: undefined,
+    }),
+    async (entry) => {
+      for (const timer of entry.timers.values()) {
+        clearTimeout(timer)
+      }
+      for (const timer of entry.heartbeats.values()) {
+        clearInterval(timer)
+      }
+      if (entry.reconcileTimer) {
+        clearInterval(entry.reconcileTimer)
+      }
+      entry.activeDelegations.clear()
+      entry.sessionToDelegation.clear()
+      entry.timers.clear()
+      entry.heartbeats.clear()
+      entry.requestedFinalizations.clear()
+      entry.reconcileTimer = undefined
+    },
+  )
+
+  function current() {
+    return state()
+  }
 
   function getDelegationsDir(parentSessionID: string): string {
     return path.join(Global.Path.data, "delegations", parentSessionID)
@@ -102,30 +152,34 @@ export namespace Delegation {
   }
 
   function cleanup(record: Pick<Record, "id" | "sessionID">): void {
+    const entry = current()
     clearTimer(record.id)
     clearHeartbeat(record.id)
-    requestedFinalizations.delete(record.id)
-    activeDelegations.delete(record.id)
-    if (record.sessionID && sessionToDelegation.get(record.sessionID) === record.id) {
-      sessionToDelegation.delete(record.sessionID)
+    entry.requestedFinalizations.delete(record.id)
+    entry.activeDelegations.delete(record.id)
+    if (record.sessionID && entry.sessionToDelegation.get(record.sessionID) === record.id) {
+      entry.sessionToDelegation.delete(record.sessionID)
     }
   }
 
   function clearTimer(delegationID: string): void {
-    const timer = timers.get(delegationID)
+    const entry = current()
+    const timer = entry.timers.get(delegationID)
     if (!timer) return
     clearTimeout(timer)
-    timers.delete(delegationID)
+    entry.timers.delete(delegationID)
   }
 
   function clearHeartbeat(delegationID: string): void {
-    const timer = heartbeats.get(delegationID)
+    const entry = current()
+    const timer = entry.heartbeats.get(delegationID)
     if (!timer) return
     clearInterval(timer)
-    heartbeats.delete(delegationID)
+    entry.heartbeats.delete(delegationID)
   }
 
   function setHeartbeat(delegationID: string): void {
+    const entry = current()
     clearHeartbeat(delegationID)
     const timer = setInterval(
       () => {
@@ -138,7 +192,7 @@ export namespace Delegation {
       },
       Math.max(1000, Math.floor(BackgroundRun.LEASE_TIMEOUT_MS / 3)),
     )
-    heartbeats.set(delegationID, timer)
+    entry.heartbeats.set(delegationID, timer)
   }
 
   function requestFinalization(
@@ -146,8 +200,9 @@ export namespace Delegation {
     status: Exclude<Status, "running" | "orphaned">,
     error?: string,
   ): void {
-    if (!activeDelegations.has(delegationID)) return
-    requestedFinalizations.set(delegationID, { status, error })
+    const entry = current()
+    if (!entry.activeDelegations.has(delegationID)) return
+    entry.requestedFinalizations.set(delegationID, { status, error })
   }
 
   function scheduleForcedFinalize(
@@ -156,20 +211,22 @@ export namespace Delegation {
     error?: string,
     delayMs: number = 1000,
   ): void {
+    const entry = current()
     clearTimer(delegationID)
     const timer = setTimeout(() => {
       void finalize(delegationID, status, "", error).catch((err) => {
         log.error(`Failed to force finalize delegation ${delegationID}: ${err}`)
       })
     }, delayMs)
-    timers.set(delegationID, timer)
+    entry.timers.set(delegationID, timer)
   }
 
   function setTimer(delegationID: string, timeoutMs: number = DEFAULT_TIMEOUT_MS): void {
+    const entry = current()
     clearTimer(delegationID)
     const timer = setTimeout(async () => {
       try {
-        const record = activeDelegations.get(delegationID)
+        const record = entry.activeDelegations.get(delegationID)
         requestFinalization(delegationID, "timeout", "Timed out")
         if (record?.sessionID) {
           SessionPrompt.cancel(record.sessionID)
@@ -179,14 +236,15 @@ export namespace Delegation {
         log.error(`Failed to finalize delegation ${delegationID} on timeout: ${err}`)
       }
     }, timeoutMs)
-    timers.set(delegationID, timer)
+    entry.timers.set(delegationID, timer)
   }
 
   export async function init() {
-    await BackgroundRun.reconcileInterrupted(new Set(activeDelegations.keys()))
-    if (reconcileTimer) return
-    reconcileTimer = setInterval(() => {
-      void BackgroundRun.reconcileInterrupted(new Set(activeDelegations.keys())).catch((error) => {
+    const entry = current()
+    await BackgroundRun.reconcileInterrupted(new Set(entry.activeDelegations.keys()))
+    if (entry.reconcileTimer) return
+    entry.reconcileTimer = setInterval(() => {
+      void BackgroundRun.reconcileInterrupted(new Set(entry.activeDelegations.keys())).catch((error) => {
         log.warn("Failed to reconcile background runs", {
           error,
         })
@@ -205,6 +263,7 @@ export namespace Delegation {
     delegatorEnabled?: boolean
   }): Promise<Record> {
     await ensureDelegationsDir(params.parentSessionID)
+    const entry = current()
 
     const record = await BackgroundRun.create({
       parentSessionID: params.parentSessionID,
@@ -217,7 +276,7 @@ export namespace Delegation {
       delegatorEnabled: params.delegatorEnabled,
     })
 
-    activeDelegations.set(record.id, record)
+    entry.activeDelegations.set(record.id, record)
     setTimer(record.id)
     setHeartbeat(record.id)
 
@@ -226,10 +285,11 @@ export namespace Delegation {
   }
 
   export function setSessionID(delegationID: string, sessionID: string): void {
-    const record = activeDelegations.get(delegationID)
+    const entry = current()
+    const record = entry.activeDelegations.get(delegationID)
     if (record) {
       record.sessionID = sessionID
-      sessionToDelegation.set(sessionID, delegationID)
+      entry.sessionToDelegation.set(sessionID, delegationID)
     }
 
     void Session.get(sessionID)
@@ -247,7 +307,7 @@ export namespace Delegation {
    * Use {@link inspect} / {@link getDurable} for cross-process / durable lookups.
    */
   export function getActive(id: string): Record | undefined {
-    return activeDelegations.get(id)
+    return current().activeDelegations.get(id)
   }
 
   /**
@@ -257,21 +317,23 @@ export namespace Delegation {
   export async function getDurable(id: string): Promise<Record | undefined> {
     const persisted = await BackgroundRun.get(id).catch(() => undefined)
     if (persisted) return persisted
-    return activeDelegations.get(id)
+    return current().activeDelegations.get(id)
   }
 
   export function getBySessionID(sessionID: string): Record | undefined {
-    const delegationID = sessionToDelegation.get(sessionID)
+    const entry = current()
+    const delegationID = entry.sessionToDelegation.get(sessionID)
     if (!delegationID) return undefined
-    return activeDelegations.get(delegationID)
+    return entry.activeDelegations.get(delegationID)
   }
 
   export async function finalize(delegationID: string, status: Status, result: string, error?: string): Promise<void> {
-    const active = activeDelegations.get(delegationID)
+    const entry = current()
+    const active = entry.activeDelegations.get(delegationID)
     const persisted = await BackgroundRun.get(delegationID).catch(() => undefined)
     if (!persisted || persisted.status !== "running") return
 
-    const requested = requestedFinalizations.get(delegationID)
+    const requested = entry.requestedFinalizations.get(delegationID)
     const finalStatus = requested?.status ?? status
     const finalError = requested?.error ?? error
     let finalized: Awaited<ReturnType<typeof BackgroundRun.finalize>>
@@ -293,7 +355,7 @@ export namespace Delegation {
   }
 
   export async function updateProgress(delegationID: string, progressSummary?: string): Promise<void> {
-    const active = activeDelegations.get(delegationID)
+    const active = current().activeDelegations.get(delegationID)
     if (active) active.progressSummary = progressSummary
     await BackgroundRun.updateProgress(delegationID, progressSummary)
   }
@@ -304,7 +366,7 @@ export namespace Delegation {
    * synthesizing delegator without scanning every delegation.
    */
   export async function linkDelegator(delegationID: string, delegatorID: string): Promise<void> {
-    const active = activeDelegations.get(delegationID)
+    const active = current().activeDelegations.get(delegationID)
     if (active) active.delegatorID = delegatorID
     await BackgroundRun.setDelegatorID(delegationID, delegatorID)
   }
@@ -346,7 +408,7 @@ export namespace Delegation {
   }
 
   export async function cancel(delegationID: string): Promise<boolean> {
-    const active = activeDelegations.get(delegationID)
+    const active = current().activeDelegations.get(delegationID)
     const persisted = await BackgroundRun.get(delegationID).catch(() => undefined)
     if (!persisted || persisted.status !== "running") return false
 
@@ -363,6 +425,59 @@ export namespace Delegation {
 
     await finalize(delegationID, "cancelled", persisted.resultSummary ?? "", "Cancelled")
     return true
+  }
+
+  export async function collectResults(parentSessionID: string): Promise<SynthesisItem[]> {
+    return (await BackgroundRun.listForParent(parentSessionID))
+      .filter((record) => record.source !== "delegator")
+      .map((record) => ({
+        id: record.id,
+        status: record.status,
+        title: record.title,
+        agent: record.agent,
+        source: record.source,
+        resultSummary: record.resultSummary,
+        progressSummary: record.progressSummary,
+        error: record.error,
+      }))
+  }
+
+  export async function waitForSettled(parentSessionID: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
+    const hasRunningDelegations = async () => {
+      const records = await BackgroundRun.listForParent(parentSessionID)
+      return records.some((record) => record.source !== "delegator" && record.status === "running")
+    }
+
+    if (!(await hasRunningDelegations())) return
+
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        unsubscribeCompleted()
+        unsubscribeDisposed()
+        resolve()
+      }
+
+      const check = () => {
+        void hasRunningDelegations().then((running) => {
+          if (!running) finish()
+        })
+      }
+
+      const timer = setTimeout(finish, timeoutMs)
+      const unsubscribeCompleted = Bus.subscribe(Event.Completed, (event) => {
+        if (event.properties.parentSessionID !== parentSessionID) return
+        check()
+      })
+      const unsubscribeDisposed = Bus.subscribe(Bus.InstanceDisposed, () => {
+        finish()
+      })
+
+      void check()
+    })
   }
 
   export async function cancelForSession(sessionID: string, delegationID: string): Promise<boolean> {

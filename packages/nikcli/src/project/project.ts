@@ -6,13 +6,14 @@ import { $ } from "bun"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
-import { Session } from "../session"
+import type { Session } from "../session"
 import { work } from "../util/queue"
 import { fn } from "@nikcli-ai/util/fn"
 import { BusEvent } from "@/bus/bus-event"
 import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
 import { existsSync } from "fs"
+import { Git } from "@/git"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
@@ -91,12 +92,8 @@ export namespace Project {
         let id = await readCachedID(git)
 
         if (gitBinary) {
-          commonGitDir = await $`git rev-parse --git-common-dir`
-            .quiet()
-            .nothrow()
-            .cwd(sandbox)
-            .text()
-            .then((x) => path.resolve(sandbox, x.trim()))
+          commonGitDir = await Git.run(["rev-parse", "--git-common-dir"], { cwd: sandbox })
+            .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
             .catch(() => undefined)
 
           if (!id && commonGitDir && commonGitDir !== git) {
@@ -114,18 +111,16 @@ export namespace Project {
         }
 
         if (!id) {
-          const roots = await $`git rev-list --max-parents=0 --all`
-            .quiet()
-            .nothrow()
-            .cwd(sandbox)
-            .text()
-            .then((x) =>
-              x
+          const roots = await Git.run(["rev-list", "--max-parents=0", "--all"], { cwd: sandbox })
+            .then((result) => {
+              if (result.exitCode !== 0) return undefined
+              return result
+                .text()
                 .split("\n")
                 .filter(Boolean)
-                .map((x) => x.trim())
-                .toSorted(),
-            )
+                .map((item) => item.trim())
+                .toSorted()
+            })
             .catch(() => undefined)
 
           if (!roots) {
@@ -159,12 +154,8 @@ export namespace Project {
           }
         }
 
-        const top = await $`git rev-parse --show-toplevel`
-          .quiet()
-          .nothrow()
-          .cwd(sandbox)
-          .text()
-          .then((x) => path.resolve(sandbox, x.trim()))
+        const top = await Git.run(["rev-parse", "--show-toplevel"], { cwd: sandbox })
+          .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
           .catch(() => undefined)
 
         if (!top) {

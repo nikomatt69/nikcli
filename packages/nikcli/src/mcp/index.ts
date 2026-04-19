@@ -805,11 +805,8 @@ export namespace MCP {
       throw new Error(`No pending OAuth flow for MCP server: ${mcpName}`)
     }
 
+    let client: Client | undefined
     try {
-      await transport.finishAuth(authorizationCode)
-
-      await McpAuth.clearCodeVerifier(mcpName)
-
       const cfg = await Config.get()
       const mcpConfig = cfg.mcp?.[mcpName]
 
@@ -821,12 +818,46 @@ export namespace MCP {
         throw new Error(`MCP server ${mcpName} is disabled or missing configuration`)
       }
 
-      pendingOAuthTransports.delete(mcpName)
-      const result = await add(mcpName, mcpConfig)
+      await transport.finishAuth(authorizationCode)
+      await McpAuth.clearCodeVerifier(mcpName)
 
-      const statusRecord = result.status as Record<string, Status>
-      return statusRecord[mcpName] ?? { status: "failed", error: "Unknown error after auth" }
+      client = new Client({
+        name: "nikcli",
+        version: Installation.VERSION,
+      })
+
+      const connectTimeout = mcpConfig.timeout ?? DEFAULT_TIMEOUT
+      await withTimeout(client.connect(transport), connectTimeout)
+      registerNotificationHandlers(client, mcpName)
+
+      const toolsResult = await withTimeout(client.listTools(), connectTimeout).catch((error) => {
+        log.error("failed to get tools from oauth-connected client", { mcpName, error })
+        return undefined
+      })
+
+      if (!toolsResult) {
+        throw new Error("Failed to get tools")
+      }
+
+      const s = await state()
+      const existingClient = s.clients[mcpName]
+      if (existingClient) {
+        await existingClient.close().catch((error) => {
+          log.error("Failed to close existing MCP client", { name: mcpName, error })
+        })
+      }
+
+      s.clients[mcpName] = client
+      s.status[mcpName] = { status: "connected" }
+      pendingOAuthTransports.delete(mcpName)
+      log.info("connected pending oauth transport", { mcpName, toolCount: toolsResult.tools.length })
+
+      return s.status[mcpName]
     } catch (error) {
+      pendingOAuthTransports.delete(mcpName)
+      if (client) {
+        await client.close().catch(() => undefined)
+      }
       log.error("failed to finish oauth", { mcpName, error })
       return {
         status: "failed",

@@ -1,106 +1,45 @@
-# AI SDK Dependency Update Report (Minor/Patch Only)
+# AI SDK dependency update audit
 
-**Generated:** April 14, 2026  
-**Repository:** nikcli  
-**AI SDK Source:** [Vercel AI SDK](https://github.com/vercel/ai)
+- Scope: `package.json` and `packages/nikcli/package.json`
+- Rule: stable minor/patch updates only inside the currently installed major; prereleases and major bumps ignored
+- Result: 19 non-major updates available (`18` patch, `1` minor); `3` packages are already latest within their current major
+- Checked against npm registry metadata on 2026-04-19
 
----
+## Upgradable now
 
-## Safe Minor/Patch Updates Available
+| Package                      | Declared in                    |   Current |    Target | Type  | Latest overall (ignored if major) | Target published | References                                                                                                                                                   | Notes                                                                                                                                                                           |
+| ---------------------------- | ------------------------------ | --------: | --------: | ----- | --------------------------------: | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ai`                         | root catalog + packages/nikcli | `5.0.173` | `5.0.179` | patch |                         `6.0.168` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/ai%405.0.179) / [npm](https://www.npmjs.com/package/ai)                                                  | Stable versions between current and target: `5.0.174`, `5.0.175`, `5.0.176`, `5.0.178`, `5.0.179`. Latest overall `6.0.168` is a major and was ignored.                         |
+| `@ai-sdk/amazon-bedrock`     | packages/nikcli                |  `3.0.93` |  `3.0.97` | patch |                          `4.0.96` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Famazon-bedrock%403.0.97) / [npm](https://www.npmjs.com/package/@ai-sdk/amazon-bedrock)       | Stable versions between current and target: `3.0.94`, `3.0.95`, `3.0.96`, `3.0.97`. Latest overall `4.0.96` is a major and was ignored.                                         |
+| `@ai-sdk/anthropic`          | packages/nikcli                |  `2.0.74` |  `2.0.77` | patch |                          `3.0.71` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fanthropic%402.0.77) / [npm](https://www.npmjs.com/package/@ai-sdk/anthropic)                 | Stable versions between current and target: `2.0.75`, `2.0.76`, `2.0.77`. Latest overall `3.0.71` is a major and was ignored.                                                   |
+| `@ai-sdk/azure`              | packages/nikcli                | `2.0.104` | `2.0.105` | patch |                          `3.0.54` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fazure%402.0.105) / [npm](https://www.npmjs.com/package/@ai-sdk/azure)                        | Stable versions between current and target: `2.0.105`. Latest overall `3.0.54` is a major and was ignored.                                                                      |
+| `@ai-sdk/cerebras`           | packages/nikcli                |  `1.0.40` |  `1.0.41` | patch |                          `2.0.45` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fcerebras%401.0.41) / [npm](https://www.npmjs.com/package/@ai-sdk/cerebras)                   | Stable versions between current and target: `1.0.41`. Latest overall `2.0.45` is a major and was ignored.                                                                       |
+| `@ai-sdk/cohere`             | packages/nikcli                |  `2.0.25` |  `2.0.26` | patch |                          `3.0.30` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fcohere%402.0.26) / [npm](https://www.npmjs.com/package/@ai-sdk/cohere)                       | Stable versions between current and target: `2.0.26`. Latest overall `3.0.30` is a major and was ignored.                                                                       |
+| `@ai-sdk/deepinfra`          | packages/nikcli                |  `1.0.38` |  `1.0.39` | patch |                          `2.0.45` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fdeepinfra%401.0.39) / [npm](https://www.npmjs.com/package/@ai-sdk/deepinfra)                 | Stable versions between current and target: `1.0.39`. Latest overall `2.0.45` is a major and was ignored.                                                                       |
+| `@ai-sdk/gateway`            | packages/nikcli                |  `2.0.77` |  `2.0.82` | patch |                         `3.0.104` | 2026-04-16       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fgateway%402.0.82) / [npm](https://www.npmjs.com/package/@ai-sdk/gateway)                     | Stable versions between current and target: `2.0.78`, `2.0.79`, `2.0.80`, `2.0.82`. Latest overall `3.0.104` is a major and was ignored.                                        |
+| `@ai-sdk/google`             | packages/nikcli                |  `2.0.68` |  `2.0.70` | patch |                          `3.0.64` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fgoogle%402.0.70) / [npm](https://www.npmjs.com/package/@ai-sdk/google)                       | Stable versions between current and target: `2.0.69`, `2.0.70`. Latest overall `3.0.64` is a major and was ignored.                                                             |
+| `@ai-sdk/google-vertex`      | packages/nikcli                | `3.0.128` | `3.0.132` | patch |                         `4.0.112` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fgoogle-vertex%403.0.132) / [npm](https://www.npmjs.com/package/@ai-sdk/google-vertex)        | Stable versions between current and target: `3.0.129`, `3.0.130`, `3.0.131`, `3.0.132`. Latest overall `4.0.112` is a major and was ignored.                                    |
+| `@ai-sdk/groq`               | packages/nikcli                |  `2.0.37` |  `2.0.38` | patch |                          `3.0.35` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fgroq%402.0.38) / [npm](https://www.npmjs.com/package/@ai-sdk/groq)                           | Stable versions between current and target: `2.0.38`. Latest overall `3.0.35` is a major and was ignored.                                                                       |
+| `@ai-sdk/mistral`            | packages/nikcli                |  `2.0.30` |  `2.0.31` | patch |                          `3.0.30` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fmistral%402.0.31) / [npm](https://www.npmjs.com/package/@ai-sdk/mistral)                     | Stable versions between current and target: `2.0.31`. Latest overall `3.0.30` is a major and was ignored.                                                                       |
+| `@ai-sdk/openai`             | packages/nikcli                | `2.0.102` | `2.0.103` | patch |                          `3.0.53` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fopenai%402.0.103) / [npm](https://www.npmjs.com/package/@ai-sdk/openai)                      | Stable versions between current and target: `2.0.103`. Latest overall `3.0.53` is a major and was ignored.                                                                      |
+| `@ai-sdk/openai-compatible`  | packages/nikcli                |  `1.0.35` |  `1.0.36` | patch |                          `2.0.41` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fopenai-compatible%401.0.36) / [npm](https://www.npmjs.com/package/@ai-sdk/openai-compatible) | Stable versions between current and target: `1.0.36`. Latest overall `2.0.41` is a major and was ignored.                                                                       |
+| `@ai-sdk/perplexity`         | packages/nikcli                |  `2.0.27` |  `2.0.28` | patch |                          `3.0.29` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fperplexity%402.0.28) / [npm](https://www.npmjs.com/package/@ai-sdk/perplexity)               | Stable versions between current and target: `2.0.28`. Latest overall `3.0.29` is a major and was ignored.                                                                       |
+| `@ai-sdk/togetherai`         | packages/nikcli                |  `1.0.38` |  `1.0.39` | patch |                          `2.0.45` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Ftogetherai%401.0.39) / [npm](https://www.npmjs.com/package/@ai-sdk/togetherai)               | Stable versions between current and target: `1.0.39`. Latest overall `2.0.45` is a major and was ignored.                                                                       |
+| `@ai-sdk/vercel`             | packages/nikcli                |  `1.0.36` |  `1.0.37` | patch |                          `2.0.43` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fvercel%401.0.37) / [npm](https://www.npmjs.com/package/@ai-sdk/vercel)                       | Stable versions between current and target: `1.0.37`. Latest overall `2.0.43` is a major and was ignored.                                                                       |
+| `@ai-sdk/xai`                | packages/nikcli                |  `2.0.67` |  `2.0.68` | patch |                          `3.0.83` | 2026-04-17       | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fxai%402.0.68) / [npm](https://www.npmjs.com/package/@ai-sdk/xai)                             | Stable versions between current and target: `2.0.68`. Latest overall `3.0.83` is a major and was ignored.                                                                       |
+| `@gitlab/gitlab-ai-provider` | packages/nikcli                |   `3.1.3` |   `3.6.1` | minor |                           `4.1.0` | 2026-02-24       | [release](https://gitlab.com/vglafirov/gitlab-ai-provider/-/releases/v3.6.1) / [npm](https://www.npmjs.com/package/@gitlab/gitlab-ai-provider)               | Stable versions between current and target: `3.2.0`, `3.3.0`, `3.3.1`, `3.4.0`, `3.4.1`, `3.5.0`, `3.5.1`, `3.6.0`, `3.6.1`. Latest overall `4.1.0` is a major and was ignored. |
 
-| Package                       | Current | Available | Change |
-| ----------------------------- | ------- | --------- | ------ |
-| `ai` (catalog)                | 5.0.119 | 5.0.173   | PATCH  |
-| `@ai-sdk/openai`              | 2.0.89  | 2.0.102   | MINOR  |
-| `@ai-sdk/anthropic`           | 2.0.57  | 2.0.74    | MINOR  |
-| `@ai-sdk/google`              | 2.0.52  | 2.0.68    | MINOR  |
-| `@ai-sdk/google-vertex`       | 3.0.97  | 3.0.128   | MINOR  |
-| `@ai-sdk/amazon-bedrock`      | 3.0.73  | 3.0.93    | MINOR  |
-| `@ai-sdk/azure`               | 2.0.91  | 2.0.104   | MINOR  |
-| `@ai-sdk/groq`                | 2.0.34  | 2.0.37    | MINOR  |
-| `@ai-sdk/mistral`             | 2.0.27  | 2.0.30    | MINOR  |
-| `@ai-sdk/cohere`              | 2.0.22  | 2.0.25    | MINOR  |
-| `@ai-sdk/perplexity`          | 2.0.23  | 2.0.27    | MINOR  |
-| `@ai-sdk/deepinfra`           | 1.0.31  | 1.0.38    | MINOR  |
-| `@ai-sdk/cerebras`            | 1.0.34  | 1.0.40    | MINOR  |
-| `@ai-sdk/openai-compatible`   | 1.0.30  | 1.0.35    | MINOR  |
-| `@ai-sdk/gateway`             | 2.0.25  | 2.0.77    | MINOR  |
-| `@ai-sdk/togetherai`          | 1.0.31  | 1.0.38    | MINOR  |
-| `@ai-sdk/vercel`              | 1.0.31  | 1.0.36    | MINOR  |
-| `@ai-sdk/xai`                 | 2.0.51  | 2.0.67    | MINOR  |
-| `@ai-sdk/provider`            | 2.0.1   | 2.0.1     | SAME   |
-| `@ai-sdk/provider-utils`      | 3.0.20  | 3.0.23    | MINOR  |
-| `@openrouter/ai-sdk-provider` | 1.5.2   | 1.5.4     | PATCH  |
+## Already latest within current major
 
----
+| Package                       | Declared in     |  Current | Latest same major | Latest overall (ignored if major) | References                                                                                                                                             | Notes                                                                             |
+| ----------------------------- | --------------- | -------: | ----------------: | --------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `@ai-sdk/provider`            | packages/nikcli |  `2.0.1` |           `2.0.1` |                           `3.0.8` | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fprovider%402.0.1) / [npm](https://www.npmjs.com/package/@ai-sdk/provider)              | Already latest within current major. Newer major `3.0.8` exists but was ignored.  |
+| `@ai-sdk/provider-utils`      | packages/nikcli | `3.0.23` |          `3.0.23` |                          `4.0.23` | [release](https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Fprovider-utils%403.0.23) / [npm](https://www.npmjs.com/package/@ai-sdk/provider-utils) | Already latest within current major. Newer major `4.0.23` exists but was ignored. |
+| `@openrouter/ai-sdk-provider` | packages/nikcli |  `1.5.4` |           `1.5.4` |                           `2.8.0` | [releases](https://github.com/OpenRouterTeam/ai-sdk-provider/releases) / [npm](https://www.npmjs.com/package/@openrouter/ai-sdk-provider)              | Already latest within current major. Newer major `2.8.0` exists but was ignored.  |
 
-## Major Version Updates Available (NOT safe - require migration)
+## Notes
 
-> These packages have newer major versions. They require reviewing breaking changes before upgrading. **Excluded from safe updates.**
-
-| Package                       | Current | Latest Major | Jump  |
-| ----------------------------- | ------- | ------------ | ----- |
-| `@ai-sdk/provider`            | 2.0.1   | 3.0.8        | v2→v3 |
-| `@ai-sdk/provider-utils`      | 3.0.20  | 4.0.23       | v3→v4 |
-| `@ai-sdk/openai`              | 2.0.89  | 3.0.53       | v2→v3 |
-| `@ai-sdk/anthropic`           | 2.0.57  | 3.0.69       | v2→v3 |
-| `@ai-sdk/google`              | 2.0.52  | 3.0.63       | v2→v3 |
-| `@ai-sdk/google-vertex`       | 3.0.97  | 4.0.109      | v3→v4 |
-| `@ai-sdk/amazon-bedrock`      | 3.0.73  | 4.0.93       | v3→v4 |
-| `@ai-sdk/azure`               | 2.0.91  | 3.0.54       | v2→v3 |
-| `@ai-sdk/groq`                | 2.0.34  | 3.0.35       | v2→v3 |
-| `@ai-sdk/mistral`             | 2.0.27  | 3.0.30       | v2→v3 |
-| `@ai-sdk/cohere`              | 2.0.22  | 3.0.30       | v2→v3 |
-| `@ai-sdk/perplexity`          | 2.0.23  | 3.0.29       | v2→v3 |
-| `@ai-sdk/deepinfra`           | 1.0.31  | 2.0.45       | v1→v2 |
-| `@ai-sdk/cerebras`            | 1.0.34  | 2.0.45       | v1→v2 |
-| `@ai-sdk/openai-compatible`   | 1.0.30  | 2.0.41       | v1→v2 |
-| `@ai-sdk/gateway`             | 2.0.25  | 3.0.96       | v2→v3 |
-| `@ai-sdk/togetherai`          | 1.0.31  | 2.0.45       | v1→v2 |
-| `@ai-sdk/vercel`              | 1.0.31  | 2.0.43       | v1→v2 |
-| `@ai-sdk/xai`                 | 2.0.51  | 3.0.82       | v2→v3 |
-| `@openrouter/ai-sdk-provider` | 1.5.2   | 2.5.1        | v1→v2 |
-
----
-
-## Recommended Actions
-
-**Update catalog** in `package.json`:
-
-```json
-"ai": "5.0.173"
-```
-
-**Update packages/nikcli/package.json**:
-
-```json
-"@ai-sdk/openai": "2.0.102",
-"@ai-sdk/anthropic": "2.0.74",
-"@ai-sdk/google": "2.0.68",
-"@ai-sdk/google-vertex": "3.0.128",
-"@ai-sdk/amazon-bedrock": "3.0.93",
-"@ai-sdk/azure": "2.0.104",
-"@ai-sdk/groq": "2.0.37",
-"@ai-sdk/mistral": "2.0.30",
-"@ai-sdk/cohere": "2.0.25",
-"@ai-sdk/perplexity": "2.0.27",
-"@ai-sdk/deepinfra": "1.0.38",
-"@ai-sdk/cerebras": "1.0.40",
-"@ai-sdk/openai-compatible": "1.0.35",
-"@ai-sdk/gateway": "2.0.77",
-"@ai-sdk/togetherai": "1.0.38",
-"@ai-sdk/vercel": "1.0.36",
-"@ai-sdk/xai": "2.0.67",
-"@ai-sdk/provider-utils": "3.0.23",
-"@openrouter/ai-sdk-provider": "1.5.4"
-```
-
----
-
-## Reference Links
-
-- **GitHub:** https://github.com/vercel/ai
-- **Changelog:** https://github.com/vercel/ai/releases
-- **Documentation:** https://ai-sdk.dev/
-
-_Report generated by automated dependency analysis - minors/patch only_
+- `ai` is pinned in the root workspace catalog and consumed by `packages/nikcli` via `catalog:`.
+- All `@ai-sdk/*` links point to the official `vercel/ai` release tag for the target version.
+- `@openrouter/ai-sdk-provider` is already at the latest `1.x`; there is a newer `2.x` line, but it is out of scope for this audit.
+- `@gitlab/gitlab-ai-provider` has a same-major upgrade path to `3.6.1`; the public release notes currently resolve under `vglafirov/gitlab-ai-provider`.

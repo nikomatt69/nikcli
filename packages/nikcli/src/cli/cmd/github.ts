@@ -24,7 +24,7 @@ import { Provider } from "../../provider/provider"
 import { Bus } from "../../bus"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
-import { $ } from "bun"
+import { Git } from "@/git"
 
 type GitHubAuthor = {
   login: string
@@ -226,7 +226,7 @@ export const GithubInstallCommand = cmd({
             throw new UI.CancelledError()
           }
 
-          const info = (await $`git remote get-url origin`.quiet().nothrow().text()).trim()
+          const info = (await Git.run(["remote", "get-url", "origin"], { cwd: Instance.worktree })).text().trim()
           const parsed = parseGitHubRemote(info)
           if (!parsed) {
             prompts.log.error(`Could not find git repository. Please run this command from a git repository.`)

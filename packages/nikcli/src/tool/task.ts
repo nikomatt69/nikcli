@@ -12,6 +12,7 @@ import { defer } from "@/util/defer"
 import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
+import { Instance } from "../project/instance"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -264,6 +265,7 @@ async function launchBackgroundSubtask(params: {
     primaryTools: params.primaryTools,
   })
   const unsubProgress = subscribeDelegationProgress(params.session.id, delegation.id)
+  Instance.registerDisposer(unsubProgress)
 
   void SessionPrompt.prompt(promptInput)
     .then(async (result) => {
@@ -275,49 +277,87 @@ async function launchBackgroundSubtask(params: {
 
       await Delegation.finalize(delegation.id, status, summary.text, errMsg)
 
-      const wakeText = [
-        `Background task completed with status: **${status}**.`,
-        "",
-        `Agent: @${params.agent.name}`,
-        `Task: ${params.prompt}`,
-        `Delegation: ${delegation.id}`,
-        "",
-        "## Result",
-        summary.text || "(no output)",
-        ...(errMsg ? ["", "## Error", errMsg] : []),
-      ].join("\n")
+      await Delegation.waitForSettled(params.parentSessionID).catch(() => undefined)
+      const synthesisItems = await Delegation.collectResults(params.parentSessionID).catch(() => [])
+      const MAX_ITERATIONS = 3
+      let accumulatedResults: Delegation.SynthesisItem[] = synthesisItems
+      const sessionSummaries: string[] = []
+      let lastDelegatorSummary: Awaited<ReturnType<typeof summarizeSubtaskSession>> | null = null
 
-      void SessionPrompt.prompt({
-        messageID: Identifier.ascending("message"),
-        sessionID: delegatorSession.id,
-        model: params.model,
-        agent: "delegator",
-        tools: { todowrite: false, todoread: false, task: false },
-        parts: [{ type: "text" as const, text: wakeText }],
-      })
-        .then(async (r) => {
-          const s = await summarizeSubtaskSession(delegatorSession.id, r)
-          const delegatorErr = s.assistant?.error
-          const delegatorStatus = delegatorErr
-            ? MessageV2.AbortedError.isInstance(delegatorErr)
-              ? "cancelled"
-              : "error"
-            : "complete"
-          await Delegation.finalize(
-            delegatorDelegation.id,
-            delegatorStatus,
-            s.text,
-            delegatorErr ? extractErrorMessage(delegatorErr) : undefined,
-          )
+      for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+        const resultsText = accumulatedResults
+          .map((item) => {
+            const details = item.resultSummary ?? item.progressSummary ?? item.error ?? "(no output)"
+            return `- ${item.id} [${item.status}] @${item.agent}\n${details}`
+          })
+          .join("\n\n")
+
+        const isLastRound = iteration === MAX_ITERATIONS - 1
+
+        const wakeText = [
+          iteration === 0
+            ? `Background task completed with status: **${status}**.`
+            : `## Follow-up Round ${iteration + 1}`,
+          "",
+          `Agent: @${params.agent.name}`,
+          `Task: ${params.prompt}`,
+          "",
+          "## Accumulated Results",
+          resultsText || "- none",
+          "",
+          ...(sessionSummaries.length > 0
+            ? ["", "## Previous Synthesis", sessionSummaries[sessionSummaries.length - 1]]
+            : []),
+          "",
+          isLastRound
+            ? "**This is the final round. You must finalize.**"
+            : "**Analyze results and decide: finalize now or continue with follow-up work.**",
+          "",
+          "## Your Decision (required)",
+          "Respond with: **Action:** finalize | continue",
+          "**Reason:** <one sentence>",
+        ].join("\n")
+
+        const delegatorResult = await SessionPrompt.prompt({
+          messageID: Identifier.ascending("message"),
+          sessionID: delegatorSession.id,
+          model: params.model,
+          agent: "delegator",
+          tools: {
+            todowrite: false,
+            todoread: false,
+            task: !isLastRound,
+          },
+          parts: [{ type: "text" as const, text: wakeText }],
         })
-        .catch(async (error) => {
-          await Delegation.finalize(
-            delegatorDelegation.id,
-            "error",
-            "",
-            error instanceof Error ? error.message : String(error),
-          )
-        })
+
+        const delegatorSummary = await summarizeSubtaskSession(delegatorSession.id, delegatorResult)
+        lastDelegatorSummary = delegatorSummary
+        sessionSummaries.push(delegatorSummary.text)
+
+        const text = delegatorSummary.text ?? ""
+        const actionMatch = text.match(/\*\*Action\*\*[\s:]+(finalize|continue)/i)
+        const action = (actionMatch?.[1]?.toLowerCase() ?? "finalize") as "finalize" | "continue"
+
+        if (action === "finalize" || isLastRound) break
+
+        await Delegation.waitForSettled(params.parentSessionID).catch(() => undefined)
+        const newResults = await Delegation.collectResults(params.parentSessionID).catch(() => [])
+        const seen = new Set(accumulatedResults.map((r) => r.id))
+        for (const r of newResults) {
+          if (!seen.has(r.id)) accumulatedResults.push(r)
+        }
+      }
+
+      const finalSummary = sessionSummaries[sessionSummaries.length - 1] ?? ""
+      const finalErr = lastDelegatorSummary?.assistant?.error
+      const finalStatus = finalErr ? (MessageV2.AbortedError.isInstance(finalErr) ? "cancelled" : "error") : "complete"
+      await Delegation.finalize(
+        delegatorDelegation.id,
+        finalStatus,
+        finalSummary,
+        finalErr ? extractErrorMessage(finalErr) : undefined,
+      )
     })
     .catch(async (error) => {
       unsubProgress()

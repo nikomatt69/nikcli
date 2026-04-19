@@ -1,11 +1,11 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import { $ } from "bun"
 import path from "path"
 import z from "zod"
 import { Log } from "@/util/log"
 import { Instance } from "./instance"
 import { FileWatcher } from "@/file/watcher"
+import { Git } from "@/git"
 
 const log = Log.create({ service: "vcs" })
 
@@ -29,13 +29,7 @@ export namespace Vcs {
   export type Info = z.infer<typeof Info>
 
   async function currentBranch() {
-    return $`git rev-parse --abbrev-ref HEAD`
-      .quiet()
-      .nothrow()
-      .cwd(Instance.worktree)
-      .text()
-      .then((x) => x.trim())
-      .catch(() => undefined)
+    return Git.branch(Instance.worktree)
   }
 
   const state = Instance.state(

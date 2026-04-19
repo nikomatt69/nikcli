@@ -18,7 +18,7 @@ export namespace BackgroundRun {
 
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
-  export const Source = z.enum(["task", "model-subtask", "advisor", "delegator", "other"])
+  export const Source = z.enum(["task", "model-subtask", "advisor", "delegator", "delegator-followup", "other"])
   export type Source = z.infer<typeof Source>
 
   export const Record = z.object({

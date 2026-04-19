@@ -69,7 +69,23 @@ export namespace Tool {
               { cause: error },
             )
           }
-          const result = await execute(args, ctx)
+          const wrappedCtx: Context = {
+            ...ctx,
+            metadata(input) {
+              const metadata =
+                input.metadata && input.metadata.truncated !== undefined
+                  ? input.metadata
+                  : {
+                      ...(input.metadata ?? {}),
+                      truncated: false,
+                    }
+              ctx.metadata({
+                ...input,
+                metadata,
+              })
+            },
+          }
+          const result = await execute(args, wrappedCtx)
           if (result.metadata.truncated !== undefined) {
             return result
           }

@@ -11,6 +11,7 @@ interface Context {
   directory: string
   worktree: string
   project: Project.Info
+  disposers: Set<() => void | Promise<void>>
 }
 const context = Context.create<Context>("instance")
 const cache = new Map<string, Promise<Context>>()
@@ -62,6 +63,7 @@ export const Instance = {
           directory,
           worktree: sandbox,
           project,
+          disposers: new Set<() => void | Promise<void>>(),
         }
         await context.provide(ctx, async () => {
           await input.init?.()
@@ -111,19 +113,32 @@ export const Instance = {
   state<S>(init: () => S, dispose?: (state: Awaited<S>) => Promise<void>): () => S {
     return State.create(() => Instance.directory, init, dispose)
   },
+  registerDisposer(disposer: () => void | Promise<void>) {
+    context.use().disposers.add(disposer)
+  },
   async dispose() {
-    Log.Default.info("disposing instance", { directory: Instance.directory })
-    await State.dispose(Instance.directory)
-    cache.delete(Instance.directory)
-    GlobalBus.emit("event", {
-      directory: Instance.directory,
-      payload: {
-        type: "server.instance.disposed",
-        properties: {
-          directory: Instance.directory,
-        },
-      },
+    const ctx = context.use()
+    Log.Default.info("disposing instance", { directory: ctx.directory })
+
+    const { Bus } = await import("@/bus")
+    await Bus.publish(Bus.InstanceDisposed, { directory: ctx.directory }).catch((error) => {
+      Log.Default.warn("failed to publish instance disposal event", { directory: ctx.directory, error })
     })
+
+    const tasks = [
+      State.dispose(ctx.directory),
+      ...Array.from(ctx.disposers, (disposer) =>
+        Promise.resolve()
+          .then(() => disposer())
+          .catch((error) => {
+            Log.Default.warn("instance disposer failed", { directory: ctx.directory, error })
+          }),
+      ),
+    ]
+
+    await Promise.allSettled(tasks)
+    ctx.disposers.clear()
+    cache.delete(ctx.directory)
   },
   async disposeAll() {
     Log.Default.info("disposing all instances")

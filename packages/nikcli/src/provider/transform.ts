@@ -87,6 +87,21 @@ export namespace ProviderTransform {
       msgs = next
     }
 
+    if (model.api.npm === "@ai-sdk/anthropic" || model.api.npm === "@ai-sdk/google-vertex/anthropic") {
+      msgs = msgs.flatMap((msg) => {
+        if (msg.role !== "assistant" || !Array.isArray(msg.content)) return [msg]
+        const parts = msg.content
+        const firstToolCall = parts.findIndex((p) => p.type === "tool-call")
+        if (firstToolCall === -1) return [msg]
+        const tailHasNonTool = parts.slice(firstToolCall).some((p) => p.type !== "tool-call")
+        if (!tailHasNonTool) return [msg]
+        return [
+          { ...msg, content: parts.filter((p) => p.type !== "tool-call") } as ModelMessage,
+          { ...msg, content: parts.filter((p) => p.type === "tool-call") } as ModelMessage,
+        ]
+      })
+    }
+
     if (model.api.id.includes("claude")) {
       return msgs.map((msg) => {
         if ((msg.role === "assistant" || msg.role === "tool") && Array.isArray(msg.content)) {
