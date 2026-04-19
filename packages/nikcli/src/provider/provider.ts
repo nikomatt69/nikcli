@@ -258,18 +258,6 @@ export namespace Provider {
         options: {},
       }
     },
-    cursor: async () => {
-      return {
-        autoload: false,
-        async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
-          return sdk.chatModel(modelID)
-        },
-        options: {
-          baseURL: "http://127.0.0.1:32124/v1",
-          name: "cursor",
-        },
-      }
-    },
     azure: async () => {
       return {
         autoload: false,

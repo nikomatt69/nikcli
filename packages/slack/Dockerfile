@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.10-debian
+FROM oven/bun:1.3.12-debian
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates openssh-client \

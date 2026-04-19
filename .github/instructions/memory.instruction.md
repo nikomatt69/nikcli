@@ -7,13 +7,13 @@
 - **Repository**: https://github.com/nikomatt69/nikcli
 - **Default branch**: `dev`
 - **License**: MIT
-- **Package manager**: Bun 1.3.10 (ESM throughout)
+- **Package manager**: Bun 1.3.12 (ESM throughout)
 
 ## Technology Stack
 
 ### Core
 
-- **Bun** (v1.3.10) — runtime, package manager
+- **Bun** (v1.3.12) — runtime, package manager
 - **TypeScript** 5.8/5.9 — primary language (also `tsgo` for typecheck)
 - **Turborepo** 2.5.6 — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)

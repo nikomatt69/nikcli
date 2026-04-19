@@ -17,8 +17,6 @@ const CURSOR_PROXY_HOST = "127.0.0.1"
 const CURSOR_PROXY_PORT = 32124
 const CURSOR_PROXY_BASE_URL = `http://${CURSOR_PROXY_HOST}:${CURSOR_PROXY_PORT}/v1`
 const FORCE_TOOL_MODE = process.env.CURSOR_ACP_FORCE !== "false"
-const REUSE_EXISTING_PROXY = process.env.CURSOR_ACP_REUSE_EXISTING_PROXY !== "false"
-const PROXY_STATE_KEY = "__nikcli_cursor_proxy_server__"
 
 function getHomeDir() {
   const override = process.env.CURSOR_ACP_HOME_DIR
@@ -573,6 +571,16 @@ function formatSseDone(): string {
   return "data: [DONE]\n\n"
 }
 
+function formatSseStart(model: string, options?: { id?: string; created?: number }): string {
+  return `data: ${JSON.stringify({
+    id: options?.id ?? `cursor-acp-${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: options?.created ?? Math.floor(Date.now() / 1000),
+    model,
+    choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }],
+  })}\n\n`
+}
+
 function buildPromptFromMessages(messages: Array<any>, tools: Array<any>): string {
   const lines: string[] = []
 
@@ -641,205 +649,192 @@ function normalizeCursorModel(model: string | undefined): string {
   return cleaned || "auto"
 }
 
-async function ensureCursorProxyServer(workspaceDirectory: string): Promise<string> {
-  const g = globalThis as any
-  const state: { baseURL?: string; server?: any } = g[PROXY_STATE_KEY] ?? {}
-  g[PROXY_STATE_KEY] = state
-
-  if (state.baseURL && state.baseURL.length > 0) return state.baseURL
-
-  if (REUSE_EXISTING_PROXY) {
-    try {
-      const res = await fetch(`http://${CURSOR_PROXY_HOST}:${CURSOR_PROXY_PORT}/health`).catch(() => null)
-      if (res && res.ok) {
-        const payload: any = await res.json().catch(() => null)
-        if (payload?.ok === true) {
-          state.baseURL = CURSOR_PROXY_BASE_URL
-          return CURSOR_PROXY_BASE_URL
-        }
-      }
-    } catch {}
-  }
-
+async function handleCursorProxyRequest(req: Request, workspaceDirectory: string): Promise<Response> {
   const bunAny = globalThis as any
-  if (!bunAny.Bun?.serve || !bunAny.Bun?.spawn) {
+  if (!bunAny.Bun?.spawn) {
     throw new Error("Cursor proxy requires Bun runtime.")
   }
 
-  const handler = async (req: Request): Promise<Response> => {
-    try {
-      const url = new URL(req.url)
+  try {
+    const url = new URL(req.url)
 
-      if (url.pathname === "/health") {
-        return new Response(JSON.stringify({ ok: true, workspaceDirectory }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      }
+    if (url.pathname === "/health") {
+      return new Response(JSON.stringify({ ok: true, workspaceDirectory }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
-      if (url.pathname === "/v1/models" || url.pathname === "/models") {
-        const runner = resolveCursorAgentRunner()
-        const proc = bunAny.Bun.spawn({
-          cmd: [runner.command, ...runner.args, "models"],
-          stdout: "pipe",
-          stderr: "pipe",
-          env: runner.env,
-        })
-        const output = await new Response(proc.stdout).text()
-        await proc.exited
-        const models: Array<{ id: string; object: string; created: number; owned_by: string }> = []
-        for (const line of stripAnsi(output).split("\n")) {
-          const match = line.match(/^([a-z0-9.-]+)\s+-\s+(.+?)(?:\s+\((current|default)\))*\s*$/i)
-          if (match) {
-            models.push({
-              id: match[1],
-              object: "model",
-              created: Math.floor(Date.now() / 1000),
-              owned_by: "cursor",
-            })
-          }
-        }
-        return new Response(JSON.stringify({ object: "list", data: models }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      }
-
-      if (url.pathname !== "/v1/chat/completions" && url.pathname !== "/chat/completions") {
-        return new Response(JSON.stringify({ error: `Unsupported path: ${url.pathname}` }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        })
-      }
-
-      const body: any = await req.json().catch(() => ({}))
-      const messages: Array<any> = Array.isArray(body?.messages) ? body.messages : []
-      const stream = body?.stream === true
-      const tools = Array.isArray(body?.tools) ? body.tools : []
-      const prompt = buildPromptFromMessages(messages, tools)
-      const model = normalizeCursorModel(body?.model)
-
+    if (url.pathname === "/v1/models" || url.pathname === "/models") {
       const runner = resolveCursorAgentRunner()
-      const cmd = [
-        runner.command,
-        ...runner.args,
-        "--print",
-        "--output-format",
-        "stream-json",
-        "--stream-partial-output",
-        "--workspace",
-        workspaceDirectory,
-        "--model",
-        model,
-      ]
-      if (FORCE_TOOL_MODE) cmd.push("--force")
-
-      const child = bunAny.Bun.spawn({
-        cmd,
-        stdin: "pipe",
+      const proc = bunAny.Bun.spawn({
+        cmd: [runner.command, ...runner.args, "models"],
         stdout: "pipe",
         stderr: "pipe",
-        env: {
-          ...bunAny.Bun.env,
-          ...runner.env,
-        },
+        env: runner.env,
       })
-
-      child.stdin.write(prompt)
-      child.stdin.end()
-
-      if (!stream) {
-        const [stdoutText, stderrText] = await Promise.all([
-          new Response(child.stdout).text(),
-          new Response(child.stderr).text(),
-        ])
-        const stdout = (stdoutText || "").trim()
-        const stderr = (stderrText || "").trim()
-        const exitCode = await child.exited
-
-        let assistantText = ""
-        let reasoningText = ""
-        let sawPartials = false
-        for (const line of stdout.split("\n")) {
-          const event = parseStreamJsonLine(line)
-          if (!event) continue
-          if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
-            const text = extractText(event)
-            if (!text) continue
-            const isPartial = typeof event.timestamp_ms === "number"
-            if (isPartial) {
-              assistantText += text
-              sawPartials = true
-            } else if (!sawPartials) {
-              assistantText = text
-            }
-          }
-          if (event.type === "thinking" && typeof event.text === "string") reasoningText += event.text
-          if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
-            reasoningText += extractThinkingFromAssistant(event)
-          }
-        }
-
-        if (exitCode !== 0 && !assistantText) {
-          const errSource = stderr || stdout || `cursor-agent exited with code ${exitCode}`
-          return new Response(JSON.stringify({ error: stripAnsi(errSource) }), {
-            status: 500,
-            headers: { "Content-Type": "application/json" },
+      const output = await new Response(proc.stdout).text()
+      await proc.exited
+      const models: Array<{ id: string; object: string; created: number; owned_by: string }> = []
+      for (const line of stripAnsi(output).split("\n")) {
+        const match = line.match(/^([a-z0-9.-]+)\s+-\s+(.+?)(?:\s+\((current|default)\))*\s*$/i)
+        if (match) {
+          models.push({
+            id: match[1],
+            object: "model",
+            created: Math.floor(Date.now() / 1000),
+            owned_by: "cursor",
           })
         }
+      }
+      return new Response(JSON.stringify({ object: "list", data: models }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
-        const message: any = { role: "assistant", content: assistantText }
-        if (reasoningText) message.reasoning_content = reasoningText
+    if (url.pathname !== "/v1/chat/completions" && url.pathname !== "/chat/completions") {
+      return new Response(JSON.stringify({ error: `Unsupported path: ${url.pathname}` }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
 
-        return new Response(
-          JSON.stringify({
-            id: `cursor-acp-${Date.now()}`,
-            object: "chat.completion",
-            created: Math.floor(Date.now() / 1000),
-            model,
-            choices: [{ index: 0, message, finish_reason: "stop" }],
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } },
-        )
+    const body: any = await req.json().catch(() => ({}))
+    const messages: Array<any> = Array.isArray(body?.messages) ? body.messages : []
+    const stream = body?.stream === true
+    const tools = Array.isArray(body?.tools) ? body.tools : []
+    const prompt = buildPromptFromMessages(messages, tools)
+    const model = normalizeCursorModel(body?.model)
+
+    const runner = resolveCursorAgentRunner()
+    const cmd = [
+      runner.command,
+      ...runner.args,
+      "--print",
+      "--output-format",
+      "stream-json",
+      "--stream-partial-output",
+      "--workspace",
+      workspaceDirectory,
+      "--model",
+      model,
+    ]
+    if (FORCE_TOOL_MODE) cmd.push("--force")
+
+    const child = bunAny.Bun.spawn({
+      cmd,
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: {
+        ...bunAny.Bun.env,
+        ...runner.env,
+      },
+    })
+
+    child.stdin.write(prompt)
+    child.stdin.end()
+
+    if (!stream) {
+      const [stdoutText, stderrText] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+      ])
+      const stdout = (stdoutText || "").trim()
+      const stderr = (stderrText || "").trim()
+      const exitCode = await child.exited
+
+      let assistantText = ""
+      let reasoningText = ""
+      let sawPartials = false
+      for (const line of stdout.split("\n")) {
+        const event = parseStreamJsonLine(line)
+        if (!event) continue
+        if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "text")) {
+          const text = extractText(event)
+          if (!text) continue
+          const isPartial = typeof event.timestamp_ms === "number"
+          if (isPartial) {
+            assistantText += text
+            sawPartials = true
+          } else if (!sawPartials) {
+            assistantText = text
+          }
+        }
+        if (event.type === "thinking" && typeof event.text === "string") reasoningText += event.text
+        if (event.type === "assistant" && event.message?.content?.some((c) => c.type === "thinking")) {
+          reasoningText += extractThinkingFromAssistant(event)
+        }
       }
 
-      const id = `cursor-acp-${Date.now()}`
-      const created = Math.floor(Date.now() / 1000)
-      const converter = new StreamToSseConverter(model, { id, created })
-
-      let stderrBuffer = ""
-      const stderrDrain = (async () => {
-        try {
-          const reader = child.stderr.getReader()
-          const decoder = new TextDecoder()
-          while (true) {
-            const { value, done } = await reader.read()
-            if (done) break
-            if (value) stderrBuffer += decoder.decode(value, { stream: true })
-          }
-        } catch {}
-      })()
-
-      let streamClosed = false
-      let stoppedByProxy = false
-      const stopChild = () => {
-        stoppedByProxy = true
-        try {
-          child.kill()
-        } catch {}
+      if (exitCode !== 0 && !assistantText) {
+        const errSource = stderr || stdout || `cursor-agent exited with code ${exitCode}`
+        return new Response(JSON.stringify({ error: stripAnsi(errSource) }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        })
       }
-      const sse = new ReadableStream<Uint8Array>({
-        async start(controller) {
-          const encoder = new TextEncoder()
-          const lineBuffer = new LineBuffer()
-          const safeEnqueue = (data: Uint8Array) => {
-            if (streamClosed) return
-            try {
-              controller.enqueue(data)
-            } catch {
-              streamClosed = true
-            }
+
+      const message: any = { role: "assistant", content: assistantText }
+      if (reasoningText) message.reasoning_content = reasoningText
+
+      return new Response(
+        JSON.stringify({
+          id: `cursor-acp-${Date.now()}`,
+          object: "chat.completion",
+          created: Math.floor(Date.now() / 1000),
+          model,
+          choices: [{ index: 0, message, finish_reason: "stop" }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )
+    }
+
+    const id = `cursor-acp-${Date.now()}`
+    const created = Math.floor(Date.now() / 1000)
+    const converter = new StreamToSseConverter(model, { id, created })
+
+    let stderrBuffer = ""
+    const stderrDrain = (async () => {
+      try {
+        const reader = child.stderr.getReader()
+        const decoder = new TextDecoder()
+        while (true) {
+          const { value, done } = await reader.read()
+          if (done) break
+          if (value) stderrBuffer += decoder.decode(value, { stream: true })
+        }
+      } catch {}
+    })()
+
+    let streamClosed = false
+    let stoppedByProxy = false
+    const stopChild = () => {
+      stoppedByProxy = true
+      try {
+        child.kill()
+      } catch {}
+    }
+    const abortListener = () => stopChild()
+    req.signal.addEventListener("abort", abortListener, { once: true })
+
+    const sse = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder()
+        const lineBuffer = new LineBuffer()
+        const safeEnqueue = (data: Uint8Array) => {
+          if (streamClosed) return
+          try {
+            controller.enqueue(data)
+          } catch {
+            streamClosed = true
           }
+        }
+
+        safeEnqueue(encoder.encode(formatSseStart(model, { id, created })))
+
+        void (async () => {
           try {
             const reader = child.stdout.getReader()
             while (true) {
@@ -916,6 +911,7 @@ async function ensureCursorProxyServer(workspaceDirectory: string): Promise<stri
             safeEnqueue(encoder.encode(formatSseDone()))
           } finally {
             streamClosed = true
+            req.signal.removeEventListener("abort", abortListener)
             try {
               controller.close()
             } catch {}
@@ -923,47 +919,28 @@ async function ensureCursorProxyServer(workspaceDirectory: string): Promise<stri
               if (!stoppedByProxy) child.kill()
             } catch {}
           }
-        },
-        cancel() {
-          streamClosed = true
-          stopChild()
-        },
-      })
-
-      return new Response(sse, {
-        status: 200,
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          Connection: "keep-alive",
-        },
-      })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      return new Response(JSON.stringify({ error: message }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
-  }
-
-  try {
-    state.server = bunAny.Bun.serve({
-      port: CURSOR_PROXY_PORT,
-      hostname: CURSOR_PROXY_HOST,
-      idleTimeout: 0,
-      fetch: handler,
+        })()
+      },
+      cancel() {
+        streamClosed = true
+        stopChild()
+      },
     })
-    state.baseURL = CURSOR_PROXY_BASE_URL
-    log.info("cursor proxy server started", { port: CURSOR_PROXY_PORT })
-    return CURSOR_PROXY_BASE_URL
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    if (msg.includes("EADDRINUSE") || msg.includes("in use")) {
-      state.baseURL = CURSOR_PROXY_BASE_URL
-      return CURSOR_PROXY_BASE_URL
-    }
-    throw err
+
+    return new Response(sse, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 }
 
@@ -1177,10 +1154,6 @@ export async function CursorAuthPlugin(input: PluginInput): Promise<Hooks> {
     (typeof input.directory === "string" ? input.directory : undefined) ||
     process.cwd()
 
-  void ensureCursorProxyServer(workspaceDirectory).catch((err) => {
-    log.warn("failed to start cursor proxy", { error: err instanceof Error ? err.message : String(err) })
-  })
-
   return {
     auth: {
       provider: "cursor",
@@ -1193,11 +1166,9 @@ export async function CursorAuthPlugin(input: PluginInput): Promise<Hooks> {
           model.cost = { input: 0, output: 0, cache: { read: 0, write: 0 } }
         }
 
-        const baseURL = await ensureCursorProxyServer(workspaceDirectory)
-
         return {
           apiKey: auth.type === "api" ? auth.key : OAUTH_DUMMY_KEY,
-          baseURL,
+          baseURL: CURSOR_PROXY_BASE_URL,
           async fetch(requestInput: RequestInfo | URL, init?: RequestInit) {
             const currentAuth = await getAuth()
             if (currentAuth?.type === "oauth" && (!currentAuth.access || currentAuth.expires < Date.now() - 30_000)) {
@@ -1208,7 +1179,7 @@ export async function CursorAuthPlugin(input: PluginInput): Promise<Hooks> {
               }
             }
 
-            return fetch(requestInput, init)
+            return handleCursorProxyRequest(new Request(requestInput, init), workspaceDirectory)
           },
         }
       },
