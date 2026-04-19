@@ -123,6 +123,12 @@ export interface Hooks {
         [key: string]: ToolDefinition;
     };
     auth?: AuthHook;
+    provider?: {
+        id: string;
+        models(provider: import("@nikcli-ai/sdk/v2").Provider, ctx: {
+            auth?: import("@nikcli-ai/sdk/v2").Auth;
+        }): Promise<Record<string, import("@nikcli-ai/sdk/v2").Model>>;
+    };
     /**
      * Called when a new message is received
      */

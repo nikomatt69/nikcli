@@ -16,7 +16,7 @@ import { Log } from "../util/log"
 import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
-import { CopilotAuthPlugin } from "./copilot"
+import { CopilotAuthPlugin } from "./github-copilot/copilot"
 import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
@@ -676,7 +676,7 @@ export namespace Plugin {
   })
 
   export async function trigger<
-    Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool">,
+    Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
     Input = Parameters<Required<Hooks>[Name]>[0],
     Output = Parameters<Required<Hooks>[Name]>[1],
   >(name: Name, input: Input, output: Output): Promise<Output> {

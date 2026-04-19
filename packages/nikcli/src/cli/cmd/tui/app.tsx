@@ -1,5 +1,6 @@
 import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Clipboard } from "@tui/util/clipboard"
+import * as Sound from "@tui/util/sound"
 import { RouteProvider, useRoute } from "@tui/context/route"
 import {
   Switch,
@@ -20,6 +21,7 @@ import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
+import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider, useServer } from "@tui/context/server"
 import { SyncProvider, useSync } from "@tui/context/sync"
 import { LocalProvider, useLocal } from "@tui/context/local"
@@ -37,6 +39,7 @@ import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
 import { DialogSkills } from "@tui/component/dialog-skills"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
+import { DialogVariant } from "@tui/component/dialog-variant"
 import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
@@ -143,6 +146,7 @@ export function tui(input: {
   // promise to prevent immediate exit
   return new Promise<void>(async (resolve) => {
     const mode = await getTerminalBackgroundColor()
+    const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
     const onExit = async () => {
       await input.onExit?.()
       resolve()
@@ -166,27 +170,29 @@ export function tui(input: {
                           fetch={input.fetch}
                           events={input.events}
                         >
-                          <SyncProvider>
-                            <ThemeProvider mode={mode}>
-                              <LocalProvider>
-                                <KeybindProvider>
-                                  <PromptStashProvider>
-                                    <DialogProvider>
-                                      <CommandProvider>
-                                        <FrecencyProvider>
-                                          <PromptHistoryProvider>
-                                            <PromptRefProvider>
-                                              <App />
-                                            </PromptRefProvider>
-                                          </PromptHistoryProvider>
-                                        </FrecencyProvider>
-                                      </CommandProvider>
-                                    </DialogProvider>
-                                  </PromptStashProvider>
-                                </KeybindProvider>
-                              </LocalProvider>
-                            </ThemeProvider>
-                          </SyncProvider>
+                          <ProjectProvider>
+                            <SyncProvider>
+                              <ThemeProvider mode={mode}>
+                                <LocalProvider>
+                                  <KeybindProvider>
+                                    <PromptStashProvider>
+                                      <DialogProvider>
+                                        <CommandProvider>
+                                          <FrecencyProvider>
+                                            <PromptHistoryProvider>
+                                              <PromptRefProvider>
+                                                <App />
+                                              </PromptRefProvider>
+                                            </PromptHistoryProvider>
+                                          </FrecencyProvider>
+                                        </CommandProvider>
+                                      </DialogProvider>
+                                    </PromptStashProvider>
+                                  </KeybindProvider>
+                                </LocalProvider>
+                              </ThemeProvider>
+                            </SyncProvider>
+                          </ProjectProvider>
                         </SDKProvider>
                       </RouteProvider>
                     </ToastProvider>
@@ -202,6 +208,7 @@ export function tui(input: {
         gatherStats: false,
         exitOnCtrlC: false,
         useKittyKeyboard: {},
+        useMouse: tuiCfg.mouse ?? true,
         consoleOptions: {
           keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
           onCopySelection: (text) => {
@@ -563,6 +570,14 @@ function App() {
       hidden: true,
       onSelect: () => {
         local.model.variant.cycle()
+      },
+    },
+    {
+      title: "Select variant",
+      value: "variant.select",
+      category: "Agent",
+      onSelect: () => {
+        dialog.replace(() => <DialogVariant />)
       },
     },
     {
@@ -966,9 +981,22 @@ function App() {
           duration: 10000,
         })
       }),
+      sdk.event.on("permission.asked", () => {
+        const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
+        if (!tuiCfg?.sound) return
+        Sound.pulse(1.3)
+      }),
+      sdk.event.on("session.idle", () => {
+        const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
+        if (!tuiCfg?.sound) return
+        Sound.pulse(0.8)
+      }),
     ]
 
-    onCleanup(() => unsubs.forEach((fn) => fn()))
+    onCleanup(() => {
+      unsubs.forEach((fn) => fn())
+      Sound.dispose()
+    })
   })
 
   return (

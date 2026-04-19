@@ -995,6 +995,12 @@ export namespace Config {
       .enum(["auto", "stacked"])
       .optional()
       .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
+    mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
+    sound: z.boolean().optional().describe("Enable or disable ambient sound feedback (default: false)"),
+    bg_pulse: z
+      .boolean()
+      .optional()
+      .describe("Enable animated background pulse behind the home logo (default: false)"),
   })
 
   export const AdsItem = z

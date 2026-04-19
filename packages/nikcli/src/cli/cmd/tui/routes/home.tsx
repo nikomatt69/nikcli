@@ -1,8 +1,9 @@
 import { Prompt, type PromptRef } from "@tui/component/prompt"
-import { createEffect, createMemo, Match, onMount, Show, Switch } from "solid-js"
+import { createEffect, createMemo, createSignal, Match, onMount, Show, Switch } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { useKeybind } from "@tui/context/keybind"
 import { Logo } from "../component/logo"
+import { BgPulse, type BgPulseMask } from "../component/bg-pulse"
 import { Tips } from "../component/tips"
 import { Locale } from "@/util/locale"
 import { useSync } from "../context/sync"
@@ -14,6 +15,7 @@ import { usePromptRef } from "../context/prompt"
 import { Installation } from "@/installation"
 import { useKV } from "../context/kv"
 import { useCommandDialog } from "../component/dialog-command"
+import type { BoxRenderable } from "@opentui/core"
 export function Home() {
   const sync = useSync()
   const kv = useKV()
@@ -85,12 +87,31 @@ export function Home() {
 
   const keybind = useKeybind()
 
+  const pulseEnabled = createMemo(() => {
+    const tuiCfg = sync.data.config?.tui as { bg_pulse?: boolean } | undefined
+    return Boolean(tuiCfg?.bg_pulse)
+  })
+  const [logoMask, setLogoMask] = createSignal<BgPulseMask | undefined>()
+  const bindLogoBox = (box: BoxRenderable | undefined) => {
+    if (!box) return
+    const update = () => {
+      setLogoMask({ x: box.x, y: box.y, width: box.width, height: box.height, pad: 2, strength: 0.85 })
+    }
+    update()
+    box.on("resize", update)
+  }
+
   return (
     <>
+      <Show when={pulseEnabled()}>
+        <box position="absolute" top={0} left={0} right={0} bottom={0} zIndex={-1}>
+          <BgPulse masks={logoMask() ? [logoMask()!] : []} />
+        </box>
+      </Show>
       <box flexGrow={1} alignItems="center" paddingLeft={2} paddingRight={2}>
         <box flexGrow={1} minHeight={0} />
         <box height={4} minHeight={0} flexShrink={1} />
-        <box flexShrink={0}>
+        <box flexShrink={0} ref={bindLogoBox}>
           <Logo />
         </box>
         <box height={1} minHeight={0} flexShrink={1} />

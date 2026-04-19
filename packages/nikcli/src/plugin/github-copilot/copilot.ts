@@ -1,8 +1,15 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
-import { Installation } from "@/installation"
-import { iife } from "@/util/iife"
+import type { Model } from "@nikcli-ai/sdk/v2"
+import { Installation } from "../../installation"
+import { iife } from "../../util/iife"
+import { Log } from "../../util/log"
+import { CopilotModels } from "./models"
+
+const log = Log.create({ service: "plugin.copilot" })
 
 const CLIENT_ID = "Ov23li8tweQw6odWQebz"
+// Add a small safety buffer when polling to avoid hitting the server
+// right on the interval boundary (some servers will then return slow_down).
 const OAUTH_POLLING_SAFETY_MARGIN_MS = 3000
 
 function normalizeDomain(url: string) {
@@ -16,31 +23,49 @@ function getUrls(domain: string) {
   }
 }
 
-export async function CopilotAuthPlugin(input: PluginInput): Promise<Hooks> {
+function base(enterpriseUrl?: string) {
+  return enterpriseUrl ? `https://copilot-api.${normalizeDomain(enterpriseUrl)}` : "https://api.githubcopilot.com"
+}
+
+function fix(model: Model): Model {
   return {
+    ...model,
+    api: {
+      ...model.api,
+      npm: "@ai-sdk/github-copilot",
+    },
+  }
+}
+
+export async function CopilotAuthPlugin(_input: PluginInput): Promise<Hooks> {
+  return {
+    provider: {
+      id: "github-copilot",
+      async models(provider, ctx) {
+        if (ctx.auth?.type !== "oauth") {
+          return Object.fromEntries(Object.entries(provider.models).map(([id, model]) => [id, fix(model)]))
+        }
+
+        return CopilotModels.get(
+          base(ctx.auth.enterpriseUrl),
+          {
+            Authorization: `Bearer ${ctx.auth.refresh}`,
+            "User-Agent": `nikcli/${Installation.VERSION}`,
+          },
+          provider.models,
+        ).catch((error) => {
+          log.error("failed to fetch copilot models", { error })
+          return Object.fromEntries(Object.entries(provider.models).map(([id, model]) => [id, fix(model)]))
+        })
+      },
+    },
     auth: {
       provider: "github-copilot",
-      async loader(getAuth, provider) {
+      async loader(getAuth) {
         const info = await getAuth()
         if (!info || info.type !== "oauth") return {}
 
-        if (provider && provider.models) {
-          for (const model of Object.values(provider.models)) {
-            model.cost = {
-              input: 0,
-              output: 0,
-              cache: {
-                read: 0,
-                write: 0,
-              },
-            }
-          }
-        }
-
-        const enterpriseUrl = info.enterpriseUrl
-        const baseURL = enterpriseUrl
-          ? `https://copilot-api.${normalizeDomain(enterpriseUrl)}`
-          : "https://api.githubcopilot.com"
+        const baseURL = base(info.enterpriseUrl)
 
         return {
           baseURL,

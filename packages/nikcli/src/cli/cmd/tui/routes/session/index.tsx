@@ -80,6 +80,7 @@ import { useServer } from "../../context/server"
 import { Editor } from "../../util/editor"
 import stripAnsi from "strip-ansi"
 import { Footer } from "./footer.tsx"
+import { SubagentFooter } from "./subagent-footer.tsx"
 import { usePromptRef } from "../../context/prompt"
 import { useExit } from "../../context/exit"
 import { Filesystem } from "@/util/filesystem"
@@ -1356,6 +1357,9 @@ export function Session() {
               </Show>
               <Show when={permissions().length === 0 && questions().length > 0}>
                 <QuestionPrompt request={questions()[0]} />
+              </Show>
+              <Show when={session()?.parentID && permissions().length === 0 && questions().length === 0}>
+                <SubagentFooter />
               </Show>
               <Prompt
                 visible={!session()?.parentID && permissions().length === 0 && questions().length === 0}

@@ -24,7 +24,7 @@ import { createVertexAnthropic } from "@ai-sdk/google-vertex/anthropic"
 import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible"
 import { createOpenRouter, type LanguageModelV2 } from "@openrouter/ai-sdk-provider"
-import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/openai-compatible/src"
+import { createOpenaiCompatible as createGitHubCopilotOpenAICompatible } from "./sdk/copilot"
 import { createXai } from "@ai-sdk/xai"
 import { createMistral } from "@ai-sdk/mistral"
 import { createGroq } from "@ai-sdk/groq"
@@ -1025,6 +1025,29 @@ export namespace Provider {
       if (provider.name) partial.name = provider.name
       if (provider.options) partial.options = provider.options
       mergeProvider(providerID, partial)
+    }
+
+    for (const hook of await Plugin.list()) {
+      const p = hook.provider
+      if (!p?.models) continue
+      if (disabled.has(p.id)) continue
+      const provider = providers[p.id]
+      if (!provider) continue
+      const pluginAuth = await Auth.get(p.id)
+      provider.models = await p
+        .models(provider, { auth: pluginAuth ?? undefined })
+        .then((next) =>
+          Object.fromEntries(
+            Object.entries(next).map(([id, model]) => [
+              id,
+              { ...model, id, providerID: p.id },
+            ]),
+          ),
+        )
+        .catch((e) => {
+          log.warn("plugin provider.models failed", { id: p.id, error: e })
+          return provider.models
+        })
     }
 
     for (const [providerID, provider] of Object.entries(providers)) {
