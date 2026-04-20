@@ -2,10 +2,14 @@ import path from "path"
 import { Global } from "../global"
 import fs from "fs/promises"
 import z from "zod"
+import { Lock } from "../util/lock"
+import { Log } from "../util/log"
 
 export const OAUTH_DUMMY_KEY = "nikcli-oauth-dummy-key"
 
 export namespace Auth {
+  const log = Log.create({ service: "auth" })
+
   const SAFE_CURL_FLAGS = new Set([
     "-f",
     "-s",
@@ -241,6 +245,132 @@ export namespace Auth {
       await fs.rename(tmp, filepath)
     } finally {
       await fs.unlink(tmp).catch(() => {})
+    }
+  }
+
+  /**
+   * Refresh an OAuth token using the refresh token.
+   * Returns the updated auth info.
+   * Only works for providers with type "oauth".
+   */
+  export async function refresh(providerID: string): Promise<z.infer<typeof Oauth>> {
+    const normalized = normalizeKey(providerID)
+    const current = await get(normalized)
+
+    if (!current) {
+      throw new Error(`No auth found for provider: ${providerID}`)
+    }
+
+    if (current.type !== "oauth") {
+      throw new Error(`Provider ${providerID} is not an OAuth provider`)
+    }
+
+    const oauth = current as z.infer<typeof Oauth>
+
+    // Build refresh request
+    const tokenUrl = oauth.enterpriseUrl
+      ? `${oauth.enterpriseUrl}/oauth/token`
+      : "https://nikcli.mintlify.app/oauth/token"
+
+    log.info("refreshing token", { providerID })
+
+    const response = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: oauth.refresh,
+        client_id: "nikcli",
+      }).toString(),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error")
+      log.error("token refresh failed", { providerID, status: response.status, error: errorText })
+      throw new Error(`Token refresh failed: ${response.status} ${errorText}`)
+    }
+
+    const result = (await response.json()) as {
+      access_token: string
+      refresh_token?: string
+      expires_in: number
+    }
+
+    const updated: z.infer<typeof Oauth> = {
+      type: "oauth",
+      access: result.access_token,
+      refresh: result.refresh_token ?? oauth.refresh,
+      expires: Date.now() + result.expires_in * 1000,
+      accountId: oauth.accountId,
+      enterpriseUrl: oauth.enterpriseUrl,
+    }
+
+    // Persist the updated auth
+    await set(normalized, updated)
+
+    log.info("token refreshed", { providerID, expiresAt: new Date(updated.expires).toISOString() })
+
+    return updated
+  }
+
+  /**
+   * Token refresh threshold: refresh if token expires within this many milliseconds
+   */
+  const REFRESH_THRESHOLD_MS = 60_000 // 60 seconds
+
+  /**
+   * Get a valid auth token, refreshing if necessary.
+   * Uses Lock.write to serialize concurrent refresh attempts.
+   * Returns the auth info with a valid (non-expired) access token.
+   */
+  export async function getValid(providerID: string): Promise<Info | undefined> {
+    const normalized = normalizeKey(providerID)
+    const current = await get(normalized)
+
+    if (!current) {
+      return undefined
+    }
+
+    // Non-OAuth providers are always valid
+    if (current.type !== "oauth") {
+      return current
+    }
+
+    const oauth = current as z.infer<typeof Oauth>
+
+    // Check if token is still valid (with threshold)
+    const now = Date.now()
+    if (oauth.expires > now + REFRESH_THRESHOLD_MS) {
+      return oauth
+    }
+
+    // Token is expired or about to expire — refresh under lock
+    const lockKey = `auth-refresh:${normalized}`
+    using _ = await Lock.write(lockKey)
+
+    // Re-check after acquiring lock (another caller may have refreshed)
+    const recheck = await get(normalized)
+    if (!recheck || recheck.type !== "oauth") {
+      return recheck
+    }
+
+    const recheckOauth = recheck as z.infer<typeof Oauth>
+    if (recheckOauth.expires > now + REFRESH_THRESHOLD_MS) {
+      return recheckOauth
+    }
+
+    // Still expired — perform refresh
+    try {
+      return await refresh(normalized)
+    } catch (error) {
+      log.warn("token refresh failed, returning current token", {
+        providerID: normalized,
+        error,
+      })
+      // Return current token even if refresh failed — let the API call fail naturally
+      return recheckOauth
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
+import path from "path"
 import { File } from "../../file"
 import { Ripgrep } from "../../file/ripgrep"
 import { LSP } from "../../lsp"
@@ -138,8 +139,19 @@ export const FileRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        const path = c.req.valid("query").path
-        const content = await File.list(path)
+        const requestedPath = c.req.valid("query").path
+        // Resolve to absolute path and validate it's within project directory
+        const absolutePath = path.isAbsolute(requestedPath)
+          ? requestedPath
+          : path.join(Instance.directory, requestedPath)
+        const normalizedPath = path.normalize(absolutePath)
+
+        // Ensure path doesn't traverse outside project directory
+        if (!normalizedPath.startsWith(Instance.directory)) {
+          return c.json({ error: "Path outside project directory" }, 403)
+        }
+
+        const content = await File.list(normalizedPath)
         return c.json(content)
       },
     )

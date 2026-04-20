@@ -51,4 +51,8 @@ export namespace PackageRegistry {
 
     return semver.lt(cachedVersion, latestVersion)
   }
+
+  export async function latest(pkg: string, cwd?: string): Promise<string | null> {
+    return info(pkg, "version", cwd)
+  }
 }

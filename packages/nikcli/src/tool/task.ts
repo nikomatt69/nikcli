@@ -375,6 +375,9 @@ async function launchBackgroundSubtask(params: {
 
 export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetadata>) {
   const config = await Config.get()
+  // SECURITY: bypassAgentCheck should only be true when set by internal system code
+  // (e.g., when processing SubtaskPart from model). It should NEVER be derived from
+  // user-controllable data like message parts. See session/prompt.ts for proper usage.
   const bypass = Boolean(ctx.extra?.bypassAgentCheck)
 
   if (!bypass) {

@@ -95,10 +95,12 @@ export type OutputFormat = OutputFormatText | OutputFormatJsonSchema
 
 export type FileDiff = {
   file: string
-  before: string
-  after: string
+  patch: string
   additions: number
   deletions: number
+  status?: "added" | "deleted" | "modified"
+  before: string
+  after: string
 }
 
 export type UserMessage = {
@@ -1672,6 +1674,7 @@ export type PermissionConfig =
       rag_status?: PermissionRuleConfig
       rag_reset?: PermissionRuleConfig
       generate_image?: PermissionRuleConfig
+      computer_use?: PermissionRuleConfig
       external_directory?: PermissionRuleConfig
       todowrite?: PermissionActionConfig
       todoread?: PermissionActionConfig
@@ -2035,6 +2038,25 @@ export type ImageConfig = {
 }
 
 /**
+ * Computer-use tool configuration
+ */
+export type ComputerConfig = {
+  enabled?: boolean
+  display?: {
+    width?: number
+    height?: number
+    number?: number
+  }
+  forbidden_regions?: Array<{
+    x: number
+    y: number
+    w: number
+    h: number
+  }>
+  rate_limit_hz?: number
+}
+
+/**
  * Text-to-speech configuration
  */
 export type SpeakConfig = {
@@ -2088,6 +2110,18 @@ export type Config = {
      * Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column
      */
     diff_style?: "auto" | "stacked"
+    /**
+     * Enable or disable mouse capture (default: true)
+     */
+    mouse?: boolean
+    /**
+     * Enable or disable ambient sound feedback (default: false)
+     */
+    sound?: boolean
+    /**
+     * Enable animated background pulse behind the home logo (default: false)
+     */
+    bg_pulse?: boolean
   }
   ads?: AdsConfig
   server?: ServerConfig
@@ -2321,6 +2355,7 @@ export type Config = {
   }
   rag?: RagConfig
   image?: ImageConfig
+  computer?: ComputerConfig
   speak?: SpeakConfig
   /**
    * Notification settings for various events
@@ -3696,6 +3731,31 @@ export type WorktreeCreateResponses = {
 }
 
 export type WorktreeCreateResponse = WorktreeCreateResponses[keyof WorktreeCreateResponses]
+
+export type ExperimentalWorkspaceAdaptorListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/adaptor"
+}
+
+export type ExperimentalWorkspaceAdaptorListResponses = {
+  /**
+   * Available adaptors
+   */
+  200: Array<{
+    type: string
+    name: string
+    description: string
+    available?: boolean
+  }>
+}
+
+export type ExperimentalWorkspaceAdaptorListResponse =
+  ExperimentalWorkspaceAdaptorListResponses[keyof ExperimentalWorkspaceAdaptorListResponses]
 
 export type ExperimentalWorkspaceRemoveData = {
   body?: never

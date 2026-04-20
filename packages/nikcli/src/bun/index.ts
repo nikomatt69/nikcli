@@ -116,4 +116,75 @@ export namespace BunProc {
     await Bun.write(pkgjson.name!, JSON.stringify(parsed, null, 2))
     return mod
   }
+
+  const illegalWin32Chars = process.platform === "win32" ? new Set(["<", ">", ":", '"', "|", "?", "*"]) : undefined
+
+  export function sanitize(pkg: string): string {
+    if (!illegalWin32Chars) return pkg
+    return Array.from(pkg, (char) =>
+      illegalWin32Chars.has(char) || char.charCodeAt(0) < 32 ? "_" : char,
+    ).join("")
+  }
+
+  export interface EntryPoint {
+    directory: string
+    entrypoint: string | undefined
+  }
+
+  export function resolveEntryPoint(name: string, dir: string): EntryPoint {
+    const directory = path.join(dir, "node_modules", ...name.split("/"))
+    let entrypoint: string | undefined
+    try {
+      const resolved = req.resolve(name, { paths: [dir] })
+      if (typeof resolved === "string") entrypoint = resolved
+    } catch {
+      // Fallback: read package.json
+      try {
+        const pkgPath = path.join(directory, "package.json")
+        const raw = req(pkgPath)
+        if (typeof raw?.main === "string") entrypoint = path.join(directory, raw.main)
+        else if (raw?.exports?.["."]?.import) entrypoint = path.join(directory, raw.exports["."].import)
+        else if (raw?.exports?.["."]?.require) entrypoint = path.join(directory, raw.exports["."].require)
+      } catch {
+        // leave undefined
+      }
+    }
+    return { directory, entrypoint }
+  }
+
+  export async function add(pkg: string, version: string = "latest"): Promise<EntryPoint & { version: string }> {
+    const directory = await install(pkg, version)
+    let resolvedVersion = version
+    if (version === "latest") {
+      try {
+        const installedPkg = await Bun.file(path.join(directory, "package.json")).json()
+        if (installedPkg?.version) resolvedVersion = installedPkg.version
+      } catch {
+        // keep "latest"
+      }
+    }
+    const entry = resolveEntryPoint(pkg, Global.Path.cache)
+    return { directory: entry.directory, entrypoint: entry.entrypoint, version: resolvedVersion }
+  }
+
+  export async function outdated(pkg: string, cachedVersion: string, cwd?: string): Promise<boolean> {
+    const { PackageRegistry } = await import("./registry")
+    return PackageRegistry.isOutdated(pkg, cachedVersion, cwd)
+  }
+
+  export function pathFor(pkg: string, dir: string = Global.Path.cache): EntryPoint {
+    return resolveEntryPoint(pkg, dir)
+  }
+}
+
+// Opencode-style Npm/Pkg namespace barrel — maps directly onto BunProc so consumers
+// that expect the opencode `Npm.*` surface find an equivalent Bun-backed API.
+export namespace Pkg {
+  export const add = BunProc.add
+  export const install = BunProc.install
+  export const outdated = BunProc.outdated
+  export const which = BunProc.pathFor
+  export const sanitize = BunProc.sanitize
+  export const InstallFailedError = BunProc.InstallFailedError
+  export type EntryPoint = BunProc.EntryPoint
 }

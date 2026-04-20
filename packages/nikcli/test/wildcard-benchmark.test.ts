@@ -22,7 +22,15 @@ function matchOld(str: string, pattern: string): boolean {
 const regexCache = new Map<string, RegExp>()
 
 function getRegexNew(pattern: string): RegExp {
-  const escaped = pattern
+  let regex = regexCache.get(pattern)
+  if (regex) return regex
+
+  if (regexCache.size >= CACHE_MAX_SIZE) {
+    const firstKey = regexCache.keys().next().value
+    if (firstKey) regexCache.delete(firstKey)
+  }
+
+  let escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*/g, ".*")
     .replace(/\?/g, ".")
@@ -32,16 +40,8 @@ function getRegexNew(pattern: string): RegExp {
     escapedWithOptional = escaped.slice(0, -3) + "( .*)?"
   }
 
-  let regex = regexCache.get(escapedWithOptional)
-  if (!regex) {
-    if (regexCache.size >= CACHE_MAX_SIZE) {
-      const firstKey = regexCache.keys().next().value
-      if (firstKey) regexCache.delete(firstKey)
-    }
-    regex = new RegExp("^" + escapedWithOptional + "$", "s")
-    regexCache.set(escapedWithOptional, regex)
-  }
-
+  regex = new RegExp("^" + escapedWithOptional + "$", "s")
+  regexCache.set(pattern, regex)
   return regex
 }
 

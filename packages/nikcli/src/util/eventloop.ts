@@ -1,4 +1,7 @@
 import { Log } from "./log"
+import type z from "zod"
+import type { BusEvent } from "../bus/bus-event"
+import { Bus } from "../bus"
 
 export namespace EventLoop {
   export async function wait() {
@@ -15,6 +18,45 @@ export namespace EventLoop {
         }
       }
       check()
+    })
+  }
+
+  export async function waitEvent<D extends BusEvent.Definition>(options: {
+    event: D
+    timeoutMs: number
+    predicate?: (properties: z.infer<D["properties"]>) => boolean
+    signal?: AbortSignal
+  }): Promise<z.infer<D["properties"]>> {
+    const { event, timeoutMs, predicate, signal } = options
+    if (signal?.aborted) {
+      throw signal.reason ?? new Error("Request aborted")
+    }
+    return new Promise<z.infer<D["properties"]>>((resolve, reject) => {
+      let cleanup = () => {}
+      const onAbort = () => {
+        cleanup()
+        reject(signal?.reason ?? new Error("Request aborted"))
+      }
+      const timer = setTimeout(() => {
+        cleanup()
+        reject(new Error(`Timed out waiting for event "${event.type}"`))
+      }, timeoutMs)
+      const unsubscribe = Bus.subscribe(event, (ev) => {
+        try {
+          if (predicate && !predicate(ev.properties)) return
+          cleanup()
+          resolve(ev.properties)
+        } catch (err) {
+          cleanup()
+          reject(err)
+        }
+      })
+      cleanup = () => {
+        clearTimeout(timer)
+        unsubscribe()
+        signal?.removeEventListener("abort", onAbort)
+      }
+      signal?.addEventListener("abort", onAbort, { once: true })
     })
   }
 }

@@ -718,9 +718,20 @@ export const CompanionRoutes = lazy(() => {
   app.get("/", (c) => {
     const host = c.req.query("host")
     if (host) {
+      // Validate and sanitize host to prevent XSS
+      // Only allow valid hostname characters, no quotes or special chars
+      const sanitizedHost = host
+        .replace(/^https?:\/\//, "") // Remove protocol
+        .replace(/[^\w.-]/g, "_") // Replace invalid chars with underscore
+        .substring(0, 253) // Max hostname length
+
+      // Validate it's a reasonable hostname
+      if (!/^[a-zA-Z0-9][\w.-]*$/.test(sanitizedHost)) {
+        return c.html(HTML)
+      }
+
       const protocol = host.startsWith("https") ? "https" : "http"
-      const hostPart = host.replace(/^https?:\/\//, "")
-      return c.html(HTML.replace("const API_BASE = '';", `const API_BASE = '${protocol}://${hostPart}';`))
+      return c.html(HTML.replace("const API_BASE = '';", `const API_BASE = '${protocol}://${sanitizedHost}';`))
     }
     return c.html(HTML)
   })

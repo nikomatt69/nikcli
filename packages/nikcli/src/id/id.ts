@@ -14,6 +14,9 @@ export namespace Identifier {
     dbedit: "dbe",
     workspace: "wrk",
     sync: "syn",
+    event: "evt",
+    account: "acc",
+    org: "org",
   } as const
 
   export function schema(prefix: keyof typeof prefixes) {

@@ -3,6 +3,9 @@ import type { Path, Workspace } from "@nikcli-ai/sdk/v2"
 import { createStore, reconcile } from "solid-js/store"
 import { createSimpleContext } from "./helper"
 import { useSDK } from "./sdk"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "project-context" })
 
 export type WorkspaceStatus = "connected" | "connecting" | "disconnected" | "error"
 
@@ -34,14 +37,20 @@ export const { use: useProject, provider: ProjectProvider } = createSimpleContex
     })
 
     async function sync() {
-      const pathResult = await sdk.client.path.get().catch(() => undefined)
+      const pathResult = await sdk.client.path.get().catch((err) => {
+        log.warn("path sync failed", { error: err })
+        return undefined
+      })
       batch(() => {
         setStore("instance", "path", reconcile(pathResult?.data || defaultPath))
       })
     }
 
     async function syncWorkspace() {
-      const listed = await sdk.client.experimental.workspace.list().catch(() => undefined)
+      const listed = await sdk.client.experimental.workspace.list().catch((err) => {
+        log.warn("workspace list sync failed", { error: err })
+        return undefined
+      })
       const list = listed?.data ?? []
       setStore("workspace", "list", reconcile(list))
     }

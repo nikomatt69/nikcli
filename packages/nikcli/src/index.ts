@@ -1,4 +1,3 @@
-
 import yargs from "yargs"
 import { hideBin } from "yargs/helpers"
 import { RunCommand } from "./cli/cmd/run"
@@ -39,6 +38,7 @@ import { LovableCommand } from "./cli/cmd/lovable"
 import { CompanionCommand } from "./cli/cmd/companion"
 import { MobileCommand } from "./cli/cmd/mobile"
 import { PluginCommand } from "./cli/cmd/plug"
+import { AccountCommand } from "./cli/cmd/account"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -102,6 +102,7 @@ const cli = yargs(hideBin(process.argv))
   .command(GenerateCommand)
   .command(DebugCommand)
   .command(AuthCommand)
+  .command(AccountCommand)
   .command(AgentCommand)
   .command(UpgradeCommand)
   .command(UninstallCommand)

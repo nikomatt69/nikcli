@@ -6,8 +6,39 @@ import { lazy } from "../../util/lazy"
 import { Workspace } from "../../workspace"
 import { errors } from "../error"
 
+const AdaptorInfo = z.object({
+  type: z.string(),
+  name: z.string(),
+  description: z.string(),
+  available: z.boolean().optional(),
+})
+
 export const WorkspaceRoutes = lazy(() =>
   new Hono()
+    .get(
+      "/adaptor",
+      describeRoute({
+        summary: "List workspace adaptors",
+        description: "Get available workspace adaptor types for creating workspaces.",
+        operationId: "experimental.workspace.adaptor.list",
+        responses: {
+          200: {
+            description: "Available adaptors",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(AdaptorInfo)),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json([
+          { type: "worktree", name: "Worktree", description: "Create a local git worktree", available: true },
+          { type: "container", name: "Container", description: "Docker/Podman container", available: true },
+        ])
+      },
+    )
     .post(
       "/:id",
       describeRoute({

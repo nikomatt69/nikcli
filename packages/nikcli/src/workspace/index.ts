@@ -1,4 +1,5 @@
 import z from "zod"
+import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Identifier } from "@/id/id"
@@ -7,15 +8,18 @@ import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
 import { SessionStatus } from "@/session/status"
-import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor } from "./adaptors"
 import { Config } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
+import { WorkspaceDB } from "./db"
 
 export namespace Workspace {
+  export const ConnectionStatus = z.enum(["connecting", "connected", "disconnected", "error"])
+  export type ConnectionStatus = z.infer<typeof ConnectionStatus>
+
   export const Event = {
     Ready: BusEvent.define(
       "workspace.ready",
@@ -27,6 +31,13 @@ export namespace Workspace {
       "workspace.failed",
       z.object({
         message: z.string(),
+      }),
+    ),
+    Status: BusEvent.define(
+      "workspace.status",
+      z.object({
+        workspaceID: Identifier.schema("workspace"),
+        status: ConnectionStatus,
       }),
     ),
   }
@@ -43,7 +54,16 @@ export namespace Workspace {
     })
   export type Info = z.infer<typeof Info>
 
-  function fromStorage(row: Partial<Info>): Info {
+  export const Restore = z
+    .object({
+      workspaceID: Identifier.schema("workspace"),
+      sessions: z.array(z.string()).default([]),
+      events: z.array(z.unknown()).default([]),
+    })
+    .meta({ ref: "Workspace.Restore" })
+  export type Restore = z.infer<typeof Restore>
+
+  function fromRow(row: WorkspaceDB.Info): Info {
     return Info.parse({
       ...row,
       branch: row.branch ?? null,
@@ -51,6 +71,18 @@ export namespace Workspace {
   }
 
   const syncControllers = new Map<string, AbortController>()
+  const connectionStatuses = new Map<string, ConnectionStatus>()
+
+  export function status(workspaceID: string): ConnectionStatus {
+    return connectionStatuses.get(workspaceID) ?? "connected"
+  }
+
+  function setStatus(workspaceID: string, next: ConnectionStatus) {
+    const prev = connectionStatuses.get(workspaceID)
+    if (prev === next) return
+    connectionStatuses.set(workspaceID, next)
+    void Bus.publish(Event.Status, { workspaceID, status: next }).catch(() => undefined)
+  }
 
   function syncDirectory(space: Info) {
     if (space.config.type === "worktree") return
@@ -130,7 +162,8 @@ export namespace Workspace {
       }
 
       await init()
-      await Storage.write(["workspace", info.projectID, info.id], info)
+      await WorkspaceDB.migrateFromStorage()
+      WorkspaceDB.upsert(info)
       startSpaceSync(info)
 
       GlobalBus.emit("event", {
@@ -146,22 +179,14 @@ export namespace Workspace {
   )
 
   export async function list(project: Project.Info) {
-    const rows = await Storage.list(["workspace", project.id])
-    const result = await Promise.all(rows.map((row) => Storage.read<Info>(row).catch(() => undefined)))
-    return result
-      .filter((row): row is Info => !!row)
-      .map(fromStorage)
-      .sort((a, b) => a.id.localeCompare(b.id))
+    await WorkspaceDB.migrateFromStorage()
+    return WorkspaceDB.list(project.id).map(fromRow)
   }
 
   export const get = fn(Identifier.schema("workspace"), async (id) => {
-    const rows = await Storage.list(["workspace"])
-    for (const row of rows) {
-      const result = await Storage.read<Info>(row).catch(() => undefined)
-      if (!result || result.id !== id) continue
-      return fromStorage(result)
-    }
-    return undefined
+    await WorkspaceDB.migrateFromStorage()
+    const row = WorkspaceDB.get(id)
+    return row ? fromRow(row) : undefined
   })
 
   export const sandbox = fn(Identifier.schema("workspace"), async (id) => {
@@ -184,7 +209,8 @@ export namespace Workspace {
     if (info) {
       stopSpaceSync(id)
       await getAdaptor(info.config).remove(info.config)
-      await Storage.remove(["workspace", info.projectID, id])
+      WorkspaceDB.remove(id)
+      connectionStatuses.delete(id)
       return info
     }
   })
@@ -196,32 +222,45 @@ export namespace Workspace {
     if (!target || target.type === "local") return
 
     const baseURL = String(target.url).replace(/\/?$/, "/")
+    const BACKOFF_BASE_MS = 1000
+    const BACKOFF_CAP_MS = 30_000
+    let backoff = BACKOFF_BASE_MS
 
-    while (!stop.aborted) {
-      const res = await fetch(new URL(baseURL + "event"), {
-        method: "GET",
-        headers: target.headers,
-        signal: stop,
-      }).catch(() => undefined)
-      if (!res || !res.ok || !res.body) {
-        await Bun.sleep(1000)
-        continue
-      }
-      await parseSSE(res.body, stop, (event) => {
-        const payload = event as { type?: string; properties?: any }
-        void mirrorWorkspaceEvent(space, payload).catch((error) => {
-          log.warn("workspace event mirror failed", {
-            workspaceID: space.id,
-            error,
-            type: payload?.type,
+    try {
+      while (!stop.aborted) {
+        setStatus(space.id, "connecting")
+        const res = await fetch(new URL(baseURL + "event"), {
+          method: "GET",
+          headers: target.headers,
+          signal: stop,
+        }).catch(() => undefined)
+        if (!res || !res.ok || !res.body) {
+          setStatus(space.id, "error")
+          await Bun.sleep(backoff)
+          backoff = Math.min(backoff * 2, BACKOFF_CAP_MS)
+          continue
+        }
+        backoff = BACKOFF_BASE_MS
+        setStatus(space.id, "connected")
+        await parseSSE(res.body, stop, (event) => {
+          const payload = event as { type?: string; properties?: any }
+          void mirrorWorkspaceEvent(space, payload).catch((error) => {
+            log.warn("workspace event mirror failed", {
+              workspaceID: space.id,
+              error,
+              type: payload?.type,
+            })
+          })
+          GlobalBus.emit("event", {
+            directory: space.id,
+            payload,
           })
         })
-        GlobalBus.emit("event", {
-          directory: space.id,
-          payload,
-        })
-      })
-      await Bun.sleep(250)
+        if (!stop.aborted) setStatus(space.id, "disconnected")
+        await Bun.sleep(250)
+      }
+    } finally {
+      setStatus(space.id, "disconnected")
     }
   }
 
@@ -244,4 +283,35 @@ export namespace Workspace {
       stopSpaceSync(id)
     }
   }
+
+  /**
+   * Ensures the workspace's event sync loop is running and resolves once the
+   * workspace reports `connected` (or rejects on timeout / abort).
+   * For local workspaces the promise resolves immediately.
+   */
+  export const restore = fn(
+    z.object({
+      workspaceID: Identifier.schema("workspace"),
+      timeoutMs: z.number().int().positive().default(30_000),
+      signal: z.any().optional(),
+    }),
+    async ({ workspaceID, timeoutMs, signal }) => {
+      const info = await get(workspaceID)
+      if (!info) throw new Error(`Workspace not found: ${workspaceID}`)
+      if (info.config.type === "worktree") {
+        setStatus(workspaceID, "connected")
+        return info
+      }
+      startSpaceSync(info)
+      if (status(workspaceID) === "connected") return info
+      const { EventLoop } = await import("@/util/eventloop")
+      await EventLoop.waitEvent({
+        event: Event.Status,
+        timeoutMs,
+        signal: signal as AbortSignal | undefined,
+        predicate: (p) => p.workspaceID === workspaceID && p.status === "connected",
+      })
+      return info
+    },
+  )
 }

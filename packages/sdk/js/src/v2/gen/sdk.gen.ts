@@ -35,6 +35,7 @@ import type {
   EventTuiSessionSelect,
   EventTuiToastShow,
   ExperimentalResourceListResponses,
+  ExperimentalWorkspaceAdaptorListResponses,
   ExperimentalWorkspaceCreateErrors,
   ExperimentalWorkspaceCreateResponses,
   ExperimentalWorkspaceListResponses,
@@ -999,6 +1000,38 @@ export class Worktree extends HeyApiClient {
   }
 }
 
+export class Adaptor extends HeyApiClient {
+  /**
+   * List workspace adaptors
+   *
+   * Get available workspace adaptor types for creating workspaces.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ExperimentalWorkspaceAdaptorListResponses, unknown, ThrowOnError>({
+      url: "/experimental/workspace/adaptor",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Workspace extends HeyApiClient {
   /**
    * Remove workspace
@@ -1122,6 +1155,11 @@ export class Workspace extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _adaptor?: Adaptor
+  get adaptor(): Adaptor {
+    return (this._adaptor ??= new Adaptor({ client: this.client }))
   }
 }
 

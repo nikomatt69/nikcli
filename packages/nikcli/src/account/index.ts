@@ -1,0 +1,366 @@
+import { AccountRepo } from "./repo"
+import { normalizeServerUrl } from "./url"
+import { Lock } from "@/util/lock"
+import { Log } from "@/util/log"
+import type {
+  AccountID,
+  DeviceCode,
+  DeviceCodeRequest,
+  DeviceCodeResponse,
+  Info,
+  Org,
+  OrgID,
+  PollResult,
+  RefreshToken,
+  UserCode,
+} from "./schema"
+
+export namespace Account {
+  const log = Log.create({ service: "account" })
+
+  // ============================================================================
+  // Configuration
+  // ============================================================================
+
+  const DEFAULT_ACCOUNT_URL = process.env.NIKCLI_ACCOUNT_URL ?? "https://auth.nikcli.mintlify.app"
+
+  // ============================================================================
+  // Device code flow
+  // ============================================================================
+
+  /**
+   * Device code request options
+   */
+  export interface LoginOptions {
+    email?: string
+    serverUrl?: string
+  }
+
+  /**
+   * Device code flow response (first step)
+   */
+  export interface LoginStartResult {
+    deviceCode: DeviceCode
+    userCode: UserCode
+    verificationUrl: string
+    interval: number
+    expiresIn: number
+  }
+
+  /**
+   * Start the device code login flow.
+   * Returns the device code info needed for polling.
+   */
+  export async function login(options: LoginOptions = {}): Promise<LoginStartResult> {
+    const serverUrl = normalizeServerUrl(options.serverUrl ?? DEFAULT_ACCOUNT_URL)
+    log.info("starting device code login", { serverUrl })
+
+    const request: DeviceCodeRequest = {
+      client_id: "nikcli",
+      scope: "openid profile email offline_access",
+    }
+
+    const response = await fetch(`${serverUrl}oauth/device/code`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(request),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error")
+      throw new Error(`Failed to start device code flow: ${response.status} ${errorText}`)
+    }
+
+    const data = (await response.json()) as DeviceCodeResponse
+    log.info("device code received", { userCode: data.user_code })
+
+    return {
+      deviceCode: data.device_code,
+      userCode: data.user_code,
+      verificationUrl: data.verification_url,
+      interval: data.interval,
+      expiresIn: data.expires_in,
+    }
+  }
+
+  /**
+   * Poll for token completion of the device code flow.
+   * Returns when the user has authenticated or throws on failure.
+   */
+  export async function poll(
+    deviceCode: DeviceCode,
+    options: { serverUrl?: string; onPending?: () => void } = {},
+  ): Promise<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }> {
+    const serverUrl = normalizeServerUrl(options.serverUrl ?? DEFAULT_ACCOUNT_URL)
+    const startTime = Date.now()
+
+    log.info("polling for device code completion", { serverUrl })
+
+    while (true) {
+      const response = await fetch(`${serverUrl}oauth/device/token`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          client_id: "nikcli",
+          device_code: deviceCode,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error")
+        throw new Error(`Failed to poll device code: ${response.status} ${errorText}`)
+      }
+
+      const result = (await response.json()) as PollResult
+
+      switch (result.status) {
+        case "pending": {
+          options.onPending?.()
+          await Bun.sleep((result.interval ?? 5) * 1000)
+          break
+        }
+
+        case "slow_down": {
+          // Increase poll interval as requested by server
+          await Bun.sleep(result.interval * 1000)
+          break
+        }
+
+        case "expired": {
+          throw new Error("Device code has expired. Please try logging in again.")
+        }
+
+        case "denied": {
+          throw new Error("Login was denied. Please try again.")
+        }
+
+        case "success": {
+          // Generate account ID from the response
+          const accountID = `acc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` as AccountID
+
+          log.info("device code flow completed", { accountID })
+
+          // Persist the account
+          AccountRepo.persistAccount(
+            accountID,
+            "", // email will be fetched later
+            serverUrl,
+            result.access_token,
+            result.refresh_token,
+            result.expires_in,
+          )
+
+          return {
+            accountID,
+            accessToken: result.access_token,
+            refreshToken: result.refresh_token,
+            expiresIn: result.expires_in,
+          }
+        }
+      }
+
+      // Safety: timeout after 10 minutes
+      if (Date.now() - startTime > 600_000) {
+        throw new Error("Login timed out. Please try again.")
+      }
+    }
+  }
+
+  /**
+   * Full login flow: start + poll.
+   * Convenience function that handles the entire device code flow.
+   */
+  export async function loginFull(
+    options: LoginOptions & { onPending?: (userCode: UserCode) => void } = {},
+  ): Promise<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }> {
+    const start = await login(options)
+    options.onPending?.(start.userCode)
+
+    return poll(start.deviceCode, {
+      serverUrl: options.serverUrl,
+      onPending: () => options.onPending?.(start.userCode),
+    })
+  }
+
+  // ============================================================================
+  // Token management
+  // ============================================================================
+
+  /**
+   * Token cache for in-memory access token
+   */
+  const tokenCache = new Map<string, { accessToken: string; expiresAt: number }>()
+
+  /**
+   * Get a valid access token for an account.
+   * Automatically refreshes if expired (within threshold).
+   * Uses Lock.write to serialize concurrent refresh attempts.
+   */
+  export async function token(accountID: AccountID): Promise<string> {
+    // Check in-memory cache first
+    const cached = tokenCache.get(accountID)
+    if (cached && cached.expiresAt > Date.now() + 60_000) {
+      return cached.accessToken
+    }
+
+    // Get account from DB
+    const account = AccountRepo.getRow(accountID)
+    if (!account) {
+      throw new Error(`Account not found: ${accountID}`)
+    }
+
+    // Check if token is still valid
+    if (account.token_expiry > Date.now() + 60_000) {
+      const accessToken = account.access_token
+      tokenCache.set(accountID, { accessToken, expiresAt: account.token_expiry })
+      return accessToken
+    }
+
+    // Token expired or about to expire — refresh under lock
+    const lockKey = `account-refresh:${accountID}`
+    using _ = await Lock.write(lockKey)
+
+    // Re-check after acquiring lock
+    const recheck = AccountRepo.getRow(accountID)
+    if (!recheck) {
+      throw new Error(`Account not found: ${accountID}`)
+    }
+
+    if (recheck.token_expiry > Date.now() + 60_000) {
+      return recheck.access_token
+    }
+
+    // Refresh the token
+    log.info("refreshing account token", { accountID })
+
+    const serverUrl = normalizeServerUrl(recheck.url)
+    const response = await fetch(`${serverUrl}oauth/token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: recheck.refresh_token,
+        client_id: "nikcli",
+      }).toString(),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error")
+      throw new Error(`Token refresh failed: ${response.status} ${errorText}`)
+    }
+
+    const result = (await response.json()) as {
+      access_token: string
+      refresh_token?: string
+      expires_in: number
+    }
+
+    // Persist updated tokens
+    AccountRepo.persistToken(
+      accountID,
+      result.access_token,
+      result.refresh_token ?? recheck.refresh_token,
+      result.expires_in,
+    )
+
+    // Update cache
+    const expiresAt = Date.now() + result.expires_in * 1000
+    tokenCache.set(accountID, { accessToken: result.access_token, expiresAt })
+
+    return result.access_token
+  }
+
+  // ============================================================================
+  // Organizations
+  // ============================================================================
+
+  /**
+   * List organizations for an account
+   */
+  export async function orgs(accountID: AccountID): Promise<Org[]> {
+    const accessToken = await token(accountID)
+    const account = AccountRepo.getRow(accountID)
+    if (!account) {
+      throw new Error(`Account not found: ${accountID}`)
+    }
+
+    const serverUrl = normalizeServerUrl(account.url)
+
+    const response = await fetch(`${serverUrl}api/user/orgs`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error")
+      throw new Error(`Failed to fetch orgs: ${response.status} ${errorText}`)
+    }
+
+    const data = (await response.json()) as { orgs: Org[] }
+    return data.orgs
+  }
+
+  // ============================================================================
+  // Account management
+  // ============================================================================
+
+  /**
+   * Get the active account info
+   */
+  export function active(): Info | undefined {
+    return AccountRepo.active()
+  }
+
+  /**
+   * Get account info by ID
+   */
+  export function get(accountID: AccountID): Info | undefined {
+    return AccountRepo.get(accountID)
+  }
+
+  /**
+   * List all accounts
+   */
+  export function list(): Info[] {
+    return AccountRepo.list()
+  }
+
+  /**
+   * Switch to a different account and optionally org
+   */
+  export function use(accountID: AccountID | null, orgID?: OrgID | null): void {
+    AccountRepo.use(accountID, orgID)
+    // Clear token cache for the old account
+    if (accountID) {
+      tokenCache.delete(accountID)
+    }
+  }
+
+  /**
+   * Remove an account
+   */
+  export function remove(accountID: AccountID): boolean {
+    tokenCache.delete(accountID)
+    return AccountRepo.remove(accountID)
+  }
+
+  /**
+   * Get the current server URL
+   */
+  export function config(): { serverUrl: string } {
+    return {
+      serverUrl: DEFAULT_ACCOUNT_URL,
+    }
+  }
+}

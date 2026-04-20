@@ -122,6 +122,7 @@
     "hono": "catalog:",
     "hono-openapi": "catalog:",
     "ignore": "7.0.5",
+    "immer": "11.1.4",
     "jsonc-parser": "3.3.1",
     "minimatch": "10.0.3",
     "mysql2": "3.16.1",

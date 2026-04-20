@@ -260,7 +260,24 @@ const ContainerAdaptor: Adaptor<ContainerConfig> = {
   },
 }
 
+const adaptorRegistry = new Map<string, Adaptor<any>>()
+
+export function registerAdaptor<T extends Config>(type: T["type"], adaptor: Adaptor<T>) {
+  adaptorRegistry.set(type, adaptor as Adaptor<any>)
+}
+
+export function listAdaptors(): Array<{ type: string; adaptor: Adaptor<any> }> {
+  const builtin: Array<{ type: string; adaptor: Adaptor<any> }> = [
+    { type: "worktree", adaptor: WorktreeAdaptor as Adaptor<any> },
+    { type: "container", adaptor: ContainerAdaptor as Adaptor<any> },
+  ]
+  const registered = Array.from(adaptorRegistry.entries()).map(([type, adaptor]) => ({ type, adaptor }))
+  return [...builtin, ...registered]
+}
+
 export function getAdaptor(config: Config): Adaptor {
+  const custom = adaptorRegistry.get(config.type)
+  if (custom) return custom as Adaptor
   switch (config.type) {
     case "worktree":
       return WorktreeAdaptor
