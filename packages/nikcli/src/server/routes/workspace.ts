@@ -1,6 +1,7 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import z from "zod"
+import { Identifier } from "../../id/id"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
 import { Workspace } from "../../workspace"
@@ -80,6 +81,90 @@ export const WorkspaceRoutes = lazy(() =>
           config: body.config,
         })
         return c.json(workspace)
+      },
+    )
+    .post(
+      "/:id/restore",
+      describeRoute({
+        summary: "Restore workspace",
+        description: "Ensure a workspace is connected and return enough state to restore the client UI.",
+        operationId: "experimental.workspace.restore",
+        responses: {
+          200: {
+            description: "Workspace restored",
+            content: {
+              "application/json": {
+                schema: resolver(Workspace.Restore),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          id: Workspace.Info.shape.id,
+        }),
+      ),
+      validator(
+        "query",
+        z.object({
+          timeoutMs: z.coerce.number().int().positive().optional(),
+        }),
+      ),
+      async (c) => {
+        const { id } = c.req.valid("param")
+        const query = c.req.valid("query")
+        return c.json(
+          await Workspace.restore({
+            workspaceID: id,
+            timeoutMs: query.timeoutMs ?? 30_000,
+          }),
+        )
+      },
+    )
+    .post(
+      "/:id/session/:sessionID/restore",
+      describeRoute({
+        summary: "Restore session into workspace",
+        description: "Attach an existing session to a workspace and return restore state for the client.",
+        operationId: "experimental.workspace.session.restore",
+        responses: {
+          200: {
+            description: "Session restored",
+            content: {
+              "application/json": {
+                schema: resolver(Workspace.SessionRestore),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          id: Workspace.Info.shape.id,
+          sessionID: Identifier.schema("session"),
+        }),
+      ),
+      validator(
+        "query",
+        z.object({
+          timeoutMs: z.coerce.number().int().positive().optional(),
+        }),
+      ),
+      async (c) => {
+        const { id, sessionID } = c.req.valid("param")
+        const query = c.req.valid("query")
+        return c.json(
+          await Workspace.sessionRestore({
+            workspaceID: id,
+            sessionID,
+            timeoutMs: query.timeoutMs ?? 30_000,
+          }),
+        )
       },
     )
     .get(

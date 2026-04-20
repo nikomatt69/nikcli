@@ -6,6 +6,37 @@ import { spawn, type ChildProcess } from "child_process"
 const SIGKILL_TIMEOUT_MS = 200
 
 export namespace Shell {
+  const POWERSHELL_MARKERS: RegExp[] = [
+    /\$\w+\s*=/,
+    /\$env:/i,
+    /\$(?:\w+|{[^}]+})/,
+    /\b(Get|Set|New|Copy|Move|Rename|Remove|Test|Select|Where|ForEach|Sort)-[A-Za-z]+\b/i,
+    /\b(ForEach-Object|Where-Object|ForEach|Where)\b/i,
+    /\b(ErrorAction|WhatIf|Confirm|Verbose|InformationAction)\b/i,
+  ]
+
+  function parseCommand(command: string) {
+    return command.replace(/\s+/g, " ").trim()
+  }
+
+  function hasPowerShellMarkers(command: string) {
+    if (process.platform !== "win32") return false
+    const value = parseCommand(command)
+    return POWERSHELL_MARKERS.some((marker) => marker.test(value))
+  }
+
+  function selectBinary(candidates: string[]) {
+    for (const candidate of candidates) {
+      const bin = Bun.which(candidate)
+      if (bin) return bin
+    }
+  }
+
+  function powershellBinary() {
+    const configured = process.env["NIKCLI_POWERSHELL_PATH"]
+    return selectBinary([configured, "pwsh", "powershell"].filter(Boolean) as string[])
+  }
+
   export async function killTree(proc: ChildProcess, opts?: { exited?: () => boolean }): Promise<void> {
     const pid = proc.pid
     if (!pid || opts?.exited?.()) return
@@ -49,6 +80,14 @@ export namespace Shell {
     const bash = Bun.which("bash")
     if (bash) return bash
     return "/bin/sh"
+  }
+
+  export function select(command?: string) {
+    if (command && hasPowerShellMarkers(command)) {
+      const binary = powershellBinary()
+      if (binary) return binary
+    }
+    return acceptable()
   }
 
   export const preferred = lazy(() => {

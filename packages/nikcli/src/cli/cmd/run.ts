@@ -30,6 +30,7 @@ const TOOL: Record<string, [string, string]> = {
 }
 
 const SHARE_ID = /^[0-9a-z]{26}$/i
+type RunPermissionMode = "prompt" | "reject" | "allow-once"
 
 function shareErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
@@ -44,6 +45,24 @@ function shareErrorMessage(error: unknown) {
 function invalidSessionReference() {
   UI.error("Invalid --session value. Use a `ses_...` session ID or a share URL/ID.")
   process.exit(1)
+}
+
+function defaultPermissionMode(): RunPermissionMode {
+  return process.stdin.isTTY && process.stdout.isTTY ? "prompt" : "reject"
+}
+
+function sessionTitle(raw: unknown, message: string) {
+  if (raw === undefined) return undefined
+  if (raw === "") return message.slice(0, 50) + (message.length > 50 ? "..." : "")
+  return String(raw)
+}
+
+function attachHeaders(password?: string) {
+  const value = password ?? Flag.NIKCLI_SERVER_PASSWORD
+  if (!value) return undefined
+  const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
+  const auth = `Basic ${Buffer.from(`${username}:${value}`).toString("base64")}`
+  return { Authorization: auth }
 }
 
 function resolveEnterpriseOrigin(hostname: string) {
@@ -211,6 +230,72 @@ async function importShareReference(input: string) {
   return normalized.info.id as string
 }
 
+async function resolveRunSessionID(input: {
+  sdk: NikcliClient
+  attach?: boolean
+  continue?: boolean
+  session?: string
+  fork?: boolean
+  title?: unknown
+  message: string
+  workspace?: string
+}) {
+  let baseID: string | undefined
+
+  if (input.continue) {
+    const result = await input.sdk.session.list()
+    baseID = result.data?.find((session) => !session.parentID)?.id
+  } else if (input.session) {
+    if (input.attach) {
+      const share = parseShareReference(input.session)
+      if (share) {
+        UI.error("Share IDs/URLs are not supported with --attach yet. Import the share locally first.")
+        process.exit(1)
+      }
+      if (!input.session.startsWith("ses_")) invalidSessionReference()
+      baseID = input.session
+    } else if (input.session.startsWith("ses_")) {
+      baseID = input.session
+    } else {
+      const imported = await importShareReference(input.session)
+      if (!imported) invalidSessionReference()
+      baseID = imported
+    }
+  }
+
+  if (baseID && input.fork) {
+    const forked = await input.sdk.session.fork({ sessionID: baseID })
+    return forked.data?.id
+  }
+
+  if (baseID) return baseID
+
+  const createInput = {} as {
+    title?: string
+    workspaceID?: string
+    permission?: Array<{
+      permission: string
+      action: "deny"
+      pattern: string
+    }>
+  }
+  const title = sessionTitle(input.title, input.message)
+  if (title) createInput.title = title
+  if (input.workspace) createInput.workspaceID = input.workspace
+  if (input.attach) {
+    createInput.permission = [
+      {
+        permission: "question",
+        action: "deny",
+        pattern: "*",
+      },
+    ]
+  }
+
+  const result = await input.sdk.session.create(createInput)
+  return result.data?.id
+}
+
 export const RunCommand = cmd({
   command: "run [message..]",
   describe: "run nikcli with a message",
@@ -235,6 +320,10 @@ export const RunCommand = cmd({
         alias: ["s"],
         describe: "session id to continue",
         type: "string",
+      })
+      .option("fork", {
+        describe: "fork the session before continuing (requires --continue or --session)",
+        type: "boolean",
       })
       .option("share", {
         type: "boolean",
@@ -269,9 +358,32 @@ export const RunCommand = cmd({
         type: "string",
         describe: "attach to a running nikcli server (e.g., http://localhost:4096)",
       })
+      .option("password", {
+        alias: ["p"],
+        type: "string",
+        describe: "basic auth password for --attach (defaults to NIKCLI_SERVER_PASSWORD)",
+      })
+      .option("dir", {
+        type: "string",
+        describe: "directory to run in, or remote directory when using --attach",
+      })
+      .option("workspace", {
+        type: "string",
+        describe: "workspace id to target when attaching or creating a session",
+      })
       .option("port", {
         type: "number",
         describe: "port for the local server (defaults to random port if no value provided)",
+      })
+      .option("thinking", {
+        type: "boolean",
+        describe: "show reasoning blocks",
+        default: false,
+      })
+      .option("permissions", {
+        type: "string",
+        choices: ["prompt", "reject", "allow-once"],
+        describe: "permission handling mode (defaults to prompt on TTY, reject otherwise)",
       })
       .option("variant", {
         type: "string",
@@ -279,6 +391,12 @@ export const RunCommand = cmd({
       })
   },
   handler: async (args) => {
+    if (args.fork && !args.continue && !args.session) {
+      UI.error("--fork requires --continue or --session")
+      process.exit(1)
+    }
+
+    const localDirectory = !args.attach && args.dir ? path.resolve(process.cwd(), args.dir) : process.cwd()
     let message = [...args.message, ...(args["--"] || [])]
       .map((arg) => (arg.includes(" ") ? `"${arg.replace(/"/g, '\\"')}"` : arg))
       .join(" ")
@@ -288,7 +406,7 @@ export const RunCommand = cmd({
       const files = Array.isArray(args.file) ? args.file : [args.file]
 
       for (const filePath of files) {
-        const resolvedPath = path.resolve(process.cwd(), filePath)
+        const resolvedPath = path.resolve(localDirectory, filePath)
         const file = Bun.file(resolvedPath)
         const stats = await file.stat().catch(() => {})
         if (!stats) {
@@ -339,6 +457,7 @@ export const RunCommand = cmd({
 
       const events = await sdk.event.subscribe()
       let errorMsg: string | undefined
+      const permissionMode = (args.permissions ?? defaultPermissionMode()) as RunPermissionMode
 
       const eventProcessor = (async () => {
         for await (const event of events.stream) {
@@ -374,6 +493,19 @@ export const RunCommand = cmd({
               process.stdout.write((isPiped ? part.text : UI.markdown(part.text)) + EOL)
               if (!isPiped) UI.println()
             }
+
+            if (part.type === "reasoning" && part.time?.end && args.thinking) {
+              if (outputJsonEvent("reasoning", { part })) continue
+              const text = part.text.trim()
+              if (!text) continue
+              const line = `Thinking: ${text}`
+              if (process.stdout.isTTY) {
+                UI.println(UI.Style.TEXT_DIM + line)
+                UI.println()
+                continue
+              }
+              process.stdout.write(line + EOL)
+            }
           }
 
           if (event.type === "session.error") {
@@ -395,20 +527,41 @@ export const RunCommand = cmd({
           if (event.type === "permission.asked") {
             const permission = event.properties
             if (permission.sessionID !== sessionID) continue
-            const result = await select({
-              message: `Permission required: ${permission.permission} (${permission.patterns.join(", ")})`,
-              options: [
-                { value: "once", label: "Allow once" },
-                { value: "always", label: "Always allow: " + permission.always.join(", ") },
-                { value: "reject", label: "Reject" },
-              ],
-              initialValue: "once",
-            }).catch(() => "reject")
-            const response = (result.toString().includes("cancel") ? "reject" : result) as "once" | "always" | "reject"
-            await sdk.permission.respond({
-              sessionID,
-              permissionID: permission.id,
-              response,
+            const interactive = permissionMode === "prompt" && process.stdin.isTTY && process.stdout.isTTY
+            const response = await (async () => {
+              if (interactive) {
+                const result = await select({
+                  message: `Permission required: ${permission.permission} (${permission.patterns.join(", ")})`,
+                  options: [
+                    { value: "once", label: "Allow once" },
+                    { value: "always", label: "Always allow: " + permission.always.join(", ") },
+                    { value: "reject", label: "Reject" },
+                  ],
+                  initialValue: "once",
+                }).catch(() => "reject")
+                return (result.toString().includes("cancel") ? "reject" : result) as "once" | "always" | "reject"
+              }
+
+              if (permissionMode === "allow-once") {
+                UI.println(
+                  UI.Style.TEXT_WARNING_BOLD + "!",
+                  UI.Style.TEXT_NORMAL,
+                  `auto-approving permission once: ${permission.permission}`,
+                )
+                return "once" as const
+              }
+
+              UI.println(
+                UI.Style.TEXT_WARNING_BOLD + "!",
+                UI.Style.TEXT_NORMAL,
+                `auto-rejecting permission request: ${permission.permission}`,
+              )
+              return "reject" as const
+            })()
+
+            await sdk.permission.reply({
+              requestID: permission.id,
+              reply: response,
             })
           }
         }
@@ -461,54 +614,23 @@ export const RunCommand = cmd({
     }
 
     if (args.attach) {
-      const sdk = createNikcliClient({ baseUrl: args.attach })
+      const sdk = createNikcliClient({
+        baseUrl: args.attach,
+        directory: args.dir,
+        workspace: args.workspace,
+        headers: attachHeaders(args.password),
+      })
 
-      const sessionID = await (async () => {
-        if (args.continue) {
-          const result = await sdk.session.list()
-          return result.data?.find((s) => !s.parentID)?.id
-        }
-        if (args.session) {
-          const share = parseShareReference(args.session)
-          if (share) {
-            UI.error("Share IDs/URLs are not supported with --attach yet. Import the share locally first.")
-            process.exit(1)
-          }
-          if (!args.session.startsWith("ses_")) invalidSessionReference()
-          return args.session
-        }
-
-        const title =
-          args.title !== undefined
-            ? args.title === ""
-              ? message.slice(0, 50) + (message.length > 50 ? "..." : "")
-              : args.title
-            : undefined
-
-        const result = await sdk.session.create(
-          title
-            ? {
-                title,
-                permission: [
-                  {
-                    permission: "question",
-                    action: "deny",
-                    pattern: "*",
-                  },
-                ],
-              }
-            : {
-                permission: [
-                  {
-                    permission: "question",
-                    action: "deny",
-                    pattern: "*",
-                  },
-                ],
-              },
-        )
-        return result.data?.id
-      })()
+      const sessionID = await resolveRunSessionID({
+        sdk,
+        attach: true,
+        continue: args.continue,
+        session: args.session,
+        fork: args.fork,
+        title: args.title,
+        message,
+        workspace: args.workspace,
+      })
 
       if (!sessionID) {
         UI.error("Session not found")
@@ -529,12 +651,12 @@ export const RunCommand = cmd({
       return await execute(sdk, sessionID)
     }
 
-    await bootstrap(process.cwd(), async () => {
+    await bootstrap(localDirectory, async () => {
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init)
         return Server.App().fetch(request)
       }) as typeof globalThis.fetch
-      const sdk = createNikcliClient({ baseUrl: "http://nikcli.local", fetch: fetchFn })
+      const sdk = createNikcliClient({ baseUrl: "http://nikcli.local", fetch: fetchFn, workspace: args.workspace })
 
       if (args.command) {
         const exists = await Command.get(args.command)
@@ -544,28 +666,15 @@ export const RunCommand = cmd({
         }
       }
 
-      const sessionID = await (async () => {
-        if (args.continue) {
-          const result = await sdk.session.list()
-          return result.data?.find((s) => !s.parentID)?.id
-        }
-        if (args.session) {
-          if (args.session.startsWith("ses_")) return args.session
-          const imported = await importShareReference(args.session)
-          if (!imported) invalidSessionReference()
-          return imported
-        }
-
-        const title =
-          args.title !== undefined
-            ? args.title === ""
-              ? message.slice(0, 50) + (message.length > 50 ? "..." : "")
-              : args.title
-            : undefined
-
-        const result = await sdk.session.create(title ? { title } : {})
-        return result.data?.id
-      })()
+      const sessionID = await resolveRunSessionID({
+        sdk,
+        continue: args.continue,
+        session: args.session,
+        fork: args.fork,
+        title: args.title,
+        message,
+        workspace: args.workspace,
+      })
 
       if (!sessionID) {
         UI.error("Session not found")

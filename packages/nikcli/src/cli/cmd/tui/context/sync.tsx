@@ -33,7 +33,6 @@ import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk"
 import { readFileSync } from "fs"
 
-
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
   init: () => {
@@ -178,8 +177,6 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
 
-
-
         case "todo.updated":
           setStore("todo", event.properties.sessionID, event.properties.todos)
           break
@@ -189,7 +186,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
 
         case "session.deleted": {
-          fullSyncedSessions.delete(event.properties.info.id)
+          syncedSessions.delete(event.properties.info.id)
           const messageIDs = (store.message[event.properties.info.id] ?? []).map((message) => message.id)
           const result = Binary.search(store.session, event.properties.info.id, (s) => s.id)
           if (result.found) {
@@ -337,7 +334,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const args = useArgs()
 
     async function bootstrap() {
-      fullSyncedSessions.clear()
+      syncedSessions.clear()
       setStore(
         produce((draft) => {
           draft.message = {}
@@ -407,7 +404,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       bootstrap()
     })
 
-    const fullSyncedSessions = new Set<string>()
+    const syncedSessions = new Map<string, "partial" | "full">()
     const result = {
       data: store,
       set: setStore,
@@ -433,11 +430,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           if (last.role === "user") return "working"
           return last.time.completed ? "idle" : "working"
         },
-        async sync(sessionID: string) {
-          if (fullSyncedSessions.has(sessionID)) return
+        async sync(sessionID: string, options?: { full?: boolean }) {
+          const mode = options?.full ? "full" : "partial"
+          const existing = syncedSessions.get(sessionID)
+          if (existing === "full" || existing === mode) return result.session.get(sessionID)
           const [session, messages, todo, diff] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
-            sdk.client.session.messages({ sessionID, limit: 100 }),
+            sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
           ])
@@ -454,7 +453,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.session_diff[sessionID] = diff.data ?? []
             }),
           )
-          fullSyncedSessions.add(sessionID)
+          syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")
+          return session.data
         },
       },
       workspace: {

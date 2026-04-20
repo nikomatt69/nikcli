@@ -8,11 +8,12 @@ import { Instance } from "../project/instance"
 import { lazy } from "@/util/lazy"
 import { Language } from "web-tree-sitter"
 
-import { $ } from "bun"
 import { Filesystem } from "@/util/filesystem"
 import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag.ts"
 import { Shell } from "@/shell/shell"
+import * as os from "os"
+import { realpath } from "fs/promises"
 
 import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
@@ -20,7 +21,111 @@ import { Truncate } from "./truncation"
 const MAX_METADATA_LENGTH = 30_000
 const DEFAULT_TIMEOUT = Flag.NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
 
+const SHELL_FILE_ARG_COMMANDS = new Set([
+  "cd",
+  "rm",
+  "cp",
+  "mv",
+  "mkdir",
+  "touch",
+  "chmod",
+  "chown",
+  "copy-item",
+  "move-item",
+  "remove-item",
+  "new-item",
+  "rename-item",
+  "set-location",
+])
+
 export const log = Log.create({ service: "bash-tool" })
+
+function normalizePathInput(value: string) {
+  return value.trim().replace(/^[\"'`]|[\"'`]$/g, "").trim()
+}
+
+function looksLikeGlob(value: string) {
+  return /[*?[\]{}]/.test(value)
+}
+
+function commandTokens(input: string) {
+  const regex = /"([^"\\]|\\.)*"|'([^'\\]|\\.)*'|`([^`\\]|\\.)*`|\S+/g
+  return input.match(regex) ?? []
+}
+
+function stripQuotedToken(token: string) {
+  return token.replace(/^"|"$/g, "").replace(/^'|'$/g, "").replace(/^`|`$/g, "")
+}
+
+function isOptionToken(token: string) {
+  return token.startsWith("-") || token.startsWith("$(") || (token.startsWith("${") && token.endsWith("}"))
+}
+
+async function resolveCommandPath(token: string, cwd: string) {
+  const cleaned = normalizePathInput(stripQuotedToken(token))
+  if (!cleaned) return undefined
+
+  const expanded = cleaned.startsWith("~") ? path.join(os.homedir(), cleaned.slice(1)) : cleaned
+  const absolute = path.isAbsolute(expanded) ? expanded : path.resolve(cwd, expanded)
+  if (looksLikeGlob(expanded)) return absolute
+
+  const resolved = await realpath(absolute).catch(() => absolute)
+  return process.platform === "win32" && resolved.match(/^\/[a-z]\//i)
+    ? resolved.replace(/^\/([a-z])\//, (_, drive) => `${drive.toUpperCase()}:\\`).replace(/\//g, "\\")
+    : resolved
+}
+
+function getPathLikePermissionCandidate(token: string, cwd: string, directories: Set<string>) {
+  const value = normalizePathInput(token)
+  return resolveCommandPath(value, cwd).then((candidate) => {
+    if (!candidate) return
+    if (!Instance.containsPath(candidate)) directories.add(candidate)
+  })
+}
+
+function registerCommandSignals(
+  cmd: string[],
+  cwd: string,
+  directories: Set<string>,
+  patterns: Set<string>,
+  always: Set<string>,
+  pendingPathResolutions: Promise<void>[],
+) {
+  if (!cmd.length) return
+  const normalizedCommand = cmd[0].toLowerCase()
+  const args = cmd.slice(1)
+  if (SHELL_FILE_ARG_COMMANDS.has(normalizedCommand)) {
+    for (const arg of args) {
+      if (!arg || isOptionToken(arg) || (normalizedCommand === "chmod" && arg.startsWith("+"))) continue
+      pendingPathResolutions.push(getPathLikePermissionCandidate(arg, cwd, directories))
+    }
+  }
+
+  if (normalizedCommand !== "cd") {
+    patterns.add(cmd.join(" "))
+    always.add(BashArity.prefix(cmd).join(" ") + "*")
+  }
+}
+
+function registerCommandSignalsFromFallback(
+  input: string,
+  cwd: string,
+  directories: Set<string>,
+  patterns: Set<string>,
+  always: Set<string>,
+  pendingPathResolutions: Promise<void>[],
+) {
+  const commands = input
+    .split(/&&|\|\||;|\n/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  for (const command of commands) {
+    const tokens = commandTokens(command).map((token) => stripQuotedToken(token))
+    if (tokens.length === 0) continue
+    registerCommandSignals(tokens, cwd, directories, patterns, always, pendingPathResolutions)
+  }
+}
 
 export async function authorizeBashCommand(command: string, cwd: string, ctx: Tool.Context) {
   const directories = new Set<string>()
@@ -28,56 +133,42 @@ export async function authorizeBashCommand(command: string, cwd: string, ctx: To
   const patterns = new Set<string>()
   const always = new Set<string>()
 
-  const tree = await parser().then((p) => p.parse(command))
+  const tree = await parser()
+    .then((p) => p.parse(command))
+    .catch(() => undefined)
+
+  const pendingPathResolutions: Promise<void>[] = []
+
   if (!tree) {
-    throw new Error("Failed to parse command")
+    registerCommandSignalsFromFallback(command, cwd, directories, patterns, always, pendingPathResolutions)
   }
 
-  for (const node of tree.rootNode.descendantsOfType("command")) {
-    if (!node) continue
-    const cmd = []
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i)
-      if (!child) continue
-      if (
-        child.type !== "command_name" &&
-        child.type !== "word" &&
-        child.type !== "string" &&
-        child.type !== "raw_string" &&
-        child.type !== "concatenation"
-      ) {
-        continue
-      }
-      cmd.push(child.text)
-    }
-
-    if (["cd", "rm", "cp", "mv", "mkdir", "touch", "chmod", "chown"].includes(cmd[0])) {
-      for (const arg of cmd.slice(1)) {
-        if (arg.startsWith("-") || (cmd[0] === "chmod" && arg.startsWith("+"))) continue
-        const resolved = await $`realpath ${arg}`
-          .cwd(cwd)
-          .quiet()
-          .nothrow()
-          .text()
-          .then((x) => x.trim())
-        log.info("resolved path", { arg, resolved })
-        if (resolved) {
-          const normalized =
-            process.platform === "win32" && resolved.match(/^\/[a-z]\//)
-              ? resolved.replace(/^\/([a-z])\//, (_, drive) => `${drive.toUpperCase()}:\\`).replace(/\//g, "\\")
-              : resolved
-          if (!Instance.containsPath(normalized)) directories.add(normalized)
+  if (tree) {
+    for (const node of tree.rootNode.descendantsOfType("command")) {
+      if (!node) continue
+      const cmd: string[] = []
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i)
+        if (!child) continue
+        if (
+          child.type !== "command_name" &&
+          child.type !== "word" &&
+          child.type !== "string" &&
+          child.type !== "raw_string" &&
+          child.type !== "concatenation"
+        ) {
+          continue
         }
+        cmd.push(child.text)
       }
-    }
 
-    if (cmd.length && cmd[0] !== "cd") {
-      patterns.add(cmd.join(" "))
-      always.add(BashArity.prefix(cmd).join(" ") + "*")
+      registerCommandSignals(cmd, cwd, directories, patterns, always, pendingPathResolutions)
     }
   }
 
   if (directories.size > 0) {
+    await Promise.allSettled(pendingPathResolutions)
+
     await ctx.ask({
       permission: "external_directory",
       patterns: Array.from(directories),
@@ -125,9 +216,6 @@ const parser = lazy(async () => {
 })
 
 export const BashTool = Tool.define("bash", async () => {
-  const shell = Shell.acceptable()
-  log.info("bash tool using shell", { shell })
-
   return {
     description: DESCRIPTION.replaceAll("${directory}", Instance.directory)
       .replaceAll("${maxLines}", String(Truncate.MAX_LINES))
@@ -148,6 +236,9 @@ export const BashTool = Tool.define("bash", async () => {
         ),
     }),
     async execute(params, ctx) {
+      const shell = Shell.select(params.command)
+      log.info("bash tool using shell", { shell })
+
       const cwd = params.workdir || Instance.directory
       if (params.timeout !== undefined && params.timeout < 0) {
         throw new Error(`Invalid timeout value: ${params.timeout}. Timeout must be a positive number.`)

@@ -227,7 +227,7 @@ export namespace Auth {
       }
       await fs.rename(tmp, filepath)
     } finally {
-      await fs.unlink(tmp).catch(() => {})
+      await fs.unlink(tmp).catch(() => { })
     }
   }
 
@@ -244,7 +244,7 @@ export namespace Auth {
       }
       await fs.rename(tmp, filepath)
     } finally {
-      await fs.unlink(tmp).catch(() => {})
+      await fs.unlink(tmp).catch(() => { })
     }
   }
 

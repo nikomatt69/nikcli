@@ -1,4 +1,4 @@
-Executes a given bash command in a persistent shell session with optional timeout, ensuring proper handling and security measures.
+Executes a command in the configured shell (bash-like or PowerShell when detected), with optional timeout and security checks.
 
 All commands run in ${directory} by default. Use the `workdir` parameter if you need to run a command in a different directory. AVOID using `cd <directory> && <command>` patterns - use `workdir` instead.
 

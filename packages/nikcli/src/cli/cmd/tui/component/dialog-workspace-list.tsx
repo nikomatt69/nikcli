@@ -38,14 +38,25 @@ export async function openWorkspace(input: {
     })
   }
   const client = scoped(input.workspaceID)
-  const listed = input.forceCreate ? undefined : await client.session.list({ roots: true, limit: 1 })
-  const session = listed?.data?.[0]
-  if (session?.id) {
-    cacheSession(session)
+  const restored = await input.sdk.client.experimental.workspace
+    .restore({ id: input.workspaceID })
+    .catch(() => undefined)
+  if (!restored?.data) {
+    input.toast.show({
+      message: "Failed to connect workspace",
+      variant: "error",
+    })
+    return
+  }
+
+  const sessionID = input.forceCreate ? undefined : restored.data.sessions?.[0]
+  if (sessionID) {
+    const session = await input.sync.session.sync(sessionID, { full: true }).catch(() => undefined)
+    if (session) cacheSession(session)
     input.route.navigate({
       type: "session",
-      sessionID: session.id,
-      workspaceID: session.workspaceID ?? input.workspaceID,
+      sessionID,
+      workspaceID: session?.workspaceID ?? input.workspaceID,
     })
     input.dialog.clear()
     return

@@ -41,6 +41,10 @@ import type {
   ExperimentalWorkspaceListResponses,
   ExperimentalWorkspaceRemoveErrors,
   ExperimentalWorkspaceRemoveResponses,
+  ExperimentalWorkspaceRestoreErrors,
+  ExperimentalWorkspaceRestoreResponses,
+  ExperimentalWorkspaceSessionRestoreErrors,
+  ExperimentalWorkspaceSessionRestoreResponses,
   FileListResponses,
   FilePartInput,
   FilePartSource,
@@ -1032,6 +1036,48 @@ export class Adaptor extends HeyApiClient {
   }
 }
 
+export class Session extends HeyApiClient {
+  /**
+   * Restore session into workspace
+   *
+   * Attach an existing session to a workspace and return restore state for the client.
+   */
+  public restore<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      sessionID: string
+      directory?: string
+      workspace?: string
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalWorkspaceSessionRestoreResponses,
+      ExperimentalWorkspaceSessionRestoreErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/workspace/{id}/session/{sessionID}/restore",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Workspace extends HeyApiClient {
   /**
    * Remove workspace
@@ -1128,6 +1174,44 @@ export class Workspace extends HeyApiClient {
   }
 
   /**
+   * Restore workspace
+   *
+   * Ensure a workspace is connected and return enough state to restore the client UI.
+   */
+  public restore<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalWorkspaceRestoreResponses,
+      ExperimentalWorkspaceRestoreErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/workspace/{id}/restore",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
    * List workspaces
    *
    * List all workspaces.
@@ -1160,6 +1244,11 @@ export class Workspace extends HeyApiClient {
   private _adaptor?: Adaptor
   get adaptor(): Adaptor {
     return (this._adaptor ??= new Adaptor({ client: this.client }))
+  }
+
+  private _session?: Session
+  get session(): Session {
+    return (this._session ??= new Session({ client: this.client }))
   }
 }
 
@@ -1207,7 +1296,7 @@ export class Experimental extends HeyApiClient {
   }
 }
 
-export class Session extends HeyApiClient {
+export class Session2 extends HeyApiClient {
   /**
    * List sessions
    *
@@ -3370,7 +3459,7 @@ export class Auth3 extends HeyApiClient {
   }
 }
 
-export class Session2 extends HeyApiClient {
+export class Session3 extends HeyApiClient {
   /**
    * Create GitHub-backed mobile session
    *
@@ -3634,9 +3723,9 @@ export class Github extends HeyApiClient {
     return (this._auth ??= new Auth3({ client: this.client }))
   }
 
-  private _session?: Session2
-  get session(): Session2 {
-    return (this._session ??= new Session2({ client: this.client }))
+  private _session?: Session3
+  get session(): Session3 {
+    return (this._session ??= new Session3({ client: this.client }))
   }
 }
 
@@ -3678,7 +3767,7 @@ export class Command2 extends HeyApiClient {
   }
 }
 
-export class Session3 extends HeyApiClient {
+export class Session4 extends HeyApiClient {
   /**
    * List mobile sessions
    *
@@ -4639,9 +4728,9 @@ export class Mobile extends HeyApiClient {
     return (this._github ??= new Github({ client: this.client }))
   }
 
-  private _session?: Session3
-  get session(): Session3 {
-    return (this._session ??= new Session3({ client: this.client }))
+  private _session?: Session4
+  get session(): Session4 {
+    return (this._session ??= new Session4({ client: this.client }))
   }
 
   private _permission?: Permission2
@@ -6461,9 +6550,9 @@ export class NikcliClient extends HeyApiClient {
     return (this._experimental ??= new Experimental({ client: this.client }))
   }
 
-  private _session?: Session
-  get session(): Session {
-    return (this._session ??= new Session({ client: this.client }))
+  private _session?: Session2
+  get session(): Session2 {
+    return (this._session ??= new Session2({ client: this.client }))
   }
 
   private _part?: Part

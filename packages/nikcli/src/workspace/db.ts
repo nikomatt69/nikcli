@@ -13,6 +13,8 @@ export namespace WorkspaceDB {
     project_id: string
     branch: string | null
     config: Config
+    status?: string
+    events?: unknown[]
     created_at: number
     updated_at: number
   }
@@ -24,11 +26,18 @@ export namespace WorkspaceDB {
     config: Config
   }
 
+  export type State = {
+    status?: string
+    events: unknown[]
+  }
+
   type DbRow = {
     id: string
     project_id: string
     branch: string | null
     config: string
+    status: string | null
+    events: string | null
     created_at: number
     updated_at: number
   }
@@ -59,6 +68,17 @@ export namespace WorkspaceDB {
       );
       CREATE INDEX IF NOT EXISTS idx_workspace_project ON workspace(project_id);
     `)
+
+    const columns = database.query("PRAGMA table_info(workspace)").all() as Array<{ name?: string }>
+    const names = new Set(columns.map((column) => column.name).filter(Boolean))
+
+    if (!names.has("status")) {
+      database.exec("ALTER TABLE workspace ADD COLUMN status TEXT")
+    }
+
+    if (!names.has("events")) {
+      database.exec("ALTER TABLE workspace ADD COLUMN events TEXT")
+    }
   }
 
   function rowToInfo(row: DbRow): Info {
@@ -67,6 +87,13 @@ export namespace WorkspaceDB {
       projectID: row.project_id,
       branch: row.branch,
       config: JSON.parse(row.config) as Config,
+    }
+  }
+
+  function rowToState(row: Pick<DbRow, "status" | "events"> | null | undefined): State {
+    return {
+      status: row?.status ?? undefined,
+      events: row?.events ? ((JSON.parse(row.events) as unknown[]) ?? []) : [],
     }
   }
 
@@ -80,6 +107,14 @@ export namespace WorkspaceDB {
       ? (db().query("SELECT * FROM workspace WHERE project_id = ? ORDER BY id ASC").all(projectID) as DbRow[])
       : (db().query("SELECT * FROM workspace ORDER BY id ASC").all() as DbRow[])
     return rows.map(rowToInfo)
+  }
+
+  export function getState(id: string): State {
+    const row = db().query("SELECT status, events FROM workspace WHERE id = ?").get(id) as Pick<
+      DbRow,
+      "status" | "events"
+    > | null
+    return rowToState(row)
   }
 
   export function upsert(info: Info): Info {
@@ -100,6 +135,32 @@ export namespace WorkspaceDB {
       )
     }
     return info
+  }
+
+  export function updateState(id: string, state: Partial<State>): State | undefined {
+    const existing = get(id)
+    if (!existing) return undefined
+
+    const current = getState(id)
+    const next: State = {
+      status: state.status ?? current.status,
+      events: state.events ?? current.events,
+    }
+
+    db().run(
+      `UPDATE workspace
+         SET status = ?, events = ?, updated_at = ?
+       WHERE id = ?`,
+      [next.status ?? null, JSON.stringify(next.events ?? []), Date.now(), id],
+    )
+
+    return next
+  }
+
+  export function appendEvent(id: string, event: unknown, limit = 200): State | undefined {
+    const current = getState(id)
+    const events = [...current.events, event].slice(-limit)
+    return updateState(id, { events })
   }
 
   export function remove(id: string): boolean {

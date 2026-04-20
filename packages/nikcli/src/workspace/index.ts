@@ -7,7 +7,9 @@ import { PermissionNext } from "@/permission/next"
 import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
+import { Session } from "@/session"
 import { SessionStatus } from "@/session/status"
+import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor } from "./adaptors"
@@ -63,6 +65,11 @@ export namespace Workspace {
     .meta({ ref: "Workspace.Restore" })
   export type Restore = z.infer<typeof Restore>
 
+  export const SessionRestore = Restore.extend({
+    sessionID: Identifier.schema("session"),
+  }).meta({ ref: "Workspace.SessionRestore" })
+  export type SessionRestore = z.infer<typeof SessionRestore>
+
   function fromRow(row: WorkspaceDB.Info): Info {
     return Info.parse({
       ...row,
@@ -72,15 +79,52 @@ export namespace Workspace {
 
   const syncControllers = new Map<string, AbortController>()
   const connectionStatuses = new Map<string, ConnectionStatus>()
+  const RESTORE_EVENT_TYPES = new Set([
+    "session.created",
+    "session.updated",
+    "session.deleted",
+    "session.status",
+    "session.idle",
+    "permission.asked",
+    "permission.replied",
+    "question.asked",
+    "question.replied",
+    "question.rejected",
+    Event.Ready.type,
+    Event.Failed.type,
+    Event.Status.type,
+  ])
+
+  async function listRootSessions(workspaceID: string) {
+    const sessions = [] as Session.Info[]
+    for (const key of await Storage.list(["session", Instance.project.id])) {
+      const session = await Storage.read<Session.Info>(key).catch(() => undefined)
+      if (!session || session.workspaceID !== workspaceID || session.parentID) continue
+      sessions.push(session)
+    }
+    return sessions.toSorted((a, b) => b.time.updated - a.time.updated).map((session) => session.id)
+  }
+
+  async function buildRestorePayload(workspaceID: string): Promise<Restore> {
+    const state = WorkspaceDB.getState(workspaceID)
+    return {
+      workspaceID,
+      sessions: await listRootSessions(workspaceID),
+      events: state.events,
+    }
+  }
 
   export function status(workspaceID: string): ConnectionStatus {
-    return connectionStatuses.get(workspaceID) ?? "connected"
+    return (connectionStatuses.get(workspaceID) ??
+      WorkspaceDB.getState(workspaceID).status ??
+      "disconnected") as ConnectionStatus
   }
 
   function setStatus(workspaceID: string, next: ConnectionStatus) {
     const prev = connectionStatuses.get(workspaceID)
     if (prev === next) return
     connectionStatuses.set(workspaceID, next)
+    WorkspaceDB.updateState(workspaceID, { status: next })
     void Bus.publish(Event.Status, { workspaceID, status: next }).catch(() => undefined)
   }
 
@@ -114,6 +158,12 @@ export namespace Workspace {
         }
       },
     })
+  }
+
+  function rememberWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
+    if (!event?.type || event.type === "server.heartbeat") return
+    if (!RESTORE_EVENT_TYPES.has(event.type)) return
+    WorkspaceDB.appendEvent(workspaceID, event)
   }
 
   function startSpaceSync(space: Info) {
@@ -164,6 +214,10 @@ export namespace Workspace {
       await init()
       await WorkspaceDB.migrateFromStorage()
       WorkspaceDB.upsert(info)
+      WorkspaceDB.updateState(id, {
+        status: info.config.type === "worktree" ? "connected" : "connecting",
+        events: [],
+      })
       startSpaceSync(info)
 
       GlobalBus.emit("event", {
@@ -244,6 +298,7 @@ export namespace Workspace {
         setStatus(space.id, "connected")
         await parseSSE(res.body, stop, (event) => {
           const payload = event as { type?: string; properties?: any }
+          rememberWorkspaceEvent(space.id, payload)
           void mirrorWorkspaceEvent(space, payload).catch((error) => {
             log.warn("workspace event mirror failed", {
               workspaceID: space.id,
@@ -297,21 +352,48 @@ export namespace Workspace {
     }),
     async ({ workspaceID, timeoutMs, signal }) => {
       const info = await get(workspaceID)
-      if (!info) throw new Error(`Workspace not found: ${workspaceID}`)
+      if (!info) throw new Storage.NotFoundError({ message: `Workspace not found: ${workspaceID}` })
       if (info.config.type === "worktree") {
         setStatus(workspaceID, "connected")
-        return info
+        return buildRestorePayload(workspaceID)
       }
       startSpaceSync(info)
-      if (status(workspaceID) === "connected") return info
+      const currentStatus = connectionStatuses.get(workspaceID)
+      if (currentStatus === "connected") return buildRestorePayload(workspaceID)
+      if (currentStatus === "error") {
+        throw new Error(`Workspace failed to connect: ${workspaceID}`)
+      }
       const { EventLoop } = await import("@/util/eventloop")
-      await EventLoop.waitEvent({
+      const settled = await EventLoop.waitEvent({
         event: Event.Status,
         timeoutMs,
         signal: signal as AbortSignal | undefined,
-        predicate: (p) => p.workspaceID === workspaceID && p.status === "connected",
+        predicate: (p) => p.workspaceID === workspaceID && (p.status === "connected" || p.status === "error"),
       })
-      return info
+      if (settled.status !== "connected") {
+        throw new Error(`Workspace failed to connect: ${workspaceID}`)
+      }
+      return buildRestorePayload(workspaceID)
+    },
+  )
+
+  export const sessionRestore = fn(
+    z.object({
+      workspaceID: Identifier.schema("workspace"),
+      sessionID: Identifier.schema("session"),
+      timeoutMs: z.number().int().positive().default(30_000),
+      signal: z.any().optional(),
+    }),
+    async ({ workspaceID, sessionID, timeoutMs, signal }) => {
+      await restore({ workspaceID, timeoutMs, signal })
+      await Session.update(sessionID, (draft) => {
+        draft.workspaceID = workspaceID
+      })
+      const payload = await buildRestorePayload(workspaceID)
+      return {
+        ...payload,
+        sessionID,
+      }
     },
   )
 }

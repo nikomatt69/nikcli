@@ -2,17 +2,9 @@ import z from "zod"
 import { EOL } from "os"
 import { NamedError } from "@nikcli-ai/util/error"
 import { remoteService } from "./remote"
+import { logo as cliLogo } from "./logo"
 
 export namespace UI {
-  const LOGO = [
-    `
-    ███╗   ██╗██╗██╗  ██╗ ██████╗██╗     ██╗
-    ████╗  ██║██║██║ ██╔╝██╔════╝██║     ██║
-    ██╔██╗ ██║██║█████╔╝ ██║     ██║     ██║
-    ██║╚██╗██║██║██╔═██╗ ██║     ██║     ██║
-    ██║ ╚████║██║██║  ██╗╚██████╗███████╗██║`
-  ]
-
   export const CancelledError = NamedError.create("UICancelledError", z.void())
 
   export const Style = {
@@ -53,16 +45,7 @@ export namespace UI {
   }
 
   export function logo(pad?: string) {
-    const result = []
-    for (const row of LOGO) {
-      if (pad) result.push(pad)
-      result.push(Bun.color("gray", "ansi"))
-      result.push(row[0])
-      result.push("\x1b[0m")
-      result.push(row[1])
-      result.push(EOL)
-    }
-    return result.join("").trimEnd()
+    return cliLogo(pad)
   }
 
   export async function input(prompt: string): Promise<string> {

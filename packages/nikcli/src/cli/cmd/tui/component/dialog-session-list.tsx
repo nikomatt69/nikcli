@@ -38,10 +38,22 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
     })
   }
 
+  async function restoreWorkspace(workspaceID: string) {
+    const restored = await sdk.client.experimental.workspace.restore({ id: workspaceID }).catch(() => undefined)
+    if (restored?.data) return true
+    toast.show({
+      message: "Failed to connect workspace",
+      variant: "error",
+    })
+    return false
+  }
+
   const [listed, { mutate: mutateListed }] = createResource(
     () => props.workspaceID,
     async (workspaceID) => {
       if (!workspaceID) return undefined
+      const ready = await restoreWorkspace(workspaceID)
+      if (!ready) return []
       const result = await workspaceClient().session.list({ roots: true })
       return result.data ?? []
     },
@@ -49,6 +61,10 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
 
   const [searchResults] = createResource(search, async (query) => {
     if (!query || props.localOnly) return undefined
+    if (props.workspaceID) {
+      const ready = await restoreWorkspace(props.workspaceID)
+      if (!ready) return []
+    }
     const result = await workspaceClient().session.list({
       search: query,
       limit: 30,
@@ -69,9 +85,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
   function createWorkspaceDialog() {
     dialog.replace(() => (
       <DialogWorkspaceCreate
-        onSelect={(workspaceID) =>
-          openWorkspace({ dialog, route, sdk, sync, toast, workspaceID })
-        }
+        onSelect={(workspaceID) => openWorkspace({ dialog, route, sdk, sync, toast, workspaceID })}
       />
     ))
   }

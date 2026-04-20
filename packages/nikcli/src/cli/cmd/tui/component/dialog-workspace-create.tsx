@@ -85,6 +85,7 @@ export async function openWorkspaceSession(input: {
       return
     }
 
+    await input.sync.session.sync(result.data.id, { full: true }).catch(() => undefined)
     input.route.navigate({
       type: "session",
       sessionID: result.data.id,
@@ -109,24 +110,16 @@ export async function restoreWorkspaceSession(input: {
     workspaceID: input.workspaceID,
     sessionID: input.sessionID,
   })
-  const api = input.sdk.client.experimental.workspace as unknown as {
-    sessionRestore?: (args: { id: string; sessionID: string }) => Promise<{ data?: unknown; response?: Response; error?: unknown }>
-  }
-  if (typeof api.sessionRestore !== "function") {
-    input.toast.show({
-      message: "Session restore is not supported by this server",
-      variant: "warning",
+  const result = await input.sdk.client.experimental.workspace.session
+    .restore({ id: input.workspaceID, sessionID: input.sessionID })
+    .catch((err: unknown) => {
+      log.error("session restore request failed", {
+        workspaceID: input.workspaceID,
+        sessionID: input.sessionID,
+        error: errorData(err),
+      })
+      return undefined
     })
-    return
-  }
-  const result = await api.sessionRestore({ id: input.workspaceID, sessionID: input.sessionID }).catch((err: unknown) => {
-    log.error("session restore request failed", {
-      workspaceID: input.workspaceID,
-      sessionID: input.sessionID,
-      error: errorData(err),
-    })
-    return undefined
-  })
   if (!result?.data) {
     input.toast.show({
       message: `Failed to restore session: ${errorMessage(result?.error ?? "no response")}`,
@@ -141,14 +134,16 @@ export async function restoreWorkspaceSession(input: {
     await input.sync.bootstrap()
   } catch {}
 
-  await Promise.all([input.project.workspace.sync(), input.sync.session.sync(input.sessionID)]).catch((err) => {
-    log.error("session restore refresh failed", {
-      workspaceID: input.workspaceID,
-      sessionID: input.sessionID,
-      error: errorData(err),
-    })
-    throw err
-  })
+  await Promise.all([input.project.workspace.sync(), input.sync.session.sync(input.sessionID, { full: true })]).catch(
+    (err) => {
+      log.error("session restore refresh failed", {
+        workspaceID: input.workspaceID,
+        sessionID: input.sessionID,
+        error: errorData(err),
+      })
+      throw err
+    },
+  )
 
   input.toast.show({
     message: "Session restored into the new workspace",

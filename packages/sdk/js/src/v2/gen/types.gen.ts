@@ -778,6 +778,14 @@ export type EventWorkspaceFailed = {
   }
 }
 
+export type EventWorkspaceStatus = {
+  type: "workspace.status"
+  properties: {
+    workspaceID: string
+    status: "connecting" | "connected" | "disconnected" | "error"
+  }
+}
+
 export type EventDelegationCompleted = {
   type: "delegation.completed"
   properties: {
@@ -1111,6 +1119,7 @@ export type Event =
   | EventFileEdited
   | EventWorkspaceReady
   | EventWorkspaceFailed
+  | EventWorkspaceStatus
   | EventDelegationCompleted
   | EventTodoUpdated
   | EventFileWatcherUpdated
@@ -2666,6 +2675,19 @@ export type Workspace = {
       }
 }
 
+export type WorkspaceRestore = {
+  workspaceID: string
+  sessions?: Array<string>
+  events?: Array<unknown>
+}
+
+export type WorkspaceSessionRestore = {
+  workspaceID: string
+  sessions?: Array<string>
+  events?: Array<unknown>
+  sessionID: string
+}
+
 export type WorktreeRemoveInput = {
   directory: string
 }
@@ -3836,6 +3858,73 @@ export type ExperimentalWorkspaceCreateResponses = {
 
 export type ExperimentalWorkspaceCreateResponse =
   ExperimentalWorkspaceCreateResponses[keyof ExperimentalWorkspaceCreateResponses]
+
+export type ExperimentalWorkspaceRestoreData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    timeoutMs?: number
+  }
+  url: "/experimental/workspace/{id}/restore"
+}
+
+export type ExperimentalWorkspaceRestoreErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ExperimentalWorkspaceRestoreError =
+  ExperimentalWorkspaceRestoreErrors[keyof ExperimentalWorkspaceRestoreErrors]
+
+export type ExperimentalWorkspaceRestoreResponses = {
+  /**
+   * Workspace restored
+   */
+  200: WorkspaceRestore
+}
+
+export type ExperimentalWorkspaceRestoreResponse =
+  ExperimentalWorkspaceRestoreResponses[keyof ExperimentalWorkspaceRestoreResponses]
+
+export type ExperimentalWorkspaceSessionRestoreData = {
+  body?: never
+  path: {
+    id: string
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    timeoutMs?: number
+  }
+  url: "/experimental/workspace/{id}/session/{sessionID}/restore"
+}
+
+export type ExperimentalWorkspaceSessionRestoreErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ExperimentalWorkspaceSessionRestoreError =
+  ExperimentalWorkspaceSessionRestoreErrors[keyof ExperimentalWorkspaceSessionRestoreErrors]
+
+export type ExperimentalWorkspaceSessionRestoreResponses = {
+  /**
+   * Session restored
+   */
+  200: WorkspaceSessionRestore
+}
+
+export type ExperimentalWorkspaceSessionRestoreResponse =
+  ExperimentalWorkspaceSessionRestoreResponses[keyof ExperimentalWorkspaceSessionRestoreResponses]
 
 export type ExperimentalWorkspaceListData = {
   body?: never

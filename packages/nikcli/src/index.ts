@@ -39,6 +39,7 @@ import { CompanionCommand } from "./cli/cmd/companion"
 import { MobileCommand } from "./cli/cmd/mobile"
 import { PluginCommand } from "./cli/cmd/plug"
 import { AccountCommand } from "./cli/cmd/account"
+import { HeapCommand } from "./cli/cmd/heap"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -109,6 +110,7 @@ const cli = yargs(hideBin(process.argv))
   .command(ServeCommand)
   .command(WorkspaceServeCommand)
   .command(WebCommand)
+  .command(HeapCommand)
   .command(ModelsCommand)
   .command(StatsCommand)
   .command(ExportCommand)
