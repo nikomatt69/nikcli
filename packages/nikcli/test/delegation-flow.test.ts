@@ -158,6 +158,54 @@ describe("delegation flow", () => {
     })
   })
 
+  it("surfaces research metadata in delegator summaries and artifacts", async () => {
+    await withProject(async () => {
+      const parentSessionID = "ses_parent_research"
+      const tool = await DelegatorTool.init()
+      const delegation = await Delegation.create({
+        parentSessionID,
+        agent: "researcher",
+        prompt: "Question: How should nikcli integrate autoresearch?",
+        source: "research",
+        metadata: {
+          kind: "research",
+          question: "How should nikcli integrate autoresearch?",
+        },
+      })
+
+      await Delegation.finalize(
+        delegation.id,
+        "complete",
+        [
+          "Question: How should nikcli integrate autoresearch?",
+          "Confidence: high",
+          "",
+          "Findings:",
+          "- Reuse task + delegation infrastructure (https://example.com/infra)",
+          "- Keep the agent read-only (https://example.com/guardrails)",
+          "",
+          "Sources:",
+          "- https://example.com/infra",
+          "- https://example.com/guardrails",
+        ].join("\n"),
+      )
+
+      const ctx = createContext(parentSessionID)
+      const status = await tool.execute({ action: "status", delegationId: delegation.id }, ctx)
+      expect(status.output).toContain("**Question:** How should nikcli integrate autoresearch?")
+
+      const summary = await tool.execute({ action: "summarize", delegationId: delegation.id }, ctx)
+      expect(summary.output).toContain("**Research Summary:**")
+      expect(summary.output).toContain("**Confidence:** high")
+      expect(summary.output).toContain("**Sources:** 2")
+
+      const artifact = await BackgroundRun.readArtifact(delegation.id)
+      expect(artifact).toContain("**Question:** How should nikcli integrate autoresearch?")
+      expect(artifact).toContain("**Confidence:** high")
+      expect(artifact).toContain("**Source Count:** 2")
+    })
+  })
+
   it("marks stale background runs orphaned during reconciliation", async () => {
     await withProject(async () => {
       const record = await BackgroundRun.create({

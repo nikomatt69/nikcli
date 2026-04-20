@@ -24,6 +24,16 @@ const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 ${PROMPT_DELEGATION}
 `
 
+const PRIMARY_AGENT_RESEARCH_AWARENESS = `
+
+When you identify a knowledge gap, outdated external dependency question, missing docs context, or a decision that needs evidence, proactively launch a background research run with the task tool using subagent_type: "researcher".
+
+- Launch research only when it materially improves the result; skip it for purely local or mechanical tasks.
+- Keep only one active research run per parent session unless the existing one is clearly irrelevant.
+- While research runs, continue any independent work instead of blocking.
+- When the research becomes relevant, use delegator or delegation to read and incorporate the result.
+`
+
 export namespace Agent {
   export const Info = z
     .object({
@@ -66,6 +76,26 @@ export namespace Agent {
     planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
     general: [],
     explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
+    researcher: [
+      "read",
+      "grep",
+      "glob",
+      "list",
+      "tree",
+      "websearch",
+      "webfetch",
+      "docs_search",
+      "docs_request",
+      "smart_docs",
+      "docs_context",
+      "memory_search",
+      "context_collect",
+      "context_search",
+      "context_related",
+      "task",
+      "delegation",
+      "delegator",
+    ],
     "code-reviewer": ["read", "grep", "glob", "list", "bash"],
     debugger: ["read", "grep", "glob", "list", "bash", "edit"],
     "test-runner": ["read", "grep", "list", "bash", "edit", "write"],
@@ -103,7 +133,7 @@ export namespace Agent {
         prompt: `You are an autonomous agent that iterates on a task until complete.
 
 You are aware of the project context (directory, worktree) and can use all available tools.
-You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}${PRIMARY_AGENT_RESEARCH_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -121,7 +151,7 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
         prompt: `You are a build agent focused on creating and implementing features.
 
 You are aware of the project context (directory, worktree) and can use all available tools.
-You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}${PRIMARY_AGENT_RESEARCH_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -139,7 +169,7 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
         prompt: `You are a planning agent for multi-step implementation strategies.
 
 You are aware of the project context (directory, worktree) and can use all available tools.
-You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}`,
+You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}${PRIMARY_AGENT_RESEARCH_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,
@@ -260,6 +290,78 @@ Produce a clear, step-by-step plan with file paths.`,
         options: {},
         mode: "all",
         native: true,
+      },
+      researcher: {
+        name: "researcher",
+        description:
+          "Read-only research agent for collecting evidence in the background and returning source-backed findings.",
+        prompt: `You are a research agent.
+
+Your job is to investigate a question, collect evidence, and return a concise, source-backed report.
+
+Rules:
+- Stay read-only. Do not modify files, run shell commands, or mutate external systems.
+- Prefer local context first: loaded docs, project context, memory, and repository files before generic web search.
+- Use web search and web fetch when freshness or external evidence is required.
+- Deduplicate claims and URLs.
+- If evidence conflicts, say so explicitly.
+- If confidence is low, say so explicitly.
+- If helpful, delegate parallel read-only subtasks only to @fast-explore or @planner. Never delegate to @researcher.
+- Stop when you have enough evidence; do not loop forever.
+
+Return a final report in this structure:
+
+Question: <one line>
+Confidence: <high|medium|low>
+
+Findings:
+- <finding with source>
+- <finding with source>
+
+Open Questions:
+- <question or "None">
+
+Sources:
+- <url or file path>
+- <url or file path>`,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            tree: "allow",
+            websearch: "allow",
+            webfetch: "allow",
+            docs_search: "allow",
+            docs_request: "allow",
+            smart_docs: "allow",
+            docs_context: "allow",
+            memory_search: "allow",
+            context_collect: "allow",
+            context_search: "allow",
+            context_related: "allow",
+            delegation: "allow",
+            delegator: "allow",
+            task: {
+              "fast-explore": "allow",
+              planner: "allow",
+              researcher: "deny",
+              "*": "deny",
+            },
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
       },
       "code-reviewer": {
         name: "code-reviewer",
@@ -571,7 +673,7 @@ Apply small, safe refactors and verify results.`,
           instructions: SystemPrompt.instructions(),
           store: false,
         }),
-        onError: () => { },
+        onError: () => {},
       })
       for await (const part of result.fullStream) {
         if (part.type === "error") throw part.error

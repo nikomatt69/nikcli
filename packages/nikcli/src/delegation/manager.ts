@@ -57,6 +57,7 @@ export namespace Delegation {
     progressSummary?: string
     resultSummary?: string
     error?: string
+    metadata?: Record<string, unknown>
   }
 
   const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -70,6 +71,7 @@ export namespace Delegation {
     resultSummary?: string
     progressSummary?: string
     error?: string
+    metadata?: Record<string, unknown>
   }
 
   interface ManagerState {
@@ -142,6 +144,7 @@ export namespace Delegation {
       progressSummary: record.progressSummary,
       resultSummary: record.resultSummary,
       error: record.error,
+      metadata: record.metadata,
     }
   }
 
@@ -258,6 +261,7 @@ export namespace Delegation {
     prompt: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
     source?: BackgroundRun.Source
+    metadata?: Record<string, unknown>
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
@@ -271,6 +275,7 @@ export namespace Delegation {
       prompt: params.prompt,
       session: params.session,
       source: params.source,
+      metadata: params.metadata,
       delegatorID: params.delegatorID,
       delegatorSessionID: params.delegatorSessionID,
       delegatorEnabled: params.delegatorEnabled,
@@ -327,7 +332,13 @@ export namespace Delegation {
     return entry.activeDelegations.get(delegationID)
   }
 
-  export async function finalize(delegationID: string, status: Status, result: string, error?: string): Promise<void> {
+  export async function finalize(
+    delegationID: string,
+    status: Status,
+    result: string,
+    error?: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
     const entry = current()
     const active = entry.activeDelegations.get(delegationID)
     const persisted = await BackgroundRun.get(delegationID).catch(() => undefined)
@@ -338,7 +349,7 @@ export namespace Delegation {
     const finalError = requested?.error ?? error
     let finalized: Awaited<ReturnType<typeof BackgroundRun.finalize>>
     try {
-      finalized = await BackgroundRun.finalize(delegationID, finalStatus, result, finalError)
+      finalized = await BackgroundRun.finalize(delegationID, finalStatus, result, finalError, metadata)
       if (!finalized) return
 
       await Bus.publish(DelegationCompletedEvent, {
@@ -399,8 +410,23 @@ export namespace Delegation {
       status: record.status,
       title: record.title,
       agent: record.agent,
-      description: record.status === "running" ? "(running)" : undefined,
+      description:
+        typeof record.metadata?.question === "string"
+          ? record.metadata.question
+          : record.status === "running"
+            ? "(running)"
+            : undefined,
     }))
+  }
+
+  export async function findRunningForParent(
+    parentSessionID: string,
+    agent: string,
+  ): Promise<InspectResult | undefined> {
+    const record = (await BackgroundRun.listForParent(parentSessionID)).find(
+      (item) => item.agent === agent && item.status === "running" && item.source !== "delegator",
+    )
+    return record ? toInspectResult(record) : undefined
   }
 
   export async function getRunningCount(parentSessionID: string): Promise<number> {
@@ -439,6 +465,7 @@ export namespace Delegation {
         resultSummary: record.resultSummary,
         progressSummary: record.progressSummary,
         error: record.error,
+        metadata: record.metadata,
       }))
   }
 

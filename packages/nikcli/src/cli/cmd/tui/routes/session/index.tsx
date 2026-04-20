@@ -2610,6 +2610,8 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const input = props.input as Record<string, any>
   const sessionID = createMemo(() => (typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined))
   const isBackground = createMemo(() => Boolean(meta.background || meta.delegationId))
+  const kind = createMemo(() => (typeof meta.kind === "string" ? meta.kind : undefined))
+  const question = createMemo(() => (typeof meta.question === "string" ? meta.question.trim() : ""))
   const liveSummary = createMemo(() => (typeof meta.liveSummary === "string" ? meta.liveSummary.trim() : ""))
   const derivedLiveSummary = createMemo(() => {
     const child = sessionID()
@@ -2681,6 +2683,9 @@ function Task(props: ToolProps<typeof TaskTool>) {
               {input.description}
               <Show when={meta.summary?.length}> ({meta.summary?.length} toolcalls)</Show>
             </text>
+            <Show when={kind() === "research" && question()}>
+              <text style={{ fg: theme.textMuted }}>└ {question()}</text>
+            </Show>
             <Show when={current()}>
               <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
                 └ {Locale.titlecase(current()!.tool)}{" "}
@@ -2698,6 +2703,9 @@ function Task(props: ToolProps<typeof TaskTool>) {
             </Show>
             <Show when={meta.delegatorDelegationId && isBackground()}>
               <text style={{ fg: theme.textMuted }}>└ delegator {meta.delegatorDelegationId}</text>
+            </Show>
+            <Show when={meta.reused && isBackground()}>
+              <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>
             </Show>
           </box>
           <text fg={theme.text}>

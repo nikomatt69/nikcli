@@ -49,7 +49,10 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
             ? `No delegations found for session ${parentSessionID}.`
             : [
                 `Delegations for session ${parentSessionID}:`,
-                ...items.map((item) => `- ${item.id} [${item.status}] @${item.agent} ${item.title}`),
+                ...items.map(
+                  (item) =>
+                    `- ${item.id} [${item.status}] @${item.agent} ${item.title}${item.description ? ` - ${item.description}` : ""}`,
+                ),
               ].join("\n"),
       }
     }

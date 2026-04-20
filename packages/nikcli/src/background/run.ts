@@ -15,10 +15,19 @@ export namespace BackgroundRun {
   const log = Log.create({ service: "background.run" })
   const OWNER_ID = `${process.pid}-${Date.now()}`
   export const LEASE_TIMEOUT_MS = 15_000
+  type Metadata = Record<string, unknown>
 
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
-  export const Source = z.enum(["task", "model-subtask", "advisor", "delegator", "delegator-followup", "other"])
+  export const Source = z.enum([
+    "task",
+    "model-subtask",
+    "advisor",
+    "research",
+    "delegator",
+    "delegator-followup",
+    "other",
+  ])
   export type Source = z.infer<typeof Source>
 
   export const Record = z.object({
@@ -40,6 +49,7 @@ export namespace BackgroundRun {
     resultSummary: z.string().optional(),
     progressSummary: z.string().optional(),
     error: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
     ownerID: z.string().optional(),
     ownerPID: z.number().int().positive().optional(),
     heartbeatAt: z.number().optional(),
@@ -80,6 +90,67 @@ export namespace BackgroundRun {
     return "-"
   }
 
+  function metadataString(metadata: Metadata | undefined, key: string) {
+    const value = metadata?.[key]
+    return typeof value === "string" && value.trim() ? value.trim() : undefined
+  }
+
+  function metadataNumber(metadata: Metadata | undefined, key: string) {
+    const value = metadata?.[key]
+    return typeof value === "number" && Number.isFinite(value) ? value : undefined
+  }
+
+  function parseQuestion(prompt: string) {
+    const explicit = prompt.match(/^Question:\s*(.+)$/im)?.[1]?.trim()
+    if (explicit) return explicit
+    const first = prompt
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean)
+    return first?.slice(0, 200)
+  }
+
+  function extractSourceCount(text: string) {
+    const matches = text.match(/https?:\/\/[^\s)\]]+/g) ?? []
+    return new Set(matches).size
+  }
+
+  function extractConfidence(text: string) {
+    return text.match(/^Confidence:\s*(.+)$/im)?.[1]?.trim()
+  }
+
+  function researchMetadata(record: Record, result: string, metadata?: Metadata) {
+    const merged = {
+      ...(record.metadata ?? {}),
+      ...(metadata ?? {}),
+    }
+    if (record.agent !== "researcher" && merged.kind !== "research")
+      return Object.keys(merged).length > 0 ? merged : undefined
+    merged.kind = "research"
+    merged.question = metadataString(merged, "question") ?? parseQuestion(record.prompt)
+    merged.sourceCount = metadataNumber(merged, "sourceCount") ?? extractSourceCount(result)
+    merged.confidence = metadataString(merged, "confidence") ?? extractConfidence(result)
+    return merged
+  }
+
+  function renderMetadata(record: Record) {
+    const metadata = record.metadata
+    if (!metadata) return ""
+    if (metadataString(metadata, "kind") !== "research" && record.agent !== "researcher") return ""
+    const question = metadataString(metadata, "question")
+    const confidence = metadataString(metadata, "confidence")
+    const sourceCount = metadataNumber(metadata, "sourceCount")
+    const followUpRounds = metadataNumber(metadata, "followUpRounds")
+    return [
+      question ? `**Question:** ${question}` : "",
+      confidence ? `**Confidence:** ${confidence}` : "",
+      typeof sourceCount === "number" ? `**Source Count:** ${sourceCount}` : "",
+      typeof followUpRounds === "number" ? `**Follow-up Rounds:** ${followUpRounds}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+  }
+
   async function ensureArtifactDirectory(parentSessionID: string) {
     const dir = directory(parentSessionID)
     await fs.mkdir(dir, { recursive: true })
@@ -87,6 +158,7 @@ export namespace BackgroundRun {
   }
 
   function renderArtifact(record: Record, result = record.resultSummary ?? "", error = record.error) {
+    const metadataBlock = renderMetadata(record)
     return `# ${statusGlyph(record.status)} ${record.title}
 
 ${record.prompt.slice(0, 200)}
@@ -101,6 +173,7 @@ ${record.prompt.slice(0, 200)}
 **Last Activity:** ${record.lastActivityAt ? new Date(record.lastActivityAt).toISOString() : "N/A"}
 ${record.progressSummary ? `**Progress:** ${record.progressSummary}` : ""}
 ${error ? `**Error:** ${error}` : ""}
+${metadataBlock}
 
 ---
 
@@ -122,6 +195,7 @@ ${result}
     title?: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
     source?: Source
+    metadata?: Metadata
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
@@ -140,6 +214,7 @@ ${result}
       title: (params.title ?? params.prompt).slice(0, 50).replace(/\n/g, " "),
       workspaceID: params.session?.workspaceID,
       source: params.source,
+      metadata: params.metadata,
       ownerID: OWNER_ID,
       ownerPID: process.pid,
       heartbeatAt: Date.now(),
@@ -250,7 +325,7 @@ ${result}
     }
   }
 
-  export async function finalize(id: string, status: Status, result: string, error?: string) {
+  export async function finalize(id: string, status: Status, result: string, error?: string, metadata?: Metadata) {
     let finalized = false
     const record = await Storage.update<Record>(key(id), (draft) => {
       if (draft.status !== "running") return
@@ -260,6 +335,7 @@ ${result}
       draft.resultSummary = result || undefined
       draft.progressSummary = undefined
       draft.error = error
+      draft.metadata = researchMetadata(draft, result, metadata)
       draft.heartbeatAt = Date.now()
       draft.lastActivityAt = Date.now()
       finalized = true

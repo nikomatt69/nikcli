@@ -15,6 +15,61 @@ type DelegatorMetadata = {
   result?: string
 }
 
+function metadataString(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key]
+  return typeof value === "string" && value.trim() ? value.trim() : undefined
+}
+
+function metadataNumber(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function sourceCount(text: string, metadata?: Record<string, unknown>) {
+  const preset = metadataNumber(metadata, "sourceCount")
+  if (typeof preset === "number") return preset
+  const matches = text.match(/https?:\/\/[^\s)\]]+/g) ?? []
+  return new Set(matches).size
+}
+
+function confidence(text: string, metadata?: Record<string, unknown>) {
+  return metadataString(metadata, "confidence") ?? text.match(/^Confidence:\s*(.+)$/im)?.[1]?.trim()
+}
+
+function question(metadata?: Record<string, unknown>) {
+  return metadataString(metadata, "question")
+}
+
+function isResearch(delegation: Awaited<ReturnType<typeof Delegation.inspectForSession>>) {
+  return delegation?.agent === "researcher" || metadataString(delegation?.metadata, "kind") === "research"
+}
+
+function formatResearchSummary(
+  summarySource: string,
+  delegationId: string,
+  delegation: NonNullable<Awaited<ReturnType<typeof Delegation.inspectForSession>>>,
+) {
+  const questionText = question(delegation.metadata)
+  const confidenceText = confidence(summarySource, delegation.metadata)
+  const sources = sourceCount(summarySource, delegation.metadata)
+  return [
+    `**Task:** ${delegation.title}`,
+    `**Question:** ${questionText ?? delegation.title}`,
+    `**Agent:** ${delegation.agent}`,
+    `**Status:** ${delegation.status}`,
+    confidenceText ? `**Confidence:** ${confidenceText}` : "",
+    `**Sources:** ${sources}`,
+    "",
+    "**Research Summary:**",
+    `${summarySource.slice(0, 800)}${summarySource.length > 800 ? "\n\n...(truncated)" : ""}`,
+    "",
+    "---",
+    `Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full result.`,
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
 export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("delegator", async () => {
   return {
     description: DESCRIPTION,
@@ -43,6 +98,9 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
               `**Delegation ID:** ${delegationId}`,
               `**Status:** ${delegation.status}`,
               `**Agent:** ${delegation.agent}`,
+              isResearch(delegation) && question(delegation.metadata)
+                ? `**Question:** ${question(delegation.metadata)}`
+                : "",
               `**Session:** ${delegation.sessionID || "N/A"}`,
               `**Started:** ${new Date(delegation.createdAt).toISOString()}`,
               isRunning
@@ -118,7 +176,9 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
             }
           }
 
-          const summary = `**Task:** ${delegation.title}
+          const summary = isResearch(delegation)
+            ? formatResearchSummary(summarySource, delegationId, delegation)
+            : `**Task:** ${delegation.title}
 **Agent:** ${delegation.agent}
 **Status:** ${delegation.status}
 

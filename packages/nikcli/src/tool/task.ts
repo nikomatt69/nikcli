@@ -35,12 +35,67 @@ type TaskMetadata = {
   delegatorSessionId?: string
   background?: boolean
   liveSummary?: string
+  kind?: string
+  question?: string
+  sourceCount?: number
+  confidence?: string
+  followUpRounds?: number
+  reused?: boolean
 }
 
 type BackgroundTaskResult = {
   delegationId: string
   delegatorDelegationId: string
   delegatorSessionId: string
+  sessionId: string
+  kind?: string
+  question?: string
+  sourceCount?: number
+  confidence?: string
+  followUpRounds?: number
+  reused?: boolean
+}
+
+type ResearchRunMetadata = {
+  kind: "research"
+  question?: string
+  sourceCount?: number
+  confidence?: string
+  followUpRounds?: number
+}
+
+const RESEARCH_AGENT = "researcher"
+
+function extractQuestion(prompt: string) {
+  const explicit = prompt.match(/^Question:\s*(.+)$/im)?.[1]?.trim()
+  if (explicit) return explicit
+  const firstLine = prompt
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean)
+  return firstLine?.slice(0, 160)
+}
+
+function extractConfidence(text: string) {
+  return text.match(/^Confidence:\s*(.+)$/im)?.[1]?.trim()
+}
+
+function extractSourceCount(text: string) {
+  const matches = text.match(/https?:\/\/[^\s)\]]+/g) ?? []
+  return new Set(matches).size
+}
+
+function buildResearchMetadata(
+  agentName: string,
+  prompt: string,
+  extra?: Omit<ResearchRunMetadata, "kind" | "question">,
+) {
+  if (agentName !== RESEARCH_AGENT) return undefined
+  return {
+    kind: "research",
+    question: extractQuestion(prompt),
+    ...extra,
+  } satisfies ResearchRunMetadata
 }
 
 type ReusableSessionValidation = {
@@ -226,6 +281,7 @@ async function launchBackgroundSubtask(params: {
   }
   hasTaskPermission: boolean
   primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+  metadata?: Record<string, unknown>
 }): Promise<BackgroundTaskResult> {
   const delegatorSession = await Session.create({
     parentID: params.parentSessionID,
@@ -238,7 +294,8 @@ async function launchBackgroundSubtask(params: {
     agent: params.agent.name,
     prompt: params.prompt,
     session: params.session,
-    source: params.source,
+    source: params.agent.name === RESEARCH_AGENT ? "research" : params.source,
+    metadata: params.metadata,
     delegatorSessionID: delegatorSession.id,
     delegatorEnabled: true,
   })
@@ -250,6 +307,7 @@ async function launchBackgroundSubtask(params: {
     prompt: `Synthesize @${params.agent.name}: ${params.prompt}`,
     session: delegatorSession,
     source: "delegator",
+    metadata: params.metadata,
   })
   Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
   // Close the forward link advertised by the BackgroundRun schema so callers
@@ -274,8 +332,15 @@ async function launchBackgroundSubtask(params: {
       const error = summary.assistant?.error
       const status = error ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error") : "complete"
       const errMsg = error ? extractErrorMessage(error) : undefined
+      const workerMetadata =
+        params.agent.name === RESEARCH_AGENT
+          ? buildResearchMetadata(params.agent.name, params.prompt, {
+              sourceCount: extractSourceCount(summary.text),
+              confidence: extractConfidence(summary.text),
+            })
+          : params.metadata
 
-      await Delegation.finalize(delegation.id, status, summary.text, errMsg)
+      await Delegation.finalize(delegation.id, status, summary.text, errMsg, workerMetadata)
 
       await Delegation.waitForSettled(params.parentSessionID).catch(() => undefined)
       const synthesisItems = await Delegation.collectResults(params.parentSessionID).catch(() => [])
@@ -352,24 +417,36 @@ async function launchBackgroundSubtask(params: {
       const finalSummary = sessionSummaries[sessionSummaries.length - 1] ?? ""
       const finalErr = lastDelegatorSummary?.assistant?.error
       const finalStatus = finalErr ? (MessageV2.AbortedError.isInstance(finalErr) ? "cancelled" : "error") : "complete"
+      const delegatorMetadata =
+        params.agent.name === RESEARCH_AGENT
+          ? buildResearchMetadata(params.agent.name, params.prompt, {
+              followUpRounds: Math.max(0, sessionSummaries.length - 1),
+              sourceCount: extractSourceCount(finalSummary),
+              confidence: extractConfidence(finalSummary),
+            })
+          : params.metadata
       await Delegation.finalize(
         delegatorDelegation.id,
         finalStatus,
         finalSummary,
         finalErr ? extractErrorMessage(finalErr) : undefined,
+        delegatorMetadata,
       )
     })
     .catch(async (error) => {
       unsubProgress()
       const errMsg = error instanceof Error ? error.message : String(error)
-      await Delegation.finalize(delegation.id, "error", "", errMsg)
-      await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
+      await Delegation.finalize(delegation.id, "error", "", errMsg, params.metadata)
+      await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`, params.metadata)
     })
 
   return {
     delegationId: delegation.id,
     delegatorDelegationId: delegatorDelegation.id,
     delegatorSessionId: delegatorSession.id,
+    sessionId: params.session.id,
+    kind: typeof params.metadata?.kind === "string" ? params.metadata.kind : undefined,
+    question: typeof params.metadata?.question === "string" ? params.metadata.question : undefined,
   }
 }
 
@@ -397,6 +474,35 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
 
   const hasTaskPermission = agent.permission.some((rule) => rule.permission === "task")
   const parentSession = await Session.get(ctx.sessionID)
+  const researchMetadata = buildResearchMetadata(agent.name, params.prompt)
+
+  if (params.background && agent.name === RESEARCH_AGENT) {
+    const existing = await Delegation.findRunningForParent(ctx.sessionID, agent.name)
+    if (existing) {
+      const metadata: TaskMetadata = {
+        background: true,
+        delegationId: existing.id,
+        delegatorDelegationId: existing.delegatorID,
+        delegatorSessionId: existing.delegatorSessionID,
+        sessionId: existing.sessionID ?? "unknown",
+        kind: "research",
+        question:
+          (typeof existing.metadata?.question === "string" ? existing.metadata.question : undefined) ??
+          researchMetadata?.question,
+        reused: true,
+      }
+      ctx.metadata({ title: params.description, metadata })
+      return {
+        title: params.description,
+        metadata,
+        output: formatTaskOutput(
+          `Reusing running @${agent.name} background task.\nDelegator: ${existing.delegatorID ?? "N/A"}`,
+          existing.sessionID ?? "unknown",
+          existing.id,
+        ),
+      }
+    }
+  }
 
   const session = await iife(async () => {
     if (params.session_id) {
@@ -423,6 +529,8 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
     title: params.description,
     metadata: {
       sessionId: session.id,
+      kind: researchMetadata?.kind,
+      question: researchMetadata?.question,
     },
   })
 
@@ -445,6 +553,7 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       },
       hasTaskPermission,
       primaryTools: config.experimental?.primary_tools,
+      metadata: researchMetadata,
     })
 
     ctx.metadata({
@@ -454,7 +563,13 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         delegationId: backgroundTask.delegationId,
         delegatorDelegationId: backgroundTask.delegatorDelegationId,
         delegatorSessionId: backgroundTask.delegatorSessionId,
-        sessionId: session.id,
+        sessionId: backgroundTask.sessionId,
+        kind: backgroundTask.kind,
+        question: backgroundTask.question,
+        sourceCount: backgroundTask.sourceCount,
+        confidence: backgroundTask.confidence,
+        followUpRounds: backgroundTask.followUpRounds,
+        reused: backgroundTask.reused,
       },
     })
 
@@ -465,11 +580,17 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         delegationId: backgroundTask.delegationId,
         delegatorDelegationId: backgroundTask.delegatorDelegationId,
         delegatorSessionId: backgroundTask.delegatorSessionId,
-        sessionId: session.id,
+        sessionId: backgroundTask.sessionId,
+        kind: backgroundTask.kind,
+        question: backgroundTask.question,
+        sourceCount: backgroundTask.sourceCount,
+        confidence: backgroundTask.confidence,
+        followUpRounds: backgroundTask.followUpRounds,
+        reused: backgroundTask.reused,
       },
       output: formatTaskOutput(
         `Background task started for @${agent.name}. Delegator will synthesize results.\nDelegator: ${backgroundTask.delegatorDelegationId}`,
-        session.id,
+        backgroundTask.sessionId,
         backgroundTask.delegationId,
       ),
     }
@@ -489,6 +610,8 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         summary: Object.values(parts).sort((a, b) => a.id.localeCompare(b.id)),
         sessionId: session.id,
         liveSummary,
+        kind: researchMetadata?.kind,
+        question: researchMetadata?.question,
       },
     })
   }
@@ -534,6 +657,10 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         summary: summary.summary,
         sessionId: session.id,
         liveSummary: summarizeLiveText(summary.text),
+        kind: researchMetadata?.kind,
+        question: researchMetadata?.question,
+        sourceCount: agent.name === RESEARCH_AGENT ? extractSourceCount(summary.text) : undefined,
+        confidence: agent.name === RESEARCH_AGENT ? extractConfidence(summary.text) : undefined,
       },
       output: formatTaskOutput(summary.text, session.id),
     }
