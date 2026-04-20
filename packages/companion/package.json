@@ -23,7 +23,7 @@
     "dist"
   ],
   "dependencies": {
-    "@hono/node-server": "1.13.2",
+    "@hono/node-server": "1.19.13",
     "@nikcli-ai/sdk": "workspace:*",
     "@nikcli-ai/util": "workspace:*",
     "hono": "catalog:",
@@ -36,6 +36,6 @@
     "@types/ws": "8.5.14",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:",
-    "wrangler": "4.61.1"
+    "wrangler": "4.84.0"
   }
 }
