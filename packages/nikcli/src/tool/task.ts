@@ -13,6 +13,7 @@ import { Config } from "../config/config"
 import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
 import { Instance } from "../project/instance"
+import { Log } from "@/util/log"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -65,6 +66,7 @@ type ResearchRunMetadata = {
 }
 
 const RESEARCH_AGENT = "researcher"
+const log = Log.create({ service: "task" })
 
 function extractQuestion(prompt: string) {
   const explicit = prompt.match(/^Question:\s*(.+)$/im)?.[1]?.trim()
@@ -403,6 +405,9 @@ async function launchBackgroundSubtask(params: {
         const text = delegatorSummary.text ?? ""
         const actionMatch = text.match(/\*\*Action\*\*[\s:]+(finalize|continue)/i)
         const action = (actionMatch?.[1]?.toLowerCase() ?? "finalize") as "finalize" | "continue"
+        if (!actionMatch) {
+          log.warn("delegator did not respond with expected action format", { text: text.slice(0, 200) })
+        }
 
         if (action === "finalize" || isLastRound) break
 

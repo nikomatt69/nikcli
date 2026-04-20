@@ -57,9 +57,10 @@ export namespace State {
 
       tasks.push(task)
     }
+    // Execute disposal tasks BEFORE clearing state
+    await Promise.all(tasks)
     entries.clear()
     recordsByKey.delete(key)
-    await Promise.all(tasks)
     disposalFinished = true
     log.info("state disposal completed", { key })
   }

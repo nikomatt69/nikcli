@@ -150,8 +150,13 @@ export namespace Storage {
     for (let index = migration; index < MIGRATIONS.length; index++) {
       log.info("running migration", { index })
       const migration = MIGRATIONS[index]
-      await migration(dir).catch(() => log.error("failed to run migration", { index }))
-      await Bun.write(path.join(dir, "migration"), (index + 1).toString())
+      try {
+        await migration(dir)
+        await Bun.write(path.join(dir, "migration"), (index + 1).toString())
+      } catch (e) {
+        log.error("failed to run migration", { index, error: e })
+        break // Don't advance index if migration failed
+      }
     }
     return {
       dir,
@@ -162,7 +167,12 @@ export namespace Storage {
     const dir = await state().then((x) => x.dir)
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
-      await fs.unlink(target).catch(() => { })
+      try {
+        await fs.unlink(target)
+      } catch (e: any) {
+        // Only ignore ENOENT (file doesn't exist) - other errors should propagate
+        if (e?.code !== "ENOENT") throw e
+      }
     })
   }
 
@@ -181,7 +191,7 @@ export namespace Storage {
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
-      const content = await Bun.file(target).json()
+      const content = structuredClone(await Bun.file(target).json())
       fn(content)
       await Bun.write(target, JSON.stringify(content, null, 2))
       return content as T

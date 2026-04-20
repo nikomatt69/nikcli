@@ -15,7 +15,7 @@ export namespace BackgroundRun {
   const log = Log.create({ service: "background.run" })
   const OWNER_ID = `${process.pid}-${Date.now()}`
   export const LEASE_TIMEOUT_MS = 15_000
-  type Metadata = Record<string, unknown>
+  type Metadata = { [key: string]: unknown }
 
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
@@ -292,7 +292,7 @@ ${result}
         continue
       }
     }
-    return result.sort((a, b) => a.id.localeCompare(b.id))
+    return result.sort((a, b) => a.createdAt - b.createdAt)
   }
 
   export async function listForParent(parentSessionID: string): Promise<Record[]> {

@@ -69,7 +69,7 @@ export namespace SessionPrompt {
           abort: AbortController
           callbacks: {
             resolve(input: MessageV2.WithParts): void
-            reject(): void
+            reject(error?: Error): void
           }[]
           toolsCache?: {
             modelId: string
@@ -84,7 +84,7 @@ export namespace SessionPrompt {
       for (const item of Object.values(current)) {
         item.abort.abort()
         for (const callback of item.callbacks) {
-          callback.reject()
+          callback.reject(new Error("Session disposed"))
         }
       }
     },
@@ -257,19 +257,22 @@ export namespace SessionPrompt {
     return controller.signal
   }
 
-  export function cancel(sessionID: string) {
-    log.info("cancel", { sessionID })
-    const s = state()
-    const match = s[sessionID]
-    if (!match) return
-    match.abort.abort()
-    for (const item of match.callbacks) {
-      item.reject()
+  export const cancel = (() => {
+    const log = Log.create({ service: "session.prompt" })
+    return function cancel(sessionID: string) {
+      log.info("cancel", { sessionID })
+      const s = state()
+      const match = s[sessionID]
+      if (!match) return
+      match.abort.abort()
+      for (const item of match.callbacks) {
+        item.reject(new Error("Session cancelled"))
+      }
+      delete s[sessionID]
+      SessionStatus.set(sessionID, { type: "idle" })
+      return
     }
-    delete s[sessionID]
-    SessionStatus.set(sessionID, { type: "idle" })
-    return
-  }
+  })()
 
   export const loop = fn(Identifier.schema("session"), async (sessionID) => {
     const abort = start(sessionID)
@@ -684,11 +687,11 @@ export namespace SessionPrompt {
           ...MessageV2.toModelMessages(sessionMessages, model),
           ...(isLastStep
             ? [
-              {
-                role: "assistant" as const,
-                content: MAX_STEPS,
-              },
-            ]
+                {
+                  role: "assistant" as const,
+                  content: MAX_STEPS,
+                },
+              ]
             : []),
         ],
         tools,
@@ -1216,8 +1219,8 @@ export namespace SessionPrompt {
                     agent: input.agent!,
                     messageID: info.id,
                     extra: { bypassCwdCheck: true, model },
-                    metadata: async () => { },
-                    ask: async () => { },
+                    metadata: async () => {},
+                    ask: async () => {},
                   }
                   const result = await tool.execute(args, readCtx)
                   pieces.push({
@@ -1276,8 +1279,8 @@ export namespace SessionPrompt {
                   agent: input.agent!,
                   messageID: info.id,
                   extra: { bypassCwdCheck: true },
-                  metadata: async () => { },
-                  ask: async () => { },
+                  metadata: async () => {},
+                  ask: async () => {},
                 }
                 const result = await ListTool.init().then((t) => t.execute(args, listCtx))
                 return [
@@ -1872,18 +1875,18 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
     const parts = isSubtask
       ? [
-        {
-          type: "subtask" as const,
-          agent: agent.name,
-          description: command.description ?? "",
-          command: input.command,
-          model: {
-            providerID: taskModel.providerID,
-            modelID: taskModel.modelID,
+          {
+            type: "subtask" as const,
+            agent: agent.name,
+            description: command.description ?? "",
+            command: input.command,
+            model: {
+              providerID: taskModel.providerID,
+              modelID: taskModel.modelID,
+            },
+            prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
           },
-          prompt: templateParts.find((y) => y.type === "text")?.text ?? "",
-        },
-      ]
+        ]
       : [...templateParts, ...(input.parts ?? [])]
 
     const userAgent = isSubtask ? (input.agent ?? (await Agent.defaultAgent())) : agentName

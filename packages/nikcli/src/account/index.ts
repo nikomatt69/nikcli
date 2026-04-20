@@ -1,18 +1,19 @@
 import { AccountRepo } from "./repo"
 import { normalizeServerUrl } from "./url"
+import { Identifier } from "@/id/id"
 import { Lock } from "@/util/lock"
 import { Log } from "@/util/log"
-import type {
+import {
   AccountID,
-  DeviceCode,
-  DeviceCodeRequest,
-  DeviceCodeResponse,
-  Info,
-  Org,
-  OrgID,
-  PollResult,
-  RefreshToken,
-  UserCode,
+  type DeviceCode,
+  type DeviceCodeRequest,
+  type DeviceCodeResponse,
+  type Info,
+  type Org,
+  type OrgID,
+  type PollResult,
+  type RefreshToken,
+  type UserCode,
 } from "./schema"
 
 export namespace Account {
@@ -142,8 +143,10 @@ export namespace Account {
         }
 
         case "success": {
-          // Generate account ID from the response
-          const accountID = `acc_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` as AccountID
+          // Generate a canonical, time-ordered account ID using the shared Identifier helper.
+          // Parsed through the schema so the value is runtime-validated (not just a cast),
+          // which guarantees downstream `Identifier.timestamp(id)` and schema checks keep working.
+          const accountID = AccountID.parse(Identifier.ascending("account"))
 
           log.info("device code flow completed", { accountID })
 

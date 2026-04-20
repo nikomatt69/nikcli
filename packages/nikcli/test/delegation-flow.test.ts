@@ -44,6 +44,10 @@ async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function uniqueSessionID(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+}
+
 afterEach(async () => {
   await Instance.disposeAll().catch(() => undefined)
 })
@@ -57,8 +61,8 @@ afterAll(async () => {
 describe("delegation flow", () => {
   it("supports delegation list, count, read, cancel, and session scoping", async () => {
     await withProject(async () => {
-      const parentSessionID = "ses_parent_a"
-      const otherSessionID = "ses_parent_b"
+      const parentSessionID = uniqueSessionID("ses_parent_a")
+      const otherSessionID = uniqueSessionID("ses_parent_b")
       const tool = await DelegationTool.init()
       const running = await Delegation.create({
         parentSessionID,
@@ -83,8 +87,14 @@ describe("delegation flow", () => {
       await Delegation.finalize(completed.id, "complete", "Advisor recommendation")
 
       const ctx = createContext(parentSessionID)
-      const count = await tool.execute({ action: "count" }, ctx)
-      expect(count.output).toContain("1 delegation(s)")
+      let countOutput = ""
+      for (let i = 0; i < 20; i++) {
+        const count = await tool.execute({ action: "count" }, ctx)
+        countOutput = count.output
+        if (countOutput.includes("1 delegation(s)")) break
+        await sleep(50)
+      }
+      expect(countOutput).toContain("1 delegation(s)")
 
       const list = await tool.execute({ action: "list" }, ctx)
       expect(list.output).toContain(running.id)
@@ -122,7 +132,7 @@ describe("delegation flow", () => {
 
   it("reports delegator status, progress, summary, and access checks", async () => {
     await withProject(async () => {
-      const parentSessionID = "ses_parent_c"
+      const parentSessionID = uniqueSessionID("ses_parent_c")
       const tool = await DelegatorTool.init()
       const delegation = await Delegation.create({
         parentSessionID,
@@ -160,7 +170,7 @@ describe("delegation flow", () => {
 
   it("surfaces research metadata in delegator summaries and artifacts", async () => {
     await withProject(async () => {
-      const parentSessionID = "ses_parent_research"
+      const parentSessionID = uniqueSessionID("ses_parent_research")
       const tool = await DelegatorTool.init()
       const delegation = await Delegation.create({
         parentSessionID,
@@ -209,7 +219,7 @@ describe("delegation flow", () => {
   it("marks stale background runs orphaned during reconciliation", async () => {
     await withProject(async () => {
       const record = await BackgroundRun.create({
-        parentSessionID: "ses_parent_d",
+        parentSessionID: uniqueSessionID("ses_parent_d"),
         agent: "explore",
         prompt: "Long running exploration",
         source: "task",

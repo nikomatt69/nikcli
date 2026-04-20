@@ -57,6 +57,13 @@ export const GlassBorderLight = {
 }
 
 // Minimal glass border - only corners, no sides
+/** Single-line characters shared by dialog dividers and separators */
+export const DialogSeparatorChars = {
+  horizontal: "─",
+  vertical: "│",
+  dot: "·",
+} as const
+
 export const GlassBorderMinimal = {
   border: [] as const,
   customBorderChars: {

@@ -57,7 +57,7 @@ export namespace Delegation {
     progressSummary?: string
     resultSummary?: string
     error?: string
-    metadata?: Record<string, unknown>
+    metadata?: { [key: string]: unknown }
   }
 
   const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
@@ -71,7 +71,7 @@ export namespace Delegation {
     resultSummary?: string
     progressSummary?: string
     error?: string
-    metadata?: Record<string, unknown>
+    metadata?: { [key: string]: unknown }
   }
 
   interface ManagerState {
@@ -261,7 +261,7 @@ export namespace Delegation {
     prompt: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
     source?: BackgroundRun.Source
-    metadata?: Record<string, unknown>
+    metadata?: { [key: string]: unknown }
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
@@ -337,7 +337,7 @@ export namespace Delegation {
     status: Status,
     result: string,
     error?: string,
-    metadata?: Record<string, unknown>,
+    metadata?: { [key: string]: unknown },
   ): Promise<void> {
     const entry = current()
     const active = entry.activeDelegations.get(delegationID)
@@ -352,6 +352,10 @@ export namespace Delegation {
       finalized = await BackgroundRun.finalize(delegationID, finalStatus, result, finalError, metadata)
       if (!finalized) return
 
+      // Cleanup in-memory state BEFORE publishing event
+      // so subscribers see consistent state
+      cleanup(active ?? { id: delegationID, sessionID: persisted.sessionID })
+
       await Bus.publish(DelegationCompletedEvent, {
         delegationID: finalized.id,
         parentSessionID: finalized.parentSessionID,
@@ -360,8 +364,10 @@ export namespace Delegation {
       })
 
       log.info(`Finalized delegation ${delegationID} with status ${finalStatus}`)
-    } finally {
+    } catch (e) {
+      // Cleanup even on error
       cleanup(active ?? { id: delegationID, sessionID: persisted.sessionID })
+      throw e
     }
   }
 

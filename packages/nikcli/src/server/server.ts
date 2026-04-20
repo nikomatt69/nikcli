@@ -167,7 +167,11 @@ export namespace Server {
 
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-              ; (c as any).set("mobileAuth", token)
+            // SECURITY: Mobile auth still requires password auth if configured
+            if (password && !Flag.NIKCLI_SERVER_TAILSCALE_AUTH) {
+              return basicAuth({ username, password })(c, next)
+            }
+            ;(c as any).set("mobileAuth", token)
             return next()
           }
 
@@ -802,8 +806,8 @@ export namespace Server {
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
       ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
+          .map((s) => s.trim())
+          .filter(Boolean)
       : []
     _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname

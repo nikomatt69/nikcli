@@ -34,6 +34,8 @@ export namespace SessionProcessor {
     let blocked = false
     let attempt = 0
     let needsCompaction = false
+    // Ring buffer for doom-loop detection - avoids repeated storage I/O
+    const doomLoopBuffer: Array<{ tool: string; input: unknown }> = []
 
     const result = {
       get message() {
@@ -100,7 +102,7 @@ export namespace SessionProcessor {
                   }
                   break
 
-                case "tool-input-start":
+                case "tool-input-start": {
                   const part = await Session.updatePart({
                     id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
@@ -116,6 +118,7 @@ export namespace SessionProcessor {
                   })
                   toolcalls[value.id] = part as MessageV2.ToolPart
                   break
+                }
 
                 case "tool-input-delta":
                   break
@@ -140,32 +143,29 @@ export namespace SessionProcessor {
                     })
                     toolcalls[value.toolCallId] = part as MessageV2.ToolPart
 
-                    const parts = await MessageV2.parts(input.assistantMessage.id)
-                    const lastThree = parts.slice(-DOOM_LOOP_THRESHOLD)
+                    // Use in-memory ring buffer for doom-loop detection
+                    const entry = { tool: value.toolName, input: value.input }
+                    doomLoopBuffer.push(entry)
+                    if (doomLoopBuffer.length > DOOM_LOOP_THRESHOLD) {
+                      doomLoopBuffer.shift()
+                    }
 
-                    if (
-                      lastThree.length === DOOM_LOOP_THRESHOLD &&
-                      lastThree.every(
-                        (p) =>
-                          p.type === "tool" &&
-                          p.tool === value.toolName &&
-                          p.state.status !== "pending" &&
-                          // Avoid JSON.stringify in a hot path (and avoid crashes on non-JSON values).
-                          Bun.deepEquals(p.state.input, value.input),
-                      )
-                    ) {
-                      const agent = await Agent.get(input.assistantMessage.agent)
-                      await PermissionNext.ask({
-                        permission: "doom_loop",
-                        patterns: [value.toolName],
-                        sessionID: input.assistantMessage.sessionID,
-                        metadata: {
-                          tool: value.toolName,
-                          input: value.input,
-                        },
-                        always: [value.toolName],
-                        ruleset: agent.permission,
-                      })
+                    if (doomLoopBuffer.length === DOOM_LOOP_THRESHOLD) {
+                      const lastThree = doomLoopBuffer.slice(-DOOM_LOOP_THRESHOLD)
+                      if (lastThree.every((p) => p.tool === value.toolName && Bun.deepEquals(p.input, value.input))) {
+                        const agent = await Agent.get(input.assistantMessage.agent)
+                        await PermissionNext.ask({
+                          permission: "doom_loop",
+                          patterns: [value.toolName],
+                          sessionID: input.assistantMessage.sessionID,
+                          metadata: {
+                            tool: value.toolName,
+                            input: value.input,
+                          },
+                          always: [value.toolName],
+                          ruleset: agent.permission,
+                        })
+                      }
                     }
                   }
                   break
@@ -234,7 +234,7 @@ export namespace SessionProcessor {
                   })
                   break
 
-                case "finish-step":
+                case "finish-step": {
                   const usage = Session.getUsage({
                     model: input.model,
                     usage: value.usage,
@@ -276,6 +276,7 @@ export namespace SessionProcessor {
                     needsCompaction = true
                   }
                   break
+                }
 
                 case "text-start":
                   currentText = {

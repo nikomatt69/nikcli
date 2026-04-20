@@ -50,7 +50,14 @@ export namespace Bus {
       directory: Instance.directory,
       payload,
     })
-    return Promise.all(pending)
+    // Use Promise.allSettled to ensure all subscribers are notified even if one fails
+    return Promise.all(
+      pending.map((p) =>
+        Promise.resolve(p).catch((e) => {
+          log.error("subscriber error", { error: e, type: def.type })
+        }),
+      ),
+    )
   }
 
   export function subscribe<Definition extends BusEvent.Definition>(

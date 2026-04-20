@@ -179,8 +179,19 @@ export const FileRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        const path = c.req.valid("query").path
-        const content = await File.read(path)
+        const requestedPath = c.req.valid("query").path
+        // Resolve to absolute path and validate it's within project directory
+        const absolutePath = path.isAbsolute(requestedPath)
+          ? requestedPath
+          : path.join(Instance.directory, requestedPath)
+        const normalizedPath = path.normalize(absolutePath)
+
+        // Ensure path doesn't traverse outside project directory
+        if (!normalizedPath.startsWith(Instance.directory)) {
+          return c.json({ error: "Path outside project directory" }, 403)
+        }
+
+        const content = await File.read(normalizedPath)
         return c.json(content)
       },
     )
