@@ -247,20 +247,12 @@ export function Session() {
       // when the user navigates away during background task startup.
       if (part.tool === "task") {
         const metadata = (part.state as any)?.metadata
-        const childSessionID = metadata?.sessionId
-        const backgroundID = metadata?.delegationId ?? part.id
+        const backgroundID = metadata?.rootDelegationId ?? metadata?.delegationId ?? part.id
         const parentID = part.sessionID
-        if (
-          metadata?.background === true &&
-          typeof childSessionID === "string" &&
-          !autoBackgroundedTasks.has(backgroundID)
-        ) {
+        if (metadata?.background === true && !autoBackgroundedTasks.has(backgroundID)) {
           autoBackgroundedTasks.add(backgroundID)
-          addToBackground(parentID, childSessionID)
-          const delegatorSessionID = metadata?.delegatorSessionId
-          if (typeof delegatorSessionID === "string") {
-            addToBackground(parentID, delegatorSessionID)
-          }
+          undismissBackground(parentID, backgroundID)
+          void sync.background.sync(parentID)
         }
         return
       }
@@ -287,58 +279,22 @@ export function Session() {
   const keybind = useKeybind()
   const status = createMemo(() => sync.data.session_status?.[route.sessionID] ?? { type: "idle" as const })
 
-  type BackgroundSubtasksMap = Record<string, string[]>
   type BackgroundDismissedMap = Record<string, string[]>
   function getDismissed(parentID: string) {
     const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
     return new Set(map[parentID] ?? [])
   }
-  function addToBackground(parentID: string, childID: string) {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    const next = Array.from(new Set([...(map[parentID] ?? []), childID]))
-    kv.set("background_subtasks", { ...map, [parentID]: next })
-
+  function undismissBackground(parentID: string, delegationID: string) {
     const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = (dismissedMap[parentID] ?? []).filter((id) => id !== childID)
+    const dismissed = (dismissedMap[parentID] ?? []).filter((id) => id !== delegationID)
     kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
   }
 
-  function removeFromBackground(parentID: string, childID: string) {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    const list = map[parentID] ?? []
-    if (!list.includes(childID)) return
-    kv.set("background_subtasks", { ...map, [parentID]: list.filter((x) => x !== childID) })
-
+  function dismissBackground(parentID: string, delegationID: string) {
     const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), childID]))
+    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), delegationID]))
     kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
   }
-
-  createEffect(() => {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    const persisted = new Set<string>()
-    for (const message of messages()) {
-      const parts = sync.data.part[message.id] ?? []
-      for (const part of parts) {
-        if (part.type !== "tool" || part.tool !== "task") continue
-        const metadata = (part.state as any)?.metadata
-        const childSessionID = metadata?.sessionId
-        const delegatorSessionID = metadata?.delegatorSessionId
-        if (metadata?.background === true && typeof childSessionID === "string") {
-          persisted.add(childSessionID)
-        }
-        if (metadata?.background === true && typeof delegatorSessionID === "string") {
-          persisted.add(delegatorSessionID)
-        }
-      }
-    }
-    const dismissed = getDismissed(route.sessionID)
-    const existing = map[route.sessionID] ?? []
-    const merged = Array.from(new Set([...existing, ...[...persisted].filter((id) => !dismissed.has(id))]))
-    if (merged.length !== existing.length) {
-      kv.set("background_subtasks", { ...map, [route.sessionID]: merged })
-    }
-  })
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
@@ -349,20 +305,6 @@ export function Session() {
     }
   })
 
-  // Foreground/background behavior for subtasks (Claude Code-style)
-  // - When viewing a child session that is currently running, Ctrl+B backgrounds it and returns to the parent.
-  // - When a child session is opened in the foreground, remove it from the background list.
-  createEffect(
-    on(
-      () => ({ sessionID: route.sessionID, parentID: session()?.parentID }),
-      ({ parentID }) => {
-        if (!parentID) return
-        removeFromBackground(parentID, route.sessionID)
-      },
-      { defer: true },
-    ),
-  )
-
   useKeyboard((evt) => {
     const parentID = session()?.parentID
     if (!parentID) return
@@ -370,7 +312,8 @@ export function Session() {
 
     evt.preventDefault()
     evt.stopPropagation()
-    addToBackground(parentID, route.sessionID)
+    const job = sync.background.findBySession(route.sessionID)
+    if (job) undismissBackground(parentID, job.rootDelegationID)
     navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
   })
 
@@ -382,7 +325,8 @@ export function Session() {
 
     evt.preventDefault()
     evt.stopPropagation()
-    addToBackground(parentID, route.sessionID)
+    const job = sync.background.findBySession(route.sessionID)
+    if (job) undismissBackground(parentID, job.rootDelegationID)
     navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
   })
 
@@ -460,7 +404,8 @@ export function Session() {
       onSelect: (dialog) => {
         const parentID = session()?.parentID
         if (!parentID) return
-        addToBackground(parentID, route.sessionID)
+        const job = sync.background.findBySession(route.sessionID)
+        if (job) undismissBackground(parentID, job.rootDelegationID)
         navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
         dialog.clear()
       },
@@ -474,9 +419,11 @@ export function Session() {
         aliases: ["monitors", "agents"],
       },
       onSelect: (dialog) => {
+        const backgroundSessionID = session()?.parentID ?? route.sessionID
+        void sync.background.sync(backgroundSessionID)
         dialog.replace(() => (
           <DialogBgAgents
-            sessionID={route.sessionID}
+            sessionID={backgroundSessionID}
             onOpenMonitor={(monitorID, title, command, status, logPath) => {
               dialog.setSize("xlarge")
               dialog.replace(
@@ -1148,7 +1095,8 @@ export function Session() {
             await sdk.client.session.abort({ sessionID: currentID }).catch(() => {})
           } else {
             // If idle, just remove from background tasks
-            removeFromBackground(parentID, currentID)
+            const job = sync.background.findBySession(currentID)
+            if (job) dismissBackground(parentID, job.rootDelegationID)
           }
 
           navigate({
@@ -2609,9 +2557,19 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const meta = props.metadata as Record<string, any>
   const input = props.input as Record<string, any>
   const sessionID = createMemo(() => (typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined))
+  const rootDelegationID = createMemo(() => {
+    if (typeof meta.rootDelegationId === "string") return meta.rootDelegationId as string
+    if (typeof meta.delegationId === "string") return meta.delegationId as string
+    return undefined
+  })
   const isBackground = createMemo(() => Boolean(meta.background || meta.delegationId))
   const kind = createMemo(() => (typeof meta.kind === "string" ? meta.kind : undefined))
   const question = createMemo(() => (typeof meta.question === "string" ? meta.question.trim() : ""))
+  const backgroundJob = createMemo(() => {
+    const delegationID = rootDelegationID()
+    if (!delegationID) return undefined
+    return sync.background.get(props.part.sessionID, delegationID)
+  })
   const liveSummary = createMemo(() => (typeof meta.liveSummary === "string" ? meta.liveSummary.trim() : ""))
   const derivedLiveSummary = createMemo(() => {
     const child = sessionID()
@@ -2629,19 +2587,22 @@ function Task(props: ToolProps<typeof TaskTool>) {
     return ""
   })
   const displaySummary = createMemo(() => liveSummary() || derivedLiveSummary())
-  const childStatus = createMemo(() => {
-    const child = sessionID()
-    if (!child) return undefined
-    return sync.data.session_status[child]?.type ?? "idle"
-  })
   const childStatusLabel = createMemo(() => {
-    switch (childStatus()) {
-      case "busy":
+    switch (backgroundJob()?.status) {
+      case "running":
         return "running in background"
-      case "retry":
-        return "retrying in background"
-      case "idle":
+      case "synthesizing":
+        return "synthesizing results"
+      case "complete":
         return isBackground() ? "background session ready" : "ready"
+      case "cancelled":
+        return "background job cancelled"
+      case "timeout":
+        return "background job timed out"
+      case "orphaned":
+        return "background job orphaned"
+      case "error":
+        return "background job errored"
       default:
         return undefined
     }
@@ -2698,11 +2659,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
             <Show when={childStatusLabel()}>
               <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
             </Show>
-            <Show when={meta.delegationId && isBackground()}>
-              <text style={{ fg: theme.textMuted }}>└ delegation {meta.delegationId}</text>
+            <Show when={backgroundJob()?.progressSummary && backgroundJob()?.progressSummary !== displaySummary()}>
+              <text style={{ fg: theme.textMuted }}>└ {backgroundJob()!.progressSummary}</text>
             </Show>
-            <Show when={meta.delegatorDelegationId && isBackground()}>
-              <text style={{ fg: theme.textMuted }}>└ delegator {meta.delegatorDelegationId}</text>
+            <Show when={rootDelegationID() && isBackground()}>
+              <text style={{ fg: theme.textMuted }}>└ job {rootDelegationID()}</text>
             </Show>
             <Show when={meta.reused && isBackground()}>
               <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>

@@ -1,9 +1,9 @@
-Monitor and supervise background delegation tasks.
+Monitor and supervise background delegation jobs.
 
-The delegator provides status updates, progress reports, and summaries for background subagent tasks without blocking the main agent.
+The delegator provides status updates, progress reports, and summaries for background subagent jobs without blocking the main agent.
 
 Available actions:
-- `status`: Get the current status of a delegation (running, complete, error, etc.)
+- `status`: Get the current status of a delegation job (running, synthesizing, complete, error, etc.)
 - `progress`: Preview the current progress/output of a running or completed delegation
 - `summarize`: Generate a brief summary of a delegation's latest available results
 

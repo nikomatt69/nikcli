@@ -40,14 +40,21 @@ function question(metadata?: Record<string, unknown>) {
   return metadataString(metadata, "question")
 }
 
-function isResearch(delegation: Awaited<ReturnType<typeof Delegation.inspectForSession>>) {
+type ResearchDelegationLike = {
+  agent: string
+  title: string
+  status: string
+  metadata?: Record<string, unknown>
+}
+
+function isResearch(delegation: ResearchDelegationLike | undefined | null) {
   return delegation?.agent === "researcher" || metadataString(delegation?.metadata, "kind") === "research"
 }
 
 function formatResearchSummary(
   summarySource: string,
   delegationId: string,
-  delegation: NonNullable<Awaited<ReturnType<typeof Delegation.inspectForSession>>>,
+  delegation: ResearchDelegationLike,
 ) {
   const questionText = question(delegation.metadata)
   const confidenceText = confidence(summarySource, delegation.metadata)
@@ -75,7 +82,7 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
     description: DESCRIPTION,
     parameters,
     async execute({ delegationId, action }, ctx) {
-      const delegation = await Delegation.inspectForSession(ctx.sessionID, delegationId)
+      const delegation = await Delegation.inspectJobForSession(ctx.sessionID, delegationId)
 
       if (!delegation) {
         return {
@@ -90,18 +97,16 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
 
       switch (action) {
         case "status": {
-          const isRunning = delegation.status === "running"
+          const isRunning = delegation.status === "running" || delegation.status === "synthesizing"
 
           return {
             title: `Delegator · ${delegation.status}`,
             output: [
               `**Delegation ID:** ${delegationId}`,
+              `**Job ID:** ${delegation.jobID}`,
               `**Status:** ${delegation.status}`,
               `**Agent:** ${delegation.agent}`,
-              isResearch(delegation) && question(delegation.metadata)
-                ? `**Question:** ${question(delegation.metadata)}`
-                : "",
-              `**Session:** ${delegation.sessionID || "N/A"}`,
+              `**Session:** ${delegation.workerSessionID || delegation.delegatorSessionID || "N/A"}`,
               `**Started:** ${new Date(delegation.createdAt).toISOString()}`,
               isRunning
                 ? `**Completed:** Still running...`
@@ -126,7 +131,7 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
 
         case "progress": {
           const progress = Delegation.outputPreview({
-            status: delegation.status,
+            status: delegation.status === "synthesizing" ? "running" : delegation.status,
             progressSummary: delegation.progressSummary,
             resultSummary: delegation.resultSummary,
           })

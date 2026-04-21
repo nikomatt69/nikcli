@@ -10,30 +10,24 @@ import { type DialogContext } from "@tui/ui/dialog"
 import { Keybind } from "@/util/keybind"
 import { useTheme } from "@tui/context/theme"
 
-function parseSubagentFromTitle(title: string): string | undefined {
-  const match = title.match(/\(@([^\s]+)\s+subagent\)$/)
-  return match?.[1]
-}
-
-export function stripSubagentSuffix(title: string): string {
-  return title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
-}
-
-export function isSupervisorSession(title: string): boolean {
-  return title.startsWith("delegator:")
-}
-
-type BackgroundSubtasksMap = Record<string, string[]>
 type BackgroundDismissedMap = Record<string, string[]>
 
 function statusLabel(status: string) {
   switch (status) {
-    case "busy":
+    case "running":
       return "running"
-    case "retry":
-      return "retrying"
-    default:
+    case "synthesizing":
+      return "synthesizing"
+    case "complete":
       return "ready"
+    case "cancelled":
+      return "cancelled"
+    case "timeout":
+      return "timed out"
+    case "orphaned":
+      return "orphaned"
+    default:
+      return status
   }
 }
 
@@ -46,73 +40,58 @@ export function DialogSubagent(props: { sessionID: string }) {
   const dialog = useDialog()
   const { theme } = useTheme()
 
-  const backgroundedIDs = createMemo(() => {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    return map[props.sessionID] ?? []
+  const dismissed = createMemo(() => {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    return new Set(map[props.sessionID] ?? [])
   })
 
+  function dismissJob(delegationID: string) {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    const next = Array.from(new Set([...(map[props.sessionID] ?? []), delegationID]))
+    kv.set("background_subtasks_dismissed", { ...map, [props.sessionID]: next })
+  }
+
   const options = createMemo(() => {
-    const sessionsByID = new Map(sync.data.session.map((s) => [s.id, s] as const))
-    const out: {
-      title: string
-      value: string
-      description?: string
-      agent?: string
-      status: string
-    }[] = []
-
-    for (const id of backgroundedIDs()) {
-      const session = sessionsByID.get(id)
-
-      // Hide supervisor/delegator sessions — only show real worker processes
-      if (session && isSupervisorSession(session.title)) continue
-
-      const status = sync.data.session_status[id]?.type ?? "idle"
-      const agent = session ? parseSubagentFromTitle(session.title) : undefined
-      const title = session ? stripSubagentSuffix(session.title) : "Loading..."
-      out.push({ title, value: id, description: statusLabel(status), agent, status })
-    }
+    const out = sync.background
+      .list(props.sessionID)
+      .filter((job) => !dismissed().has(job.rootDelegationID))
+      .map((job) => ({
+        title: job.title,
+        value: job.rootDelegationID,
+        description: statusLabel(job.status),
+        agent: job.agent,
+        status: job.status,
+        workerSessionID: job.workerSessionID,
+        delegatorSessionID: job.delegatorSessionID,
+      }))
 
     out.sort((a, b) => {
-      if (a.status !== b.status) {
-        if (a.status === "busy") return -1
-        if (b.status === "busy") return 1
-      }
+      const activeA = a.status === "running" || a.status === "synthesizing"
+      const activeB = b.status === "running" || b.status === "synthesizing"
+      if (activeA !== activeB) return activeA ? -1 : 1
       return a.title.localeCompare(b.title)
     })
     return out
   })
 
-  function removeFromBackground(parentID: string, childID: string) {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    const list = map[parentID] ?? []
-    const next = list.filter((x) => x !== childID)
-    if (next.length === list.length) return
-    kv.set("background_subtasks", { ...map, [parentID]: next })
-
-    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), childID]))
-    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
-  }
-
   return (
     <DialogSelect
       title="Background Subtasks"
       options={options().map((opt) => {
-        const color = opt.agent ? local.agent.color(opt.agent) : undefined
-        const gutterText = opt.agent ? `@${opt.agent}` : undefined
+        const color = local.agent.color(opt.agent)
         return {
           title: opt.title,
           value: opt.value,
           description: opt.description,
           bg: color,
-          gutter: gutterText ? <text fg={color ?? theme.textMuted}>{gutterText}</text> : undefined,
+          gutter: <text fg={color ?? theme.textMuted}>@{opt.agent}</text>,
           onSelect: (ctx: DialogContext) => {
-            removeFromBackground(props.sessionID, opt.value)
+            const sessionID = opt.workerSessionID ?? opt.delegatorSessionID
+            if (!sessionID) return
             route.navigate({
               type: "session",
-              sessionID: opt.value,
-              workspaceID: sync.session.get(opt.value)?.workspaceID,
+              sessionID,
+              workspaceID: sync.session.get(sessionID)?.workspaceID,
             })
             ctx.clear()
           },
@@ -121,11 +100,15 @@ export function DialogSubagent(props: { sessionID: string }) {
       keybind={[
         {
           keybind: Keybind.parse("k")[0],
-          title: "Cancel / Remove",
+          title: "Cancel / Dismiss",
           onTrigger: (option) => {
-            removeFromBackground(props.sessionID, option.value)
-            if ((sync.data.session_status[option.value]?.type ?? "idle") !== "idle") {
-              sdk.client.session.abort({ sessionID: option.value }).catch(() => {})
+            dismissJob(option.value)
+            const job = sync.background.get(props.sessionID, option.value)
+            if (!job) return
+            if (job.status === "running" || job.status === "synthesizing") {
+              sdk.client.session.background2
+                .cancel({ sessionID: props.sessionID, delegationID: option.value })
+                .catch(() => {})
             }
           },
         },

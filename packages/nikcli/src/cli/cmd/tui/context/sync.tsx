@@ -33,6 +33,26 @@ import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk"
 import { readFileSync } from "fs"
 
+type BackgroundJob = {
+  jobID: string
+  rootDelegationID: string
+  parentSessionID: string
+  title: string
+  agent: string
+  status: "running" | "synthesizing" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  source?: string
+  workerSessionID?: string
+  delegatorID?: string
+  delegatorSessionID?: string
+  createdAt: number
+  updatedAt: number
+  completedAt?: number
+  lastActivityAt?: number
+  progressSummary?: string
+  resultSummary?: string
+  error?: string
+}
+
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
   init: () => {
@@ -49,6 +69,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: Record<string, QuestionRequest[]>
       session: Session[]
       session_status: Record<string, SessionStatus>
+      background_job: Record<string, BackgroundJob[]>
       session_diff: Record<string, FileDiff[]>
       todo: Record<string, Todo[]>
       message: Record<string, Message[]>
@@ -74,6 +95,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       question: {},
       session: [],
       session_status: {},
+      background_job: {},
       session_diff: {},
       todo: {},
       message: {},
@@ -89,6 +111,26 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     })
 
     const sdk = useSDK()
+    const backgroundRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    async function refreshBackgroundJobs(sessionID: string) {
+      const result = await sdk.client.session.background({ sessionID }).catch(() => undefined)
+      if (!result?.data) return
+      setStore("background_job", sessionID, reconcile(result.data))
+    }
+
+    function scheduleBackgroundRefresh(sessionID?: string) {
+      if (!sessionID) return
+      const existing = backgroundRefreshTimers.get(sessionID)
+      if (existing) clearTimeout(existing)
+      const timer = setTimeout(() => {
+        backgroundRefreshTimers.delete(sessionID)
+        void refreshBackgroundJobs(sessionID).catch((e) => {
+          console.error("Background refresh failed:", e)
+        })
+      }, 75)
+      backgroundRefreshTimers.set(sessionID, timer)
+    }
 
     async function syncWorkspaces() {
       const result = await sdk.client.experimental.workspace.list().catch(() => undefined)
@@ -96,12 +138,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       setStore("workspaceList", reconcile(result.data))
     }
 
+    function getSessionByID(sessionID: string) {
+      const match = Binary.search(store.session, sessionID, (s) => s.id)
+      if (match.found) return store.session[match.index]
+      return undefined
+    }
+
     sdk.event.listen((e) => {
       const event = e.details
       switch (event.type) {
-        case "server.instance.disposed":
-          bootstrap()
-          break
+        // Note: InstanceDisposed events are handled explicitly by the caller
+        // (e.g., ApiMethod, AutoMethod, CodeMethod) to avoid double-bootstrap.
         case "permission.replied": {
           const requests = store.permission[event.properties.sessionID]
           if (!requests) break
@@ -201,6 +248,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             produce((draft) => {
               delete draft.message[event.properties.info.id]
               delete draft.todo[event.properties.info.id]
+              delete draft.background_job[event.properties.info.id]
               delete draft.session_diff[event.properties.info.id]
               delete draft.session_status[event.properties.info.id]
               for (const messageID of messageIDs) {
@@ -227,6 +275,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "session.status": {
           setStore("session_status", event.properties.sessionID, event.properties.status)
+          const parentID = getSessionByID(event.properties.sessionID)?.parentID
+          scheduleBackgroundRefresh(parentID)
           break
         }
 
@@ -284,9 +334,14 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
         case "message.part.updated": {
+          const refreshParentID = getSessionByID(event.properties.part.sessionID)?.parentID
           const parts = store.part[event.properties.part.messageID]
           if (!parts) {
             setStore("part", event.properties.part.messageID, [event.properties.part])
+            scheduleBackgroundRefresh(refreshParentID)
+            if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
+              scheduleBackgroundRefresh(event.properties.part.sessionID)
+            }
             break
           }
           const result = Binary.search(parts, event.properties.part.id, (p) => p.id)
@@ -301,6 +356,15 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.splice(result.index, 0, event.properties.part)
             }),
           )
+          scheduleBackgroundRefresh(refreshParentID)
+          if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
+            scheduleBackgroundRefresh(event.properties.part.sessionID)
+          }
+          break
+        }
+
+        case "delegation.completed": {
+          scheduleBackgroundRefresh(event.properties.parentSessionID)
           break
         }
 
@@ -333,6 +397,21 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const exit = useExit()
     const args = useArgs()
 
+    async function refreshProviders() {
+      // Refresh provider data without clearing session state
+      const [providerList, providerNext, providerAuth] = await Promise.all([
+        sdk.client.config.providers({}, { throwOnError: true }),
+        sdk.client.provider.list({}, { throwOnError: true }),
+        sdk.client.provider.auth(),
+      ])
+      batch(() => {
+        setStore("provider", reconcile(providerList.data!.providers))
+        setStore("provider_default", reconcile(providerList.data!.default))
+        setStore("provider_next", reconcile(providerNext.data!))
+        setStore("provider_auth", reconcile(providerAuth.data ?? {}))
+      })
+    }
+
     async function bootstrap() {
       syncedSessions.clear()
       setStore(
@@ -340,6 +419,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.message = {}
           draft.part = {}
           draft.todo = {}
+          draft.background_job = {}
           draft.session_diff = {}
           draft.session_status = {}
         }),
@@ -377,7 +457,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.lsp.status().then((x) => setStore("lsp", reconcile(x.data!))),
             sdk.client.mcp.status().then((x) => setStore("mcp", reconcile(x.data!))),
             sdk.client.experimental.resource.list().then((x) => setStore("mcp_resource", reconcile(x.data ?? {}))),
-            sdk.client.connectors.status().then((x) => setStore("connectors", reconcile(x.data ?? {}))),
+            sdk.client.connectors.status().then((x) => setStore("connectors", reconcile(x.data!))),
             sdk.client.formatter.status().then((x) => setStore("formatter", reconcile(x.data!))),
             sdk.client.session.status().then((x) => {
               setStore("session_status", reconcile(x.data!))
@@ -434,11 +514,12 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
           if (existing === "full" || existing === mode) return result.session.get(sessionID)
-          const [session, messages, todo, diff] = await Promise.all([
+          const [session, messages, todo, diff, backgroundJobs] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
             sdk.client.session.diff({ sessionID }),
+            sdk.client.session.background({ sessionID }).catch(() => undefined),
           ])
           setStore(
             produce((draft) => {
@@ -446,6 +527,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               if (match.found) draft.session[match.index] = session.data!
               if (!match.found) draft.session.splice(match.index, 0, session.data!)
               draft.todo[sessionID] = todo.data ?? []
+              draft.background_job[sessionID] = backgroundJobs?.data ?? []
               draft.message[sessionID] = messages.data!.map((x) => x.info)
               for (const message of messages.data!) {
                 draft.part[message.info.id] = message.parts
@@ -457,6 +539,22 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           return session.data
         },
       },
+      background: {
+        list(sessionID: string) {
+          return store.background_job[sessionID] ?? []
+        },
+        get(sessionID: string, delegationID: string) {
+          return (store.background_job[sessionID] ?? []).find((job) => job.rootDelegationID === delegationID)
+        },
+        findBySession(sessionID: string) {
+          for (const jobs of Object.values(store.background_job)) {
+            const match = jobs.find((job) => job.workerSessionID === sessionID || job.delegatorSessionID === sessionID)
+            if (match) return match
+          }
+          return undefined
+        },
+        sync: refreshBackgroundJobs,
+      },
       workspace: {
         get(workspaceID: string) {
           return store.workspaceList.find((workspace) => workspace.id === workspaceID)
@@ -464,6 +562,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         sync: syncWorkspaces,
       },
       bootstrap,
+      refreshProviders,
     }
     return result
   },

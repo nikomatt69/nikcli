@@ -74,6 +74,28 @@ export namespace Delegation {
     metadata?: { [key: string]: unknown }
   }
 
+  export type JobStatus = Status | "synthesizing"
+
+  export interface JobItem {
+    jobID: string
+    rootDelegationID: string
+    parentSessionID: string
+    title: string
+    agent: string
+    status: JobStatus
+    source?: BackgroundRun.Source
+    workerSessionID?: string
+    delegatorID?: string
+    delegatorSessionID?: string
+    createdAt: number
+    updatedAt: number
+    completedAt?: number
+    lastActivityAt?: number
+    progressSummary?: string
+    resultSummary?: string
+    error?: string
+  }
+
   interface ManagerState {
     activeDelegations: Map<string, Record>
     sessionToDelegation: Map<string, string>
@@ -152,6 +174,63 @@ export namespace Delegation {
     return (
       record.parentSessionID === sessionID || record.sessionID === sessionID || record.delegatorSessionID === sessionID
     )
+  }
+
+  function projectJob(records: Record[]): JobItem | undefined {
+    if (records.length === 0) return undefined
+    const sorted = [...records].sort((a, b) => a.createdAt - b.createdAt)
+    const root = sorted.find((record) => record.id === BackgroundRun.getRootDelegationID(record)) ?? sorted[0]
+    const worker =
+      sorted.find(
+        (record) =>
+          BackgroundRun.getRole(record) === "worker" && record.id === BackgroundRun.getRootDelegationID(record),
+      ) ??
+      sorted.find((record) => BackgroundRun.getRole(record) === "worker") ??
+      root
+    const delegator = sorted.find((record) => BackgroundRun.getRole(record) === "delegator")
+    const running = sorted.filter((record) => record.status === "running")
+    const runningNonDelegators = running.filter((record) => BackgroundRun.getRole(record) !== "delegator")
+    const latest = [...sorted].sort((a, b) => b.updatedAt - a.updatedAt)[0]
+    const completedAt = Math.max(...sorted.map((record) => record.completedAt ?? 0)) || undefined
+    const lastActivityAt = Math.max(...sorted.map((record) => record.lastActivityAt ?? 0)) || undefined
+    const errorRecord = [...sorted].reverse().find((record) => record.error)
+    const progressSummary =
+      (delegator?.status === "running" ? delegator.progressSummary : undefined) ??
+      latest.progressSummary ??
+      worker.progressSummary ??
+      delegator?.resultSummary ??
+      worker.resultSummary
+
+    let status: JobStatus
+    if (delegator?.status === "running" && runningNonDelegators.length === 0) {
+      status = "synthesizing"
+    } else if (running.length > 0) {
+      status = "running"
+    } else if (delegator && delegator.status !== "running") {
+      status = delegator.status
+    } else {
+      status = worker.status
+    }
+
+    return {
+      jobID: BackgroundRun.getJobID(root),
+      rootDelegationID: BackgroundRun.getRootDelegationID(root),
+      parentSessionID: root.parentSessionID,
+      title: worker.title,
+      agent: worker.agent,
+      status,
+      source: worker.source,
+      workerSessionID: worker.sessionID,
+      delegatorID: worker.delegatorID,
+      delegatorSessionID: worker.delegatorSessionID,
+      createdAt: root.createdAt,
+      updatedAt: latest.updatedAt,
+      completedAt,
+      lastActivityAt,
+      progressSummary,
+      resultSummary: delegator?.resultSummary ?? worker.resultSummary,
+      error: delegator?.error ?? errorRecord?.error,
+    }
   }
 
   function cleanup(record: Pick<Record, "id" | "sessionID">): void {
@@ -265,6 +344,10 @@ export namespace Delegation {
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
+    jobID?: string
+    rootDelegationID?: string
+    parentDelegationID?: string
+    role?: BackgroundRun.Role
   }): Promise<Record> {
     await ensureDelegationsDir(params.parentSessionID)
     const entry = current()
@@ -279,6 +362,10 @@ export namespace Delegation {
       delegatorID: params.delegatorID,
       delegatorSessionID: params.delegatorSessionID,
       delegatorEnabled: params.delegatorEnabled,
+      jobID: params.jobID,
+      rootDelegationID: params.rootDelegationID,
+      parentDelegationID: params.parentDelegationID,
+      role: params.role,
     })
 
     entry.activeDelegations.set(record.id, record)
@@ -394,20 +481,86 @@ export namespace Delegation {
     return toInspectResult(record)
   }
 
+  async function resolveJobID(identifier: string): Promise<string | undefined> {
+    const record = await BackgroundRun.get(identifier).catch(() => undefined)
+    if (record) return BackgroundRun.getJobID(record)
+    const matches = await BackgroundRun.listForJob(identifier)
+    if (matches.length > 0) return identifier
+    return undefined
+  }
+
+  export async function listJobs(parentSessionID: string): Promise<JobItem[]> {
+    const groups = new Map<string, Record[]>()
+    for (const record of await BackgroundRun.listForParent(parentSessionID)) {
+      const jobID = BackgroundRun.getJobID(record)
+      const list = groups.get(jobID)
+      if (list) list.push(record)
+      else groups.set(jobID, [record])
+    }
+    return [...groups.values()]
+      .map((records) => projectJob(records))
+      .filter((item): item is JobItem => Boolean(item))
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+  }
+
+  export async function inspectJob(identifier: string): Promise<JobItem | undefined> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return undefined
+    return projectJob(await BackgroundRun.listForJob(jobID))
+  }
+
   export async function inspectForSession(sessionID: string, delegationID: string): Promise<InspectResult | undefined> {
     const record = await BackgroundRun.get(delegationID).catch(() => undefined)
     if (!record || !hasAccess(record, sessionID)) return undefined
     return toInspectResult(record)
   }
 
+  export async function inspectJobForSession(sessionID: string, identifier: string): Promise<JobItem | undefined> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return undefined
+    const records = await BackgroundRun.listForJob(jobID)
+    if (!records.some((record) => hasAccess(record, sessionID))) return undefined
+    return projectJob(records)
+  }
+
   export async function read(delegationID: string): Promise<string> {
     return BackgroundRun.readArtifact(delegationID)
+  }
+
+  async function resolveReadableRecordForJob(identifier: string): Promise<Record | undefined> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return undefined
+    const records = await BackgroundRun.listForJob(jobID)
+    return (
+      records.find((record) => BackgroundRun.getRole(record) === "delegator") ??
+      records.find((record) => record.id === BackgroundRun.getRootDelegationID(record)) ??
+      records[0]
+    )
+  }
+
+  export async function readJob(identifier: string): Promise<string | undefined> {
+    const record = await resolveReadableRecordForJob(identifier)
+    if (!record) return undefined
+    return BackgroundRun.readArtifact(record.id)
   }
 
   export async function readForSession(sessionID: string, delegationID: string): Promise<string | undefined> {
     const record = await BackgroundRun.get(delegationID).catch(() => undefined)
     if (!record || !hasAccess(record, sessionID)) return undefined
     return BackgroundRun.readArtifact(delegationID)
+  }
+
+  export async function readJobForSession(sessionID: string, identifier: string): Promise<string | undefined> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return undefined
+    const records = await BackgroundRun.listForJob(jobID)
+    if (!records.some((record) => hasAccess(record, sessionID))) return undefined
+    const readable =
+      records.find((record) => BackgroundRun.getRole(record) === "delegator") ??
+      records.find((record) => record.id === BackgroundRun.getRootDelegationID(record)) ??
+      records[0]
+    if (!readable) return undefined
+    return BackgroundRun.readArtifact(readable.id)
   }
 
   export async function list(parentSessionID: string): Promise<ListItem[]> {
@@ -459,6 +612,24 @@ export namespace Delegation {
     return true
   }
 
+  export async function cancelJob(identifier: string): Promise<boolean> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return false
+    const records = await BackgroundRun.listForJob(jobID)
+    const running = records.filter((record) => record.status === "running")
+    if (running.length === 0) return false
+    const result = await Promise.all(running.map((record) => cancel(record.id)))
+    return result.some(Boolean)
+  }
+
+  export async function cancelJobForSession(sessionID: string, identifier: string): Promise<boolean> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return false
+    const records = await BackgroundRun.listForJob(jobID)
+    if (!records.some((record) => hasAccess(record, sessionID))) return false
+    return cancelJob(jobID)
+  }
+
   export async function collectResults(parentSessionID: string): Promise<SynthesisItem[]> {
     return (await BackgroundRun.listForParent(parentSessionID))
       .filter((record) => record.source !== "delegator")
@@ -472,6 +643,23 @@ export namespace Delegation {
         progressSummary: record.progressSummary,
         error: record.error,
         metadata: record.metadata,
+      }))
+  }
+
+  export async function collectResultsForJob(identifier: string): Promise<SynthesisItem[]> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return []
+    return (await BackgroundRun.listForJob(jobID))
+      .filter((record) => BackgroundRun.getRole(record) !== "delegator")
+      .map((record) => ({
+        id: record.id,
+        status: record.status,
+        title: record.title,
+        agent: record.agent,
+        source: record.source,
+        resultSummary: record.resultSummary,
+        progressSummary: record.progressSummary,
+        error: record.error,
       }))
   }
 
@@ -513,6 +701,49 @@ export namespace Delegation {
     })
   }
 
+  export async function waitForSettledJob(identifier: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {
+    const jobID = await resolveJobID(identifier)
+    if (!jobID) return
+
+    const hasRunningDelegations = async () => {
+      const records = await BackgroundRun.listForJob(jobID)
+      return records.some((record) => BackgroundRun.getRole(record) !== "delegator" && record.status === "running")
+    }
+
+    if (!(await hasRunningDelegations())) return
+
+    await new Promise<void>((resolve) => {
+      let settled = false
+      const finish = () => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        unsubscribeCompleted()
+        unsubscribeDisposed()
+        resolve()
+      }
+
+      const check = () => {
+        void hasRunningDelegations().then((running) => {
+          if (!running) finish()
+        })
+      }
+
+      const timer = setTimeout(finish, timeoutMs)
+      const unsubscribeCompleted = Bus.subscribe(Event.Completed, (event) => {
+        void resolveJobID(event.properties.delegationID).then((resolved) => {
+          if (resolved !== jobID) return
+          check()
+        })
+      })
+      const unsubscribeDisposed = Bus.subscribe(Bus.InstanceDisposed, () => {
+        finish()
+      })
+
+      void check()
+    })
+  }
+
   export async function cancelForSession(sessionID: string, delegationID: string): Promise<boolean> {
     const record = await BackgroundRun.get(delegationID).catch(() => undefined)
     if (!record || !hasAccess(record, sessionID)) return false
@@ -539,11 +770,13 @@ export namespace Delegation {
    */
   export async function cancelOwnedBySessionID(sessionID: string): Promise<boolean> {
     const active = getBySessionID(sessionID)
-    if (active) return cancel(active.id)
+    if (active) return cancelJob(active.id)
     const related = await BackgroundRun.listForRelatedSession(sessionID)
-    const owned = related.find((item) => item.sessionID === sessionID && item.status === "running")
+    const owned = related.find(
+      (item) => (item.sessionID === sessionID || item.delegatorSessionID === sessionID) && item.status === "running",
+    )
     if (!owned) return false
-    return cancel(owned.id)
+    return cancelJob(owned.id)
   }
 
   export function outputPreview(record: Pick<Record, "status" | "progressSummary" | "resultSummary">) {

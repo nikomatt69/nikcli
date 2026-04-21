@@ -588,7 +588,7 @@ export namespace Plugin {
   const BUILTIN: string[] = []
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, NotifyPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CursorAuthPlugin, NotifyPlugin]
 
   const state = Instance.state(async () => {
     const { Server } = await import("../server/server")

@@ -71,11 +71,6 @@ export namespace SessionPrompt {
             resolve(input: MessageV2.WithParts): void
             reject(error?: Error): void
           }[]
-          toolsCache?: {
-            modelId: string
-            tools: Record<string, AITool>
-            timestamp: number
-          }
         }
       > = {}
       return data
@@ -592,37 +587,14 @@ export namespace SessionPrompt {
       const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
       const bypassAgentCheck = lastUserMsg?.parts.some((p) => p.type === "agent") ?? false
 
-      // Use cached tools if model hasn't changed (cache for 30 seconds)
-      const sessionState = state()[sessionID]
-      const cacheKey = `${model.providerID}/${model.id}`
-      const cacheMaxAge = 30_000
-
-      let tools: Record<string, AITool>
-      if (
-        sessionState?.toolsCache &&
-        sessionState.toolsCache.modelId === cacheKey &&
-        Date.now() - sessionState.toolsCache.timestamp < cacheMaxAge
-      ) {
-        tools = sessionState.toolsCache.tools
-        log.info("using cached tools", { modelId: cacheKey })
-      } else {
-        tools = await resolveTools({
-          agent,
-          session,
-          model,
-          tools: lastUser.tools,
-          processor,
-          bypassAgentCheck,
-        })
-        // Update cache
-        if (sessionState) {
-          sessionState.toolsCache = {
-            modelId: cacheKey,
-            tools,
-            timestamp: Date.now(),
-          }
-        }
-      }
+      const tools = await resolveTools({
+        agent,
+        session,
+        model,
+        tools: lastUser.tools,
+        processor,
+        bypassAgentCheck,
+      })
 
       // Inject StructuredOutput tool if JSON schema mode is enabled
       if (lastUser.format?.type === "json_schema") {

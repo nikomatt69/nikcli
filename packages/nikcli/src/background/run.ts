@@ -29,6 +29,8 @@ export namespace BackgroundRun {
     "other",
   ])
   export type Source = z.infer<typeof Source>
+  export const Role = z.enum(["worker", "delegator", "followup", "advisor", "other"])
+  export type Role = z.infer<typeof Role>
 
   export const Record = z.object({
     id: z.string(),
@@ -58,6 +60,11 @@ export namespace BackgroundRun {
     delegatorID: z.string().optional(),
     delegatorSessionID: z.string().optional(),
     delegatorEnabled: z.boolean().optional(),
+    // Job tree fields
+    jobID: z.string().optional(),
+    rootDelegationID: z.string().optional(),
+    parentDelegationID: z.string().optional(),
+    role: Role.optional(),
   })
   export type Record = z.infer<typeof Record>
 
@@ -151,6 +158,22 @@ export namespace BackgroundRun {
       .join("\n")
   }
 
+  export function getRootDelegationID(record: Pick<Record, "id" | "rootDelegationID">) {
+    return record.rootDelegationID ?? record.id
+  }
+
+  export function getJobID(record: Pick<Record, "id" | "jobID" | "rootDelegationID">) {
+    return record.jobID ?? record.rootDelegationID ?? record.id
+  }
+
+  export function getRole(record: Pick<Record, "source" | "role">): Role {
+    if (record.role) return record.role
+    if (record.source === "delegator") return "delegator"
+    if (record.source === "delegator-followup") return "followup"
+    if (record.source === "advisor") return "advisor"
+    return "worker"
+  }
+
   async function ensureArtifactDirectory(parentSessionID: string) {
     const dir = directory(parentSessionID)
     await fs.mkdir(dir, { recursive: true })
@@ -164,6 +187,9 @@ export namespace BackgroundRun {
 ${record.prompt.slice(0, 200)}
 
 **ID:** ${record.id}
+**Job:** ${getJobID(record)}
+**Root Delegation:** ${getRootDelegationID(record)}
+**Role:** ${getRole(record)}
 **Agent:** ${record.agent}
 **Status:** ${record.status}
 **Source:** ${record.source ?? "other"}
@@ -199,8 +225,14 @@ ${result}
     delegatorID?: string
     delegatorSessionID?: string
     delegatorEnabled?: boolean
+    jobID?: string
+    rootDelegationID?: string
+    parentDelegationID?: string
+    role?: Role
   }): Promise<Record> {
     const id = generateID()
+    const rootDelegationID = params.rootDelegationID ?? id
+    const jobID = params.jobID ?? rootDelegationID
     const record: Record = {
       id,
       sessionID: params.session?.id,
@@ -222,6 +254,10 @@ ${result}
       delegatorID: params.delegatorID,
       delegatorSessionID: params.delegatorSessionID,
       delegatorEnabled: params.delegatorEnabled,
+      jobID,
+      rootDelegationID,
+      parentDelegationID: params.parentDelegationID,
+      role: params.role ?? getRole({ source: params.source, role: undefined }),
     }
 
     if (params.session) {
@@ -297,6 +333,10 @@ ${result}
 
   export async function listForParent(parentSessionID: string): Promise<Record[]> {
     return (await listAll()).filter((r) => r.parentSessionID === parentSessionID)
+  }
+
+  export async function listForJob(jobID: string): Promise<Record[]> {
+    return (await listAll()).filter((r) => getJobID(r) === jobID)
   }
 
   export async function listForRelatedSession(sessionID: string): Promise<Record[]> {

@@ -724,74 +724,51 @@ export function Prompt(props: PromptProps) {
     voiceAudioPath = null
   })
 
-  type BackgroundSubtasksMap = Record<string, string[]>
+  type BackgroundDismissedMap = Record<string, string[]>
 
-  function getBackgroundSubtasksMap(): BackgroundSubtasksMap {
-    return (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
+  function getDismissed(parentID: string) {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    return new Set(map[parentID] ?? [])
   }
 
-  function setBackgroundSubtasksMap(next: BackgroundSubtasksMap) {
-    kv.set("background_subtasks", next)
-  }
-
-  function removeBackgroundSubtask(parentID: string, childID: string) {
-    const map = getBackgroundSubtasksMap()
-    const list = map[parentID] ?? []
-    if (!list.includes(childID)) return
-    setBackgroundSubtasksMap({ ...map, [parentID]: list.filter((x) => x !== childID) })
-  }
-
-  const backgroundedSubtaskIDs = createMemo(() => {
-    if (!props.sessionID) return [] as string[]
-    const map = getBackgroundSubtasksMap()
-    return map[props.sessionID] ?? []
+  const backgroundJobs = createMemo(() => {
+    if (!props.sessionID) return [] as ReturnType<typeof sync.background.list>
+    const dismissed = getDismissed(props.sessionID)
+    return sync.background.list(props.sessionID).filter((job) => !dismissed.has(job.rootDelegationID))
   })
 
-  const backgroundedSubtaskCount = createMemo(
-    () =>
-      backgroundedSubtaskIDs().filter((id) => {
-        const title = sync.session.get(id)?.title ?? ""
-        return !title.startsWith("delegator:")
-      }).length,
-  )
+  const backgroundedSubtaskCount = createMemo(() => backgroundJobs().length)
 
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
+    void sync.background.sync(props.sessionID)
     dialog.replace(() => <DialogSubagent sessionID={props.sessionID!} />)
   }
 
-  function stripSubagentSuffix(title: string): string {
-    return title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
-  }
-
-  // Auto-resurface: when a backgrounded subtask finishes, reopen it in the foreground.
+  // Surface completion with a toast, but do not steal focus from the user.
   const previousSubtaskStatus = new Map<string, string>()
   createEffect(() => {
     if (!props.sessionID) return
 
-    const ids = backgroundedSubtaskIDs()
-    const live = new Set(ids)
+    const jobs = backgroundJobs()
+    const live = new Set(jobs.map((job) => job.rootDelegationID))
     for (const existing of previousSubtaskStatus.keys()) {
       if (!live.has(existing)) previousSubtaskStatus.delete(existing)
     }
 
-    // Resurface the first task that transitioned to idle.
-    for (const id of ids) {
-      const sessionTitle = sync.data.session.find((s) => s.id === id)?.title ?? ""
-      if (sessionTitle.startsWith("delegator:")) continue
-      const current = sync.data.session_status?.[id]?.type ?? "idle"
-      const prev = previousSubtaskStatus.get(id)
-      previousSubtaskStatus.set(id, current)
+    for (const job of jobs) {
+      const current = job.status
+      const prev = previousSubtaskStatus.get(job.rootDelegationID)
+      previousSubtaskStatus.set(job.rootDelegationID, current)
       if (!prev) continue
-      if (prev !== "idle" && current === "idle") {
+      const finished = ["complete", "error", "cancelled", "timeout", "orphaned"].includes(current)
+      const wasActive = !["complete", "error", "cancelled", "timeout", "orphaned"].includes(prev)
+      if (wasActive && finished) {
         toast.show({
-          variant: "success",
-          message: `${stripSubagentSuffix(sessionTitle || "Subtask")} finished`,
+          variant: current === "complete" ? "success" : "warning",
+          message: `${job.title || "Background task"} ${current === "complete" ? "finished" : current}`,
           duration: 3000,
         })
-        removeBackgroundSubtask(props.sessionID, id)
-        route.navigate({ type: "session", sessionID: id, workspaceID: sync.session.get(id)?.workspaceID })
-        break
       }
     }
   })
@@ -1775,7 +1752,7 @@ export function Prompt(props: PromptProps) {
                   }
                 }
 
-                // Background subtasks picker (Down arrow when prompt textarea is focused and empty)
+                // Background jobs picker (Down arrow when prompt textarea is focused and empty)
                 if (
                   input.focused &&
                   !autocomplete.visible &&
@@ -1982,7 +1959,7 @@ export function Prompt(props: PromptProps) {
                     flexShrink={0}
                   >
                     <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> subtasks
+                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> jobs
                     </text>
                   </box>
                 </Show>
@@ -2085,7 +2062,7 @@ export function Prompt(props: PromptProps) {
                     flexShrink={0}
                   >
                     <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> subtasks
+                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> jobs
                     </text>
                   </box>
                 </Show>

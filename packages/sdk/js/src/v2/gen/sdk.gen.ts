@@ -205,6 +205,14 @@ import type {
   QuestionReplyResponses,
   SessionAbortErrors,
   SessionAbortResponses,
+  SessionBackgroundCancelErrors,
+  SessionBackgroundCancelResponses,
+  SessionBackgroundErrors,
+  SessionBackgroundInspectErrors,
+  SessionBackgroundInspectResponses,
+  SessionBackgroundReadErrors,
+  SessionBackgroundReadResponses,
+  SessionBackgroundResponses,
   SessionChildrenErrors,
   SessionChildrenResponses,
   SessionCommandErrors,
@@ -1296,6 +1304,122 @@ export class Experimental extends HeyApiClient {
   }
 }
 
+export class Background extends HeyApiClient {
+  /**
+   * Inspect background job
+   *
+   * Inspect a durable background job from a related session.
+   */
+  public inspect<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      delegationID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "delegationID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      SessionBackgroundInspectResponses,
+      SessionBackgroundInspectErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/background/{delegationID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Read background job output
+   *
+   * Read the synthesized output for a durable background job.
+   */
+  public read<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      delegationID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "delegationID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      SessionBackgroundReadResponses,
+      SessionBackgroundReadErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/background/{delegationID}/read",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Cancel background job
+   *
+   * Cancel a durable background job from a related session.
+   */
+  public cancel<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      delegationID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "delegationID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      SessionBackgroundCancelResponses,
+      SessionBackgroundCancelErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/background/{delegationID}/cancel",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Session2 extends HeyApiClient {
   /**
    * List sessions
@@ -1662,6 +1786,38 @@ export class Session2 extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+
+  /**
+   * List background jobs
+   *
+   * List durable background jobs for a parent session.
+   */
+  public background<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionBackgroundResponses, SessionBackgroundErrors, ThrowOnError>({
+      url: "/session/{sessionID}/background",
+      ...options,
+      ...params,
     })
   }
 
@@ -2309,6 +2465,11 @@ export class Session2 extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  private _background?: Background
+  get background2(): Background {
+    return (this._background ??= new Background({ client: this.client }))
   }
 }
 

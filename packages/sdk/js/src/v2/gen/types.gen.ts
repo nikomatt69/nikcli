@@ -4341,6 +4341,182 @@ export type SessionForkResponses = {
 
 export type SessionForkResponse = SessionForkResponses[keyof SessionForkResponses]
 
+export type SessionBackgroundData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/background"
+}
+
+export type SessionBackgroundErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionBackgroundError = SessionBackgroundErrors[keyof SessionBackgroundErrors]
+
+export type SessionBackgroundResponses = {
+  /**
+   * Background jobs
+   */
+  200: Array<{
+    jobID: string
+    rootDelegationID: string
+    parentSessionID: string
+    title: string
+    agent: string
+    status: "running" | "synthesizing" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+    source?: string
+    workerSessionID?: string
+    delegatorID?: string
+    delegatorSessionID?: string
+    createdAt: number
+    updatedAt: number
+    completedAt?: number
+    lastActivityAt?: number
+    progressSummary?: string
+    resultSummary?: string
+    error?: string
+  }>
+}
+
+export type SessionBackgroundResponse = SessionBackgroundResponses[keyof SessionBackgroundResponses]
+
+export type SessionBackgroundInspectData = {
+  body?: never
+  path: {
+    sessionID: string
+    delegationID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/background/{delegationID}"
+}
+
+export type SessionBackgroundInspectErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionBackgroundInspectError = SessionBackgroundInspectErrors[keyof SessionBackgroundInspectErrors]
+
+export type SessionBackgroundInspectResponses = {
+  /**
+   * Background job
+   */
+  200: {
+    jobID: string
+    rootDelegationID: string
+    parentSessionID: string
+    title: string
+    agent: string
+    status: "running" | "synthesizing" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+    source?: string
+    workerSessionID?: string
+    delegatorID?: string
+    delegatorSessionID?: string
+    createdAt: number
+    updatedAt: number
+    completedAt?: number
+    lastActivityAt?: number
+    progressSummary?: string
+    resultSummary?: string
+    error?: string
+  } | null
+}
+
+export type SessionBackgroundInspectResponse =
+  SessionBackgroundInspectResponses[keyof SessionBackgroundInspectResponses]
+
+export type SessionBackgroundReadData = {
+  body?: never
+  path: {
+    sessionID: string
+    delegationID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/background/{delegationID}/read"
+}
+
+export type SessionBackgroundReadErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionBackgroundReadError = SessionBackgroundReadErrors[keyof SessionBackgroundReadErrors]
+
+export type SessionBackgroundReadResponses = {
+  /**
+   * Background job output
+   */
+  200: string
+}
+
+export type SessionBackgroundReadResponse = SessionBackgroundReadResponses[keyof SessionBackgroundReadResponses]
+
+export type SessionBackgroundCancelData = {
+  body?: never
+  path: {
+    sessionID: string
+    delegationID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/background/{delegationID}/cancel"
+}
+
+export type SessionBackgroundCancelErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionBackgroundCancelError = SessionBackgroundCancelErrors[keyof SessionBackgroundCancelErrors]
+
+export type SessionBackgroundCancelResponses = {
+  /**
+   * Cancelled background job
+   */
+  200: boolean
+}
+
+export type SessionBackgroundCancelResponse = SessionBackgroundCancelResponses[keyof SessionBackgroundCancelResponses]
+
 export type SessionAbortData = {
   body?: never
   path: {

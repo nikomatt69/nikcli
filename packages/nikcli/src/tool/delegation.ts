@@ -12,7 +12,7 @@ const parameters = z.object({
 type DelegationMetadata = {
   action: z.infer<typeof parameters>["action"]
   count?: number
-  items?: Delegation.ListItem[]
+  items?: Array<Delegation.ListItem | Delegation.JobItem>
   parentSessionId: string
   delegationId?: string
   cancelled?: boolean
@@ -35,7 +35,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
     }
 
     if (params.action === "list") {
-      const items = await Delegation.list(parentSessionID)
+      const items = await Delegation.listJobs(parentSessionID)
       return {
         title: `${items.length} delegations`,
         metadata: {
@@ -49,16 +49,15 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
             ? `No delegations found for session ${parentSessionID}.`
             : [
                 `Delegations for session ${parentSessionID}:`,
-                ...items.map(
-                  (item) =>
-                    `- ${item.id} [${item.status}] @${item.agent} ${item.title}${item.description ? ` - ${item.description}` : ""}`,
-                ),
+                ...items.map((item) => `- ${item.rootDelegationID} [${item.status}] @${item.agent} ${item.title}`),
               ].join("\n"),
       }
     }
 
     if (params.action === "count") {
-      const count = await Delegation.getRunningCount(parentSessionID)
+      const count = (await Delegation.listJobs(parentSessionID)).filter(
+        (item) => item.status === "running" || item.status === "synthesizing",
+      ).length
       return {
         title: `${count} running delegations`,
         metadata: {
@@ -81,8 +80,8 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
       }
     }
 
-    const delegation = await Delegation.inspectForSession(parentSessionID, params.delegationId)
-    if (!delegation) {
+    const job = await Delegation.inspectJobForSession(parentSessionID, params.delegationId)
+    if (!job) {
       return {
         title: "Delegation not found",
         metadata: {
@@ -96,17 +95,17 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
 
     await ctx.ask({
       permission: "task",
-      patterns: [delegation.agent],
-      always: [delegation.agent],
+      patterns: [job.agent],
+      always: [job.agent],
       metadata: {
         action: params.action,
         delegationId: params.delegationId,
-        agent: delegation.agent,
+        agent: job.agent,
       },
     })
 
     if (params.action === "read") {
-      const output = await Delegation.readForSession(parentSessionID, params.delegationId)
+      const output = await Delegation.readJobForSession(parentSessionID, params.delegationId)
       return {
         title: `Delegation ${params.delegationId}`,
         metadata: {
@@ -118,7 +117,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
       }
     }
 
-    const cancelled = await Delegation.cancelForSession(parentSessionID, params.delegationId)
+    const cancelled = await Delegation.cancelJobForSession(parentSessionID, params.delegationId)
     if (!cancelled) {
       return {
         title: "Delegation not running",

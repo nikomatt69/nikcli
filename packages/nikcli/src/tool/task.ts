@@ -31,6 +31,8 @@ type ToolSummaryItem = { id: string; tool: string; state: { status: string; titl
 type TaskMetadata = {
   summary?: ToolSummaryItem[]
   sessionId: string
+  jobId?: string
+  rootDelegationId?: string
   delegationId?: string
   delegatorDelegationId?: string
   delegatorSessionId?: string
@@ -45,6 +47,8 @@ type TaskMetadata = {
 }
 
 type BackgroundTaskResult = {
+  jobId: string
+  rootDelegationId: string
   delegationId: string
   delegatorDelegationId: string
   delegatorSessionId: string
@@ -99,6 +103,21 @@ function buildResearchMetadata(
     ...extra,
   } satisfies ResearchRunMetadata
 }
+
+type DelegatorDecision =
+  | {
+      action: "finalize"
+      reason?: string
+    }
+  | {
+      action: "continue"
+      reason?: string
+      spawn?: {
+        description: string
+        prompt: string
+        agent: string
+      }
+    }
 
 type ReusableSessionValidation = {
   parentSessionID: string
@@ -250,6 +269,76 @@ async function createPromptInput(params: {
   } satisfies SessionPrompt.PromptInput
 }
 
+function parseDelegatorDecision(text: string): DelegatorDecision {
+  const actionMatch = text.match(/(?:\*\*)?Action(?:\*\*)?[\s:]+(finalize|continue)/i)
+  const action = (actionMatch?.[1]?.toLowerCase() ?? "finalize") as "finalize" | "continue"
+  const reasonMatch = text.match(/(?:\*\*)?Reason(?:\*\*)?[\s:]+(.+)/i)
+  const reason = reasonMatch?.[1]?.trim()
+  if (action === "finalize") return { action, reason }
+
+  const description = text.match(/^-\s*description:\s*(.+)$/im)?.[1]?.trim()
+  const prompt = text.match(/^-\s*prompt:\s*(.+)$/im)?.[1]?.trim()
+  const agent = text.match(/^-\s*agent:\s*(.+)$/im)?.[1]?.trim()
+
+  return {
+    action,
+    reason,
+    spawn:
+      description && prompt && agent
+        ? {
+            description,
+            prompt,
+            agent,
+          }
+        : undefined,
+  }
+}
+
+async function runBackgroundDelegation(params: {
+  session: Session.Info
+  prompt: string
+  agentName: string
+  model: {
+    modelID: string
+    providerID: string
+  }
+  hasTaskPermission: boolean
+  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+  delegationID: string
+}) {
+  const promptInput = await createPromptInput({
+    sessionID: params.session.id,
+    prompt: params.prompt,
+    agentName: params.agentName,
+    hasTaskPermission: params.hasTaskPermission,
+    model: params.model,
+    primaryTools: params.primaryTools,
+  })
+  const unsubProgress = subscribeDelegationProgress(params.session.id, params.delegationID)
+  Instance.registerDisposer(unsubProgress)
+
+  try {
+    const result = await SessionPrompt.prompt(promptInput)
+    const summary = await summarizeSubtaskSession(params.session.id, result)
+    const error = summary.assistant?.error
+    const status = error ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error") : "complete"
+    const errMsg = error ? extractErrorMessage(error) : undefined
+    await Delegation.finalize(params.delegationID, status, summary.text, errMsg)
+    return {
+      result,
+      summary,
+      status,
+      error: errMsg,
+    }
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error)
+    await Delegation.finalize(params.delegationID, "error", "", errMsg)
+    throw error
+  } finally {
+    unsubProgress()
+  }
+}
+
 function subscribeDelegationProgress(sessionID: string, delegationID: string) {
   let lastSummary: string | undefined = "Starting background task"
   void Delegation.updateProgress(delegationID, lastSummary)
@@ -300,6 +389,7 @@ async function launchBackgroundSubtask(params: {
     metadata: params.metadata,
     delegatorSessionID: delegatorSession.id,
     delegatorEnabled: true,
+    role: "worker",
   })
   Delegation.setSessionID(delegation.id, params.session.id)
 
@@ -310,46 +400,35 @@ async function launchBackgroundSubtask(params: {
     session: delegatorSession,
     source: "delegator",
     metadata: params.metadata,
+    jobID: delegation.jobID,
+    rootDelegationID: delegation.rootDelegationID,
+    parentDelegationID: delegation.id,
+    role: "delegator",
   })
   Delegation.setSessionID(delegatorDelegation.id, delegatorSession.id)
   // Close the forward link advertised by the BackgroundRun schema so callers
   // can resolve a subagent delegation's supervisor in O(1) via its record.
   await Delegation.linkDelegator(delegation.id, delegatorDelegation.id)
 
-  const promptInput = await createPromptInput({
-    sessionID: params.session.id,
-    prompt: params.prompt,
-    agentName: params.agent.name,
-    hasTaskPermission: params.hasTaskPermission,
-    model: params.model,
-    primaryTools: params.primaryTools,
-  })
-  const unsubProgress = subscribeDelegationProgress(params.session.id, delegation.id)
-  Instance.registerDisposer(unsubProgress)
+  void Promise.resolve()
+    .then(async () => {
+      const workerRun = await runBackgroundDelegation({
+        session: params.session,
+        prompt: params.prompt,
+        agentName: params.agent.name,
+        model: params.model,
+        hasTaskPermission: params.hasTaskPermission,
+        primaryTools: params.primaryTools,
+        delegationID: delegation.id,
+      })
 
-  void SessionPrompt.prompt(promptInput)
-    .then(async (result) => {
-      unsubProgress()
-      const summary = await summarizeSubtaskSession(params.session.id, result)
-      const error = summary.assistant?.error
-      const status = error ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error") : "complete"
-      const errMsg = error ? extractErrorMessage(error) : undefined
-      const workerMetadata =
-        params.agent.name === RESEARCH_AGENT
-          ? buildResearchMetadata(params.agent.name, params.prompt, {
-              sourceCount: extractSourceCount(summary.text),
-              confidence: extractConfidence(summary.text),
-            })
-          : params.metadata
-
-      await Delegation.finalize(delegation.id, status, summary.text, errMsg, workerMetadata)
-
-      await Delegation.waitForSettled(params.parentSessionID).catch(() => undefined)
-      const synthesisItems = await Delegation.collectResults(params.parentSessionID).catch(() => [])
+      await Delegation.waitForSettledJob(delegation.jobID!).catch(() => undefined)
+      const synthesisItems = await Delegation.collectResultsForJob(delegation.jobID!).catch(() => [])
       const MAX_ITERATIONS = 3
       let accumulatedResults: Delegation.SynthesisItem[] = synthesisItems
       const sessionSummaries: string[] = []
       let lastDelegatorSummary: Awaited<ReturnType<typeof summarizeSubtaskSession>> | null = null
+      let lastWorkerStatus = workerRun.status
 
       for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
         const resultsText = accumulatedResults
@@ -363,7 +442,7 @@ async function launchBackgroundSubtask(params: {
 
         const wakeText = [
           iteration === 0
-            ? `Background task completed with status: **${status}**.`
+            ? `Background task completed with status: **${lastWorkerStatus}**.`
             : `## Follow-up Round ${iteration + 1}`,
           "",
           `Agent: @${params.agent.name}`,
@@ -378,11 +457,16 @@ async function launchBackgroundSubtask(params: {
           "",
           isLastRound
             ? "**This is the final round. You must finalize.**"
-            : "**Analyze results and decide: finalize now or continue with follow-up work.**",
+            : "**Analyze results and decide: finalize now or continue with follow-up work. If you continue, you must provide a Spawn block with single-line values for description, prompt, and agent.**",
           "",
           "## Your Decision (required)",
           "Respond with: **Action:** finalize | continue",
           "**Reason:** <one sentence>",
+          "If Action is continue, include:",
+          "**Spawn:**",
+          "- description: <short description>",
+          "- prompt: <single-line detailed task>",
+          "- agent: <agent type>",
         ].join("\n")
 
         const delegatorResult = await SessionPrompt.prompt({
@@ -393,7 +477,7 @@ async function launchBackgroundSubtask(params: {
           tools: {
             todowrite: false,
             todoread: false,
-            task: !isLastRound,
+            task: false,
           },
           parts: [{ type: "text" as const, text: wakeText }],
         })
@@ -402,17 +486,45 @@ async function launchBackgroundSubtask(params: {
         lastDelegatorSummary = delegatorSummary
         sessionSummaries.push(delegatorSummary.text)
 
-        const text = delegatorSummary.text ?? ""
-        const actionMatch = text.match(/\*\*Action\*\*[\s:]+(finalize|continue)/i)
-        const action = (actionMatch?.[1]?.toLowerCase() ?? "finalize") as "finalize" | "continue"
-        if (!actionMatch) {
-          log.warn("delegator did not respond with expected action format", { text: text.slice(0, 200) })
-        }
+        const decision = parseDelegatorDecision(delegatorSummary.text ?? "")
 
-        if (action === "finalize" || isLastRound) break
+        if (decision.action === "finalize" || isLastRound || !decision.spawn) break
 
-        await Delegation.waitForSettled(params.parentSessionID).catch(() => undefined)
-        const newResults = await Delegation.collectResults(params.parentSessionID).catch(() => [])
+        const followupAgent = await Agent.get(decision.spawn.agent)
+        if (!followupAgent) break
+
+        const followupHasTaskPermission = followupAgent.permission.some((rule) => rule.permission === "task")
+        const followupSession = await Session.create({
+          parentID: params.parentSessionID,
+          title: `${decision.spawn.description} (@${followupAgent.name} follow-up)`,
+          permission: buildSubtaskPermission(followupHasTaskPermission, params.primaryTools),
+        })
+        const followupDelegation = await Delegation.create({
+          parentSessionID: params.parentSessionID,
+          agent: followupAgent.name,
+          prompt: decision.spawn.prompt,
+          session: followupSession,
+          source: "delegator-followup",
+          jobID: delegation.jobID,
+          rootDelegationID: delegation.rootDelegationID,
+          parentDelegationID: delegatorDelegation.id,
+          delegatorSessionID: delegatorSession.id,
+          role: "followup",
+        })
+        Delegation.setSessionID(followupDelegation.id, followupSession.id)
+        const followupRun = await runBackgroundDelegation({
+          session: followupSession,
+          prompt: decision.spawn.prompt,
+          agentName: followupAgent.name,
+          model: params.model,
+          hasTaskPermission: followupHasTaskPermission,
+          primaryTools: params.primaryTools,
+          delegationID: followupDelegation.id,
+        })
+        lastWorkerStatus = followupRun.status
+
+        await Delegation.waitForSettledJob(delegation.jobID!).catch(() => undefined)
+        const newResults = await Delegation.collectResultsForJob(delegation.jobID!).catch(() => [])
         const seen = new Set(accumulatedResults.map((r) => r.id))
         for (const r of newResults) {
           if (!seen.has(r.id)) accumulatedResults.push(r)
@@ -439,13 +551,13 @@ async function launchBackgroundSubtask(params: {
       )
     })
     .catch(async (error) => {
-      unsubProgress()
       const errMsg = error instanceof Error ? error.message : String(error)
-      await Delegation.finalize(delegation.id, "error", "", errMsg, params.metadata)
-      await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`, params.metadata)
+      await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
     })
 
   return {
+    jobId: delegation.jobID!,
+    rootDelegationId: delegation.rootDelegationID!,
     delegationId: delegation.id,
     delegatorDelegationId: delegatorDelegation.id,
     delegatorSessionId: delegatorSession.id,
@@ -565,6 +677,8 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       title: params.description,
       metadata: {
         background: true,
+        jobId: backgroundTask.jobId,
+        rootDelegationId: backgroundTask.rootDelegationId,
         delegationId: backgroundTask.delegationId,
         delegatorDelegationId: backgroundTask.delegatorDelegationId,
         delegatorSessionId: backgroundTask.delegatorSessionId,
@@ -582,6 +696,8 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       title: params.description,
       metadata: {
         background: true,
+        jobId: backgroundTask.jobId,
+        rootDelegationId: backgroundTask.rootDelegationId,
         delegationId: backgroundTask.delegationId,
         delegatorDelegationId: backgroundTask.delegatorDelegationId,
         delegatorSessionId: backgroundTask.delegatorSessionId,

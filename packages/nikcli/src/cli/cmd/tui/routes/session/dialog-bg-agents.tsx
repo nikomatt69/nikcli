@@ -10,11 +10,6 @@ import { useLocal } from "@tui/context/local"
 import { Keybind } from "@/util/keybind"
 import { Spinner } from "../../component/spinner"
 
-type SessionOption = {
-  kind: "session"
-  id: string
-}
-
 type MonitorOption = {
   kind: "monitor"
   id: string
@@ -25,18 +20,18 @@ type MonitorOption = {
   exitCode?: number
 }
 
-type BgOption = SessionOption | MonitorOption
-
-type BackgroundSubtasksMap = Record<string, string[]>
-type BackgroundDismissedMap = Record<string, string[]>
-
-function getSupervisorInfo(title: string): { isSupervisor: boolean; taskTitle: string } {
-  const supervisorMatch = title.match(/^(?:supervisor|delegator):\s*(.+)$/i)
-  if (supervisorMatch) {
-    return { isSupervisor: true, taskTitle: supervisorMatch[1] }
-  }
-  return { isSupervisor: false, taskTitle: title }
+type JobOption = {
+  kind: "job"
+  id: string
+  title: string
+  agent: string
+  status: string
+  workerSessionID?: string
+  delegatorSessionID?: string
 }
+
+type BgOption = MonitorOption | JobOption
+type BackgroundDismissedMap = Record<string, string[]>
 
 function monitorStatusLabel(status: string, exitCode?: number) {
   switch (status) {
@@ -55,6 +50,19 @@ function monitorStatusLabel(status: string, exitCode?: number) {
   }
 }
 
+function jobStatusLabel(status: string) {
+  switch (status) {
+    case "running":
+      return "running"
+    case "synthesizing":
+      return "synthesizing"
+    case "complete":
+      return "ready"
+    default:
+      return status
+  }
+}
+
 export function DialogBgAgents(props: {
   sessionID: string
   onOpenMonitor: (monitorID: string, title: string, command: string, status: string, logPath?: string) => void
@@ -67,20 +75,15 @@ export function DialogBgAgents(props: {
   const dialog = useDialog()
   const { theme } = useTheme()
 
-  const backgroundedIDs = createMemo(() => {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    return map[props.sessionID] ?? []
+  const dismissed = createMemo(() => {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    return new Set(map[props.sessionID] ?? [])
   })
 
-  function removeFromBackground(childID: string) {
-    const map = (kv.get("background_subtasks", {}) ?? {}) as BackgroundSubtasksMap
-    const list = map[props.sessionID] ?? []
-    const next = list.filter((x) => x !== childID)
-    if (next.length === list.length) return
-    kv.set("background_subtasks", { ...map, [props.sessionID]: next })
-    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = Array.from(new Set([...(dismissedMap[props.sessionID] ?? []), childID]))
-    kv.set("background_subtasks_dismissed", { ...dismissedMap, [props.sessionID]: dismissed })
+  function dismissJob(delegationID: string) {
+    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
+    const next = Array.from(new Set([...(map[props.sessionID] ?? []), delegationID]))
+    kv.set("background_subtasks_dismissed", { ...map, [props.sessionID]: next })
   }
 
   const monitors = createMemo(() => {
@@ -116,44 +119,26 @@ export function DialogBgAgents(props: {
 
   const options = createMemo((): DialogSelectOption<BgOption>[] => {
     const out: DialogSelectOption<BgOption>[] = []
-    const sessionsByID = new Map(sync.data.session.map((s) => [s.id, s] as const))
 
-    for (const id of backgroundedIDs()) {
-      const session = sessionsByID.get(id)
-      if (!session) continue
-      const statusType = sync.data.session_status[id]?.type ?? "idle"
-      const isRunning = statusType === "busy" || statusType === "retry"
-      const label = statusType === "busy" ? "running" : statusType === "retry" ? "retrying" : "ready"
-      const agent = session.title.match(/\(@([^\s]+)\s+subagent\)$/)?.[1]
-      const { isSupervisor, taskTitle } = getSupervisorInfo(session.title)
-
-      // Check if this is a supervisor/delegator session
-      if (isSupervisor) {
-        const color = theme.primary
-        out.push({
-          title: taskTitle,
-          value: { kind: "session", id } satisfies BgOption,
-          description: label,
-          category: "Supervisors",
-          footer: "supervisor",
-          gutter: isRunning ? <Spinner /> : <text fg={color}>◉</text>,
-        })
-        continue
-      }
-
-      const title = session.title.replace(/\s*\(@[^\s]+\s+subagent\)$/, "")
-      const color = agent ? local.agent.color(agent) : undefined
+    for (const job of sync.background.list(props.sessionID)) {
+      if (dismissed().has(job.rootDelegationID)) continue
+      const active = job.status === "running" || job.status === "synthesizing"
+      const color = local.agent.color(job.agent)
       out.push({
-        title,
-        value: { kind: "session", id } satisfies BgOption,
-        description: label,
-        category: "Background Sessions",
-        footer: agent ? `@${agent}` : undefined,
-        gutter: isRunning ? (
-          <Spinner />
-        ) : agent ? (
-          <text fg={color ?? theme.textMuted}>@{agent.slice(0, 8)}</text>
-        ) : undefined,
+        title: job.title,
+        value: {
+          kind: "job",
+          id: job.rootDelegationID,
+          title: job.title,
+          agent: job.agent,
+          status: job.status,
+          workerSessionID: job.workerSessionID,
+          delegatorSessionID: job.delegatorSessionID,
+        } satisfies BgOption,
+        description: jobStatusLabel(job.status),
+        category: "Background Jobs",
+        footer: `@${job.agent}`,
+        gutter: active ? <Spinner /> : <text fg={color ?? theme.textMuted}>@{job.agent.slice(0, 8)}</text>,
       })
     }
 
@@ -183,12 +168,13 @@ export function DialogBgAgents(props: {
       options={options()}
       onSelect={(opt) => {
         const value = opt.value
-        if (value.kind === "session") {
-          removeFromBackground(value.id)
+        if (value.kind === "job") {
+          const sessionID = value.workerSessionID ?? value.delegatorSessionID
+          if (!sessionID) return
           route.navigate({
             type: "session",
-            sessionID: value.id,
-            workspaceID: sync.session.get(value.id)?.workspaceID,
+            sessionID,
+            workspaceID: sync.session.get(sessionID)?.workspaceID,
           })
           dialog.clear()
         } else {
@@ -198,13 +184,15 @@ export function DialogBgAgents(props: {
       keybind={[
         {
           keybind: Keybind.parse("x")[0],
-          title: "cancel / remove",
+          title: "cancel / dismiss",
           onTrigger: (opt) => {
             const value = opt.value
-            if (value.kind === "session") {
-              removeFromBackground(value.id)
-              if ((sync.data.session_status[value.id]?.type ?? "idle") !== "idle") {
-                sdk.client.session.abort({ sessionID: value.id }).catch(() => {})
+            if (value.kind === "job") {
+              dismissJob(value.id)
+              if (value.status === "running" || value.status === "synthesizing") {
+                sdk.client.session.background2
+                  .cancel({ sessionID: props.sessionID, delegationID: value.id })
+                  .catch(() => {})
               }
             } else if (value.status === "running") {
               sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => {})

@@ -26,6 +26,28 @@ import { Monitor } from "@/monitor/manager"
 
 const log = Log.create({ service: "server" })
 
+const BackgroundJobStatus = z.enum(["running", "synthesizing", "complete", "error", "timeout", "cancelled", "orphaned"])
+
+const BackgroundJobSchema = z.object({
+  jobID: z.string(),
+  rootDelegationID: z.string(),
+  parentSessionID: z.string(),
+  title: z.string(),
+  agent: z.string(),
+  status: BackgroundJobStatus,
+  source: z.string().optional(),
+  workerSessionID: z.string().optional(),
+  delegatorID: z.string().optional(),
+  delegatorSessionID: z.string().optional(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  completedAt: z.number().optional(),
+  lastActivityAt: z.number().optional(),
+  progressSummary: z.string().optional(),
+  resultSummary: z.string().optional(),
+  error: z.string().optional(),
+})
+
 export const SessionRoutes = lazy(() =>
   new Hono()
     .use(SessionProxyMiddleware)
@@ -366,6 +388,130 @@ export const SessionRoutes = lazy(() =>
         const body = c.req.valid("json")
         const result = await Session.fork({ ...body, sessionID })
         return c.json(result)
+      },
+    )
+    .get(
+      "/:sessionID/background",
+      describeRoute({
+        summary: "List background jobs",
+        description: "List durable background jobs for a parent session.",
+        operationId: "session.background",
+        responses: {
+          200: {
+            description: "Background jobs",
+            content: {
+              "application/json": {
+                schema: resolver(BackgroundJobSchema.array()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        // Validate session exists before exposing its background jobs
+        const session = await Session.get(sessionID).catch(() => undefined)
+        if (!session) {
+          return c.json({ error: "Session not found" }, 404)
+        }
+        return c.json(await Delegation.listJobs(sessionID))
+      },
+    )
+    .get(
+      "/:sessionID/background/:delegationID",
+      describeRoute({
+        summary: "Inspect background job",
+        description: "Inspect a durable background job from a related session.",
+        operationId: "session.background.inspect",
+        responses: {
+          200: {
+            description: "Background job",
+            content: {
+              "application/json": {
+                schema: resolver(BackgroundJobSchema.nullable()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+          delegationID: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID, delegationID } = c.req.valid("param")
+        return c.json(await Delegation.inspectJobForSession(sessionID, delegationID))
+      },
+    )
+    .get(
+      "/:sessionID/background/:delegationID/read",
+      describeRoute({
+        summary: "Read background job output",
+        description: "Read the synthesized output for a durable background job.",
+        operationId: "session.background.read",
+        responses: {
+          200: {
+            description: "Background job output",
+            content: {
+              "application/json": {
+                schema: resolver(z.string()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+          delegationID: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID, delegationID } = c.req.valid("param")
+        return c.json((await Delegation.readJobForSession(sessionID, delegationID)) ?? "")
+      },
+    )
+    .post(
+      "/:sessionID/background/:delegationID/cancel",
+      describeRoute({
+        summary: "Cancel background job",
+        description: "Cancel a durable background job from a related session.",
+        operationId: "session.background.cancel",
+        responses: {
+          200: {
+            description: "Cancelled background job",
+            content: {
+              "application/json": {
+                schema: resolver(z.boolean()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string(),
+          delegationID: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID, delegationID } = c.req.valid("param")
+        return c.json(await Delegation.cancelJobForSession(sessionID, delegationID))
       },
     )
     .post(
