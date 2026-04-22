@@ -148,9 +148,10 @@ export namespace Brain {
   const HOUR_MS = 60 * 60 * 1000
 
   export async function shouldTrigger(): Promise<boolean> {
+    if (!(await isBrainEnabled())) return false
+    if (!(await isMemoryEnabled())) return false
+
     const cfg = await getBrainConfig()
-    if (!cfg.enabled) return false
-    if (!cfg.memoryEnabled) return false
 
     let lastAt: number
     try {
@@ -183,14 +184,18 @@ export namespace Brain {
   let pending: Promise<BrainResult> | null = null
 
   export async function trigger(input?: { force?: boolean }): Promise<BrainResult> {
-    if (pending) return pending
-    pending = runBrain(input).finally(() => {
-      pending = null
+    const existing = pending
+    if (existing) return existing
+    const task = runBrain(input).finally(() => {
+      if (pending === task) pending = null
     })
-    return pending
+    pending = task
+    return task
   }
 
   async function runBrain(input?: { force?: boolean }): Promise<BrainResult> {
+    const log = Log.create({ service: "brain" })
+
     if (!(await isBrainEnabled())) {
       return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: "brain disabled" }
     }
@@ -245,59 +250,72 @@ export namespace Brain {
       log.error("brain failed", { error: String(e) })
       return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
     } finally {
-      await lease.release()
+      const released = await lease.release().catch((err) => {
+        log.warn("failed to release brain lock", { error: String(err) })
+        return false
+      })
+      if (released) log.debug("brain lock released")
     }
   }
 
   async function executeBrain(sessionIds: string[]): Promise<string> {
-    if (!sessionIds.length) {
-      throw new Error("No recent sessions available for Brain")
-    }
-
-    const memory = await getBrainMemoryContent()
-    const memoryFile = memoryPath()
-    await fs.mkdir(path.dirname(memoryFile), { recursive: true })
-    const reviews = await buildSessionReviews(sessionIds)
-
-    const prompt = buildBrainPrompt(memoryFile, reviews, memory)
-    log.debug("brain prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
-
-    const session = await Session.create({
-      title: BRAIN_SESSION_TITLE,
-      permission: [
-        { permission: "*", pattern: "*", action: "deny" },
-        { permission: "read", pattern: "*", action: "allow" },
-        { permission: "edit", pattern: "*", action: "allow" },
-        { permission: "write", pattern: "*", action: "allow" },
-        { permission: "glob", pattern: "*", action: "allow" },
-        { permission: "grep", pattern: "*", action: "allow" },
-        { permission: "list", pattern: "*", action: "allow" },
-        { permission: "tree", pattern: "*", action: "allow" },
-        { permission: "todowrite", pattern: "*", action: "deny" },
-        { permission: "todoread", pattern: "*", action: "deny" },
-        { permission: "task", pattern: "*", action: "deny" },
-      ],
-    })
-    log.debug("brain session created", { sessionID: session.id })
-    const model = await Provider.defaultModel()
-    const parts = await SessionPrompt.resolvePromptParts(prompt)
-
-    const timeout = setTimeout(() => {
-      log.warn("brain session timed out, cancelling", { sessionID: session.id })
-      SessionPrompt.cancel(session.id)
-    }, BRAIN_SESSION_TIMEOUT_MS)
-
     try {
-      await SessionPrompt.prompt({
-        sessionID: session.id,
-        model,
-        parts,
-      })
-    } finally {
-      clearTimeout(timeout)
-    }
+      if (!sessionIds.length) {
+        throw new Error("No recent sessions available for Brain")
+      }
 
-    return session.id
+      const memory = await getBrainMemoryContent()
+      const memoryFile = memoryPath()
+      await fs.mkdir(path.dirname(memoryFile), { recursive: true })
+      const reviews = await buildSessionReviews(sessionIds)
+
+      const prompt = buildBrainPrompt(memoryFile, reviews, memory)
+      log.info("brain prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
+
+      try {
+        const session = await Session.create({
+          title: BRAIN_SESSION_TITLE,
+          permission: [
+            { permission: "*", pattern: "*", action: "deny" },
+            { permission: "read", pattern: "*", action: "allow" },
+            { permission: "edit", pattern: "*", action: "allow" },
+            { permission: "glob", pattern: "*", action: "allow" },
+            { permission: "grep", pattern: "*", action: "allow" },
+            { permission: "list", pattern: "*", action: "allow" },
+            { permission: "tree", pattern: "*", action: "allow" },
+            { permission: "todowrite", pattern: "*", action: "deny" },
+            { permission: "todoread", pattern: "*", action: "deny" },
+            { permission: "task", pattern: "*", action: "deny" },
+          ],
+        })
+        log.info("brain session created", { sessionID: session.id })
+        const model = await Provider.defaultModel()
+        const parts = await SessionPrompt.resolvePromptParts(prompt)
+
+        const timeout = setTimeout(() => {
+          log.warn("brain session timed out, cancelling", { sessionID: session.id })
+          SessionPrompt.cancel(session.id)
+        }, BRAIN_SESSION_TIMEOUT_MS)
+
+        try {
+          await SessionPrompt.prompt({
+            sessionID: session.id,
+            model,
+            parts,
+          })
+        } finally {
+          clearTimeout(timeout)
+        }
+
+        return session.id
+      } catch (sessionError) {
+        log.warn("could not run brain session", { error: String(sessionError) })
+        return "brain-session-not-created"
+      }
+    } catch (e) {
+      log.error("brain execution failed", { error: String(e) })
+      throw e
+    }
   }
 
   export function buildBrainPrompt(memoryPath: string, sessionReviews: string, currentMemory: string): string {

@@ -202,7 +202,7 @@ describe("delegation flow", () => {
 
       const ctx = createContext(parentSessionID)
       const status = await tool.execute({ action: "status", delegationId: delegation.id }, ctx)
-      expect(status.output).toContain("**Question:** How should nikcli integrate autoresearch?")
+      expect(status.output).toContain("**Progress:** Question: How should nikcli integrate autoresearch?")
 
       const summary = await tool.execute({ action: "summarize", delegationId: delegation.id }, ctx)
       expect(summary.output).toContain("**Research Summary:**")

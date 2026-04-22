@@ -326,13 +326,22 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       <Show when={keybinds().length} fallback={<box flexShrink={0} />}>
         <box paddingRight={2} paddingLeft={4} flexDirection="row" gap={2} flexShrink={0} paddingTop={1}>
           <For each={keybinds()}>
-            {(item) => (
-              <text>
-                <span style={{ fg: theme.text }}>
-                  <b>{item.title}</b>{" "}
-                </span>
-                <span style={{ fg: theme.textMuted }}>{Keybind.toString(item.keybind)}</span>
-              </text>
+            {(item, index) => (
+              <box
+                onMouseUp={() => {
+                  const option = flat().at(store.selected)
+                  if (option && item.onTrigger) {
+                    item.onTrigger(option)
+                  }
+                }}
+              >
+                <text>
+                  <span style={{ fg: theme.text }}>
+                    <b>{item.title}</b>{" "}
+                  </span>
+                  <span style={{ fg: theme.accent }}>{Keybind.toString(item.keybind)}</span>
+                </text>
+              </box>
             )}
           </For>
         </box>

@@ -192,10 +192,10 @@ export function DialogBgAgents(props: {
               if (value.status === "running" || value.status === "synthesizing") {
                 sdk.client.session.background2
                   .cancel({ sessionID: props.sessionID, delegationID: value.id })
-                  .catch(() => {})
+                  .catch(() => { })
               }
             } else if (value.status === "running") {
-              sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => {})
+              sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => { })
             }
           },
         },

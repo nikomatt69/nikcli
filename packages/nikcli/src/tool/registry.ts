@@ -56,6 +56,12 @@ import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
 import { ComputerUseTool } from "./computer"
+import {
+  ComputerUseScreenshotTool,
+  ComputerUseClickTool,
+  ComputerUseTypeTool,
+  ComputerUseWaitTool,
+} from "../plugin/computer-use/tools"
 
 const _toolDir = import.meta.dir
 
@@ -169,6 +175,9 @@ export namespace ToolRegistry {
       RagResetTool,
       GenerateImageTool,
       ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_USE ? [ComputerUseTool] : []),
+      ...(Flag.NIKCLI_EXPERIMENTAL_COMPUTER_USE
+        ? [ComputerUseScreenshotTool, ComputerUseClickTool, ComputerUseTypeTool, ComputerUseWaitTool]
+        : []),
       WebFetchTool,
       TodoWriteTool,
       TodoReadTool,

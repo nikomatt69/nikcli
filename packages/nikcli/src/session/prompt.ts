@@ -79,7 +79,7 @@ export namespace SessionPrompt {
       for (const item of Object.values(current)) {
         item.abort.abort()
         for (const callback of item.callbacks) {
-          callback.reject(new Error("Session disposed"))
+          callback.reject()
         }
       }
     },
@@ -261,7 +261,7 @@ export namespace SessionPrompt {
       if (!match) return
       match.abort.abort()
       for (const item of match.callbacks) {
-        item.reject(new Error("Session cancelled"))
+        item.reject()
       }
       delete s[sessionID]
       SessionStatus.set(sessionID, { type: "idle" })

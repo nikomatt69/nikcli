@@ -55,6 +55,7 @@ import os from "os"
 import path from "path"
 import { rmSync } from "fs"
 import { Auth } from "@/auth"
+import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx";
 
 export type PromptProps = {
   sessionID?: string
@@ -373,8 +374,8 @@ export function Prompt(props: PromptProps) {
 
     const baseURL = normalizeOpenRouterBaseURL(
       process.env.NIKCLI_OPENROUTER_BASE_URL ??
-        process.env.OPENROUTER_BASE_URL ??
-        (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
+      process.env.OPENROUTER_BASE_URL ??
+      (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
     )
 
     return {
@@ -668,7 +669,7 @@ export function Prompt(props: PromptProps) {
       input.setText(nextInput)
       setStore("prompt", "input", nextInput)
       autocomplete.onInput(nextInput)
-      await Clipboard.copy(transcript).catch(() => {})
+      await Clipboard.copy(transcript).catch(() => { })
 
       setTimeout(() => {
         input.cursorOffset = nextInput.length
@@ -742,7 +743,7 @@ export function Prompt(props: PromptProps) {
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
     void sync.background.sync(props.sessionID)
-    dialog.replace(() => <DialogSubagent sessionID={props.sessionID!} />)
+    dialog.replace(() => <DialogBgAgents sessionID={props.sessionID!} onOpenMonitor={() => { }} />)
   }
 
   // Surface completion with a toast, but do not steal focus from the user.
@@ -1338,9 +1339,9 @@ export function Prompt(props: PromptProps) {
     const sessionID = props.sessionID
       ? props.sessionID
       : await (async () => {
-          const sessionID = await sdk.client.session.create({ workspaceID: props.workspaceID }).then((x) => x.data!.id)
-          return sessionID
-        })()
+        const sessionID = await sdk.client.session.create({ workspaceID: props.workspaceID }).then((x) => x.data!.id)
+        return sessionID
+      })()
     const messageID = Identifier.ascending("message")
     let inputText = store.prompt.input
 
@@ -1429,7 +1430,7 @@ export function Prompt(props: PromptProps) {
             })),
           ],
         })
-        .catch(() => {})
+        .catch(() => { })
     }
     history.append({
       ...store.prompt,
@@ -1841,7 +1842,7 @@ export function Prompt(props: PromptProps) {
                     // Handle SVG as raw text content, not as base64 image
                     if (file.type === "image/svg+xml") {
                       event.preventDefault()
-                      const content = await file.text().catch(() => {})
+                      const content = await file.text().catch(() => { })
                       if (content) {
                         pasteText(content, `[SVG: ${file.name ?? "image"}]`)
                         return
@@ -1852,7 +1853,7 @@ export function Prompt(props: PromptProps) {
                       const content = await file
                         .arrayBuffer()
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => {})
+                        .catch(() => { })
                       if (content) {
                         await pasteImage({
                           filename: file.name,
@@ -1862,7 +1863,7 @@ export function Prompt(props: PromptProps) {
                         return
                       }
                     }
-                  } catch {}
+                  } catch { }
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1935,13 +1936,13 @@ export function Prompt(props: PromptProps) {
             customBorderChars={
               theme.backgroundElement.a !== 0
                 ? {
-                    ...EmptyBorder,
-                    horizontal: "▀",
-                  }
+                  ...EmptyBorder,
+                  horizontal: "▀",
+                }
                 : {
-                    ...EmptyBorder,
-                    horizontal: " ",
-                  }
+                  ...EmptyBorder,
+                  horizontal: " ",
+                }
             }
           />
         </box>
@@ -2105,16 +2106,16 @@ export function Prompt(props: PromptProps) {
                       : voiceStatus() === "transcribing"
                         ? "wait"
                         : (() => {
-                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                            const shortcut = keybind.print("voice_record" as any)
-                            return shortcut ? (
-                              <>
-                                ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
-                              </>
-                            ) : (
-                              "⏺"
-                            )
-                          })()}
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const shortcut = keybind.print("voice_record" as any)
+                          return shortcut ? (
+                            <>
+                              ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
+                            </>
+                          ) : (
+                            "⏺"
+                          )
+                        })()}
                   </span>
                 </text>
               </box>

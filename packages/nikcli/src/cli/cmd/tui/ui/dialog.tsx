@@ -1,11 +1,10 @@
-import { useKeyboard, useRenderer, useTerminalDimensions } from "@opentui/solid"
-import { batch, createContext, Show, useContext, type JSX, type ParentProps } from "solid-js"
+import { useKeyboard, useRenderer, useTerminalDimensions, useTimeline } from "@opentui/solid"
+import { batch, createContext, createSignal, onMount, Show, useContext, type JSX, type ParentProps } from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { Renderable, RGBA } from "@opentui/core"
 import { createStore } from "solid-js/store"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "./toast"
-import { GlassBorderLight } from "../component/border"
 
 export function Dialog(
   props: ParentProps<{
@@ -16,11 +15,22 @@ export function Dialog(
   const dimensions = useTerminalDimensions()
   const { theme } = useTheme()
   const renderer = useRenderer()
+  const timeline = useTimeline()
+
+  const [opacity, setOpacity] = createSignal(0)
+
+  onMount(() => {
+    timeline.add(
+      { opacity: 0 },
+      { opacity: 1, duration: 150, ease: "outQuad", onUpdate: (a) => setOpacity(a.targets[0].opacity) },
+    )
+  })
 
   const width = () => {
-    if (props.size === "xlarge") return 116
-    if (props.size === "large") return 88
-    return 60
+    const dims = dimensions()
+    if (props.size === "xlarge") return Math.min(116, dims.width - 8)
+    if (props.size === "large") return Math.min(88, dims.width - 6)
+    return Math.min(60, dims.width - 4)
   }
 
   return (
@@ -34,11 +44,9 @@ export function Dialog(
       alignItems="center"
       justifyContent="center"
       position="absolute"
-      paddingTop={1}
-      paddingBottom={1}
       left={0}
       top={0}
-      backgroundColor={RGBA.fromInts(0, 0, 0, 150)}
+      backgroundColor={RGBA.fromInts(0, 0, 0, Math.round(150 * opacity()))}
     >
       <box
         onMouseUp={async (e) => {
@@ -46,11 +54,8 @@ export function Dialog(
           e.stopPropagation()
         }}
         width={width()}
-        maxWidth={dimensions().width - 2}
+        maxWidth={dimensions().width - 4}
         backgroundColor={theme.backgroundPanel}
-        border={[...GlassBorderLight.border]}
-        borderColor={theme.borderSubtle}
-        customBorderChars={GlassBorderLight.customBorderChars}
         paddingTop={1}
         paddingBottom={1}
         paddingLeft={2}

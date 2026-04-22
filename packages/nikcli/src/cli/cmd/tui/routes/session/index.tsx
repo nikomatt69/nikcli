@@ -107,13 +107,13 @@ function shareErrorMessage(error: unknown) {
 }
 
 class CustomSpeedScroll implements ScrollAcceleration {
-  constructor(private speed: number) {}
+  constructor(private speed: number) { }
 
   tick(_now?: number): number {
     return this.speed
   }
 
-  reset(): void {}
+  reset(): void { }
 }
 
 const context = createContext<{
@@ -623,7 +623,7 @@ export function Session() {
       },
       onSelect: async (dialog) => {
         const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => { })
         const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
@@ -1092,7 +1092,7 @@ export function Session() {
         if (parentID && currentID) {
           // If busy, kill the task (which also removes it from background)
           if (status !== "idle") {
-            await sdk.client.session.abort({ sessionID: currentID }).catch(() => {})
+            await sdk.client.session.abort({ sessionID: currentID }).catch(() => { })
           } else {
             // If idle, just remove from background tasks
             const job = sync.background.findBySession(currentID)
@@ -2257,7 +2257,7 @@ function parseWebSearchResults(output: string): WebSearchPreviewResult[] {
     let host = url
     try {
       host = new URL(url).hostname.replace(/^www\./, "")
-    } catch {}
+    } catch { }
 
     const titleFromLine = cleanWebSearchLine(line)
     const titleFromPrevious = cleanWebSearchLine(previousLine)
@@ -2294,7 +2294,7 @@ function parseWebSearchResults(output: string): WebSearchPreviewResult[] {
     let host = url
     try {
       host = new URL(url).hostname.replace(/^www\./, "")
-    } catch {}
+    } catch { }
     return {
       url,
       host,
@@ -2630,11 +2630,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
           onClick={
             sessionID()
               ? () =>
-                  navigate({
-                    type: "session",
-                    sessionID: sessionID()!,
-                    workspaceID: sync.session.get(sessionID()!)?.workspaceID,
-                  })
+                navigate({
+                  type: "session",
+                  sessionID: sessionID()!,
+                  workspaceID: sync.session.get(sessionID()!)?.workspaceID,
+                })
               : undefined
           }
           part={props.part}
