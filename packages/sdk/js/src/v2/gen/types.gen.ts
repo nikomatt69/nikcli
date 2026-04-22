@@ -3877,6 +3877,10 @@ export type ExperimentalWorkspaceRestoreErrors = {
    * Bad request
    */
   400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
 }
 
 export type ExperimentalWorkspaceRestoreError =
@@ -3911,6 +3915,10 @@ export type ExperimentalWorkspaceSessionRestoreErrors = {
    * Bad request
    */
   400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
 }
 
 export type ExperimentalWorkspaceSessionRestoreError =

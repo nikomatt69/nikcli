@@ -17,7 +17,6 @@ import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
-import { ComputerUsePlugin } from "./computer-use"
 import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
@@ -589,7 +588,7 @@ export namespace Plugin {
   const BUILTIN: string[] = []
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, ComputerUsePlugin, CursorAuthPlugin, NotifyPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, NotifyPlugin]
 
   const state = Instance.state(async () => {
     const { Server } = await import("../server/server")

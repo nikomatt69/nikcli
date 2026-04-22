@@ -9,6 +9,7 @@ import { UpgradeCommand } from "./cli/cmd/upgrade"
 import { UninstallCommand } from "./cli/cmd/uninstall"
 import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
+import { Global, initialize as globalInit } from "./global"
 import { Installation } from "./installation"
 import { NamedError } from "@nikcli-ai/util/error"
 import { FormatError } from "./cli/error"
@@ -71,6 +72,8 @@ const cli = yargs(hideBin(process.argv))
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .middleware(async (opts) => {
+    await globalInit()
+
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),

@@ -54,24 +54,41 @@ export namespace AccountDB {
   // Prepared statements (cached)
   // ============================================================================
 
+  let _stmts: typeof stmts | undefined
+
+  function getStatements() {
+    if (!_stmts) {
+      _stmts = {
+        getAccount: db().prepare("SELECT * FROM account WHERE id = ?"),
+        listAccounts: db().prepare("SELECT * FROM account ORDER BY id ASC"),
+        upsertAccount: db().prepare(`
+          INSERT INTO account (id, email, url, access_token, refresh_token, token_expiry, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            email = excluded.email,
+            url = excluded.url,
+            access_token = excluded.access_token,
+            refresh_token = excluded.refresh_token,
+            token_expiry = excluded.token_expiry,
+            updated_at = excluded.updated_at
+        `),
+        deleteAccount: db().prepare("DELETE FROM account WHERE id = ?"),
+        getConfig: db().prepare("SELECT * FROM config WHERE id = 1"),
+        setActiveAccount: db().prepare("UPDATE config SET active_account_id = ? WHERE id = 1"),
+        setActiveOrg: db().prepare("UPDATE config SET active_org_id = ? WHERE id = 1"),
+      }
+    }
+    return _stmts!
+  }
+
   const stmts = {
-    getAccount: db().prepare("SELECT * FROM account WHERE id = ?"),
-    listAccounts: db().prepare("SELECT * FROM account ORDER BY id ASC"),
-    upsertAccount: db().prepare(`
-      INSERT INTO account (id, email, url, access_token, refresh_token, token_expiry, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        email = excluded.email,
-        url = excluded.url,
-        access_token = excluded.access_token,
-        refresh_token = excluded.refresh_token,
-        token_expiry = excluded.token_expiry,
-        updated_at = excluded.updated_at
-    `),
-    deleteAccount: db().prepare("DELETE FROM account WHERE id = ?"),
-    getConfig: db().prepare("SELECT * FROM config WHERE id = 1"),
-    setActiveAccount: db().prepare("UPDATE config SET active_account_id = ? WHERE id = 1"),
-    setActiveOrg: db().prepare("UPDATE config SET active_org_id = ? WHERE id = 1"),
+    get getAccount() { return getStatements().getAccount },
+    get listAccounts() { return getStatements().listAccounts },
+    get upsertAccount() { return getStatements().upsertAccount },
+    get deleteAccount() { return getStatements().deleteAccount },
+    get getConfig() { return getStatements().getConfig },
+    get setActiveAccount() { return getStatements().setActiveAccount },
+    get setActiveOrg() { return getStatements().setActiveOrg },
   }
 
   // ============================================================================
