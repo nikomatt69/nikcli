@@ -19,12 +19,10 @@
   "workspaces": {
     "packages": [
       "packages/*",
-      "packages/plugin/plugins/*",
       "packages/console/*",
       "packages/remote",
       "packages/sdk/js",
       "packages/slack",
-      "packages/studio",
       "github"
     ],
     "catalog": {
@@ -84,8 +82,6 @@
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/script": "workspace:*",
     "@nikcli-ai/sdk": "workspace:*",
-    "@opentui/core": "0.1.95",
-    "@parcel/watcher": "2.5.1",
     "@slack/bolt": "4.6.0",
     "typescript": "5.9.3"
   },

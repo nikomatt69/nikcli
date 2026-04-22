@@ -1,39 +1,21 @@
 {
   "$schema": "https://json.schemastore.org/package.json",
   "name": "@nikcli-ai/plugin",
-  "version": "0.0.14",
+  "version": "0.0.4",
   "type": "module",
   "license": "MIT",
   "scripts": {
     "typecheck": "tsgo --noEmit",
-    "build": "tsc",
-    "build:plugins": "bun run script/build-plugins.ts",
-    "publish:plugins": "bun run script/publish-plugins.ts"
+    "build": "tsc"
   },
   "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    },
-    "./tool": {
-      "import": "./dist/tool.js",
-      "types": "./dist/tool.d.ts"
-    },
-    "./tui": {
-      "import": "./dist/tui.js",
-      "types": "./dist/tui.d.ts"
-    }
+    ".": "./src/index.ts",
+    "./tool": "./src/tool.ts",
+    "./tui": "./src/tui.ts"
   },
   "files": [
     "dist"
   ],
-  "publishConfig": {
-    "exports": {
-      ".": "./dist/index.js",
-      "./tool": "./dist/tool.js",
-      "./tui": "./dist/tui.js"
-    }
-  },
   "dependencies": {
     "@nikcli-ai/sdk": "workspace:*",
     "@opentui/core": "0.1.91",
