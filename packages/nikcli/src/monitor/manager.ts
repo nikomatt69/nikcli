@@ -548,7 +548,9 @@ export namespace Monitor {
       active.record.status = "cancelled"
       active.record.time.updated = Date.now()
       await publishUpdated(active.record)
+      active.exited = true
       await Shell.killTree(active.process, { exited: () => active.exited }).catch(() => {})
+      await finalize(active, "cancelled")
       return active.record
     }
 

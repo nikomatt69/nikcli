@@ -350,7 +350,7 @@ export namespace SessionProcessor {
               const nextAttempt = attempt + 1
               if (nextAttempt <= SessionRetry.RETRY_MAX_ATTEMPTS) {
                 attempt = nextAttempt
-                const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                const delay = SessionRetry.delay(attempt, MessageV2.APIError.isInstance(error) ? error : undefined)
                 SessionStatus.set(input.sessionID, {
                   type: "retry",
                   attempt,
@@ -365,7 +365,14 @@ export namespace SessionProcessor {
                   })
                   break
                 }
-                input.abort.throwIfAborted()
+                try {
+                  input.abort.throwIfAborted()
+                } catch (abortError) {
+                  input.assistantMessage.error = MessageV2.fromError(abortError, {
+                    providerID: input.model.providerID,
+                  })
+                  break
+                }
                 continue
               }
             }
@@ -390,6 +397,8 @@ export namespace SessionProcessor {
             snapshot = undefined
           }
           const p = await MessageV2.parts(input.assistantMessage.id)
+          const isAbort = input.assistantMessage.error && MessageV2.AbortedError.isInstance(input.assistantMessage.error)
+          const errorMessage = isAbort ? "Tool execution aborted" : "Tool execution failed"
           for (const part of p) {
             if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
               await Session.updatePart({
@@ -397,7 +406,7 @@ export namespace SessionProcessor {
                 state: {
                   ...part.state,
                   status: "error",
-                  error: "Tool execution aborted",
+                  error: errorMessage,
                   time: {
                     start: Date.now(),
                     end: Date.now(),

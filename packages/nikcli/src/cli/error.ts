@@ -37,7 +37,7 @@ export function FormatError(input: unknown) {
       ...(input.data.issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
     ].join("\n")
 
-  if (UI.CancelledError.isInstance(input)) return ""
+  if (UI.CancelledError.isInstance(input)) return "Operation cancelled"
 }
 
 export function FormatUnknownError(input: unknown): string {

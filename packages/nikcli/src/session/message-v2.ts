@@ -822,6 +822,8 @@ export namespace MessageV2 {
             cause: e,
           },
         ).toObject()
+      case MessageV2.ContextOverflowError.isInstance(e):
+      case MessageV2.StructuredOutputError.isInstance(e):
       case MessageV2.OutputLengthError.isInstance(e):
         return e
       case LoadAPIKeyError.isInstance(e):

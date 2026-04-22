@@ -260,11 +260,12 @@ export namespace SessionPrompt {
       const match = s[sessionID]
       if (!match) return
       match.abort.abort()
-      for (const item of match.callbacks) {
+      SessionStatus.set(sessionID, { type: "idle" })
+      const callbacks = match.callbacks.splice(0)
+      for (const item of callbacks) {
         item.reject(new Error("Session cancelled"))
       }
       delete s[sessionID]
-      SessionStatus.set(sessionID, { type: "idle" })
       return
     }
   })()
@@ -703,13 +704,16 @@ export namespace SessionPrompt {
       continue
     }
     SessionCompaction.prune({ sessionID })
+    const queued = state()[sessionID]?.callbacks.splice(0) ?? []
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user") continue
-      const queued = state()[sessionID]?.callbacks ?? []
       for (const q of queued) {
         q.resolve(item)
       }
       return item
+    }
+    for (const q of queued) {
+      q.reject(new Error("Session ended without response"))
     }
     throw new Error("Impossible")
   })

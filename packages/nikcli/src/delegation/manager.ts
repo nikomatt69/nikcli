@@ -296,6 +296,7 @@ export namespace Delegation {
     const entry = current()
     clearTimer(delegationID)
     const timer = setTimeout(() => {
+      entry.timers.delete(delegationID)
       void finalize(delegationID, status, "", error).catch((err) => {
         log.error(`Failed to force finalize delegation ${delegationID}: ${err}`)
       })
@@ -599,8 +600,10 @@ export namespace Delegation {
 
     requestFinalization(delegationID, "cancelled", "Cancelled")
     if (persisted.sessionID) {
-      SessionPrompt.cancel(persisted.sessionID)
-      await Monitor.cancelAll(persisted.sessionID)
+      await Promise.all([
+        SessionPrompt.cancel(persisted.sessionID),
+        Monitor.cancelAll(persisted.sessionID),
+      ])
     }
 
     if (active) {
