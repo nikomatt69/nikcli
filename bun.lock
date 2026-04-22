@@ -13,6 +13,7 @@
         "@opentui/core": "0.1.95",
         "@parcel/watcher": "2.5.1",
         "@slack/bolt": "4.6.0",
+        "@types/bun": "1.3.7",
         "typescript": "5.9.3",
       },
       "devDependencies": {
@@ -411,7 +412,6 @@
         "@nikcli-ai/remote": "workspace:*",
         "@nikcli-ai/script": "workspace:*",
         "@nikcli-ai/sdk": "workspace:*",
-        "@nikcli-ai/studio": "workspace:*",
         "@nikcli-ai/util": "workspace:*",
         "@octokit/graphql": "9.0.2",
         "@octokit/rest": "catalog:",
@@ -441,7 +441,7 @@
         "hono": "catalog:",
         "hono-openapi": "catalog:",
         "ignore": "7.0.5",
-        "immer": "11.1.4",
+        "immer": "10.1.1",
         "jsonc-parser": "3.3.1",
         "minimatch": "10.0.3",
         "mysql2": "3.16.1",
@@ -510,106 +510,6 @@
         "typescript": "catalog:",
       },
     },
-    "packages/plugin/plugins/agent-memory": {
-      "name": "@nikcli-ai/plugin-agent-memory",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/background": {
-      "name": "@nikcli-ai/plugin-background",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/background-agents": {
-      "name": "@nikcli-ai/plugin-background-agents",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/context-analysis": {
-      "name": "@nikcli-ai/plugin-context-analysis",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/direnv": {
-      "name": "@nikcli-ai/plugin-direnv",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/dynamic-context-pruning": {
-      "name": "@nikcli-ai/plugin-dynamic-context-pruning",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/envsitter-guard": {
-      "name": "@nikcli-ai/plugin-envsitter-guard",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/handoff": {
-      "name": "@nikcli-ai/plugin-handoff",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/safety-net": {
-      "name": "@nikcli-ai/plugin-safety-net",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
-    "packages/plugin/plugins/smart-title": {
-      "name": "@nikcli-ai/plugin-smart-title",
-      "version": "0.0.8",
-      "devDependencies": {
-        "@nikcli-ai/plugin": "workspace:*",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "typescript": "catalog:",
-      },
-    },
     "packages/remote": {
       "name": "@nikcli-ai/remote",
       "version": "0.0.14",
@@ -669,33 +569,6 @@
       },
       "peerDependencies": {
         "@slack/bolt": "^4.6.0",
-      },
-    },
-    "packages/studio": {
-      "name": "@nikcli-ai/studio",
-      "version": "0.0.14",
-      "dependencies": {
-        "@nikcli-ai/sdk": "workspace:*",
-        "@nikcli-ai/ui": "workspace:*",
-        "@nikcli-ai/util": "workspace:*",
-        "@solidjs/meta": "catalog:",
-        "@solidjs/router": "catalog:",
-        "hono": "catalog:",
-        "jsonc-parser": "3.3.1",
-        "solid-js": "catalog:",
-        "yaml": "2.6.1",
-        "zod": "catalog:",
-      },
-      "devDependencies": {
-        "@tailwindcss/vite": "catalog:",
-        "@tsconfig/node22": "catalog:",
-        "@types/node": "catalog:",
-        "@types/yaml": "^1.9.7",
-        "bun-types": "1.3.7",
-        "tailwindcss": "catalog:",
-        "typescript": "catalog:",
-        "vite": "catalog:",
-        "vite-plugin-solid": "catalog:",
       },
     },
     "packages/ui": {
@@ -1817,26 +1690,6 @@
 
     "@nikcli-ai/plugin": ["@nikcli-ai/plugin@workspace:packages/plugin"],
 
-    "@nikcli-ai/plugin-agent-memory": ["@nikcli-ai/plugin-agent-memory@workspace:packages/plugin/plugins/agent-memory"],
-
-    "@nikcli-ai/plugin-background": ["@nikcli-ai/plugin-background@workspace:packages/plugin/plugins/background"],
-
-    "@nikcli-ai/plugin-background-agents": ["@nikcli-ai/plugin-background-agents@workspace:packages/plugin/plugins/background-agents"],
-
-    "@nikcli-ai/plugin-context-analysis": ["@nikcli-ai/plugin-context-analysis@workspace:packages/plugin/plugins/context-analysis"],
-
-    "@nikcli-ai/plugin-direnv": ["@nikcli-ai/plugin-direnv@workspace:packages/plugin/plugins/direnv"],
-
-    "@nikcli-ai/plugin-dynamic-context-pruning": ["@nikcli-ai/plugin-dynamic-context-pruning@workspace:packages/plugin/plugins/dynamic-context-pruning"],
-
-    "@nikcli-ai/plugin-envsitter-guard": ["@nikcli-ai/plugin-envsitter-guard@workspace:packages/plugin/plugins/envsitter-guard"],
-
-    "@nikcli-ai/plugin-handoff": ["@nikcli-ai/plugin-handoff@workspace:packages/plugin/plugins/handoff"],
-
-    "@nikcli-ai/plugin-safety-net": ["@nikcli-ai/plugin-safety-net@workspace:packages/plugin/plugins/safety-net"],
-
-    "@nikcli-ai/plugin-smart-title": ["@nikcli-ai/plugin-smart-title@workspace:packages/plugin/plugins/smart-title"],
-
     "@nikcli-ai/remote": ["@nikcli-ai/remote@workspace:packages/remote"],
 
     "@nikcli-ai/script": ["@nikcli-ai/script@workspace:packages/script"],
@@ -1844,8 +1697,6 @@
     "@nikcli-ai/sdk": ["@nikcli-ai/sdk@workspace:packages/sdk/js"],
 
     "@nikcli-ai/slack": ["@nikcli-ai/slack@workspace:packages/slack"],
-
-    "@nikcli-ai/studio": ["@nikcli-ai/studio@workspace:packages/studio"],
 
     "@nikcli-ai/ui": ["@nikcli-ai/ui@workspace:packages/ui"],
 
@@ -2630,8 +2481,6 @@
     "@types/whatwg-mimetype": ["@types/whatwg-mimetype@3.0.2", "", {}, "sha512-c2AKvDT8ToxLIOUlN51gTiHXflsfIFisS4pO7pDPoKouJCESkhZnEy623gwP9laCy5lnLDAw1vAzu2vM2YLOrA=="],
 
     "@types/ws": ["@types/ws@8.5.14", "", { "dependencies": { "@types/node": "*" } }, "sha512-bd/YFLW+URhBzMXurx7lWByOu+xzU9+kb3RboOteXYDfW+tr+JZa99OyNmPINEGB/ahzKrEuc8rcv4gnpJmxTw=="],
-
-    "@types/yaml": ["@types/yaml@1.9.7", "", { "dependencies": { "yaml": "*" } }, "sha512-8WMXRDD1D+wCohjfslHDgICd2JtMATZU8CkhH8LVJqcJs6dyYj5TGptzP8wApbmEullGBSsCEzzap73DQ1HJaA=="],
 
     "@types/yargs": ["@types/yargs@17.0.33", "", { "dependencies": { "@types/yargs-parser": "*" } }, "sha512-WpxBCKWPLr4xSsHgz511rFJAM+wS28w2zEO1QDNY5zM/S8ok70NNfztH0xwhqKyaK0OHCbN98LDAZuy1ctxDkA=="],
 
@@ -3711,7 +3560,7 @@
 
     "image-size": ["image-size@1.2.1", "", { "dependencies": { "queue": "6.0.2" }, "bin": { "image-size": "bin/image-size.js" } }, "sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw=="],
 
-    "immer": ["immer@11.1.4", "", {}, "sha512-XREFCPo6ksxVzP4E0ekD5aMdf8WMwmdNaz6vuvxgI40UaEiu6q3p8X52aU6GdyvLY3XXX/8R7JOTXStz/nBbRw=="],
+    "immer": ["immer@10.1.1", "", {}, "sha512-s2MPrmjovJcoMaHtx6K11Ra7oD05NT97w1IC5zpMkT6Atjr7H8LjaDd81iIxUYpMKSRRNMJE703M1Fhr/TctHw=="],
 
     "import-fresh": ["import-fresh@2.0.0", "", { "dependencies": { "caller-path": "^2.0.0", "resolve-from": "^3.0.0" } }, "sha512-eZ5H8rcgYazHbKC3PG4ClHNykCSxtAhxSSEM+2mb+7evD2CKF5V7c0dNum7AdpDh0ZdICwZY9sRSn8f+KH96sg=="],
 
@@ -5749,26 +5598,6 @@
 
     "@nikcli-ai/plugin/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
-    "@nikcli-ai/plugin-agent-memory/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-background/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-background-agents/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-context-analysis/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-direnv/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-dynamic-context-pruning/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-envsitter-guard/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-handoff/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-safety-net/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/plugin-smart-title/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
     "@nikcli-ai/remote/@types/ws": ["@types/ws@8.18.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg=="],
 
     "@nikcli-ai/remote/ghostty-web": ["ghostty-web@0.3.0", "", {}, "sha512-SAdSHWYF20GMZUB0n8kh1N6Z4ljMnuUqT8iTB2n5FAPswEV10MejEpLlhW/769GL5+BQa1NYwEg9y/XCckV5+A=="],
@@ -5782,8 +5611,6 @@
     "@nikcli-ai/slack/@cloudflare/workers-types": ["@cloudflare/workers-types@4.20260404.1", "", {}, "sha512-jfZfktdn3D0ceA59i4lkMgPUR9p5Wd6trtNLQR1RTgF59iVt9/yegkiEZv0TQvJPXlmQOU1D0pAYz7cMztqErg=="],
 
     "@nikcli-ai/slack/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
-
-    "@nikcli-ai/studio/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/ui/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
@@ -5966,8 +5793,6 @@
     "@tanstack/router-utils/diff": ["diff@8.0.4", "", {}, "sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw=="],
 
     "@tanstack/server-functions-plugin/@babel/code-frame": ["@babel/code-frame@7.27.1", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.27.1", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-cjQ7ZlQ0Mv3b47hABuTevyTuYN4i+loJKGeV9flcCgIK37cCXRh+L1bd3iBHlynerhQ7BhCkn2BPbQUL+rGqFg=="],
-
-    "@types/yaml/yaml": ["yaml@2.8.3", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg=="],
 
     "@vitejs/plugin-react/react-refresh": ["react-refresh@0.17.0", "", {}, "sha512-z6F7K9bV85EfseRCp2bzrpyQ0Gkw1uLoCel9XBVWPg/TjRj94SkJzUTGfOa4bs7iJvBWtQG0Wq7wnI0syw3EBQ=="],
 

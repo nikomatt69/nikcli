@@ -9,6 +9,7 @@ import { createRequire } from "module"
 import { Lock } from "../util/lock"
 import { proxied } from "../util/network"
 
+
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
   const req = createRequire(import.meta.url)
@@ -63,6 +64,7 @@ export namespace BunProc {
   )
 
   export async function install(pkg: string, version = "latest") {
+    // Use lock to ensure only one install at a time
     using _ = await Lock.write("bun-install")
 
     const mod = path.join(Global.Path.cache, "node_modules", pkg)
@@ -72,21 +74,31 @@ export namespace BunProc {
       await Bun.write(pkgjson.name!, JSON.stringify(result, null, 2))
       return result
     })
-    const dependencies = parsed.dependencies ?? {}
-    if (!parsed.dependencies) parsed.dependencies = dependencies
-    const modExists = await Filesystem.exists(mod)
-    if (dependencies[pkg] === version && modExists) return mod
+    if (parsed.dependencies[pkg] === version) return mod
 
+    const proxied = !!(
+      process.env.HTTP_PROXY ||
+      process.env.HTTPS_PROXY ||
+      process.env.http_proxy ||
+      process.env.https_proxy
+    )
+
+    // Build command arguments
     const args = [
       "add",
       "--force",
       "--exact",
-      ...(proxied() ? ["--no-cache"] : []),
+      // TODO: get rid of this case (see: https://github.com/oven-sh/bun/issues/19936)
+      ...(proxied ? ["--no-cache"] : []),
       "--cwd",
       Global.Path.cache,
       pkg + "@" + version,
     ]
 
+    // Let Bun handle registry resolution:
+    // - If .npmrc files exist, Bun will use them automatically
+    // - If no .npmrc files exist, Bun will default to https://registry.npmjs.org
+    // - No need to pass --registry flag
     log.info("installing package using Bun's default registry resolution", {
       pkg,
       version,
@@ -103,6 +115,8 @@ export namespace BunProc {
       )
     })
 
+    // Resolve actual version from installed package when using "latest"
+    // This ensures subsequent starts use the cached version until explicitly updated
     let resolvedVersion = version
     if (version === "latest") {
       const installedPkgJson = Bun.file(path.join(mod, "package.json"))
@@ -116,75 +130,4 @@ export namespace BunProc {
     await Bun.write(pkgjson.name!, JSON.stringify(parsed, null, 2))
     return mod
   }
-
-  const illegalWin32Chars = process.platform === "win32" ? new Set(["<", ">", ":", '"', "|", "?", "*"]) : undefined
-
-  export function sanitize(pkg: string): string {
-    if (!illegalWin32Chars) return pkg
-    return Array.from(pkg, (char) =>
-      illegalWin32Chars.has(char) || char.charCodeAt(0) < 32 ? "_" : char,
-    ).join("")
-  }
-
-  export interface EntryPoint {
-    directory: string
-    entrypoint: string | undefined
-  }
-
-  export function resolveEntryPoint(name: string, dir: string): EntryPoint {
-    const directory = path.join(dir, "node_modules", ...name.split("/"))
-    let entrypoint: string | undefined
-    try {
-      const resolved = req.resolve(name, { paths: [dir] })
-      if (typeof resolved === "string") entrypoint = resolved
-    } catch {
-      // Fallback: read package.json
-      try {
-        const pkgPath = path.join(directory, "package.json")
-        const raw = req(pkgPath)
-        if (typeof raw?.main === "string") entrypoint = path.join(directory, raw.main)
-        else if (raw?.exports?.["."]?.import) entrypoint = path.join(directory, raw.exports["."].import)
-        else if (raw?.exports?.["."]?.require) entrypoint = path.join(directory, raw.exports["."].require)
-      } catch {
-        // leave undefined
-      }
-    }
-    return { directory, entrypoint }
-  }
-
-  export async function add(pkg: string, version: string = "latest"): Promise<EntryPoint & { version: string }> {
-    const directory = await install(pkg, version)
-    let resolvedVersion = version
-    if (version === "latest") {
-      try {
-        const installedPkg = await Bun.file(path.join(directory, "package.json")).json()
-        if (installedPkg?.version) resolvedVersion = installedPkg.version
-      } catch {
-        // keep "latest"
-      }
-    }
-    const entry = resolveEntryPoint(pkg, Global.Path.cache)
-    return { directory: entry.directory, entrypoint: entry.entrypoint, version: resolvedVersion }
-  }
-
-  export async function outdated(pkg: string, cachedVersion: string, cwd?: string): Promise<boolean> {
-    const { PackageRegistry } = await import("./registry")
-    return PackageRegistry.isOutdated(pkg, cachedVersion, cwd)
-  }
-
-  export function pathFor(pkg: string, dir: string = Global.Path.cache): EntryPoint {
-    return resolveEntryPoint(pkg, dir)
-  }
-}
-
-// Opencode-style Npm/Pkg namespace barrel — maps directly onto BunProc so consumers
-// that expect the opencode `Npm.*` surface find an equivalent Bun-backed API.
-export namespace Pkg {
-  export const add = BunProc.add
-  export const install = BunProc.install
-  export const outdated = BunProc.outdated
-  export const which = BunProc.pathFor
-  export const sanitize = BunProc.sanitize
-  export const InstallFailedError = BunProc.InstallFailedError
-  export type EntryPoint = BunProc.EntryPoint
 }

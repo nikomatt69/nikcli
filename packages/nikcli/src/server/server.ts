@@ -43,7 +43,6 @@ import { PermissionRoutes } from "./routes/permission"
 import { GlobalRoutes } from "./routes/global"
 import { MDNS } from "./mdns"
 import { CompanionRoutes } from "./routes/companion"
-import { StudioRoutes } from "./routes/studio"
 import { MobileRoutes } from "./routes/mobile"
 import { UserRoutes, userAuthMiddleware } from "./routes/users"
 import { WorkspaceContext } from "../workspace/workspace-context"
@@ -171,7 +170,7 @@ export namespace Server {
             if (password && !Flag.NIKCLI_SERVER_TAILSCALE_AUTH) {
               return basicAuth({ username, password })(c, next)
             }
-            ;(c as any).set("mobileAuth", token)
+            ; (c as any).set("mobileAuth", token)
             return next()
           }
 
@@ -331,7 +330,6 @@ export namespace Server {
         .route("/provider", ProviderRoutes())
         .route("/companion", CompanionRoutes())
         .route("/user", UserRoutes())
-        .route("/", StudioRoutes())
         .route("/mobile", MobileRoutes())
         .route("/", FileRoutes())
         .route("/connectors", ConnectorsRoutes())
@@ -806,8 +804,8 @@ export namespace Server {
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
       ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
+        .map((s) => s.trim())
+        .filter(Boolean)
       : []
     _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname

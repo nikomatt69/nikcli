@@ -24,7 +24,17 @@ export namespace Bus {
       }
     },
     async (entry) => {
-      entry.subscriptions.clear()
+      const wildcard = entry.subscriptions.get("*")
+      if (!wildcard) return
+      const event = {
+        type: InstanceDisposed.type,
+        properties: {
+          directory: Instance.directory,
+        },
+      }
+      for (const sub of [...wildcard]) {
+        sub(event)
+      }
     },
   )
 
@@ -50,14 +60,7 @@ export namespace Bus {
       directory: Instance.directory,
       payload,
     })
-    // Use Promise.allSettled to ensure all subscribers are notified even if one fails
-    return Promise.all(
-      pending.map((p) =>
-        Promise.resolve(p).catch((e) => {
-          log.error("subscriber error", { error: e, type: def.type })
-        }),
-      ),
-    )
+    return Promise.all(pending)
   }
 
   export function subscribe<Definition extends BusEvent.Definition>(
