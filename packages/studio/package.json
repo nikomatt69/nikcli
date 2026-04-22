@@ -28,7 +28,7 @@
     "hono": "catalog:",
     "jsonc-parser": "3.3.1",
     "zod": "catalog:",
-    "yaml": "2.6.1"
+    "yaml": "2.8.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "catalog:",
