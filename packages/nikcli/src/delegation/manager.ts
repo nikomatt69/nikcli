@@ -265,10 +265,10 @@ export namespace Delegation {
     clearHeartbeat(delegationID)
     const timer = setInterval(
       () => {
-        void BackgroundRun.touchLease(delegationID).catch((error) => {
+        BackgroundRun.touchLease(delegationID).catch((error) => {
           log.warn("Failed to refresh delegation lease", {
             delegationID,
-            error,
+            error: String(error),
           })
         })
       },
@@ -312,7 +312,9 @@ export namespace Delegation {
         const record = entry.activeDelegations.get(delegationID)
         requestFinalization(delegationID, "timeout", "Timed out")
         if (record?.sessionID) {
-          SessionPrompt.cancel(record.sessionID)
+          await SessionPrompt.cancel(record.sessionID).catch((err) => {
+            log.error("Failed to cancel session on timeout", { sessionID: record.sessionID, error: String(err) })
+          })
         }
         scheduleForcedFinalize(delegationID, "timeout", "Timed out")
       } catch (err) {
@@ -387,10 +389,11 @@ export namespace Delegation {
 
     void Session.get(sessionID)
       .then((session) => BackgroundRun.updateSession(delegationID, session))
-      .catch(() => {
+      .catch((err) => {
         log.warn("Failed to attach session to background run", {
           delegationID,
           sessionID,
+          error: String(err),
         })
       })
   }

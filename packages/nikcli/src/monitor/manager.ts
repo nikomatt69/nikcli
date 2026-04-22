@@ -132,10 +132,14 @@ export namespace Monitor {
           runtime.requestedFinalization = { status: "cancelled", error: "Nikcli shut down" }
           try {
             await Shell.killTree(runtime.process, { exited: () => runtime.exited })
-          } catch {}
+          } catch (error) {
+            log.warn("Failed to kill monitor process on shutdown", { error: String(error) })
+          }
           try {
             runtime.logStream.end()
-          } catch {}
+          } catch (error) {
+            log.warn("Failed to close monitor log stream on shutdown", { error: String(error) })
+          }
         }),
       )
       current.clear()
@@ -279,7 +283,7 @@ export namespace Monitor {
   function scheduleFlush(runtime: ActiveRuntime) {
     if (runtime.flushTimer) return
     runtime.flushTimer = setTimeout(() => {
-      void flushRuntime(runtime).catch((error) => {
+      flushRuntime(runtime).catch((error) => {
         log.error("failed to flush monitor output", { error: String(error), monitorID: runtime.record.id })
       })
     }, OUTPUT_FLUSH_MS)
@@ -339,7 +343,9 @@ export namespace Monitor {
     })
 
     if (runtime.record.wake && runtime.record.status !== "cancelled") {
-      void wake(runtime.record)
+      wake(runtime.record).catch((error) => {
+        log.error("failed to wake monitor after completion", { error: String(error), monitorID: runtime.record.id })
+      })
     }
   }
 
@@ -347,7 +353,7 @@ export namespace Monitor {
     if (!runtime.record.timeoutMs) return
     runtime.timeoutTimer = setTimeout(() => {
       runtime.requestedFinalization = { status: "timeout", error: "Timed out" }
-      void Shell.killTree(runtime.process, { exited: () => runtime.exited }).catch((error) => {
+      Shell.killTree(runtime.process, { exited: () => runtime.exited }).catch((error) => {
         log.error("failed to timeout monitor", { error: String(error), monitorID: runtime.record.id })
       })
     }, runtime.record.timeoutMs)
@@ -563,10 +569,13 @@ export namespace Monitor {
         } else {
           process.kill(-record.pid, "SIGTERM")
         }
-      } catch {
+      } catch (error) {
+        log.warn("Failed to send SIGTERM to monitor process", { pid: record.pid, error: String(error) })
         try {
           process.kill(record.pid, "SIGTERM")
-        } catch {}
+        } catch (retryError) {
+          log.warn("Failed retry SIGTERM to monitor process", { pid: record.pid, error: String(retryError) })
+        }
       }
     }
     record.status = "cancelled"
