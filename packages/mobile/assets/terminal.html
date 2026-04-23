@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>nikcli Terminal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --term-bg: #0d1117;
+      --term-fg: #e6edf3;
+      --term-color-0:  #484f58;
+      --term-color-1:  #ff7b72;
+      --term-color-2:  #3fb950;
+      --term-color-3:  #d29922;
+      --term-color-4:  #58a6ff;
+      --term-color-5:  #bc8cff;
+      --term-color-6:  #39c5cf;
+      --term-color-7:  #b1bac4;
+      --term-color-8:  #6e7681;
+      --term-color-9:  #ffa198;
+      --term-color-10: #56d364;
+      --term-color-11: #e3b341;
+      --term-color-12: #79c0ff;
+      --term-color-13: #d2a8ff;
+      --term-color-14: #56d4dd;
+      --term-color-15: #f0f6fc;
+      --term-cursor:   #58a6ff;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: var(--term-bg);
+      overflow: hidden;
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+    }
+
+    /* wterm injects its own styles; this ensures the container fills */
+    #terminal .wterm-viewport {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    #status {
+      position: fixed;
+      top: 8px;
+      right: 10px;
+      font-family: system-ui, sans-serif;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 100px;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      opacity: 0;
+    }
+    #status.connecting { background: rgba(210,153,34,0.18); color: #d29922; opacity: 1; }
+    #status.connected  { background: rgba(63,185,80,0.15);  color: #3fb950; opacity: 1; }
+    #status.error      { background: rgba(255,123,114,0.18); color: #ff7b72; opacity: 1; }
+    #status.reconnecting { background: rgba(88,166,255,0.15); color: #58a6ff; opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="terminal"></div>
+  <div id="status" class="connecting">Connecting…</div>
+
+  <!--
+    @wterm/dom — loaded from esm.sh CDN (supports WASM bundled as base64, no separate fetch needed).
+    The WASM binary (~12 KB) is inlined in @wterm/core so no extra file hosting is required.
+  -->
+  <script type="module">
+    import { WTerm } from "https://esm.sh/@wterm/dom@2.3.0"
+    import { WebSocketTransport } from "https://esm.sh/@wterm/dom@2.3.0"
+
+    // ── Config injected by React Native via injectedJavaScriptBeforeContentLoaded ──
+    const cfg = window.__NIKCLI_PTY_CONFIG || {}
+    const wsUrl   = cfg.wsUrl   || null   // ws:// or wss:// URL to the PTY WS endpoint
+    const theme   = cfg.theme   || "dark" // "dark" | "light"
+
+    // Apply light palette if requested
+    if (theme === "light") {
+      const root = document.documentElement
+      root.style.setProperty("--term-bg",       "#ffffff")
+      root.style.setProperty("--term-fg",       "#24292f")
+      root.style.setProperty("--term-color-0",  "#57606a")
+      root.style.setProperty("--term-color-1",  "#cf222e")
+      root.style.setProperty("--term-color-2",  "#116329")
+      root.style.setProperty("--term-color-3",  "#4d2d00")
+      root.style.setProperty("--term-color-4",  "#0550ae")
+      root.style.setProperty("--term-color-5",  "#6639ba")
+      root.style.setProperty("--term-color-6",  "#1b7c83")
+      root.style.setProperty("--term-color-7",  "#8c959f")
+      root.style.setProperty("--term-color-8",  "#6e7781")
+      root.style.setProperty("--term-color-9",  "#a40e26")
+      root.style.setProperty("--term-color-10", "#1a7f37")
+      root.style.setProperty("--term-color-11", "#633c01")
+      root.style.setProperty("--term-color-12", "#0969da")
+      root.style.setProperty("--term-color-13", "#8250df")
+      root.style.setProperty("--term-color-14", "#1b7c83")
+      root.style.setProperty("--term-color-15", "#24292f")
+      root.style.setProperty("--term-cursor",   "#0550ae")
+      document.body.style.background = "#ffffff"
+    }
+
+    const el      = document.getElementById("terminal")
+    const statusEl = document.getElementById("status")
+
+    function setStatus(state, text) {
+      statusEl.className = state
+      statusEl.textContent = text
+    }
+
+    // ── Initialise terminal ──────────────────────────────────────────────────
+    const wt = new WTerm(el)
+    await wt.init()
+
+    // ── Notify React Native ──────────────────────────────────────────────────
+    function postRN(payload) {
+      try {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify(payload))
+        }
+      } catch {}
+    }
+
+    // ── Handle messages from React Native (resize, new wsUrl) ────────────────
+    window.addEventListener("message", (evt) => {
+      try {
+        const msg = JSON.parse(evt.data)
+        if (msg.type === "resize") {
+          wt.resize(msg.cols, msg.rows)
+        } else if (msg.type === "write") {
+          wt.write(msg.data)
+        } else if (msg.type === "reconnect" && msg.wsUrl) {
+          connect(msg.wsUrl)
+        }
+      } catch {}
+    })
+
+    // ── WebSocket transport ──────────────────────────────────────────────────
+    let transport = null
+
+    function connect(url) {
+      if (!url) {
+        setStatus("error", "No server")
+        wt.write("\r\n\x1b[31mNo PTY URL provided. Check server connection.\x1b[0m\r\n")
+        postRN({ type: "status", status: "no_url" })
+        return
+      }
+
+      setStatus("connecting", "Connecting…")
+      wt.write("\x1b[2J\x1b[H") // clear screen
+      wt.write(`\r\n\x1b[36mConnecting to: ${url}\x1b[0m\r\n`)
+
+      if (transport) {
+        transport.close()
+        transport = null
+      }
+
+      transport = new WebSocketTransport({
+        url,
+        reconnect: true,
+        maxReconnectDelay: 10000,
+        onData(data) {
+          wt.write(data)
+        },
+        onOpen() {
+          setStatus("connected", "Connected")
+          postRN({ type: "status", status: "connected" })
+          // Hide status after 2s
+          setTimeout(() => {
+            if (statusEl.className === "connected") statusEl.style.opacity = "0"
+          }, 2000)
+        },
+        onClose() {
+          setStatus("reconnecting", "Reconnecting…")
+          statusEl.style.opacity = "1"
+          postRN({ type: "status", status: "disconnected" })
+        },
+        onError(err) {
+          setStatus("error", "Error")
+          wt.write(`\r\n\x1b[31mWS Error: ${err?.message || 'connection failed'}\x1b[0m\r\n`)
+          postRN({ type: "status", status: "error" })
+        },
+      })
+
+      transport.connect()
+
+      // Route terminal input → WS
+      wt.onData = (data) => {
+        transport?.send(data)
+      }
+    }
+
+    // Notify RN when terminal title changes (e.g. vim sets title)
+    wt.onTitle = (title) => postRN({ type: "title", title })
+
+    // Start connection
+    connect(wsUrl)
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      if (statusEl.className === "connecting") {
+        setStatus("error", "Timeout")
+        wt.write("\r\n\x1b[31mConnection timed out. Check network and server.\x1b[0m\r\n")
+        postRN({ type: "status", status: "error" })
+      }
+    }, 10000)
+  </script>
+</body>
+</html>

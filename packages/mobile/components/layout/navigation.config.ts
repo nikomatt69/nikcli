@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react-native"
-import { GitBranch, Settings, TerminalSquare, UserCircle2 } from "lucide-react-native"
+import { GitBranch, Repeat2, TerminalSquare } from "lucide-react-native"
 import type { MobileBootstrap } from "@/lib/types"
 
-export type AppTabRoute = "sessions" | "repos" | "settings" | "user"
+export type AppTabRoute = "sessions" | "repos" | "routines" | "terminal"
 export type AppRoutePath = `/${AppTabRoute}`
 
 export type AppTabConfig = {
@@ -29,18 +29,18 @@ export const APP_TABS: AppTabConfig[] = [
     icon: GitBranch,
   },
   {
-    route: "settings",
-    path: "/settings",
-    label: "Settings",
-    subtitle: "Control host trust, GitHub access, and operator preferences.",
-    icon: Settings,
+    route: "routines",
+    path: "/routines",
+    label: "Routines",
+    subtitle: "Manage scheduled and API-triggered AI workflows.",
+    icon: Repeat2,
   },
   {
-    route: "user",
-    path: "/user",
-    label: "Profile",
-    subtitle: "Manage your account, credentials, and user administration.",
-    icon: UserCircle2,
+    route: "terminal",
+    path: "/terminal",
+    label: "Terminal",
+    subtitle: "Open a real shell on your nikcli server.",
+    icon: TerminalSquare,
   },
 ]
 

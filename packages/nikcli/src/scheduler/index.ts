@@ -9,6 +9,7 @@ export namespace Scheduler {
     interval: number
     run: () => Promise<void>
     scope?: "instance" | "global"
+    skipInitialRun?: boolean
   }
 
   type Timer = ReturnType<typeof setInterval>
@@ -44,7 +45,9 @@ export namespace Scheduler {
     if (current) clearInterval(current)
 
     entry.tasks.set(task.id, task)
-    void run(task)
+    if (!task.skipInitialRun) {
+      void run(task)
+    }
     const timer = setInterval(() => {
       void run(task)
     }, task.interval)

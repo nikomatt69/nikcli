@@ -1,6 +1,7 @@
 import { type SlotMode, type TuiPluginApi, type TuiSlotContext, type TuiSlotMap } from "@nikcli-ai/plugin/tui"
 import { createSlot, createSolidSlotRegistry, type JSX, type SolidPlugin } from "@opentui/solid"
 import { isRecord } from "@/util/record"
+import type { SlotRegistry } from "@opentui/core"
 
 type SlotProps<K extends keyof TuiSlotMap> = {
   name: K
@@ -31,7 +32,25 @@ function isHostSlotPlugin(value: unknown): value is HostSlotPlugin {
   return true
 }
 
+// Cache the registry to avoid creating multiple registries for the same renderer
+// opentui/core throws if createSolidSlotRegistry is called with a different context
+// for the same renderer key
+let cachedRegistry: SlotRegistry<JSX.Element, TuiSlotMap, TuiSlotContext> | undefined
+let cachedRenderer: unknown = undefined
+
 export function setupSlots(api: HostPluginApi): HostSlots {
+  // Reuse existing registry if renderer is the same
+  if (cachedRegistry && cachedRenderer === api.renderer) {
+    const slot = createSlot<TuiSlotMap, TuiSlotContext>(cachedRegistry)
+    view = (props) => slot(props)
+    return {
+      register(plugin) {
+        if (!isHostSlotPlugin(plugin)) return () => {}
+        return cachedRegistry!.register(plugin)
+      },
+    }
+  }
+
   const reg = createSolidSlotRegistry<TuiSlotMap, TuiSlotContext>(
     api.renderer as any,
     {
@@ -50,11 +69,14 @@ export function setupSlots(api: HostPluginApi): HostSlots {
     },
   )
 
+  cachedRegistry = reg
+  cachedRenderer = api.renderer
+
   const slot = createSlot<TuiSlotMap, TuiSlotContext>(reg)
   view = (props) => slot(props)
   return {
     register(plugin) {
-      if (!isHostSlotPlugin(plugin)) return () => { }
+      if (!isHostSlotPlugin(plugin)) return () => {}
       return reg.register(plugin)
     },
   }

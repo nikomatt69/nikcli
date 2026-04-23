@@ -166,10 +166,6 @@ export namespace Server {
 
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-            // SECURITY: Mobile auth still requires password auth if configured
-            if (password && !Flag.NIKCLI_SERVER_TAILSCALE_AUTH) {
-              return basicAuth({ username, password })(c, next)
-            }
             ; (c as any).set("mobileAuth", token)
             return next()
           }

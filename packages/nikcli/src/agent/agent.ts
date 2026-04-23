@@ -18,6 +18,7 @@ import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
 import PROMPT_DELEGATOR from "./prompt/delegator.txt"
+import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
 
 const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 
@@ -389,6 +390,32 @@ Review changes and report issues with file paths and fixes.`,
         options: {},
         mode: "all",
         native: true,
+      },
+      "ultrareview-reviewer": {
+        name: "ultrareview-reviewer",
+        description: "Specialized reviewer agent for a single domain within an ultrareview parallel fleet.",
+        prompt: PROMPT_ULTRAREVIEW_REVIEWER,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            bash: "allow",
+            external_directory: {
+              "*": "allow",
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "subagent",
+        native: true,
+        hidden: true,
       },
       debugger: {
         name: "debugger",

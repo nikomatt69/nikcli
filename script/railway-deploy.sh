@@ -28,7 +28,6 @@ mkdir -p \
   "$CTX/packages/plugin" \
   "$CTX/packages/companion" \
   "$CTX/packages/slack" \
-  "$CTX/packages/studio" \
   "$CTX/github"
 
 # Root workspace files
@@ -49,7 +48,6 @@ cp "$ROOT/packages/remote/package.json" "$CTX/packages/remote/package.json"
 cp "$ROOT/packages/plugin/package.json" "$CTX/packages/plugin/package.json"
 cp "$ROOT/packages/companion/package.json" "$CTX/packages/companion/package.json"
 cp "$ROOT/packages/slack/package.json" "$CTX/packages/slack/package.json"
-cp "$ROOT/packages/studio/package.json" "$CTX/packages/studio/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
 # Full source (excluding node_modules, dist, build artifacts)
@@ -78,8 +76,6 @@ eval rsync $RSYNC_OPTS "$ROOT/packages/remote/"   "$CTX/packages/remote/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/plugin/"   "$CTX/packages/plugin/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/companion/" "$CTX/packages/companion/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/slack/"    "$CTX/packages/slack/"
-# Studio server source needed at build time (nikcli embeds studio API routes)
-eval rsync $RSYNC_OPTS "$ROOT/packages/studio/src/server/" "$CTX/packages/studio/src/server/"
 eval rsync $RSYNC_OPTS "$ROOT/github/"            "$CTX/github/"
 
 rm -rf \
@@ -108,10 +104,23 @@ rm -rf \
   "$CTX/github/.cache" \
   "$CTX/github/.turbo"
 
-echo "→ Context size: $(du -sh "$CTX" | cut -f1)"
-echo "→ Deploying to Railway..."
+# Copy railway link info
+if [ -d "$ROOT/.railway" ]; then
+  echo "→ Copying Railway project link"
+  cp -r "$ROOT/.railway" "$CTX/.railway"
+fi
 
-cd "$CTX"
+# Copy railway link info
+if [ -d "$ROOT/.railway" ]; then
+  echo "→ Copying Railway project link"
+  cp -r "$ROOT/.railway" "$CTX/.railway"
+fi
+
+# Also check home directory for .railway (railway link stores it there)
+if [ -d "$HOME/.railway" ] && [ ! -d "$ROOT/.railway" ]; then
+  echo "→ Copying Railway project link from home"
+  cp -r "$HOME/.railway" "$CTX/.railway"
+fi
 
 if [ "$DETACH" = "--detach" ] || [ "$DETACH" = "-d" ]; then
   railway up --detach

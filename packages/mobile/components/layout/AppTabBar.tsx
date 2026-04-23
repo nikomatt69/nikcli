@@ -254,8 +254,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
                       height: 3,
                       borderRadius: 999,
                       backgroundColor: palette.accent,
-                      opacity: focusAnim,
-                      transform: [{ scaleX: focusAnim.interpolate({ inputRange: [0, 1], outputRange: [0.33, 1] }) }],
+                      opacity: focusAnim.interpolate({ inputRange: [0, 1], outputRange: [0.33, 1] }),
                     }}
                   />
                 </View>

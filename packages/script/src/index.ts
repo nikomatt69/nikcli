@@ -4,16 +4,9 @@ import path from "path"
 const rootPkgPath = path.resolve(import.meta.dir, "../../../package.json")
 const rootPkg = await Bun.file(rootPkgPath).json()
 const expectedBunVersion = rootPkg.packageManager?.split("@")[1]
-const pkgPath = path.resolve(import.meta.dir, "../../nikcli/package.json")
-const pkg = await Bun.file(pkgPath).json()
-const pkgver = pkg.version
 
 if (!expectedBunVersion) {
   throw new Error("packageManager field not found in root package.json")
-}
-
-if (!pkgver) {
-  throw new Error("version field not found in packages/nikcli/package.json")
 }
 
 // relax version requirement
@@ -38,11 +31,13 @@ const IS_PREVIEW = CHANNEL !== "latest"
 
 const VERSION = await (async () => {
   if (env.NIKCLI_VERSION) return env.NIKCLI_VERSION
-  if (IS_PREVIEW) return pkgver
-  const res = await fetch("https://registry.npmjs.org/nikcli-ai/latest")
-  const version = res.ok
-    ? await res.json().then((data: any) => data.version)
-    : pkgver
+  if (IS_PREVIEW) return `0.0.0-${CHANNEL}-${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, "")}`
+  const version = await fetch("https://registry.npmjs.org/nikcli-ai/latest")
+    .then((res) => {
+      if (!res.ok) throw new Error(res.statusText)
+      return res.json()
+    })
+    .then((data: any) => data.version)
   const [major, minor, patch] = version.split(".").map((x: string) => Number(x) || 0)
   const t = env.NIKCLI_BUMP?.toLowerCase()
   if (t === "major") return `${major + 1}.0.0`

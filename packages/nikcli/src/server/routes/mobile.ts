@@ -26,6 +26,7 @@ import { Installation } from "@/installation"
 import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
+import { Routine } from "@/mobile/routine"
 import { Tophat } from "@/mobile/tophat"
 import { Expo } from "@/mobile/expo"
 import { MobileProjectDetect } from "@/mobile/project-detect"
@@ -275,6 +276,10 @@ const MobileMemorySearchHit = z
     preview: z.string(),
   })
   .meta({ ref: "MobileMemorySearchHit" })
+
+const MobileRoutine = Routine.Record.meta({ ref: "MobileRoutine" })
+const MobileRoutineCreateInput = Routine.CreateInput.meta({ ref: "MobileRoutineCreateInput" })
+const MobileRoutineUpdateInput = Routine.UpdateInput.meta({ ref: "MobileRoutineUpdateInput" })
 
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
@@ -2831,6 +2836,240 @@ export const MobileRoutes = lazy(() =>
               }
               return c.json({ success: true as const, pulled: false })
             }
+          },
+        })
+      },
+    )
+    // ── Routines ─────────────────────────────────────────────────────────────
+    .get(
+      "/routines",
+      describeRoute({
+        summary: "List routines",
+        description: "List all saved routines for the current project.",
+        operationId: "mobile.routine.list",
+        responses: {
+          200: {
+            description: "Routine list",
+            content: { "application/json": { schema: resolver(z.array(MobileRoutine)) } },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            return c.json(await Routine.list())
+          },
+        })
+      },
+    )
+    .post(
+      "/routines",
+      describeRoute({
+        summary: "Create routine",
+        description: "Create a new saved routine.",
+        operationId: "mobile.routine.create",
+        responses: {
+          200: {
+            description: "Created routine",
+            content: { "application/json": { schema: resolver(MobileRoutine) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", MobileRoutineCreateInput),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const body = c.req.valid("json")
+            return c.json(await Routine.create(body))
+          },
+        })
+      },
+    )
+    .get(
+      "/routines/:id",
+      describeRoute({
+        summary: "Get routine",
+        description: "Get a single routine by ID.",
+        operationId: "mobile.routine.get",
+        responses: {
+          200: {
+            description: "Routine",
+            content: { "application/json": { schema: resolver(MobileRoutine) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            return c.json(await Routine.get(id))
+          },
+        })
+      },
+    )
+    .patch(
+      "/routines/:id",
+      describeRoute({
+        summary: "Update routine",
+        description: "Update a routine's name, prompt, triggers, or paused state.",
+        operationId: "mobile.routine.update",
+        responses: {
+          200: {
+            description: "Updated routine",
+            content: { "application/json": { schema: resolver(MobileRoutine) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      validator("json", MobileRoutineUpdateInput),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            const body = c.req.valid("json")
+            return c.json(await Routine.update(id, body))
+          },
+        })
+      },
+    )
+    .delete(
+      "/routines/:id",
+      describeRoute({
+        summary: "Delete routine",
+        description: "Delete a routine by ID.",
+        operationId: "mobile.routine.delete",
+        responses: {
+          200: {
+            description: "Deletion result",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            await Routine.remove(id)
+            return c.json({ success: true as const })
+          },
+        })
+      },
+    )
+    .post(
+      "/routines/:id/run",
+      describeRoute({
+        summary: "Run routine",
+        description: "Trigger an immediate run of a routine, creating a new session.",
+        operationId: "mobile.routine.run",
+        responses: {
+          200: {
+            description: "Created session",
+            content: { "application/json": { schema: resolver(Session.Info) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            const session = await Routine.run(id)
+            return c.json(session)
+          },
+        })
+      },
+    )
+    .post(
+      "/routines/:id/pause",
+      describeRoute({
+        summary: "Pause routine",
+        description: "Pause a routine, preventing scheduled triggers from firing.",
+        operationId: "mobile.routine.pause",
+        responses: {
+          200: {
+            description: "Updated routine",
+            content: { "application/json": { schema: resolver(MobileRoutine) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            return c.json(await Routine.pause(id))
+          },
+        })
+      },
+    )
+    .post(
+      "/routines/:id/resume",
+      describeRoute({
+        summary: "Resume routine",
+        description: "Resume a paused routine, re-enabling scheduled triggers.",
+        operationId: "mobile.routine.resume",
+        responses: {
+          200: {
+            description: "Updated routine",
+            content: { "application/json": { schema: resolver(MobileRoutine) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { id } = c.req.valid("param")
+            return c.json(await Routine.resume(id))
+          },
+        })
+      },
+    )
+    .post(
+      "/routines/trigger/:token",
+      describeRoute({
+        summary: "API trigger",
+        description:
+          "Trigger a routine via its API token. No Bearer auth required — the token in the path authenticates the request.",
+        operationId: "mobile.routine.trigger",
+        responses: {
+          200: {
+            description: "Created session",
+            content: { "application/json": { schema: resolver(Session.Info) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ token: z.string() })),
+      async (c) => {
+        return Instance.provide({
+          directory: Instance.directory,
+          async fn() {
+            const { token } = c.req.valid("param")
+            const routine = await Routine.getByToken(token)
+            if (!routine) {
+              return c.json({ error: "Routine not found or API trigger disabled" }, 404)
+            }
+            const session = await Routine.run(routine.id)
+            return c.json(session)
           },
         })
       },

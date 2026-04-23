@@ -64,7 +64,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
 
   function navigate(path: (typeof APP_TABS)[number]["path"]) {
     close()
-    router.replace(path)
+    router.replace(path as Parameters<typeof router.replace>[0])
   }
 
   return (
@@ -79,10 +79,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
             fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
           />
           <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.24)" },
-            ]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.24)" }]}
           />
         </Animated.View>
 
@@ -168,7 +165,9 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                   backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(14,165,233,0.12)",
                 }}
               />
-              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+              <View
+                style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}
+              >
                 <View style={{ flex: 1 }}>
                   <Text
                     style={{

@@ -1683,7 +1683,6 @@ export type PermissionConfig =
       rag_status?: PermissionRuleConfig
       rag_reset?: PermissionRuleConfig
       generate_image?: PermissionRuleConfig
-      computer_use?: PermissionRuleConfig
       external_directory?: PermissionRuleConfig
       todowrite?: PermissionActionConfig
       todoread?: PermissionActionConfig
@@ -2047,25 +2046,6 @@ export type ImageConfig = {
 }
 
 /**
- * Computer-use tool configuration
- */
-export type ComputerConfig = {
-  enabled?: boolean
-  display?: {
-    width?: number
-    height?: number
-    number?: number
-  }
-  forbidden_regions?: Array<{
-    x: number
-    y: number
-    w: number
-    h: number
-  }>
-  rate_limit_hz?: number
-}
-
-/**
  * Text-to-speech configuration
  */
 export type SpeakConfig = {
@@ -2364,7 +2344,6 @@ export type Config = {
   }
   rag?: RagConfig
   image?: ImageConfig
-  computer?: ComputerConfig
   speak?: SpeakConfig
   /**
    * Notification settings for various events
@@ -2999,6 +2978,47 @@ export type MobileGithubPublishInput = {
   title?: string
   body?: string
   commitMessage?: string
+}
+
+export type RoutineTriggerSchedule = {
+  type: "schedule"
+  cron: string
+  enabled: boolean
+}
+
+export type RoutineTriggerApi = {
+  type: "api"
+  token: string
+  enabled: boolean
+}
+
+export type RoutineTrigger = RoutineTriggerSchedule | RoutineTriggerApi
+
+export type MobileRoutine = {
+  id: string
+  name: string
+  prompt: string
+  triggers: Array<RoutineTrigger>
+  paused: boolean
+  projectID: string
+  directory: string
+  createdAt: number
+  updatedAt: number
+  lastRunAt?: number
+  lastSessionID?: string
+}
+
+export type MobileRoutineCreateInput = {
+  name: string
+  prompt: string
+  triggers?: Array<RoutineTrigger>
+}
+
+export type MobileRoutineUpdateInput = {
+  name?: string
+  prompt?: string
+  triggers?: Array<RoutineTrigger>
+  paused?: boolean
 }
 
 export type Symbol = {
@@ -7142,6 +7162,302 @@ export type MobileGitPullResponses = {
 }
 
 export type MobileGitPullResponse = MobileGitPullResponses[keyof MobileGitPullResponses]
+
+export type MobileRoutineListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines"
+}
+
+export type MobileRoutineListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileRoutineListError = MobileRoutineListErrors[keyof MobileRoutineListErrors]
+
+export type MobileRoutineListResponses = {
+  /**
+   * Routine list
+   */
+  200: Array<MobileRoutine>
+}
+
+export type MobileRoutineListResponse = MobileRoutineListResponses[keyof MobileRoutineListResponses]
+
+export type MobileRoutineCreateData = {
+  body?: MobileRoutineCreateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines"
+}
+
+export type MobileRoutineCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileRoutineCreateError = MobileRoutineCreateErrors[keyof MobileRoutineCreateErrors]
+
+export type MobileRoutineCreateResponses = {
+  /**
+   * Created routine
+   */
+  200: MobileRoutine
+}
+
+export type MobileRoutineCreateResponse = MobileRoutineCreateResponses[keyof MobileRoutineCreateResponses]
+
+export type MobileRoutineDeleteData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}"
+}
+
+export type MobileRoutineDeleteErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineDeleteError = MobileRoutineDeleteErrors[keyof MobileRoutineDeleteErrors]
+
+export type MobileRoutineDeleteResponses = {
+  /**
+   * Deletion result
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileRoutineDeleteResponse = MobileRoutineDeleteResponses[keyof MobileRoutineDeleteResponses]
+
+export type MobileRoutineGetData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}"
+}
+
+export type MobileRoutineGetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineGetError = MobileRoutineGetErrors[keyof MobileRoutineGetErrors]
+
+export type MobileRoutineGetResponses = {
+  /**
+   * Routine
+   */
+  200: MobileRoutine
+}
+
+export type MobileRoutineGetResponse = MobileRoutineGetResponses[keyof MobileRoutineGetResponses]
+
+export type MobileRoutineUpdateData = {
+  body?: MobileRoutineUpdateInput
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}"
+}
+
+export type MobileRoutineUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineUpdateError = MobileRoutineUpdateErrors[keyof MobileRoutineUpdateErrors]
+
+export type MobileRoutineUpdateResponses = {
+  /**
+   * Updated routine
+   */
+  200: MobileRoutine
+}
+
+export type MobileRoutineUpdateResponse = MobileRoutineUpdateResponses[keyof MobileRoutineUpdateResponses]
+
+export type MobileRoutineRunData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}/run"
+}
+
+export type MobileRoutineRunErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineRunError = MobileRoutineRunErrors[keyof MobileRoutineRunErrors]
+
+export type MobileRoutineRunResponses = {
+  /**
+   * Created session
+   */
+  200: Session
+}
+
+export type MobileRoutineRunResponse = MobileRoutineRunResponses[keyof MobileRoutineRunResponses]
+
+export type MobileRoutinePauseData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}/pause"
+}
+
+export type MobileRoutinePauseErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutinePauseError = MobileRoutinePauseErrors[keyof MobileRoutinePauseErrors]
+
+export type MobileRoutinePauseResponses = {
+  /**
+   * Updated routine
+   */
+  200: MobileRoutine
+}
+
+export type MobileRoutinePauseResponse = MobileRoutinePauseResponses[keyof MobileRoutinePauseResponses]
+
+export type MobileRoutineResumeData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/{id}/resume"
+}
+
+export type MobileRoutineResumeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineResumeError = MobileRoutineResumeErrors[keyof MobileRoutineResumeErrors]
+
+export type MobileRoutineResumeResponses = {
+  /**
+   * Updated routine
+   */
+  200: MobileRoutine
+}
+
+export type MobileRoutineResumeResponse = MobileRoutineResumeResponses[keyof MobileRoutineResumeResponses]
+
+export type MobileRoutineTriggerData = {
+  body?: never
+  path: {
+    token: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/routines/trigger/{token}"
+}
+
+export type MobileRoutineTriggerErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileRoutineTriggerError = MobileRoutineTriggerErrors[keyof MobileRoutineTriggerErrors]
+
+export type MobileRoutineTriggerResponses = {
+  /**
+   * Created session
+   */
+  200: Session
+}
+
+export type MobileRoutineTriggerResponse = MobileRoutineTriggerResponses[keyof MobileRoutineTriggerResponses]
 
 export type FindTextData = {
   body?: never

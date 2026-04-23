@@ -25,6 +25,12 @@ import type {
   PromptPreset,
   PromptStashEntry,
   ProjectInfo,
+  PtyCreateInput,
+  PtyInfo,
+  PtyUpdateInput,
+  Routine,
+  RoutineCreateInput,
+  RoutineUpdateInput,
   ServerConfig,
   Session,
   SessionDetail,
@@ -424,6 +430,95 @@ export class MobileClient {
       method: "POST",
       body: JSON.stringify({ title }),
     })
+  }
+
+  // ── Routines ────────────────────────────────────────────────────────────────
+
+  listRoutines() {
+    return this.request<Routine[]>("/mobile/routines")
+  }
+
+  createRoutine(input: RoutineCreateInput) {
+    return this.request<Routine>("/mobile/routines", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  getRoutine(id: string) {
+    return this.request<Routine>(`/mobile/routines/${encodeURIComponent(id)}`)
+  }
+
+  updateRoutine(id: string, input: RoutineUpdateInput) {
+    return this.request<Routine>(`/mobile/routines/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    })
+  }
+
+  deleteRoutine(id: string) {
+    return this.request<{ success: true }>(`/mobile/routines/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    })
+  }
+
+  runRoutine(id: string) {
+    return this.request<Session>(`/mobile/routines/${encodeURIComponent(id)}/run`, {
+      method: "POST",
+    })
+  }
+
+  pauseRoutine(id: string) {
+    return this.request<Routine>(`/mobile/routines/${encodeURIComponent(id)}/pause`, {
+      method: "POST",
+    })
+  }
+
+  resumeRoutine(id: string) {
+    return this.request<Routine>(`/mobile/routines/${encodeURIComponent(id)}/resume`, {
+      method: "POST",
+    })
+  }
+
+  // ── PTY (Terminal) ──────────────────────────────────────────────────────────
+
+  listPty() {
+    return this.request<PtyInfo[]>("/pty")
+  }
+
+  createPty(input: PtyCreateInput = {}) {
+    return this.request<PtyInfo>("/pty", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  getPty(ptyID: string) {
+    return this.request<PtyInfo>(`/pty/${encodeURIComponent(ptyID)}`)
+  }
+
+  updatePty(ptyID: string, input: PtyUpdateInput) {
+    return this.request<PtyInfo>(`/pty/${encodeURIComponent(ptyID)}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    })
+  }
+
+  removePty(ptyID: string) {
+    return this.request<boolean>(`/pty/${encodeURIComponent(ptyID)}`, {
+      method: "DELETE",
+    })
+  }
+
+  /** Returns the ws:// or wss:// URL to connect wterm's WebSocketTransport */
+  ptyConnectUrl(ptyID: string): string {
+    const http = this.url(`/pty/${encodeURIComponent(ptyID)}/connect`)
+    const ws = http.replace(/^https?:/, (m) => (m === "https:" ? "wss:" : "ws:"))
+    // Append token as query param since WebSocket does not support custom headers
+    if (this.config.token) {
+      return `${ws}?token=${encodeURIComponent(this.config.token)}`
+    }
+    return ws
   }
 
   withToken(token: string): MobileClient {

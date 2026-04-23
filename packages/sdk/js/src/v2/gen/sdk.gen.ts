@@ -133,6 +133,26 @@ import type {
   MobilePermissionRespondResponses,
   MobileProjectListResponses,
   MobilePromptStashCreateInput,
+  MobileRoutineCreateErrors,
+  MobileRoutineCreateInput,
+  MobileRoutineCreateResponses,
+  MobileRoutineDeleteErrors,
+  MobileRoutineDeleteResponses,
+  MobileRoutineGetErrors,
+  MobileRoutineGetResponses,
+  MobileRoutineListErrors,
+  MobileRoutineListResponses,
+  MobileRoutinePauseErrors,
+  MobileRoutinePauseResponses,
+  MobileRoutineResumeErrors,
+  MobileRoutineResumeResponses,
+  MobileRoutineRunErrors,
+  MobileRoutineRunResponses,
+  MobileRoutineTriggerErrors,
+  MobileRoutineTriggerResponses,
+  MobileRoutineUpdateErrors,
+  MobileRoutineUpdateInput,
+  MobileRoutineUpdateResponses,
   MobileSessionAbortResponses,
   MobileSessionCommandErrors,
   MobileSessionCommandInput,
@@ -4823,6 +4843,322 @@ export class Git extends HeyApiClient {
   }
 }
 
+export class Routine extends HeyApiClient {
+  /**
+   * List routines
+   *
+   * List all saved routines for the current project.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileRoutineListResponses, MobileRoutineListErrors, ThrowOnError>({
+      url: "/mobile/routines",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create routine
+   *
+   * Create a new saved routine.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileRoutineCreateInput?: MobileRoutineCreateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileRoutineCreateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileRoutineCreateResponses, MobileRoutineCreateErrors, ThrowOnError>(
+      {
+        url: "/mobile/routines",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * Delete routine
+   *
+   * Delete a routine by ID.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      MobileRoutineDeleteResponses,
+      MobileRoutineDeleteErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/routines/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get routine
+   *
+   * Get a single routine by ID.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileRoutineGetResponses, MobileRoutineGetErrors, ThrowOnError>({
+      url: "/mobile/routines/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update routine
+   *
+   * Update a routine's name, prompt, triggers, or paused state.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      mobileRoutineUpdateInput?: MobileRoutineUpdateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileRoutineUpdateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<
+      MobileRoutineUpdateResponses,
+      MobileRoutineUpdateErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/routines/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Run routine
+   *
+   * Trigger an immediate run of a routine, creating a new session.
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileRoutineRunResponses, MobileRoutineRunErrors, ThrowOnError>({
+      url: "/mobile/routines/{id}/run",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Pause routine
+   *
+   * Pause a routine, preventing scheduled triggers from firing.
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileRoutinePauseResponses, MobileRoutinePauseErrors, ThrowOnError>({
+      url: "/mobile/routines/{id}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume routine
+   *
+   * Resume a paused routine, re-enabling scheduled triggers.
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileRoutineResumeResponses, MobileRoutineResumeErrors, ThrowOnError>(
+      {
+        url: "/mobile/routines/{id}/resume",
+        ...options,
+        ...params,
+      },
+    )
+  }
+
+  /**
+   * API trigger
+   *
+   * Trigger a routine via its API token. No Bearer auth required — the token in the path authenticates the request.
+   */
+  public trigger<ThrowOnError extends boolean = false>(
+    parameters: {
+      token: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "token" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileRoutineTriggerResponses,
+      MobileRoutineTriggerErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/routines/trigger/{token}",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Mobile extends HeyApiClient {
   /**
    * Get mobile bootstrap payload
@@ -4907,6 +5243,11 @@ export class Mobile extends HeyApiClient {
   private _git?: Git
   get git(): Git {
     return (this._git ??= new Git({ client: this.client }))
+  }
+
+  private _routine?: Routine
+  get routine(): Routine {
+    return (this._routine ??= new Routine({ client: this.client }))
   }
 }
 

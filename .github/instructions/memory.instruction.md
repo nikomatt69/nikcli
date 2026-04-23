@@ -87,6 +87,26 @@
 | `packages/console/mail`     | `@nikcli-ai/console-mail`     | Email templates (jsx-email)                                                                          |
 | `github/`                   | `github`                      | GitHub Action composite action                                                                       |
 
+### Repository Root Structure
+
+| Path                                                     | Purpose                                                                                                                                                               |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/`                                              | Main product code: CLI, SDK, apps, workers, shared libs, desktop, mobile, console sub-monorepo                                                                        |
+| `infra/`                                                 | SST app definitions wiring deployed services to package entrypoints (`infra/app.ts`, `infra/console.ts`, `infra/enterprise.ts`)                                       |
+| `script/`                                                | Root automation: build, publish, schema/OpenAPI generation, formatting, changelog/release, e2e seeding (`script/build.ts`, `script/generate.ts`, `script/publish.ts`) |
+| `nix/`                                                   | Reproducible dev/build packaging anchored by `flake.nix`                                                                                                              |
+| `.github/`                                               | CI/CD workflows: typecheck, test, deploy, publish, nix builds, release (`test.yml`, `deploy.yml`, `publish.yml`)                                                      |
+| `.sst/`, `.turbo/`, `node_modules/`, `dist/`, `.output/` | Generated/local state — treat as environment/cache noise unless explicitly targeted                                                                                   |
+
+### Build / Tooling Config Files
+
+- `package.json:8` — Bun version pin enforced on push by `.husky/pre-push`
+- `package.json:28` — shared dependency catalog (Bun catalog entries)
+- `bunfig.toml:4` — root test guardrail (forbids `bun test` at repo root)
+- `turbo.json:1` — task graph: `typecheck`, `build`, selected `test`; build depends on upstream package builds
+- `sst.config.ts:4` — deployment control plane targeting Cloudflare
+- `.husky/pre-push:1` — enforces Bun version match + runs `bun typecheck`
+
 ## Core Architecture
 
 ### CLI Entry Points (`src/index.ts`)
@@ -94,11 +114,27 @@
 - yargs-based CLI with `parserConfiguration({ "populate--": true })`
 - Global middleware: log init, env vars (`AGENT=1`, `NIKCLI=1`)
 - `--print-logs` and `--log-level` (DEBUG/INFO/WARN/ERROR) global options
+- Binary shim (`bin/nikcli`) locates platform package binary and forwards argv
+- Default command is TUI (registered as `$0 [project]` in `src/cli/cmd/tui/thread.ts:52`) — invoking `nikcli` with no subcommand lands there
+- Even local CLI execution goes through internal server API: `run` builds SDK client whose `fetch` points at `Server.App().fetch()` in `src/cli/cmd/run.ts:533`
 
 ### CLI Commands (32 commands)
 
 `run`, `serve`, `workspace-serve`, `generate`, `auth`, `agent`, `models`, `mcp`, `github`, `pr`, `session`, `rag-model`, `image-model`, `speak-model`, `remote`, `connectors`, `chatbot`, `lovable`, `ads`, `companion`, `mobile`, `plugin`, `acp`, `web`, `export`, `import`, `debug`, `stats`, `upgrade`, `uninstall`
 Plus TUI subcommands: `tui/attach`, `tui/thread`
+
+**Adding a new command:**
+
+1. Create `src/cli/cmd/<name>.ts` exporting a yargs `CommandModule`
+2. Import it in `src/index.ts:3` and register via `.command(...)` in `src/index.ts:95`
+3. For server/API-backed features: add route in `src/server/routes/` first, then call from CLI
+
+### Runtime Model
+
+- Most commands enter runtime via `bootstrap()` in `src/cli/bootstrap.ts:4` wrapping `Instance.provide(...)` from `src/project/instance.ts:54`
+- `Instance` is the core runtime container; resolves project/worktree, memoizes state per directory, handles teardown
+- Runtime init in `src/project/bootstrap.ts:18` wires: plugins, sharing, formatters, LSP, file watching, VCS, snapshots, truncation, todos, delegation
+- **Architectural seam**: CLI commands stay thin; real behavior hangs off `Instance` + bootstrapped subsystems
 
 ### Agent System (`src/agent/agent.ts`)
 
@@ -147,6 +183,48 @@ Custom agents from `nikcli.json` config extend/override built-ins.
 - `Provider.sort(models)` — sorts by capability/recency
 - Cost calculation with cache-aware pricing, over-200K multiplier support
 - `ProviderTransform` for provider-specific options (e.g., OpenAI store/instructions)
+
+**Model Listing / Refresh (`src/provider/models.ts`):**
+
+- `nikcli models --refresh` calls `ModelsDev.refresh()` which fetches `${NIKCLI_MODELS_URL}/api.json` (default: `https://models.dev`) and writes to `Global.Path.cache/models.json`
+- Cache can be disabled with `NIKCLI_DISABLE_MODELS_FETCH`; overridden via `NIKCLI_MODELS_URL` or `MODELS_DEV_API_JSON`
+- `ModelsDev.get()` opportunistically refreshes in background, reads cache, falls back to embedded macro data
+- Background refresh runs hourly via `setInterval(...).unref()`
+- Local MiniMax patches injected via `ModelsDev.patch()` into `minimax`, `minimax-cn`, `minimax-coding-plan`, `minimax-cn-coding-plan`, `openrouter`
+- Cursor injected via `cursorModelsDevProvider()` (not in models.dev catalog)
+- Provider activation/filters apply: config gating (`disabled_providers`/`enabled_providers`), nikcli.json overrides, env vars, stored auth, plugin loaders, model-level blacklist/whitelist
+- Final exclusions: `gpt-5-chat-latest`, `alpha` (unless `NIKCLI_ENABLE_EXPERIMENTAL_MODELS`), `deprecated`, disabled variants, empty providers
+
+### Config System (`src/config/config.ts`)
+
+Config layering (in precedence order):
+
+1. Well-known remote config (`/.well-known/nikcli`)
+2. Global config (`~/.nikcli/config`)
+3. Custom env path/content
+4. Project config (`nikcli.json`)
+5. Scanned `.nikcli` dirs (upward scan)
+
+User-defined extensions auto-loaded from `.nikcli` directories:
+
+- Markdown commands from `{command,commands}/**/*.md`
+- Markdown agents from `{agent,agents}/**/*.md`
+- File-based plugins from `{plugin,plugins}/*.{ts,js}`
+- Tool plugins from `{tool,tools}/*.{js,ts}`
+- Config plugins may trigger automatic npm package installation
+
+Runtime command catalog merges: built-ins, config commands, MCP prompts, connector prompts, skills.
+
+### Extension Points for New Features
+
+| Feature Type                            | Where to Add                                                                                                |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| CLI command (orchestration/UI)          | `src/cli/cmd/<name>.ts`, register in `src/index.ts`                                                         |
+| Server/API capability (CLI + TUI + SDK) | Add route in `src/server/routes/`                                                                           |
+| Model-executable tool during sessions   | Add in `src/tool/<name>.ts`, register in `src/tool/registry.ts`                                             |
+| Connector-backed feature                | Extend `src/connectors/registry.ts` (surfaces in status/prompts/`use_connector` automatically)              |
+| Plugin-based extensibility              | Use config/plugin discovery from `src/config/config.ts:355` and hook lifecycle in `src/plugin/index.ts:585` |
+| AI/session command                      | Add to `src/command/index.ts:72` or support via markdown config                                             |
 
 ### Tool Registry (`src/tool/registry.ts`)
 
@@ -318,11 +396,26 @@ Auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`:
 - `bun dev` — run nikcli in dev mode (`bun run --cwd packages/nikcli --conditions=browser src/index.ts`)
 - `bun run typecheck` — `bun turbo typecheck`
 - `bun run build` per package — e.g., `bun run script/build.ts` for nikcli core
-- `./packages/sdk/js/script/build.ts` — regenerate JavaScript SDK from OpenAPI
-- `bun test` — per-package tests (root explicitly exits with error)
+- `./packages/sdk/js/script/build.ts` — regenerate JavaScript SDK from OpenAPI (always run after editing server endpoints in `src/server/server.ts`)
+- `bun test` — per-package tests (root explicitly exits with error; use `bun turbo test` or package-level)
 - Turborepo tasks: `typecheck`, `build`, `test`
 - `tsgo --noEmit` — typecheck for nikcli core (fast TS compiler)
 - Husky pre-push hook configured
+- CI deploy: `bun sst deploy --stage=<branch>` on `dev` and `production`
+- CI tests: `bun turbo typecheck`, `bun turbo test`, plus Playwright/e2e app flow
+- Release/publish workflow: builds CLI artifacts first, then Tauri desktop artifacts, then completes release
+- Cross-platform CLI binary build matrix: `script/build.ts:22` (packages/nikcli)
+
+## Build Agent Risks / Patterns
+
+- **Root tests are blocked**: `bunfig.toml:4` redirects root test to fake path; use package-level tests or `bun turbo test`
+- **Bun version pin enforced on push**: mismatched local Bun will fail pre-push/typecheck
+- **SDK is generated from CLI server/OpenAPI flow**: server endpoint edits in `src/server/server.ts` require SDK regeneration via `script/generate.ts:5` (runs `bun dev generate`, writes `openapi.json`, regenerates SDK)
+- **Infra split across multiple deploy surfaces**: SST/Cloudflare, direct Wrangler packages, Tauri desktop, Expo mobile, Nix packaging — edits can have cross-target consequences
+- **Nested manifests below declared workspace globs** (e.g., `packages/remote/web-client/package.json`) are internal/build-only, not first-class workspaces
+- **Config loading is side-effectful**: reading config can trigger npm package installation logic; `src/config/config.ts:203`
+- **Provider state is `Instance.state(...)` cached**: long-lived processes keep older resolved provider sets until instance disposal/recreation
+- **`models --refresh` only refreshes models.dev cache**: provider-specific catalogs like Ollama or GitHub Copilot come from their own runtime fetch paths
 
 ## Workspace Catalog (shared dependency versions)
 

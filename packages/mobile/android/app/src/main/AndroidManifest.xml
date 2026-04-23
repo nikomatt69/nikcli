@@ -27,7 +27,6 @@
         <category android:name="android.intent.category.BROWSABLE"/>
         <data android:scheme="nikcli"/>
         <data android:scheme="ai.nikcli.mobile"/>
-        <data android:scheme="exp+nikcli-mobile"/>
       </intent-filter>
     </activity>
   </application>

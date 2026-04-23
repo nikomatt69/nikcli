@@ -66,6 +66,7 @@ const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
   connectors: true,
   agents: true,
   tokens: true,
+  routines: true,
 }
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {

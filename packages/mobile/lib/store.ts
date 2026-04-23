@@ -10,7 +10,7 @@ import type {
   ThemeMode,
 } from "@/lib/types"
 
-export type AppShellRoute = "sessions" | "repos" | "settings"
+export type AppShellRoute = "sessions" | "repos" | "settings" | "routines" | "terminal"
 
 export type RouteLabelMeta = {
   label: string
@@ -51,6 +51,8 @@ const defaultRouteLabels: RouteLabelState = {
   sessions: { label: "Sessions", subtitle: "Monitor active work" },
   repos: { label: "Repos", subtitle: "Manage connected codebases" },
   settings: { label: "Settings", subtitle: "Configure host access" },
+  routines: { label: "Routines", subtitle: "Scheduled & triggered automations" },
+  terminal: { label: "Terminal", subtitle: "Shell on your nikcli server" },
 }
 
 const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
@@ -68,6 +70,7 @@ const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   connectors: true,
   agents: true,
   tokens: true,
+  routines: true,
 }
 
 const defaultNotifications: NotificationPreferences = {

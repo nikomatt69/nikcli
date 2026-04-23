@@ -195,7 +195,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       }
     }
 
-    for (const item of props.keybind ?? []) {
+    const keybinds = props.keybind ?? []
+    for (const item of keybinds) {
       if (item.disabled || !item.keybind) continue
       if (Keybind.match(item.keybind, keybind.parse(evt))) {
         const s = selected()

@@ -10,6 +10,7 @@ import { UninstallCommand } from "./cli/cmd/uninstall"
 import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
+import { initialize } from "./global"
 import { NamedError } from "@nikcli-ai/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
@@ -40,6 +41,7 @@ import { MobileCommand } from "./cli/cmd/mobile"
 import { PluginCommand } from "./cli/cmd/plug"
 import { AccountCommand } from "./cli/cmd/account"
 import { HeapCommand } from "./cli/cmd/heap"
+import { RoutineCommand } from "./cli/cmd/routine"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -71,6 +73,7 @@ const cli = yargs(hideBin(process.argv))
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .middleware(async (opts) => {
+    await initialize()
 
     await Log.init({
       print: process.argv.includes("--print-logs"),
@@ -125,6 +128,7 @@ const cli = yargs(hideBin(process.argv))
   .command(RemoteCommand)
   .command(CompanionCommand)
   .command(MobileCommand)
+  .command(RoutineCommand)
   .command(PluginCommand)
   .fail((msg, err) => {
     if (

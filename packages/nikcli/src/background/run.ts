@@ -24,6 +24,7 @@ export namespace BackgroundRun {
     "model-subtask",
     "advisor",
     "research",
+    "ultrareview",
     "delegator",
     "delegator-followup",
     "other",

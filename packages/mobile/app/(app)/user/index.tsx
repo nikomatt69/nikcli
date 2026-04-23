@@ -128,24 +128,19 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
   const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.8] })
 
   return (
-    <Animated.View
-      style={{
-        transform: [{ scale: Animated.multiply(pulseAnim, scaleAnim) }],
-      }}
-    >
-      <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut}>
-        <Animated.View
-          style={{
-            position: "absolute",
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            backgroundColor: isDark ? palette.accent : palette.accentLight,
-            opacity: glowOpacity,
-            transform: [{ scale: 1.15 }],
-          }}
-        />
-        <View
+    <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View
+        style={{
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: isDark ? palette.accent : palette.accentLight,
+          opacity: glowOpacity,
+          transform: [{ scale: 1.15 }],
+        }}
+      />
+      <View
           style={{
             width: size,
             height: size,
@@ -177,7 +172,6 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
           </Text>
         </View>
       </Pressable>
-    </Animated.View>
   )
 }
 
@@ -433,7 +427,6 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
     <Animated.View
       style={{
         opacity: animation,
-        transform: [{ scale: scaleAnim }, { rotate }],
       }}
     >
       <Pressable
@@ -720,7 +713,7 @@ function UserRow({
         onPress={() => setExpanded((e) => !e)}
         onPressIn={() => Animated.spring(pressAnim, { toValue: 0.97, ...SPRING_CONFIG, useNativeDriver: true }).start()}
         onPressOut={() => Animated.spring(pressAnim, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }).start()}
-        style={{ transform: [{ scale: pressAnim }] }}
+        style={{ opacity: pressAnim }}
       >
         <View
           style={{

@@ -1,6 +1,7 @@
 import type { RefObject } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { Braces, Copy, FileText, PencilLine, type LucideIcon } from "lucide-react-native"
+import { Braces, Copy, FileText, PencilLine, TerminalSquare, type LucideIcon } from "lucide-react-native"
+import { router } from "expo-router"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { useAppTheme } from "@/lib/theme"
 import { useRef } from "react"
@@ -12,6 +13,7 @@ type Props = {
   onExportMarkdown(): void
   onExportJSON(): void
   onCopyID(): void
+  onOpenTerminal?(): void
 }
 
 type RowProps = {
@@ -113,7 +115,7 @@ function SectionDivider() {
   return <View className="mx-5 mt-2 h-px bg-border" />
 }
 
-export function SessionActionsSheet({ sheetRef, title, onRename, onExportMarkdown, onExportJSON, onCopyID }: Props) {
+export function SessionActionsSheet({ sheetRef, title, onRename, onExportMarkdown, onExportJSON, onCopyID, onOpenTerminal }: Props) {
   const { palette, isDark } = useAppTheme()
 
   return (
@@ -164,6 +166,23 @@ export function SessionActionsSheet({ sheetRef, title, onRename, onExportMarkdow
           description="Raw session data with all metadata"
           onPress={onExportJSON}
           tone="success"
+        />
+
+        <SectionDivider />
+        <SectionLabel label="Tools" />
+        <SheetRow
+          Icon={TerminalSquare}
+          label="Open terminal"
+          description="Launch a shell on the nikcli server"
+          onPress={() => {
+            sheetRef.current?.dismiss()
+            if (onOpenTerminal) {
+              onOpenTerminal()
+            } else {
+              router.push("/terminal" as Parameters<typeof router.push>[0])
+            }
+          }}
+          tone="neutral"
         />
 
         <SectionDivider />

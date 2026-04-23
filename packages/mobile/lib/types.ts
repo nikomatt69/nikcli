@@ -66,6 +66,7 @@ export type SettingsSectionID =
   | "connectors"
   | "agents"
   | "tokens"
+  | "routines"
 
 export type NotificationPreferences = {
   enabled: boolean
@@ -645,6 +646,69 @@ export type AgentInfo = {
   description?: string
   tools?: string[]
   isDefault?: boolean
+}
+
+// ── Routines ──────────────────────────────────────────────────────────────────
+
+export type RoutineTriggerSchedule = {
+  type: "schedule"
+  cron: string
+  enabled: boolean
+}
+
+export type RoutineTriggerApi = {
+  type: "api"
+  token: string
+  enabled: boolean
+}
+
+export type RoutineTrigger = RoutineTriggerSchedule | RoutineTriggerApi
+
+export type Routine = {
+  id: string
+  name: string
+  prompt: string
+  triggers: RoutineTrigger[]
+  paused: boolean
+  projectID: string
+  directory: string
+  createdAt: number
+  updatedAt: number
+  lastRunAt?: number
+  lastSessionID?: string
+}
+
+export type RoutineCreateInput = {
+  name: string
+  prompt: string
+  triggers?: RoutineTrigger[]
+}
+
+export type RoutineUpdateInput = Partial<RoutineCreateInput> & { paused?: boolean }
+
+// ── PTY (Terminal) ────────────────────────────────────────────────────────────
+
+export type PtyInfo = {
+  id: string
+  title: string
+  command: string
+  args: string[]
+  cwd: string
+  status: "running" | "exited"
+  pid: number
+}
+
+export type PtyCreateInput = {
+  command?: string
+  args?: string[]
+  cwd?: string
+  title?: string
+  env?: Record<string, string>
+}
+
+export type PtyUpdateInput = {
+  title?: string
+  size?: { rows: number; cols: number }
 }
 
 export function relativeTime(value: number): string {

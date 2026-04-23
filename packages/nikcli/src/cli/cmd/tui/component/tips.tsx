@@ -188,6 +188,7 @@ const TIPS = [
   "Use {highlight}/connect{/highlight} with Nikcli Zen for curated, tested models",
   "Commit your project's {highlight}AGENTS.md{/highlight} file to Git for team sharing",
   "Use {highlight}/review{/highlight} to review uncommitted changes, branches, or PRs",
+  "Use {highlight}/ultrareview{/highlight} for a deep parallel review with 4 specialized agents",
   "Run {highlight}/help{/highlight} or {highlight}Ctrl+X H{/highlight} to show the help dialog",
   "Use {highlight}/details{/highlight} to toggle tool execution details visibility",
   "Use {highlight}/rename{/highlight} to rename the current session",

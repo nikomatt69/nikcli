@@ -1,0 +1,146 @@
+You are orchestrating a deep, multi-agent code review using parallel monitor jobs.
+
+Working directory: ${path}
+
+Input: $ARGUMENTS
+
+---
+
+## Step 1 — Determine Scope
+
+Based on the input, decide what to review:
+
+1. **No arguments (default)**: all uncommitted changes
+   - Run `git diff` for unstaged, `git diff --cached` for staged, `git status --short` for untracked files
+
+2. **Commit hash** (40-char SHA or short hash): that specific commit
+   - Run `git show $ARGUMENTS --stat`
+
+3. **Branch name**: diff between that branch and HEAD
+   - Run `git diff $ARGUMENTS...HEAD --stat`
+
+4. **PR number** (numeric) or PR URL: the pull request diff
+   - Run `gh pr view $ARGUMENTS --json title,body,additions,deletions,changedFiles`
+   - Run `gh pr diff $ARGUMENTS --stat`
+
+Collect the full diff and file list now. Count the changed files and total lines changed.
+
+---
+
+## Step 2 — Confirmation
+
+Use the `question` tool to ask the user to confirm before proceeding:
+
+- Show the review scope: what is being reviewed (branch name, PR title, or "uncommitted changes")
+- Show the number of changed files and lines (+/-)
+- Show that 4 parallel reviewer agents will run via background monitor jobs
+- Ask: "Proceed with ultrareview?"
+
+If the user declines, stop here.
+
+---
+
+## Step 3 — Write Diff to a Temp File
+
+Write the full unified diff to a temporary file so all reviewer agents can read it:
+
+```
+/tmp/ultrareview_diff_<timestamp>.patch
+```
+
+- For uncommitted: `git diff HEAD` (includes staged and unstaged)
+- For a commit: `git show $ARGUMENTS`
+- For a branch: `git diff $ARGUMENTS...HEAD`
+- For a PR: `gh pr diff $ARGUMENTS`
+
+Also write a context file at `/tmp/ultrareview_ctx_<timestamp>.txt` containing:
+- The scope description (what is being reviewed)
+- List of changed files with +/- stats
+- The working directory path
+
+Use the same `<timestamp>` (e.g. `$(date +%s)`) in both filenames so agents can find them.
+
+---
+
+## Step 4 — Launch 4 Parallel Reviewer Agents via Monitor
+
+Use the `monitor` tool to launch **all 4 reviewers simultaneously** (one call per reviewer, all in the same message turn).
+
+Each monitor command runs: `nikcli run --agent ultrareview-reviewer --no-tui`
+
+Pass the role and file paths as environment variables in the command. Use `wake: true` on all 4 so the session is notified when each finishes.
+
+**Reviewer 1 — Bugs**
+```
+ULTRAREVIEW_ROLE=bugs ULTRAREVIEW_DIFF=/tmp/ultrareview_diff_<timestamp>.patch ULTRAREVIEW_CTX=/tmp/ultrareview_ctx_<timestamp>.txt nikcli run --agent ultrareview-reviewer --no-tui
+```
+Title: `ultrareview: bugs`
+
+**Reviewer 2 — Security**
+```
+ULTRAREVIEW_ROLE=security ULTRAREVIEW_DIFF=/tmp/ultrareview_diff_<timestamp>.patch ULTRAREVIEW_CTX=/tmp/ultrareview_ctx_<timestamp>.txt nikcli run --agent ultrareview-reviewer --no-tui
+```
+Title: `ultrareview: security`
+
+**Reviewer 3 — Performance**
+```
+ULTRAREVIEW_ROLE=performance ULTRAREVIEW_DIFF=/tmp/ultrareview_diff_<timestamp>.patch ULTRAREVIEW_CTX=/tmp/ultrareview_ctx_<timestamp>.txt nikcli run --agent ultrareview-reviewer --no-tui
+```
+Title: `ultrareview: performance`
+
+**Reviewer 4 — Patterns & Conventions**
+```
+ULTRAREVIEW_ROLE=patterns ULTRAREVIEW_DIFF=/tmp/ultrareview_diff_<timestamp>.patch ULTRAREVIEW_CTX=/tmp/ultrareview_ctx_<timestamp>.txt nikcli run --agent ultrareview-reviewer --no-tui
+```
+Title: `ultrareview: patterns`
+
+After launching all 4, tell the user: "4 reviewer agents are running in parallel. You will be notified as each one completes. Use `/tasks` to track progress."
+
+---
+
+## Step 5 — Wait and Collect Results
+
+Each monitor will wake the session when it finishes. As each monitor completes:
+
+1. Read its log file using `bash`: `cat <logPath>`
+2. Extract the findings section from the output
+3. When all 4 have completed (check with `bash`: verify all 4 log files exist and exit codes are 0), proceed to synthesis
+
+You can check monitor status by reading the log paths returned by the monitor tool.
+
+---
+
+## Step 6 — Synthesize
+
+Once all 4 reviewers have finished:
+
+1. Read all 4 log files
+2. De-duplicate findings that appear in multiple reviewers (same file + same issue)
+3. Cross-verify: a finding reported by 2+ reviewers gets higher confidence
+4. Discard findings that are speculative, style-only, or cannot be verified from the diff alone
+5. Clean up temp files: `rm /tmp/ultrareview_diff_<timestamp>.patch /tmp/ultrareview_ctx_<timestamp>.txt`
+
+---
+
+## Step 7 — Output
+
+Present findings grouped by severity. Use this format for each finding:
+
+```
+### [SEVERITY] Short title
+**File:** `path/to/file.ts` (line N)
+**Reported by:** bugs, security  ← which reviewers flagged it
+**Issue:** Clear, direct description of the problem. What breaks and under what conditions.
+**Fix:** Concrete suggestion.
+```
+
+Severity levels: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`
+
+Rules for the output:
+- Lead with the highest-severity findings
+- Only include findings where you are confident a real issue exists
+- Do not include style suggestions unless they violate an explicit project convention
+- If no issues were found in a category, say so briefly
+- End with a one-line summary: total findings by severity
+
+If all 4 reviewers found nothing, say: "No issues found across all review dimensions."

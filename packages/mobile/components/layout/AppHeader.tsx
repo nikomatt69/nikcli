@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
-import { Menu } from "lucide-react-native"
+import { Menu, Settings, UserCircle2 } from "lucide-react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { DrawerMenu } from "@/components/layout/DrawerMenu"
 import { StatusPill } from "@/components/layout/StatusPill"
@@ -8,6 +8,7 @@ import { getCurrentProjectLabel, getCurrentTab, getGitHubStatusLabel } from "@/c
 import { useServer } from "@/lib/server-provider"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
+import { router } from "expo-router"
 
 type AppHeaderProps = {
   routeName: string
@@ -129,6 +130,38 @@ export function AppHeader({ routeName }: AppHeaderProps) {
                 {current.label}
               </Text>
             </View>
+            <Pressable
+              onPress={() => router.push("/settings")}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                borderRadius: 13,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.93 : 1 }],
+              })}
+            >
+              <Settings size={15} color={palette.ink} strokeWidth={2.2} />
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/user")}
+              hitSlop={6}
+              style={({ pressed }) => ({
+                borderRadius: 13,
+                borderWidth: 1,
+                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.82)",
+                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.58)",
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                opacity: pressed ? 0.7 : 1,
+                transform: [{ scale: pressed ? 0.93 : 1 }],
+              })}
+            >
+              <UserCircle2 size={15} color={palette.ink} strokeWidth={2.2} />
+            </Pressable>
             <Pressable
               onPress={openDrawer}
               hitSlop={6}
