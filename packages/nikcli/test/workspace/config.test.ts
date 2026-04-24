@@ -29,10 +29,23 @@ describe("Workspace", () => {
 
 describe("WorkspaceDB", () => {
   describe("appendEvent", () => {
-    it("uses default limit when eventLimit not set", async () => {
-      // This test verifies the API contract
+    it("applies the default event limit when eventLimit is not set", async () => {
       const { WorkspaceDB } = await import("../../src/workspace/db")
-      expect(WorkspaceDB.appendEvent).toBeDefined()
+      const events = Array.from({ length: WorkspaceDB.DEFAULT_EVENT_LIMIT + 5 }, (_, i) => ({ i }))
+
+      const limited = WorkspaceDB.applyEventLimit(events, { i: "next" })
+
+      expect(limited).toHaveLength(WorkspaceDB.DEFAULT_EVENT_LIMIT)
+      expect(limited[0]).toEqual({ i: 6 })
+      expect(limited.at(-1)).toEqual({ i: "next" })
+    })
+
+    it("applies a persisted custom event limit", async () => {
+      const { WorkspaceDB } = await import("../../src/workspace/db")
+
+      const limited = WorkspaceDB.applyEventLimit([{ i: 1 }, { i: 2 }], { i: 3 }, 2)
+
+      expect(limited).toEqual([{ i: 2 }, { i: 3 }])
     })
   })
 })

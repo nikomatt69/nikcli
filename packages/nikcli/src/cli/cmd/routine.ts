@@ -1,4 +1,5 @@
 import * as prompts from "@clack/prompts"
+import { randomBytes } from "crypto"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
 import { Routine } from "@/mobile/routine"
@@ -15,6 +16,10 @@ function formatTriggers(triggers: Routine.Trigger[]) {
       return `api${t.enabled ? "" : " [disabled]"}`
     })
     .join(", ")
+}
+
+function generateApiToken() {
+  return `nkr_${randomBytes(32).toString("hex")}`
 }
 
 export const RoutineCommand = cmd({
@@ -82,7 +87,9 @@ export const RoutineCreateCommand = cmd({
       .option("cron", {
         type: "string",
         describe: "cron schedule (e.g. @hourly, @daily, */30, 0 */6 * * *)",
-      }),
+      })
+      .option("api", { type: "boolean", describe: "enable an API trigger with a generated token" })
+      .option("api-token", { type: "string", describe: "enable an API trigger with a custom token" }),
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
       prompts.intro("Create routine")
@@ -135,6 +142,10 @@ export const RoutineCreateCommand = cmd({
           )
         }
         triggers.push({ type: "schedule", cron: cronStr, enabled: true })
+      }
+
+      if (args.api || args.apiToken) {
+        triggers.push({ type: "api", token: args.apiToken?.trim() || generateApiToken(), enabled: true })
       }
 
       const spinner = prompts.spinner()
@@ -195,13 +206,16 @@ export const RoutineGetCommand = cmd({
 export const RoutineRunCommand = cmd({
   command: "run <id>",
   describe: "trigger an immediate run of a routine",
-  builder: (yargs) => yargs.positional("id", { type: "string", demandOption: true, describe: "routine ID" }),
+  builder: (yargs) =>
+    yargs
+      .positional("id", { type: "string", demandOption: true, describe: "routine ID" })
+      .option("text", { type: "string", describe: "one-off context to append to this run" }),
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
       const spinner = prompts.spinner()
       spinner.start("Running routine…")
       try {
-        const session = await Routine.run(String(args.id))
+        const session = await Routine.run(String(args.id), { text: args.text })
         spinner.stop(`Session created: ${session.id}`)
         console.log(`Monitor with: nikcli session list`)
       } catch (error) {

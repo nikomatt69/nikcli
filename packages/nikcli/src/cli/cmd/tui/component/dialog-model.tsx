@@ -7,6 +7,8 @@ import { useDialog } from "@tui/ui/dialog"
 import { createDialogProviderOptions, DialogProvider } from "./dialog-provider"
 import { useKeybind } from "../context/keybind"
 import * as fuzzysort from "fuzzysort"
+import { Keybind } from "@/util/keybind"
+import { Config } from "@/config/config"
 
 export function useConnected() {
   const sync = useSync()
@@ -15,7 +17,10 @@ export function useConnected() {
   )
 }
 
-export function DialogModel(props: { providerID?: string }) {
+export function DialogModel(props: {
+  providerID?: string
+  onSelect?: (model: { providerID: string; modelID: string }) => void
+}) {
   const local = useLocal()
   const sync = useSync()
   const dialog = useDialog()
@@ -64,14 +69,19 @@ export function DialogModel(props: { providerID?: string }) {
               disabled: provider.id === "nikcli" && model.id.includes("-nano"),
               footer: model.cost?.input === 0 && provider.id === "nikcli" ? "Free" : undefined,
               onSelect: () => {
-                dialog.clear()
-                local.model.set(
-                  {
-                    providerID: provider.id,
-                    modelID: model.id,
-                  },
-                  { recent: true },
-                )
+                if (props.onSelect) {
+                  props.onSelect({ providerID: provider.id, modelID: model.id })
+                  dialog.clear()
+                } else {
+                  dialog.clear()
+                  local.model.set(
+                    {
+                      providerID: provider.id,
+                      modelID: model.id,
+                    },
+                    { recent: true },
+                  )
+                }
               },
             },
           ]
@@ -97,14 +107,19 @@ export function DialogModel(props: { providerID?: string }) {
               disabled: provider.id === "nikcli" && model.id.includes("-nano"),
               footer: model.cost?.input === 0 && provider.id === "nikcli" ? "Free" : undefined,
               onSelect: () => {
-                dialog.clear()
-                local.model.set(
-                  {
-                    providerID: provider.id,
-                    modelID: model.id,
-                  },
-                  { recent: true },
-                )
+                if (props.onSelect) {
+                  props.onSelect({ providerID: provider.id, modelID: model.id })
+                  dialog.clear()
+                } else {
+                  dialog.clear()
+                  local.model.set(
+                    {
+                      providerID: provider.id,
+                      modelID: model.id,
+                    },
+                    { recent: true },
+                  )
+                }
               },
             },
           ]
@@ -140,14 +155,19 @@ export function DialogModel(props: { providerID?: string }) {
               disabled: provider.id === "nikcli" && model.includes("-nano"),
               footer: info.cost?.input === 0 && provider.id === "nikcli" ? "Free" : undefined,
               onSelect() {
-                dialog.clear()
-                local.model.set(
-                  {
-                    providerID: provider.id,
-                    modelID: model,
-                  },
-                  { recent: true },
-                )
+                if (props.onSelect) {
+                  props.onSelect({ providerID: provider.id, modelID: model })
+                  dialog.clear()
+                } else {
+                  dialog.clear()
+                  local.model.set(
+                    {
+                      providerID: provider.id,
+                      modelID: model,
+                    },
+                    { recent: true },
+                  )
+                }
               },
             }
           }),
@@ -220,6 +240,18 @@ export function DialogModel(props: { providerID?: string }) {
           disabled: !connected(),
           onTrigger: (option) => {
             local.model.toggleFavorite(option.value as { providerID: string; modelID: string })
+          },
+        },
+        {
+          keybind: Keybind.parse("ctrl+d")[0],
+          title: "Set as default",
+          disabled: !connected(),
+          onTrigger: (option) => {
+            const model = option.value as { providerID: string; modelID: string }
+            const modelString = `${model.providerID}/${model.modelID}`
+            dialog.clear()
+            void Config.updateGlobal({ model: modelString })
+            local.model.set(model, { recent: true })
           },
         },
       ]}

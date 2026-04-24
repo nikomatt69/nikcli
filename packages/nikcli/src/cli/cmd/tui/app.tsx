@@ -19,7 +19,7 @@ import {
 import { Installation } from "@/installation"
 import { Flag } from "@/flag/flag"
 import { DialogProvider, useDialog } from "@tui/ui/dialog"
-import { DialogProvider as DialogProviderList } from "@tui/component/dialog-provider"
+import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider, useServer } from "@tui/context/server"
@@ -28,7 +28,9 @@ import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
 import { DialogConnectors } from "@tui/component/dialog-connectors"
+import { DialogRoutine } from "@tui/component/dialog-routine"
 import { DialogStatus } from "@tui/component/dialog-status"
+import { DialogUsage } from "@tui/component/dialog-usage"
 import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogConfig } from "@tui/component/dialog-config"
@@ -58,6 +60,7 @@ import { ArgsProvider, useArgs, type Args } from "./context/args"
 import open from "open"
 import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
+import { EditorContextProvider } from "./context/editor"
 import { TuiConfig } from "@/config/tui"
 import { Instance } from "@/project/instance"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
@@ -180,9 +183,11 @@ export function tui(input: {
                                         <CommandProvider>
                                           <FrecencyProvider>
                                             <PromptHistoryProvider>
-                                              <PromptRefProvider>
-                                                <App />
-                                              </PromptRefProvider>
+                                              <EditorContextProvider>
+                                                <PromptRefProvider>
+                                                  <App />
+                                                </PromptRefProvider>
+                                              </EditorContextProvider>
                                             </PromptHistoryProvider>
                                           </FrecencyProvider>
                                         </CommandProvider>
@@ -553,6 +558,18 @@ function App() {
       },
     },
     {
+      title: "Routines",
+      value: "routine.list",
+      category: "System",
+      slash: {
+        name: "routines",
+        aliases: ["routine"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogRoutine />)
+      },
+    },
+    {
       title: "Agent cycle",
       value: "agent.cycle",
       keybind: "agent_cycle",
@@ -599,6 +616,19 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogProviderList />)
+      },
+      category: "Provider",
+    },
+    {
+      title: "Disconnect provider",
+      value: "provider.disconnect",
+      suggested: sync.data.provider_next.connected.length > 0,
+      enabled: sync.data.provider_next.connected.length > 0,
+      slash: {
+        name: "disconnect",
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogProviderDisconnect />)
       },
       category: "Provider",
     },
@@ -712,6 +742,18 @@ function App() {
         dialog.replace(() => <DialogStatus />)
       },
       category: "System",
+    },
+    {
+      title: "Context usage",
+      value: "nikcli.usage",
+      slash: {
+        name: "usage",
+        aliases: ["context"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogUsage />)
+      },
+      category: "Session",
     },
     {
       title: "Switch theme",

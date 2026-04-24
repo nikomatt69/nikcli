@@ -91,6 +91,7 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
+import { ImagePreviewList } from "@tui/component/image-preview"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
 
@@ -107,13 +108,13 @@ function shareErrorMessage(error: unknown) {
 }
 
 class CustomSpeedScroll implements ScrollAcceleration {
-  constructor(private speed: number) { }
+  constructor(private speed: number) {}
 
   tick(_now?: number): number {
     return this.speed
   }
 
-  reset(): void { }
+  reset(): void {}
 }
 
 const context = createContext<{
@@ -623,7 +624,7 @@ export function Session() {
       },
       onSelect: async (dialog) => {
         const status = sync.data.session_status?.[route.sessionID]
-        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => { })
+        if (status?.type !== "idle") await sdk.client.session.abort({ sessionID: route.sessionID }).catch(() => {})
         const revert = session()?.revert?.messageID
         const message = messages().findLast((x) => (!revert || x.id < revert) && x.role === "user")
         if (!message) return
@@ -1092,7 +1093,7 @@ export function Session() {
         if (parentID && currentID) {
           // If busy, kill the task (which also removes it from background)
           if (status !== "idle") {
-            await sdk.client.session.abort({ sessionID: currentID }).catch(() => { })
+            await sdk.client.session.abort({ sessionID: currentID }).catch(() => {})
           } else {
             // If idle, just remove from background tasks
             const job = sync.background.findBySession(currentID)
@@ -1381,12 +1382,18 @@ function UserMessage(props: {
   const color = createMemo(() => local.agent.color(props.message.agent))
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
+  const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
+  const imagePreviewUrls = createMemo(() =>
+    files()
+      .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
+      .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" ? [file.source.path] : [])),
+  )
 
   const compaction = createMemo(() => props.parts.find((x) => x.type === "compaction"))
 
   return (
     <>
-      <Show when={text()}>
+      <Show when={text() || files().length > 0}>
         <box
           id={props.message.id}
           border={["left"]}
@@ -1408,7 +1415,8 @@ function UserMessage(props: {
             backgroundColor={hover() ? theme.backgroundElement : theme.backgroundPanel}
             flexShrink={0}
           >
-            <text fg={theme.text}>{text()?.text}</text>
+            <Show when={text()}>{(part) => <text fg={theme.text}>{part().text}</text>}</Show>
+            <ImagePreviewList text={text()?.text ?? ""} urls={imagePreviewUrls()} maxColumns={imagePreviewColumns()} />
             <Show when={files().length}>
               <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
                 <For each={files()}>
@@ -1614,6 +1622,7 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
 function TextPart(props: { last: boolean; part: TextPart; message: AssistantMessage }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
+  const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
@@ -1626,6 +1635,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
           conceal={ctx.conceal()}
           fg={theme.text}
         />
+        <ImagePreviewList text={props.part.text} maxColumns={imagePreviewColumns()} />
       </box>
     </Show>
   )
@@ -2257,7 +2267,7 @@ function parseWebSearchResults(output: string): WebSearchPreviewResult[] {
     let host = url
     try {
       host = new URL(url).hostname.replace(/^www\./, "")
-    } catch { }
+    } catch {}
 
     const titleFromLine = cleanWebSearchLine(line)
     const titleFromPrevious = cleanWebSearchLine(previousLine)
@@ -2294,7 +2304,7 @@ function parseWebSearchResults(output: string): WebSearchPreviewResult[] {
     let host = url
     try {
       host = new URL(url).hostname.replace(/^www\./, "")
-    } catch { }
+    } catch {}
     return {
       url,
       host,
@@ -2630,11 +2640,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
           onClick={
             sessionID()
               ? () =>
-                navigate({
-                  type: "session",
-                  sessionID: sessionID()!,
-                  workspaceID: sync.session.get(sessionID()!)?.workspaceID,
-                })
+                  navigate({
+                    type: "session",
+                    sessionID: sessionID()!,
+                    workspaceID: sync.session.get(sessionID()!)?.workspaceID,
+                  })
               : undefined
           }
           part={props.part}

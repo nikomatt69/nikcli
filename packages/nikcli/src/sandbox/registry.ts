@@ -110,6 +110,10 @@ export namespace SandboxRegistry {
     return handle
   }
 
+  export function invalidateWorkspace(workspaceID: string) {
+    resolveCache.delete(`workspace:${workspaceID}`)
+  }
+
   /**
    * Create a new sandbox workspace.
    * Delegates to Workspace.create().
@@ -138,8 +142,7 @@ export namespace SandboxRegistry {
       return
     }
     log.info("sandbox deleting", { workspaceID: ref.workspaceID })
-    // Invalidate cache
-    resolveCache.delete(`workspace:${ref.workspaceID}`)
+    invalidateWorkspace(ref.workspaceID)
     await Workspace.remove(ref.workspaceID)
   }
 
@@ -151,13 +154,13 @@ export namespace SandboxRegistry {
       // Local sandboxes are always healthy (just a directory)
       return true
     }
-    const adaptor = getAdaptor((await Workspace.get(ref.workspaceID))?.config as any)
-    if (!adaptor.healthCheck) return true
     const workspace = await Workspace.get(ref.workspaceID)
     if (!workspace) {
       log.warn("healthCheck: workspace not found", { workspaceID: ref.workspaceID })
       return false
     }
+    const adaptor = getAdaptor(workspace.config)
+    if (!adaptor.healthCheck) return true
     return adaptor.healthCheck(workspace.config as any)
   }
 

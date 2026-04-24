@@ -216,15 +216,45 @@ export namespace Workspace {
         config,
       }
 
-      await init()
-      await WorkspaceDB.migrateFromStorage()
-      WorkspaceDB.upsert(info)
-      WorkspaceDB.updateState(id, {
-        status: info.config.type === "worktree" ? "connected" : "connecting",
-        events: [],
-        eventLimit: info.config.eventLimit,
-      })
-      startSpaceSync(info)
+      let previousInfo: WorkspaceDB.Info | undefined
+      let previousState: WorkspaceDB.State | undefined
+      let wroteDB = false
+
+      try {
+        await init()
+        await WorkspaceDB.migrateFromStorage()
+        previousInfo = WorkspaceDB.get(id)
+        previousState = previousInfo ? WorkspaceDB.getState(id) : undefined
+        WorkspaceDB.upsert(info)
+        wroteDB = true
+        WorkspaceDB.updateState(id, {
+          status: info.config.type === "worktree" ? "connected" : "connecting",
+          events: [],
+          eventLimit: info.config.eventLimit,
+        })
+        startSpaceSync(info)
+      } catch (error) {
+        stopSpaceSync(id)
+        if (wroteDB) {
+          if (previousInfo) {
+            WorkspaceDB.upsert(previousInfo)
+            if (previousState) WorkspaceDB.updateState(id, previousState)
+          } else {
+            WorkspaceDB.remove(id)
+          }
+        }
+        SandboxRegistry.invalidateWorkspace(id)
+        connectionStatuses.delete(id)
+        await getAdaptor(config)
+          .remove(config)
+          .catch((cleanupError) => {
+            log.warn("workspace create cleanup failed", {
+              workspaceID: id,
+              error: cleanupError,
+            })
+          })
+        throw error
+      }
 
       GlobalBus.emit("event", {
         directory: id,
@@ -270,6 +300,7 @@ export namespace Workspace {
       stopSpaceSync(id)
       await getAdaptor(info.config).remove(info.config)
       WorkspaceDB.remove(id)
+      SandboxRegistry.invalidateWorkspace(id)
       connectionStatuses.delete(id)
       return info
     }

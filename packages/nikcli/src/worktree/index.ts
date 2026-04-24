@@ -8,6 +8,7 @@ import { Instance } from "../project/instance"
 import { fn } from "../util/fn"
 import { Git } from "@/git"
 import { Log } from "@/util/log"
+import { Lock } from "@/util/lock"
 
 export namespace Worktree {
   export const Info = z
@@ -209,6 +210,57 @@ export namespace Worktree {
   const log = Log.create({ service: "worktree" })
 
   export type WorktreeEntry = { path?: string; branch?: string }
+  type RegistryRecord = Info & { createdAt: number; updatedAt: number }
+
+  function rootDirectory() {
+    return path.join(Global.Path.data, "worktree", Instance.project.id)
+  }
+
+  function registryFile(root = rootDirectory()) {
+    return path.join(root, "registry.json")
+  }
+
+  export function isManagedDirectory(directory: string, root = rootDirectory()) {
+    const relative = path.relative(path.resolve(root), path.resolve(directory))
+    return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
+  }
+
+  async function readRegistry(root = rootDirectory()): Promise<RegistryRecord[]> {
+    const file = registryFile(root)
+    if (!(await Bun.file(file).exists())) return []
+    return z.array(Info.extend({ createdAt: z.number(), updatedAt: z.number() })).parse(await Bun.file(file).json())
+  }
+
+  async function writeRegistry(records: RegistryRecord[], root = rootDirectory()) {
+    await fs.mkdir(root, { recursive: true })
+    await Bun.write(registryFile(root), JSON.stringify(records, null, 2))
+  }
+
+  async function remember(info: Info, root = rootDirectory()) {
+    using _ = await Lock.write(`worktree-registry:${root}`)
+    const now = Date.now()
+    const directory = path.resolve(info.directory)
+    const records = (await readRegistry(root)).filter((item) => path.resolve(item.directory) !== directory)
+    records.push({ ...info, directory, createdAt: now, updatedAt: now })
+    await writeRegistry(records, root)
+  }
+
+  async function forget(directory: string, root = rootDirectory()) {
+    using _ = await Lock.write(`worktree-registry:${root}`)
+    const resolved = path.resolve(directory)
+    const records = (await readRegistry(root)).filter((item) => path.resolve(item.directory) !== resolved)
+    await writeRegistry(records, root)
+  }
+
+  async function assertManagedMutation(directory: string, error: typeof RemoveFailedError | typeof ResetFailedError) {
+    if (path.resolve(directory) === path.resolve(Instance.worktree)) {
+      throw new error({ message: "Cannot mutate the primary workspace" })
+    }
+    if (isManagedDirectory(directory)) return
+    const records = await readRegistry()
+    if (records.some((item) => path.resolve(item.directory) === path.resolve(directory))) return
+    throw new error({ message: "Refusing to mutate a worktree outside nikcli's managed worktree directory" })
+  }
 
   async function listWorktrees(cwd?: string): Promise<WorktreeEntry[]> {
     const worktreeCwd = cwd ?? Instance.worktree
@@ -310,7 +362,7 @@ export namespace Worktree {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
     }
 
-    const root = path.join(Global.Path.data, "worktree", Instance.project.id)
+    const root = rootDirectory()
     await fs.mkdir(root, { recursive: true })
 
     const base = input?.name ? slug(input.name) : ""
@@ -360,19 +412,25 @@ export namespace Worktree {
       }
     }
 
-    const cmd = input?.startCommand?.trim()
-    if (!cmd) return info
-
     try {
-      const ran = await runStartCommand(info.directory, cmd)
-      if (ran.exitCode !== 0) {
-        throw new StartCommandFailedError({ message: errorText(ran) || "Worktree start command failed" })
+      await remember(info, root)
+      const cmd = input?.startCommand?.trim()
+      if (cmd) {
+        const ran = await runStartCommand(info.directory, cmd)
+        if (ran.exitCode !== 0) {
+          throw new StartCommandFailedError({ message: errorText(ran) || "Worktree start command failed" })
+        }
       }
     } catch (err) {
       // Cleanup worktree on post-creation failure
       log.warn("post-creation failed, cleaning up worktree", { directory: info.directory, error: String(err) })
       try {
-        await Git.run(["worktree", "remove", "--force", info.directory], { cwd: Instance.worktree })
+        const removed = await Git.run(["worktree", "remove", "--force", info.directory], { cwd: Instance.worktree })
+        if (removed.exitCode === 0) {
+          await forget(info.directory, root)
+        } else {
+          log.error("worktree cleanup failed", { directory: info.directory, error: removed.text().trim() })
+        }
       } catch (cleanupErr) {
         log.error("worktree cleanup failed", { directory: info.directory, error: String(cleanupErr) })
       }
@@ -388,6 +446,7 @@ export namespace Worktree {
     }
 
     const directory = path.resolve(input.directory)
+    await assertManagedMutation(directory, RemoveFailedError)
     const entry = await findWorktreeEntry(directory)
     if (!entry?.path) {
       throw new RemoveFailedError({ message: "Worktree not found" })
@@ -397,6 +456,8 @@ export namespace Worktree {
     if (removed.exitCode !== 0) {
       throw new RemoveFailedError({ message: removed.text().trim() || "Failed to remove git worktree" })
     }
+
+    await forget(entry.path)
 
     const branch = entry.branch?.replace(/^refs\/heads\//, "")
     if (branch) {
@@ -415,9 +476,7 @@ export namespace Worktree {
     }
 
     const directory = path.resolve(input.directory)
-    if (directory === path.resolve(Instance.worktree)) {
-      throw new ResetFailedError({ message: "Cannot reset the primary workspace" })
-    }
+    await assertManagedMutation(directory, ResetFailedError)
 
     const entry = await findWorktreeEntry(directory)
     if (!entry?.path) {

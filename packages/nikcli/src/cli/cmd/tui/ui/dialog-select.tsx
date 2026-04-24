@@ -1,7 +1,7 @@
 import { InputRenderable, RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useTheme, selectedForeground } from "@tui/context/theme"
 import { entries, filter, flatMap, groupBy, pipe, take } from "remeda"
-import { batch, createEffect, createMemo, For, Show, type JSX, on } from "solid-js"
+import { batch, createEffect, createMemo, For, onCleanup, Show, type JSX, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import * as fuzzysort from "fuzzysort"
@@ -20,6 +20,7 @@ export interface DialogSelectProps<T> {
   onFilter?: (query: string) => void
   onSelect?: (option: DialogSelectOption<T>) => void
   skipFilter?: boolean
+  getOptionKey?: (option: DialogSelectOption<T>, index: number) => string
   keybind?: {
     keybind?: Keybind.Info
     title: string
@@ -29,7 +30,7 @@ export interface DialogSelectProps<T> {
   current?: T
 }
 
-export interface DialogSelectOption<T = any> {
+export interface DialogSelectOption<T = unknown> {
   title: string
   value: T
   description?: string
@@ -121,14 +122,35 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
 
   const dimensions = useTerminalDimensions()
   const height = createMemo(() =>
-    Math.min(flat().length + grouped().length * 2 - 1, Math.floor(dimensions().height / 2) - 6),
+    Math.max(1, Math.min(flat().length + grouped().length * 2 - 1, Math.floor(dimensions().height / 2) - 6)),
   )
 
   const selected = createMemo(() => flat()[store.selected])
 
+  const optionIDs = createMemo(() =>
+    flat().map((option, index) => {
+      const key = props.getOptionKey?.(option, index)
+      return key ? `dialog-select-option-${index}-${key}` : `dialog-select-option-${index}`
+    }),
+  )
+
+  function optionIndex(option: DialogSelectOption<T>) {
+    return flat().indexOf(option)
+  }
+
+  function optionID(index: number) {
+    return optionIDs()[index] ?? `dialog-select-option-${index}`
+  }
+
+  function clampIndex(index: number) {
+    const length = flat().length
+    if (length === 0) return 0
+    return Math.max(0, Math.min(index, length - 1))
+  }
+
   createEffect(
     on([() => store.filter, () => props.current], ([filter, current]) => {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (filter.length > 0) {
           moveTo(0, true)
         } else if (current) {
@@ -138,23 +160,35 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           }
         }
       }, 0)
+      onCleanup(() => clearTimeout(timer))
     }),
   )
 
-  function move(direction: number) {
+  function move(direction: number, wrap = true) {
     if (flat().length === 0) return
     let next = store.selected + direction
-    if (next < 0) next = flat().length - 1
-    if (next >= flat().length) next = 0
+    if (wrap) {
+      if (next < 0) next = flat().length - 1
+      if (next >= flat().length) next = 0
+    } else {
+      next = clampIndex(next)
+    }
     moveTo(next)
   }
 
   function moveTo(next: number, center = false) {
-    setStore("selected", next)
-    props.onMove?.(selected()!)
+    if (flat().length === 0) {
+      setStore("selected", 0)
+      return
+    }
+    const index = clampIndex(next)
+    const option = flat()[index]
+    if (!option) return
+    setStore("selected", index)
+    props.onMove?.(option)
     if (!scroll) return
     const target = scroll.getChildren().find((child) => {
-      return child.id === JSON.stringify(selected()?.value)
+      return child.id === optionID(index)
     })
     if (!target) return
     const y = target.y - scroll.y
@@ -178,12 +212,26 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   useKeyboard((evt) => {
     setStore("input", "keyboard")
 
+    const handledNavigation =
+      evt.name === "up" ||
+      evt.name === "down" ||
+      evt.name === "pageup" ||
+      evt.name === "pagedown" ||
+      evt.name === "home" ||
+      evt.name === "end" ||
+      (evt.ctrl && (evt.name === "p" || evt.name === "n"))
+
     if (evt.name === "up" || (evt.ctrl && evt.name === "p")) move(-1)
     if (evt.name === "down" || (evt.ctrl && evt.name === "n")) move(1)
-    if (evt.name === "pageup") move(-10)
-    if (evt.name === "pagedown") move(10)
+    if (evt.name === "pageup") move(-10, false)
+    if (evt.name === "pagedown") move(10, false)
     if (evt.name === "home") moveTo(0)
     if (evt.name === "end") moveTo(flat().length - 1)
+
+    if (handledNavigation) {
+      evt.preventDefault()
+      evt.stopPropagation()
+    }
 
     if (evt.name === "return") {
       const option = selected()
@@ -202,6 +250,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         const s = selected()
         if (s) {
           evt.preventDefault()
+          evt.stopPropagation()
           item.onTrigger(s)
         }
       }
@@ -220,6 +269,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   props.ref?.(ref)
 
   const keybinds = createMemo(() => props.keybind?.filter((x) => !x.disabled && x.keybind) ?? [])
+  let inputFocusTimer: ReturnType<typeof setTimeout> | undefined
+  onCleanup(() => {
+    if (inputFocusTimer) clearTimeout(inputFocusTimer)
+  })
 
   return (
     <box gap={1} paddingBottom={1}>
@@ -243,7 +296,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
             focusedTextColor={theme.textMuted}
             ref={(r) => {
               input = r
-              setTimeout(() => {
+              if (inputFocusTimer) clearTimeout(inputFocusTimer)
+              inputFocusTimer = setTimeout(() => {
                 if (!input.isDestroyed) input.focus()
               }, 1)
             }}
@@ -282,7 +336,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                     const current = createMemo(() => isDeepEqual(option.value, props.current))
                     return (
                       <box
-                        id={JSON.stringify(option.value)}
+                        id={optionID(optionIndex(option))}
                         flexDirection="row"
                         onMouseMove={() => {
                           setStore("input", "mouse")
@@ -293,12 +347,12 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                         }}
                         onMouseOver={() => {
                           if (store.input !== "mouse") return
-                          const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
+                          const index = optionIndex(option)
                           if (index === -1) return
                           moveTo(index)
                         }}
                         onMouseDown={() => {
-                          const index = flat().findIndex((x) => isDeepEqual(x.value, option.value))
+                          const index = optionIndex(option)
                           if (index === -1) return
                           moveTo(index)
                         }}

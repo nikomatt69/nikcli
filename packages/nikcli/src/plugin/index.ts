@@ -20,6 +20,7 @@ import { CopilotAuthPlugin } from "./github-copilot/copilot"
 import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
+import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -588,7 +589,7 @@ export namespace Plugin {
   const BUILTIN: string[] = []
 
   // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, NotifyPlugin]
+  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, CloudflareWorkersAuthPlugin, CloudflareAIGatewayAuthPlugin, NotifyPlugin]
 
   const state = Instance.state(async () => {
     const { Server } = await import("../server/server")

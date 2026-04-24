@@ -16,6 +16,7 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
       config: {
         type: "worktree",
         directory: next.directory,
+        eventLimit: _from.eventLimit,
       },
       init: async () => {},
     }

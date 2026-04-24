@@ -5,6 +5,7 @@ import { Log } from "@/util/log"
 import { lazy } from "@/util/lazy"
 import { Identifier } from "@/id/id"
 import z from "zod"
+import { Lock } from "@/util/lock"
 
 // Compaction settings
 const MAX_EVENTS_PER_AGGREGATE = 1000
@@ -118,7 +119,7 @@ export namespace SyncStorage {
 
   const storage = lazy(async () => {
     const dir = path.join(Global.Path.data, "sync")
-    await Bun.write(dir, "")
+    await fs.mkdir(dir, { recursive: true })
     return { dir }
   })
 
@@ -174,7 +175,7 @@ export namespace SyncStorage {
    * Append event with compaction and atomic write.
    * Compacts events when aggregate exceeds MAX_EVENTS_PER_AGGREGATE.
    */
-  export async function appendEvent(projectID: string, event: SyncEventRecord): Promise<void> {
+  async function appendEventUnlocked(projectID: string, event: SyncEventRecord): Promise<void> {
     let events = await loadEvents(projectID)
     events.push(event)
 
@@ -199,6 +200,23 @@ export namespace SyncStorage {
     await saveSequence(projectID, sequence)
 
     log.debug("event appended", { projectID, type: event.type, aggregate: event.aggregate, seq: event.seq })
+  }
+
+  export async function appendEvent(projectID: string, event: SyncEventRecord): Promise<void> {
+    using _ = await Lock.write(`sync-storage:${projectID}`)
+    await appendEventUnlocked(projectID, event)
+  }
+
+  export async function reserveSeqAndAppend(
+    projectID: string,
+    aggregate: string,
+    create: (seq: number) => SyncEventRecord,
+  ): Promise<SyncEventRecord> {
+    using _ = await Lock.write(`sync-storage:${projectID}`)
+    const seq = (await getLatestSeq(projectID, aggregate)) + 1
+    const record = create(seq)
+    await appendEventUnlocked(projectID, record)
+    return record
   }
 
   export async function getEvents(projectID: string, aggregate: string, fromSeq?: number): Promise<SyncEventRecord[]> {
@@ -253,18 +271,15 @@ export namespace Sync {
       throw new Error(`Event data missing aggregate field: ${eventDef.aggregate}`)
     }
 
-    const seq = (await SyncStorage.getLatestSeq(projectID, aggregate)) + 1
-    const record: SyncEventRecord = {
+    const record = await SyncStorage.reserveSeqAndAppend(projectID, aggregate, (seq) => ({
       id: Identifier.ascending("sync"),
       aggregate,
       seq,
       type: eventDef.type,
       data: parsed,
       timestamp: Date.now(),
-    }
-
-    await SyncStorage.appendEvent(projectID, record)
-    log.info("event emitted", { projectID, type: eventDef.type, aggregate, seq })
+    }))
+    log.info("event emitted", { projectID, type: eventDef.type, aggregate, seq: record.seq })
 
     return record
   }

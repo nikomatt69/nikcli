@@ -7,6 +7,7 @@ import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
+import { Provider } from "@/provider/provider"
 
 export namespace Routine {
   const log = Log.create({ service: "routine" })
@@ -37,6 +38,12 @@ export namespace Routine {
       name: z.string(),
       prompt: z.string(),
       triggers: z.array(Trigger),
+      model: z
+        .object({
+          providerID: z.string(),
+          modelID: z.string(),
+        })
+        .optional(),
       paused: z.boolean(),
       projectID: z.string(),
       directory: z.string(),
@@ -52,6 +59,12 @@ export namespace Routine {
       name: z.string().trim().min(1),
       prompt: z.string().trim().min(1),
       triggers: z.array(Trigger).optional(),
+      model: z
+        .object({
+          providerID: z.string(),
+          modelID: z.string(),
+        })
+        .optional(),
     })
     .meta({ ref: "RoutineCreateInput" })
 
@@ -84,6 +97,8 @@ export namespace Routine {
 
   // ── Cron interval parser ───────────────────────────────────────────────────
 
+  export const SUPPORTED_CRON_HELP = "Supported schedules: @hourly, @daily, @weekly, */N minutes, or 0 */N * * * hours."
+
   export function parseCronInterval(cron: string): number | null {
     const trimmed = cron.trim()
 
@@ -108,14 +123,34 @@ export namespace Routine {
     return null
   }
 
+  function validateTriggers(triggers: Trigger[]) {
+    for (const trigger of triggers) {
+      if (trigger.type === "schedule" && trigger.enabled && !parseCronInterval(trigger.cron)) {
+        throw new Error(`Unsupported cron pattern "${trigger.cron}". ${SUPPORTED_CRON_HELP}`)
+      }
+    }
+  }
+
   // ── Scheduler helpers ──────────────────────────────────────────────────────
+
+  function schedulerID(id: string) {
+    return `routine-${id}`
+  }
+
+  function unregisterScheduler(id: string) {
+    Scheduler.unregister(schedulerID(id), "instance")
+  }
 
   function registerScheduler(routine: Record) {
     const scheduleTrigger = routine.triggers.find((t): t is TriggerSchedule => t.type === "schedule" && t.enabled)
-    if (!scheduleTrigger || routine.paused) return
+    if (!scheduleTrigger || routine.paused) {
+      unregisterScheduler(routine.id)
+      return
+    }
 
     const intervalMs = parseCronInterval(scheduleTrigger.cron)
     if (!intervalMs) {
+      unregisterScheduler(routine.id)
       log.warn("unrecognized cron pattern, skipping scheduler registration", {
         id: routine.id,
         cron: scheduleTrigger.cron,
@@ -126,7 +161,7 @@ export namespace Routine {
     log.info("registering scheduler", { id: routine.id, cron: scheduleTrigger.cron, intervalMs })
 
     Scheduler.register({
-      id: `routine-${routine.id}`,
+      id: schedulerID(routine.id),
       interval: intervalMs,
       scope: "instance",
       skipInitialRun: true,
@@ -165,9 +200,16 @@ export namespace Routine {
 
     // Auto-inject an API trigger token if none supplied
     const triggers: Trigger[] = input.triggers ?? []
+    validateTriggers(triggers)
     const hasApiTrigger = triggers.some((t) => t.type === "api")
     if (!hasApiTrigger) {
       triggers.push({ type: "api", token: generateApiToken(), enabled: false })
+    }
+
+    // Capture the default model if not explicitly provided
+    let model: Record["model"] = input.model
+    if (!model) {
+      model = await Provider.defaultModel()
     }
 
     const record: Record = {
@@ -175,6 +217,7 @@ export namespace Routine {
       name: input.name,
       prompt: input.prompt,
       triggers,
+      model,
       paused: false,
       projectID: Instance.project.id,
       directory: Instance.directory,
@@ -189,11 +232,13 @@ export namespace Routine {
   }
 
   export async function update(id: string, input: UpdateInput): Promise<Record> {
+    if (input.triggers) validateTriggers(input.triggers)
     const record = await Storage.update<Record>(key(id), (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.prompt !== undefined) draft.prompt = input.prompt
       if (input.triggers !== undefined) draft.triggers = input.triggers
       if (input.paused !== undefined) draft.paused = input.paused
+      if (input.model !== undefined) draft.model = input.model
       draft.updatedAt = Date.now()
     })
     registerScheduler(record)
@@ -201,6 +246,7 @@ export namespace Routine {
   }
 
   export async function remove(id: string): Promise<void> {
+    unregisterScheduler(id)
     await Storage.remove(key(id))
     log.info("removed", { id })
   }
@@ -215,16 +261,25 @@ export namespace Routine {
 
   // ── Run ────────────────────────────────────────────────────────────────────
 
-  export async function run(id: string): Promise<Session.Info> {
+  export async function run(
+    id: string,
+    input?: { text?: string; model?: { providerID: string; modelID: string } },
+  ): Promise<Session.Info> {
     const routine = await get(id)
-    log.info("running", { id, name: routine.name })
+    log.info("running", { id, name: routine.name, model: input?.model ?? routine.model })
 
     const session = await Session.create({ title: `Routine: ${routine.name}` })
+    const text = input?.text?.trim()
+    const prompt = text ? `${routine.prompt}\n\nRun context:\n${text}` : routine.prompt
+
+    // Resolve the model to use: input > routine record > global default
+    const modelToUse = input?.model ?? routine.model ?? (await Provider.defaultModel())
 
     // Fire-and-forget the prompt — the route caller can track via the session ID
     void SessionPrompt.prompt({
       sessionID: session.id,
-      parts: [{ type: "text", text: routine.prompt }],
+      parts: [{ type: "text", text: prompt }],
+      model: modelToUse,
     })
 
     await Storage.update<Record>(key(id), (draft) => {

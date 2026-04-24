@@ -1746,7 +1746,7 @@ export namespace Config {
         throw new JsonError({ path: filepath }, { cause: err })
       })
 
-    const existing = parseConfig(before, filepath)
+    const existing = before.trim() ? parseConfig(before, filepath) : ({} as Info)
     await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
 
     global.reset()

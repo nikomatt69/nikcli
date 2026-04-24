@@ -50,6 +50,7 @@ import type {
   FilePartSource,
   FileReadResponses,
   FileStatusResponses,
+  FileWriteResponses,
   FindFilesResponses,
   FindSymbolsResponses,
   FindTextResponses,
@@ -147,8 +148,10 @@ import type {
   MobileRoutineResumeErrors,
   MobileRoutineResumeResponses,
   MobileRoutineRunErrors,
+  MobileRoutineRunInput,
   MobileRoutineRunResponses,
   MobileRoutineTriggerErrors,
+  MobileRoutineTriggerInput,
   MobileRoutineTriggerResponses,
   MobileRoutineUpdateErrors,
   MobileRoutineUpdateInput,
@@ -1158,6 +1161,7 @@ export class Workspace extends HeyApiClient {
         | {
             directory: string
             type: "worktree"
+            eventLimit?: number
           }
         | {
             directory: string
@@ -1167,6 +1171,7 @@ export class Workspace extends HeyApiClient {
             containerName: string
             port: number
             serverUrl: string
+            eventLimit?: number
           }
     },
     options?: Options<never, ThrowOnError>,
@@ -5034,6 +5039,7 @@ export class Routine extends HeyApiClient {
       id: string
       directory?: string
       workspace?: string
+      mobileRoutineRunInput?: MobileRoutineRunInput
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -5045,6 +5051,7 @@ export class Routine extends HeyApiClient {
             { in: "path", key: "id" },
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { key: "mobileRoutineRunInput", map: "body" },
           ],
         },
       ],
@@ -5053,6 +5060,11 @@ export class Routine extends HeyApiClient {
       url: "/mobile/routines/{id}/run",
       ...options,
       ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 
@@ -5125,13 +5137,14 @@ export class Routine extends HeyApiClient {
   /**
    * API trigger
    *
-   * Trigger a routine via its API token. No Bearer auth required — the token in the path authenticates the request.
+   * Trigger a routine via its API token. Accepts the token in the path or Authorization: Bearer header.
    */
   public trigger<ThrowOnError extends boolean = false>(
     parameters: {
       token: string
       directory?: string
       workspace?: string
+      mobileRoutineTriggerInput?: MobileRoutineTriggerInput
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -5143,6 +5156,7 @@ export class Routine extends HeyApiClient {
             { in: "path", key: "token" },
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
+            { key: "mobileRoutineTriggerInput", map: "body" },
           ],
         },
       ],
@@ -5155,6 +5169,11 @@ export class Routine extends HeyApiClient {
       url: "/mobile/routines/trigger/{token}",
       ...options,
       ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 }
@@ -5417,6 +5436,45 @@ export class File extends HeyApiClient {
       url: "/file/content",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Write file
+   *
+   * Write content to a specified file within the project directory.
+   */
+  public write<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      path?: string
+      content?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "path" },
+            { in: "body", key: "content" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<FileWriteResponses, unknown, ThrowOnError>({
+      url: "/file/content",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

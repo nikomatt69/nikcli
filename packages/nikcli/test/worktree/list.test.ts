@@ -40,3 +40,13 @@ describe("Worktree.list", () => {
     })
   })
 })
+
+describe("Worktree safety", () => {
+  it("detects directories inside the managed worktree root", () => {
+    const root = path.join(testHome, "managed")
+
+    expect(Worktree.isManagedDirectory(path.join(root, "feature"), root)).toBe(true)
+    expect(Worktree.isManagedDirectory(root, root)).toBe(false)
+    expect(Worktree.isManagedDirectory(path.join(testHome, "outside"), root)).toBe(false)
+  })
+})

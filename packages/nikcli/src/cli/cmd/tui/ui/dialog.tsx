@@ -1,14 +1,31 @@
 import { useKeyboard, useRenderer, useTerminalDimensions, useTimeline } from "@opentui/solid"
-import { batch, createContext, createSignal, onMount, Show, useContext, type JSX, type ParentProps } from "solid-js"
+import {
+  batch,
+  createContext,
+  createSignal,
+  onCleanup,
+  onMount,
+  Show,
+  useContext,
+  type JSX,
+  type ParentProps,
+} from "solid-js"
 import { useTheme } from "@tui/context/theme"
 import { Renderable, RGBA } from "@opentui/core"
 import { createStore } from "solid-js/store"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "./toast"
 
+export type DialogSize = "medium" | "large" | "xlarge"
+type DialogElement = JSX.Element | (() => JSX.Element)
+type DialogEntry = {
+  element: DialogElement
+  onClose?: () => void
+}
+
 export function Dialog(
   props: ParentProps<{
-    size?: "medium" | "large" | "xlarge"
+    size?: DialogSize
     onClose: () => void
   }>,
 ) {
@@ -28,9 +45,9 @@ export function Dialog(
 
   const width = () => {
     const dims = dimensions()
-    if (props.size === "xlarge") return Math.min(116, dims.width - 8)
-    if (props.size === "large") return Math.min(88, dims.width - 6)
-    return Math.min(60, dims.width - 4)
+    if (props.size === "xlarge") return Math.min(116, Math.max(1, dims.width - 8))
+    if (props.size === "large") return Math.min(88, Math.max(1, dims.width - 6))
+    return Math.min(60, Math.max(1, dims.width - 4))
   }
 
   return (
@@ -54,7 +71,7 @@ export function Dialog(
           e.stopPropagation()
         }}
         width={width()}
-        maxWidth={dimensions().width - 4}
+        maxWidth={Math.max(1, dimensions().width - 4)}
         backgroundColor={theme.backgroundPanel}
         paddingTop={1}
         paddingBottom={1}
@@ -69,28 +86,51 @@ export function Dialog(
 
 function init() {
   const [store, setStore] = createStore({
-    stack: [] as {
-      element: JSX.Element
-      onClose?: () => void
-    }[],
-    size: "medium" as "medium" | "large" | "xlarge",
+    stack: [] as DialogEntry[],
+    size: "medium" as DialogSize,
   })
+
+  function closeCallbacks() {
+    return store.stack.map((item) => item.onClose).filter((callback): callback is () => void => Boolean(callback))
+  }
+
+  function runCloseCallbacks(callbacks: (() => void)[]) {
+    for (const callback of callbacks) {
+      callback()
+    }
+  }
+
+  function closeTop() {
+    const current = store.stack.at(-1)
+    if (!current) return
+    const next = store.stack.slice(0, -1)
+    batch(() => {
+      if (next.length === 0) setStore("size", "medium")
+      setStore("stack", next)
+    })
+    current.onClose?.()
+    refocus()
+  }
 
   useKeyboard((evt) => {
     if ((evt.name === "escape" || (evt.ctrl && evt.name === "c")) && store.stack.length > 0) {
-      const current = store.stack.at(-1)!
-      current.onClose?.()
-      setStore("stack", store.stack.slice(0, -1))
+      closeTop()
       evt.preventDefault()
       evt.stopPropagation()
-      refocus()
     }
   })
 
   const renderer = useRenderer()
   let focus: Renderable | null
+  let refocusTimer: ReturnType<typeof setTimeout> | undefined
+
+  onCleanup(() => {
+    if (refocusTimer) clearTimeout(refocusTimer)
+  })
+
   function refocus() {
-    setTimeout(() => {
+    if (refocusTimer) clearTimeout(refocusTimer)
+    refocusTimer = setTimeout(() => {
       if (!focus) return
       if (focus.isDestroyed) return
       function find(item: Renderable) {
@@ -109,20 +149,18 @@ function init() {
   return {
     clear() {
       // Collect onClose callbacks BEFORE updating store to avoid recursion
-      const callbacks = store.stack.map((item) => item.onClose).filter(Boolean)
+      const callbacks = closeCallbacks()
       batch(() => {
         setStore("size", "medium")
         setStore("stack", [])
       })
       // Call onClose callbacks AFTER store update to prevent recursive loops
-      for (const callback of callbacks) {
-        callback!()
-      }
+      runCloseCallbacks(callbacks)
       refocus()
     },
-    replace(input: any, onClose?: () => void) {
+    replace(input: DialogElement, onClose?: () => void) {
       // Collect onClose callbacks BEFORE updating store to avoid recursion
-      const callbacks = store.stack.map((item) => item.onClose).filter(Boolean)
+      const callbacks = closeCallbacks()
       if (store.stack.length === 0) {
         focus = renderer.currentFocusedRenderable
         focus?.blur()
@@ -137,9 +175,7 @@ function init() {
         ])
       })
       // Call onClose callbacks AFTER store update to prevent recursive loops
-      for (const callback of callbacks) {
-        callback!()
-      }
+      runCloseCallbacks(callbacks)
     },
     get stack() {
       return store.stack
@@ -147,10 +183,14 @@ function init() {
     get size() {
       return store.size
     },
-    setSize(size: "medium" | "large" | "xlarge") {
+    setSize(size: DialogSize) {
       setStore("size", size)
     },
   }
+}
+
+function DialogContent(props: { entry: DialogEntry }) {
+  return <>{typeof props.entry.element === "function" ? props.entry.element() : props.entry.element}</>
 }
 
 export type DialogContext = ReturnType<typeof init>
@@ -178,7 +218,7 @@ export function DialogProvider(props: ParentProps) {
       >
         <Show when={value.stack.length}>
           <Dialog onClose={() => value.clear()} size={value.size}>
-            {value.stack.at(-1)!.element}
+            <DialogContent entry={value.stack.at(-1)!} />
           </Dialog>
         </Show>
       </box>

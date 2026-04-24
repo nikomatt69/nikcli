@@ -733,13 +733,13 @@ export namespace Provider {
         },
         experimentalOver200K: model.cost?.context_over_200k
           ? {
-            cache: {
-              read: model.cost.context_over_200k.cache_read ?? 0,
-              write: model.cost.context_over_200k.cache_write ?? 0,
-            },
-            input: model.cost.context_over_200k.input,
-            output: model.cost.context_over_200k.output,
-          }
+              cache: {
+                read: model.cost.context_over_200k.cache_read ?? 0,
+                write: model.cost.context_over_200k.cache_write ?? 0,
+              },
+              input: model.cost.context_over_200k.input,
+              output: model.cost.context_over_200k.output,
+            }
           : undefined,
       },
       limit: {
@@ -1037,12 +1037,7 @@ export namespace Provider {
       provider.models = await p
         .models(provider, { auth: pluginAuth ?? undefined })
         .then((next) =>
-          Object.fromEntries(
-            Object.entries(next).map(([id, model]) => [
-              id,
-              { ...model, id, providerID: p.id },
-            ]),
-          ),
+          Object.fromEntries(Object.entries(next).map(([id, model]) => [id, { ...model, id, providerID: p.id }])),
         )
         .catch((e) => {
           log.warn("plugin provider.models failed", { id: p.id, error: e })
@@ -1474,20 +1469,15 @@ export namespace Provider {
     )
   }
 
+  // Hardcoded default model — used when config.model is not set
+  const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M2.7"
+
   export async function defaultModel() {
     const cfg = await Config.get()
     if (cfg.model) return parseModel(cfg.model)
 
-    const provider = await list()
-      .then((val) => Object.values(val))
-      .then((x) => x.find((p) => !cfg.provider || Object.keys(cfg.provider).includes(p.id)))
-    if (!provider) throw new Error("no providers found")
-    const [model] = sort(Object.values(provider.models))
-    if (!model) throw new Error("no models found")
-    return {
-      providerID: provider.id,
-      modelID: model.id,
-    }
+    // Return the hardcoded default
+    return parseModel(DEFAULT_MODEL)
   }
 
   export function parseModel(model: string) {

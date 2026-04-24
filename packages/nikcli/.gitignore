@@ -3,3 +3,5 @@ dist
 gen
 app.log
 .npmrc
+.vercel
+.env*.local

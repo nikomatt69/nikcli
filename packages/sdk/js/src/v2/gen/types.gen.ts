@@ -2642,6 +2642,7 @@ export type Workspace = {
     | {
         directory: string
         type: "worktree"
+        eventLimit?: number
       }
     | {
         directory: string
@@ -2651,6 +2652,7 @@ export type Workspace = {
         containerName: string
         port: number
         serverUrl: string
+        eventLimit?: number
       }
 }
 
@@ -2999,6 +3001,10 @@ export type MobileRoutine = {
   name: string
   prompt: string
   triggers: Array<RoutineTrigger>
+  model?: {
+    providerID: string
+    modelID: string
+  }
   paused: boolean
   projectID: string
   directory: string
@@ -3012,13 +3018,29 @@ export type MobileRoutineCreateInput = {
   name: string
   prompt: string
   triggers?: Array<RoutineTrigger>
+  model?: {
+    providerID: string
+    modelID: string
+  }
 }
 
 export type MobileRoutineUpdateInput = {
   name?: string
   prompt?: string
   triggers?: Array<RoutineTrigger>
+  model?: {
+    providerID: string
+    modelID: string
+  }
   paused?: boolean
+}
+
+export type MobileRoutineRunInput = {
+  text?: string
+}
+
+export type MobileRoutineTriggerInput = {
+  text?: string
 }
 
 export type Symbol = {
@@ -3838,6 +3860,7 @@ export type ExperimentalWorkspaceCreateData = {
       | {
           directory: string
           type: "worktree"
+          eventLimit?: number
         }
       | {
           directory: string
@@ -3847,6 +3870,7 @@ export type ExperimentalWorkspaceCreateData = {
           containerName: string
           port: number
           serverUrl: string
+          eventLimit?: number
         }
   }
   path: {
@@ -7324,7 +7348,7 @@ export type MobileRoutineUpdateResponses = {
 export type MobileRoutineUpdateResponse = MobileRoutineUpdateResponses[keyof MobileRoutineUpdateResponses]
 
 export type MobileRoutineRunData = {
-  body?: never
+  body?: MobileRoutineRunInput
   path: {
     id: string
   }
@@ -7426,7 +7450,7 @@ export type MobileRoutineResumeResponses = {
 export type MobileRoutineResumeResponse = MobileRoutineResumeResponses[keyof MobileRoutineResumeResponses]
 
 export type MobileRoutineTriggerData = {
-  body?: never
+  body?: MobileRoutineTriggerInput
   path: {
     token: string
   }
@@ -7577,6 +7601,30 @@ export type FileReadResponses = {
 }
 
 export type FileReadResponse = FileReadResponses[keyof FileReadResponses]
+
+export type FileWriteData = {
+  body?: {
+    path: string
+    content: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/file/content"
+}
+
+export type FileWriteResponses = {
+  /**
+   * Write result
+   */
+  200: {
+    success: boolean
+  }
+}
+
+export type FileWriteResponse = FileWriteResponses[keyof FileWriteResponses]
 
 export type FileStatusData = {
   body?: never

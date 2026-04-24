@@ -7,6 +7,7 @@ import type { Config } from "./config"
 
 export namespace WorkspaceDB {
   const log = Log.create({ service: "workspace-db" })
+  export const DEFAULT_EVENT_LIMIT = 200
 
   export type Row = {
     id: string
@@ -15,6 +16,7 @@ export namespace WorkspaceDB {
     config: Config
     status?: string
     events?: unknown[]
+    eventLimit?: number
     created_at: number
     updated_at: number
   }
@@ -39,6 +41,7 @@ export namespace WorkspaceDB {
     config: string
     status: string | null
     events: string | null
+    event_limit: number | null
     created_at: number
     updated_at: number
   }
@@ -80,6 +83,10 @@ export namespace WorkspaceDB {
     if (!names.has("events")) {
       database.exec("ALTER TABLE workspace ADD COLUMN events TEXT")
     }
+
+    if (!names.has("event_limit")) {
+      database.exec("ALTER TABLE workspace ADD COLUMN event_limit INTEGER")
+    }
   }
 
   function rowToInfo(row: DbRow): Info {
@@ -91,10 +98,11 @@ export namespace WorkspaceDB {
     }
   }
 
-  function rowToState(row: Pick<DbRow, "status" | "events"> | null | undefined): State {
+  function rowToState(row: Pick<DbRow, "status" | "events" | "event_limit"> | null | undefined): State {
     return {
       status: row?.status ?? undefined,
       events: row?.events ? ((JSON.parse(row.events) as unknown[]) ?? []) : [],
+      eventLimit: row?.event_limit ?? undefined,
     }
   }
 
@@ -111,9 +119,9 @@ export namespace WorkspaceDB {
   }
 
   export function getState(id: string): State {
-    const row = db().query("SELECT status, events FROM workspace WHERE id = ?").get(id) as Pick<
+    const row = db().query("SELECT status, events, event_limit FROM workspace WHERE id = ?").get(id) as Pick<
       DbRow,
-      "status" | "events"
+      "status" | "events" | "event_limit"
     > | null
     return rowToState(row)
   }
@@ -146,22 +154,27 @@ export namespace WorkspaceDB {
     const next: State = {
       status: state.status ?? current.status,
       events: state.events ?? current.events,
+      eventLimit: state.eventLimit ?? current.eventLimit,
     }
 
     db().run(
       `UPDATE workspace
-         SET status = ?, events = ?, updated_at = ?
+         SET status = ?, events = ?, event_limit = ?, updated_at = ?
        WHERE id = ?`,
-      [next.status ?? null, JSON.stringify(next.events ?? []), Date.now(), id],
+      [next.status ?? null, JSON.stringify(next.events ?? []), next.eventLimit ?? null, Date.now(), id],
     )
 
     return next
   }
 
+  export function applyEventLimit(events: unknown[], event: unknown, eventLimit?: number): unknown[] {
+    const limit = eventLimit ?? DEFAULT_EVENT_LIMIT
+    return [...events, event].slice(-limit)
+  }
+
   export function appendEvent(id: string, event: unknown): State | undefined {
     const state = getState(id)
-    const limit = state.eventLimit ?? 200
-    const events = [...state.events, event].slice(-limit)
+    const events = applyEventLimit(state.events, event, state.eventLimit)
     return updateState(id, { events })
   }
 
@@ -189,9 +202,17 @@ export namespace WorkspaceDB {
         if (already) continue
         const now = Date.now()
         db().run(
-          `INSERT OR IGNORE INTO workspace (id, project_id, branch, config, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [row.id, row.projectID, row.branch ?? null, JSON.stringify(row.config), now, now],
+          `INSERT OR IGNORE INTO workspace (id, project_id, branch, config, event_limit, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            row.id,
+            row.projectID,
+            row.branch ?? null,
+            JSON.stringify(row.config),
+            row.config.eventLimit ?? null,
+            now,
+            now,
+          ],
         )
         imported++
       }

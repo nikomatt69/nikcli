@@ -280,6 +280,8 @@ const MobileMemorySearchHit = z
 const MobileRoutine = Routine.Record.meta({ ref: "MobileRoutine" })
 const MobileRoutineCreateInput = Routine.CreateInput.meta({ ref: "MobileRoutineCreateInput" })
 const MobileRoutineUpdateInput = Routine.UpdateInput.meta({ ref: "MobileRoutineUpdateInput" })
+const MobileRoutineRunInput = z.object({ text: z.string().optional() }).meta({ ref: "MobileRoutineRunInput" })
+const MobileRoutineTriggerInput = z.object({ text: z.string().optional() }).meta({ ref: "MobileRoutineTriggerInput" })
 
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
@@ -2982,12 +2984,14 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       validator("param", z.object({ id: z.string() })),
+      validator("json", MobileRoutineRunInput.optional()),
       async (c) => {
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
             const { id } = c.req.valid("param")
-            const session = await Routine.run(id)
+            const body = c.req.valid("json")
+            const session = await Routine.run(id, { text: body?.text })
             return c.json(session)
           },
         })
@@ -3048,7 +3052,7 @@ export const MobileRoutes = lazy(() =>
       describeRoute({
         summary: "API trigger",
         description:
-          "Trigger a routine via its API token. No Bearer auth required — the token in the path authenticates the request.",
+          "Trigger a routine via its API token. Accepts the token in the path or Authorization: Bearer header.",
         operationId: "mobile.routine.trigger",
         responses: {
           200: {
@@ -3059,16 +3063,21 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       validator("param", z.object({ token: z.string() })),
+      validator("json", MobileRoutineTriggerInput.optional()),
       async (c) => {
         return Instance.provide({
           directory: Instance.directory,
           async fn() {
-            const { token } = c.req.valid("param")
+            const { token: pathToken } = c.req.valid("param")
+            const authorization = c.req.header("authorization")
+            const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
+            const token = bearerToken || pathToken
+            const body = c.req.valid("json")
             const routine = await Routine.getByToken(token)
             if (!routine) {
               return c.json({ error: "Routine not found or API trigger disabled" }, 404)
             }
-            const session = await Routine.run(routine.id)
+            const session = await Routine.run(routine.id, { text: body?.text })
             return c.json(session)
           },
         })

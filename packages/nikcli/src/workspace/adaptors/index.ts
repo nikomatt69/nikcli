@@ -208,6 +208,7 @@ const ContainerAdaptor: Adaptor<ContainerConfig> = {
       containerName,
       port,
       serverUrl: `http://127.0.0.1:${port}`,
+      eventLimit: from.eventLimit,
     }
 
     return {

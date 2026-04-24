@@ -15,7 +15,7 @@ import {
 import "opentui-spinner/solid"
 import { useLocal } from "@tui/context/local"
 import { useTheme } from "@tui/context/theme"
-import { EmptyBorder } from "@tui/component/border"
+import { EmptyBorder, SplitBorder } from "@tui/component/border"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
@@ -27,11 +27,12 @@ import { usePromptStash } from "./stash"
 import { DialogStash } from "../dialog-stash"
 import { type AutocompleteRef, Autocomplete } from "./autocomplete"
 import { useCommandDialog } from "../dialog-command"
-import { useRenderer } from "@opentui/solid"
+import { useRenderer, useTerminalDimensions } from "@opentui/solid"
 import { Editor } from "@tui/util/editor"
 import { useExit } from "../../context/exit"
+import { useEditorContext } from "../../context/editor"
 import { Clipboard } from "../../util/clipboard"
-import type { FilePart } from "@nikcli-ai/sdk/v2"
+import type { AssistantMessage, FilePart } from "@nikcli-ai/sdk/v2"
 import { TuiEvent } from "../../event"
 import { iife } from "@/util/iife"
 import { Locale } from "@/util/locale"
@@ -55,7 +56,7 @@ import os from "os"
 import path from "path"
 import { rmSync } from "fs"
 import { Auth } from "@/auth"
-import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx";
+import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
 
 export type PromptProps = {
   sessionID?: string
@@ -80,6 +81,10 @@ export type PromptRef = {
 
 const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+})
 const VOICE_TRANSCRIBE_MODEL = "openai/gpt-audio-mini"
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 const SWIFT_MIC_PERMISSION_ERROR = "__NIKCLI_MIC_PERMISSION_DENIED__"
@@ -171,8 +176,32 @@ export function Prompt(props: PromptProps) {
   const stash = usePromptStash()
   const command = useCommandDialog()
   const renderer = useRenderer()
+  const dimensions = useTerminalDimensions()
   const { theme, syntax } = useTheme()
   const kv = useKV()
+  const editor = useEditorContext()
+  const editorPath = createMemo(() => editor.selection()?.filePath)
+  const editorSelectionLabel = createMemo(() => {
+    const selection = editor.selection()?.selection
+    if (!selection) return
+    if (selection.start.line === selection.end.line && selection.start.character === selection.end.character) return
+    if (selection.start.line === selection.end.line) return `#${selection.start.line}`
+    return `#${selection.start.line}-${selection.end.line}`
+  })
+  const editorFileLabel = createMemo(() => {
+    const value = editorPath()
+    if (!value) return
+    const filename = path.basename(value)
+    const file = /^index\.[^./]+$/.test(filename)
+      ? [path.basename(path.dirname(value)), filename].filter(Boolean).join("/")
+      : filename
+    return `${file.split(path.sep).join("/")}${editorSelectionLabel() ?? ""}`
+  })
+  const editorFileLabelDisplay = createMemo(() => {
+    const file = editorFileLabel()
+    if (!file) return
+    return Locale.truncateMiddle(file, Math.max(12, Math.min(48, Math.floor(dimensions().width / 3))))
+  })
   const ads = createMemo(() => sync.data.config.ads)
   const [currentAd, setCurrentAd] = createSignal<string | null>(null)
   const [voiceStatus, setVoiceStatus] = createSignal<"idle" | "recording" | "transcribing">("idle")
@@ -374,8 +403,8 @@ export function Prompt(props: PromptProps) {
 
     const baseURL = normalizeOpenRouterBaseURL(
       process.env.NIKCLI_OPENROUTER_BASE_URL ??
-      process.env.OPENROUTER_BASE_URL ??
-      (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
+        process.env.OPENROUTER_BASE_URL ??
+        (typeof providerOptions.baseURL === "string" ? providerOptions.baseURL : undefined),
     )
 
     return {
@@ -669,7 +698,7 @@ export function Prompt(props: PromptProps) {
       input.setText(nextInput)
       setStore("prompt", "input", nextInput)
       autocomplete.onInput(nextInput)
-      await Clipboard.copy(transcript).catch(() => { })
+      await Clipboard.copy(transcript).catch(() => {})
 
       setTimeout(() => {
         input.cursorOffset = nextInput.length
@@ -743,7 +772,7 @@ export function Prompt(props: PromptProps) {
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
     void sync.background.sync(props.sessionID)
-    dialog.replace(() => <DialogBgAgents sessionID={props.sessionID!} onOpenMonitor={() => { }} />)
+    dialog.replace(() => <DialogBgAgents sessionID={props.sessionID!} onOpenMonitor={() => {}} />)
   }
 
   // Surface completion with a toast, but do not steal focus from the user.
@@ -878,6 +907,25 @@ export function Prompt(props: PromptProps) {
     const messages = sync.data.message[props.sessionID]
     if (!messages) return undefined
     return messages.findLast((m) => m.role === "user")
+  })
+
+  const usage = createMemo(() => {
+    if (!props.sessionID) return
+    const msg = sync.data.message[props.sessionID] ?? []
+    const last = msg.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
+    if (!last) return
+
+    const tokens =
+      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    if (tokens <= 0) return
+
+    const model = sync.data.provider.find((item) => item.id === last.providerID)?.models[last.modelID]
+    const pct = model?.limit.context ? `${Math.round((tokens / model.limit.context) * 100)}%` : undefined
+    const cost = msg.reduce((sum, item) => sum + (item.role === "assistant" ? item.cost : 0), 0)
+    return {
+      context: pct ? `${Locale.number(tokens)} (${pct})` : Locale.number(tokens),
+      cost: cost > 0 ? money.format(cost) : undefined,
+    }
   })
 
   const [store, setStore] = createStore<{
@@ -1339,9 +1387,9 @@ export function Prompt(props: PromptProps) {
     const sessionID = props.sessionID
       ? props.sessionID
       : await (async () => {
-        const sessionID = await sdk.client.session.create({ workspaceID: props.workspaceID }).then((x) => x.data!.id)
-        return sessionID
-      })()
+          const sessionID = await sdk.client.session.create({ workspaceID: props.workspaceID }).then((x) => x.data!.id)
+          return sessionID
+        })()
     const messageID = Identifier.ascending("message")
     let inputText = store.prompt.input
 
@@ -1367,6 +1415,27 @@ export function Prompt(props: PromptProps) {
     // Capture mode before it gets reset
     const currentMode = store.mode
     const variant = local.model.variant.current()
+    const editorSelection = editor.selection()
+    const editorParts = editorSelection
+      ? [
+          {
+            id: Identifier.ascending("part"),
+            type: "text" as const,
+            text: (() => {
+              const start = editorSelection.selection.start
+              const end = editorSelection.selection.end
+              if (start.line === end.line && start.character === end.character) {
+                return `Note: The user opened the file "${editorSelection.filePath}".`
+              }
+              if (start.line === end.line) {
+                return `Note: The user selected line ${start.line} from  "${editorSelection.filePath}": ${editorSelection.text}`
+              }
+              return `Note: The user selected lines ${start.line} to ${end.line} from "${editorSelection.filePath}": ${editorSelection.text}`
+            })(),
+            synthetic: true,
+          },
+        ]
+      : []
 
     if (store.mode === "shell") {
       sdk.client.session.shell({
@@ -1419,6 +1488,7 @@ export function Prompt(props: PromptProps) {
           model: selectedModel,
           variant,
           parts: [
+            ...editorParts,
             {
               id: Identifier.ascending("part"),
               type: "text",
@@ -1430,7 +1500,7 @@ export function Prompt(props: PromptProps) {
             })),
           ],
         })
-        .catch(() => { })
+        .catch(() => {})
     }
     history.append({
       ...store.prompt,
@@ -1685,8 +1755,7 @@ export function Prompt(props: PromptProps) {
           border={["left"]}
           borderColor={highlight()}
           customBorderChars={{
-            ...EmptyBorder,
-            vertical: "┃",
+            ...SplitBorder.customBorderChars,
             bottomLeft: "╹",
           }}
         >
@@ -1842,7 +1911,7 @@ export function Prompt(props: PromptProps) {
                     // Handle SVG as raw text content, not as base64 image
                     if (file.type === "image/svg+xml") {
                       event.preventDefault()
-                      const content = await file.text().catch(() => { })
+                      const content = await file.text().catch(() => {})
                       if (content) {
                         pasteText(content, `[SVG: ${file.name ?? "image"}]`)
                         return
@@ -1853,7 +1922,7 @@ export function Prompt(props: PromptProps) {
                       const content = await file
                         .arrayBuffer()
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => { })
+                        .catch(() => {})
                       if (content) {
                         await pasteImage({
                           filename: file.name,
@@ -1863,7 +1932,7 @@ export function Prompt(props: PromptProps) {
                         return
                       }
                     }
-                  } catch { }
+                  } catch {}
                 }
 
                 const lineCount = (pastedContent.match(/\n/g)?.length ?? 0) + 1
@@ -1936,13 +2005,13 @@ export function Prompt(props: PromptProps) {
             customBorderChars={
               theme.backgroundElement.a !== 0
                 ? {
-                  ...EmptyBorder,
-                  horizontal: "▀",
-                }
+                    ...EmptyBorder,
+                    horizontal: "▀",
+                  }
                 : {
-                  ...EmptyBorder,
-                  horizontal: " ",
-                }
+                    ...EmptyBorder,
+                    horizontal: " ",
+                  }
             }
           />
         </box>
@@ -2106,16 +2175,16 @@ export function Prompt(props: PromptProps) {
                       : voiceStatus() === "transcribing"
                         ? "wait"
                         : (() => {
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const shortcut = keybind.print("voice_record" as any)
-                          return shortcut ? (
-                            <>
-                              ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
-                            </>
-                          ) : (
-                            "⏺"
-                          )
-                        })()}
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                            const shortcut = keybind.print("voice_record" as any)
+                            return shortcut ? (
+                              <>
+                                ⏺ <span style={{ fg: theme.textMuted }}>rec</span>
+                              </>
+                            ) : (
+                              "⏺"
+                            )
+                          })()}
                   </span>
                 </text>
               </box>
@@ -2138,14 +2207,29 @@ export function Prompt(props: PromptProps) {
                 <box gap={2} flexDirection="row">
                   <Switch>
                     <Match when={store.mode === "normal"}>
-                      <Show when={local.model.variant.list().length > 0}>
-                        <text fg={theme.text}>
-                          {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
-                        </text>
-                      </Show>
-                      <text fg={theme.text}>
-                        {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                      </text>
+                      <Switch>
+                        <Match when={usage()}>
+                          {(item) => (
+                            <text
+                              fg={theme.textMuted}
+                              wrapMode="none"
+                              onMouseUp={() => command.trigger("nikcli.usage")}
+                            >
+                              {[item().context, item().cost].filter(Boolean).join(" · ")}
+                            </text>
+                          )}
+                        </Match>
+                        <Match when={true}>
+                          <Show when={local.model.variant.list().length > 0}>
+                            <text fg={theme.text}>
+                              {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
+                            </text>
+                          </Show>
+                          <text fg={theme.text}>
+                            {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
+                          </text>
+                        </Match>
+                      </Switch>
                       <text fg={theme.text}>
                         {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
                       </text>
@@ -2158,6 +2242,7 @@ export function Prompt(props: PromptProps) {
                   </Switch>
                 </box>
               </Show>
+              <Show when={editorFileLabelDisplay()}>{(file) => <text fg={theme.secondary}>{file()}</text>}</Show>
             </box>
           </Show>
         </box>
