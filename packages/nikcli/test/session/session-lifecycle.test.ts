@@ -179,4 +179,25 @@ describe("session lifecycle", () => {
       await expect(Session.messages({ sessionID: foreignSessionID })).rejects.toThrow()
     })
   })
+
+  it("archives and unarchives a session", async () => {
+    await withProject(async () => {
+      const session = await createSession()
+      const now = Date.now()
+
+      // Archive the session
+      const archived = await Session.update(session.id, (draft) => {
+        draft.time.archived = now
+      })
+
+      expect(archived.time.archived).toBe(now)
+
+      // Unarchive by removing the archived timestamp
+      const unarchived = await Session.update(session.id, (draft) => {
+        draft.time.archived = undefined
+      })
+
+      expect(unarchived.time.archived).toBeUndefined()
+    })
+  })
 })

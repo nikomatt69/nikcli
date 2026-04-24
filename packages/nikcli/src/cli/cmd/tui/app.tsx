@@ -328,7 +328,7 @@ function App() {
             return
           }
           const title = state.title.length > 40 ? state.title.slice(0, 37) + "..." : state.title
-          renderer.setTerminalTitle(`OC | ${title}`)
+          renderer.setTerminalTitle(`Nikcli | ${title}`)
         }
       },
       { defer: true },
