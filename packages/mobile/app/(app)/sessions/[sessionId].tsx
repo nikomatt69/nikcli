@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, Ellipsis } from "lucide-react-native"
+import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
@@ -10,6 +10,7 @@ import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
 
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
+import { ComposerPermissionBar } from "@/components/session/ComposerPermissionBar"
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
 import { ComposerToolbar } from "@/components/session/ComposerToolbar"
@@ -993,6 +994,31 @@ export default function SessionScreen() {
               {sessionLocation}
             </Text>
           </View>
+          {/* File Explorer */}
+          <Pressable
+            onPress={() => {
+              const dir = detail?.info.github?.worktree.directory ?? detail?.info.directory ?? ""
+              if (!dir) return
+              void triggerHaptic("selection")
+              router.push({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              pathname: "/sessions/explorer" as any,
+                params: { sessionId, directory: dir },
+              })
+            }}
+            style={chromeButtonStyle}
+          >
+            <AdaptiveBlur
+              tint={isDark ? "dark" : "light"}
+              intensity={44}
+              style={StyleSheet.absoluteFill}
+              fallbackColor={chromeButtonFill}
+              pointerEvents="none"
+            />
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: chromeButtonOverlay }]} pointerEvents="none" />
+            <FolderOpen size={18} color={palette.ink} strokeWidth={2} />
+          </Pressable>
+
           <Pressable
             onPress={() => {
               void triggerHaptic("selection")
@@ -1134,6 +1160,11 @@ export default function SessionScreen() {
         tools={drawerTools}
         onSkillSelect={insertSlashCommand}
         onToolSelect={insertSlashCommand}
+      />
+
+      <ComposerPermissionBar
+        permissions={detail?.permissions ?? []}
+        onRespond={(id, response) => void respond(id, response)}
       />
 
       <SessionComposer

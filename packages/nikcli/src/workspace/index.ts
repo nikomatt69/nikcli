@@ -79,6 +79,7 @@ export namespace Workspace {
 
   const syncControllers = new Map<string, AbortController>()
   const connectionStatuses = new Map<string, ConnectionStatus>()
+  const startingSync = new Set<string>() // Mutex to prevent concurrent sync starts
   const RESTORE_EVENT_TYPES = new Set([
     "session.created",
     "session.updated",
@@ -169,6 +170,9 @@ export namespace Workspace {
   function startSpaceSync(space: Info) {
     if (space.config.type === "worktree") return
     if (syncControllers.has(space.id)) return
+    // Atomic check-and-set using starting mutex
+    if (startingSync.has(space.id)) return
+    startingSync.add(space.id)
 
     const stop = new AbortController()
     syncControllers.set(space.id, stop)
@@ -182,6 +186,7 @@ export namespace Workspace {
       })
       .finally(() => {
         if (syncControllers.get(space.id) === stop) syncControllers.delete(space.id)
+        startingSync.delete(space.id)
       })
   }
 
@@ -217,6 +222,7 @@ export namespace Workspace {
       WorkspaceDB.updateState(id, {
         status: info.config.type === "worktree" ? "connected" : "connecting",
         events: [],
+        eventLimit: info.config.eventLimit,
       })
       startSpaceSync(info)
 
@@ -338,6 +344,16 @@ export namespace Workspace {
       stopSpaceSync(id)
     }
   }
+
+  // Cleanup global state on process exit
+  function cleanup() {
+    log.info("cleanup: stopping all workspace sync loops")
+    stopAllSyncing()
+    connectionStatuses.clear()
+  }
+  process.on("beforeExit", cleanup)
+  process.on("SIGTERM", cleanup)
+  process.on("SIGINT", cleanup)
 
   /**
    * Ensures the workspace's event sync loop is running and resolves once the

@@ -1,3 +1,4 @@
+export { ComposerPermissionBar } from "./ComposerPermissionBar"
 export { SessionComposer } from "./SessionComposer"
 export type { SessionComposerProps } from "./SessionComposer"
 export { ComposerToolbar } from "./ComposerToolbar"

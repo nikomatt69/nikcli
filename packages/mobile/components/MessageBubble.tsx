@@ -14,6 +14,7 @@ import type {
   ToolPart,
 } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
+import { highlightCode } from "@/lib/syntax"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"
 import { triggerHaptic } from "@/lib/haptics"
@@ -74,78 +75,6 @@ function getLanguage(node: ASTNode): string {
   return info?.split(/\s+/)[0]?.toLowerCase() || "code"
 }
 
-function highlightCode(code: string): { text: string; color: string }[] {
-  const patterns: { regex: RegExp; color: string }[] = [
-    {
-      regex:
-        /\b(import|export|from|const|let|var|function|return|if|else|for|while|class|interface|type|extends|implements|async|await|try|catch|throw|new|this|static|public|private|protected|readonly|abstract|override|keyof|infer|never|unknown|any|void|null|undefined|true|false|switch|case|default|break|continue|typeof|instanceof|delete|in|of|yield|finally|do|as|is)\b/g,
-      color: "#ff79c6",
-    },
-    { regex: /("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)/g, color: "#50fa7b" },
-    { regex: /\/\/.*$/gm, color: "#6272a4" },
-    { regex: /\/\*[\s\S]*?\*\//g, color: "#6272a4" },
-    {
-      regex:
-        /\b(console|document|window|Math|Array|Object|String|Number|Boolean|Function|Symbol|Map|Set|Promise|setTimeout|setInterval|fetch|localStorage|sessionStorage|process|require|module|exports)\b/g,
-      color: "#ffb86c",
-    },
-    { regex: /\b[A-Z][a-zA-Z0-9]*\b/g, color: "#ffb86c" },
-    { regex: /\b\d+\.?\d*\b/g, color: "#bd93f9" },
-    { regex: /#[a-fA-F0-9]{3,8}\b/g, color: "#bd93f9" },
-    { regex: /=>|===|!==|&&|\|\||<=|>=|==|!=|\+\+|--|\+|-|\*|\/|%|\||&|\^|~|\?|:/g, color: "#8be9fd" },
-  ]
-
-  const result: { text: string; color: string }[] = []
-  const lines = code.split("\n")
-
-  lines.forEach((line, lineIndex) => {
-    let segments: { text: string; color: string }[] = [{ text: line, color: "#f8f8f2" }]
-
-    const matches: { start: number; end: number; text: string; color: string }[] = []
-
-    patterns.forEach(({ regex, color }) => {
-      let match
-      regex.lastIndex = 0
-      while ((match = regex.exec(line)) !== null) {
-        matches.push({ start: match.index, end: match.index + match[0].length, text: match[0], color })
-      }
-    })
-
-    matches.sort((a, b) => a.start - b.start)
-
-    const filtered: { start: number; end: number; text: string; color: string }[] = []
-    matches.forEach((m) => {
-      if (filtered.length === 0 || m.start > filtered[filtered.length - 1].end) {
-        filtered.push(m)
-      }
-    })
-
-    if (filtered.length > 0) {
-      const newSegments: { text: string; color: string }[] = []
-      let lastEnd = 0
-      filtered.forEach((m) => {
-        if (m.start > lastEnd) {
-          newSegments.push({ text: line.slice(lastEnd, m.start), color: "#f8f8f2" })
-        }
-        newSegments.push({ text: m.text, color: m.color })
-        lastEnd = m.end
-      })
-      if (lastEnd < line.length) {
-        newSegments.push({ text: line.slice(lastEnd), color: "#abb2bf" })
-      }
-      segments = newSegments
-    }
-
-    result.push(
-      ...segments.map((s, i) => ({
-        text: i === segments.length - 1 && lineIndex < lines.length - 1 ? s.text + "\n" : s.text,
-        color: s.color,
-      })),
-    )
-  })
-
-  return result.length > 0 ? result : [{ text: code, color: "#f8f8f2" }]
-}
 
 function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
   const [expanded, setExpanded] = useState(false)

@@ -247,6 +247,47 @@ export type SSEEvent =
 export const MOBILE_DEFAULT_PROVIDER_ID = "minimax-coding-plan"
 export const MOBILE_DEFAULT_MODEL_ID = "MiniMax-M2.5"
 
+// ── File Explorer ──────────────────────────────────────────────────────────
+
+export type FileNode = {
+  name: string
+  path: string
+  absolute: string
+  type: "file" | "directory"
+  ignored: boolean
+  gitStatus?: "added" | "modified" | "deleted"
+}
+
+export type FileContent = {
+  type: "text"
+  content: string
+  diff?: string
+  patch?: {
+    oldFileName: string
+    newFileName: string
+    hunks: Array<{
+      oldStart: number
+      oldLines: number
+      newStart: number
+      newLines: number
+      lines: string[]
+    }>
+  }
+  encoding?: "base64"
+  mimeType?: string
+}
+
+export type RipgrepMatch = {
+  type: "match" | "context" | "begin" | "end"
+  data: {
+    path?: { text: string }
+    lines?: { text: string }
+    line_number?: number
+    absolute_offset?: number
+    submatches?: Array<{ match: { text: string }; start: number; end: number }>
+  }
+}
+
 export type ModelRef = {
   providerID: string
   modelID: string

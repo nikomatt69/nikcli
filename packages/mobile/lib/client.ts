@@ -3,6 +3,8 @@ import type {
   CommandInfo,
   ConnectorAuthInput,
   ConnectorStatus,
+  FileContent,
+  FileNode,
   FilePart,
   FileDiff,
   GitHubBranch,
@@ -28,6 +30,7 @@ import type {
   PtyCreateInput,
   PtyInfo,
   PtyUpdateInput,
+  RipgrepMatch,
   Routine,
   RoutineCreateInput,
   RoutineUpdateInput,
@@ -251,6 +254,31 @@ export class MobileClient {
       method: "POST",
       body: JSON.stringify({ message, files }),
     })
+  }
+
+  // ── File System ──────────────────────────────────────────────────────────
+
+  listDirectory(dirPath: string) {
+    return this.request<FileNode[]>(`/file?path=${encodeURIComponent(dirPath)}`)
+  }
+
+  readFile(filePath: string) {
+    return this.request<FileContent>(`/file/content?path=${encodeURIComponent(filePath)}`)
+  }
+
+  writeFile(filePath: string, content: string) {
+    return this.request<{ success: boolean }>("/file/content", {
+      method: "PUT",
+      body: JSON.stringify({ path: filePath, content }),
+    })
+  }
+
+  searchFiles(query: string) {
+    return this.request<string[]>(`/find/file?query=${encodeURIComponent(query)}`)
+  }
+
+  searchText(pattern: string) {
+    return this.request<RipgrepMatch[]>(`/find?pattern=${encodeURIComponent(pattern)}`)
   }
 
   startMcpAuth(name: string) {

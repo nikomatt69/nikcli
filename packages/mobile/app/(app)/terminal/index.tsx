@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,8 @@ import {
 import { WebView, type WebViewMessageEvent } from "react-native-webview"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { TerminalSquare, Plus, Trash2 } from "lucide-react-native"
+import { Asset } from "expo-asset"
+import * as FileSystem from "expo-file-system"
 import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -21,8 +23,13 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import type { PtyInfo } from "@/lib/types"
 
-// Read the HTML bundle as a static asset string
-const TERMINAL_HTML = require("../../../assets/terminal.html") as string
+// require() returns a number (resource ID) in Metro — we load the content async
+const TERMINAL_HTML_MODULE = require("../../../assets/terminal.html") as number
+
+async function loadTerminalHtml(): Promise<string> {
+  const [asset] = await Asset.loadAsync(TERMINAL_HTML_MODULE)
+  return FileSystem.readAsStringAsync(asset.localUri!)
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -52,11 +59,10 @@ function TerminalWebView({
 }) {
   const webviewRef = useRef<WebView>(null)
   const [wsStatus, setWsStatus] = useState<"connecting" | "connected" | "error">("connecting")
-  const connectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [htmlContent, setHtmlContent] = useState<string | null>(null)
 
-  // Clear timeout on unmount
-  useCallback(() => {
-    if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current)
+  useEffect(() => {
+    loadTerminalHtml().then(setHtmlContent).catch(() => setWsStatus("error"))
   }, [])
 
   // Inject config before the page JS runs
@@ -70,14 +76,8 @@ function TerminalWebView({
       try {
         const msg = JSON.parse(e.nativeEvent.data) as WVMessage
         if (msg.type === "status") {
-          if (msg.status === "connected") {
-            setWsStatus("connected")
-            if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current)
-          }
-          else if (msg.status === "error" || msg.status === "no_url") {
-            setWsStatus("error")
-            if (connectTimeoutRef.current) clearTimeout(connectTimeoutRef.current)
-          }
+          if (msg.status === "connected") setWsStatus("connected")
+          else if (msg.status === "error" || msg.status === "no_url") setWsStatus("error")
           else setWsStatus("connecting")
         } else if (msg.type === "title") {
           onTitle(msg.title)
@@ -89,22 +89,22 @@ function TerminalWebView({
 
   return (
     <View style={[StyleSheet.absoluteFill, { opacity: visible ? 1 : 0 }]} pointerEvents={visible ? "auto" : "none"}>
-      <WebView
-        ref={webviewRef}
-        source={{ html: TERMINAL_HTML }}
-        injectedJavaScriptBeforeContentLoaded={injectedJS}
-        onMessage={handleMessage}
-        originWhitelist={["*"]}
-        javaScriptEnabled
-        domStorageEnabled
-        // Allow mixed-content (ws:// from https page) on Android
-        mixedContentMode="always"
-        // Prevent zoom on input focus
-        scalesPageToFit={false}
-        style={{ flex: 1, backgroundColor: "transparent" }}
-      />
-      {/* Connecting overlay */}
-      {wsStatus === "connecting" && (
+      {htmlContent ? (
+        <WebView
+          ref={webviewRef}
+          source={{ html: htmlContent }}
+          injectedJavaScriptBeforeContentLoaded={injectedJS}
+          onMessage={handleMessage}
+          originWhitelist={["*"]}
+          javaScriptEnabled
+          domStorageEnabled
+          mixedContentMode="always"
+          scalesPageToFit={false}
+          style={{ flex: 1, backgroundColor: "transparent" }}
+        />
+      ) : null}
+      {/* Connecting/loading overlay */}
+      {(wsStatus === "connecting" || !htmlContent) && (
         <View
           style={[
             StyleSheet.absoluteFill,

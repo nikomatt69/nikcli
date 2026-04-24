@@ -29,6 +29,7 @@ export namespace WorkspaceDB {
   export type State = {
     status?: string
     events: unknown[]
+    eventLimit?: number
   }
 
   type DbRow = {
@@ -157,9 +158,10 @@ export namespace WorkspaceDB {
     return next
   }
 
-  export function appendEvent(id: string, event: unknown, limit = 200): State | undefined {
-    const current = getState(id)
-    const events = [...current.events, event].slice(-limit)
+  export function appendEvent(id: string, event: unknown): State | undefined {
+    const state = getState(id)
+    const limit = state.eventLimit ?? 200
+    const events = [...state.events, event].slice(-limit)
     return updateState(id, { events })
   }
 

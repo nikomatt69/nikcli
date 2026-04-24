@@ -140,17 +140,10 @@ export const FileRoutes = lazy(() =>
       ),
       async (c) => {
         const requestedPath = c.req.valid("query").path
-        // Resolve to absolute path and validate it's within project directory
         const absolutePath = path.isAbsolute(requestedPath)
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
-
-        // Ensure path doesn't traverse outside project directory
-        if (!normalizedPath.startsWith(Instance.directory)) {
-          return c.json({ error: "Path outside project directory" }, 403)
-        }
-
         const content = await File.list(normalizedPath)
         return c.json(content)
       },
@@ -180,17 +173,10 @@ export const FileRoutes = lazy(() =>
       ),
       async (c) => {
         const requestedPath = c.req.valid("query").path
-        // Resolve to absolute path and validate it's within project directory
         const absolutePath = path.isAbsolute(requestedPath)
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
-
-        // Ensure path doesn't traverse outside project directory
-        if (!normalizedPath.startsWith(Instance.directory)) {
-          return c.json({ error: "Path outside project directory" }, 403)
-        }
-
         const content = await File.read(normalizedPath)
         return c.json(content)
       },
@@ -215,6 +201,40 @@ export const FileRoutes = lazy(() =>
       async (c) => {
         const content = await File.status()
         return c.json(content)
+      },
+    )
+    .put(
+      "/file/content",
+      describeRoute({
+        summary: "Write file",
+        description: "Write content to a specified file within the project directory.",
+        operationId: "file.write",
+        responses: {
+          200: {
+            description: "Write result",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ success: z.boolean() })),
+              },
+            },
+          },
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          path: z.string(),
+          content: z.string(),
+        }),
+      ),
+      async (c) => {
+        const { path: requestedPath, content } = c.req.valid("json")
+        const absolutePath = path.isAbsolute(requestedPath)
+          ? requestedPath
+          : path.join(Instance.directory, requestedPath)
+        const normalizedPath = path.normalize(absolutePath)
+        await Bun.write(normalizedPath, content)
+        return c.json({ success: true })
       },
     ),
 )

@@ -4,6 +4,9 @@ import { Session } from "../session"
 import { Workspace } from "."
 import { WorkspaceContext } from "./workspace-context"
 import { ServerProxy } from "../server/proxy"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "workspace.proxy" })
 
 export async function proxyWorkspaceRequest(input: {
   workspaceID: string
@@ -38,24 +41,42 @@ export async function proxyWorkspaceRequest(input: {
 }
 
 async function resolveWorkspaceID(req: Request) {
-  const workspaceID = WorkspaceContext.workspaceID
-  if (workspaceID) return workspaceID
+  // First check WorkspaceContext (set by middleware or prior handler)
+  const contextWorkspaceID = WorkspaceContext.workspaceID
+  if (contextWorkspaceID) {
+    log.debug("resolveWorkspaceID: from context", { workspaceID: contextWorkspaceID })
+    return contextWorkspaceID
+  }
 
+  // Try to get from request body for POST requests
   if (req.method === "POST") {
-    const body = await req
-      .clone()
-      .json()
-      .catch(() => undefined)
-    if (body && typeof body === "object" && "workspaceID" in body && typeof body.workspaceID === "string") {
-      return body.workspaceID
+    try {
+      const body = await req.clone().json()
+      if (body && typeof body === "object" && "workspaceID" in body && typeof body.workspaceID === "string") {
+        log.debug("resolveWorkspaceID: from body", { workspaceID: body.workspaceID })
+        return body.workspaceID
+      }
+    } catch {
+      // JSON parsing failed, continue to session-based resolution
     }
   }
 
-  const match = new URL(req.url).pathname.match(/\/session\/(ses_[^/]+)/)
-  if (!match) return
+  // Extract session ID from URL path
+  const url = new URL(req.url)
+  const sessionMatch = url.pathname.match(/\/session\/(ses_[^/]+)/)
+  if (sessionMatch) {
+    try {
+      const session = await Session.getAnyProject(sessionMatch[1])
+      if (session?.workspaceID) {
+        log.debug("resolveWorkspaceID: from session", { sessionID: sessionMatch[1], workspaceID: session.workspaceID })
+        return session.workspaceID
+      }
+    } catch (err) {
+      log.warn("failed to resolve session for workspaceID", { sessionID: sessionMatch[1], error: String(err) })
+    }
+  }
 
-  const session = await Session.getAnyProject(match[1]).catch(() => undefined)
-  return session?.workspaceID
+  return undefined
 }
 
 async function proxySessionRequest(req: Request) {
