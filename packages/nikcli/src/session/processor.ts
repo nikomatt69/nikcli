@@ -49,6 +49,24 @@ export namespace SessionProcessor {
         needsCompaction = false
         const shouldBreak = (await Config.get()).experimental?.continue_loop_on_deny !== true
         while (true) {
+          const attemptPartIDs = new Set<string>()
+          const trackPart = <T extends { id: string }>(part: T) => {
+            attemptPartIDs.add(part.id)
+            return part
+          }
+          const cleanupRetryAttempt = async () => {
+            for (const partID of attemptPartIDs) {
+              await Session.removePart({
+                sessionID: input.sessionID,
+                messageID: input.assistantMessage.id,
+                partID,
+              }).catch(() => {})
+            }
+            for (const key of Object.keys(toolcalls)) {
+              delete toolcalls[key]
+            }
+            snapshot = undefined
+          }
           try {
             let currentText: MessageV2.TextPart | undefined
             let reasoningMap: Record<string, MessageV2.ReasoningPart> = {}
@@ -65,7 +83,7 @@ export namespace SessionProcessor {
                   if (value.id in reasoningMap) {
                     continue
                   }
-                  reasoningMap[value.id] = {
+                  reasoningMap[value.id] = trackPart({
                     id: Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
                     sessionID: input.assistantMessage.sessionID,
@@ -75,7 +93,7 @@ export namespace SessionProcessor {
                       start: Date.now(),
                     },
                     metadata: value.providerMetadata,
-                  }
+                  })
                   break
 
                 case "reasoning-delta":
@@ -103,19 +121,21 @@ export namespace SessionProcessor {
                   break
 
                 case "tool-input-start": {
-                  const part = await Session.updatePart({
-                    id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "tool",
-                    tool: value.toolName,
-                    callID: value.id,
-                    state: {
-                      status: "pending",
-                      input: {},
-                      raw: "",
-                    },
-                  })
+                  const part = await Session.updatePart(
+                    trackPart({
+                      id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "tool" as const,
+                      tool: value.toolName,
+                      callID: value.id,
+                      state: {
+                        status: "pending" as const,
+                        input: {},
+                        raw: "",
+                      },
+                    }),
+                  )
                   toolcalls[value.id] = part as MessageV2.ToolPart
                   break
                 }
@@ -225,13 +245,15 @@ export namespace SessionProcessor {
 
                 case "start-step":
                   snapshot = await Snapshot.track()
-                  await Session.updatePart({
-                    id: Identifier.ascending("part"),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.sessionID,
-                    snapshot,
-                    type: "step-start",
-                  })
+                  await Session.updatePart(
+                    trackPart({
+                      id: Identifier.ascending("part"),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.sessionID,
+                      snapshot,
+                      type: "step-start" as const,
+                    }),
+                  )
                   break
 
                 case "finish-step": {
@@ -243,28 +265,32 @@ export namespace SessionProcessor {
                   input.assistantMessage.finish = value.finishReason
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens
-                  await Session.updatePart({
-                    id: Identifier.ascending("part"),
-                    reason: value.finishReason,
-                    snapshot: await Snapshot.track(),
-                    messageID: input.assistantMessage.id,
-                    sessionID: input.assistantMessage.sessionID,
-                    type: "step-finish",
-                    tokens: usage.tokens,
-                    cost: usage.cost,
-                  })
+                  await Session.updatePart(
+                    trackPart({
+                      id: Identifier.ascending("part"),
+                      reason: value.finishReason,
+                      snapshot: await Snapshot.track(),
+                      messageID: input.assistantMessage.id,
+                      sessionID: input.assistantMessage.sessionID,
+                      type: "step-finish" as const,
+                      tokens: usage.tokens,
+                      cost: usage.cost,
+                    }),
+                  )
                   await Session.updateMessage(input.assistantMessage)
                   if (snapshot) {
                     const patch = await Snapshot.patch(snapshot)
                     if (patch.files.length) {
-                      await Session.updatePart({
-                        id: Identifier.ascending("part"),
-                        messageID: input.assistantMessage.id,
-                        sessionID: input.sessionID,
-                        type: "patch",
-                        hash: patch.hash,
-                        files: patch.files,
-                      })
+                      await Session.updatePart(
+                        trackPart({
+                          id: Identifier.ascending("part"),
+                          messageID: input.assistantMessage.id,
+                          sessionID: input.sessionID,
+                          type: "patch" as const,
+                          hash: patch.hash,
+                          files: patch.files,
+                        }),
+                      )
                     }
                     snapshot = undefined
                   }
@@ -279,17 +305,17 @@ export namespace SessionProcessor {
                 }
 
                 case "text-start":
-                  currentText = {
+                  currentText = trackPart({
                     id: Identifier.ascending("part"),
                     messageID: input.assistantMessage.id,
                     sessionID: input.assistantMessage.sessionID,
-                    type: "text",
+                    type: "text" as const,
                     text: "",
                     time: {
                       start: Date.now(),
                     },
                     metadata: value.providerMetadata,
-                  }
+                  })
                   break
 
                 case "text-delta":
@@ -351,6 +377,7 @@ export namespace SessionProcessor {
               if (nextAttempt <= SessionRetry.RETRY_MAX_ATTEMPTS) {
                 attempt = nextAttempt
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
+                await cleanupRetryAttempt()
                 SessionStatus.set(input.sessionID, {
                   type: "retry",
                   attempt,
@@ -378,14 +405,16 @@ export namespace SessionProcessor {
           if (snapshot) {
             const patch = await Snapshot.patch(snapshot)
             if (patch.files.length) {
-              await Session.updatePart({
-                id: Identifier.ascending("part"),
-                messageID: input.assistantMessage.id,
-                sessionID: input.sessionID,
-                type: "patch",
-                hash: patch.hash,
-                files: patch.files,
-              })
+              await Session.updatePart(
+                trackPart({
+                  id: Identifier.ascending("part"),
+                  messageID: input.assistantMessage.id,
+                  sessionID: input.sessionID,
+                  type: "patch" as const,
+                  hash: patch.hash,
+                  files: patch.files,
+                }),
+              )
             }
             snapshot = undefined
           }

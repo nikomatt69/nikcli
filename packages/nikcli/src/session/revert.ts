@@ -4,7 +4,6 @@ import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
 import { Session } from "."
 import { Log } from "../util/log"
-import { splitWhen } from "remeda"
 import { Storage } from "../storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
@@ -91,24 +90,31 @@ export namespace SessionRevert {
   export async function cleanup(session: Session.Info) {
     if (!session.revert) return
     const sessionID = session.id
-    let msgs = await Session.messages({ sessionID })
     const messageID = session.revert.messageID
-    const [preserve, remove] = splitWhen(msgs, (x) => x.info.id === messageID)
-    msgs = preserve
-    for (const msg of remove) {
-      await Storage.remove(["message", sessionID, msg.info.id])
-      await Bus.publish(MessageV2.Event.Removed, { sessionID: sessionID, messageID: msg.info.id })
+    const msgs = await Session.messages({ sessionID })
+    const targetIndex = msgs.findIndex((x) => x.info.id === messageID)
+    if (targetIndex === -1) {
+      await Session.update(sessionID, (draft) => {
+        draft.revert = undefined
+      })
+      return
     }
-    const last = preserve.at(-1)
-    if (session.revert.partID && last) {
+
+    const removeStart = session.revert.partID ? targetIndex + 1 : targetIndex
+    for (const msg of msgs.slice(removeStart)) {
+      await Session.removeMessage({ sessionID, messageID: msg.info.id })
+    }
+
+    const target = msgs[targetIndex]
+    if (session.revert.partID && target) {
       const partID = session.revert.partID
-      const [preserveParts, removeParts] = splitWhen(last.parts, (x) => x.id === partID)
-      last.parts = preserveParts
+      const partIndex = target.parts.findIndex((x) => x.id === partID)
+      const removeParts = partIndex === -1 ? [] : target.parts.slice(partIndex)
       for (const part of removeParts) {
-        await Storage.remove(["part", last.info.id, part.id])
+        await Storage.remove(["part", target.info.id, part.id])
         await Bus.publish(MessageV2.Event.PartRemoved, {
           sessionID: sessionID,
-          messageID: last.info.id,
+          messageID: target.info.id,
           partID: part.id,
         })
       }

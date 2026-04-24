@@ -226,6 +226,7 @@ export namespace Session {
     async (input) => {
       const original = await get(input.sessionID)
       const session = await createNext({
+        parentID: original.id,
         directory: original.directory,
         workspaceID: original.workspaceID,
         skills: original.skills,
@@ -410,6 +411,7 @@ export namespace Session {
       limit: z.number().optional(),
     }),
     async (input) => {
+      await get(input.sessionID)
       const result = [] as MessageV2.WithParts[]
       for await (const msg of MessageV2.stream(input.sessionID)) {
         if (input.limit && result.length >= input.limit) break
@@ -450,11 +452,9 @@ export namespace Session {
       }
       await unshare(sessionID).catch(() => {})
       for (const msg of await Storage.list(["message", sessionID])) {
-        for (const part of await Storage.list(["part", msg.at(-1)!])) {
-          await Storage.remove(part)
-        }
-        await Storage.remove(msg)
+        await removeMessageWithParts(sessionID, msg.at(-1)!)
       }
+      await Storage.remove(["session_diff", sessionID]).catch(() => {})
       await Storage.remove(["session", project.id, sessionID])
       Bus.publish(Event.Deleted, {
         info: session,
@@ -463,6 +463,13 @@ export namespace Session {
       log.error(e)
     }
   })
+
+  export async function removeMessageWithParts(sessionID: string, messageID: string) {
+    for (const part of await Storage.list(["part", messageID])) {
+      await Storage.remove(part)
+    }
+    await Storage.remove(["message", sessionID, messageID])
+  }
 
   export const updateMessage = fn(MessageV2.Info, async (msg) => {
     await Storage.write(["message", msg.sessionID, msg.id], msg)
@@ -478,7 +485,7 @@ export namespace Session {
       messageID: Identifier.schema("message"),
     }),
     async (input) => {
-      await Storage.remove(["message", input.sessionID, input.messageID])
+      await removeMessageWithParts(input.sessionID, input.messageID)
       Bus.publish(MessageV2.Event.Removed, {
         sessionID: input.sessionID,
         messageID: input.messageID,
@@ -494,6 +501,7 @@ export namespace Session {
       partID: Identifier.schema("part"),
     }),
     async (input) => {
+      await MessageV2.get({ sessionID: input.sessionID, messageID: input.messageID })
       await Storage.remove(["part", input.messageID, input.partID])
       Bus.publish(MessageV2.Event.PartRemoved, {
         sessionID: input.sessionID,

@@ -105,6 +105,34 @@ interface TokenResponse {
   expires_in?: number
 }
 
+type CodexOAuthModel = {
+  api: {
+    id: string
+  }
+}
+
+export function filterCodexOAuthModels(provider: { models: Record<string, CodexOAuthModel> }) {
+  const allowedModels = new Set([
+    "gpt-5.1-codex",
+    "gpt-5.1-codex-max",
+    "gpt-5.1-codex-mini",
+    "gpt-5.2",
+    "gpt-5.2-codex",
+    "gpt-5.3-codex",
+    "gpt-5.4",
+    "gpt-5.4-mini",
+    "gpt-5.5",
+  ])
+  for (const [modelId, model] of Object.entries(provider.models)) {
+    if (modelId.includes("codex")) continue
+    if (allowedModels.has(model.api.id)) continue
+    const match = model.api.id.match(/^gpt-(\d+\.\d+)/)
+    if (match && parseFloat(match[1]) > 5.4) continue
+    delete provider.models[modelId]
+  }
+}
+
+
 async function exchangeCodeForTokens(code: string, redirectUri: string, pkce: PkceCodes): Promise<TokenResponse> {
   const response = await fetch(`${ISSUER}/oauth/token`, {
     method: "POST",
@@ -353,21 +381,7 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
         const auth = await getAuth()
         if (auth.type !== "oauth") return {}
 
-        const allowedModels = new Set([
-          "gpt-5.1-codex-max",
-          "gpt-5.1-codex-mini",
-          "gpt-5.2",
-          "gpt-5.2-codex",
-          "gpt-5.3-codex",
-          "gpt-5.4",
-          "gpt-5.4-pro",
-          "gpt-5.3-codex-spark"
-        ])
-        for (const modelId of Object.keys(provider.models)) {
-          if (modelId.includes("codex")) continue
-          if (allowedModels.has(modelId)) continue
-          delete provider.models[modelId]
-        }
+        filterCodexOAuthModels(provider)
 
         for (const model of Object.values(provider.models)) {
           model.cost = {

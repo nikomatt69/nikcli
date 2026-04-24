@@ -1,9 +1,14 @@
 import { Global } from "@/global"
 import path from "path"
+import fs from "fs/promises"
 import { Log } from "@/util/log"
 import { lazy } from "@/util/lazy"
 import { Identifier } from "@/id/id"
 import z from "zod"
+
+// Compaction settings
+const MAX_EVENTS_PER_AGGREGATE = 1000
+const COMPACTION_TRIM_TO = 500
 
 export namespace SyncEvent {
   const log = Log.create({ service: "sync.event" })
@@ -30,6 +35,7 @@ export namespace SyncEvent {
       aggregate: config.aggregate,
     }
     registry.set(config.type, definition)
+    log.debug("event registered", { type: config.type, aggregate: config.aggregate })
     return definition
   }
 
@@ -41,6 +47,58 @@ export namespace SyncEvent {
     return Array.from(registry.keys())
   }
 }
+
+// Register workspace event types (used in workspace event loop RESTORE_EVENT_TYPES)
+SyncEvent.define({
+  type: "session.created",
+  aggregate: "session",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "session.updated",
+  aggregate: "session",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "session.deleted",
+  aggregate: "session",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "session.status",
+  aggregate: "session",
+  schema: z.object({ sessionID: z.string(), status: z.unknown() }),
+})
+SyncEvent.define({
+  type: "session.idle",
+  aggregate: "session",
+  schema: z.object({ sessionID: z.string() }),
+})
+SyncEvent.define({
+  type: "permission.asked",
+  aggregate: "permission",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "permission.replied",
+  aggregate: "permission",
+  schema: z.object({ requestID: z.string() }),
+})
+SyncEvent.define({
+  type: "question.asked",
+  aggregate: "question",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "question.replied",
+  aggregate: "question",
+  schema: z.object({ id: z.string() }),
+})
+SyncEvent.define({
+  type: "question.rejected",
+  aggregate: "question",
+  schema: z.object({ id: z.string() }),
+})
 
 export interface SyncEventRecord {
   id: string
@@ -83,9 +141,19 @@ export namespace SyncStorage {
     }
   }
 
+  /**
+   * Atomic write: write to temp file then rename to target.
+   * This ensures filesystem-level atomicity on rename.
+   */
+  async function atomicWrite(filePath: string, data: string): Promise<void> {
+    const tmp = filePath + `.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`
+    await Bun.write(tmp, data)
+    await fs.rename(tmp, filePath)
+  }
+
   export async function saveEvents(projectID: string, events: SyncEventRecord[]): Promise<void> {
     const file = await eventsFile(projectID)
-    await Bun.write(file, JSON.stringify(events, null, 2))
+    await atomicWrite(file, JSON.stringify(events, null, 2))
   }
 
   export async function loadSequence(projectID: string): Promise<SyncSequence> {
@@ -99,12 +167,31 @@ export namespace SyncStorage {
 
   export async function saveSequence(projectID: string, sequence: SyncSequence): Promise<void> {
     const file = await sequenceFile(projectID)
-    await Bun.write(file, JSON.stringify(sequence, null, 2))
+    await atomicWrite(file, JSON.stringify(sequence, null, 2))
   }
 
+  /**
+   * Append event with compaction and atomic write.
+   * Compacts events when aggregate exceeds MAX_EVENTS_PER_AGGREGATE.
+   */
   export async function appendEvent(projectID: string, event: SyncEventRecord): Promise<void> {
-    const events = await loadEvents(projectID)
+    let events = await loadEvents(projectID)
     events.push(event)
+
+    // Compaction: if we have too many events for this aggregate, trim old ones
+    const aggregateEvents = events.filter((e) => e.aggregate === event.aggregate)
+    if (aggregateEvents.length > MAX_EVENTS_PER_AGGREGATE) {
+      const others = events.filter((e) => e.aggregate !== event.aggregate)
+      const toTrim = aggregateEvents.slice(-COMPACTION_TRIM_TO)
+      events = [...others, ...toTrim]
+      log.debug("compaction applied", {
+        projectID,
+        aggregate: event.aggregate,
+        before: aggregateEvents.length,
+        after: toTrim.length,
+      })
+    }
+
     await saveEvents(projectID, events)
 
     const sequence = await loadSequence(projectID)
@@ -133,10 +220,10 @@ export namespace SyncStorage {
     const seqF = path.join(dir, `${projectID}.sequence.json`)
     await Bun.file(eventsF)
       .delete()
-      .catch(() => { })
+      .catch(() => {})
     await Bun.file(seqF)
       .delete()
-      .catch(() => { })
+      .catch(() => {})
   }
 }
 
@@ -152,7 +239,16 @@ export namespace Sync {
     eventDef: SyncEventDefinition<T>,
     data: z.infer<T>,
   ): Promise<SyncEventRecord> {
-    const aggregate = (data as any)[eventDef.aggregate]
+    // Validate event data against the registered schema
+    let parsed: z.infer<T>
+    try {
+      parsed = eventDef.schema.parse(data)
+    } catch (err) {
+      log.error("event validation failed", { projectID, type: eventDef.type, error: String(err) })
+      throw new Error(`Event data validation failed for type '${eventDef.type}': ${String(err)}`)
+    }
+
+    const aggregate = (parsed as any)[eventDef.aggregate]
     if (!aggregate) {
       throw new Error(`Event data missing aggregate field: ${eventDef.aggregate}`)
     }
@@ -163,7 +259,7 @@ export namespace Sync {
       aggregate,
       seq,
       type: eventDef.type,
-      data,
+      data: parsed,
       timestamp: Date.now(),
     }
 

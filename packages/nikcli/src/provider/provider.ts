@@ -1442,7 +1442,7 @@ export namespace Provider {
         "gpt-5-nano",
       ]
       if (providerID.startsWith("nikcli")) {
-        priority = ["gpt-5-nano"]
+        priority = ["gpt-5.4-mini"]
       }
       if (providerID.startsWith("github-copilot")) {
         // prioritize free models for github copilot

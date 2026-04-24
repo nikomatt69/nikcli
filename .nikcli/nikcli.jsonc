@@ -1,6 +1,6 @@
 {
+  "$schema": "https://nikcli.store/config.json",
   "plugin": [
-    "oc-plugin-vault-tec",
-    "oh-my-openagent"
+
   ]
 }

@@ -367,7 +367,7 @@
     },
     "packages/nikcli": {
       "name": "nikcli",
-      "version": "0.0.14",
+      "version": "1.0.0",
       "bin": {
         "nikcli": "./bin/nikcli",
       },

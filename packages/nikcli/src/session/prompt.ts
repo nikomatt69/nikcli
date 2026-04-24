@@ -67,6 +67,7 @@ export namespace SessionPrompt {
         string,
         {
           abort: AbortController
+          cancelling?: boolean
           callbacks: {
             resolve(input: MessageV2.WithParts): void
             reject(error?: Error): void
@@ -249,7 +250,18 @@ export namespace SessionPrompt {
       abort: controller,
       callbacks: [],
     }
-    return controller.signal
+    return controller
+  }
+
+  function finish(sessionID: string, controller: AbortController) {
+    const s = state()
+    const match = s[sessionID]
+    if (!match || match.abort !== controller) return
+    for (const item of match.callbacks) {
+      item.reject()
+    }
+    delete s[sessionID]
+    SessionStatus.set(sessionID, { type: "idle" })
   }
 
   export const cancel = (() => {
@@ -260,30 +272,33 @@ export namespace SessionPrompt {
       const match = s[sessionID]
       if (!match) return
       match.abort.abort()
+      match.cancelling = true
       for (const item of match.callbacks) {
         item.reject()
       }
-      delete s[sessionID]
-      SessionStatus.set(sessionID, { type: "idle" })
+      match.callbacks = []
       return
     }
   })()
 
   export const loop = fn(Identifier.schema("session"), async (sessionID) => {
-    const abort = start(sessionID)
-    if (!abort) {
+    const controller = start(sessionID)
+    if (!controller) {
       return new Promise<MessageV2.WithParts>((resolve, reject) => {
         const callbacks = state()[sessionID].callbacks
         callbacks.push({ resolve, reject })
       })
     }
+    const abort = controller.signal
 
-    using _ = defer(() => cancel(sessionID))
+    using _ = defer(() => finish(sessionID, controller))
 
     // Structured output state
     // Note: On session resumption, state is reset but format is preserved
     // on the user message and will be retrieved from lastUser below
     let structuredOutput: unknown | undefined
+    let structuredOutputUserID: string | undefined
+    let structuredOutputRetries = 0
 
     let step = 0
     while (true) {
@@ -311,6 +326,11 @@ export namespace SessionPrompt {
       }
 
       if (!lastUser) throw new Error("No user message found in stream. This should never happen.")
+      if (structuredOutputUserID !== lastUser.id) {
+        structuredOutputUserID = lastUser.id
+        structuredOutputRetries = 0
+        structuredOutput = undefined
+      }
       if (
         lastAssistant?.finish &&
         !["tool-calls", "unknown"].includes(lastAssistant.finish) &&
@@ -683,9 +703,41 @@ export namespace SessionPrompt {
       // If the model stopped without the StructuredOutput tool, return a structured output error.
       const modelFinished = processor.message.finish && !["tool-calls", "unknown"].includes(processor.message.finish)
       if (modelFinished && !processor.message.error && format.type === "json_schema") {
+        if (structuredOutputRetries < format.retryCount) {
+          structuredOutputRetries++
+          const retryMsg = await Session.updateMessage({
+            id: Identifier.ascending("message"),
+            role: "user",
+            sessionID,
+            time: {
+              created: Date.now(),
+            },
+            agent: lastUser.agent,
+            model: lastUser.model,
+            system: lastUser.system,
+            tools: lastUser.tools,
+            format: lastUser.format,
+            variant: lastUser.variant,
+          })
+          await Session.updatePart({
+            id: Identifier.ascending("part"),
+            messageID: retryMsg.id,
+            sessionID,
+            type: "text",
+            synthetic: true,
+            text: "The previous response did not call the StructuredOutput tool. Retry and call StructuredOutput exactly once with valid JSON matching the requested schema.",
+            time: {
+              start: Date.now(),
+              end: Date.now(),
+            },
+          })
+          structuredOutputUserID = retryMsg.id
+          step = 0
+          continue
+        }
         processor.message.error = new MessageV2.StructuredOutputError({
           message: "Model did not produce structured output",
-          retries: 0,
+          retries: structuredOutputRetries,
         }).toObject()
         await Session.updateMessage(processor.message)
         break
@@ -1516,11 +1568,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
   })
   export type ShellInput = z.infer<typeof ShellInput>
   export async function shell(input: ShellInput) {
-    const abort = start(input.sessionID)
-    if (!abort) {
+    const controller = start(input.sessionID)
+    if (!controller) {
       throw new Session.BusyError(input.sessionID)
     }
-    using _ = defer(() => cancel(input.sessionID))
+    const abort = controller.signal
+    using _ = defer(() => finish(input.sessionID, controller))
 
     const session = await Session.get(input.sessionID)
     if (session.revert) {
