@@ -355,7 +355,7 @@ Auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`:
 - `src/bus/` — pub/sub event bus (`bus-event.ts`, `global.ts`) with typed events
 - `src/mobile/` — bearer token auth (`MobileAuth`), GitHub repo management
 - `src/storage/` — file-based JSON with read/write locks, migrations
-- `src/file/` — ripgrep integration, `.gitignore` support, file watcher, time utilities
+- `src/file/` — fff integration, `.gitignore` support, file watcher, time utilities
 - `src/snapshot/` — git snapshot management for reverts
 - `src/share/` — session sharing to enterprise endpoint
 - `src/shell/` — shell execution management

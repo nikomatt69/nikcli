@@ -1,7 +1,6 @@
 ---
 mode: primary
 hidden: true
-model: nikcli/claude-haiku-4-5
 color: "#44BA81"
 tools:
   "*": false

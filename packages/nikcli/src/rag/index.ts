@@ -4,7 +4,7 @@ import { Log } from "@/util/log"
 import { RagStorage } from "./storage"
 import { RagEmbed } from "./embed"
 import { chunkText, type RagChunk } from "./chunk"
-import { Ripgrep } from "@/file/ripgrep"
+import { SearchBackend } from "@/file/searchBackend"
 import { FileIgnore } from "@/file/ignore"
 import { Instance } from "@/project/instance"
 import { Config } from "@/config/config"
@@ -279,7 +279,7 @@ async function collectFiles(
     }
     if (!info.isDirectory()) continue
 
-    for await (const entry of Ripgrep.files({ cwd: root })) {
+    for await (const entry of SearchBackend.files({ cwd: root, limit: input.maxFiles - results.length })) {
       if (results.length >= input.maxFiles) break
       const full = path.join(root, entry)
       const item = await collectFile(full, input)

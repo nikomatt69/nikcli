@@ -1,6 +1,6 @@
 ---
 description: "find issue(s) on github"
-model: minimax-coding-plan/MiniMax-M2.7
+
 ---
 
 Search through existing issues in nikomatt69/nikcli using the gh cli to find issues matching this query:

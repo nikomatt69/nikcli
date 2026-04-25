@@ -4018,7 +4018,7 @@
           }
         ],
         "summary": "Find text",
-        "description": "Search for text patterns across files in the project using ripgrep.",
+        "description": "Search for text patterns across files in the project using fff.",
         "responses": {
           "200": {
             "description": "Matches",

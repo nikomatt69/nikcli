@@ -86,7 +86,7 @@ Every file-modifying tool calls `ctx.ask()` before execution:
 - **EditTool** - 9 smart replacement strategies
 - **ReadTool** - Streaming file reads with binary detection
 - **WriteTool** - Atomic writes via temp file
-- **GrepTool** - ripgrep subprocess
+- **GrepTool** - FFF file search backend with Bun.Glob fallback
 - **TaskTool** - Subagent spawning
 
 ### Truncation System (`src/tool/truncation.ts`)
@@ -238,18 +238,18 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 
 ### Confirmed Issues (2026-04-09, updated 2026-04-24)
 
-| #   | File                               | Issue                                                                   | Status         |
-| --- | ---------------------------------- | ----------------------------------------------------------------------- | -------------- |
-| 1   | `config/config.ts`                 | `Config.get()` side effects                                             | Pending        |
-| 2   | `session/prompt.ts`                | Nondeterministic prompt ref ordering                                    | Pending        |
-| 3   | `acp/agent.ts`                     | ACP live vs replay file-part mismatch                                   | Pending        |
-| 4   | `acp/agent.ts`                     | ACP tool-result attachment omission                                     | Pending        |
-| 5   | `provider/provider.ts`             | Late `enabled_providers` side effects                                   | Pending        |
-| 6   | `packages/app/src/utils/prompt.ts` | App undo/fork drops non-inline file parts                               | Pending        |
-| 7   | TUI                                | Explicit `--agent/--model` state issues                                 | Pending        |
-| 8   | TUI                                | Stale model/variant sync                                               | Pending        |
+| #   | File                               | Issue                                                                   | Status          |
+| --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
+| 1   | `config/config.ts`                 | `Config.get()` side effects                                             | Pending         |
+| 2   | `session/prompt.ts`                | Nondeterministic prompt ref ordering                                    | Pending         |
+| 3   | `acp/agent.ts`                     | ACP live vs replay file-part mismatch                                   | Pending         |
+| 4   | `acp/agent.ts`                     | ACP tool-result attachment omission                                     | Pending         |
+| 5   | `provider/provider.ts`             | Late `enabled_providers` side effects                                   | Pending         |
+| 6   | `packages/app/src/utils/prompt.ts` | App undo/fork drops non-inline file parts                               | Pending         |
+| 7   | TUI                                | Explicit `--agent/--model` state issues                                 | Pending         |
+| 8   | TUI                                | Stale model/variant sync                                                | Pending         |
 | 9   | TUI                                | `read` tool image/PDF attachments not rendered                          | **Implemented** |
-| 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending        |
+| 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
 
 ### Code Reviewer Remaining Concerns
 
@@ -296,10 +296,10 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 
 ### Message Components
 
-| Component        | Line   | Content                                  |
-| ---------------- | ------ | ---------------------------------------- |
-| `Session`        | ~1188  | Main scrollbox with sticky-bottom scroll |
-| `UserMessage`    | ~1367  | Renders user text + file attachments     |
+| Component          | Line  | Content                                  |
+| ------------------ | ----- | ---------------------------------------- |
+| `Session`          | ~1188 | Main scrollbox with sticky-bottom scroll |
+| `UserMessage`      | ~1367 | Renders user text + file attachments     |
 | `AssistantMessage` | ~1463 | Renders assistant parts + metadata       |
 
 ### User Message Rendering
@@ -350,24 +350,24 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 
 ### Coverage by Area
 
-| Area             | Source Files | Test Coverage  | Notes                                           |
-| ---------------- | ------------ | -------------- | ----------------------------------------------- |
-| sandbox/         | 2            | ~80% ✅        | 11 `it()` cases, good assertions                |
-| delegation/      | 1            | ~80% ✅        | 7 `it()` cases, integration pattern             |
-| background/      | 1            | ~70% ✅        | Covered via delegation tests                    |
-| session/         | 21           | ~15%           | Session-lifecycle tests only                     |
-| workspace/       | 11           | ~15%           | Config + routes tests                            |
-| id/              | 1            | ~15%           | Benchmark tests only                             |
-| provider/        | 31           | ~2%            | 1 tiny copilot smoke test                       |
-| **tool/**        | **57**       | **~3%** ❌      | Zero standalone tool tests                       |
-| **server/**      | **44**       | **~2%** ❌      | Zero route handler tests                        |
-| **cli/**         | **84**       | **0%** ❌       | Zero CLI command tests                          |
-| util/            | 31           | ~2%            | Regex/JSON via benchmarks                       |
-| plugin/          | 9            | 0%             | No plugin tests                                 |
-| connector/       | 10           | 0%             | No connector tests                              |
-| mcp/             | 4            | 0%             | No MCP tests                                    |
-| permission/      | 5            | 0%             | No permission tests                             |
-| **TOTAL**        | **371**      | **~5%**        | 16 test files, ~110 `it()` cases, ~214 asserts |
+| Area        | Source Files | Test Coverage | Notes                                          |
+| ----------- | ------------ | ------------- | ---------------------------------------------- |
+| sandbox/    | 2            | ~80% ✅       | 11 `it()` cases, good assertions               |
+| delegation/ | 1            | ~80% ✅       | 7 `it()` cases, integration pattern            |
+| background/ | 1            | ~70% ✅       | Covered via delegation tests                   |
+| session/    | 21           | ~15%          | Session-lifecycle tests only                   |
+| workspace/  | 11           | ~15%          | Config + routes tests                          |
+| id/         | 1            | ~15%          | Benchmark tests only                           |
+| provider/   | 31           | ~2%           | 1 tiny copilot smoke test                      |
+| **tool/**   | **57**       | **~3%** ❌    | Zero standalone tool tests                     |
+| **server/** | **44**       | **~2%** ❌    | Zero route handler tests                       |
+| **cli/**    | **84**       | **0%** ❌     | Zero CLI command tests                         |
+| util/       | 31           | ~2%           | Regex/JSON via benchmarks                      |
+| plugin/     | 9            | 0%            | No plugin tests                                |
+| connector/  | 10           | 0%            | No connector tests                             |
+| mcp/        | 4            | 0%            | No MCP tests                                   |
+| permission/ | 5            | 0%            | No permission tests                            |
+| **TOTAL**   | **371**      | **~5%**       | 16 test files, ~110 `it()` cases, ~214 asserts |
 
 ### Top 5 Untested Areas
 

@@ -1,4 +1,4 @@
-import { Ripgrep } from "../file/ripgrep"
+import { SearchBackend } from "../file/searchBackend"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
 import { Config } from "../config/config"
@@ -65,7 +65,7 @@ export namespace SystemPrompt {
         `<files>`,
         `  ${
           project.vcs === "git" && false
-            ? await Ripgrep.tree({
+            ? await SearchBackend.tree({
                 cwd: Instance.directory,
                 limit: 200,
               })

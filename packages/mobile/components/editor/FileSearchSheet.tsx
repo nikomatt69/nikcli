@@ -14,7 +14,7 @@ import {
 import { Search, X } from "lucide-react-native"
 import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
-import type { RipgrepMatch } from "@/lib/types"
+import type { SearchMatch } from "@/lib/types"
 
 type SearchResult = {
   file: string
@@ -23,7 +23,7 @@ type SearchResult = {
   submatches: Array<{ start: number; end: number }>
 }
 
-function parseResults(matches: RipgrepMatch[]): SearchResult[] {
+function parseResults(matches: SearchMatch[]): SearchResult[] {
   const results: SearchResult[] = []
   let currentFile = ""
 
@@ -101,7 +101,10 @@ export function FileSearchSheet(props: {
           }}
         >
           <View
-            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(14,14,14,0.97)" : "rgba(255,255,255,0.98)" }]}
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: isDark ? "rgba(14,14,14,0.97)" : "rgba(255,255,255,0.98)" },
+            ]}
             pointerEvents="none"
           />
 

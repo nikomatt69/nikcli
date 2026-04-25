@@ -1,6 +1,6 @@
 import z from "zod"
 import { Tool } from "./tool"
-import { Ripgrep } from "../file/ripgrep"
+import { SearchBackend } from "../file/searchBackend"
 
 import DESCRIPTION from "./grep.txt"
 import { Instance } from "../project/instance"
@@ -36,67 +36,17 @@ export const GrepTool = Tool.define("grep", {
     searchPath = path.isAbsolute(searchPath) ? searchPath : path.resolve(Instance.directory, searchPath)
     await assertExternalDirectory(ctx, searchPath, { kind: "directory" })
 
-    const rgPath = await Ripgrep.filepath()
-    const args = [
-      "-nH",
-      "--hidden",
-      "--follow",
-      "--no-messages",
-      "--field-match-separator=|",
-      "--regexp",
-      params.pattern,
-    ]
-    if (params.include) {
-      args.push("--glob", params.include)
-    }
-    args.push(searchPath)
-
-    const proc = Bun.spawn([rgPath, ...args], {
-      stdout: "pipe",
-      stderr: "pipe",
+    const result = await SearchBackend.grep({
+      cwd: searchPath,
+      pattern: params.pattern,
+      glob: params.include ? [params.include] : undefined,
     })
-
-    const output = await new Response(proc.stdout).text()
-    const errorOutput = await new Response(proc.stderr).text()
-    const exitCode = await proc.exited
-
-    if (exitCode === 1 || (exitCode === 2 && !output.trim())) {
-      return {
-        title: params.pattern,
-        metadata: { matches: 0, truncated: false },
-        output: "No files found",
-      }
-    }
-
-    if (exitCode !== 0 && exitCode !== 2) {
-      throw new Error(`ripgrep failed: ${errorOutput}`)
-    }
-
-    const hasErrors = exitCode === 2
-
-    const lines = output.trim().split(/\r?\n/)
-    const matches = []
-
-    for (const line of lines) {
-      if (!line) continue
-
-      const [filePath, lineNumStr, ...lineTextParts] = line.split("|")
-      if (!filePath || !lineNumStr || lineTextParts.length === 0) continue
-
-      const lineNum = parseInt(lineNumStr, 10)
-      const lineText = lineTextParts.join("|")
-
-      const file = Bun.file(filePath)
-      const stats = await file.stat().catch(() => null)
-      if (!stats) continue
-
-      matches.push({
-        path: filePath,
-        modTime: stats.mtime.getTime(),
-        lineNum,
-        lineText,
-      })
-    }
+    const matches = result.matches.map((match) => ({
+      path: match.path,
+      modTime: match.mtime,
+      lineNum: match.lineNum,
+      lineText: match.lineText,
+    }))
 
     matches.sort((a, b) => b.modTime - a.modTime)
 
@@ -107,7 +57,7 @@ export const GrepTool = Tool.define("grep", {
     if (finalMatches.length === 0) {
       return {
         title: params.pattern,
-        metadata: { matches: 0, truncated: false },
+        metadata: { matches: 0, truncated: false, backend: result.backend },
         output: "No files found",
       }
     }
@@ -136,16 +86,12 @@ export const GrepTool = Tool.define("grep", {
       )
     }
 
-    if (hasErrors) {
-      outputLines.push("")
-      outputLines.push("(Some paths were inaccessible and skipped)")
-    }
-
     return {
       title: params.pattern,
       metadata: {
         matches: totalMatches,
         truncated,
+        backend: result.backend,
       },
       output: outputLines.join("\n"),
     }

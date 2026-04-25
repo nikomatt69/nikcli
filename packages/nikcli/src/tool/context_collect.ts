@@ -4,7 +4,7 @@ import { pathToFileURL } from "url"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_collect.txt"
 import { Instance } from "@/project/instance"
-import { Ripgrep } from "@/file/ripgrep"
+import { SearchBackend } from "@/file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 import { FileIgnore } from "@/file/ignore"
 import { LSP } from "@/lsp"
@@ -122,7 +122,7 @@ async function collectFiles(roots: string[], limit: number) {
     }
     if (!info.isDirectory()) continue
 
-    for await (const entry of Ripgrep.files({ cwd: root })) {
+    for await (const entry of SearchBackend.files({ cwd: root, limit: limit - files.length })) {
       if (files.length >= limit) break
       const full = path.join(root, entry)
       const rel = path.relative(Instance.directory, full)

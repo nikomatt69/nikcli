@@ -30,7 +30,7 @@ import type {
   PtyCreateInput,
   PtyInfo,
   PtyUpdateInput,
-  RipgrepMatch,
+  SearchMatch,
   Routine,
   RoutineCreateInput,
   RoutineUpdateInput,
@@ -278,7 +278,7 @@ export class MobileClient {
   }
 
   searchText(pattern: string) {
-    return this.request<RipgrepMatch[]>(`/find?pattern=${encodeURIComponent(pattern)}`)
+    return this.request<SearchMatch[]>(`/find?pattern=${encodeURIComponent(pattern)}`)
   }
 
   startMcpAuth(name: string) {

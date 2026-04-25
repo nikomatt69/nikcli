@@ -3,7 +3,7 @@ import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_search.txt"
 import { Rag } from "@/rag"
-import { Ripgrep } from "@/file/ripgrep"
+import { SearchBackend } from "@/file/searchBackend"
 import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
 
@@ -71,12 +71,13 @@ export const ContextSearchTool = Tool.define<typeof parameters, { matches: numbe
         }
       }
 
-      const matches = await Ripgrep.search({
+      const result = await SearchBackend.search({
         cwd: base,
         pattern: params.pattern,
         glob: params.include ? [params.include] : undefined,
         limit,
       })
+      const matches = result.matches
 
       if (matches.length === 0) {
         return {

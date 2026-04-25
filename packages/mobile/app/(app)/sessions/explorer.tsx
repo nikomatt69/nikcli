@@ -309,7 +309,7 @@ export default function ExplorerScreen() {
             />
           </View>
 
-          {/* Text search (ripgrep) */}
+          {/* Text search (fff) */}
           <Pressable
             onPress={() => setSearchVisible(true)}
             hitSlop={8}

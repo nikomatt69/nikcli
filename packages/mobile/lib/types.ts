@@ -277,7 +277,7 @@ export type FileContent = {
   mimeType?: string
 }
 
-export type RipgrepMatch = {
+export type SearchMatch = {
   type: "match" | "context" | "begin" | "end"
   data: {
     path?: { text: string }

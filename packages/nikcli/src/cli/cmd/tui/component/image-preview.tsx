@@ -3,13 +3,25 @@ import { RGBA } from "@opentui/core"
 import { useTheme } from "@tui/context/theme"
 
 const MAX_PREVIEW_BYTES = 10 * 1024 * 1024
-const MAX_PREVIEW_COLUMNS = 180
-const MAX_PREVIEW_BRAILLE_ROWS = 40
-const MIN_PREVIEW_COLUMNS = 24
+const MAX_PREVIEW_COLUMNS = 60
+const MAX_PREVIEW_BRAILLE_ROWS = 16
+const BRAILLE_DOT_WIDTH = 2
+const BRAILLE_DOT_HEIGHT = 4
 const IMAGE_EXTENSIONS = /\.(?:png|jpe?g|gif|webp|bmp|tiff?)(?:$|[?#])/i
 const GITHUB_ATTACHMENT = /^https:\/\/github\.com\/user-attachments\/assets\//i
+const TRANSPARENT = RGBA.fromInts(0, 0, 0, 0)
+
+const BRAILLE_BITS = [
+  [0x01, 0x08],
+  [0x02, 0x10],
+  [0x04, 0x20],
+  [0x40, 0x80],
+]
+
+type PixelColor = [r: number, g: number, b: number, a: number]
 
 type ImagePreviewCell = {
+  char: string
   fg: RGBA
   bg: RGBA
 }
@@ -143,41 +155,144 @@ async function readImageBytes(url: string, signal: AbortSignal) {
   return new Uint8Array(buffer)
 }
 
-function colorAt(data: Uint8Array, width: number, x: number, y: number) {
+function pixelAt(data: Uint8Array, width: number, x: number, y: number): PixelColor {
   const index = (y * width + x) * 4
-  return RGBA.fromInts(data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0, data[index + 3] ?? 255)
+  return [data[index] ?? 0, data[index + 1] ?? 0, data[index + 2] ?? 0, data[index + 3] ?? 255]
+}
+
+function pixelToRgba(color: PixelColor) {
+  return RGBA.fromInts(Math.round(color[0]), Math.round(color[1]), Math.round(color[2]), Math.round(color[3]))
+}
+
+function averageColor(colors: PixelColor[], indexes?: number[]) {
+  const source = indexes ?? colors.map((_, index) => index)
+  if (source.length === 0) return [0, 0, 0, 0] satisfies PixelColor
+  let r = 0
+  let g = 0
+  let b = 0
+  let a = 0
+  for (const index of source) {
+    const color = colors[index]
+    if (!color) continue
+    r += color[0]
+    g += color[1]
+    b += color[2]
+    a += color[3]
+  }
+  return [r / source.length, g / source.length, b / source.length, a / source.length] satisfies PixelColor
+}
+
+function colorDistanceSq(a: PixelColor, b: PixelColor) {
+  const dr = a[0] - b[0]
+  const dg = a[1] - b[1]
+  const db = a[2] - b[2]
+  const da = a[3] - b[3]
+  return dr * dr + dg * dg + db * db + da * da
+}
+
+function luminance(color: PixelColor) {
+  return 0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2]
+}
+
+function solidCell(colors: PixelColor[]): ImagePreviewCell {
+  const bg = pixelToRgba(averageColor(colors))
+  return { char: "⠀", fg: TRANSPARENT, bg }
+}
+
+function brailleCell(colors: PixelColor[]): ImagePreviewCell {
+  let darkest = 0
+  let brightest = 0
+  for (let index = 1; index < colors.length; index++) {
+    if (luminance(colors[index]) < luminance(colors[darkest])) darkest = index
+    if (luminance(colors[index]) > luminance(colors[brightest])) brightest = index
+  }
+
+  if (colorDistanceSq(colors[darkest], colors[brightest]) < 24 * 24 * 3) return solidCell(colors)
+
+  let centers: [PixelColor, PixelColor] = [colors[darkest], colors[brightest]]
+  let groups: [number[], number[]] = [[], []]
+  for (let iteration = 0; iteration < 4; iteration++) {
+    groups = [[], []]
+    for (let index = 0; index < colors.length; index++) {
+      const group = colorDistanceSq(colors[index], centers[0]) <= colorDistanceSq(colors[index], centers[1]) ? 0 : 1
+      groups[group].push(index)
+    }
+    if (groups[0].length === 0 || groups[1].length === 0) return solidCell(colors)
+    centers = [averageColor(colors, groups[0]), averageColor(colors, groups[1])]
+  }
+
+  const fgGroup = groups[0].length <= groups[1].length ? 0 : 1
+  const bgGroup = fgGroup === 0 ? 1 : 0
+  let mask = 0
+  for (const index of groups[fgGroup]) {
+    const x = index % BRAILLE_DOT_WIDTH
+    const y = Math.floor(index / BRAILLE_DOT_WIDTH)
+    mask |= BRAILLE_BITS[y]?.[x] ?? 0
+  }
+
+  return {
+    char: String.fromCharCode(0x2800 + mask),
+    fg: pixelToRgba(centers[fgGroup]),
+    bg: pixelToRgba(centers[bgGroup]),
+  }
+}
+
+function roundToMultiple(value: number, multiple: number) {
+  return Math.max(multiple, Math.round(value / multiple) * multiple)
+}
+
+function fitPreviewSize(sourceWidth: number, sourceHeight: number, maxColumns: number) {
+  const availableColumns = Math.max(1, Math.min(MAX_PREVIEW_COLUMNS, maxColumns))
+  const sourceLimitedColumns = Math.max(1, Math.ceil(sourceWidth / BRAILLE_DOT_WIDTH))
+  const maxPixelHeight = MAX_PREVIEW_BRAILLE_ROWS * BRAILLE_DOT_HEIGHT
+  let columns = Math.min(availableColumns, sourceLimitedColumns)
+  let pixelHeight = roundToMultiple(((columns * BRAILLE_DOT_WIDTH) / sourceWidth) * sourceHeight, BRAILLE_DOT_HEIGHT)
+
+  if (pixelHeight > maxPixelHeight) {
+    columns = Math.max(
+      1,
+      Math.min(
+        availableColumns,
+        sourceLimitedColumns,
+        Math.floor((maxPixelHeight * sourceWidth) / (sourceHeight * BRAILLE_DOT_WIDTH)),
+      ),
+    )
+    pixelHeight = roundToMultiple(((columns * BRAILLE_DOT_WIDTH) / sourceWidth) * sourceHeight, BRAILLE_DOT_HEIGHT)
+  }
+
+  return {
+    columns,
+    pixelWidth: columns * BRAILLE_DOT_WIDTH,
+    pixelHeight: Math.min(maxPixelHeight, pixelHeight),
+  }
 }
 
 async function loadImagePreview(url: string, maxColumns: number, signal: AbortSignal): Promise<ImagePreviewData> {
   const bytes = await readImageBytes(url, signal)
   if (signal.aborted) throw new Error("aborted")
 
-  const { Jimp } = await import("jimp")
+  const { Jimp, ResizeStrategy } = await import("jimp")
   const image = await Jimp.read(Buffer.from(bytes))
   const sourceWidth = image.bitmap.width
   const sourceHeight = image.bitmap.height
   if (!sourceWidth || !sourceHeight) throw new Error("image has no pixels")
 
-  // Resize to fill available width (min 24 cols), respecting aspect ratio
-  const columns = Math.max(24, Math.min(maxColumns, sourceWidth))
-  const targetHeight = Math.round((columns / sourceWidth) * sourceHeight)
-  // Clamp to reasonable preview height (terminal cells, each showing 2px vertically)
-  const maxPreviewRows = MAX_PREVIEW_BRAILLE_ROWS
-  const targetPixelHeight = Math.max(2, Math.min(maxPreviewRows * 2, targetHeight))
-  const pixelHeight = targetPixelHeight % 2 === 0 ? targetPixelHeight : targetPixelHeight + 1
-  const cols = Math.min(columns, sourceWidth)
+  const { columns, pixelWidth, pixelHeight } = fitPreviewSize(sourceWidth, sourceHeight, maxColumns)
 
-  image.resize({ w: cols, h: pixelHeight })
+  image.resize({ w: pixelWidth, h: pixelHeight, mode: ResizeStrategy.BICUBIC })
 
   const data = new Uint8Array(image.bitmap.data)
   const rows: ImagePreviewCell[][] = []
-  for (let y = 0; y < pixelHeight; y += 2) {
+  for (let y = 0; y < pixelHeight; y += BRAILLE_DOT_HEIGHT) {
     const row: ImagePreviewCell[] = []
-    for (let x = 0; x < cols; x++) {
-      row.push({
-        fg: colorAt(data, cols, x, y),
-        bg: colorAt(data, cols, x, Math.min(y + 1, pixelHeight - 1)),
-      })
+    for (let x = 0; x < pixelWidth; x += BRAILLE_DOT_WIDTH) {
+      const colors: PixelColor[] = []
+      for (let dy = 0; dy < BRAILLE_DOT_HEIGHT; dy++) {
+        for (let dx = 0; dx < BRAILLE_DOT_WIDTH; dx++) {
+          colors.push(pixelAt(data, pixelWidth, x + dx, y + dy))
+        }
+      }
+      row.push(brailleCell(colors))
     }
     rows.push(row)
   }
@@ -187,7 +302,7 @@ async function loadImagePreview(url: string, maxColumns: number, signal: AbortSi
     host: hostForUrl(url),
     width: sourceWidth,
     height: sourceHeight,
-    columns: cols,
+    columns,
     rows,
   }
 }
@@ -251,7 +366,7 @@ function ImagePreview(props: { url: string; maxColumns: number }) {
                 <For each={data().rows}>
                   {(row) => (
                     <text>
-                      <For each={row}>{(cell) => <span style={{ fg: cell.fg, bg: cell.bg }}>▀</span>}</For>
+                      <For each={row}>{(cell) => <span style={{ fg: cell.fg, bg: cell.bg }}>{cell.char}</span>}</For>
                     </text>
                   )}
                 </For>

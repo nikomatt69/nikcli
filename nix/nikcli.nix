@@ -6,7 +6,6 @@
   sysctl,
   makeBinaryWrapper,
   models-dev,
-  ripgrep,
   installShellFiles,
   versionCheckHook,
   writableTmpDirAsHomeHook,
@@ -57,7 +56,6 @@ stdenvNoCC.mkDerivation (finalAttrs: {
       --prefix PATH : ${
         lib.makeBinPath (
           [
-            ripgrep
           ]
           # bun runs sysctl to detect if dunning on rosetta2
           ++ lib.optional stdenvNoCC.hostPlatform.isDarwin sysctl

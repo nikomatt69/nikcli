@@ -4,7 +4,6 @@ import { cmd } from "../cmd"
 import { ConfigCommand } from "./config"
 import { FileCommand } from "./file"
 import { LSPCommand } from "./lsp"
-import { RipgrepCommand } from "./ripgrep"
 import { ScrapCommand } from "./scrap"
 import { SkillCommand } from "./skill"
 import { SnapshotCommand } from "./snapshot"
@@ -17,7 +16,6 @@ export const DebugCommand = cmd({
     yargs
       .command(ConfigCommand)
       .command(LSPCommand)
-      .command(RipgrepCommand)
       .command(FileCommand)
       .command(ScrapCommand)
       .command(SkillCommand)
