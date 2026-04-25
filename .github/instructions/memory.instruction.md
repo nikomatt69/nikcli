@@ -69,6 +69,7 @@
 | `packages/ui`               | `@nikcli-ai/ui`               | UI component library, icons, themes, i18n                                                            |
 | `packages/util`             | `@nikcli-ai/util`             | Shared utilities (error, slug, retry — Zod-based)                                                    |
 | `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from OpenAPI)                                 |
+| `packages/nikcli-plugins/`  | `nikcli-plugins`           | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto)                          |
 | `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + 11 built-in plugins                                                             |
 | `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages: en, es, fr, de, ja, ko, zh, zht, ru, pl, ar, br, bs, da, no, sv) |
 | `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android)                                                             |
@@ -339,6 +340,26 @@ Auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`:
 - Copilot/Codex auth plugins support
 - Notification dispatch: macOS, Slack, Discord
 
+### TUI Plugin Package (`packages/nikcli-plugins/`) — **NEW**
+
+External TUI plugin package using OpenTUI SolidJS components:
+
+- **Import pattern**: `import { TuiPlugin, usePlugin, useSlot, useDialog } from "@nikcli-ai/plugin/tui"` + OpenTUI from `@opentui/solid`
+- **Theme files**: JSON format with RGBA color values (e.g., `{ "current": { "primary": [255,149,0,1] } }`)
+- **Key patterns**: KV store for persistence, `createSignal` for state, `createEffect` for side effects, `onMount`/`onCleanup` for lifecycle
+
+**Known OpenTUI component constraints** (props that DO NOT exist at runtime):
+- `<text>`: no `bold`, `fontSize`, `textWrap`, `textStyle`, `flex`, `borderDirection`, `borderTop`, `borderColor`, `onClick`, `fontFamily`, `fontStyle`
+- `<box>`: no `borderTop`, `borderColor`, `overflow`, `paddingY`, `fg` (apply `fg` on child text elements instead)
+- `attributes` prop expects number (bitmask), not string array — remove or use `@ts-ignore`
+- No `flexGrow` prop
+- `<input>` requires `type` property
+- Dialog uses `content`/`footer` slots, not `title`/`body`
+- `useKeyboard` events use `code` property, not `key`
+- `useTerminalDimensions` for responsive layouts
+
+**Plugins created** (2026-04-25): music (Spotify OAuth), greet (KV storage + ASCII gallery), matrix (rain animation), starwars (ASCII art), weather (wttr.in), win95, pomodoro, calcio, pills, crypto
+
 ### Connectors (`src/connectors/`)
 
 - **5 API implementations**: Figma, GitHub, Lovable, Slack (each in `api/*.ts`)
@@ -374,6 +395,7 @@ Auto-generated from `packages/sdk/openapi.json` via `@hey-api/openapi-ts`:
 - `src/worktree/` — git worktree management
 - `src/bun/` — Bun process utilities and tool registry
 - `src/ide/` — IDE integration
+- `src/opentui/` — OpenTUI TUI integration (render.ts, context.ts, app.ts, dialog.ts, toast.ts)
 
 ### Mobile Package (`packages/mobile`)
 
