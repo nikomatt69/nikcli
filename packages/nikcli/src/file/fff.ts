@@ -29,37 +29,27 @@ export namespace FFF {
   const state = Instance.state(
     async (): Promise<Handle> => {
       const dir = Instance.directory
-      try {
-        const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
-        await fs.mkdir(dbDir, { recursive: true })
+      const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
+      await fs.mkdir(dbDir, { recursive: true })
 
-        const created = FileFinder.create({
-          basePath: dir,
-          frecencyDbPath: path.join(dbDir, "frecency.mdb"),
-          historyDbPath: path.join(dbDir, "history.mdb"),
-          aiMode: true,
-        })
+      const created = FileFinder.create({
+        basePath: dir,
+        frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+        historyDbPath: path.join(dbDir, "history.mdb"),
+        aiMode: true,
+      })
 
-        if (!created.ok) {
-          log.warn("FileFinder.create failed", { error: created.error })
-          return { available: false, error: created.error }
-        }
-
-        log.info("initialized", { dir, dbDir })
-        return { available: true, finder: created.value }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        log.warn("init threw", { error: message })
-        return { available: false, error: message }
+      if (!created.ok) {
+        log.warn("FileFinder.create failed", { error: created.error })
+        return { available: false, error: created.error }
       }
+
+      log.info("initialized", { dir, dbDir })
+      return { available: true, finder: created.value }
     },
     async (handle) => {
       if (handle.available) {
-        try {
-          handle.finder.destroy()
-        } catch (error) {
-          log.warn("destroy failed", { error })
-        }
+        handle.finder.destroy()
       }
     },
   )
@@ -73,9 +63,7 @@ export namespace FFF {
     return handle.available ? handle : undefined
   }
 
-  // During the initial background scan an empty result is meaningless — it just
-  // means "not indexed yet." Treat empty-while-scanning as undefined so the
-  // caller falls back to its own (eagerly populated) data source.
+  // Treat empty-while-scanning as undefined so callers fall back to their own data source
   function unusableDuringWarmup(finder: FileFinder, items: unknown[]): boolean {
     return items.length === 0 && finder.isScanning()
   }
