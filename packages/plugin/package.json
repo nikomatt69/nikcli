@@ -12,16 +12,16 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
     },
     "./tool": {
-      "import": "./dist/tool.js",
-      "types": "./dist/tool.d.ts"
+      "import": "./src/tool.ts",
+      "types": "./src/tool.ts"
     },
     "./tui": {
-      "import": "./dist/tui.js",
-      "types": "./dist/tui.d.ts"
+      "import": "./src/tui.ts",
+      "types": "./src/tui.ts"
     }
   },
   "files": [
