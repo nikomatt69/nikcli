@@ -422,9 +422,14 @@ export namespace File {
     const fffResult = await (async () => {
       if (kind === "file") return FFF.searchFiles(query, { pageSize: limit })
       if (kind === "directory") {
-        const dirs = await FFF.searchDirs(query, { pageSize: limit })
+        // Over-fetch like the fuzzysort path so sortHiddenLast has headroom
+        // before truncation; matches the original `limit * 20` behavior.
+        const fetchSize = preferHidden ? limit : limit * 20
+        const dirs = await FFF.searchDirs(query, { pageSize: fetchSize })
         if (!dirs) return undefined
-        return query ? dirs : sortHiddenLast(dirs.toSorted()).slice(0, limit)
+        if (preferHidden) return dirs.slice(0, limit)
+        const ordered = query ? sortHiddenLast(dirs) : sortHiddenLast(dirs.toSorted())
+        return ordered.slice(0, limit)
       }
       return FFF.searchMixed(query, { pageSize: limit })
     })().catch((error) => {

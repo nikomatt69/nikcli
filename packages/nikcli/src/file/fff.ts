@@ -1,5 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
+import crypto from "crypto"
 import { FileFinder, type GrepOptions, type GrepResult, type SearchOptions } from "@ff-labs/fff-bun"
 import { Instance } from "../project/instance"
 import { Global } from "../global"
@@ -21,7 +22,8 @@ export namespace FFF {
   type Handle = Ready | Unavailable
 
   function projectKey(dir: string) {
-    return Buffer.from(dir).toString("hex").slice(0, 32) + "-" + path.basename(dir)
+    const hash = crypto.createHash("sha256").update(dir).digest("hex").slice(0, 16)
+    return hash + "-" + path.basename(dir)
   }
 
   const state = Instance.state(
@@ -71,6 +73,13 @@ export namespace FFF {
     return handle.available ? handle : undefined
   }
 
+  // During the initial background scan an empty result is meaningless — it just
+  // means "not indexed yet." Treat empty-while-scanning as undefined so the
+  // caller falls back to its own (eagerly populated) data source.
+  function unusableDuringWarmup(finder: FileFinder, items: unknown[]): boolean {
+    return items.length === 0 && finder.isScanning()
+  }
+
   export async function searchFiles(query: string, opts?: SearchOptions): Promise<string[] | undefined> {
     const r = await ready()
     if (!r) return undefined
@@ -79,6 +88,7 @@ export namespace FFF {
       log.warn("fileSearch failed", { query, error: result.error })
       return undefined
     }
+    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
     return result.value.items.map((item) => item.relativePath)
   }
 
@@ -90,6 +100,7 @@ export namespace FFF {
       log.warn("directorySearch failed", { query, error: result.error })
       return undefined
     }
+    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
     return result.value.items.map((item) => item.relativePath)
   }
 
@@ -101,6 +112,7 @@ export namespace FFF {
       log.warn("mixedSearch failed", { query, error: result.error })
       return undefined
     }
+    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
     return result.value.items.map((entry) => entry.item.relativePath)
   }
 
