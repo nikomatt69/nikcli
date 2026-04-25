@@ -1,6 +1,6 @@
 import { SyntaxStyle, RGBA, type TerminalColors } from "@opentui/core"
 import path from "path"
-import { createEffect, createMemo, on, onMount } from "solid-js"
+import { createEffect, createMemo, on, onCleanup, onMount } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { createSimpleContext } from "./helper"
 import aura from "./theme/aura.json" with { type: "json" }
@@ -203,10 +203,14 @@ type ThemeJson = {
 
 const extraThemes: Record<string, ThemeJson> = {}
 
+/** When ThemeProvider calls reload(), it replaces store.themes with a copy, so it no longer tracks mutations to DEFAULT_THEMES. */
+let syncPluginThemeToStore: ((name: string, data: ThemeJson) => void) | undefined
+
 export function addTheme(name: string, data: unknown): void {
   if (!data || typeof data !== "object" || !("theme" in data)) return
   extraThemes[name] = data as ThemeJson
   DEFAULT_THEMES[name] = data as ThemeJson
+  syncPluginThemeToStore?.(name, data as ThemeJson)
 }
 
 export function hasTheme(name: string): boolean {
@@ -426,6 +430,26 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       mode: kv.get("theme_mode", props.mode),
       active: (sync.data.config.theme ?? kv.get("theme", "nikcli")) as string,
       ready: false,
+    })
+
+    function mergePluginThemeIntoStore(name: string, data: ThemeJson) {
+      setStore(
+        produce((draft) => {
+          draft.themes[name] = data
+        }),
+      )
+    }
+    syncPluginThemeToStore = mergePluginThemeIntoStore
+    // Themes that loaded before the provider (or before reload) only lived on DEFAULT_THEMES; ensure the store has them.
+    setStore(
+      produce((draft) => {
+        for (const [k, v] of Object.entries(extraThemes)) {
+          draft.themes[k] = v
+        }
+      }),
+    )
+    onCleanup(() => {
+      syncPluginThemeToStore = undefined
     })
 
     createEffect(
