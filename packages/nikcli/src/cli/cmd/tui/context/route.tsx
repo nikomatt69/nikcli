@@ -22,7 +22,19 @@ export type PluginRoute = {
   workspaceID?: string
 }
 
-export type Route = HomeRoute | SessionRoute | PluginRoute
+export type ChangesRoute = {
+  type: "changes"
+  sessionID: string
+  workspaceID?: string
+}
+
+export type SessionTreeRoute = {
+  type: "tree"
+  sessionID?: string
+  workspaceID?: string
+}
+
+export type Route = HomeRoute | SessionRoute | PluginRoute | ChangesRoute | SessionTreeRoute
 
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",

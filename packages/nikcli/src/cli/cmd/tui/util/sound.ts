@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { basename, join } from "node:path"
+import { Player } from "cli-sound"
 import pulseA from "../asset/pulse-a.wav" with { type: "file" }
 import pulseB from "../asset/pulse-b.wav" with { type: "file" }
 import pulseC from "../asset/pulse-c.wav" with { type: "file" }
@@ -40,21 +41,30 @@ function args(kind: Kind, file: string, volume: number) {
   return [kind, "-c", `(New-Object Media.SoundPlayer '${file.replace(/'/g, "''")}').PlaySync()`]
 }
 
-type Child = ReturnType<typeof Bun.spawn>
-
+let item: Player | null | undefined
 let kind: Kind | null | undefined
-let proc: Child | undefined
+let proc: ReturnType<typeof Bun.spawn> | undefined
 let tail: ReturnType<typeof setTimeout> | undefined
 let cache: Promise<{ hum: string; pulse: string[] }> | undefined
 let seq = 0
 let shot = 0
 
-async function file(p: string) {
+function load() {
+  if (item !== undefined) return item
+  try {
+    item = new Player({ volume: 0.35 })
+  } catch {
+    item = null
+  }
+  return item
+}
+
+async function file(path: string) {
   mkdirSync(DIR, { recursive: true })
-  const next = join(DIR, basename(p))
+  const next = join(DIR, basename(path))
   const out = Bun.file(next)
   if (await out.exists()) return next
-  await Bun.write(out, Bun.file(p))
+  await Bun.write(out, Bun.file(path))
   return next
 }
 
@@ -69,7 +79,7 @@ function pick() {
   return kind
 }
 
-function run(file: string, volume: number): Child | undefined {
+function run(file: string, volume: number) {
   const k = pick()
   if (!k) return
   try {
@@ -89,10 +99,10 @@ function clear() {
   tail = undefined
 }
 
-function kill(child: Child) {
-  try {
-    child.kill()
-  } catch {}
+function play(file: string, volume: number) {
+  const p = load()
+  if (!p) return run(file, volume)?.exited
+  return p.play(file, { volume }).catch(() => run(file, volume)?.exited)
 }
 
 export function start() {
@@ -123,13 +133,17 @@ export function stop(delay = 0) {
   const next = proc
   if (delay <= 0) {
     proc = undefined
-    kill(next)
+    try {
+      next.kill()
+    } catch {}
     return
   }
   tail = setTimeout(() => {
     tail = undefined
     if (proc === next) proc = undefined
-    kill(next)
+    try {
+      next.kill()
+    } catch {}
   }, delay)
 }
 
@@ -138,7 +152,7 @@ export function pulse(scale = 1) {
   const index = shot++ % FILE.length
   void asset()
     .then(({ pulse }) => {
-      run(pulse[index], 0.26 + 0.14 * scale)
+      play(pulse[index], 0.26 + 0.14 * scale)
     })
     .catch(() => undefined)
 }

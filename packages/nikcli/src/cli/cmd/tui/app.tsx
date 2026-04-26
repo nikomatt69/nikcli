@@ -46,6 +46,8 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
+import { Changes } from "@tui/routes/changes"
+import { SessionTree } from "@tui/routes/tree"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -308,8 +310,16 @@ function App() {
       () => ({
         enabled: terminalTitleEnabled(),
         type: route.data.type,
-        sessionID: route.data.type === "session" ? route.data.sessionID : null,
-        title: route.data.type === "session" ? (sync.session.get(route.data.sessionID)?.title ?? null) : null,
+        sessionID:
+          route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
+            ? (route.data.sessionID ?? null)
+            : null,
+        title:
+          route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
+            ? route.data.sessionID
+              ? (sync.session.get(route.data.sessionID)?.title ?? null)
+              : "Session Tree"
+            : null,
       }),
       (state) => {
         if (!state.enabled || Flag.NIKCLI_DISABLE_TERMINAL_TITLE) {
@@ -442,6 +452,47 @@ function App() {
           type: "home",
           initialPrompt: currentPrompt,
           workspaceID,
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: "View changes",
+      value: "changes.open",
+      category: "Session",
+      suggested: route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0,
+      enabled: route.data.type === "session",
+      slash: {
+        name: "changes",
+      },
+      onSelect: () => {
+        if (route.data.type === "session") {
+          route.navigate({
+            type: "changes",
+            sessionID: route.data.sessionID,
+            workspaceID: route.data.workspaceID ?? sync.session.get(route.data.sessionID)?.workspaceID,
+          })
+        }
+        dialog.clear()
+      },
+    },
+    {
+      title: "Session tree",
+      value: "tree.open",
+      category: "Session",
+      suggested: route.data.type === "session",
+      enabled: route.data.type === "session",
+      slash: {
+        name: "tree",
+      },
+      onSelect: () => {
+        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
+        route.navigate({
+          type: "tree",
+          sessionID,
+          workspaceID: sessionID
+            ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
+            : route.data.workspaceID,
         })
         dialog.clear()
       },
@@ -982,7 +1033,12 @@ function App() {
         })
       }),
       sdk.event.on(SessionApi.Event.Deleted.type, (evt) => {
-        if (route.data.type === "session" && route.data.sessionID === evt.properties.info.id) {
+        const deletedSessionID = evt.properties.info.id
+        const currentSessionID =
+          route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
+            ? route.data.sessionID
+            : undefined
+        if (currentSessionID === deletedSessionID) {
           route.navigate({ type: "home", workspaceID: evt.properties.info.workspaceID })
           toast.show({
             variant: "info",
@@ -1066,6 +1122,12 @@ function App() {
         </Match>
         <Match when={route.data.type === "session"}>
           <Session />
+        </Match>
+        <Match when={route.data.type === "changes"}>
+          <Changes />
+        </Match>
+        <Match when={route.data.type === "tree"}>
+          <SessionTree />
         </Match>
         <Match when={route.data.type === "plugin" && route.data}>
           {(data) => {

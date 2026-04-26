@@ -279,12 +279,94 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 - Actual plugin implementations are external npm packages (e.g., `@nikcli-ai/plugin-agent-memory`)
 - Health score: ~5/10 — plugin infrastructure is well-designed but ecosystem source is absent from repo
 
-## Codebase Status (2026-04-24)
+## TUI Route System (`src/cli/cmd/tui/routes/`)
 
-- Typecheck: Likely passing
-- Tests: 71 pass, 0 fail (2026-04-06 baseline)
-- `@ts-ignore` count: 10 remaining
-- New: `src/cli/cmd/tui/component/image-preview.tsx` added (TUI image URL previews)
+### Core Route Types (`context/route.tsx`)
+
+| Route            | File                    | Purpose                                |
+| ---------------- | ----------------------- | -------------------------------------- |
+| `home`           | `home/index.tsx`        | Main landing screen with logo + tips   |
+| `session`        | `session/index.tsx`     | Main chat interface                    |
+| `changes`        | `changes/index.tsx`     | Code review with inline comments       |
+| `tree`           | `tree/index.tsx`        | Session hierarchy browser              |
+
+All routes support `workspaceID?: string` for multi-workspace routing.
+
+### Delete-Safe Navigation
+
+`app.tsx` implements unified `onDelete` handling for ALL routes (session, changes, tree). When a session is deleted from any view, user is redirected to `home` route instead of leaving a dangling reference.
+
+### Plugin Route API
+
+`plugin/api.tsx` exports `changes.navigate(id?)` and `tree.navigate(id?)` helpers. Also provides `changes.url(id?)` and `tree.url(id?)` for URL construction.
+
+## Code Review Route (`routes/changes/`)
+
+### Files
+
+| File             | Purpose                                                      |
+| ---------------- | ------------------------------------------------------------ |
+| `index.tsx`       | Main review page: sidebar file list + unified/split diff view |
+| `file-list.tsx`   | Sidebar with directories, file navigator, +/- indicators    |
+| `comment-box.tsx` | Inline comment UI with type badges (bug/style/question/suggestion), two-phase input (type select → text), keyboard: `c` opens, `1-4` selects type, `ctrl+enter` submits, `esc` cancels |
+| `format-comments.ts` | Formats all comments per file for AI review feedback       |
+| `footer.tsx`     | Keyboard hints bar                                          |
+| `header.tsx`      | Title bar with mode toggle (unified/split), session info     |
+
+### Comment System
+
+- Comments stored per session in sync store, loaded/saved per file
+- `CommentInput` two-phase: phase "type" for type selection, phase "text" for body
+- KeyBindings on textarea: `{ name: "return", ctrl: true, action: "submit" }` for submit
+- `submitting` signal controls textarea focus reactivity; reset after onSubmit completes
+- `formatCommentsForAI()` outputs structured feedback with file path, line numbers, comment type, content
+
+### Diff View
+
+- Uses `@opentui/core` `DiffRenderable` for syntax-highlighted unified/split output
+- `formatPatch()` / `structuredPatch()` from `diff` package for parsing
+- Keyboard: `j/k` navigate, `w` toggle wrap, `tab` switch list/diff view
+
+## Session Tree Route (`routes/tree/`)
+
+### Files
+
+| File                  | Purpose                                                     |
+| --------------------- | ----------------------------------------------------------- |
+| `index.tsx`           | Main tree browser with header, column headers, scroll list, footer |
+| `header.tsx`          | `SessionTreeHeader` (title + stats) + `SessionTreeColumnHeaders` (Session/Changes/Status/Updated/ID) |
+| `footer.tsx`          | `SessionTreeFooter` with keyboard shortcuts + MCP/LSP status |
+| `tree-rows.tsx`        | `TreeRow`, `flattenTreeRows()`, `treeLinePrefix()`, `listUserMessagePreviews()` |
+| `session-activity-line.ts` | Activity display (file/additions/deletions counts)         |
+| `session-status.ts`    | Status badge component                                       |
+
+### Features
+
+- Hierarchical tree with expand/collapse (`h/l` keys)
+- Filter mode with `/` or `f` key to search by title/ID
+- Expand all with `a` key
+- MCP/LSP status indicators in footer
+- `SessionTreeHeader`: background with `SplitBorder`, title "Session Tree", root/session counts, current selection indicator
+- `SessionTreeColumnHeaders`: fixed column layout with aligned widths
+
+## Logo Component (`component/logo.tsx`)
+
+Simple static ASCII logo (104 lines):
+- Two-column ASCII art: `nikcli` split as "███╗" + "█████╗" and "╗██╗" + "██╔═══" etc.
+- Shadow rendering via `▀` block characters with `_/^/~` markers
+- Renders via OpenTUI `<text>` with `fg`, `bg`, `attributes`, `selectable={false}`
+- `tint()` from theme for shadow color (25% intensity)
+- No animation, no wave/burst effects (reverted after stability issues)
+
+## TUI Component Library (`component/`)
+
+| Component              | Purpose                                              |
+| ---------------------- | ---------------------------------------------------- |
+| `image-preview.tsx`    | ASCII art preview for image URLs (Jimp, 40×16 chars) |
+| `logo.tsx`             | Static nikcli ASCII logo with shadow rendering       |
+| `border.tsx`           | `SplitBorder` (left-side accent line) component      |
+| `dialog-*`             | 20+ dialog components (settings, theme, model, etc.)  |
+| `prompt/`              | Prompt bar with history, frecency, autocomplete      |
 
 ## Blocking Issues
 
@@ -383,19 +465,3 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 - `@ts-ignore` count: 10 remaining
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
-
-## Key Files Reference
-
-| File                              | Purpose                           |
-| --------------------------------- | --------------------------------- |
-| `src/session/processor.ts`        | Main chat loop execution          |
-| `src/session/prompt.ts`           | LLM prompt construction           |
-| `src/session/message-v2.ts`       | Message/part CRUD operations      |
-| `src/tool/registry.ts`            | Tool registration and execution   |
-| `src/config/config.ts`            | Main configuration schema         |
-| `src/bus/index.ts`                | Event bus for cross-instance sync |
-| `src/server/server.ts`            | HTTP server with 20+ route groups |
-| `src/mobile/expo.ts`              | Expo CLI wrapper                  |
-| `src/mobile/simulator.ts`         | iOS/Android device manager        |
-| `src/mobile/react-native.ts`      | React Native CLI wrapper          |
-| `src/cli/cmd/tui/routes/session/` | TUI message rendering pipeline    |

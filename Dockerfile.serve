@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.12-debian AS base
+FROM oven/bun:1.3.13-debian AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git libgcc-s1 libstdc++6 openssh-server curl ca-certificates patchelf \

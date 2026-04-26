@@ -3,6 +3,7 @@ import { useSync } from "@tui/context/sync"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import type { TextPart } from "@nikcli-ai/sdk/v2"
 import { Locale } from "@/util/locale"
+import { formatMessageLineForTimeline } from "@tui/util/timeline-style-text"
 import { DialogMessage } from "./dialog-message"
 import { useDialog } from "../../ui/dialog"
 import type { PromptInfo } from "../../component/prompt/history"
@@ -29,7 +30,7 @@ export function DialogTimeline(props: {
       ) as TextPart
       if (!part) continue
       result.push({
-        title: part.text.replace(/\n/g, " "),
+        title: formatMessageLineForTimeline(part.text),
         value: message.id,
         footer: Locale.time(message.time.created),
         onSelect: (dialog) => {

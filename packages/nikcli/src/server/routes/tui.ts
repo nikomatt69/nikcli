@@ -370,7 +370,10 @@ export const TuiRoutes = lazy(() =>
       validator("json", TuiEvent.SessionSelect.properties),
       async (c) => {
         const { sessionID } = c.req.valid("json")
-        await Session.get(sessionID)
+        const session = await Session.get(sessionID)
+        if (!session) {
+          return c.json({ error: "Session not found" }, 404)
+        }
         await Bus.publish(TuiEvent.SessionSelect, { sessionID })
         return c.json(true)
       },

@@ -79,6 +79,19 @@ function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?
     return
   }
 
+  if (name === "changes") {
+    const sessionID = params?.sessionID
+    if (typeof sessionID !== "string") return
+    route.navigate({ type: "changes", sessionID })
+    return
+  }
+
+  if (name === "tree") {
+    const sessionID = params?.sessionID
+    route.navigate({ type: "tree", sessionID: typeof sessionID === "string" ? sessionID : undefined })
+    return
+  }
+
   route.navigate({ type: "plugin", id: name, data: params })
 }
 
@@ -91,6 +104,22 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
         sessionID: route.data.sessionID,
         initialPrompt: route.data.initialPrompt,
       },
+    }
+  }
+
+  if (route.data.type === "changes") {
+    return {
+      name: "changes",
+      params: {
+        sessionID: route.data.sessionID,
+      },
+    }
+  }
+
+  if (route.data.type === "tree") {
+    return {
+      name: "tree",
+      params: route.data.sessionID ? { sessionID: route.data.sessionID } : undefined,
     }
   }
 

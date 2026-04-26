@@ -14,6 +14,7 @@ import {
 } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { useKeybind } from "@tui/context/keybind"
+import { useRoute } from "@tui/context/route"
 
 const globalCommands: Accessor<CommandOption[]>[] = []
 
@@ -39,6 +40,7 @@ function init() {
   const owner: Owner | null = getOwner()
   const dialog = useDialog()
   const keybind = useKeybind()
+  const route = useRoute()
 
   const entries = createMemo(() => {
     const registered = registrations().flatMap((x) => x())
@@ -75,6 +77,11 @@ function init() {
   useKeyboard((evt) => {
     if (suspended()) return
     if (dialog.stack.length > 0) return
+    if (route.data.type === "changes") {
+      if (keybind.match("agent_cycle", evt) || keybind.match("agent_cycle_reverse", evt)) {
+        return
+      }
+    }
     for (const option of entries()) {
       if (!isEnabled(option)) continue
       if (option.keybind && keybind.match(option.keybind, evt)) {

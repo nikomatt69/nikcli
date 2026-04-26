@@ -51,7 +51,7 @@ export class SessionManager extends EventEmitter {
       tunnelProvider: "localtunnel",
       maxConnections: options?.maxDevices ?? this.config.maxDevices,
       sessionTimeout: this.config.sessionExpiry * 1000,
-      enableTerminal: false,
+      enableTerminal: true,
     })
 
     this.server.on("client:connected", (device: DeviceInfo) => {
