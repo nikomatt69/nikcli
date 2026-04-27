@@ -145,7 +145,6 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
         ),
         mode: "primary",
         native: true,
-        color: "#FF6B35",
       },
       build: {
         name: "build",

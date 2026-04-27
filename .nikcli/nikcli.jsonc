@@ -1,6 +1,6 @@
 {
   "$schema": "https://nikcli.store/config.json",
   "plugin": [
-
+    "opencode-snip"
   ]
 }

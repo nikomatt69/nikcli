@@ -34,10 +34,12 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     }
 
     const agent = iife(() => {
+      const PRIMARY_AGENT_NAMES = ["build", "plan", "general", "ralph", "ultrareview-reviewer"]
       const agents = createMemo(() =>
-        sync.data.agent.filter(
-          (x) => x.mode !== "subagent" && !x.hidden && ["build", "plan", "general", "ralph"].includes(x.name),
-        ),
+        sync.data.agent.filter((x) => PRIMARY_AGENT_NAMES.includes(x.name)),
+      )
+      const subagents = createMemo(() =>
+        sync.data.agent.filter((x) => !x.hidden && !PRIMARY_AGENT_NAMES.includes(x.name)),
       )
       const [agentStore, setAgentStore] = createStore<{
         current: string | undefined
@@ -90,13 +92,39 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             if (value) setAgentStore("current", value.name)
           })
         },
+        moveSub(direction: 1 | -1) {
+          const subs = subagents()
+          if (subs.length === 0) return
+          batch(() => {
+            let next = subs.findIndex((x) => x.name === agentStore.current) + direction
+            if (next < 0) next = subs.length - 1
+            if (next >= subs.length) next = 0
+            const value = subs[next]
+            if (value) setAgentStore("current", value.name)
+          })
+        },
         color(name: string) {
           const all = sync.data.agent
           const agent = all.find((x) => x.name === name)
           if (agent?.color) return RGBA.fromHex(agent.color)
-          const index = all.findIndex((x) => x.name === name)
-          if (index === -1) return colors()[0]
-          return colors()[index % colors().length]
+          const c = colors()
+          const KNOWN_INDEX: Record<string, number> = {
+            ralph: 0,
+            build: 1,
+            plan: 2,
+            general: 3,
+            "ultrareview-reviewer": 4,
+            explore: 5,
+            "fast-explore": 1,
+            planner: 2,
+            "code-reviewer": 3,
+            debugger: 4,
+            "test-runner": 5,
+            refactor: 0,
+          }
+          if (name in KNOWN_INDEX) return c[KNOWN_INDEX[name]!]!
+          const hash = [...name].reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
+          return c[hash % c.length]
         },
       }
     })
