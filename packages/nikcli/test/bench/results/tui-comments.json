@@ -1,0 +1,272 @@
+[
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323659298,
+    "date": "2026-04-27T21:00:59.298Z",
+    "iterations": 50000,
+    "totalMs": 102.23649999999998,
+    "perOpMs": 0.0020447299999999994,
+    "opsPerSec": 489062.1255618102
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323682905,
+    "date": "2026-04-27T21:01:22.905Z",
+    "iterations": 50000,
+    "totalMs": 100.83825000000002,
+    "perOpMs": 0.0020167650000000002,
+    "opsPerSec": 495843.5910976241
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323701969,
+    "date": "2026-04-27T21:01:41.969Z",
+    "iterations": 50000,
+    "totalMs": 98.92379100000016,
+    "perOpMs": 0.001978475820000003,
+    "opsPerSec": 505439.586317511
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323727516,
+    "date": "2026-04-27T21:02:07.516Z",
+    "iterations": 50000,
+    "totalMs": 232.18416699999943,
+    "perOpMs": 0.004643683339999988,
+    "opsPerSec": 215346.29447838326
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323756813,
+    "date": "2026-04-27T21:02:36.813Z",
+    "iterations": 50000,
+    "totalMs": 144.708290999999,
+    "perOpMs": 0.00289416581999998,
+    "opsPerSec": 345522.70401700994
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323766269,
+    "date": "2026-04-27T21:02:46.269Z",
+    "iterations": 50000,
+    "totalMs": 119.05195900000035,
+    "perOpMs": 0.0023810391800000072,
+    "opsPerSec": 419984.68920616293
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323781914,
+    "date": "2026-04-27T21:03:01.914Z",
+    "iterations": 50000,
+    "totalMs": 115.19629200000054,
+    "perOpMs": 0.0023039258400000106,
+    "opsPerSec": 434041.7484965555
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323806660,
+    "date": "2026-04-27T21:03:26.660Z",
+    "iterations": 50000,
+    "totalMs": 119.37270800000078,
+    "perOpMs": 0.0023874541600000156,
+    "opsPerSec": 418856.2095784882
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323831297,
+    "date": "2026-04-27T21:03:51.297Z",
+    "iterations": 50000,
+    "totalMs": 156.28187500000058,
+    "perOpMs": 0.0031256375000000116,
+    "opsPerSec": 319934.73331440263
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323845456,
+    "date": "2026-04-27T21:04:05.456Z",
+    "iterations": 50000,
+    "totalMs": 138.4345830000002,
+    "perOpMs": 0.002768691660000004,
+    "opsPerSec": 361181.42530902073
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323868997,
+    "date": "2026-04-27T21:04:28.997Z",
+    "iterations": 50000,
+    "totalMs": 132.54874999999993,
+    "perOpMs": 0.0026509749999999986,
+    "opsPerSec": 377219.70218504535
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323887574,
+    "date": "2026-04-27T21:04:47.574Z",
+    "iterations": 50000,
+    "totalMs": 125.0952500000003,
+    "perOpMs": 0.002501905000000006,
+    "opsPerSec": 399695.4320807535
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323892000,
+    "date": "2026-04-27T21:04:52.000Z",
+    "iterations": 50000,
+    "totalMs": 141.91237499999988,
+    "perOpMs": 0.0028382474999999975,
+    "opsPerSec": 352330.09101567103
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323912243,
+    "date": "2026-04-27T21:05:12.243Z",
+    "iterations": 50000,
+    "totalMs": 163.7826670000013,
+    "perOpMs": 0.0032756533400000263,
+    "opsPerSec": 305282.60966711206
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323932893,
+    "date": "2026-04-27T21:05:32.893Z",
+    "iterations": 50000,
+    "totalMs": 130.48991699999897,
+    "perOpMs": 0.0026097983399999795,
+    "opsPerSec": 383171.36794561986
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323953111,
+    "date": "2026-04-27T21:05:53.111Z",
+    "iterations": 50000,
+    "totalMs": 140.34991699999955,
+    "perOpMs": 0.002806998339999991,
+    "opsPerSec": 356252.4372565191
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323976595,
+    "date": "2026-04-27T21:06:16.595Z",
+    "iterations": 50000,
+    "totalMs": 167.82158300000083,
+    "perOpMs": 0.0033564316600000164,
+    "opsPerSec": 297935.4568476437
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777323999298,
+    "date": "2026-04-27T21:06:39.298Z",
+    "iterations": 50000,
+    "totalMs": 146.3821250000001,
+    "perOpMs": 0.0029276425000000017,
+    "opsPerSec": 341571.7595300654
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777324950839,
+    "date": "2026-04-27T21:22:30.839Z",
+    "iterations": 50000,
+    "totalMs": 133.22433400000227,
+    "perOpMs": 0.0026644866800000456,
+    "opsPerSec": 375306.81144181325
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777325168362,
+    "date": "2026-04-27T21:26:08.362Z",
+    "iterations": 50000,
+    "totalMs": 148.95712499999718,
+    "perOpMs": 0.0029791424999999435,
+    "opsPerSec": 335667.05855796393
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777325803686,
+    "date": "2026-04-27T21:36:43.686Z",
+    "iterations": 50000,
+    "totalMs": 151.2524169999997,
+    "perOpMs": 0.003025048339999994,
+    "opsPerSec": 330573.2297818428
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777325892279,
+    "date": "2026-04-27T21:38:12.279Z",
+    "iterations": 50000,
+    "totalMs": 118.8033749999995,
+    "perOpMs": 0.00237606749999999,
+    "opsPerSec": 420863.4645269985
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777326068754,
+    "date": "2026-04-27T21:41:08.754Z",
+    "iterations": 50000,
+    "totalMs": 114.31166700000176,
+    "perOpMs": 0.0022862333400000354,
+    "opsPerSec": 437400.67232156824
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777326119709,
+    "date": "2026-04-27T21:41:59.709Z",
+    "iterations": 50000,
+    "totalMs": 118.29987500000061,
+    "perOpMs": 0.002365997500000012,
+    "opsPerSec": 422654.715400162
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777326180649,
+    "date": "2026-04-27T21:43:00.649Z",
+    "iterations": 50000,
+    "totalMs": 118.6082499999975,
+    "perOpMs": 0.00237216499999995,
+    "opsPerSec": 421555.83612439316
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777326656379,
+    "date": "2026-04-27T21:50:56.379Z",
+    "iterations": 50000,
+    "totalMs": 162.5297499999997,
+    "perOpMs": 0.0032505949999999937,
+    "opsPerSec": 307635.986642446
+  },
+  {
+    "name": "formatCommentsForAI",
+    "module": "tui-comments",
+    "timestamp": 1777326695034,
+    "date": "2026-04-27T21:51:35.034Z",
+    "iterations": 50000,
+    "totalMs": 140.37933300000077,
+    "perOpMs": 0.0028075866600000155,
+    "opsPerSec": 356177.7857998494
+  }
+]

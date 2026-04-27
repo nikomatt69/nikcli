@@ -2225,9 +2225,6 @@ export function Prompt(props: PromptProps) {
                               {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
                             </text>
                           </Show>
-                          <text fg={theme.text}>
-                            {keybind.print("agent_cycle")} <span style={{ fg: theme.textMuted }}>agents</span>
-                          </text>
                         </Match>
                       </Switch>
                       <text fg={theme.text}>
@@ -2242,7 +2239,9 @@ export function Prompt(props: PromptProps) {
                   </Switch>
                 </box>
               </Show>
-              <Show when={editorFileLabelDisplay()}>{(file) => <text fg={theme.secondary}>{file()}</text>}</Show>
+              <Show when={editorFileLabelDisplay()}>
+                {(file) => <text fg={theme.secondary} flexShrink={0} wrapMode="none">{file()}</text>}
+              </Show>
             </box>
           </Show>
         </box>

@@ -1,0 +1,542 @@
+[
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323642755,
+    "date": "2026-04-27T21:00:42.755Z",
+    "iterations": 500000,
+    "totalMs": 40.04549999999995,
+    "perOpMs": 0.0000800909999999999,
+    "opsPerSec": 12485797.405451316
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323642769,
+    "date": "2026-04-27T21:00:42.769Z",
+    "iterations": 500000,
+    "totalMs": 11.467208000000028,
+    "perOpMs": 0.000022934416000000057,
+    "opsPerSec": 43602592.71480894
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323682709,
+    "date": "2026-04-27T21:01:22.709Z",
+    "iterations": 500000,
+    "totalMs": 41.60333400000002,
+    "perOpMs": 0.00008320666800000003,
+    "opsPerSec": 12018267.574420834
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323682720,
+    "date": "2026-04-27T21:01:22.720Z",
+    "iterations": 500000,
+    "totalMs": 9.97845899999993,
+    "perOpMs": 0.00001995691799999986,
+    "opsPerSec": 50107937.50818674
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323701778,
+    "date": "2026-04-27T21:01:41.778Z",
+    "iterations": 500000,
+    "totalMs": 41.1044169999999,
+    "perOpMs": 0.0000822088339999998,
+    "opsPerSec": 12164142.84625424
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323701790,
+    "date": "2026-04-27T21:01:41.790Z",
+    "iterations": 500000,
+    "totalMs": 10.367917000000034,
+    "perOpMs": 0.00002073583400000007,
+    "opsPerSec": 48225694.708011106
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323726964,
+    "date": "2026-04-27T21:02:06.964Z",
+    "iterations": 500000,
+    "totalMs": 58.14716699999917,
+    "perOpMs": 0.00011629433399999835,
+    "opsPerSec": 8598871.205539681
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323726984,
+    "date": "2026-04-27T21:02:06.984Z",
+    "iterations": 500000,
+    "totalMs": 19.158332999999402,
+    "perOpMs": 0.000038316665999998806,
+    "opsPerSec": 26098304.064347122
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323756516,
+    "date": "2026-04-27T21:02:36.516Z",
+    "iterations": 500000,
+    "totalMs": 79.33245799999713,
+    "perOpMs": 0.00015866491599999426,
+    "opsPerSec": 6302590.548751408
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323756555,
+    "date": "2026-04-27T21:02:36.555Z",
+    "iterations": 500000,
+    "totalMs": 38.00604199999725,
+    "perOpMs": 0.0000760120839999945,
+    "opsPerSec": 13155802.964171752
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323766038,
+    "date": "2026-04-27T21:02:46.038Z",
+    "iterations": 500000,
+    "totalMs": 57.98058299999866,
+    "perOpMs": 0.00011596116599999731,
+    "opsPerSec": 8623576.620469848
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323766050,
+    "date": "2026-04-27T21:02:46.050Z",
+    "iterations": 500000,
+    "totalMs": 10.750749999999243,
+    "perOpMs": 0.000021501499999998486,
+    "opsPerSec": 46508383.136063546
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323781697,
+    "date": "2026-04-27T21:03:01.697Z",
+    "iterations": 500000,
+    "totalMs": 55.45900000000074,
+    "perOpMs": 0.00011091800000000149,
+    "opsPerSec": 9015669.233127056
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323781709,
+    "date": "2026-04-27T21:03:01.709Z",
+    "iterations": 500000,
+    "totalMs": 10.74749999999949,
+    "perOpMs": 0.00002149499999999898,
+    "opsPerSec": 46522447.08071865
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323806409,
+    "date": "2026-04-27T21:03:26.409Z",
+    "iterations": 500000,
+    "totalMs": 58.97566700000061,
+    "perOpMs": 0.00011795133400000122,
+    "opsPerSec": 8478072.829595886
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323806426,
+    "date": "2026-04-27T21:03:26.426Z",
+    "iterations": 500000,
+    "totalMs": 15.3207910000001,
+    "perOpMs": 0.000030641582000000195,
+    "opsPerSec": 32635390.69229498
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323831030,
+    "date": "2026-04-27T21:03:51.030Z",
+    "iterations": 500000,
+    "totalMs": 58.05608299999949,
+    "perOpMs": 0.00011611216599999897,
+    "opsPerSec": 8612361.946637088
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323831047,
+    "date": "2026-04-27T21:03:51.047Z",
+    "iterations": 500000,
+    "totalMs": 15.311250000002474,
+    "perOpMs": 0.00003062250000000495,
+    "opsPerSec": 32655726.998117022
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323845208,
+    "date": "2026-04-27T21:04:05.208Z",
+    "iterations": 500000,
+    "totalMs": 73.35441600000013,
+    "perOpMs": 0.00014670883200000026,
+    "opsPerSec": 6816222.216260288
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323845220,
+    "date": "2026-04-27T21:04:05.220Z",
+    "iterations": 500000,
+    "totalMs": 11.13391700000102,
+    "perOpMs": 0.00002226783400000204,
+    "opsPerSec": 44907825.34124821
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323868740,
+    "date": "2026-04-27T21:04:28.740Z",
+    "iterations": 500000,
+    "totalMs": 67.64187499999935,
+    "perOpMs": 0.0001352837499999987,
+    "opsPerSec": 7391870.790098661
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323868764,
+    "date": "2026-04-27T21:04:28.764Z",
+    "iterations": 500000,
+    "totalMs": 22.49683300000106,
+    "perOpMs": 0.000044993666000002124,
+    "opsPerSec": 22225350.563787196
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323887335,
+    "date": "2026-04-27T21:04:47.335Z",
+    "iterations": 500000,
+    "totalMs": 59.3973330000008,
+    "perOpMs": 0.0001187946660000016,
+    "opsPerSec": 8417886.372103496
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323887353,
+    "date": "2026-04-27T21:04:47.353Z",
+    "iterations": 500000,
+    "totalMs": 17.116666999998415,
+    "perOpMs": 0.00003423333399999683,
+    "opsPerSec": 29211294.465216056
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323891706,
+    "date": "2026-04-27T21:04:51.706Z",
+    "iterations": 500000,
+    "totalMs": 70.85016600000017,
+    "perOpMs": 0.00014170033200000036,
+    "opsPerSec": 7057146.48572593
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323891725,
+    "date": "2026-04-27T21:04:51.725Z",
+    "iterations": 500000,
+    "totalMs": 18.15479199999936,
+    "perOpMs": 0.000036309583999998724,
+    "opsPerSec": 27540937.95181006
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323911954,
+    "date": "2026-04-27T21:05:11.954Z",
+    "iterations": 500000,
+    "totalMs": 67.70879200000127,
+    "perOpMs": 0.00013541758400000253,
+    "opsPerSec": 7384565.360433407
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323911975,
+    "date": "2026-04-27T21:05:11.975Z",
+    "iterations": 500000,
+    "totalMs": 20.498790999999983,
+    "perOpMs": 0.000040997581999999965,
+    "opsPerSec": 24391682.41678255
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323932653,
+    "date": "2026-04-27T21:05:32.653Z",
+    "iterations": 500000,
+    "totalMs": 58.61287500000071,
+    "perOpMs": 0.00011722575000000142,
+    "opsPerSec": 8530548.962151982
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323932672,
+    "date": "2026-04-27T21:05:32.672Z",
+    "iterations": 500000,
+    "totalMs": 17.707124999998996,
+    "perOpMs": 0.000035414249999997995,
+    "opsPerSec": 28237220.89272134
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323952845,
+    "date": "2026-04-27T21:05:52.845Z",
+    "iterations": 500000,
+    "totalMs": 65.72912499999984,
+    "perOpMs": 0.0001314582499999997,
+    "opsPerSec": 7606977.880810086
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323952856,
+    "date": "2026-04-27T21:05:52.856Z",
+    "iterations": 500000,
+    "totalMs": 10.395625000001019,
+    "perOpMs": 0.000020791250000002038,
+    "opsPerSec": 48097156.25563167
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323976323,
+    "date": "2026-04-27T21:06:16.323Z",
+    "iterations": 500000,
+    "totalMs": 55.42624999999862,
+    "perOpMs": 0.00011085249999999723,
+    "opsPerSec": 9020996.369049186
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323976336,
+    "date": "2026-04-27T21:06:16.336Z",
+    "iterations": 500000,
+    "totalMs": 12.421791999999186,
+    "perOpMs": 0.000024843583999998374,
+    "opsPerSec": 40251841.280230165
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777323999031,
+    "date": "2026-04-27T21:06:39.031Z",
+    "iterations": 500000,
+    "totalMs": 56.127416000001176,
+    "perOpMs": 0.00011225483200000235,
+    "opsPerSec": 8908302.495165456
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777323999054,
+    "date": "2026-04-27T21:06:39.054Z",
+    "iterations": 500000,
+    "totalMs": 21.577957999999853,
+    "perOpMs": 0.000043155915999999704,
+    "opsPerSec": 23171794.1058187
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777324950604,
+    "date": "2026-04-27T21:22:30.604Z",
+    "iterations": 500000,
+    "totalMs": 39.99012500000026,
+    "perOpMs": 0.00007998025000000052,
+    "opsPerSec": 12503086.699528866
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777324950616,
+    "date": "2026-04-27T21:22:30.616Z",
+    "iterations": 500000,
+    "totalMs": 10.800999999999476,
+    "perOpMs": 0.000021601999999998954,
+    "opsPerSec": 46292009.9990764
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777325168106,
+    "date": "2026-04-27T21:26:08.106Z",
+    "iterations": 500000,
+    "totalMs": 43.7623339999991,
+    "perOpMs": 0.0000875246679999982,
+    "opsPerSec": 11425350.393788647
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777325168119,
+    "date": "2026-04-27T21:26:08.119Z",
+    "iterations": 500000,
+    "totalMs": 11.883874999999534,
+    "perOpMs": 0.000023767749999999068,
+    "opsPerSec": 42073818.51458549
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777325803431,
+    "date": "2026-04-27T21:36:43.431Z",
+    "iterations": 500000,
+    "totalMs": 43.112042000000656,
+    "perOpMs": 0.00008622408400000131,
+    "opsPerSec": 11597687.717969665
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777325803446,
+    "date": "2026-04-27T21:36:43.446Z",
+    "iterations": 500000,
+    "totalMs": 13.92608299999847,
+    "perOpMs": 0.00002785216599999694,
+    "opsPerSec": 35903850.35045783
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777325892060,
+    "date": "2026-04-27T21:38:12.060Z",
+    "iterations": 500000,
+    "totalMs": 41.5389159999977,
+    "perOpMs": 0.00008307783199999539,
+    "opsPerSec": 12036905.34437701
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777325892072,
+    "date": "2026-04-27T21:38:12.072Z",
+    "iterations": 500000,
+    "totalMs": 11.33087499999965,
+    "perOpMs": 0.000022661749999999302,
+    "opsPerSec": 44127218.77172022
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777326068543,
+    "date": "2026-04-27T21:41:08.543Z",
+    "iterations": 500000,
+    "totalMs": 41.24079100000017,
+    "perOpMs": 0.00008248158200000034,
+    "opsPerSec": 12123918.767707387
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777326068556,
+    "date": "2026-04-27T21:41:08.556Z",
+    "iterations": 500000,
+    "totalMs": 11.537374999999884,
+    "perOpMs": 0.000023074749999999768,
+    "opsPerSec": 43337414.273177825
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777326119485,
+    "date": "2026-04-27T21:41:59.485Z",
+    "iterations": 500000,
+    "totalMs": 44.20049999999901,
+    "perOpMs": 0.00008840099999999802,
+    "opsPerSec": 11312089.229760097
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777326119500,
+    "date": "2026-04-27T21:41:59.500Z",
+    "iterations": 500000,
+    "totalMs": 12.253334000000905,
+    "perOpMs": 0.00002450666800000181,
+    "opsPerSec": 40805220.848461576
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777326180421,
+    "date": "2026-04-27T21:43:00.421Z",
+    "iterations": 500000,
+    "totalMs": 44.61258299999827,
+    "perOpMs": 0.00008922516599999653,
+    "opsPerSec": 11207600.331055017
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777326180436,
+    "date": "2026-04-27T21:43:00.436Z",
+    "iterations": 500000,
+    "totalMs": 13.445208000001003,
+    "perOpMs": 0.000026890416000002005,
+    "opsPerSec": 37187970.613765344
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777326656104,
+    "date": "2026-04-27T21:50:56.104Z",
+    "iterations": 500000,
+    "totalMs": 48.57616599999892,
+    "perOpMs": 0.00009715233199999784,
+    "opsPerSec": 10293113.70518643
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777326656125,
+    "date": "2026-04-27T21:50:56.125Z",
+    "iterations": 500000,
+    "totalMs": 19.001749999999447,
+    "perOpMs": 0.00003800349999999889,
+    "opsPerSec": 26313365.874196563
+  },
+  {
+    "name": "formatMessageLineForTimeline",
+    "module": "tui-timeline",
+    "timestamp": 1777326694789,
+    "date": "2026-04-27T21:51:34.789Z",
+    "iterations": 500000,
+    "totalMs": 43.86016600000221,
+    "perOpMs": 0.00008772033200000441,
+    "opsPerSec": 11399865.654862657
+  },
+  {
+    "name": "truncateOneLine",
+    "module": "tui-timeline",
+    "timestamp": 1777326694805,
+    "date": "2026-04-27T21:51:34.805Z",
+    "iterations": 500000,
+    "totalMs": 14.629790999999386,
+    "perOpMs": 0.00002925958199999877,
+    "opsPerSec": 34176838.20637089
+  }
+]

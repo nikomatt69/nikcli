@@ -1,0 +1,272 @@
+[
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323510781,
+    "date": "2026-04-27T20:58:30.781Z",
+    "iterations": 500000,
+    "totalMs": 3.4297920000000204,
+    "perOpMs": 0.0000068595840000000406,
+    "opsPerSec": 145781435.14242178
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323682171,
+    "date": "2026-04-27T21:01:22.171Z",
+    "iterations": 500000,
+    "totalMs": 3.1433750000000487,
+    "perOpMs": 0.000006286750000000097,
+    "opsPerSec": 159064699.56654623
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323701262,
+    "date": "2026-04-27T21:01:41.262Z",
+    "iterations": 500000,
+    "totalMs": 3.261874999999975,
+    "perOpMs": 0.00000652374999999995,
+    "opsPerSec": 153286070.12837824
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323719617,
+    "date": "2026-04-27T21:01:59.617Z",
+    "iterations": 500000,
+    "totalMs": 3.3348339999993186,
+    "perOpMs": 0.000006669667999998637,
+    "opsPerSec": 149932500.38835582
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323748720,
+    "date": "2026-04-27T21:02:28.720Z",
+    "iterations": 500000,
+    "totalMs": 3.18054100000154,
+    "perOpMs": 0.00000636108200000308,
+    "opsPerSec": 157205959.6149705
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323759389,
+    "date": "2026-04-27T21:02:39.389Z",
+    "iterations": 500000,
+    "totalMs": 3.191624999999476,
+    "perOpMs": 0.0000063832499999989525,
+    "opsPerSec": 156660008.6163262
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323774339,
+    "date": "2026-04-27T21:02:54.339Z",
+    "iterations": 500000,
+    "totalMs": 3.397667000000183,
+    "perOpMs": 0.000006795334000000366,
+    "opsPerSec": 147159801.12235045
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323799042,
+    "date": "2026-04-27T21:03:19.042Z",
+    "iterations": 500000,
+    "totalMs": 3.212333000000399,
+    "perOpMs": 0.000006424666000000798,
+    "opsPerSec": 155650114.72968024
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323821135,
+    "date": "2026-04-27T21:03:41.135Z",
+    "iterations": 500000,
+    "totalMs": 3.2092079999993075,
+    "perOpMs": 0.000006418415999998615,
+    "opsPerSec": 155801680.66392326
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323837706,
+    "date": "2026-04-27T21:03:57.706Z",
+    "iterations": 500000,
+    "totalMs": 3.3909160000002885,
+    "perOpMs": 0.000006781832000000577,
+    "opsPerSec": 147452782.6699209
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323860279,
+    "date": "2026-04-27T21:04:20.279Z",
+    "iterations": 500000,
+    "totalMs": 3.6072919999996884,
+    "perOpMs": 0.0000072145839999993765,
+    "opsPerSec": 138608130.42028293
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323883658,
+    "date": "2026-04-27T21:04:43.658Z",
+    "iterations": 500000,
+    "totalMs": 5.392250000000786,
+    "perOpMs": 0.000010784500000001572,
+    "opsPerSec": 92725671.1020311
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323883719,
+    "date": "2026-04-27T21:04:43.719Z",
+    "iterations": 500000,
+    "totalMs": 3.481292000000394,
+    "perOpMs": 0.000006962584000000788,
+    "opsPerSec": 143624838.13479114
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323904944,
+    "date": "2026-04-27T21:05:04.944Z",
+    "iterations": 500000,
+    "totalMs": 3.4152090000006865,
+    "perOpMs": 0.000006830418000001373,
+    "opsPerSec": 146403924.3278814
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323925493,
+    "date": "2026-04-27T21:05:25.493Z",
+    "iterations": 500000,
+    "totalMs": 3.217500000000655,
+    "perOpMs": 0.00000643500000000131,
+    "opsPerSec": 155400155.40012378
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323945509,
+    "date": "2026-04-27T21:05:45.509Z",
+    "iterations": 500000,
+    "totalMs": 3.2699579999998605,
+    "perOpMs": 0.000006539915999999721,
+    "opsPerSec": 152907162.7219742
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323969097,
+    "date": "2026-04-27T21:06:09.097Z",
+    "iterations": 500000,
+    "totalMs": 3.3124589999997625,
+    "perOpMs": 0.000006624917999999525,
+    "opsPerSec": 150945264.53007746
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777323991645,
+    "date": "2026-04-27T21:06:31.645Z",
+    "iterations": 500000,
+    "totalMs": 3.4880000000002838,
+    "perOpMs": 0.000006976000000000567,
+    "opsPerSec": 143348623.85319936
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777324940009,
+    "date": "2026-04-27T21:22:20.009Z",
+    "iterations": 500000,
+    "totalMs": 3.1644169999999576,
+    "perOpMs": 0.000006328833999999915,
+    "opsPerSec": 158006988.3330821
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777325155421,
+    "date": "2026-04-27T21:25:55.421Z",
+    "iterations": 500000,
+    "totalMs": 3.9515000000001237,
+    "perOpMs": 0.000007903000000000248,
+    "opsPerSec": 126534227.5085371
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777325791658,
+    "date": "2026-04-27T21:36:31.658Z",
+    "iterations": 500000,
+    "totalMs": 3.2317080000002534,
+    "perOpMs": 0.000006463416000000507,
+    "opsPerSec": 154716948.43716103
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777325881463,
+    "date": "2026-04-27T21:38:01.463Z",
+    "iterations": 500000,
+    "totalMs": 3.443167000000358,
+    "perOpMs": 0.000006886334000000716,
+    "opsPerSec": 145215146.40444335
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777326057582,
+    "date": "2026-04-27T21:40:57.582Z",
+    "iterations": 500000,
+    "totalMs": 3.5128749999994398,
+    "perOpMs": 0.00000702574999999888,
+    "opsPerSec": 142333558.69482395
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777326109011,
+    "date": "2026-04-27T21:41:49.011Z",
+    "iterations": 500000,
+    "totalMs": 3.214582999999948,
+    "perOpMs": 0.0000064291659999998955,
+    "opsPerSec": 155541169.7255937
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777326169942,
+    "date": "2026-04-27T21:42:49.942Z",
+    "iterations": 500000,
+    "totalMs": 3.204624999999396,
+    "perOpMs": 0.000006409249999998792,
+    "opsPerSec": 156024495.8458772
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777326650000,
+    "date": "2026-04-27T21:50:50.000Z",
+    "iterations": 500000,
+    "totalMs": 3.499207999999271,
+    "perOpMs": 0.0000069984159999985425,
+    "opsPerSec": 142889476.7044726
+  },
+  {
+    "name": "isRecord",
+    "module": "util-record",
+    "timestamp": 1777326684266,
+    "date": "2026-04-27T21:51:24.266Z",
+    "iterations": 500000,
+    "totalMs": 3.310707999999977,
+    "perOpMs": 0.000006621415999999954,
+    "opsPerSec": 151025097.9548796
+  }
+]

@@ -76,7 +76,7 @@ export namespace SystemPrompt {
     ]
   }
 
-  const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md"]
+  const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md" , ".github/instructions/memory.instruction.md"]
   const GLOBAL_RULE_FILES = [path.join(Global.Path.config, "AGENTS.md")]
   if (!Flag.NIKCLI_DISABLE_CLAUDE_CODE_PROMPT) {
     GLOBAL_RULE_FILES.push(path.join(os.homedir(), ".claude", "CLAUDE.md"))

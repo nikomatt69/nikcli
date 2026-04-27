@@ -86,7 +86,6 @@ import type {
   MobileAuthTokenRevokeResponses,
   MobileBootstrapResponses,
   MobileCommandListResponses,
-  MobileExpoStatusResponses,
   MobileGitBranchesResponses,
   MobileGitCheckoutErrors,
   MobileGitCheckoutResponses,
@@ -173,9 +172,6 @@ import type {
   MobileSessionMessageResponses,
   MobileSessionRenameResponses,
   MobileSessionStreamResponses,
-  MobileTophatInstallUrlErrors,
-  MobileTophatInstallUrlResponses,
-  MobileTophatStatusResponses,
   MobileWorktreeCreateErrors,
   MobileWorktreeCreateResponses,
   MobileWorktreeRemoveResponses,
@@ -3146,108 +3142,6 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
-export class Tophat extends HeyApiClient {
-  /**
-   * Get Tophat integration status
-   *
-   * Return Tophat availability, providers, and connected devices.
-   */
-  public status<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileTophatStatusResponses, unknown, ThrowOnError>({
-      url: "/mobile/tophat/status",
-      ...options,
-      ...params,
-    })
-  }
-
-  /**
-   * Generate Tophat install URLs for an artifact
-   *
-   * Return tophat:// and localhost install URLs for a given artifact URL.
-   */
-  public installUrl<ThrowOnError extends boolean = false>(
-    parameters: {
-      directory?: string
-      workspace?: string
-      url: string
-      platform?: "ios" | "android"
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-            { in: "query", key: "url" },
-            { in: "query", key: "platform" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<
-      MobileTophatInstallUrlResponses,
-      MobileTophatInstallUrlErrors,
-      ThrowOnError
-    >({
-      url: "/mobile/tophat/install-url",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class Expo extends HeyApiClient {
-  /**
-   * Get Expo environment status
-   *
-   * Return Expo CLI, EAS CLI, and Node.js availability.
-   */
-  public status<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileExpoStatusResponses, unknown, ThrowOnError>({
-      url: "/mobile/expo/status",
-      ...options,
-      ...params,
-    })
-  }
-}
-
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -5214,16 +5108,6 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
-  private _tophat?: Tophat
-  get tophat(): Tophat {
-    return (this._tophat ??= new Tophat({ client: this.client }))
-  }
-
-  private _expo?: Expo
-  get expo(): Expo {
-    return (this._expo ??= new Expo({ client: this.client }))
-  }
-
   private _memory?: Memory
   get memory(): Memory {
     return (this._memory ??= new Memory({ client: this.client }))
@@ -6971,7 +6855,7 @@ export class NikcliClient extends HeyApiClient {
       workspace?: string
       username?: string
       email?: string
-      password?: string
+      password?: unknown & unknown & unknown
       displayName?: string
     },
     options?: Options<never, ThrowOnError>,

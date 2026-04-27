@@ -1,0 +1,542 @@
+[
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323529778,
+    "date": "2026-04-27T20:58:49.778Z",
+    "iterations": 300000,
+    "totalMs": 13.74679100000003,
+    "perOpMs": 0.00004582263666666677,
+    "opsPerSec": 21823274.97377383
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323529789,
+    "date": "2026-04-27T20:58:49.789Z",
+    "iterations": 200000,
+    "totalMs": 9.123500000000035,
+    "perOpMs": 0.00004561750000000018,
+    "opsPerSec": 21921411.7389159
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323682537,
+    "date": "2026-04-27T21:01:22.537Z",
+    "iterations": 300000,
+    "totalMs": 14.275250000000028,
+    "perOpMs": 0.00004758416666666676,
+    "opsPerSec": 21015393.775940835
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323682546,
+    "date": "2026-04-27T21:01:22.546Z",
+    "iterations": 200000,
+    "totalMs": 8.076667000000043,
+    "perOpMs": 0.000040383335000000216,
+    "opsPerSec": 24762689.85709067
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323701619,
+    "date": "2026-04-27T21:01:41.619Z",
+    "iterations": 300000,
+    "totalMs": 13.315249999999992,
+    "perOpMs": 0.00004438416666666664,
+    "opsPerSec": 22530557.06802352
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323701628,
+    "date": "2026-04-27T21:01:41.628Z",
+    "iterations": 200000,
+    "totalMs": 8.188250000000039,
+    "perOpMs": 0.000040941250000000194,
+    "opsPerSec": 24425243.489145916
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323723117,
+    "date": "2026-04-27T21:02:03.117Z",
+    "iterations": 300000,
+    "totalMs": 19.109333000000333,
+    "perOpMs": 0.00006369777666666778,
+    "opsPerSec": 15699135.077084836
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323723137,
+    "date": "2026-04-27T21:02:03.137Z",
+    "iterations": 200000,
+    "totalMs": 19.175665999999183,
+    "perOpMs": 0.00009587832999999591,
+    "opsPerSec": 10429885.46004131
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323752030,
+    "date": "2026-04-27T21:02:32.030Z",
+    "iterations": 300000,
+    "totalMs": 17.626416999999492,
+    "perOpMs": 0.00005875472333333164,
+    "opsPerSec": 17019908.24340583
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323752039,
+    "date": "2026-04-27T21:02:32.039Z",
+    "iterations": 200000,
+    "totalMs": 7.922375000000102,
+    "perOpMs": 0.00003961187500000051,
+    "opsPerSec": 25244954.95353318
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323762784,
+    "date": "2026-04-27T21:02:42.784Z",
+    "iterations": 300000,
+    "totalMs": 15.735708999998678,
+    "perOpMs": 0.00005245236333332893,
+    "opsPerSec": 19064917.8883535
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323762795,
+    "date": "2026-04-27T21:02:42.795Z",
+    "iterations": 200000,
+    "totalMs": 10.825000000000728,
+    "perOpMs": 0.00005412500000000364,
+    "opsPerSec": 18475750.577365965
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323777877,
+    "date": "2026-04-27T21:02:57.877Z",
+    "iterations": 300000,
+    "totalMs": 16.945290999999997,
+    "perOpMs": 0.00005648430333333332,
+    "opsPerSec": 17704033.527662642
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323777892,
+    "date": "2026-04-27T21:02:57.892Z",
+    "iterations": 200000,
+    "totalMs": 14.305333000000246,
+    "perOpMs": 0.00007152666500000122,
+    "opsPerSec": 13980800.027513975
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323802403,
+    "date": "2026-04-27T21:03:22.403Z",
+    "iterations": 300000,
+    "totalMs": 15.098125000000437,
+    "perOpMs": 0.00005032708333333479,
+    "opsPerSec": 19870016.97230559
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323802412,
+    "date": "2026-04-27T21:03:22.412Z",
+    "iterations": 200000,
+    "totalMs": 8.192917000000307,
+    "perOpMs": 0.000040964585000001535,
+    "opsPerSec": 24411329.93291553
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323827098,
+    "date": "2026-04-27T21:03:47.098Z",
+    "iterations": 300000,
+    "totalMs": 28.541666000000987,
+    "perOpMs": 0.00009513888666666996,
+    "opsPerSec": 10510949.150620347
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323827116,
+    "date": "2026-04-27T21:03:47.116Z",
+    "iterations": 200000,
+    "totalMs": 16.83295900000121,
+    "perOpMs": 0.00008416479500000606,
+    "opsPerSec": 11881452.334077783
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323841108,
+    "date": "2026-04-27T21:04:01.108Z",
+    "iterations": 300000,
+    "totalMs": 18.457791999999245,
+    "perOpMs": 0.00006152597333333081,
+    "opsPerSec": 16253298.336009653
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323841129,
+    "date": "2026-04-27T21:04:01.129Z",
+    "iterations": 200000,
+    "totalMs": 20.341082999999344,
+    "perOpMs": 0.00010170541499999672,
+    "opsPerSec": 9832318.171063283
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323863806,
+    "date": "2026-04-27T21:04:23.806Z",
+    "iterations": 300000,
+    "totalMs": 20.567166999999245,
+    "perOpMs": 0.00006855722333333082,
+    "opsPerSec": 14586355.038591899
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323863835,
+    "date": "2026-04-27T21:04:23.835Z",
+    "iterations": 200000,
+    "totalMs": 28.143749999999272,
+    "perOpMs": 0.00014071874999999637,
+    "opsPerSec": 7106373.5287587885
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323884130,
+    "date": "2026-04-27T21:04:44.130Z",
+    "iterations": 300000,
+    "totalMs": 16.08379199999945,
+    "perOpMs": 0.00005361263999999816,
+    "opsPerSec": 18652317.81162118
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323884164,
+    "date": "2026-04-27T21:04:44.164Z",
+    "iterations": 200000,
+    "totalMs": 29.545333000000028,
+    "perOpMs": 0.00014772666500000015,
+    "opsPerSec": 6769258.616919288
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323888050,
+    "date": "2026-04-27T21:04:48.050Z",
+    "iterations": 300000,
+    "totalMs": 16.73883299999943,
+    "perOpMs": 0.0000557961099999981,
+    "opsPerSec": 17922396.382113986
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323888069,
+    "date": "2026-04-27T21:04:48.069Z",
+    "iterations": 200000,
+    "totalMs": 17.58558400000038,
+    "perOpMs": 0.00008792792000000191,
+    "opsPerSec": 11372951.84510197
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323908233,
+    "date": "2026-04-27T21:05:08.233Z",
+    "iterations": 300000,
+    "totalMs": 15.066000000000713,
+    "perOpMs": 0.000050220000000002375,
+    "opsPerSec": 19912385.50378241
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323908245,
+    "date": "2026-04-27T21:05:08.245Z",
+    "iterations": 200000,
+    "totalMs": 10.631083999998737,
+    "perOpMs": 0.00005315541999999368,
+    "opsPerSec": 18812757.00577888
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323928793,
+    "date": "2026-04-27T21:05:28.793Z",
+    "iterations": 300000,
+    "totalMs": 15.656291999999667,
+    "perOpMs": 0.000052187639999998886,
+    "opsPerSec": 19161625.243065625
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323928808,
+    "date": "2026-04-27T21:05:28.808Z",
+    "iterations": 200000,
+    "totalMs": 14.13287499999933,
+    "perOpMs": 0.00007066437499999666,
+    "opsPerSec": 14151402.315523874
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323949069,
+    "date": "2026-04-27T21:05:49.069Z",
+    "iterations": 300000,
+    "totalMs": 21.97779199999968,
+    "perOpMs": 0.0000732593066666656,
+    "opsPerSec": 13650142.835094824
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323949094,
+    "date": "2026-04-27T21:05:49.094Z",
+    "iterations": 200000,
+    "totalMs": 23.106791999998677,
+    "perOpMs": 0.00011553395999999338,
+    "opsPerSec": 8655463.726856219
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323972609,
+    "date": "2026-04-27T21:06:12.609Z",
+    "iterations": 300000,
+    "totalMs": 21.73162499999853,
+    "perOpMs": 0.0000724387499999951,
+    "opsPerSec": 13804766.095495403
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323972630,
+    "date": "2026-04-27T21:06:12.630Z",
+    "iterations": 200000,
+    "totalMs": 19.62658399999964,
+    "perOpMs": 0.0000981329199999982,
+    "opsPerSec": 10190260.312237915
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777323994921,
+    "date": "2026-04-27T21:06:34.921Z",
+    "iterations": 300000,
+    "totalMs": 16.153333000000202,
+    "perOpMs": 0.00005384444333333401,
+    "opsPerSec": 18572018.54255071
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777323994940,
+    "date": "2026-04-27T21:06:34.940Z",
+    "iterations": 200000,
+    "totalMs": 17.90099999999984,
+    "perOpMs": 0.0000895049999999992,
+    "opsPerSec": 11172560.192168135
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777324943275,
+    "date": "2026-04-27T21:22:23.275Z",
+    "iterations": 300000,
+    "totalMs": 15.241500000000087,
+    "perOpMs": 0.00005080500000000029,
+    "opsPerSec": 19683102.05688405
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777324943284,
+    "date": "2026-04-27T21:22:23.284Z",
+    "iterations": 200000,
+    "totalMs": 7.812917000001107,
+    "perOpMs": 0.000039064585000005534,
+    "opsPerSec": 25598633.647326812
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777325158761,
+    "date": "2026-04-27T21:25:58.761Z",
+    "iterations": 300000,
+    "totalMs": 24.798791999999594,
+    "perOpMs": 0.00008266263999999865,
+    "opsPerSec": 12097363.452219969
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777325158781,
+    "date": "2026-04-27T21:25:58.781Z",
+    "iterations": 200000,
+    "totalMs": 19.34241600000132,
+    "perOpMs": 0.00009671208000000661,
+    "opsPerSec": 10339969.939638684
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777325795218,
+    "date": "2026-04-27T21:36:35.218Z",
+    "iterations": 300000,
+    "totalMs": 23.01616699999977,
+    "perOpMs": 0.0000767205566666659,
+    "opsPerSec": 13034316.269950727
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777325795247,
+    "date": "2026-04-27T21:36:35.247Z",
+    "iterations": 200000,
+    "totalMs": 27.54070900000079,
+    "perOpMs": 0.00013770354500000395,
+    "opsPerSec": 7261977.169868586
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777325884793,
+    "date": "2026-04-27T21:38:04.793Z",
+    "iterations": 300000,
+    "totalMs": 21.31945900000028,
+    "perOpMs": 0.00007106486333333426,
+    "opsPerSec": 14071651.630559485
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777325884817,
+    "date": "2026-04-27T21:38:04.817Z",
+    "iterations": 200000,
+    "totalMs": 23.311875000001237,
+    "perOpMs": 0.00011655937500000618,
+    "opsPerSec": 8579318.480387758
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777326061144,
+    "date": "2026-04-27T21:41:01.144Z",
+    "iterations": 300000,
+    "totalMs": 23.431542000000263,
+    "perOpMs": 0.00007810514000000088,
+    "opsPerSec": 12803254.689768033
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777326061170,
+    "date": "2026-04-27T21:41:01.170Z",
+    "iterations": 200000,
+    "totalMs": 24.701499999999214,
+    "perOpMs": 0.00012350749999999607,
+    "opsPerSec": 8096674.291035215
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777326112305,
+    "date": "2026-04-27T21:41:52.305Z",
+    "iterations": 300000,
+    "totalMs": 23.076124999999593,
+    "perOpMs": 0.00007692041666666531,
+    "opsPerSec": 13000449.59888219
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777326112327,
+    "date": "2026-04-27T21:41:52.327Z",
+    "iterations": 200000,
+    "totalMs": 20.754124999999476,
+    "perOpMs": 0.00010377062499999738,
+    "opsPerSec": 9636638.499575628
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777326173266,
+    "date": "2026-04-27T21:42:53.266Z",
+    "iterations": 300000,
+    "totalMs": 16.551625000000058,
+    "perOpMs": 0.000055172083333333526,
+    "opsPerSec": 18125108.561848093
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777326173287,
+    "date": "2026-04-27T21:42:53.287Z",
+    "iterations": 200000,
+    "totalMs": 19.019125000000713,
+    "perOpMs": 0.00009509562500000357,
+    "opsPerSec": 10515730.876157159
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777326650423,
+    "date": "2026-04-27T21:50:50.423Z",
+    "iterations": 300000,
+    "totalMs": 16.165874999999687,
+    "perOpMs": 0.00005388624999999896,
+    "opsPerSec": 18557609.779860713
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777326650449,
+    "date": "2026-04-27T21:50:50.449Z",
+    "iterations": 200000,
+    "totalMs": 24.338167000000794,
+    "perOpMs": 0.00012169083500000398,
+    "opsPerSec": 8217545.717390856
+  },
+  {
+    "name": "Locale.number",
+    "module": "util-locale",
+    "timestamp": 1777326687620,
+    "date": "2026-04-27T21:51:27.620Z",
+    "iterations": 300000,
+    "totalMs": 19.391709000001356,
+    "perOpMs": 0.00006463903000000452,
+    "opsPerSec": 15470529.183373112
+  },
+  {
+    "name": "Locale.truncateMiddle",
+    "module": "util-locale",
+    "timestamp": 1777326687648,
+    "date": "2026-04-27T21:51:27.648Z",
+    "iterations": 200000,
+    "totalMs": 26.480374999999185,
+    "perOpMs": 0.00013240187499999592,
+    "opsPerSec": 7552763.131187007
+  }
+]

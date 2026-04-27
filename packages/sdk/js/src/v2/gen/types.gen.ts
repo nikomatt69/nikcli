@@ -2772,17 +2772,6 @@ export type MobileProject = {
   current: boolean
 }
 
-export type MobileTophatStatus = {
-  available: boolean
-  providers: Array<{
-    id: string
-  }>
-  devices: Array<{
-    name: string
-    platform: string
-  }>
-}
-
 export type MobileProjectType = {
   detected: boolean
   platforms?: Array<string>
@@ -2817,7 +2806,6 @@ export type MobileBootstrap = {
       avatar_url?: string
     }
   }
-  tophat?: MobileTophatStatus
   mobileProject?: MobileProjectType
 }
 
@@ -5755,7 +5743,7 @@ export type PostUserRegisterData = {
   body?: {
     username: string
     email: string
-    password: string
+    password: unknown & unknown & unknown
     displayName?: string
   }
   path?: never
@@ -5892,80 +5880,6 @@ export type MobileBootstrapResponses = {
 }
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
-
-export type MobileTophatStatusData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/tophat/status"
-}
-
-export type MobileTophatStatusResponses = {
-  /**
-   * Tophat status
-   */
-  200: MobileTophatStatus
-}
-
-export type MobileTophatStatusResponse = MobileTophatStatusResponses[keyof MobileTophatStatusResponses]
-
-export type MobileTophatInstallUrlData = {
-  body?: never
-  path?: never
-  query: {
-    directory?: string
-    workspace?: string
-    url: string
-    platform?: "ios" | "android"
-  }
-  url: "/mobile/tophat/install-url"
-}
-
-export type MobileTophatInstallUrlErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-}
-
-export type MobileTophatInstallUrlError = MobileTophatInstallUrlErrors[keyof MobileTophatInstallUrlErrors]
-
-export type MobileTophatInstallUrlResponses = {
-  /**
-   * Install URLs
-   */
-  200: {
-    deepLink: string
-    localLink: string
-  }
-}
-
-export type MobileTophatInstallUrlResponse = MobileTophatInstallUrlResponses[keyof MobileTophatInstallUrlResponses]
-
-export type MobileExpoStatusData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/expo/status"
-}
-
-export type MobileExpoStatusResponses = {
-  /**
-   * Expo status
-   */
-  200: {
-    available: boolean
-    details: Array<string>
-  }
-}
-
-export type MobileExpoStatusResponse = MobileExpoStatusResponses[keyof MobileExpoStatusResponses]
 
 export type MobileMemoryHistoryData = {
   body?: never

@@ -70,12 +70,151 @@
 - Slash commands via `command.register()`
 - UI extension slots (app, sidebar, home areas)
 
+## Agent System (`src/agent/agent.ts`)
+
+### Overview
+
+Core configuration and registry for all AI agents. Three purposes:
+1. **Agent Registry** — static registry of built-in agents with prompts, permissions, capabilities
+2. **Configuration Layering** — merges built-in definitions with `nikcli.json`, `.nikcli/agent/*.md` files, and inline flags
+3. **Agent Generation** — `Agent.generate()` creates new agent configs from natural language via LLM
+
+### Agent Modes
+
+- **`primary`** — main agents users interact with directly (ralph, build, plan, compaction, title, summary)
+- **`subagent`** — only callable via `task` tool (researcher, delegator, ultrareview-reviewer)
+- **`all`** — works in both roles (explore, fast-explore, planner, code-reviewer, debugger, test-runner, refactor, general)
+
+### Built-in Agents (17 total)
+
+| Agent | Mode | Hidden | Key Traits |
+| ---- | ---- | ------ | ---------- |
+| `ralph` | primary | no | Autonomous loop, allows `question` |
+| `build` | primary | no | Feature creation, allows `plan_enter` |
+| `plan` | primary | no | Planning, allows `plan_exit`, restricts `edit` to plan files |
+| `general` | all | no | General-purpose parallel execution |
+| `explore` | all | no | Fast explorer with bash/web tools |
+| `fast-explore` | all | no | Read-only: tree/grep/read only |
+| `planner` | all | no | Planning with web search |
+| `researcher` | subagent | yes | Background evidence collection |
+| `code-reviewer` | all | no | Quality/safety focused |
+| `ultrareview-reviewer` | subagent | yes | Domain-specific parallel review (bugs/security/performance/patterns) |
+| `debugger` | all | no | Failure/root cause analysis |
+| `test-runner` | all | no | Test execution and analysis |
+| `refactor` | all | no | Safe cleanup without behavior changes |
+| `delegator` | subagent | yes | Synthesizes background subagent results |
+| `compaction` | primary | yes | Session compaction (context summarization) |
+| `title` | primary | yes | Generates conversation titles |
+| `summary` | primary | yes | Summarizes conversations |
+
+### Agent.Info Schema
+
+```typescript
+{
+  name: string
+  mode: "subagent" | "primary" | "all"
+  description?: string
+  native?: boolean           // true for built-in agents
+  hidden?: boolean           // hide from autocomplete
+  topP?: number
+  temperature?: number
+  color?: string             // UI color hex
+  permission: PermissionNext.Ruleset  // {permission, pattern, action}[]
+  model?: { modelID: string; providerID: string }
+  advisor?: { model: {...}; maxUses?: number }
+  variant?: string
+  prompt?: string           // system prompt
+  options?: Record<string, any>
+  steps?: number            // max agentic iterations
+}
+```
+
+### Key Functions
+
+| Function | Signature | Description |
+| ------- | --------- | ----------- |
+| `Agent.get()` | `(agent: string) => Promise<Info \| undefined>` | Retrieve agent by name |
+| `Agent.list()` | `() => Promise<Info[]>` | All non-disabled agents, sorted |
+| `Agent.defaultAgent()` | `() => Promise<string>` | Default agent name |
+| `Agent.generate()` | `(input) => Promise<{identifier, whenToUse, systemPrompt}>` | LLM-powered agent creation |
+| `Agent.SUBAGENT_TOOLSETS` | `Record<string, string[]>` | Default tool allowlists per subagent type |
+
+### Permission Defaults
+
+Applied to all agents unless overridden:
+```typescript
+{
+  "*": "allow",
+  doom_loop: "ask",
+  external_directory: { "*": "ask", [Truncate.DIR]: "allow", [Truncate.GLOB]: "allow" },
+  question: "deny",
+  plan_enter: "deny",
+  plan_exit: "deny",
+  read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+}
+```
+
+### Permission Layering
+
+Precedence (lowest to highest):
+1. `defaults` — base rules
+2. Agent-specific overrides
+3. `Config.get().permission`
+4. Per-agent user config (`cfg.agent?.[name].permission`)
+
+### Primary Agent Awareness Prompts
+
+Two fragments injected into all primary agent prompts:
+- **`PRIMARY_AGENT_DELEGATION_AWARENESS`** — how to use `task` (background), `delegation`, `delegator`
+- **`PRIMARY_AGENT_RESEARCH_AWARENESS`** — when to launch background research via subagent_type "researcher"
+
+### Agent Prompt Files (`src/agent/prompt/`)
+
+| File | Purpose |
+| ---- | ------- |
+| `compaction.txt` | Compaction agent prompt |
+| `explore.txt` | Explore agent prompt |
+| `delegation.txt` | Primary agent delegation awareness |
+| `delegator.txt` | Delegator coordination instructions |
+| `summary.txt` | Summary agent prompt |
+| `title.txt` | Title generation prompt |
+| `ultrareview-reviewer.txt` | Ultrareview reviewer instructions |
+| `../generate.txt` | Prompt for LLM agent generation |
+
+### Files Imported BY `agent.ts`
+
+`../config/config`, `../provider/provider`, `../session/system`, `../project/instance`, `../tool/truncation`, `../auth`, `../provider/transform`, `@/permission/next`, `@/global`
+
+### Files That Import FROM `agent.ts`
+
+**Session core:** `session/llm.ts`, `session/processor.ts`, `session/summary.ts`, `session/compaction.ts`, `session/prompt.ts`
+**Tools:** `tool/task.ts`, `tool/truncation.ts`, `tool/tool.ts`, `tool/registry.ts`
+**CLI:** `cli/cmd/agent.ts`, `cli/cmd/debug/agent.ts`
+**Server:** `server/routes/mobile.ts`, `server/routes/session.ts`, `server/server.ts`
+**Other:** `acp/agent.ts`
+
 ## Tool System (`src/tool/`)
+
+### Tool Framework (`tool.ts`)
+
+- `Tool.Info` — interface with `id` and `init()` returning `Def`
+- `Tool.Def` — contains `description`, Zod `parameters`, `execute()`
+- `Tool.Context` — passed to every tool: `sessionID`, `messageID`, `agent`, `abort`, `ask()`, `metadata()`, `messages`
+
+All tools wrap `execute()` with automatic Zod validation and output truncation handling.
+
+### Tool Registry (`registry.ts`)
+
+`ToolRegistry.tools(model, agent?)` filters tools before exposing to LLM:
+- `codesearch`/`websearch`: only for nikcli provider or `Flag.NIKCLI_ENABLE_EXA`
+- `apply_patch`: only for GPT models (non-oss, non-gpt-4); replaces `edit`/`write`
+- `advisor`: only if `agent.advisor` is configured
+- Loads custom tools from `{tool,tools}/*.{js,ts}` in configured directories
+- Loads plugin tools
 
 ### Permission Flow
 
 Every file-modifying tool calls `ctx.ask()` before execution:
-
 - BashTool extracts directories/patterns via tree-sitter parsing
 - EditTool requests edit permission per file
 - Permission rules defined per agent in `src/agent/agent.ts`
@@ -87,7 +226,29 @@ Every file-modifying tool calls `ctx.ask()` before execution:
 - **ReadTool** - Streaming file reads with binary detection
 - **WriteTool** - Atomic writes via temp file
 - **GrepTool** - FFF file search backend with Bun.Glob fallback
-- **TaskTool** - Subagent spawning
+- **TaskTool** - Subagent spawning (see below)
+
+### TaskTool (`task.ts`, ~800 lines)
+
+The main subagent orchestration tool. Creates child sessions, runs prompts, handles:
+- **Foreground**: live progress tracking via event bus
+- **Background**: worker session + delegator session with up to 3 follow-up synthesis rounds
+- Research agents get special metadata extraction (question, confidence, source count)
+- Validates subagent_type against caller's `task` permission rules
+
+### SUBAGENT_TOOLSETS
+
+Default tool allowlists for subagent types (from `agent.ts`):
+```typescript
+fast-explore: ["read", "grep", "glob", "list", "tree"]
+planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"]
+explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"]
+researcher: [read/search/docs/memory/context tools + task + delegation + delegator]
+code-reviewer: ["read", "grep", "glob", "list", "bash"]
+debugger: ["read", "grep", "glob", "list", "bash", "edit"]
+test-runner: ["read", "grep", "list", "bash", "edit", "write"]
+refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"]
+```
 
 ### Truncation System (`src/tool/truncation.ts`)
 
@@ -236,7 +397,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | Message pagination        | `db/users.ts:335` | Long threads return oldest 100 instead of newest 100; coupled with `markMessagesRead()` silently marks unseen messages read | Fetch newest window via `DESC LIMIT ?` subquery, re-sort ASC |
 | Contact removal asymmetry | `db/users.ts:291` | `removeContact()` only deletes one direction; `addContact()` creates both                                                   | Delete both directions or document as one-sided              |
 
-### Confirmed Issues (2026-04-09, updated 2026-04-24)
+### Confirmed Issues (2026-04-09, updated 2026-04-27)
 
 | #   | File                               | Issue                                                                   | Status          |
 | --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
@@ -250,6 +411,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 8   | TUI                                | Stale model/variant sync                                                | Pending         |
 | 9   | TUI                                | `read` tool image/PDF attachments not rendered                          | **Implemented** |
 | 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
+| 11  | `cli/cmd/tui/context/local.tsx`    | `ultrareview-reviewer` added to `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Reviewed 2026-04-27 — intentional: enables TUI agent selector UI without affecting actual tool filtering |
 
 ### Code Reviewer Remaining Concerns
 
@@ -428,7 +590,7 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 - Cached per URL to avoid re-fetch on re-renders
 - Place in bordered box; render inside `UserMessage` or `AssistantMessage` at safe insertion points above
 
-## Test Coverage (2026-04-24 Assessment)
+## Test Coverage (2026-04-27 Assessment)
 
 ### Coverage by Area
 
@@ -441,7 +603,7 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 | workspace/  | 11           | ~15%          | Config + routes tests                          |
 | id/         | 1            | ~15%          | Benchmark tests only                           |
 | provider/   | 31           | ~2%           | 1 tiny copilot smoke test                      |
-| **tool/**   | **57**       | **~3%** ❌    | Zero standalone tool tests                     |
+| **tool/**   | **52**       | **~3%** ❌    | Zero standalone tool tests                     |
 | **server/** | **44**       | **~2%** ❌    | Zero route handler tests                       |
 | **cli/**    | **84**       | **0%** ❌     | Zero CLI command tests                         |
 | util/       | 31           | ~2%           | Regex/JSON via benchmarks                      |
@@ -453,7 +615,7 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 
 ### Top 5 Untested Areas
 
-1. **Tools** (57 files, 0 tests) — BashTool, EditTool, ReadTool, GrepTool, TaskTool need unit tests
+1. **Tools** (52 files, 0 tests) — BashTool, EditTool, ReadTool, GrepTool, TaskTool need unit tests
 2. **Server Routes** (44 files, 0 tests) — All HTTP endpoint handlers need integration tests
 3. **CLI Commands** (84 files, 0 tests) — Session, serve, remote, mcp, plugin commands need tests
 4. **Providers** (31 files, 1 test) — Provider selection, fallback, retry logic untested
@@ -461,7 +623,39 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 
 ### Project Health Score: ~4/10
 
-- Tests: 71 pass, 0 fail (2026-04-06 baseline)
+- Tests: 109 pass, 0 fail (2026-04-27)
 - `@ts-ignore` count: 10 remaining
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
+
+## Session Summary (2026-04-27)
+
+### Completed Work
+
+1. **Deep exploration of tool/server/agent systems** via multiple background explore subagents
+   - Documented all 52 tools in `src/tool/` with purposes
+   - Catalogued all server route modules in `src/server/routes/`
+   - Analyzed tool-agent integration: 3 layers (agent config → registry filter → permission evaluation)
+   - Traced full import graph for `src/agent/agent.ts`
+
+2. **Code review of uncommitted changes** via ultrareview-reviewer subagent
+   - `src/agent/agent.ts`: removed `color: "#FF6B35"` from `build` agent (clean)
+   - `src/cli/cmd/tui/context/local.tsx`: added `ultrareview-reviewer` to `PRIMARY_AGENT_NAMES`, added `moveSub` navigation, added `KNOWN_INDEX` color mapping
+   - Reviewed `ultrareview-reviewer` appearing in `PRIMARY_AGENT_NAMES` despite being mode=subagent/hidden — intentional for TUI selector UI
+
+### Current Uncommitted Changes (2026-04-27)
+
+| File | Change |
+| ---- | ------ |
+| `src/agent/agent.ts` | Removed `color: "#FF6B35"` from `build` agent |
+| `src/cli/cmd/tui/context/local.tsx` | Added subagent nav, expanded agent list, color mapping |
+| `.nikcli/nikcli.jsonc` | Config tweak |
+
+### Key Findings
+
+- **16 built-in agents** defined in `agent.ts` (updated count from 15 to 16 after recent commits)
+- **TaskTool** is the most complex tool (~800 lines): handles foreground live progress, background delegation chains with delegator synthesis
+- **SUBAGENT_TOOLSETS** in `agent.ts` documents the intended toolset for each subagent type
+- **ultrareview-reviewer** is a hidden subagent for domain-specific parallel review (bugs/security/performance/patterns)
+- Typecheck: clean (no errors)
+- Tests: 109 pass, 0 fail

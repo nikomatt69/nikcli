@@ -27,7 +27,6 @@ import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Routine } from "@/mobile/routine"
-import { Tophat } from "@/mobile/tophat"
 import { Expo } from "@/mobile/expo"
 import { MobileProjectDetect } from "@/mobile/project-detect"
 import { Storage } from "@/storage/storage"
@@ -95,7 +94,6 @@ const MobileBootstrap = z
         })
         .optional(),
     }),
-    tophat: MobileTophatStatus.optional(),
     mobileProject: MobileProjectType.optional(),
   })
   .meta({ ref: "MobileBootstrap" })
@@ -823,11 +821,6 @@ export const MobileRoutes = lazy(() =>
                 }
               : undefined,
           },
-          tophat: await Tophat.status().then((s) => ({
-            available: s.available,
-            providers: s.providers.map((p) => ({ id: p.id })),
-            devices: s.devices.map((d) => ({ name: d.name, platform: d.platform })),
-          })),
           expo: await Expo.doctor().then((r) => ({
             available: r.expoCli,
             easAvailable: r.easCli,
@@ -844,94 +837,6 @@ export const MobileRoutes = lazy(() =>
                 }
               : { detected: false },
           ),
-        })
-      },
-    )
-    .get(
-      "/tophat/status",
-      describeRoute({
-        summary: "Get Tophat integration status",
-        description: "Return Tophat availability, providers, and connected devices.",
-        operationId: "mobile.tophat.status",
-        responses: {
-          200: {
-            description: "Tophat status",
-            content: {
-              "application/json": {
-                schema: resolver(MobileTophatStatus),
-              },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        const status = await Tophat.status()
-        return c.json({
-          available: status.available,
-          providers: status.providers.map((p) => ({ id: p.id })),
-          devices: status.devices.map((d) => ({ name: d.name, platform: d.platform })),
-        })
-      },
-    )
-    .get(
-      "/tophat/install-url",
-      describeRoute({
-        summary: "Generate Tophat install URLs for an artifact",
-        description: "Return tophat:// and localhost install URLs for a given artifact URL.",
-        operationId: "mobile.tophat.install-url",
-        responses: {
-          200: {
-            description: "Install URLs",
-            content: {
-              "application/json": {
-                schema: resolver(
-                  z.object({
-                    deepLink: z.string(),
-                    localLink: z.string(),
-                  }),
-                ),
-              },
-            },
-          },
-          ...errors(400),
-        },
-      }),
-      validator("query", z.object({ url: z.string().url(), platform: z.enum(["ios", "android"]).optional() })),
-      async (c) => {
-        const { url, platform } = c.req.valid("query")
-        return c.json({
-          deepLink: Tophat.installUrl(url, { platform }),
-          localLink: Tophat.localInstallUrl(url, { platform }),
-        })
-      },
-    )
-    .get(
-      "/expo/status",
-      describeRoute({
-        summary: "Get Expo environment status",
-        description: "Return Expo CLI, EAS CLI, and Node.js availability.",
-        operationId: "mobile.expo.status",
-        responses: {
-          200: {
-            description: "Expo status",
-            content: {
-              "application/json": {
-                schema: resolver(
-                  z.object({
-                    available: z.boolean(),
-                    details: z.array(z.string()),
-                  }),
-                ),
-              },
-            },
-          },
-        },
-      }),
-      async (c) => {
-        const report = await Expo.doctor()
-        return c.json({
-          available: report.expoCli,
-          details: report.details,
         })
       },
     )

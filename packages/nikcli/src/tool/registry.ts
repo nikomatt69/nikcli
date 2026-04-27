@@ -50,7 +50,6 @@ import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
 import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
-import { TophatInstallTool } from "./tophat"
 import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
@@ -180,7 +179,6 @@ export namespace ToolRegistry {
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
       UseConnectorTool,
       SpeakTool,
-      TophatInstallTool,
       OpenTUIVizTool,
       AdvisorTool,
       DelegatorTool,

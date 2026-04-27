@@ -857,57 +857,6 @@ function App() {
       category: "System",
     },
     {
-      title: "Tophat: install app",
-      value: "tophat.install",
-      category: "Mobile",
-      slash: {
-        name: "tophat",
-        aliases: ["tophat-install", "install-app"],
-      },
-      onSelect: (dialog) => {
-        dialog.clear()
-        toast.show({
-          message: "Use: install <path|url> [--platform ios|android] [--dest device|simulator]",
-          variant: "info",
-          duration: 6000,
-        })
-      },
-    },
-    {
-      title: "Tophat: status",
-      value: "tophat.status",
-      category: "Mobile",
-      slash: {
-        name: "tophat-status",
-      },
-      onSelect: (dialog) => {
-        dialog.clear()
-        void (async () => {
-          const { Tophat } = await import("@/mobile/tophat")
-          const available = await Tophat.available()
-          if (!available) {
-            toast.show({ message: "Tophat not installed (macOS 15+ required)", variant: "error", duration: 5000 })
-            return
-          }
-          const status = await Tophat.status()
-          const devices =
-            status.devices.map((d: { name: string; platform: string }) => `${d.name} (${d.platform})`).join(", ") ||
-            "none"
-          toast.show({
-            message: `Tophat: ${status.providers.length} provider(s), devices: ${devices}`,
-            variant: "info",
-            duration: 6000,
-          })
-        })().catch((err: unknown) => {
-          toast.show({
-            message: err instanceof Error ? err.message : "Tophat status failed",
-            variant: "error",
-            duration: 4000,
-          })
-        })
-      },
-    },
-    {
       title: "Exit the app",
       value: "app.exit",
       slash: {

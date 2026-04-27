@@ -5,7 +5,7 @@
 - **Test nikcli**: `bun run dev` in `packages/nikcli`
 - **Regenerate JavaScript SDK**: `./packages/sdk/js/script/build.ts`
 - **ALWAYS USE PARALLEL TOOLS WHEN APPLICABLE**
-- **Default branch**: `dev`
+- **Default branch**: `nikoemme-main`
 
 ## Monorepo Structure
 

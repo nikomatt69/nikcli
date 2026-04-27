@@ -1,6 +1,6 @@
-import { afterAll, beforeEach, describe, expect, it } from "bun:test"
-import { Sandbox } from "../../src/sandbox/types"
-import { SandboxRegistry, NotFoundError } from "../../src/sandbox/registry"
+import { beforeEach, describe, expect, it } from "bun:test"
+import { Sandbox } from "@/sandbox/types"
+import { SandboxRegistry, NotFoundError } from "@/sandbox/registry"
 
 describe("sandbox types", () => {
   describe("Ref schema", () => {

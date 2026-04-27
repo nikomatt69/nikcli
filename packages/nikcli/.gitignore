@@ -5,3 +5,4 @@ app.log
 .npmrc
 .vercel
 .env*.local
+test/bench-results/

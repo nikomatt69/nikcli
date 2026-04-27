@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test"
-import { convertToOpenAICompatibleChatMessages } from "../../../src/provider/sdk/copilot/chat/convert-to-openai-compatible-chat-messages"
-import { getResponseMetadata } from "../../../src/provider/sdk/copilot/chat/get-response-metadata"
-import { mapOpenAICompatibleFinishReason } from "../../../src/provider/sdk/copilot/chat/map-openai-compatible-finish-reason"
+import { convertToOpenAICompatibleChatMessages } from "@/provider/sdk/copilot/chat/convert-to-openai-compatible-chat-messages"
+import { getResponseMetadata } from "@/provider/sdk/copilot/chat/get-response-metadata"
+import { mapOpenAICompatibleFinishReason } from "@/provider/sdk/copilot/chat/map-openai-compatible-finish-reason"
+import { mapOpenAIResponseFinishReason } from "@/provider/sdk/copilot/responses/map-openai-responses-finish-reason"
 
 describe("copilot SDK smoke", () => {
   it("converts a simple text user message", () => {
@@ -73,5 +74,12 @@ describe("copilot SDK smoke", () => {
     expect(mapOpenAICompatibleFinishReason("length")).toBe("length")
     expect(mapOpenAICompatibleFinishReason("content_filter")).toBe("content-filter")
     expect(mapOpenAICompatibleFinishReason(undefined)).toBe("unknown")
+  })
+
+  it("mapOpenAIResponseFinishReason maps responses API finish reasons", () => {
+    expect(mapOpenAIResponseFinishReason({ finishReason: "max_output_tokens", hasFunctionCall: false })).toBe("length")
+    expect(mapOpenAIResponseFinishReason({ finishReason: null, hasFunctionCall: true })).toBe("tool-calls")
+    expect(mapOpenAIResponseFinishReason({ finishReason: null, hasFunctionCall: false })).toBe("stop")
+    expect(mapOpenAIResponseFinishReason({ finishReason: "content_filter", hasFunctionCall: false })).toBe("content-filter")
   })
 })
