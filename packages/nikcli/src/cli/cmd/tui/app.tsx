@@ -48,6 +48,8 @@ import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
 import { Changes } from "@tui/routes/changes"
 import { SessionTree } from "@tui/routes/tree"
+import { GitGraph } from "@tui/routes/git-graph"
+import { GitHubPanel } from "@tui/routes/github"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -312,14 +314,16 @@ function App() {
         type: route.data.type,
         sessionID:
           route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
-            ? (route.data.sessionID ?? null)
+            ? ((route.data as any).sessionID ?? null)
             : null,
         title:
-          route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
-            ? route.data.sessionID
-              ? (sync.session.get(route.data.sessionID)?.title ?? null)
-              : "Session Tree"
-            : null,
+          route.data.type === "github"
+            ? "GitHub"
+            : route.data.type === "session" || route.data.type === "changes" || route.data.type === "tree"
+              ? (route.data as any).sessionID
+                ? (sync.session.get((route.data as any).sessionID)?.title ?? null)
+                : null
+              : null,
       }),
       (state) => {
         if (!state.enabled || Flag.NIKCLI_DISABLE_TERMINAL_TITLE) {
@@ -339,6 +343,12 @@ function App() {
           }
           const title = state.title.length > 40 ? state.title.slice(0, 37) + "..." : state.title
           renderer.setTerminalTitle(`Nikcli | ${title}`)
+          return
+        }
+
+        if (state.type === "git-graph" || state.type === "github") {
+          renderer.setTerminalTitle("Nikcli | GitHub")
+          return
         }
       },
       { defer: true },
@@ -493,6 +503,40 @@ function App() {
           workspaceID: sessionID
             ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
             : route.data.workspaceID,
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Commit graph",
+      value: "git.graph.open",
+      category: "Git",
+      suggested: true,
+      slash: {
+        name: "graph",
+        aliases: ["gitgraph", "commits"],
+      },
+      onSelect: () => {
+        route.navigate({
+          type: "git-graph",
+          workspaceID: route.data.workspaceID,
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: "GitHub panel",
+      value: "github.panel.open",
+      category: "Git",
+      suggested: true,
+      slash: {
+        name: "github",
+        aliases: ["gh"],
+      },
+      onSelect: () => {
+        route.navigate({
+          type: "github",
+          workspaceID: route.data.workspaceID,
         })
         dialog.clear()
       },
@@ -1077,6 +1121,12 @@ function App() {
         </Match>
         <Match when={route.data.type === "tree"}>
           <SessionTree />
+        </Match>
+        <Match when={route.data.type === "git-graph"}>
+          <GitGraph />
+        </Match>
+        <Match when={route.data.type === "github"}>
+          <GitHubPanel />
         </Match>
         <Match when={route.data.type === "plugin" && route.data}>
           {(data) => {

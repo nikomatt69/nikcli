@@ -92,6 +92,16 @@ function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?
     return
   }
 
+  if (name === "git-graph" || name === "graph") {
+    route.navigate({ type: "git-graph", workspaceID: route.data.workspaceID })
+    return
+  }
+
+  if (name === "github" || name === "gh") {
+    route.navigate({ type: "github", workspaceID: route.data.workspaceID })
+    return
+  }
+
   route.navigate({ type: "plugin", id: name, data: params })
 }
 
@@ -121,6 +131,14 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
       name: "tree",
       params: route.data.sessionID ? { sessionID: route.data.sessionID } : undefined,
     }
+  }
+
+  if (route.data.type === "git-graph") {
+    return { name: "git-graph" }
+  }
+
+  if (route.data.type === "github") {
+    return { name: "github" }
   }
 
   return {

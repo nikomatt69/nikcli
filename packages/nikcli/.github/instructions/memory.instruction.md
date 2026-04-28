@@ -411,7 +411,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 8   | TUI                                | Stale model/variant sync                                                | Pending         |
 | 9   | TUI                                | `read` tool image/PDF attachments not rendered                          | **Implemented** |
 | 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
-| 11  | `cli/cmd/tui/context/local.tsx`    | `ultrareview-reviewer` added to `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Reviewed 2026-04-27 — intentional: enables TUI agent selector UI without affecting actual tool filtering |
+| 11  | `cli/cmd/tui/context/local.tsx`    | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
 
 ### Code Reviewer Remaining Concerns
 
@@ -451,6 +451,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | `session`        | `session/index.tsx`     | Main chat interface                    |
 | `changes`        | `changes/index.tsx`     | Code review with inline comments       |
 | `tree`           | `tree/index.tsx`        | Session hierarchy browser              |
+| `git-graph`      | `git-graph/index.tsx`   | Git commit history browser (GHUI-style) |
 
 All routes support `workspaceID?: string` for multi-workspace routing.
 
@@ -460,7 +461,78 @@ All routes support `workspaceID?: string` for multi-workspace routing.
 
 ### Plugin Route API
 
-`plugin/api.tsx` exports `changes.navigate(id?)` and `tree.navigate(id?)` helpers. Also provides `changes.url(id?)` and `tree.url(id?)` for URL construction.
+`plugin/api.tsx` exports `changes.navigate(id?)`, `tree.navigate(id?)`, and `git-graph.navigate()` helpers. Also provides `changes.url(id?)`, `tree.url(id?)`, and `git-graph.url()` for URL construction. `git-graph` navigation preserves `workspaceID`.
+
+### Credential Resolution
+
+`src/connectors/credentials.ts` — resolves auth tokens in order:
+1. Environment variable / CLI flag (`NIKCLI_GITHUB_TOKEN`)
+2. Config token (`ConnectorGithub.token`)
+3. Stored connector auth (`ConnectorAuth`)
+
+### Connector Operations
+
+`src/connectors/registry.ts` — defined operations:
+`github_get_repo`, `github_get_file`, `github_create_issue`, `github_list_issues`, `github_search_code`, `github_list_repos`
+
+## GitHub Integration (`src/connectors/`)
+
+### Core Files
+
+| File | Purpose |
+| ---- | ------- |
+| `api/github.ts` | `GithubApi` REST wrapper: token auth, repos, contents, issues, branches, PR lookup/create, file decoding |
+| `credentials.ts` | Credential resolution order (env → config → stored auth) |
+| `registry.ts:111` | Connector operation registry |
+| `config/config.ts:543` | `ConnectorGithub` Zod schema: `{ type: "github", token?, oauthClientId?, clientId?, enabled? }` |
+
+### Mobile GitHub Routes (`src/server/routes/mobile.ts`)
+
+Comprehensive GitHub support via Hono + `describeRoute`:
+- `GET /mobile/github/repos` — list repos, merge imported metadata
+- `GET /mobile/github/repos/:owner/:repo/branches`
+- `POST /mobile/github/oauth/device` + `/poll` — device auth flow
+- `POST /mobile/github/auth` — store/remove tokens
+- `POST /mobile/github/import` — import repos into managed host cache
+- `POST /mobile/github/session` — create GitHub-backed sessions with isolated worktrees
+- `POST /mobile/session/:sessionID/publish` — commit, push, create/reuse PR
+- `POST /mobile/session/:sessionID/cleanup` — remove GitHub-backed worktrees
+
+### Managed Git Repos (`src/mobile/github-repo.ts`)
+
+`MobileGithubRepo.runGit()` — authenticated git via `http.extraHeader` (no `gh` CLI dependency for core operations). `gh` used only in release scripts.
+
+### Session GitHub Metadata (`src/session/index.ts:40`)
+
+`SessionGithub` schema: `owner`, `repo`, `fullName`, `baseBranch`, `headBranch`, `repositoryDirectory`, `cloneUrl`, `htmlUrl`, `private`, `worktree`, `pullRequest`, `lastCommitSha`, `publishedAt`, `publishError`.
+
+### GitHub CLI / `gh`
+
+- **No app-level TUI/server integration** — GitHub support uses direct REST + git, not `gh` CLI
+- `gh` appears only in release scripts: `script/release-github.ts`, `script/publish-start.ts`, `script/publish-complete.ts`, `script/changelog.ts`
+- `src/permission/arity.ts:79` includes `gh` command arity for permission parsing
+
+### Tests
+
+- `test/cli/github.test.ts` — `parseGitHubRemote`
+- `test/cli/_network-precise.test.ts` — exhaustive remote parsing cases
+
+## TUI GitHub Utilities (`src/cli/cmd/tui/util/`)
+
+### Files
+
+| File | Purpose |
+| ---- | ------- |
+| `github.ts` | `gh` CLI wrapper: check status, login OAuth, PR metadata, review status, copy helpers |
+
+### `gh` Wrapper Functions
+
+- `gh()` — spawn `gh` with `GH_PROMPT_DISABLED=1`, JSON parse with non-zero exit handling
+- `ghStatus()` — `gh auth status` → logged-in username or null
+- `ghLogin()` — `gh auth login --web` (opens browser OAuth)
+- `ghPrStatus(number, owner, repo)` — fetch PR title, state, author, additions, deletions, files, checks, labels
+- `ghPrChecks(number, owner, repo)` — `gh pr checks` with exit-8 (pending checks) handling
+- `ghCopyPrInfo(pr)` — copy PR URL, number, title, state to clipboard
 
 ## Code Review Route (`routes/changes/`)
 
@@ -474,6 +546,15 @@ All routes support `workspaceID?: string` for multi-workspace routing.
 | `format-comments.ts` | Formats all comments per file for AI review feedback       |
 | `footer.tsx`     | Keyboard hints bar                                          |
 | `header.tsx`      | Title bar with mode toggle (unified/split), session info     |
+| `github-panel.tsx` | GitHub PR sidebar (left panel, toggled via `g` key)         |
+
+### GitHub Panel (Left Sidebar)
+
+Integrated into `changes` route left sidebar, toggled via `g` key:
+- Shows PR metadata (title, state, author, labels, checks, files changed, description)
+- OAuth via `gh auth login --web` (key `a`) when not logged in
+- `r` refreshes PR context; `o` opens PR in browser; `y` copies PR metadata
+- Reuses `src/cli/cmd/tui/util/github.ts` for `gh` calls and `GithubApi` for PR details
 
 ### Comment System
 
@@ -510,6 +591,58 @@ All routes support `workspaceID?: string` for multi-workspace routing.
 - MCP/LSP status indicators in footer
 - `SessionTreeHeader`: background with `SplitBorder`, title "Session Tree", root/session counts, current selection indicator
 - `SessionTreeColumnHeaders`: fixed column layout with aligned widths
+
+## Git Graph Route (`routes/git-graph/`)
+
+### Overview
+
+GHUI-style git commit browser. Opens via command palette (`git graph` or `Ctrl-G`) or plugin API.
+
+### Files
+
+| File | Purpose |
+| ---- | ------- |
+| `index.tsx` | Main graph view: commit list, PR details panel, header, footer |
+
+### Features
+
+- **Commit list**: left panel with graph lines, hash, refs, author, date, CI/check status
+- **PR details**: right panel (split view at ≥118 cols) with labels, checks, summary, files changed, tests, description
+- **PR detection**: only from `pull/<n>` refs or anchored `Merge pull request #n` subject lines (not loose `#123` matching)
+- **Checks**: uses `gh pr checks` output; handles non-zero exits (exit 8 = pending) without discarding JSON
+- **Keyboard**:
+  - `j/k` navigate rows
+  - `g/G` go to first/last
+  - `o` open in browser
+  - `y` copy metadata/PR URL
+  - `x` toggle split view
+  - `r` reload
+  - `f` filter/search
+  - `esc` close / exit filter
+- **Modifiers ignored**: all shortcuts respect `ctrl/meta/super` state, dialog stack, and leader key mode — no overlap with global shortcuts
+- **Stale data guard**: graph/details/GitHub shown only if directory/hash/PR matches current resource request
+- **Robust spawn**: `GH_PROMPT_DISABLED=1`, `GIT_TERMINAL_PROMPT=0`, timeout on all `git`/`gh` calls
+- **Scroll**: selected row scrolled into view via `listScroll.scrollTo()`
+- **Visual**: fixed-width cells with `overflow="hidden"` and `flexShrink={0}` prevent row overlap on scroll; explicit `backgroundColor` on all rows
+
+### Theme Consistency
+
+Fully consistent with other TUI routes:
+- All colors via `theme.*` tokens (no hardcoded hex)
+- Same `<box>`, `<text>`, `<scrollbox>`, `<flex>` component patterns
+- `FooterHint`/`FooterSep` for keyboard hints matching other routes
+- `borderColor={theme.borderSubtle}` for dividers
+- Responsive column widths from `useTerminalDimensions()`
+
+### Code Review (2026-04-28, 5 rounds)
+
+| Round | Focus | Result |
+| ----- | ----- | ------ |
+| 1 | Initial implementation | 5 issues found (gh checks exit, stale resources, keyboard overlap, no scroll-into-view, misleading PR labels) |
+| 2 | After fixes | 3 issues (dialog/leader conflicts, stale directory comparison, commit details by hash only) |
+| 3 | After fixes | 1 issue (prNumber matches any `#123` in subject) |
+| 4 | After fix (PR detection via refs/merge pattern only) | Clean |
+| 5 | Visual overlap after scrolling | Clean (fixed-width cells + explicit backgroundColor) |
 
 ## Logo Component (`component/logo.tsx`)
 
@@ -590,7 +723,7 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 - Cached per URL to avoid re-fetch on re-renders
 - Place in bordered box; render inside `UserMessage` or `AssistantMessage` at safe insertion points above
 
-## Test Coverage (2026-04-27 Assessment)
+## Test Coverage (2026-04-28 Assessment)
 
 ### Coverage by Area
 
@@ -628,34 +761,30 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
 
-## Session Summary (2026-04-27)
+## Session Summary (2026-04-28)
 
 ### Completed Work
 
-1. **Deep exploration of tool/server/agent systems** via multiple background explore subagents
-   - Documented all 52 tools in `src/tool/` with purposes
-   - Catalogued all server route modules in `src/server/routes/`
-   - Analyzed tool-agent integration: 3 layers (agent config → registry filter → permission evaluation)
-   - Traced full import graph for `src/agent/agent.ts`
+1. **GitHub patterns exploration** via explore subagent
+   - Found existing GitHub REST wrapper (`src/connectors/api/github.ts`), credential resolution, mobile GitHub routes, session metadata
+   - Recommended building TUI GitHub support around `Session.github`, `sync.data.session`/`session_diff`, `GithubApi`, and connector credentials
 
-2. **Code review of uncommitted changes** via ultrareview-reviewer subagent
-   - `src/agent/agent.ts`: removed `color: "#FF6B35"` from `build` agent (clean)
-   - `src/cli/cmd/tui/context/local.tsx`: added `ultrareview-reviewer` to `PRIMARY_AGENT_NAMES`, added `moveSub` navigation, added `KNOWN_INDEX` color mapping
-   - Reviewed `ultrareview-reviewer` appearing in `PRIMARY_AGENT_NAMES` despite being mode=subagent/hidden — intentional for TUI selector UI
+2. **Changes GitHub panel** (build agent)
+   - Added `src/cli/cmd/tui/util/github.ts` with `gh` CLI wrapper (OAuth, PR metadata, checks, copy helpers)
+   - Added `src/cli/cmd/tui/routes/changes/github-panel.tsx` as left sidebar
+   - Updated changes route: `g` toggles Files/GitHub, `a` starts OAuth, `r` refresh, `o` open PR, `y` copy metadata
+   - Updated header/footer with GitHub context and hints
+   - `bun run typecheck` OK; tests pass
 
-### Current Uncommitted Changes (2026-04-27)
+3. **Git graph route** (build agent, 5 code review rounds)
+   - GHUI-style commit browser with PR details, checks, split view
+   - PR detection: only `pull/<n>` refs or anchored `Merge pull request #n` pattern (not loose `#123`)
+   - Robust spawn: `GH_PROMPT_DISABLED=1`, `GIT_TERMINAL_PROMPT=0`, timeout, non-zero exit handling
+   - Stale data guard: directory/hash/PR matched before showing graph/details/GitHub
+   - Keyboard: modifiers respected, dialog stack checked, leader key mode handled
+   - Fixed-width cells with explicit `backgroundColor` to prevent row overlap on scroll
+   - Scroll-to-selected via `listScroll.scrollTo()`
+   - Theme consistency verified: all `theme.*` tokens, consistent component patterns
 
-| File | Change |
-| ---- | ------ |
-| `src/agent/agent.ts` | Removed `color: "#FF6B35"` from `build` agent |
-| `src/cli/cmd/tui/context/local.tsx` | Added subagent nav, expanded agent list, color mapping |
-| `.nikcli/nikcli.jsonc` | Config tweak |
-
-### Key Findings
-
-- **16 built-in agents** defined in `agent.ts` (updated count from 15 to 16 after recent commits)
-- **TaskTool** is the most complex tool (~800 lines): handles foreground live progress, background delegation chains with delegator synthesis
-- **SUBAGENT_TOOLSETS** in `agent.ts` documents the intended toolset for each subagent type
-- **ultrareview-reviewer** is a hidden subagent for domain-specific parallel review (bugs/security/performance/patterns)
-- Typecheck: clean (no errors)
-- Tests: 109 pass, 0 fail
+4. **Theme review** (code-reviewer subagent)
+   - git-graph fully consistent with rest of TUI app across 10 categories (colors, typography, layout, keyboard hints, border, dialogs, empty states, responsive sizing)

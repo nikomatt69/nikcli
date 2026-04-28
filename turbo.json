@@ -2,7 +2,12 @@
   "$schema": "https://turborepo.com/schema.json",
   "dangerouslyDisablePackageManagerCheck": true,
   "tasks": {
-    "typecheck": {},
+    "typecheck": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/test/**"
+      ]
+    },
     "build": {
       "dependsOn": [
         "^build"

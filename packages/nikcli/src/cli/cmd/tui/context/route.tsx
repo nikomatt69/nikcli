@@ -34,7 +34,24 @@ export type SessionTreeRoute = {
   workspaceID?: string
 }
 
-export type Route = HomeRoute | SessionRoute | PluginRoute | ChangesRoute | SessionTreeRoute
+export type GitGraphRoute = {
+  type: "git-graph"
+  workspaceID?: string
+}
+
+export type GitHubRoute = {
+  type: "github"
+  workspaceID?: string
+}
+
+export type Route =
+  | HomeRoute
+  | SessionRoute
+  | PluginRoute
+  | ChangesRoute
+  | SessionTreeRoute
+  | GitGraphRoute
+  | GitHubRoute
 
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",
