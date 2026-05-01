@@ -2,7 +2,7 @@ import { Pressable, Text, View } from "react-native"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { InfoChip } from "@/components/ui/InfoChip"
 import type { GitHubRepo, ProjectInfo } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
 import { useAppTheme } from "@/lib/theme"
 
 function lastPathSegment(path?: string): string {

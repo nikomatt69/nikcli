@@ -752,27 +752,4 @@ export type PtyUpdateInput = {
   size?: { rows: number; cols: number }
 }
 
-export function relativeTime(value: number): string {
-  const diffMs = Date.now() - value
-  const diffSeconds = Math.max(1, Math.round(diffMs / 1000))
 
-  if (diffSeconds < 60) return `${diffSeconds}s ago`
-
-  const diffMinutes = Math.round(diffSeconds / 60)
-  if (diffMinutes < 60) return `${diffMinutes}m ago`
-
-  const diffHours = Math.round(diffMinutes / 60)
-  if (diffHours < 24) return `${diffHours}h ago`
-
-  const diffDays = Math.round(diffHours / 24)
-  if (diffDays < 7) return `${diffDays}d ago`
-
-  const diffWeeks = Math.round(diffDays / 7)
-  if (diffWeeks < 5) return `${diffWeeks}w ago`
-
-  const diffMonths = Math.round(diffDays / 30)
-  if (diffMonths < 12) return `${diffMonths}mo ago`
-
-  const diffYears = Math.round(diffDays / 365)
-  return `${diffYears}y ago`
-}

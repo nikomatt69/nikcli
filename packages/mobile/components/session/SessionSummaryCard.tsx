@@ -1,5 +1,6 @@
 import { Linking, Text, View } from "react-native"
-import { relativeTime, type SessionDetail } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
+import { type SessionDetail } from "@/lib/types"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"

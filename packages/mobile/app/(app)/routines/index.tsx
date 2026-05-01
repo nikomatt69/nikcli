@@ -9,7 +9,7 @@ import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import type { Routine } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
 
 function triggerSummary(routine: Routine): string {
   const parts: string[] = []

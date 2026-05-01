@@ -13,7 +13,7 @@ import type {
   TextPart,
   ToolPart,
 } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
 import { highlightCode } from "@/lib/syntax"
 import { ToolCallView } from "@/components/ToolCallView"
 import { DiffViewer } from "@/components/DiffViewer"

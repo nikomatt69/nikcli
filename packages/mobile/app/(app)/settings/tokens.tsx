@@ -7,7 +7,8 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { useServer } from "@/lib/server-provider"
-import { relativeTime, type MobileAuthToken } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
+import { type MobileAuthToken } from "@/lib/types"
 
 export default function TokensSettingsScreen() {
   const { client } = useServer()

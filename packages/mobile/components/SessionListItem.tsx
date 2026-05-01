@@ -3,7 +3,7 @@ import { Animated, Pressable, Text, View } from "react-native"
 import { ArrowRight, Ellipsis, Trash2 } from "lucide-react-native"
 import { InfoChip } from "@/components/ui/InfoChip"
 import type { SessionSummary } from "@/lib/types"
-import { relativeTime } from "@/lib/types"
+import { relativeTime } from "@/lib/text-utils"
 import { useAppTheme } from "@/lib/theme"
 
 function sessionLocation(item: SessionSummary): string {
