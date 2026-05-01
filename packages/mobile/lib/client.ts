@@ -406,10 +406,16 @@ export class MobileClient {
     })
   }
 
-  async ping(): Promise<boolean> {
+  async ping(timeoutMs = 5000): Promise<boolean> {
     try {
-      await this.request<MobileBootstrap>("/mobile/bootstrap")
-      return true
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), timeoutMs)
+      try {
+        await this.request<MobileBootstrap>("/mobile/bootstrap", { signal: controller.signal })
+        return true
+      } finally {
+        clearTimeout(timeout)
+      }
     } catch {
       return false
     }

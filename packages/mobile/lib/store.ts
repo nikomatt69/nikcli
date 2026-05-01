@@ -9,6 +9,14 @@ import type {
   SettingsSectionID,
   ThemeMode,
 } from "@/lib/types"
+import {
+  DEFAULT_SETTINGS_SECTIONS,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  DEFAULT_HAPTIC_PREFERENCES,
+  DEFAULT_GESTURE_PREFERENCES,
+  DEFAULT_COMPOSER_PREFERENCES,
+  DEFAULT_PROMPT_PRESETS,
+} from "@/lib/defaults"
 
 export type AppShellRoute = "sessions" | "repos" | "settings" | "routines" | "terminal"
 
@@ -55,82 +63,17 @@ const defaultRouteLabels: RouteLabelState = {
   terminal: { label: "Terminal", subtitle: "Shell on your nikcli server" },
 }
 
-const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
-  profile: true,
-  interaction: true,
-  commands: true,
-  memories: true,
-  connection: true,
-  execution: true,
-  providers: true,
-  github: true,
-  mcp: true,
-  skills: true,
-  advanced: true,
-  connectors: true,
-  agents: true,
-  tokens: true,
-  routines: true,
-}
-
-const defaultNotifications: NotificationPreferences = {
-  enabled: false,
-  sessionReady: true,
-  permissions: true,
-  failures: true,
-}
-
-const defaultHaptics: HapticPreferences = {
-  enabled: true,
-  send: true,
-  commands: true,
-  permissions: true,
-  errors: true,
-}
-
-const defaultGestures: GesturePreferences = {
-  bubbleSwipeActions: true,
-  bubbleLongPressActions: true,
-}
-
-const defaultComposer: ComposerPreferences = {
-  defaultMode: "code",
-  autoFollowTranscript: true,
-  slashSuggestions: true,
-}
-
-const defaultPromptPresets: PromptPreset[] = [
-  {
-    id: "preset-review",
-    title: "Review current work",
-    prompt: "Review the current changes, call out risks, and propose the smallest safe next steps.",
-    mode: "plan",
-  },
-  {
-    id: "preset-fix",
-    title: "Fix latest error",
-    prompt: "Investigate the latest failure, explain the root cause, and apply the smallest correct fix.",
-    mode: "code",
-  },
-  {
-    id: "preset-publish",
-    title: "Prepare publish",
-    prompt: "Check the diff, summarize the work, and get this session ready to publish safely.",
-    mode: "plan",
-  },
-]
-
 export const useUIStore = create<AppShellState>((set) => ({
   drawerOpen: false,
   activeRoute: "sessions",
   routeLabels: defaultRouteLabels,
   themeMode: "system",
-  visibleSettingsSections: defaultVisibleSettingsSections,
-  notifications: defaultNotifications,
-  haptics: defaultHaptics,
-  gestures: defaultGestures,
-  composer: defaultComposer,
-  promptPresets: defaultPromptPresets,
+  visibleSettingsSections: DEFAULT_SETTINGS_SECTIONS,
+  notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+  haptics: DEFAULT_HAPTIC_PREFERENCES,
+  gestures: DEFAULT_GESTURE_PREFERENCES,
+  composer: DEFAULT_COMPOSER_PREFERENCES,
+  promptPresets: DEFAULT_PROMPT_PRESETS,
   preferencesReady: false,
   openDrawer: () => set({ drawerOpen: true }),
   closeDrawer: () => set({ drawerOpen: false }),
@@ -154,26 +97,26 @@ export const useUIStore = create<AppShellState>((set) => ({
     set({
       themeMode: preferences.themeMode,
       visibleSettingsSections: {
-        ...defaultVisibleSettingsSections,
+        ...DEFAULT_SETTINGS_SECTIONS,
         ...preferences.visibleSettingsSections,
       },
       notifications: {
-        ...defaultNotifications,
+        ...DEFAULT_NOTIFICATION_PREFERENCES,
         ...preferences.notifications,
       },
       haptics: {
-        ...defaultHaptics,
+        ...DEFAULT_HAPTIC_PREFERENCES,
         ...preferences.haptics,
       },
       gestures: {
-        ...defaultGestures,
+        ...DEFAULT_GESTURE_PREFERENCES,
         ...preferences.gestures,
       },
       composer: {
-        ...defaultComposer,
+        ...DEFAULT_COMPOSER_PREFERENCES,
         ...preferences.composer,
       },
-      promptPresets: preferences.promptPresets?.length ? preferences.promptPresets : defaultPromptPresets,
+      promptPresets: preferences.promptPresets?.length ? preferences.promptPresets : DEFAULT_PROMPT_PRESETS,
       preferencesReady: true,
     }),
   setThemeMode: (mode) => set({ themeMode: mode }),

@@ -19,7 +19,7 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer, userLogin, userRegister, userStatus } from "@/lib/server-provider"
+import { useServer, userLogin, userRegister, userStatus, type UserProfile } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import { getRememberedUser, setRememberedUser, clearRememberedUser, type RememberedUser } from "@/lib/storage"
 import { triggerHaptic } from "@/lib/haptics"
@@ -203,7 +203,7 @@ export default function LoginScreen() {
     setError(null)
     setLoading(true)
     try {
-      let result: { token: string; user: any }
+      let result: { token: string; user: UserProfile }
       if (tab === "login") {
         result = await userLogin(config.url, email.trim(), password)
       } else {

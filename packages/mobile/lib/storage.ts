@@ -1,14 +1,18 @@
 import * as SecureStore from "expo-secure-store"
 import type {
   AppPreferences,
-  ComposerPreferences,
-  GesturePreferences,
-  HapticPreferences,
-  NotificationPreferences,
   PromptPreset,
   ServerConfig,
-  SettingsSectionID,
 } from "./types"
+import {
+  DEFAULT_SETTINGS_SECTIONS,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  DEFAULT_HAPTIC_PREFERENCES,
+  DEFAULT_GESTURE_PREFERENCES,
+  DEFAULT_COMPOSER_PREFERENCES,
+  DEFAULT_PROMPT_PRESETS,
+  defaultPreferences,
+} from "./defaults"
 
 const SERVER_CONFIG_KEY = "nikcli_server_config"
 const APP_PREFERENCES_KEY = "nikcli_app_preferences"
@@ -49,83 +53,6 @@ export async function setUserToken(token: string): Promise<void> {
 
 export async function clearUserToken(): Promise<void> {
   await SecureStore.deleteItemAsync(USER_TOKEN_KEY)
-}
-
-const DEFAULT_SETTINGS_SECTIONS: Record<SettingsSectionID, boolean> = {
-  profile: true,
-  interaction: true,
-  commands: true,
-  memories: true,
-  connection: true,
-  execution: true,
-  providers: true,
-  github: true,
-  mcp: true,
-  skills: true,
-  advanced: true,
-  connectors: true,
-  agents: true,
-  tokens: true,
-  routines: true,
-}
-
-const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
-  enabled: false,
-  sessionReady: true,
-  permissions: true,
-  failures: true,
-}
-
-const DEFAULT_HAPTIC_PREFERENCES: HapticPreferences = {
-  enabled: true,
-  send: true,
-  commands: true,
-  permissions: true,
-  errors: true,
-}
-
-const DEFAULT_GESTURE_PREFERENCES: GesturePreferences = {
-  bubbleSwipeActions: true,
-  bubbleLongPressActions: true,
-}
-
-const DEFAULT_COMPOSER_PREFERENCES: ComposerPreferences = {
-  defaultMode: "code",
-  autoFollowTranscript: true,
-  slashSuggestions: true,
-}
-
-const DEFAULT_PROMPT_PRESETS: PromptPreset[] = [
-  {
-    id: "preset-review",
-    title: "Review current work",
-    prompt: "Review the current changes, call out risks, and propose the smallest safe next steps.",
-    mode: "plan",
-  },
-  {
-    id: "preset-fix",
-    title: "Fix latest error",
-    prompt: "Investigate the latest failure, explain the root cause, and apply the smallest correct fix.",
-    mode: "code",
-  },
-  {
-    id: "preset-publish",
-    title: "Prepare publish",
-    prompt: "Check the diff, summarize the work, and get this session ready to publish safely.",
-    mode: "plan",
-  },
-]
-
-function defaultPreferences(): AppPreferences {
-  return {
-    themeMode: "system",
-    visibleSettingsSections: DEFAULT_SETTINGS_SECTIONS,
-    notifications: DEFAULT_NOTIFICATION_PREFERENCES,
-    haptics: DEFAULT_HAPTIC_PREFERENCES,
-    gestures: DEFAULT_GESTURE_PREFERENCES,
-    composer: DEFAULT_COMPOSER_PREFERENCES,
-    promptPresets: DEFAULT_PROMPT_PRESETS,
-  }
 }
 
 function envDefault(): ServerConfig | null {

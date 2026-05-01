@@ -4,6 +4,7 @@ import * as Notifications from "expo-notifications"
 import { AppState, Platform } from "react-native"
 import { getLiveActivityRegistry, setLiveActivityRegistry } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
+import { compactActivityText } from "@/lib/text-utils"
 import type { SessionDetail } from "@/lib/types"
 
 Notifications.setNotificationHandler({
@@ -103,13 +104,6 @@ function sessionDeepLink(sessionID: string) {
   } catch {
     return `nikcli://sessions/${sessionID}`
   }
-}
-
-function compactActivityText(value: string | null | undefined, limit = 72) {
-  if (!value) return ""
-  const normalized = value.replace(/\s+/g, " ").trim()
-  if (normalized.length <= limit) return normalized
-  return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
 function buildPersistedActivitySnapshot(detail: SessionDetail) {

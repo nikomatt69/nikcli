@@ -48,6 +48,7 @@ export type PendingAttachment = {
   sizeLabel?: string
 }
 import { useSessionStream } from "@/hooks/use-session-stream"
+import { compactActivityText } from "@/lib/text-utils"
 
 function upsertMessage(messages: MessageWithParts[], next: MessageWithParts["info"]) {
   const index = messages.findIndex((item) => item.info.id === next.id)
@@ -99,13 +100,6 @@ function messagePlainText(message: MessageWithParts) {
     return message.info.error?.data?.message?.trim() ?? ""
   }
   return ""
-}
-
-function compactActivityText(value: string | null | undefined, limit = 72) {
-  if (!value) return ""
-  const normalized = value.replace(/\s+/g, " ").trim()
-  if (normalized.length <= limit) return normalized
-  return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
 function buildLiveActivitySnapshot(detail: SessionDetail, input: { publishing: boolean; cleaning: boolean }) {

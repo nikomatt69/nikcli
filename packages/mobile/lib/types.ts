@@ -651,7 +651,7 @@ export type SessionStreamEvent =
       type: "permission.replied"
       properties: { sessionID: string; requestID: string; reply: "once" | "always" | "reject" }
     }
-  | { type: string; properties: any }
+  | { type: string; properties: Record<string, unknown> }
 
 export type MobileAuthToken = {
   id: string
