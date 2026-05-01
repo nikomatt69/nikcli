@@ -136,7 +136,7 @@ export default function MemoriesSettingsScreen() {
           <View className="gap-3">
             {visibleStash.length ? (
               visibleStash.map((entry) => (
-                <View key={entry.id} className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+                <View key={entry.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <View className="flex-row flex-wrap gap-2">
                     <InfoChip label={new Date(entry.timestamp).toLocaleDateString()} tone="accent" />
                     <InfoChip label={`${entry.partsCount} parts`} />
@@ -155,7 +155,7 @@ export default function MemoriesSettingsScreen() {
                 </View>
               ))
             ) : (
-              <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">No saved snippets matched this search yet.</Text>
               </View>
             )}
@@ -169,14 +169,14 @@ export default function MemoriesSettingsScreen() {
         description="This feed comes from the host prompt history file and helps reconstruct operator workflows across sessions."
       >
         {loading ? (
-          <View className="items-center rounded-[22px] border border-border bg-background/60 px-4 py-5">
+          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
             <Text className="text-sm text-soft">Loading host prompt history…</Text>
           </View>
         ) : (
           <View className="gap-3">
             {visibleHistory.length ? (
               visibleHistory.map((entry) => (
-                <View key={entry.id} className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+                <View key={entry.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <View className="flex-row flex-wrap gap-2">
                     <InfoChip label={entry.mode || "normal"} tone="accent" />
                     <InfoChip label={`${entry.partsCount} parts`} />
@@ -187,7 +187,7 @@ export default function MemoriesSettingsScreen() {
                 </View>
               ))
             ) : (
-              <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">No prompt history matched this search yet.</Text>
               </View>
             )}

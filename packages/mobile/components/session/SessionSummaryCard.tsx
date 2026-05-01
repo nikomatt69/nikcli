@@ -47,7 +47,7 @@ function MetricTile(props: { label: string; value: string; tone?: "neutral" | "a
       style={{
         flex: 1,
         minWidth: 0,
-        borderRadius: 18,
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.7)",
         backgroundColor,
@@ -118,7 +118,6 @@ export function SessionSummaryCard({
   return (
     <View className="pb-4">
       <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="px-5 py-5">
-        <View className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-accent/15" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={status} tone={currentStatusTone(status)} />
           <InfoChip label={`${messageCount} messages`} />
@@ -151,7 +150,7 @@ export function SessionSummaryCard({
 
         {github ? (
           <View
-            className="mt-4 rounded-[24px] border px-4 py-4"
+            className="mt-4 rounded-[8px] border px-4 py-4"
             style={{
               borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.72)",
               backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(241,246,251,0.68)",

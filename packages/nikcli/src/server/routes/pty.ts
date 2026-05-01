@@ -151,16 +151,35 @@ export const PtyRoutes = lazy(() =>
       validator("param", z.object({ ptyID: z.string() })),
       upgradeWebSocket((c) => {
         const id = c.req.param("ptyID")
+        const ptyInfo = Pty.get(id)
+        if (!ptyInfo) {
+          throw new Error(`Session not found: ${id}`)
+        }
+        // Log connection attempt for debugging
+        console.log(`[PTY] WebSocket connection attempt for session: ${id}`)
         let handler: ReturnType<typeof Pty.connect>
-        if (!Pty.get(id)) throw new Error("Session not found")
         return {
           onOpen(_event, ws) {
+            console.log(`[PTY] WebSocket opened for session: ${id}`)
             handler = Pty.connect(id, ws)
           },
           onMessage(event) {
-            handler?.onMessage(String(event.data))
+            const raw = event.data
+            const text = raw instanceof ArrayBuffer ? new TextDecoder().decode(raw) : String(raw)
+            // Intercept JSON resize control messages so they don't land in the PTY as input.
+            if (text.charCodeAt(0) === 123 /* { */) {
+              try {
+                const msg = JSON.parse(text) as Record<string, unknown>
+                if (msg.type === "resize" && typeof msg.cols === "number" && typeof msg.rows === "number") {
+                  Pty.resize(id, msg.cols, msg.rows)
+                  return
+                }
+              } catch {}
+            }
+            handler?.onMessage(text)
           },
           onClose() {
+            console.log(`[PTY] WebSocket closed for session: ${id}`)
             handler?.onClose()
           },
         }

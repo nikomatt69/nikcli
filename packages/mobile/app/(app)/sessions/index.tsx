@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { FlatList, RefreshControl, Text, View } from "react-native"
-import { router } from "expo-router"
+import { FlatList, RefreshControl, View, useWindowDimensions } from "react-native"
+import { router, useRootNavigationState } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
 import { SessionListSkeleton } from "@/components/Skeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -28,14 +28,18 @@ function currentSessionModelLabel(providerID?: string, modelID?: string) {
 
 export default function SessionsScreen() {
   const { palette } = useAppTheme()
+  const { width } = useWindowDimensions()
   const { client, loading, bootstrapLoading, config, bootstrap } = useServer()
+  const rootNavigationState = useRootNavigationState()
   const [sessions, setSessions] = useState<SessionSummary[]>([])
   const [refreshing, setRefreshing] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const searchRef = useRef(search)
-  useEffect(() => { searchRef.current = search }, [search])
+  useEffect(() => {
+    searchRef.current = search
+  }, [search])
 
   const load = useCallback(
     async (term?: string) => {
@@ -67,6 +71,7 @@ export default function SessionsScreen() {
   }, [client, load, search])
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return
     if (loading) return
     if (!config) {
       router.replace("/")
@@ -74,7 +79,7 @@ export default function SessionsScreen() {
     }
     // Use ref to avoid search being in deps (first effect handles search debounce)
     void load(searchRef.current)
-  }, [config, loading])
+  }, [config, loading, load, rootNavigationState?.key])
 
   async function createSession() {
     if (!client || creating) return
@@ -105,6 +110,7 @@ export default function SessionsScreen() {
     () => currentSessionModelLabel(config?.modelProviderID, config?.modelID),
     [config?.modelID, config?.modelProviderID],
   )
+  const compactHero = width < 430
 
   const hero = (
     <View className="pb-5">
@@ -113,7 +119,6 @@ export default function SessionsScreen() {
         title="Track live runs, approvals, and publish readiness."
         description="Use this board to triage in-flight sessions, inspect repo-backed work, and jump straight into the execution timeline that needs your attention."
       >
-        <View className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-accent/15" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={`${sessions.length} sessions`} tone="accent" />
           <InfoChip label={`${busyCount} busy`} tone={busyCount ? "accent" : "neutral"} />
@@ -124,8 +129,8 @@ export default function SessionsScreen() {
           <InfoChip label={sessionModel.modelID} tone="accent" />
           <InfoChip label={currentProjectLabel(bootstrap?.currentProject?.name, bootstrap?.currentProject?.worktree)} />
         </View>
-        <View className="mt-4 flex-row items-center gap-3">
-          <View className="flex-1">
+        <View className={`mt-4 gap-3 ${compactHero ? "" : "flex-row items-center"}`}>
+          <View className={compactHero ? "w-full" : "flex-1"}>
             <TextField
               value={search}
               onChangeText={setSearch}
@@ -133,7 +138,7 @@ export default function SessionsScreen() {
               autoCapitalize="none"
             />
           </View>
-          <View className="w-[152px]">
+          <View className={compactHero ? "w-full" : "w-[152px]"}>
             <ActionButton label="New session" loading={creating} onPress={() => void createSession()} />
           </View>
         </View>

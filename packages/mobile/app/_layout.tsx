@@ -1,7 +1,7 @@
 import "react-native-gesture-handler"
 import "@/global.css"
 import { useEffect, useRef } from "react"
-import { Stack, router, usePathname } from "expo-router"
+import { Stack, router, usePathname, useRootNavigationState } from "expo-router"
 import { StatusBar } from "expo-status-bar"
 import { useColorScheme } from "nativewind"
 import { GestureHandlerRootView } from "react-native-gesture-handler"
@@ -24,8 +24,10 @@ let pendingNotificationHref: string | null = null
 function AuthGuard() {
   const { config, ready, userToken, userLoading } = useServer()
   const pathname = usePathname()
+  const rootNavigationState = useRootNavigationState()
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return
     if (!ready || userLoading) return
     if (!config) return // no server — index.tsx (connect screen) handles this
     // Don't redirect if already on login or connect screen
@@ -33,7 +35,7 @@ function AuthGuard() {
     if (!userToken) {
       router.replace("/login")
     }
-  }, [ready, userLoading, config, userToken, pathname])
+  }, [ready, rootNavigationState?.key, userLoading, config, userToken, pathname])
 
   return null
 }
@@ -77,6 +79,7 @@ function LiveActivityCoordinator() {
 
 function NotificationCoordinator() {
   const { config, ready, userToken, userLoading } = useServer()
+  const rootNavigationState = useRootNavigationState()
   const authStateRef = useRef({
     config,
     ready,
@@ -100,7 +103,13 @@ function NotificationCoordinator() {
       if (!active || !href) return
 
       const authState = authStateRef.current
-      if (!authState.ready || authState.userLoading || !authState.config || !authState.userToken) {
+      if (
+        !rootNavigationState?.key ||
+        !authState.ready ||
+        authState.userLoading ||
+        !authState.config ||
+        !authState.userToken
+      ) {
         pendingNotificationHref = href
         return
       }
@@ -118,15 +127,16 @@ function NotificationCoordinator() {
       active = false
       cleanup()
     }
-  }, [])
+  }, [rootNavigationState?.key])
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return
     if (!pendingNotificationHref || !ready || userLoading || !config || !userToken) return
 
     const href = pendingNotificationHref
     pendingNotificationHref = null
     router.push(href as never)
-  }, [config, ready, userLoading, userToken])
+  }, [config, ready, rootNavigationState?.key, userLoading, userToken])
 
   return null
 }

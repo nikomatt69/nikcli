@@ -24,20 +24,14 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       ) : null}
       <View
         style={{
-          borderRadius: 22,
+          borderRadius: 8,
           borderWidth: 1,
-          borderColor: focused
-            ? isDark
-              ? "rgba(255,255,255,0.18)"
-              : "rgba(14,165,233,0.35)"
-            : isDark
-              ? "rgba(255,255,255,0.08)"
-              : "rgba(193,208,223,0.82)",
-          backgroundColor: focused ? palette.surface : isDark ? "rgba(17,17,17,0.92)" : "rgba(241,246,251,0.88)",
+          borderColor: focused ? palette.focusRing : isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.82)",
+          backgroundColor: focused ? palette.surfaceRaised : isDark ? palette.surfaceMuted : "rgba(241,246,251,0.88)",
           shadowColor: focused ? palette.accent : palette.shadow,
           shadowOpacity: focused ? (isDark ? 0.22 : 0.12) : 0,
-          shadowRadius: 14,
-          shadowOffset: { width: 0, height: 8 },
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 4 },
         }}
       >
         <TextInput
@@ -54,9 +48,10 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
             props.onBlur?.(event)
           }}
           className={cn("text-base text-ink", props.multiline ? "min-h-[132px] leading-6" : undefined, className)}
+          accessibilityLabel={props.accessibilityLabel ?? label}
           style={[
             {
-              minHeight: props.multiline ? 132 : 54,
+              minHeight: props.multiline ? 132 : 48,
               paddingHorizontal: 16,
               paddingVertical: props.multiline ? 14 : 15,
               fontSize: 15,

@@ -221,7 +221,7 @@ export default function ProvidersSettingsScreen() {
       {message ? <ErrorBanner message={message} /> : null}
 
       {loading ? (
-        <View className="items-center rounded-[24px] border border-border bg-background/60 px-4 py-5">
+        <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
           <ActivityIndicator />
           <Text className="mt-3 text-sm text-soft">Loading providers and model catalog…</Text>
         </View>

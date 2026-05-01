@@ -110,12 +110,6 @@ if [ -d "$ROOT/.railway" ]; then
   cp -r "$ROOT/.railway" "$CTX/.railway"
 fi
 
-# Copy railway link info
-if [ -d "$ROOT/.railway" ]; then
-  echo "→ Copying Railway project link"
-  cp -r "$ROOT/.railway" "$CTX/.railway"
-fi
-
 # Also check home directory for .railway (railway link stores it there)
 if [ -d "$HOME/.railway" ] && [ ! -d "$ROOT/.railway" ]; then
   echo "→ Copying Railway project link from home"
@@ -123,8 +117,10 @@ if [ -d "$HOME/.railway" ] && [ ! -d "$ROOT/.railway" ]; then
 fi
 
 if [ "$DETACH" = "--detach" ] || [ "$DETACH" = "-d" ]; then
+  cd "$CTX"
   railway up --detach
   echo "✓ Deploy triggered (detached). Check status: railway logs"
 else
+  cd "$CTX"
   railway up
 fi

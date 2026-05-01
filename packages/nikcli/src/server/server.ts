@@ -157,7 +157,8 @@ export namespace Server {
           const password = Flag.NIKCLI_SERVER_PASSWORD
           const username = Flag.NIKCLI_SERVER_USERNAME ?? "nikcli"
 
-          const bearer = MobileAuth.bearer(c.req.raw)
+          // Check bearer token in Authorization header OR query parameter (for WebSocket connections)
+          const bearer = MobileAuth.bearer(c.req.raw) || c.req.query("token")
           if (bearer) {
             const userSession = (c as any).get?.("userSession")
             if (userSession) {
@@ -166,7 +167,7 @@ export namespace Server {
 
             const token = await MobileAuth.verify(bearer)
             if (!token) return c.text("Unauthorized", 401)
-            ; (c as any).set("mobileAuth", token)
+            ;(c as any).set("mobileAuth", token)
             return next()
           }
 
@@ -800,8 +801,8 @@ export namespace Server {
   export function listen(opts: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
     const envCors = process.env.NIKCLI_SERVER_CORS_ORIGINS
       ? process.env.NIKCLI_SERVER_CORS_ORIGINS.split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
+          .map((s) => s.trim())
+          .filter(Boolean)
       : []
     _corsWhitelist = [...(opts.cors ?? []), ...envCors]
     _listenHostname = opts.hostname

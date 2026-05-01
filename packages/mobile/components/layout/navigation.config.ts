@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react-native"
-import { GitBranch, Repeat2, TerminalSquare } from "lucide-react-native"
+import { GitBranch, Repeat2, Settings, TerminalSquare, UserCircle2 } from "lucide-react-native"
 import type { MobileBootstrap } from "@/lib/types"
 
 export type AppTabRoute = "sessions" | "repos" | "routines" | "terminal"
@@ -44,8 +44,21 @@ export const APP_TABS: AppTabConfig[] = [
   },
 ]
 
+const ROUTE_META: Record<string, Pick<AppTabConfig, "label" | "subtitle" | "icon">> = {
+  settings: {
+    label: "Settings",
+    subtitle: "Tune connection, models, automation, and trust controls.",
+    icon: Settings,
+  },
+  user: {
+    label: "Profile",
+    subtitle: "Manage account access and signed-in identity.",
+    icon: UserCircle2,
+  },
+}
+
 export function getCurrentTab(routeName: string) {
-  return APP_TABS.find((tab) => tab.route === routeName) ?? APP_TABS[0]
+  return APP_TABS.find((tab) => tab.route === routeName) ?? { ...APP_TABS[0], ...ROUTE_META[routeName] }
 }
 
 export function getGitHubStatusLabel(bootstrap: MobileBootstrap | null, fallback: string) {

@@ -107,26 +107,14 @@ export function SessionListItem(props: {
         onLongPress={props.onLongPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className="overflow-hidden rounded-[30px] border border-border bg-surface px-4 py-4"
+        className="overflow-hidden rounded-[8px] border border-border bg-surface px-4 py-4"
         style={{
           shadowColor: palette.shadow,
           shadowOpacity: isDark ? 0.24 : 0.14,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 12 },
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 6 },
         }}
       >
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            right: -18,
-            top: -22,
-            width: 84,
-            height: 84,
-            borderRadius: 999,
-            backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(14,165,233,0.08)",
-          }}
-        />
         <View className="flex-row items-start justify-between gap-4">
           <View className="flex-1 gap-2">
             <View className="flex-row flex-wrap items-center gap-2">
@@ -145,7 +133,7 @@ export function SessionListItem(props: {
               flexDirection: "row",
               alignItems: "center",
               gap: 6,
-              borderRadius: 999,
+              borderRadius: 8,
               borderWidth: 1,
               borderColor: statusColors.borderColor,
               backgroundColor: statusColors.backgroundColor,
@@ -187,12 +175,12 @@ export function SessionListItem(props: {
                   props.onDelete?.()
                 }}
                 hitSlop={10}
-                className="rounded-full border border-danger/35 bg-danger/10 px-3 py-2"
+                className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-2"
               >
                 <Trash2 size={14} color={palette.danger} strokeWidth={2.1} />
               </Pressable>
             ) : null}
-            <View className="flex-row items-center gap-1 rounded-full border border-border/70 bg-background/80 px-3 py-2">
+            <View className="flex-row items-center gap-1 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-accent-light">Open</Text>
               <ArrowRight size={13} color={palette.accentLight} strokeWidth={2.1} />
             </View>

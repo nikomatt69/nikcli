@@ -23,7 +23,7 @@ function DataBlock(props: { label: string; value: string }) {
   if (!props.value) return null
 
   return (
-    <View className="gap-1.5 rounded-[18px] border border-border/70 bg-background/80 px-3 py-2.5">
+    <View className="gap-1.5 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2.5">
       <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
         {props.label}
       </Text>
@@ -58,26 +58,14 @@ export function PermissionCard(props: {
 
   return (
     <View
-      className="mb-3 overflow-hidden rounded-[28px] border px-4 py-4"
+      className="mb-3 overflow-hidden rounded-[8px] border px-4 py-4"
       style={{
-        borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(14,165,233,0.18)",
-        backgroundColor: palette.panel,
+        borderColor: isDark ? "rgba(251,191,36,0.20)" : "rgba(217,119,6,0.20)",
+        backgroundColor: isDark ? palette.surfaceMuted : palette.panel,
       }}
     >
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          right: -16,
-          top: -22,
-          width: 86,
-          height: 86,
-          borderRadius: 999,
-          backgroundColor: isDark ? "rgba(255,255,255,0.03)" : "rgba(14,165,233,0.08)",
-        }}
-      />
       <View className="flex-row items-start gap-3">
-        <View className="rounded-[16px] border border-accent/20 bg-accent/10 p-2.5">
+        <View className="rounded-[8px] border border-accent/20 bg-accent/10 p-2.5">
           <Icon size={15} color={palette.accentLight} strokeWidth={2.1} />
         </View>
         <View className="min-w-0 flex-1 gap-1.5">
@@ -111,13 +99,13 @@ export function PermissionCard(props: {
       </View>
 
       {props.item.patterns.length > 0 ? (
-        <View className="mt-3 gap-2 rounded-[18px] border border-border/70 bg-background/80 px-3 py-2.5">
+        <View className="mt-3 gap-2 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2.5">
           <Text selectable className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
             Patterns
           </Text>
           {props.item.patterns.map((pattern, index) => (
             <ScrollView
-              key={index}
+              key={`${pattern || "*"}:${index}`}
               horizontal
               nestedScrollEnabled
               showsHorizontalScrollIndicator
@@ -134,13 +122,28 @@ export function PermissionCard(props: {
 
       <View className={`mt-4 gap-2 ${compactActions ? "" : "flex-row"}`}>
         <View className={compactActions ? "w-full" : "flex-1"}>
-          <ActionButton label="Reject" variant="danger" onPress={() => props.onRespond("reject")} />
+          <ActionButton
+            label="Reject"
+            variant="danger"
+            accessibilityLabel={`Reject permission ${props.item.permission}`}
+            onPress={() => props.onRespond("reject")}
+          />
         </View>
         <View className={compactActions ? "w-full" : "flex-1"}>
-          <ActionButton label="Allow once" variant="secondary" onPress={() => props.onRespond("once")} />
+          <ActionButton
+            label="Allow once"
+            variant="secondary"
+            accessibilityLabel={`Allow permission once ${props.item.permission}`}
+            onPress={() => props.onRespond("once")}
+          />
         </View>
         <View className={compactActions ? "w-full" : "flex-1"}>
-          <ActionButton label="Always allow" onPress={() => props.onRespond("always")} />
+          <ActionButton
+            label="Always allow"
+            accessibilityLabel={`Always allow permission ${props.item.permission}`}
+            accessibilityHint="Remembers this permission scope until Nikcli restarts"
+            onPress={() => props.onRespond("always")}
+          />
         </View>
       </View>
       <Text selectable className="mt-2 text-[10px] leading-4 text-soft">

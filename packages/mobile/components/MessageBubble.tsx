@@ -75,7 +75,6 @@ function getLanguage(node: ASTNode): string {
   return info?.split(/\s+/)[0]?.toLowerCase() || "code"
 }
 
-
 function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -85,6 +84,11 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
   const lineCount = code.split("\n").length
   const isLong = lineCount > 10
   const lineHighlights = useMemo(() => code.split("\n").map((line) => highlightCode(line)), [code])
+  const lineHeightPx = 18
+  const bodyPadV = 24
+  const viewportCap = expanded ? 800 : 400
+  const intrinsicBodyH = lineCount * lineHeightPx + bodyPadV
+  const codeBodyHeight = Math.min(Math.max(intrinsicBodyH, lineHeightPx + bodyPadV), viewportCap)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(
@@ -141,8 +145,12 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         horizontal
         showsHorizontalScrollIndicator={true}
         showsVerticalScrollIndicator={false}
-        style={{ maxHeight: expanded ? 800 : 400 }}
-        contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 12, flexGrow: 1 }}
+        style={{ height: codeBodyHeight, maxHeight: viewportCap, flexGrow: 0, alignSelf: "stretch" }}
+        contentContainerStyle={{
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          alignItems: "flex-start",
+        }}
       >
         <View>
           {lineHighlights.map((lineHighlighted, lineIndex) => {
@@ -181,6 +189,8 @@ function ActionChip(props: { label: string; onPress(): void; icon: LucideIcon; m
   return (
     <Pressable
       onPress={props.onPress}
+      accessibilityRole="button"
+      accessibilityLabel={props.label}
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
@@ -302,6 +312,9 @@ export function MessageBubble(props: {
 
   const bubble = (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${isUser ? "User" : "Nikcli"} message`}
+      accessibilityHint="Long press to show message actions"
       onLongPress={() => {
         if (!gestures.bubbleLongPressActions) return
         props.onActivate?.()
@@ -311,12 +324,12 @@ export function MessageBubble(props: {
     >
       <View className={`mb-3 ${isUser ? "items-end" : "items-start"}`}>
         <View
-          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[28px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
+          className={`max-w-[95%] min-w-0 overflow-hidden rounded-[8px] border ${isUser ? "border-accent/35 bg-user-bubble" : "border-border bg-assistant-bubble"}`}
           style={{
             shadowColor: palette.shadow,
             shadowOpacity: isDark ? 0.18 : 0.1,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 10 },
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 6 },
           }}
         >
           <View className="min-w-0 flex-row items-start justify-between gap-3 px-3.5 py-3">
@@ -324,7 +337,7 @@ export function MessageBubble(props: {
               <View className="flex-row flex-wrap items-center gap-2">
                 <View
                   style={{
-                    borderRadius: 999,
+                    borderRadius: 8,
                     borderWidth: 1,
                     borderColor: isUser
                       ? isDark
@@ -354,7 +367,9 @@ export function MessageBubble(props: {
             <View className="items-end gap-1">
               {assistantInfo && (cost > 0 || tokens > 0) ? (
                 <Text className="text-[10px] text-muted" style={{ fontVariant: ["tabular-nums"] }}>
-                  {cost > 0 ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}` : null}{cost > 0 && tokens > 0 ? " · " : null}{tokens > 0 ? `${tokens.toLocaleString()} tok` : null}
+                  {cost > 0 ? `$${cost < 0.001 ? cost.toFixed(5) : cost.toFixed(4)}` : null}
+                  {cost > 0 && tokens > 0 ? " · " : null}
+                  {tokens > 0 ? `${tokens.toLocaleString()} tok` : null}
                 </Text>
               ) : null}
               <Text className="text-[10px] text-muted">{timeLabel}</Text>
@@ -420,7 +435,7 @@ export function MessageBubble(props: {
                     code_inline: {
                       color: palette.accentLight,
                       backgroundColor: palette.codeBackground,
-                      borderRadius: 14,
+                      borderRadius: 4,
                       paddingHorizontal: 6,
                       paddingVertical: 2,
                       fontFamily: "Menlo",
@@ -457,7 +472,7 @@ export function MessageBubble(props: {
               ) : null}
 
               {assistantError ? (
-                <View className="rounded-[16px] border border-danger/25 bg-danger/10 px-3 py-2.5">
+                <View className="rounded-[8px] border border-danger/25 bg-danger/10 px-3 py-2.5">
                   <Text selectable className="text-sm leading-5" style={{ color: palette.danger }}>
                     {assistantError}
                   </Text>
@@ -468,8 +483,14 @@ export function MessageBubble(props: {
 
           {reasoningVisible ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[20px] border border-border bg-background/55 px-3 py-3">
-                <Pressable onPress={toggleReasoning} className="flex-row items-center gap-2">
+              <View className="rounded-[8px] border border-border bg-background/55 px-3 py-3">
+                <Pressable
+                  onPress={toggleReasoning}
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: reasoningExpanded }}
+                  accessibilityLabel={reasoningExpanded ? "Collapse reasoning" : "Expand reasoning"}
+                  className="flex-row items-center gap-2"
+                >
                   <Animated.View
                     style={{
                       transform: [
@@ -514,11 +535,15 @@ export function MessageBubble(props: {
 
           {patch ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[20px] border border-border bg-background/55 px-3 py-3">
+              <View className="rounded-[8px] border border-border bg-background/55 px-3 py-3">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
                   {!props.diffLoaded ? (
-                    <Pressable onPress={() => props.onLoadDiff?.(props.message.info.id)}>
+                    <Pressable
+                      onPress={() => props.onLoadDiff?.(props.message.info.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Load patch diff"
+                    >
                       <Text className="text-[11px] font-semibold uppercase tracking-[1.6px] text-accent-light">
                         {props.diffLoading ? "Loading..." : "Load diff"}
                       </Text>
@@ -532,7 +557,7 @@ export function MessageBubble(props: {
                   props.diffs?.length ? (
                     <DiffViewer diffs={props.diffs} />
                   ) : (
-                    <View className="mt-3 rounded-[14px] border border-border/70 bg-surface px-3 py-2.5">
+                    <View className="mt-3 rounded-[8px] border border-border/70 bg-surface px-3 py-2.5">
                       <Text className="text-sm leading-5 text-soft">
                         No structured diff is available for this patch step.
                       </Text>

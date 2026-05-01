@@ -41,12 +41,12 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
         <Pressable className="flex-1" onPress={onClose} />
 
         <View
-          className="mx-4 overflow-hidden rounded-[28px] border border-border bg-surface"
+          className="mx-4 overflow-hidden rounded-[8px] border border-border bg-surface"
           style={{
             marginBottom: Platform.OS === "ios" ? 28 : 16,
             shadowColor: "#000",
             shadowOpacity: 0.18,
-            shadowRadius: 28,
+            shadowRadius: 14,
             shadowOffset: { width: 0, height: -4 },
             elevation: 12,
           }}

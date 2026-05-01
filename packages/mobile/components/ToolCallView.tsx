@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { Animated, LayoutAnimation, Pressable, ScrollView, Text, View } from "react-native"
+import * as Clipboard from "expo-clipboard"
 import {
   ChevronDown,
   ChevronRight,
@@ -53,6 +54,7 @@ export function ToolCallView(props: { part: ToolPart }) {
   const { palette, isDark } = useAppTheme()
   const [open, setOpen] = useState(false)
   const [showAllOutput, setShowAllOutput] = useState(false)
+  const [copiedOutput, setCopiedOutput] = useState(false)
   const state = props.part.state
   const status = state.status
   const Icon = toolIcon(props.part.tool)
@@ -123,6 +125,13 @@ export function ToolCallView(props: { part: ToolPart }) {
           : isDark
             ? "rgba(255,255,255,0.08)"
             : "rgba(193,208,223,0.72)"
+
+  async function copyOutput() {
+    if (!output) return
+    await Clipboard.setStringAsync(output)
+    setCopiedOutput(true)
+    setTimeout(() => setCopiedOutput(false), 1600)
+  }
 
   return (
     <View
@@ -234,9 +243,19 @@ export function ToolCallView(props: { part: ToolPart }) {
           ) : null}
           {rawOutput !== undefined ? (
             <View className="rounded-[16px] border border-border/70 bg-surface px-3 py-3">
-              <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">
-                Output
-              </Text>
+              <View className="mb-2 flex-row items-center justify-between gap-2">
+                <Text className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Output</Text>
+                {output ? (
+                  <Pressable
+                    onPress={copyOutput}
+                    accessibilityRole="button"
+                    accessibilityLabel="Copy tool output"
+                    className="rounded-full border border-border/70 px-2.5 py-1"
+                  >
+                    <Text className="text-[10px] font-semibold text-soft">{copiedOutput ? "Copied" : "Copy"}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
               <View className="overflow-hidden rounded-[12px] border border-border/70 bg-background/80 px-3 py-2.5">
                 <ScrollView
                   horizontal

@@ -15,11 +15,15 @@ export const PRESS_SPRING = {
   useNativeDriver: true,
 }
 
+// Native-driver helpers in this file are intended for opacity/transform only.
+// Use a local animation with useNativeDriver:false for colors, height, width, or layout props.
+
 export function useStaggeredAnimation(itemCount: number, delayMs = 50): Animated.Value[] {
   const animValuesRef = useRef<Animated.Value[]>([])
 
   if (animValuesRef.current.length !== itemCount) {
-    animValuesRef.current = Array.from({ length: itemCount }, () => new Animated.Value(0))
+    const previous = animValuesRef.current
+    animValuesRef.current = Array.from({ length: itemCount }, (_, index) => previous[index] ?? new Animated.Value(0))
   }
   const animValues = animValuesRef.current
 
@@ -31,7 +35,9 @@ export function useStaggeredAnimation(itemCount: number, delayMs = 50): Animated
         delay: index * delayMs,
       }),
     )
-    Animated.parallel(animations as Animated.CompositeAnimation[], { stopTogether: false }).start()
+    const parallel = Animated.parallel(animations as Animated.CompositeAnimation[], { stopTogether: false })
+    parallel.start()
+    return () => parallel.stop()
   }, [animValues, delayMs])
 
   return animValues
@@ -41,11 +47,13 @@ export function useItemAnimation(index: number, delayMs = 50): Animated.Value {
   const anim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
-    Animated.spring(anim, {
+    const animation = Animated.spring(anim, {
       toValue: 1,
       ...SPRING_CONFIG,
       delay: index * delayMs,
-    }).start()
+    })
+    animation.start()
+    return () => animation.stop()
   }, [anim, index, delayMs])
 
   return anim
@@ -88,13 +96,15 @@ export function useToggleAnimation(initialValue: boolean): Animated.Value {
   const progress = useRef(new Animated.Value(initialValue ? 1 : 0)).current
 
   useEffect(() => {
-    Animated.spring(progress, {
+    const animation = Animated.spring(progress, {
       toValue: initialValue ? 1 : 0,
       damping: 18,
       stiffness: 200,
       mass: 0.5,
       useNativeDriver: true,
-    }).start()
+    })
+    animation.start()
+    return () => animation.stop()
   }, [initialValue, progress])
 
   return progress

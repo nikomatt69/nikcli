@@ -229,7 +229,8 @@ export namespace Pty {
     }
     return {
       onMessage: (message: string | ArrayBuffer) => {
-        session.process.write(String(message))
+        const text = message instanceof ArrayBuffer ? new TextDecoder().decode(message) : message
+        session.process.write(text)
       },
       onClose: () => {
         log.info("client disconnected from session", { id })

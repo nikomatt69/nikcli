@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react"
+import { useEffect } from "react"
 import { Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
+import * as Clipboard from "expo-clipboard"
 import { ChevronDown, ChevronUp, Copy, Expand } from "lucide-react-native"
 import type { DiffHunk, DiffLine, ParsedFileDiff } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
@@ -142,6 +144,13 @@ export function GitLineDiffEditor({
 
   const currentDiff = diffs[selectedFileIndex]
 
+  useEffect(() => {
+    if (activeFileIndex == null || activeFileIndex === selectedFileIndex) return
+    if (!diffs[activeFileIndex]) return
+    setSelectedFileIndex(activeFileIndex)
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: false })
+  }, [activeFileIndex, diffs, selectedFileIndex])
+
   const allLines = useMemo(() => {
     if (!currentDiff) return []
     return parseDiffToLines(currentDiff).map((line, index) => ({ ...line, id: `${selectedFileIndex}-${index}` }))
@@ -174,7 +183,7 @@ export function GitLineDiffEditor({
           .join("\n"),
       )
       .join("\n\n")
-    await navigator.clipboard.writeText(text)
+    await Clipboard.setStringAsync(text)
     setCopied(true)
     void triggerHaptic("selection")
     setTimeout(() => setCopied(false), 2000)
@@ -203,7 +212,7 @@ export function GitLineDiffEditor({
       <View style={{ flexDirection: "row", paddingHorizontal: 12, paddingVertical: 8, gap: 6, flexWrap: "wrap" }}>
         {diffs.map((diff, index) => (
           <Pressable
-            key={diff.file}
+            key={`${diff.stage ?? "worktree"}:${diff.file}:${index}`}
             onPress={() => handleFileSelect(index)}
             style={{
               paddingHorizontal: 10,
@@ -226,16 +235,29 @@ export function GitLineDiffEditor({
                   : palette.border,
             }}
           >
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "600",
-                color: index === selectedFileIndex ? palette.accentLight : palette.ink,
-              }}
-              numberOfLines={1}
-            >
-              {diff.file.split("/").pop()}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              {diff.stage ? (
+                <View
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    backgroundColor: diff.stage === "staged" ? "#22c55e" : "#f59e0b",
+                  }}
+                />
+              ) : null}
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "600",
+                  color: index === selectedFileIndex ? palette.accentLight : palette.ink,
+                  maxWidth: 130,
+                }}
+                numberOfLines={1}
+              >
+                {diff.file.split("/").pop()}
+              </Text>
+            </View>
           </Pressable>
         ))}
       </View>
@@ -258,6 +280,13 @@ export function GitLineDiffEditor({
           <Text style={{ fontSize: 11, fontWeight: "600", color: "#22c55e" }}>+{stats.additions}</Text>
           <Text style={{ fontSize: 11, fontWeight: "600", color: "#ef4444" }}>-{stats.deletions}</Text>
           <Text style={{ fontSize: 11, fontWeight: "600", color: palette.soft }}>{diffs.length} files</Text>
+          {currentDiff.stage ? (
+            <Text
+              style={{ fontSize: 11, fontWeight: "700", color: currentDiff.stage === "staged" ? "#22c55e" : "#f59e0b" }}
+            >
+              {currentDiff.stage === "staged" ? "staged" : "worktree"}
+            </Text>
+          ) : null}
         </View>
         <Pressable
           onPress={handleCopy}

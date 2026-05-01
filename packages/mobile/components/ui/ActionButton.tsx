@@ -88,7 +88,7 @@ export function ActionButton({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         className={cn(
-          "min-h-[54px] items-center justify-center overflow-hidden rounded-[24px] border px-4 py-3.5",
+          "min-h-[48px] items-center justify-center overflow-hidden rounded-[8px] border px-4 py-3",
           variantClassName,
           className,
         )}
@@ -96,8 +96,8 @@ export function ActionButton({
           opacity: inactive ? (isDark ? 0.66 : 0.58) : pressed ? 0.92 : 1,
           shadowColor: variant === "primary" && !inactive ? palette.accent : palette.shadow,
           shadowOpacity: inactive ? 0 : variant === "primary" ? (isDark ? 0.3 : 0.18) : isDark ? 0.2 : 0.08,
-          shadowRadius: variant === "primary" ? 20 : 12,
-          shadowOffset: { width: 0, height: variant === "primary" ? 12 : 6 },
+          shadowRadius: variant === "primary" ? 12 : 8,
+          shadowOffset: { width: 0, height: variant === "primary" ? 6 : 4 },
         })}
         {...props}
       >

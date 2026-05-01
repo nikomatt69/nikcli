@@ -13,6 +13,9 @@ import type {
   GitHubPublishResult,
   GitHubRepo,
   GitHubSessionCreateResult,
+  GitBranchInfo,
+  GitCommitResult,
+  GitState,
   HostConfigSnapshot,
   HostCommandConfig,
   HostMcpStatus,
@@ -41,23 +44,93 @@ import type {
   SkillInfo,
 } from "@/lib/types"
 
+type JsonObject = Record<string, unknown>
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/$/, "")
+}
+
+function toBasicAuth(username: string, password: string): string {
+  const value = `${username}:${password}`
+  if (typeof btoa === "function") return btoa(value)
+  return value
+}
+
+function parseErrorPayload(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null
+  const data = value as JsonObject
+  const direct = data.error ?? data.message ?? data.detail
+  if (typeof direct === "string" && direct.trim()) return direct.trim()
+  if (Array.isArray(direct)) return direct.map(String).join(", ")
+  return null
+}
+
+function isLikelyHtml(value: string): boolean {
+  return /^\s*</.test(value)
+}
+
+export async function parseMobileResponse<T>(response: Response, pathname: string): Promise<T> {
+  if (response.status === 204) return undefined as T
+
+  const text = await response.text().catch(() => "")
+  const contentType = response.headers.get("content-type") ?? ""
+  let parsed: unknown = undefined
+
+  if (text.trim()) {
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      parsed = undefined
+    }
+  }
+
+  if (!response.ok) {
+    const parsedMessage = parseErrorPayload(parsed)
+    if (parsedMessage) throw new Error(parsedMessage)
+    if (isLikelyHtml(text)) {
+      throw new Error(
+        `Request to ${pathname} returned HTML (${response.status}). Check the server URL, auth, and endpoint prefix.`,
+      )
+    }
+    throw new Error(text.trim() || `Request to ${pathname} failed with ${response.status}`)
+  }
+
+  if (parsed !== undefined) return parsed as T
+  if (contentType.includes("application/json")) {
+    throw new Error(`Request to ${pathname} returned invalid JSON`)
+  }
+  return text as T
+}
+
+export function buildMobileHeaders(config: ServerConfig, extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    ...(extra ?? {}),
+    "Content-Type": "application/json",
+  }
+  if (config.token) {
+    headers.Authorization = `Bearer ${config.token}`
+  } else if (config.username && config.password) {
+    headers.Authorization = `Basic ${toBasicAuth(config.username, config.password)}`
+  }
+  if (config.directory) headers["x-nikcli-directory"] = config.directory
+  return headers
+}
+
+export function buildMobileUrl(config: Pick<ServerConfig, "url">, pathname: string): string {
+  const base = trimTrailingSlash(config.url)
+  const path = pathname.startsWith("/") ? pathname.slice(1) : pathname
+  return `${base}/${path}`
+}
+
 export class MobileClient {
   constructor(private readonly config: ServerConfig) {}
 
   headers(extra?: Record<string, string>) {
-    const headers: Record<string, string> = {
-      ...(extra ?? {}),
-      "Content-Type": "application/json",
-    }
-    if (this.config.token) {
-      headers.Authorization = `Bearer ${this.config.token}`
-    }
-    if (this.config.directory) headers["x-nikcli-directory"] = this.config.directory
-    return headers
+    return buildMobileHeaders(this.config, extra)
   }
 
   url(pathname: string) {
-    return new URL(pathname, this.config.url.endsWith("/") ? this.config.url : `${this.config.url}/`).toString()
+    return buildMobileUrl(this.config, pathname)
   }
 
   async request<T>(pathname: string, init?: RequestInit): Promise<T> {
@@ -65,12 +138,7 @@ export class MobileClient {
       ...init,
       headers: this.headers(init?.headers as Record<string, string> | undefined),
     })
-    if (!response.ok) {
-      const body = await response.text().catch(() => "")
-      throw new Error(body || `Request failed with ${response.status}`)
-    }
-    if (response.status === 204) return undefined as T
-    return response.json() as Promise<T>
+    return parseMobileResponse<T>(response, pathname)
   }
 
   bootstrap() {
@@ -231,28 +299,61 @@ export class MobileClient {
   }
 
   getGitStatus() {
-    return this.request<import("@/lib/types").GitState>("/git/status")
+    return this.request<GitState>("/mobile/git/status")
   }
 
   getGitCommits(limit: number = 20) {
-    return this.request<import("@/lib/types").GitCommit[]>(`/git/commits?limit=${limit}`)
+    return this.request<import("@/lib/types").GitCommit[]>(`/mobile/git/commits?limit=${limit}`)
   }
 
-  getGitDiff() {
-    return this.request<import("@/lib/types").ParsedFileDiff[]>("/git/diff")
+  getGitDiff(options?: { staged?: boolean; file?: string }) {
+    const params = new URLSearchParams()
+    if (options?.staged) params.set("staged", "true")
+    if (options?.file) params.set("file", options.file)
+    const query = params.toString()
+    return this.request<import("@/lib/types").ParsedFileDiff[]>(`/mobile/git/diff${query ? `?${query}` : ""}`)
+  }
+
+  getGitBranches() {
+    return this.request<GitBranchInfo[]>("/mobile/git/branches")
   }
 
   stageGitFiles(paths: string[]) {
-    return this.request<boolean>("/git/stage", {
+    return this.request<{ success: true }>("/mobile/git/stage", {
       method: "POST",
-      body: JSON.stringify({ paths }),
+      body: JSON.stringify({ files: paths }),
     })
   }
 
-  createGitCommit(message: string, files?: string[]) {
-    return this.request<boolean>("/git/commit", {
+  unstageGitFiles(paths: string[]) {
+    return this.request<{ success: true }>("/mobile/git/unstage", {
       method: "POST",
-      body: JSON.stringify({ message, files }),
+      body: JSON.stringify({ files: paths }),
+    })
+  }
+
+  discardGitFiles(paths: string[]) {
+    return this.request<{ success: true }>("/mobile/git/discard", {
+      method: "POST",
+      body: JSON.stringify({ files: paths }),
+    })
+  }
+
+  createGitCommit(message: string, files?: string[], options?: { stagedOnly?: boolean }) {
+    return this.request<GitCommitResult>("/mobile/git/commit", {
+      method: "POST",
+      body: JSON.stringify({ message, files, stagedOnly: options?.stagedOnly }),
+    })
+  }
+
+  pushGitBranch(upstream?: string) {
+    const query = upstream ? `?upstream=${encodeURIComponent(upstream)}` : ""
+    return this.request<{ success: true; pushed: boolean }>(`/mobile/git/push${query}`, { method: "POST" })
+  }
+
+  pullGitBranch() {
+    return this.request<{ success: true; pulled: boolean; conflicts?: string[] }>("/mobile/git/pull", {
+      method: "POST",
     })
   }
 
@@ -327,6 +428,13 @@ export class MobileClient {
   startGithubDeviceAuth() {
     return this.request<GitHubDeviceAuthStart>("/mobile/github/oauth/device", {
       method: "POST",
+    })
+  }
+
+  saveGithubOAuthClientID(clientId: string) {
+    return this.request<HostConfigSnapshot>("/mobile/github/oauth/client", {
+      method: "POST",
+      body: JSON.stringify({ clientId }),
     })
   }
 
@@ -542,11 +650,12 @@ export class MobileClient {
   ptyConnectUrl(ptyID: string): string {
     const http = this.url(`/pty/${encodeURIComponent(ptyID)}/connect`)
     const ws = http.replace(/^https?:/, (m) => (m === "https:" ? "wss:" : "ws:"))
-    // Append token as query param since WebSocket does not support custom headers
-    if (this.config.token) {
-      return `${ws}?token=${encodeURIComponent(this.config.token)}`
-    }
-    return ws
+    const url = new URL(ws)
+    // WebSocket does not support custom headers. Mirror the headers used by createPty()
+    // through query params so the server resolves the same Instance.directory/state.
+    if (this.config.token) url.searchParams.set("token", this.config.token)
+    if (this.config.directory) url.searchParams.set("directory", this.config.directory)
+    return url.toString()
   }
 
   withToken(token: string): MobileClient {

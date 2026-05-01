@@ -94,14 +94,17 @@ export default function AgentsSettingsScreen() {
               placeholder="Search agents, tools, descriptions"
             />
             {loading ? (
-              <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">Loading agents…</Text>
               </View>
             ) : (
               <View className="gap-3">
                 {visibleAgents.length ? (
-                  visibleAgents.map((agent) => (
-                    <View key={agent.id} className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                  visibleAgents.map((agent, index) => (
+                    <View
+                      key={`${agent.id || agent.name}:${index}`}
+                      className="rounded-[8px] border border-border bg-background/60 px-4 py-4"
+                    >
                       <View className="flex-row flex-wrap items-center gap-2">
                         <Text className="text-base font-semibold text-ink">{agent.name}</Text>
                         {agent.isDefault ? <InfoChip label="Default" tone="accent" /> : null}
@@ -111,8 +114,8 @@ export default function AgentsSettingsScreen() {
                       ) : null}
                       {agent.tools?.length ? (
                         <View className="mt-2 flex-row flex-wrap gap-1.5">
-                          {agent.tools.map((tool) => (
-                            <InfoChip key={tool} label={tool} tone="neutral" />
+                          {agent.tools.map((tool, toolIndex) => (
+                            <InfoChip key={`${tool}:${toolIndex}`} label={tool} tone="neutral" />
                           ))}
                         </View>
                       ) : null}
@@ -122,7 +125,7 @@ export default function AgentsSettingsScreen() {
                     </View>
                   ))
                 ) : (
-                  <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                  <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                     <Text className="text-sm leading-6 text-soft">
                       No agents matched this search or the host has not registered any agents yet.
                     </Text>

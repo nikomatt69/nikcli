@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native"
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -12,6 +12,15 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   const { config, bootstrap } = useServer()
   const { palette, isDark } = useAppTheme()
   const indicatorAnims = useRef(new Map<string, Animated.Value>()).current
+  const visibleRoutes = useMemo(
+    () =>
+      state.routes
+        .map((route, index) => ({ route, index, tab: APP_TABS.find((item) => item.route === route.name) }))
+        .filter((item): item is { route: (typeof state.routes)[number]; index: number; tab: (typeof APP_TABS)[number] } =>
+          Boolean(item.tab),
+        ),
+    [state.routes],
+  )
 
   function getIndicatorAnim(key: string, initialFocused: boolean): Animated.Value {
     if (!indicatorAnims.has(key)) {
@@ -21,11 +30,11 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
   }
 
   useEffect(() => {
-    const currentKeys = new Set(state.routes.map((r) => r.key))
+    const currentKeys = new Set(visibleRoutes.map(({ route }) => route.key))
     for (const key of indicatorAnims.keys()) {
       if (!currentKeys.has(key)) indicatorAnims.delete(key)
     }
-    state.routes.forEach((route, index) => {
+    visibleRoutes.forEach(({ route, index }) => {
       const anim = indicatorAnims.get(route.key)
       if (!anim) return
       Animated.spring(anim, {
@@ -36,7 +45,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
         mass: 0.8,
       }).start()
     })
-  }, [indicatorAnims, state.index, state.routes])
+  }, [indicatorAnims, state.index, visibleRoutes])
 
   const overallStatus = !config
     ? { label: "Host offline", color: palette.danger }
@@ -142,11 +151,9 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
             paddingVertical: 3,
           }}
         >
-          {state.routes.map((route, index) => {
+          {visibleRoutes.map(({ route, index, tab }) => {
             const { options } = descriptors[route.key]
             const focused = state.index === index
-            const tab = APP_TABS.find((item) => item.route === route.name)
-            if (!tab) return null
             const badge = badgeTone(route.name)
 
             const Icon = tab.icon
@@ -160,7 +167,7 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               <Pressable
                 key={route.key}
                 onPress={onPress}
-                accessibilityRole="button"
+                accessibilityRole="tab"
                 accessibilityState={focused ? { selected: true } : {}}
                 accessibilityLabel={options.tabBarAccessibilityLabel ?? tab.label}
                 style={({ pressed }) => ({
@@ -177,7 +184,8 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
               >
                 <View
                   style={{
-                    width: 82,
+                    width: "100%",
+                    maxWidth: 82,
                     alignItems: "center",
                     justifyContent: "center",
                     paddingHorizontal: 6,

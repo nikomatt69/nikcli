@@ -4,6 +4,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git libgcc-s1 libstdc++6 openssh-server curl ca-certificates patchelf \
     && rm -rf /var/lib/apt/lists/*
 
+# Linuxbrew/Homebrew is useful for agent workflows that assume `brew` exists.
+# Install it without the interactive installer so Docker builds stay deterministic.
+ENV HOMEBREW_PREFIX=/home/linuxbrew/.linuxbrew
+ENV HOMEBREW_CELLAR=/home/linuxbrew/.linuxbrew/Cellar
+ENV HOMEBREW_REPOSITORY=/home/linuxbrew/.linuxbrew/Homebrew
+ENV PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH
+RUN mkdir -p /home/linuxbrew/.linuxbrew && \
+    git clone --depth=1 https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebrew && \
+    mkdir -p /home/linuxbrew/.linuxbrew/bin /home/linuxbrew/.linuxbrew/etc /home/linuxbrew/.linuxbrew/include /home/linuxbrew/.linuxbrew/lib /home/linuxbrew/.linuxbrew/sbin /home/linuxbrew/.linuxbrew/share /home/linuxbrew/.linuxbrew/var/homebrew && \
+    ln -s /home/linuxbrew/.linuxbrew/Homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew && \
+    brew --version
+
 WORKDIR /app
 
 FROM base AS build

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react"
 import EventSource from "react-native-sse"
+import { buildMobileHeaders, buildMobileUrl } from "@/lib/client"
 import type { ServerConfig, SessionStreamEvent } from "@/lib/types"
 
 function extractErrorMessage(error: unknown): string {
@@ -43,12 +44,9 @@ export function useSessionStream(input: {
     if (!input.enabled || !input.config || !input.sessionID) return
 
     let active = true
-    const url = new URL(`/mobile/session/${encodeURIComponent(input.sessionID)}/stream`, input.config.url).toString()
+    const url = buildMobileUrl(input.config, `/mobile/session/${encodeURIComponent(input.sessionID)}/stream`)
     const es = new EventSource(url, {
-      headers: {
-        ...(input.config.token ? { Authorization: `Bearer ${input.config.token}` } : {}),
-        ...(input.config.directory ? { "x-nikcli-directory": input.config.directory } : {}),
-      },
+      headers: buildMobileHeaders(input.config),
     })
 
     const reportError = (error: unknown) => {
@@ -82,5 +80,13 @@ export function useSessionStream(input: {
         es.close()
       }
     }
-  }, [input.enabled, input.config?.directory, input.config?.token, input.config?.url, input.sessionID])
+  }, [
+    input.enabled,
+    input.config?.directory,
+    input.config?.password,
+    input.config?.token,
+    input.config?.url,
+    input.config?.username,
+    input.sessionID,
+  ])
 }

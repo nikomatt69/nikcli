@@ -1,22 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import {
-  Animated,
-  Dimensions,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native"
+import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
 import {
   Brain,
   ChevronRight,
   Code2,
   GitBranch,
   MapPin,
+  Paperclip,
   Plus,
   Puzzle,
   Search,
@@ -63,6 +54,7 @@ const TABS: TabConfig[] = [
 ]
 
 export function ComposerToolbar({
+  onAttach,
   onGitPress,
   onModelSelect,
   onMcpToggle,
@@ -94,50 +86,21 @@ export function ComposerToolbar({
   }, [onGitPress])
 
   return (
-    <>
-      <View
-        style={[
-          styles.toolbar,
-          { borderColor: palette.border, backgroundColor: isDark ? palette.surface : palette.background },
-        ]}
-      >
-        <Pressable
-          onPress={() => openTab("tools")}
-          style={({ pressed }) => [styles.toolButton, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Plus size={18} color={palette.accentLight} strokeWidth={2.5} />
-        </Pressable>
-
-        {onGitPress && (
-          <Pressable
-            onPress={handleGitPress}
-            style={({ pressed }) => [styles.toolButton, { opacity: pressed ? 0.6 : 1 }]}
-          >
-            <GitBranch size={16} color={palette.accentLight} strokeWidth={2} />
-          </Pressable>
-        )}
-
-        <View style={{ flex: 1 }} />
-
-        <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "500" }}>Tap + for tools</Text>
-      </View>
-
-      <ComposerDrawer
-        visible={drawerVisible}
-        activeTab={activeTab}
-        onClose={closeDrawer}
-        onTabChange={setActiveTab}
-        modelLabel={modelLabel}
-        availableModels={availableModels}
-        onModelSelect={onModelSelect}
-        mcpServers={mcpServers}
-        onMcpToggle={onMcpToggle}
-        skills={skills}
-        onSkillSelect={onSkillSelect}
-        tools={tools}
-        onToolSelect={onToolSelect}
-      />
-    </>
+    <ComposerDrawer
+      visible={drawerVisible}
+      activeTab={activeTab}
+      onClose={closeDrawer}
+      onTabChange={setActiveTab}
+      modelLabel={modelLabel}
+      availableModels={availableModels}
+      onModelSelect={onModelSelect}
+      mcpServers={mcpServers}
+      onMcpToggle={onMcpToggle}
+      skills={skills}
+      onSkillSelect={onSkillSelect}
+      tools={tools}
+      onToolSelect={onToolSelect}
+    />
   )
 }
 
@@ -350,20 +313,29 @@ function ComposerDrawer({
               <ModelContent
                 modelLabel={modelLabel}
                 availableModels={availableModels}
-                onModelSelect={(id) => { onModelSelect?.(id); onClose() }}
+                onModelSelect={(id) => {
+                  onModelSelect?.(id)
+                  onClose()
+                }}
               />
             )}
             {activeTab === "mcp" && <McpContent servers={mcpServers} onMcpToggle={onMcpToggle} />}
             {activeTab === "skills" && (
               <SkillsContent
                 skills={skills}
-                onSkillSelect={(name) => { onSkillSelect?.(name); onClose() }}
+                onSkillSelect={(name) => {
+                  onSkillSelect?.(name)
+                  onClose()
+                }}
               />
             )}
             {activeTab === "tools" && (
               <ToolsContent
                 tools={tools}
-                onToolSelect={(name) => { onToolSelect?.(name); onClose() }}
+                onToolSelect={(name) => {
+                  onToolSelect?.(name)
+                  onClose()
+                }}
               />
             )}
           </View>
@@ -939,7 +911,6 @@ function AnimatedSwitch({
     </Pressable>
   )
 }
-
 
 const styles = StyleSheet.create({
   toolbar: {

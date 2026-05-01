@@ -81,28 +81,43 @@ function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowPro
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.97 : scaleAnim }], opacity: pressed ? 0.7 : 1 }]}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={description}
+      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
     >
-      <View
-        className="shrink-0 items-center justify-center rounded-[14px]"
+      <Animated.View
         style={{
-          width: 44,
-          height: 44,
-          backgroundColor: iconBg,
-          borderWidth: 1,
-          borderColor: iconBorder,
+          transform: [{ scale: scaleAnim }],
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+          minHeight: 64,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
         }}
       >
-        <Icon size={19} color={iconColor} strokeWidth={2.1} />
-      </View>
-      <View className="flex-1">
-        <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink" numberOfLines={1}>
-          {label}
-        </Text>
-        <Text className="mt-0.5 text-[12.5px] leading-4 text-muted" numberOfLines={1}>
-          {description}
-        </Text>
-      </View>
+        <View
+          className="shrink-0 items-center justify-center rounded-[14px]"
+          style={{
+            width: 44,
+            height: 44,
+            backgroundColor: iconBg,
+            borderWidth: 1,
+            borderColor: iconBorder,
+          }}
+        >
+          <Icon size={19} color={iconColor} strokeWidth={2.1} />
+        </View>
+        <View className="min-w-0 flex-1">
+          <Text className="text-[15px] font-semibold leading-5 tracking-tight text-ink" numberOfLines={1}>
+            {label}
+          </Text>
+          <Text className="mt-0.5 text-[12.5px] leading-4 text-muted" numberOfLines={1}>
+            {description}
+          </Text>
+        </View>
+      </Animated.View>
     </Pressable>
   )
 }
@@ -115,7 +130,15 @@ function SectionDivider() {
   return <View className="mx-5 mt-2 h-px bg-border" />
 }
 
-export function SessionActionsSheet({ sheetRef, title, onRename, onExportMarkdown, onExportJSON, onCopyID, onOpenTerminal }: Props) {
+export function SessionActionsSheet({
+  sheetRef,
+  title,
+  onRename,
+  onExportMarkdown,
+  onExportJSON,
+  onCopyID,
+  onOpenTerminal,
+}: Props) {
   const { palette, isDark } = useAppTheme()
 
   return (

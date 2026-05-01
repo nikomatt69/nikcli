@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react"
 import { RefreshControl, ScrollView, Text, View } from "react-native"
-import { router, useFocusEffect } from "expo-router"
+import { router, useFocusEffect, useRootNavigationState } from "expo-router"
 import { GithubRepoCard, LocalRepoCard } from "@/components/RepoCard"
 import { RepoCardSkeleton } from "@/components/Skeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -27,6 +27,7 @@ function currentProjectLabel(project: ProjectInfo | undefined) {
 export default function ReposScreen() {
   const { palette } = useAppTheme()
   const { client, config, bootstrap, save, loading, bootstrapLoading } = useServer()
+  const rootNavigationState = useRootNavigationState()
   const [projects, setProjects] = useState<ProjectInfo[]>([])
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [refreshing, setRefreshing] = useState(false)
@@ -88,6 +89,7 @@ export default function ReposScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!rootNavigationState?.key) return
       if (loading) return
       if (!config) {
         setProjects([])
@@ -96,7 +98,7 @@ export default function ReposScreen() {
         return
       }
       void load()
-    }, [config, load, loading]),
+    }, [config, load, loading, rootNavigationState?.key]),
   )
 
   const selectedProject = useMemo(
@@ -255,7 +257,6 @@ export default function ReposScreen() {
         title="Direct sandboxes and source repos from your phone."
         description="Create disposable worktrees, import GitHub repos into the hosted server, pick a base branch, and launch a PR-ready execution session without leaving the mobile control plane."
       >
-        <View className="absolute -right-8 top-0 h-28 w-28 rounded-full bg-accent/15" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={`${projects.length} server repos`} tone="accent" />
           <InfoChip label={`${repos.length} GitHub repos`} />
@@ -406,7 +407,7 @@ export default function ReposScreen() {
               </View>
             ) : null}
 
-            <View className="mt-4 rounded-[24px] border border-border bg-background/70 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-border bg-background/70 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
                 Launch summary
               </Text>
@@ -447,7 +448,7 @@ export default function ReposScreen() {
           />
         ) : null}
         {visibleRepos.slice(0, 20).map((repo) => (
-          <View key={repo.id} className="gap-3 rounded-[30px] border border-border bg-surface p-3">
+          <View key={repo.id} className="gap-3 rounded-[8px] border border-border bg-surface p-3">
             <GithubRepoCard repo={repo} />
             <View className="flex-row gap-2">
               <View className="flex-1">

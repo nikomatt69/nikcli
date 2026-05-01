@@ -21,17 +21,14 @@ import {
   Crown,
   Edit3,
   Flame,
-  Globe,
   LogOut,
   Shield,
   Sparkles,
   Star,
-  Target,
   Trash2,
   TrendingUp,
   UserCircle2,
   Users,
-  Zap,
 } from "lucide-react-native"
 import { useServer, userDelete, userList, userUpdate, type UserProfile } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
@@ -519,15 +516,15 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
     >
       <View
         style={{
-          borderRadius: 28,
+          borderRadius: 8,
           borderWidth: 1.5,
           borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.25)",
           backgroundColor: isDark ? "rgba(17,17,17,0.85)" : "rgba(255,255,255,0.92)",
           overflow: "hidden",
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.3 : 0.1,
-          shadowRadius: 20,
-          shadowOffset: { width: 0, height: 12 },
+          shadowRadius: 10,
+          shadowOffset: { width: 0, height: 6 },
         }}
       >
         <Animated.View
@@ -551,18 +548,6 @@ function PremiumSection({ children, animation }: { children: React.ReactNode; an
             right: 18,
             height: 1,
             backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
-          }}
-        />
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            right: -15,
-            top: -15,
-            width: 70,
-            height: 70,
-            borderRadius: 999,
-            backgroundColor: isDark ? "rgba(255,255,255,0.025)" : "rgba(14,165,233,0.08)",
           }}
         />
         {children}
@@ -599,7 +584,7 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
     >
       <View
         style={{
-          borderRadius: 28,
+          borderRadius: 8,
           borderWidth: 1,
           borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.90)",
           backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
@@ -607,8 +592,8 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
           marginBottom: 16,
           shadowColor: isDark ? "#000" : palette.shadow,
           shadowOpacity: isDark ? 0.28 : 0.09,
-          shadowRadius: isDark ? 18 : 20,
-          shadowOffset: { width: 0, height: 10 },
+          shadowRadius: isDark ? 10 : 12,
+          shadowOffset: { width: 0, height: 6 },
         }}
       >
         <View
@@ -620,18 +605,6 @@ function GlassCard({ children, animation }: { children: React.ReactNode; animati
             right: 18,
             height: 1,
             backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.72)",
-          }}
-        />
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            right: -20,
-            top: -22,
-            width: 80,
-            height: 80,
-            borderRadius: 999,
-            backgroundColor: isDark ? "rgba(255,255,255,0.025)" : "rgba(14,165,233,0.07)",
           }}
         />
         {children}
@@ -674,8 +647,8 @@ function UserRow({
   const { palette } = useAppTheme()
   const [expanded, setExpanded] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const isSelf = user.id === currentUser.id
-  const pressAnim = useRef(new Animated.Value(1)).current
 
   function confirmDelete() {
     Alert.alert("Delete user", `Remove @${user.username}? This cannot be undone.`, [
@@ -709,21 +682,24 @@ function UserRow({
         transform: [{ translateX: animation.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }],
       }}
     >
-      <Pressable
-        onPress={() => setExpanded((e) => !e)}
-        onPressIn={() => Animated.spring(pressAnim, { toValue: 0.97, ...SPRING_CONFIG, useNativeDriver: true }).start()}
-        onPressOut={() => Animated.spring(pressAnim, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }).start()}
-        style={{ opacity: pressAnim }}
+      <View
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        onTouchStart={() => setPressed(true)}
+        onTouchCancel={() => setPressed(false)}
+        onTouchEnd={() => {
+          setPressed(false)
+          setExpanded((e) => !e)
+        }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 12,
+          paddingHorizontal: 18,
+          paddingVertical: 12,
+          opacity: pressed ? 0.72 : 1,
+        }}
       >
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-            paddingHorizontal: 18,
-            paddingVertical: 12,
-          }}
-        >
           <Avatar user={user} size={38} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: palette.ink, letterSpacing: -0.1 }}>
@@ -742,8 +718,7 @@ function UserRow({
             ) : (
               <ChevronDown size={14} color={palette.muted} />
             ))}
-        </View>
-      </Pressable>
+      </View>
 
       {expanded && !isSelf && (
         <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 18, paddingBottom: 14 }}>
@@ -870,9 +845,12 @@ export default function UserScreen() {
     year: "numeric",
   })
 
-  // Calculate user stats (mock data for demo)
-  const sessionDays = Math.floor((Date.now() - new Date(currentUser.created_at).getTime()) / (1000 * 60 * 60 * 24))
-  const completionRate = Math.min(95, Math.floor(Math.random() * 30) + 65)
+  const accountAgeDays = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(currentUser.created_at).getTime()) / (1000 * 60 * 60 * 24)),
+  )
+  const profileCompletion = displayName.trim() ? 100 : 70
+  const securityScore = currentUser.role === "admin" ? 90 : 80
 
   return (
     <KeyboardAvoidingView
@@ -895,7 +873,7 @@ export default function UserScreen() {
         >
           <View
             style={{
-              borderRadius: 28,
+              borderRadius: 8,
               borderWidth: 1,
               borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.90)",
               backgroundColor: isDark ? "rgba(17,17,17,0.72)" : palette.surface,
@@ -903,8 +881,8 @@ export default function UserScreen() {
               marginBottom: 16,
               shadowColor: isDark ? "#000" : (palette.shadow ?? "#000"),
               shadowOpacity: isDark ? 0.28 : 0.09,
-              shadowRadius: isDark ? 18 : 20,
-              shadowOffset: { width: 0, height: 10 },
+              shadowRadius: isDark ? 10 : 12,
+              shadowOffset: { width: 0, height: 6 },
             }}
           >
             <View
@@ -916,18 +894,6 @@ export default function UserScreen() {
                 right: 18,
                 height: 1,
                 backgroundColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.72)",
-              }}
-            />
-            <View
-              pointerEvents="none"
-              style={{
-                position: "absolute",
-                right: -20,
-                top: -22,
-                width: 100,
-                height: 100,
-                borderRadius: 999,
-                backgroundColor: isDark ? "rgba(255,255,255,0.025)" : "rgba(14,165,233,0.07)",
               }}
             />
             <View style={{ padding: 20, flexDirection: "row", alignItems: "center", gap: 18 }}>
@@ -962,27 +928,25 @@ export default function UserScreen() {
           }}
         >
           <StatCard
-            icon={<Globe size={16} color="#0ea5e9" strokeWidth={2.5} />}
-            label="Sessions"
-            value={String(Math.min(sessionDays + 12, 999))}
-            trend="+2"
+            icon={<UserCircle2 size={16} color="#0ea5e9" strokeWidth={2.5} />}
+            label="Account age"
+            value={`${Math.min(accountAgeDays, 999)}d`}
             color="#0ea5e9"
             animation={statsAnim}
             index={0}
           />
           <StatCard
-            icon={<Target size={16} color="#16a34a" strokeWidth={2.5} />}
-            label="Completion"
-            value={`${completionRate}%`}
+            icon={<Shield size={16} color="#16a34a" strokeWidth={2.5} />}
+            label="Profile"
+            value={`${profileCompletion}%`}
             color="#16a34a"
             animation={statsAnim}
             index={1}
           />
           <StatCard
-            icon={<Zap size={16} color="#d97706" strokeWidth={2.5} />}
-            label="Streak"
-            value={`${Math.min(sessionDays, 30)}d`}
-            trend={sessionDays > 7 ? "+3" : undefined}
+            icon={<Crown size={16} color="#d97706" strokeWidth={2.5} />}
+            label="Role"
+            value={currentUser.role === "admin" ? "Admin" : "User"}
             color="#d97706"
             animation={statsAnim}
             index={2}
@@ -1066,15 +1030,15 @@ export default function UserScreen() {
               />
               <AchievementBadge
                 icon={<Flame size={18} color="#FF6B35" strokeWidth={2.5} />}
-                label="7-Day Streak"
-                earned={sessionDays >= 7}
+                label="7-Day Account"
+                earned={accountAgeDays >= 7}
                 animation={new Animated.Value(1)}
                 index={2}
               />
               <AchievementBadge
                 icon={<Award size={18} color="#9333EA" strokeWidth={2.5} />}
-                label="Top 10%"
-                earned={false}
+                label="Profile Ready"
+                earned={profileCompletion === 100}
                 animation={new Animated.Value(1)}
                 index={3}
               />
@@ -1087,21 +1051,21 @@ export default function UserScreen() {
               </Text>
               <AnimatedProgressBar
                 label="Profile completion"
-                value={displayName ? 80 : 40}
+                value={profileCompletion}
                 color="#0ea5e9"
                 animation={new Animated.Value(1)}
                 delay={300}
               />
               <AnimatedProgressBar
                 label="Security score"
-                value={85}
+                value={securityScore}
                 color="#16a34a"
                 animation={new Animated.Value(1)}
                 delay={500}
               />
               <AnimatedProgressBar
-                label="Activity level"
-                value={Math.min(sessionDays * 5, 100)}
+                label="Account history"
+                value={Math.min(accountAgeDays * 5, 100)}
                 color="#d97706"
                 animation={new Animated.Value(1)}
                 delay={700}

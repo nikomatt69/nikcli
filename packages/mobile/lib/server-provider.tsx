@@ -1,6 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react"
-import { clearServerConfig, getServerConfig, setServerConfig, getUserToken, setUserToken, clearUserToken } from "@/lib/storage"
-import { MobileClient } from "@/lib/client"
+import {
+  clearServerConfig,
+  getServerConfig,
+  setServerConfig,
+  getUserToken,
+  setUserToken,
+  clearUserToken,
+} from "@/lib/storage"
+import { buildMobileUrl, MobileClient, parseMobileResponse } from "@/lib/client"
 import type { MobileBootstrap, ServerConfig } from "@/lib/types"
 
 export type UserProfile = {
@@ -14,18 +21,17 @@ export type UserProfile = {
 }
 
 async function userFetch<T>(serverUrl: string, path: string, options?: RequestInit & { token?: string }): Promise<T> {
-  const base = serverUrl.replace(/\/$/, "")
   const headers: Record<string, string> = { "Content-Type": "application/json" }
   if (options?.token) headers["Authorization"] = `Bearer ${options.token}`
-  const res = await fetch(`${base}${path}`, { ...options, headers })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText })) as { error?: string }
-    throw new Error(body.error || res.statusText)
-  }
-  return res.json() as Promise<T>
+  const res = await fetch(buildMobileUrl({ url: serverUrl }, path), { ...options, headers })
+  return parseMobileResponse<T>(res, path)
 }
 
-export function userLogin(serverUrl: string, email: string, password: string): Promise<{ token: string; user: UserProfile }> {
+export function userLogin(
+  serverUrl: string,
+  email: string,
+  password: string,
+): Promise<{ token: string; user: UserProfile }> {
   return userFetch(serverUrl, "/user/login", { method: "POST", body: JSON.stringify({ email, password }) })
 }
 
@@ -106,7 +112,9 @@ export function ServerProvider(props: PropsWithChildren) {
         if (token && cfg) {
           setUserTokenState(token)
           userMe(cfg.url, token)
-            .then((user) => { if (mounted) setCurrentUser(user) })
+            .then((user) => {
+              if (mounted) setCurrentUser(user)
+            })
             .catch(() => {
               if (mounted) {
                 setUserTokenState(null)
@@ -114,13 +122,19 @@ export function ServerProvider(props: PropsWithChildren) {
               }
               clearUserToken()
             })
-            .finally(() => { if (mounted) setUserLoading(false) })
+            .finally(() => {
+              if (mounted) setUserLoading(false)
+            })
         } else {
           setUserLoading(false)
         }
       })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [])
 
   useEffect(() => {
@@ -134,10 +148,18 @@ export function ServerProvider(props: PropsWithChildren) {
     setBootstrapLoading(true)
     client
       .bootstrap()
-      .then((value) => { if (mounted) setBootstrap(value) })
-      .catch(() => { if (mounted) setBootstrap(null) })
-      .finally(() => { if (mounted) setBootstrapLoading(false) })
-    return () => { mounted = false }
+      .then((value) => {
+        if (mounted) setBootstrap(value)
+      })
+      .catch(() => {
+        if (mounted) setBootstrap(null)
+      })
+      .finally(() => {
+        if (mounted) setBootstrapLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [config, client])
 
   const value = useMemo<ServerContextValue>(

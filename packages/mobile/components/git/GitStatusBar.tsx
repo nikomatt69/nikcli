@@ -21,7 +21,9 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
   const { palette, isDark } = useAppTheme()
   const entranceAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(1)).current
-  const pulseRefs = useRef<Map<string, { opacity: Animated.Value; scale: Animated.Value }>>(new Map())
+  const pulseRefs = useRef<
+    Map<string, { opacity: Animated.Value; scale: Animated.Value; loop: Animated.CompositeAnimation }>
+  >(new Map())
   const statusTransitionAnim = useRef(new Animated.Value(1)).current
   const refreshScaleAnim = useRef(new Animated.Value(1)).current
   const [pulseKeys, setPulseKeys] = useState<Set<string>>(new Set())
@@ -59,9 +61,8 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
           useNativeDriver: true,
         }),
       ]).start()
+      setPulseKeys(newPulseKeys)
     }
-
-    setPulseKeys(newPulseKeys)
   }, [gitState, pulseKeys, statusTransitionAnim])
 
   useEffect(() => {
@@ -69,9 +70,8 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
       if (!pulseRefs.current.has(key)) {
         const opacityAnim = new Animated.Value(1)
         const scaleAnim = new Animated.Value(1)
-        pulseRefs.current.set(key, { opacity: opacityAnim, scale: scaleAnim })
 
-        Animated.loop(
+        const loop = Animated.loop(
           Animated.parallel([
             Animated.sequence([
               Animated.timing(opacityAnim, {
@@ -102,10 +102,24 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
               }),
             ]),
           ]),
-        ).start()
+        )
+        pulseRefs.current.set(key, { opacity: opacityAnim, scale: scaleAnim, loop })
+        loop.start()
       }
     })
+    pulseRefs.current.forEach((value, key) => {
+      if (pulseKeys.has(key)) return
+      value.loop.stop()
+      pulseRefs.current.delete(key)
+    })
   }, [pulseKeys])
+
+  useEffect(() => {
+    return () => {
+      pulseRefs.current.forEach((value) => value.loop.stop())
+      pulseRefs.current.clear()
+    }
+  }, [])
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

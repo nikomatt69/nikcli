@@ -390,14 +390,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | data:text/plain decoding | `prompt.ts`        | `decodeDataUrlTextPayload()` helper handles base64/base64url/percent-encoded  |
 | ACP mode validation      | `agent.ts:957-965` | `setSessionMode()` validates against visible non-subagent modes + session.cwd |
 
-### DB/User Bugs (2026-04-09 - Unfixed)
-
-| Bug                       | File              | Impact                                                                                                                      | Fix                                                          |
-| ------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Message pagination        | `db/users.ts:335` | Long threads return oldest 100 instead of newest 100; coupled with `markMessagesRead()` silently marks unseen messages read | Fetch newest window via `DESC LIMIT ?` subquery, re-sort ASC |
-| Contact removal asymmetry | `db/users.ts:291` | `removeContact()` only deletes one direction; `addContact()` creates both                                                   | Delete both directions or document as one-sided              |
-
-### Confirmed Issues (2026-04-09, updated 2026-04-27)
+### Confirmed Issues (Updated 2026-04-30)
 
 | #   | File                               | Issue                                                                   | Status          |
 | --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
@@ -411,15 +404,37 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 8   | TUI                                | Stale model/variant sync                                                | Pending         |
 | 9   | TUI                                | `read` tool image/PDF attachments not rendered                          | **Implemented** |
 | 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
-| 11  | `cli/cmd/tui/context/local.tsx`    | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
+| 11  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
+| 12  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
+| 13  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
 
-### Code Reviewer Remaining Concerns
+## Mobile IDE Backend Issues
 
-- `decodeDataUrlTextPayload()` needs base64 padding normalization for unpadded inputs
-- ACP replay (`agent.ts:742`) lacks generic data URL parsing for non-base64 text resources
-- ACP mode validation should use same session cwd filtering as `loadSessionMode()`
-- Image preview (`image-preview.tsx`): avoid `text-` prefix in element IDs, use `flexShrink={0}` wrappers, ignore reasoning parts for URL extraction
-- TUI markdown rendering is fully owned by OpenTUI; no local link-render hook available
+### Client/Backend Mismatch (CRITICAL)
+
+Mobile client (`packages/mobile/lib/client.ts`) calls `/git/*` but backend defines endpoints under `/mobile/git/*`. Mobile also sends wrong body for stage (`{ paths }` not `{ files }`).
+
+### Git Backend Bugs
+
+- Porcelain parsing: `line.slice(3, 4)` for worktree status should be `line[1]`; `line.slice(4)` drops first char of path
+- Diff only runs `git diff --no-color -U1000`; no `--staged` or untracked content
+- Commit returns raw `git commit` output as `sha`; should use `git rev-parse HEAD`
+- Discard uses `git checkout -- <files>` which doesn't remove untracked files
+
+### WebSocket Auth (2026-04-30)
+
+Fixed: `server.ts:161` now accepts token from query parameter for WS connections:
+```typescript
+const bearer = MobileAuth.bearer(c.req.raw) || c.req.query("token")
+```
+
+Security issues pending fix:
+- Token leaks in `log.info` (path includes query string)
+- Timing attack in `MobileAuth.verify()` using `===` instead of `crypto.timingSafeEqual()`
+
+### GitHub OAuth Persistence
+
+Token stored server-side in `${Global.Path.data}/connectors-auth.json`. If server restarts or XDG path changes, token disappears → repeated OAuth requests. Fix: make data directory durable, add `NIKCLI_DATA_DIR` env var.
 
 ## Plugin Package (`packages/plugin/`)
 
@@ -669,6 +684,78 @@ Simple static ASCII logo (104 lines):
 
 Requires exporting `requireUser` from `src/server/routes/users.ts` to complete auth bypass fixes.
 
+## Mobile App (`packages/mobile/`)
+
+### Stack
+
+Expo 52, React Native 0.76, NativeWind, lucide-react-native, expo-router, react-native-webview, zustand, Expo SecureStore.
+
+### Architecture
+
+- **Root layout** (`app/_layout.tsx`): ServerProvider, auth guard, notifications/live activity reconciliation, Stack.
+- **App shell** (`app/(app)/_layout.tsx`): custom Tabs with AppHeader + AppTabBar; hides chrome for nested routes (`segments.length > 2`).
+- **Auth**: two credential concepts — server pairing token (`ServerConfig.token`) and user session token (`USER_TOKEN_KEY`).
+- **Data**: direct screen-to-`MobileClient` calls; no query/cache layer; Zustand for UI prefs, SecureStore for config/token.
+
+### Key Files
+
+| File | Purpose |
+| ---- | ------- |
+| `app/(app)/_layout.tsx` | Tab shell with AppHeader/TabBar |
+| `app/(app)/sessions/index.tsx` | Operations board / session list |
+| `app/(app)/sessions/[sessionId].tsx` | Live session timeline: SSE stream, composer, permissions, Git publish |
+| `app/(app)/repos/index.tsx` | Local/GitHub repo selection + import |
+| `app/(app)/settings/index.tsx` | All-in-one settings hub (oversized; subroutes exist) |
+| `app/(app)/routines/index.tsx` + `[routineId].tsx` | Routine list + create/edit detail |
+| `app/(app)/terminal/index.tsx` | WebView-backed PTY terminal |
+| `app/login.tsx` | Auth flow with remembered email |
+| `lib/server-provider.tsx` | Global server config, bootstrap, user token state |
+| `lib/client.ts` | Mobile API client (sessions, repos, settings, files, Git, routines, PTY) |
+| `lib/store.ts` | Zustand UI preferences |
+| `lib/storage.ts` | SecureStore persistence |
+| `lib/theme.ts` | Design tokens: palette, glass, chat tokens |
+| `components/layout/AppHeader.tsx` | Glass header with host/GitHub/workspace status |
+| `components/layout/AppTabBar.tsx` | Custom glass bottom tab bar + status strip |
+| `components/layout/DrawerMenu.tsx` | Animated right-side nav drawer |
+| `components/ui/SurfaceCard.tsx` | Base card primitive |
+| `components/ui/ActionButton.tsx` | Base button primitive |
+| `components/ui/InfoChip.tsx` | Status chip with tone (default/info/warn/danger/success) |
+| `components/ui/EmptyState.tsx` | Empty state placeholder |
+| `components/ui/ErrorBanner.tsx` | Error banner |
+| `components/session/SessionComposer.tsx` | Primary chat composer |
+| `components/session/ComposerToolbar.tsx` | Composer toolbar |
+| `components/session/ComposerToolDrawer.tsx` | Overlapping tool drawer (needs consolidation) |
+| `components/MessageBubble.tsx` | Large message bubble (consider splitting) |
+| `components/ToolCallView.tsx` | Tool call display |
+| `components/PermissionCard.tsx` | Permission request UI |
+| `components/Skeleton.tsx` | Loading skeleton |
+| `components/git/GitReviewModal.tsx` | Git review modal |
+| `components/git/GitCommitSheet.tsx` | Commit sheet |
+| `components/git/GitFileTree.tsx` | Git file tree |
+| `hooks/use-session-stream.ts` | SSE session event hook |
+
+### Known Issues (2026-04-29)
+
+- `_layout.tsx:31`: `settings` and `user` are registered tabs but filtered out of `AppTabBar`; navigating to them from header/drawer leaves no selected tab and `AppHeader` falls back to Sessions.
+- `SessionComposer.tsx:653`: stop button's `onPress` only triggers haptics; `onStop` prop is accepted but never destructured/wired. Also: attachment/model/MCP props are accepted but only `onAttach` is destructured.
+- `terminal/index.tsx:9,324`: imports `SafeAreaView` from React Native and adds top safe-area padding inside a screen that already has app chrome. Should use `View` and account only for bottom/keyboard safe area.
+- `terminal/index.tsx:394`: uses `client!` for retained terminal tabs; host disconnect after tabs exist can crash. Needs null guard.
+- `AppHeader.tsx:133`, `DrawerMenu.tsx:199`: icon-only `Pressable`s lack `accessibilityRole`, `accessibilityLabel`, `accessibilityHint`.
+- `ActionButton.tsx:86`: does not set default `accessibilityRole="button"` or `accessibilityState`; callers must override.
+- `InfoChip.tsx:21`: `tone="warn"` maps to danger/red colors; dark mode theme keeps warn/success/danger near-monochrome. Semantic tokens needed before using chips for risk/permission states.
+
+### UI Polish Plan (2026-04-29)
+
+Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phases:
+
+1. **Design tokens** — `lib/theme.ts`: add semantic tokens (successBg, warnBg, dangerBg, interactive, surfaceRaised); restore semantic color to dark mode; standardize radius values; align boxShadow usage.
+2. **App shell** — Header: contextual title, responsive (< 390px), accessibility labels; TabBar: 44px min hit targets, clearer active state; DrawerMenu: cleaner sections.
+3. **Screen patterns** — Reduce hero copy, consistent skeleton/empty/error states, `ScrollView contentInsetAdjustmentBehavior="automatic"`, bottom safe area above tab bar.
+4. **Sessions/transcript** — Cleaner session list hierarchy, more breathing room in transcript, compact tool call states, better permission card risk display, cleaner composer.
+5. **Settings** — Group into Account/AI Runtime/Integrations/Knowledge/Developer sections, shorter cards, progressive disclosure.
+6. **Repos/Git/Routines** — Semantic diff colors (added/modified/deleted), cleaner routine cards + run history timeline.
+7. **Terminal** — Remove RN `SafeAreaView`, better empty/offline/reconnect states.
+
 ## TUI Message Rendering (`src/cli/cmd/tui/routes/session/index.tsx`)
 
 ### Message Components
@@ -761,7 +848,7 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
 
-## Session Summary (2026-04-28)
+## Session Summary (2026-04-29)
 
 ### Completed Work
 
@@ -788,3 +875,28 @@ Requires exporting `requireUser` from `src/server/routes/users.ts` to complete a
 
 4. **Theme review** (code-reviewer subagent)
    - git-graph fully consistent with rest of TUI app across 10 categories (colors, typography, layout, keyboard hints, border, dialogs, empty states, responsive sizing)
+
+5. **Mobile UI polish** (build agent, 2026-04-29)
+   - Explored `packages/mobile/app` + `packages/mobile/components` via parallel explore agents
+   - Created 7-phase polish plan via planner agent (UI-only, no backend changes)
+   - Code review audit identified 8 specific risks in shared components, app shell, terminal, and composer
+   - Implemented full polish pass across theme tokens, UI components, layout/shell, terminal safe-area, session composer/detail/transcript
+   - `bun run typecheck` passes in `packages/mobile`
+   - Plan archived at `.nikcli/plans/1777478578333-curious-circuit.md`
+
+4. **Mobile IDE backend audit** (explore agent, 2026-04-30)
+   - Found client/backend mismatch: mobile calls `/git/*` but backend uses `/mobile/git/*`
+   - Git backend bugs: porcelain parsing errors, missing staged diffs, wrong commit return
+   - GitHub OAuth persistence bug: token stored server-side, disappears on restart
+   - Recommended minimal changes: fix client paths/bodies, align types, add path containment checks
+
+5. **PTY/WebSocket terminal fixes** (build agent, 2026-04-30)
+   - Terminal stuck in "Connecting..." under load — timeout too short, no retry logic
+   - Improvements: timeout 10s→30s, auto-retry up to 3x with 2s delay, error overlay with retry button
+   - WebSocket auth fix: `server.ts:161` accepts token from query parameter for WS connections
+
+6. **WebSocket auth security review** (code-reviewer agent, 2026-04-30)
+   - CRITICAL: Token leaks in server logs via `c.req.path`
+   - CRITICAL: Timing attack in `MobileAuth.verify()` using `===` instead of `crypto.timingSafeEqual()`
+   - MEDIUM: Railway proxy logs full URLs with query params
+   - MEDIUM: No CORS headers on WebSocket upgrade response

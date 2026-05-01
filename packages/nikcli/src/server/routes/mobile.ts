@@ -83,6 +83,7 @@ const MobileBootstrap = z
     }),
     github: z.object({
       connected: z.boolean(),
+      tokenAvailable: z.boolean().optional(),
       oauthDeviceEnabled: z.boolean(),
       oauthDeviceConfigured: z.boolean().optional(),
       oauthClientSource: z.enum(["flag", "config", "env"]).optional(),
@@ -115,6 +116,7 @@ const MobileSessionDetail = z
   .meta({ ref: "MobileSessionDetail" })
 
 const GithubAuthInput = z.object({ token: z.string().min(1) })
+const GithubOAuthClientInput = z.object({ clientId: z.string().min(1) })
 
 const MobileGithubBranch = z
   .object({
@@ -479,13 +481,71 @@ function extractSessionIDs(value: unknown): string[] {
   return [...result]
 }
 
+type GithubConnectorEntry = { key: string; connector: Config.ConnectorGithub }
+
+function isGithubConnector(value: unknown): value is Config.ConnectorGithub {
+  return typeof value === "object" && value !== null && "type" in value && value.type === "github"
+}
+
+function githubConnectorEntry(config?: Awaited<ReturnType<typeof Config.get>>): GithubConnectorEntry {
+  for (const [key, connector] of Object.entries(config?.connectors ?? {})) {
+    if (isGithubConnector(connector)) {
+      return { key, connector: connector as Config.ConnectorGithub }
+    }
+  }
+
+  return { key: "github", connector: { type: "github", enabled: true } }
+}
+
+async function ensureGlobalGithubConnector(input?: Partial<Config.ConnectorGithub>) {
+  const globalConfig = await Config.getGlobal().catch(() => ({}) as Awaited<ReturnType<typeof Config.getGlobal>>)
+  const currentConfig = await Config.get().catch(() => undefined)
+  const globalEntry = githubConnectorEntry(globalConfig)
+  const currentEntry = githubConnectorEntry(currentConfig)
+  const key = globalConfig.connectors?.[globalEntry.key] ? globalEntry.key : currentEntry.key
+  const existing = (
+    globalConfig.connectors?.[key] && isGithubConnector(globalConfig.connectors[key])
+      ? globalConfig.connectors[key]
+      : currentEntry.connector
+  ) as Config.ConnectorGithub
+  const connectors = { ...(globalConfig.connectors ?? {}) }
+
+  connectors[key] = {
+    ...existing,
+    ...input,
+    type: "github",
+    enabled: input?.enabled ?? existing.enabled ?? true,
+  }
+
+  await Config.updateGlobal({ connectors })
+  return { key, connector: connectors[key] as Config.ConnectorGithub }
+}
+
+async function storeGithubToken(token: string) {
+  const { key } = await ensureGlobalGithubConnector({ enabled: true })
+  const existing = await ConnectorAuth.get(key)
+  await ConnectorAuth.set(key, { ...existing, token })
+
+  if (key !== "github") {
+    const canonical = await ConnectorAuth.get("github")
+    await ConnectorAuth.set("github", { ...canonical, token })
+  }
+
+  Connectors.invalidateConnector(key)
+  Connectors.invalidateConnector("github")
+}
+
 async function githubToken() {
   const config = await Config.get().catch(() => undefined)
-  const githubConnector = Object.values(config?.connectors ?? {}).find(
-    (c): c is Config.ConnectorGithub => typeof c === "object" && c !== null && "type" in c && c.type === "github",
-  )
-  const connector = githubConnector ?? ({ type: "github" } as Config.ConnectorGithub)
-  return resolveCredential("github", connector)
+  const { key, connector } = githubConnectorEntry(config)
+  const credential = await resolveCredential(key, connector)
+  if (credential) return credential
+
+  if (key !== "github") {
+    return resolveCredential("github", connector)
+  }
+
+  return null
 }
 
 async function githubOAuthClientID() {
@@ -589,13 +649,7 @@ async function pollGithubDeviceAuth(deviceCode: string) {
   }
   if (payload.access_token) {
     const user = await GithubApi.getUser(payload.access_token)
-    await ConnectorAuth.set("github", { token: payload.access_token })
-    Connectors.invalidateConnector("github")
-
-    const config = await Config.get().catch(() => undefined)
-    if (!config?.connectors?.github) {
-      await Config.update({ connectors: { github: { type: "github" } } })
-    }
+    await storeGithubToken(payload.access_token)
 
     return {
       status: "approved" as const,
@@ -788,7 +842,7 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const projects = await Project.list()
         const token = currentToken(c)
-        const user = await githubUser()
+        const [user, storedGithubToken] = await Promise.all([githubUser(), githubToken()])
         const container = await getContainerRuntimeInfo()
         const oauth = await githubOAuthClientID()
         return c.json({
@@ -810,6 +864,7 @@ export const MobileRoutes = lazy(() =>
           },
           github: {
             connected: Boolean(user),
+            tokenAvailable: Boolean(storedGithubToken),
             oauthDeviceEnabled: true,
             oauthDeviceConfigured: Boolean(oauth.clientID),
             oauthClientSource: oauth.source,
@@ -1075,6 +1130,30 @@ export const MobileRoutes = lazy(() =>
       },
     )
     .post(
+      "/github/oauth/client",
+      describeRoute({
+        summary: "Persist GitHub OAuth client ID for mobile",
+        description:
+          "Save the GitHub OAuth client ID in the global host config so device sign-in remains available across projects and app restarts.",
+        operationId: "mobile.github.oauth.client.set",
+        responses: {
+          200: {
+            description: "Updated host configuration",
+            content: { "application/json": { schema: resolver(Config.Info) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", GithubOAuthClientInput),
+      async (c) => {
+        const { clientId } = c.req.valid("json")
+        const { key } = await ensureGlobalGithubConnector({ oauthClientId: clientId.trim(), clientId: clientId.trim() })
+        Connectors.invalidateConnector(key)
+        Connectors.invalidateConnector("github")
+        return c.json(await Config.get())
+      },
+    )
+    .post(
       "/github/oauth/device",
       describeRoute({
         summary: "Start GitHub OAuth device flow",
@@ -1136,12 +1215,7 @@ export const MobileRoutes = lazy(() =>
       validator("json", GithubAuthInput),
       async (c) => {
         const payload = c.req.valid("json")
-        await ConnectorAuth.set("github", { token: payload.token })
-        Connectors.invalidateConnector("github")
-        const config = await Config.get().catch(() => undefined)
-        if (!config?.connectors?.github) {
-          await Config.update({ connectors: { github: { type: "github" } } })
-        }
+        await storeGithubToken(payload.token)
         return c.json({ success: true as const })
       },
     )
@@ -1159,7 +1233,11 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        await ConnectorAuth.remove("github")
+        const config = await Config.get().catch(() => undefined)
+        const { key } = githubConnectorEntry(config)
+        await ConnectorAuth.remove(key)
+        if (key !== "github") await ConnectorAuth.remove("github")
+        Connectors.invalidateConnector(key)
         Connectors.invalidateConnector("github")
         return c.json({ success: true as const })
       },
@@ -2168,7 +2246,7 @@ export const MobileRoutes = lazy(() =>
           directory: Instance.directory,
           async fn() {
             const token = (await githubToken()) ?? undefined
-            const [statusOutput, branchOutput, aheadBehind] = await Promise.all([
+            const [statusOutput, branchOutput, aheadBehind, stagedNumstat, unstagedNumstat] = await Promise.all([
               MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
                 cwd: Instance.directory,
                 token,
@@ -2181,6 +2259,12 @@ export const MobileRoutes = lazy(() =>
                 cwd: Instance.directory,
                 token,
               }).catch(() => "0 0") as Promise<string>,
+              MobileGithubRepo.runGit(["diff", "--cached", "--numstat"], { cwd: Instance.directory, token }).catch(
+                () => "",
+              ) as Promise<string>,
+              MobileGithubRepo.runGit(["diff", "--numstat"], { cwd: Instance.directory, token }).catch(
+                () => "",
+              ) as Promise<string>,
             ])
 
             const [behind = "0", ahead = "0"] = aheadBehind.trim().split(/\s+/)
@@ -2202,41 +2286,59 @@ export const MobileRoutes = lazy(() =>
               oldPath?: string
             }> = []
             const untracked: string[] = []
+            const stagedStats = parseNumstat(stagedNumstat)
+            const unstagedStats = parseNumstat(unstagedNumstat)
+
+            function changeStatus(code: string): "added" | "modified" | "deleted" | "renamed" | undefined {
+              if (code === "A") return "added"
+              if (code === "M") return "modified"
+              if (code === "D") return "deleted"
+              if (code === "R") return "renamed"
+              return undefined
+            }
+
+            function parsePorcelainPath(value: string) {
+              const arrowIndex = value.indexOf(" -> ")
+              if (arrowIndex === -1) return { path: value }
+              return { oldPath: value.slice(0, arrowIndex), path: value.slice(arrowIndex + 4) }
+            }
 
             const lines = statusOutput.split("\n").filter(Boolean)
             for (const line of lines) {
-              const index = line.slice(0, 2)
-              const worktree = line.slice(3, 4)
-              const rest = line.slice(4)
-              const parts = rest.split("\t")
-              const path = parts[0]
+              const index = line[0] ?? " "
+              const worktree = line[1] ?? " "
+              const rawPath = line.slice(3)
+              const { path, oldPath } = parsePorcelainPath(rawPath)
 
-              if (index === "??" || worktree === "?") {
+              if (index === "?" && worktree === "?") {
                 untracked.push(path)
                 continue
               }
 
-              if (index === "!!") continue
+              if (index === "!" && worktree === "!") continue
 
-              const parsed = parseDiffStat(path)
-              if (index !== "  ") {
-                if (index === "A " || index === "AM" || index === "AD") {
-                  staged.push({ status: "added", path, additions: parsed.additions, deletions: parsed.deletions })
-                } else if (index === "M " || index === "MM" || index === "MD") {
-                  staged.push({ status: "modified", path, additions: parsed.additions, deletions: parsed.deletions })
-                } else if (index === "D " || index === "DM") {
-                  staged.push({ status: "deleted", path })
-                } else if (index === "R " || index === "RM") {
-                  staged.push({ status: "renamed", path, oldPath: parts[1] ?? path })
-                }
+              const stagedStatus = changeStatus(index)
+              if (stagedStatus) {
+                const parsed = stagedStats.get(path) ?? { additions: 0, deletions: 0 }
+                staged.push({
+                  status: stagedStatus,
+                  path,
+                  oldPath,
+                  additions: parsed.additions,
+                  deletions: parsed.deletions,
+                })
               }
 
-              if (worktree === "M" || worktree === "MM" || worktree === "DM") {
-                unstaged.push({ status: "modified", path, additions: parsed.additions, deletions: parsed.deletions })
-              } else if (worktree === "D") {
-                unstaged.push({ status: "deleted", path })
-              } else if (worktree === "R") {
-                unstaged.push({ status: "renamed", path, oldPath: parts[1] ?? path })
+              const unstagedStatus = changeStatus(worktree)
+              if (unstagedStatus) {
+                const parsed = unstagedStats.get(path) ?? { additions: 0, deletions: 0 }
+                unstaged.push({
+                  status: unstagedStatus,
+                  path,
+                  oldPath,
+                  additions: parsed.additions,
+                  deletions: parsed.deletions,
+                })
               }
             }
 
@@ -2315,7 +2417,10 @@ export const MobileRoutes = lazy(() =>
           },
         },
       }),
-      validator("query", z.object({ file: z.string().optional() }).optional()),
+      validator(
+        "query",
+        z.object({ file: z.string().optional(), staged: z.enum(["true", "false"]).optional() }).optional(),
+      ),
       async (c) => {
         return Instance.provide({
           directory: Instance.directory,
@@ -2323,6 +2428,7 @@ export const MobileRoutes = lazy(() =>
             const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const args = ["diff", "--no-color", "-U1000"]
+            if (query?.staged === "true") args.push("--cached")
             if (query?.file) {
               args.push("--", query.file)
             }
@@ -2372,7 +2478,7 @@ export const MobileRoutes = lazy(() =>
             const limit = query?.limit ?? 50
 
             const output = await MobileGithubRepo.runGit(
-              ["log", "--no-color", "--format=%H%n%s%n%an%n%ae%n%at", "-n", String(limit)],
+              ["log", "--no-color", "--format=%H%x1f%s%x1f%an%x1f%ae%x1f%at%x1e", "-n", String(limit)],
               { cwd: Instance.directory, token },
             )
 
@@ -2385,11 +2491,11 @@ export const MobileRoutes = lazy(() =>
               additions: number
               deletions: number
             }> = []
-            const commitBlocks = output.split("\n\n")
+            const commitBlocks = output.split("\x1e")
             for (const block of commitBlocks) {
-              const lines = block.split("\n").filter(Boolean)
-              if (lines.length < 5) continue
-              const [sha, message, authorName, authorEmail, timestamp] = lines
+              const fields = block.trim().split("\x1f")
+              if (fields.length < 5) continue
+              const [sha, message, authorName, authorEmail, timestamp] = fields
               const timestampMs = Number.parseInt(timestamp, 10) * 1000
 
               const statOutput = await MobileGithubRepo.runGit(
@@ -2511,7 +2617,12 @@ export const MobileRoutes = lazy(() =>
       }),
       validator(
         "json",
-        z.object({ message: z.string().min(1), files: z.array(z.string()).optional(), amend: z.boolean().optional() }),
+        z.object({
+          message: z.string().min(1),
+          files: z.array(z.string()).optional(),
+          amend: z.boolean().optional(),
+          stagedOnly: z.boolean().optional(),
+        }),
       ),
       async (c) => {
         return Instance.provide({
@@ -2521,13 +2632,15 @@ export const MobileRoutes = lazy(() =>
             const body = c.req.valid("json")
             const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
 
-            if (body.files?.length) {
-              await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
-            } else {
-              await MobileGithubRepo.runGit(["add", "-A"], { cwd: Instance.directory, token })
+            if (!body.stagedOnly) {
+              if (body.files?.length) {
+                await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
+              } else {
+                await MobileGithubRepo.runGit(["add", "-A"], { cwd: Instance.directory, token })
+              }
             }
 
-            const statusOutput = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+            const statusOutput = await MobileGithubRepo.runGit(["diff", "--cached", "--name-only"], {
               cwd: Instance.directory,
               token,
             })
@@ -2535,7 +2648,8 @@ export const MobileRoutes = lazy(() =>
               return c.json({ error: "No changes to commit" }, 400)
             }
 
-            const sha = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            const sha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], { cwd: Instance.directory, token })
             const message = body.amend
               ? await MobileGithubRepo.runGit(["log", "-1", "--format=%s"], { cwd: Instance.directory, token })
               : body.message
@@ -2999,6 +3113,21 @@ function parseDiffStat(path: string): { additions: number; deletions: number } {
     }
   }
   return { additions: 0, deletions: 0 }
+}
+
+function parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
+  const stats = new Map<string, { additions: number; deletions: number }>()
+  for (const line of output.split("\n")) {
+    if (!line.trim()) continue
+    const [additionsRaw, deletionsRaw, ...pathParts] = line.split("\t")
+    const filePath = pathParts.join("\t").trim()
+    if (!filePath) continue
+    stats.set(filePath, {
+      additions: additionsRaw === "-" ? 0 : Number.parseInt(additionsRaw, 10) || 0,
+      deletions: deletionsRaw === "-" ? 0 : Number.parseInt(deletionsRaw, 10) || 0,
+    })
+  }
+  return stats
 }
 
 function parseCommitStat(output: string): { filesCount: number; additions: number; deletions: number } {

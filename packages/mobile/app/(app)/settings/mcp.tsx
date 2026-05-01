@@ -250,7 +250,7 @@ export default function McpSettingsScreen() {
         description="Inspect host MCP endpoints and take focused actions per integration."
       >
         {loading ? (
-          <View className="items-center rounded-[22px] border border-border bg-background/60 px-4 py-5">
+          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
             <Text className="text-sm text-soft">Loading MCP control plane…</Text>
           </View>
         ) : (
@@ -260,7 +260,7 @@ export default function McpSettingsScreen() {
                 const status = mcpStatus[name]
                 const enabled = entry.enabled !== false
                 return (
-                  <View key={name} className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
@@ -313,7 +313,7 @@ export default function McpSettingsScreen() {
                 )
               })
             ) : (
-              <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
               </View>
             )}

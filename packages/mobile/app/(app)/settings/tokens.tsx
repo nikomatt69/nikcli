@@ -146,14 +146,14 @@ export default function TokensSettingsScreen() {
         description="Revoke any token to immediately invalidate it on the server."
       >
         {loading ? (
-          <View className="items-center rounded-[22px] border border-border bg-background/60 px-4 py-5">
+          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
             <Text className="text-sm text-soft">Loading tokens…</Text>
           </View>
         ) : (
           <View className="gap-3">
             {tokens.length ? (
               tokens.map((token) => (
-                <View key={token.id} className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+                <View key={token.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <View className="flex-row flex-wrap gap-2">
                     {token.name ? <InfoChip label={token.name} tone="accent" /> : null}
                     <InfoChip label={`Created ${relativeTime(token.createdAt)}`} />
@@ -181,7 +181,7 @@ export default function TokensSettingsScreen() {
                 </View>
               ))
             ) : (
-              <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">No active tokens. Create one above.</Text>
               </View>
             )}

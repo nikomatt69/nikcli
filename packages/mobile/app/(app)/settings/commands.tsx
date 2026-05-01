@@ -324,7 +324,7 @@ export default function CommandsSettingsScreen() {
           <ActionButton label="Save preset" loading={saving} onPress={() => void addPreset()} />
           <View className="gap-3">
             {promptPresets.map((preset) => (
-              <View key={preset.id} className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+              <View key={preset.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <View className="flex-row flex-wrap items-center gap-2">
                   <Text className="text-base font-semibold text-ink">{preset.title}</Text>
                   <InfoChip label={preset.mode} tone="accent" />
@@ -350,7 +350,7 @@ export default function CommandsSettingsScreen() {
         description="Custom commands become available in the mobile command palette and slash autocomplete for every session on this host."
       >
         {loading ? (
-          <View className="items-center rounded-[22px] border border-border bg-background/60 px-4 py-5">
+          <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
             <Text className="text-sm text-soft">Loading host command catalog…</Text>
           </View>
         ) : (
@@ -409,7 +409,7 @@ export default function CommandsSettingsScreen() {
             <View className="gap-3">
               {commandEntries.length ? (
                 commandEntries.map(([name, command]) => (
-                  <View key={name} className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">/{name}</Text>
                       {command.subtask ? <InfoChip label="Task" tone="accent" /> : null}
@@ -432,7 +432,7 @@ export default function CommandsSettingsScreen() {
                   </View>
                 ))
               ) : (
-                <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <Text className="text-sm leading-6 text-soft">
                     No custom host commands yet. Add one above to extend the mobile palette.
                   </Text>

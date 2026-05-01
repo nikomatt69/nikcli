@@ -37,10 +37,16 @@ export default function GithubSettingsScreen() {
   const [message, setMessage] = useState<string | null>(null)
   const authRun = useRef(0)
   // Cancel any in-flight polling loop on unmount
-  useEffect(() => () => { authRun.current = -1 }, [])
+  useEffect(
+    () => () => {
+      authRun.current = -1
+    },
+    [],
+  )
 
   const githubConnected = Boolean(bootstrap?.github?.connected)
   const oauthConfigured = Boolean(bootstrap?.github?.oauthDeviceConfigured)
+  const githubTokenAvailable = Boolean(bootstrap?.github?.tokenAvailable)
 
   const load = useCallback(async () => {
     if (!client) return
@@ -70,9 +76,10 @@ export default function GithubSettingsScreen() {
     () => [
       oauthConfigured ? "OAuth ready" : "OAuth needs client ID",
       bootstrap?.github?.oauthClientSource ? `Source ${bootstrap.github.oauthClientSource}` : "Source host setup",
+      githubTokenAvailable ? "GH token stored" : "GH token missing",
       githubConnected ? "GitHub linked" : "GitHub offline",
     ],
-    [bootstrap?.github?.oauthClientSource, githubConnected, oauthConfigured],
+    [bootstrap?.github?.oauthClientSource, githubConnected, githubTokenAvailable, oauthConfigured],
   )
 
   async function syncBootstrap(messageText?: string) {
@@ -92,19 +99,9 @@ export default function GithubSettingsScreen() {
     try {
       setSaving(true)
       setMessage(null)
-      const snapshot = hostConfig ?? (await client.getConfig())
-      const connectors = { ...(snapshot.connectors ?? {}) }
-      const connectorKey = githubConnectorKey(snapshot)
-      connectors[connectorKey] = {
-        ...(connectors[connectorKey] ?? {}),
-        type: "github",
-        enabled: true,
-        oauthClientId: value,
-        clientId: value,
-      }
-      const nextConfig = await client.updateConfig({ ...snapshot, connectors })
+      const nextConfig = await client.saveGithubOAuthClientID(value)
       setHostConfig(nextConfig)
-      await syncBootstrap("GitHub OAuth client ID saved on host")
+      await syncBootstrap("GitHub OAuth client ID saved globally on host")
       return nextConfig
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
@@ -246,9 +243,9 @@ export default function GithubSettingsScreen() {
               key={chip}
               label={chip}
               tone={
-                chip.includes("ready") || chip.includes("linked")
+                chip.includes("ready") || chip.includes("linked") || chip.includes("stored")
                   ? "good"
-                  : chip.includes("needs") || chip.includes("offline")
+                  : chip.includes("needs") || chip.includes("offline") || chip.includes("missing")
                     ? "warn"
                     : "neutral"
               }
@@ -291,7 +288,7 @@ export default function GithubSettingsScreen() {
           </View>
 
           {!oauthConfigured ? (
-            <View className="rounded-[22px] border border-danger/30 bg-danger/10 px-4 py-4">
+            <View className="rounded-[8px] border border-danger/30 bg-danger/10 px-4 py-4">
               <Text className="text-sm leading-6 text-ink">
                 Save a GitHub OAuth client ID here or configure it on the host with `connectors.github.oauthClientId`,
                 `NIKCLI_GITHUB_OAUTH_CLIENT_ID`, or `GITHUB_CLIENT_ID_CONSOLE`.
@@ -300,7 +297,7 @@ export default function GithubSettingsScreen() {
           ) : null}
 
           {oauthFlow ? (
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Authorization in progress
               </Text>

@@ -10,10 +10,11 @@ import {
   TextInput,
   View,
 } from "react-native"
-import { ArrowUp, Code2, Lock, MapPin, Paperclip, Square, Terminal } from "lucide-react-native"
+import { ArrowUp, Code2, GitBranch, Lock, MapPin, Paperclip, Plus, Square, Terminal, X } from "lucide-react-native"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
+import { ComposerToolDrawer, type ComposerTab } from "./ComposerToolDrawer"
 
 export type SessionComposerProps = {
   mode: "plan" | "code"
@@ -33,6 +34,7 @@ export type SessionComposerProps = {
   onSelectSlash(name: string): void
   onSend(): void
   onAttach?(): void
+  onOpenGit?(): void
   onStop?(): void
   pendingAttachments?: Array<{
     id: string
@@ -59,6 +61,17 @@ export type SessionComposerProps = {
   onRemoveAttachment?(id: string): void
   modelLabel?: string
   activeMcpCount?: number
+  availableModels?: Array<{ id: string; name: string; badge?: string }>
+  skills?: Array<{ name: string; description?: string; category?: string }>
+  tools?: Array<{ name: string; description?: string; enabled: boolean }>
+  mcpServers?: Array<{ name: string; connected: boolean; enabled: boolean }>
+  onModelSelect?(id: string): void
+  onSkillSelect?(name: string): void
+  onToolToggle?(name: string, enabled: boolean): void
+  onMcpToggle?(name: string, enabled: boolean): void
+  onSkillsManage?(): void
+  onToolsManage?(): void
+  onMcpManage?(): void
 }
 
 const CHAR_COUNT_THRESHOLD = 100
@@ -87,11 +100,30 @@ export function SessionComposer({
   onSelectSlash,
   onSend,
   onAttach,
+  onOpenGit,
+  onStop,
+  pendingAttachments = [],
+  onRemoveAttachment,
+  modelLabel,
+  activeMcpCount = 0,
+  availableModels = [],
+  skills = [],
+  tools = [],
+  mcpServers = [],
+  onModelSelect,
+  onSkillSelect,
+  onToolToggle,
+  onMcpToggle,
+  onSkillsManage,
+  onToolsManage,
+  onMcpManage,
 }: SessionComposerProps) {
   const { palette, isDark } = useAppTheme()
   const insets = useSafeAreaInsets()
   const inputRef = useRef<TextInput>(null)
   const [isFocused, setIsFocused] = useState(false)
+  const [drawerVisible, setDrawerVisible] = useState(false)
+  const [activeTab, setActiveTab] = useState<ComposerTab>("tools")
 
   const sendBlocked = sessionBlocked || cleaned || !input.trim()
   const sendDisabled = sending || sendBlocked
@@ -100,6 +132,7 @@ export function SessionComposer({
   const charCount = input.length
   const showCharCount = charCount > CHAR_COUNT_THRESHOLD
   const showStatus = sessionBlocked || cleaned
+  const hasAttachments = pendingAttachments.length > 0
 
   // ── Animation values ──────────────────────────────────────────────────────
 
@@ -541,8 +574,8 @@ export function SessionComposer({
 
             {/* Toolbar */}
             <View style={styles.toolbar}>
-              {/* Left cluster */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* Left cluster - icons with spacing */}
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 {/* Attach */}
                 {onAttach ? (
                   <Pressable
@@ -552,6 +585,9 @@ export function SessionComposer({
                       onAttach()
                     }}
                     disabled={cleaned}
+                    accessibilityRole="button"
+                    accessibilityLabel="Attach file"
+                    accessibilityState={{ disabled: cleaned }}
                     hitSlop={6}
                     style={({ pressed }) => ({
                       ...iconBtn,
@@ -561,6 +597,27 @@ export function SessionComposer({
                     })}
                   >
                     <Paperclip size={15} color={palette.soft} strokeWidth={2} />
+                    {pendingAttachments.length > 0 ? (
+                      <View
+                        style={{
+                          position: "absolute",
+                          top: -5,
+                          right: -5,
+                          minWidth: 16,
+                          height: 16,
+                          borderRadius: 999,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: palette.accent,
+                          borderWidth: 1,
+                          borderColor: isDark ? palette.surface : "#fff",
+                        }}
+                      >
+                        <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800", fontVariant: ["tabular-nums"] }}>
+                          {pendingAttachments.length}
+                        </Text>
+                      </View>
+                    ) : null}
                   </Pressable>
                 ) : null}
 
@@ -571,6 +628,9 @@ export function SessionComposer({
                     Keyboard.dismiss()
                     onOpenCommands()
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open command palette"
+                  accessibilityHint="Shows slash commands, prompt presets, tools, skills, and snippets"
                   hitSlop={6}
                   style={({ pressed }) => ({
                     ...iconBtn,
@@ -582,12 +642,59 @@ export function SessionComposer({
                   <Terminal size={15} color={palette.accentLight} strokeWidth={2} />
                 </Pressable>
 
+                {/* Git */}
+                {onOpenGit ? (
+                  <Pressable
+                    onPress={() => {
+                      void triggerHaptic("selection")
+                      Keyboard.dismiss()
+                      onOpenGit()
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="Open Git panel"
+                    accessibilityHint="Shows Git changes, commits, and review"
+                    hitSlop={6}
+                    style={({ pressed }) => ({
+                      ...iconBtn,
+                      padding: 8,
+                      opacity: pressed ? 0.68 : 1,
+                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                    })}
+                  >
+                    <GitBranch size={15} color={palette.accentLight} strokeWidth={2} />
+                  </Pressable>
+                ) : null}
+
+                {/* Plus - opens tools drawer */}
+                <Pressable
+                  onPress={() => {
+                    void triggerHaptic("selection")
+                    Keyboard.dismiss()
+                    setDrawerVisible(true)
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open tools"
+                  accessibilityHint="Shows tools, skills, models, and MCP controls"
+                  hitSlop={6}
+                  style={({ pressed }) => ({
+                    ...iconBtn,
+                    padding: 8,
+                    opacity: pressed ? 0.68 : 1,
+                    transform: [{ scale: pressed ? 0.94 : 1 }],
+                  })}
+                >
+                  <Plus size={15} color={palette.soft} strokeWidth={2} />
+                </Pressable>
+
                 {/* Mode segmented control */}
                 <Pressable
                   onPress={() => {
                     void triggerHaptic("selection")
                     setMode(mode === "plan" ? "code" : "plan")
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Switch composer mode. Current mode is ${mode}`}
+                  accessibilityHint="Toggles between planning mode and code execution mode"
                   hitSlop={4}
                   style={({ pressed }) => ({
                     opacity: pressed ? 0.78 : 1,
@@ -635,6 +742,41 @@ export function SessionComposer({
 
               {/* Right cluster */}
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                {modelLabel ? (
+                  <View
+                    style={{
+                      maxWidth: 108,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(193,208,223,0.70)",
+                      backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.62)",
+                      paddingHorizontal: 8,
+                      paddingVertical: 5,
+                    }}
+                  >
+                    <Text style={{ color: palette.muted, fontSize: 10, fontWeight: "700" }} numberOfLines={1}>
+                      {modelLabel}
+                    </Text>
+                  </View>
+                ) : null}
+                {activeMcpCount > 0 ? (
+                  <View
+                    style={{
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: isDark ? "rgba(52,199,89,0.30)" : "rgba(34,197,94,0.22)",
+                      backgroundColor: isDark ? "rgba(52,199,89,0.11)" : "rgba(34,197,94,0.08)",
+                      paddingHorizontal: 8,
+                      paddingVertical: 5,
+                    }}
+                  >
+                    <Text
+                      style={{ color: palette.success, fontSize: 10, fontWeight: "800", fontVariant: ["tabular-nums"] }}
+                    >
+                      MCP {activeMcpCount}
+                    </Text>
+                  </View>
+                ) : null}
                 {/* Char count */}
                 {showCharCount && !sending ? (
                   <Text
@@ -653,7 +795,12 @@ export function SessionComposer({
                 {sending ? (
                   <Animated.View style={{ transform: [{ scale: stopPulse }] }}>
                     <Pressable
-                      onPress={() => void triggerHaptic("error")}
+                      onPress={() => {
+                        void triggerHaptic("error")
+                        onStop?.()
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel="Stop current run"
                       hitSlop={4}
                       style={({ pressed }) => ({
                         borderRadius: 13,
@@ -676,6 +823,7 @@ export function SessionComposer({
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel="Send message"
+                      accessibilityState={{ disabled: sendDisabled }}
                       disabled={sendDisabled}
                       onPress={() => {
                         void triggerHaptic("send")
@@ -708,6 +856,25 @@ export function SessionComposer({
           </View>
         </View>
       </View>
+
+      <ComposerToolDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        modelLabel={modelLabel}
+        availableModels={availableModels}
+        onModelSelect={onModelSelect}
+        skills={skills}
+        onSkillSelect={onSkillSelect}
+        onSkillsManage={onSkillsManage}
+        tools={tools}
+        onToolToggle={onToolToggle}
+        onToolsManage={onToolsManage}
+        mcpServers={mcpServers}
+        onMcpToggle={onMcpToggle}
+        onMcpManage={onMcpManage}
+      />
     </View>
   )
 }

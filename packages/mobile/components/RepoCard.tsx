@@ -35,7 +35,7 @@ export function LocalRepoCard(props: {
   return (
     <Pressable
       onPress={props.onSelect}
-      className="overflow-hidden rounded-[30px] border px-4 py-4"
+      className="overflow-hidden rounded-[8px] border px-4 py-4"
       style={{
         borderColor: props.selected
           ? isDark
@@ -47,28 +47,10 @@ export function LocalRepoCard(props: {
         backgroundColor: props.selected ? palette.panel : palette.surface,
         shadowColor: palette.shadow,
         shadowOpacity: isDark ? 0.24 : 0.12,
-        shadowRadius: 20,
-        shadowOffset: { width: 0, height: 10 },
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 6 },
       }}
     >
-      <View
-        pointerEvents="none"
-        style={{
-          position: "absolute",
-          right: -16,
-          top: -18,
-          width: 80,
-          height: 80,
-          borderRadius: 999,
-          backgroundColor: props.selected
-            ? isDark
-              ? "rgba(255,255,255,0.04)"
-              : "rgba(14,165,233,0.08)"
-            : isDark
-              ? "rgba(255,255,255,0.02)"
-              : "rgba(232,240,248,0.35)",
-        }}
-      />
       <View className="flex-row items-start justify-between gap-3">
         <View className="flex-1 gap-2">
           <Text selectable className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
@@ -106,7 +88,7 @@ export function GithubRepoCard(props: { repo: GitHubRepo }) {
 
   return (
     <View
-      className="overflow-hidden rounded-[30px] border px-4 py-4"
+      className="overflow-hidden rounded-[8px] border px-4 py-4"
       style={{
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
         backgroundColor: isDark ? "rgba(0,0,0,0.55)" : "rgba(241,246,251,0.65)",

@@ -25,6 +25,7 @@ import {
   GitPullRequest,
   Globe,
   Image,
+  Lock,
   MapPin,
   Mic,
   Plus,
@@ -55,7 +56,11 @@ const styles = StyleSheet.create({
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window")
 
-export type ComposerTab = "attach" | "tools" | "skills" | "mcp" | "model" | "git"
+// Animation constants
+const SPRING_CONFIG = { damping: 20, stiffness: 260, mass: 0.8 }
+const SPRING_CONFIG_FAST = { damping: 22, stiffness: 300, mass: 0.7 }
+
+export type ComposerTab = "tools" | "skills" | "mcp" | "model"
 
 export type ComposerToolDrawerProps = {
   visible: boolean
@@ -95,27 +100,21 @@ export type ComposerToolDrawerProps = {
 }
 
 const TAB_ICONS: Record<ComposerTab, React.ElementType> = {
-  attach: Plus,
   tools: Terminal,
   skills: Sparkles,
   mcp: Puzzle,
   model: Code2,
-  git: GitBranch,
 }
 
 const TAB_LABELS: Record<ComposerTab, string> = {
-  attach: "Attach",
   tools: "Tools",
   skills: "Skills",
   mcp: "MCP",
   model: "Model",
-  git: "Git",
 }
 
 function getIconComponent(tab: ComposerTab) {
   switch (tab) {
-    case "attach":
-      return Plus
     case "tools":
       return Terminal
     case "skills":
@@ -124,8 +123,6 @@ function getIconComponent(tab: ComposerTab) {
       return Puzzle
     case "model":
       return Code2
-    case "git":
-      return GitBranch
   }
 }
 
@@ -163,25 +160,19 @@ export function ComposerToolDrawer({
   const contentScaleAnim = useRef(new Animated.Value(0.94)).current
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 1, damping: 20, stiffness: 260, mass: 0.8, useNativeDriver: true }),
-        Animated.spring(contentScaleAnim, {
-          toValue: 1,
-          damping: 22,
-          stiffness: 300,
-          mass: 0.7,
-          useNativeDriver: true,
-        }),
-      ]).start()
-    } else {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(contentScaleAnim, { toValue: 0.94, duration: 160, useNativeDriver: true }),
-      ]).start(() => onClose())
-    }
+    const animation = visible
+      ? Animated.parallel([
+          Animated.timing(opacityAnim, { toValue: 1, duration: 200, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 1, ...SPRING_CONFIG, useNativeDriver: true }),
+          Animated.spring(contentScaleAnim, { toValue: 1, ...SPRING_CONFIG_FAST, useNativeDriver: true }),
+        ])
+      : Animated.parallel([
+          Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+          Animated.timing(contentScaleAnim, { toValue: 0.94, duration: 160, useNativeDriver: true }),
+        ])
+    animation.start()
+    return () => animation.stop()
   }, [visible, opacityAnim, slideAnim, contentScaleAnim, onClose])
 
   const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [400, 0] })
@@ -225,7 +216,7 @@ export function ComposerToolDrawer({
               shadowRadius: 28,
               shadowOffset: { width: 0, height: 8 },
               elevation: 20,
-              maxHeight: Math.min(SCREEN_HEIGHT * 0.85, height * 0.85),
+              height: Math.min(SCREEN_HEIGHT * 0.75, height * 0.75),
             }}
           >
             <AdaptiveBlur
@@ -242,25 +233,38 @@ export function ComposerToolDrawer({
               pointerEvents="none"
             />
 
-            <View style={{ padding: 16 }}>
+            <View style={{ padding: 16, flex: 1 }}>
+              {/* Header */}
               <View
                 style={{
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  marginBottom: 16,
+                  marginBottom: 14,
                 }}
               >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 8,
+                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.15)",
+                  }}
+                >
                   {(() => {
                     const HeaderIcon = getIconComponent(activeTab)
-                    return <HeaderIcon size={15} color={palette.accentLight} strokeWidth={2.1} />
+                    return <HeaderIcon size={14} color={palette.accentLight} strokeWidth={2.2} />
                   })()}
                   <Text
                     style={{
-                      fontSize: 11,
+                      fontSize: 10.5,
                       fontWeight: "700",
-                      letterSpacing: 1.8,
+                      letterSpacing: 1.6,
                       textTransform: "uppercase",
                       color: palette.accentLight,
                     }}
@@ -270,33 +274,40 @@ export function ComposerToolDrawer({
                 </View>
                 <Pressable
                   onPress={onClose}
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 17,
+                  style={({ pressed }) => ({
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
                     borderWidth: 1,
                     borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
+                    backgroundColor: pressed
+                      ? isDark
+                        ? "rgba(255,255,255,0.12)"
+                        : "rgba(255,255,255,0.85)"
+                      : isDark
+                        ? "rgba(255,255,255,0.06)"
+                        : "rgba(255,255,255,0.55)",
                     alignItems: "center",
                     justifyContent: "center",
-                  }}
+                    transform: [{ scale: pressed ? 0.92 : 1 }],
+                  })}
                 >
-                  <X size={14} color={palette.soft} strokeWidth={2.5} />
+                  <X size={13} color={palette.soft} strokeWidth={2.5} />
                 </Pressable>
               </View>
 
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+              {/* Tab Bar */}
+              <View style={{ flexDirection: "row", gap: 6, marginBottom: 12, marginTop: 2 }}>
                 {tabs.map((tab) => {
                   const Icon = getIconComponent(tab)
                   const isActive = activeTab === tab
-                  const count =
-                    tab === "mcp"
-                      ? connectedMcp
-                      : tab === "skills"
-                        ? enabledSkills
-                        : tab === "git"
-                          ? (gitState?.staged ?? 0)
-                          : 0
+                  const tabCounts: Record<ComposerTab, number> = {
+                    tools: tools.length,
+                    skills: skills.length,
+                    mcp: connectedMcp,
+                    model: availableModels.length,
+                  }
+                  const count = tabCounts[tab]
 
                   return (
                     <AnimatedTabButton
@@ -309,23 +320,21 @@ export function ComposerToolDrawer({
                       palette={palette}
                       isDark={isDark}
                     >
-                      <Icon size={14} color={isActive ? "#fff" : palette.muted} strokeWidth={2} />
-                      <Text style={{ fontSize: 12, fontWeight: "600", color: isActive ? "#fff" : palette.muted }}>
+                      <Icon size={13} color={isActive ? "#fff" : palette.muted} strokeWidth={2.2} />
+                      <Text style={{ fontSize: 11.5, fontWeight: "600", color: isActive ? "#fff" : palette.muted }}>
                         {TAB_LABELS[tab]}
                       </Text>
                       {count > 0 && (
                         <View
-                          style={[
-                            {
-                              borderRadius: 10,
-                              paddingHorizontal: 6,
-                              paddingVertical: 2,
-                              backgroundColor: isActive ? "rgba(255,255,255,0.25)" : "rgba(14,165,233,0.15)",
-                            },
-                          ]}
+                          style={{
+                            borderRadius: 8,
+                            paddingHorizontal: 5,
+                            paddingVertical: 2,
+                            backgroundColor: isActive ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.18)",
+                          }}
                         >
                           <Text
-                            style={{ fontSize: 10, fontWeight: "700", color: isActive ? "#fff" : palette.accentLight }}
+                            style={{ fontSize: 9, fontWeight: "700", color: isActive ? "#fff" : palette.accentLight }}
                           >
                             {count}
                           </Text>
@@ -336,19 +345,15 @@ export function ComposerToolDrawer({
                 })}
               </View>
 
+              {/* Tab Content */}
               <View
                 style={{
+                  flex: 1,
+                  overflow: "hidden",
                   borderTopWidth: 1,
                   borderTopColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.10)",
                 }}
               >
-                {activeTab === "attach" && (
-                  <AttachContent
-                    onAttachFile={onAttachFile}
-                    onAttachImage={onAttachImage}
-                    onAttachCamera={onAttachCamera}
-                  />
-                )}
                 {activeTab === "model" && (
                   <ModelContent
                     modelLabel={modelLabel}
@@ -364,16 +369,6 @@ export function ComposerToolDrawer({
                 )}
                 {activeTab === "tools" && (
                   <ToolsContent tools={tools} onToolToggle={onToolToggle} onToolsManage={onToolsManage} />
-                )}
-                {activeTab === "git" && (
-                  <GitContent
-                    gitState={gitState}
-                    onGitCommit={onGitCommit}
-                    onGitPush={onGitPush}
-                    onGitPull={onGitPull}
-                    onGitPR={onGitPR}
-                    onGitRefresh={onGitRefresh}
-                  />
                 )}
               </View>
             </View>
@@ -497,11 +492,6 @@ function AnimatedTabButton({
     outputRange: ["transparent", palette.accent],
   })
 
-  const borderWidth = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1.5],
-  })
-
   return (
     <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View
@@ -530,13 +520,12 @@ function AnimatedItemCard({
   children,
   onPress,
   isDark,
-  index,
   borderBottom,
 }: {
   children: React.ReactNode
-  onPress: () => void
+  onPress?: () => void
   isDark: boolean
-  index: number
+  index?: number
   borderBottom: boolean
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current
@@ -562,15 +551,20 @@ function AnimatedItemCard({
   }
 
   return (
-    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+    <Pressable
+      disabled={!onPress}
+      onPress={onPress}
+      onPressIn={onPress ? handlePressIn : undefined}
+      onPressOut={onPress ? handlePressOut : undefined}
+    >
       <Animated.View
         style={{
           transform: [{ scale: scaleAnim }],
           flexDirection: "row",
           alignItems: "center",
-          gap: 14,
-          paddingHorizontal: 20,
-          paddingVertical: 12,
+          gap: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 11,
           borderBottomWidth: borderBottom ? StyleSheet.hairlineWidth : 0,
           borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
         }}
@@ -578,6 +572,40 @@ function AnimatedItemCard({
         {children}
       </Animated.View>
     </Pressable>
+  )
+}
+
+function EmptyState({
+  icon: Icon,
+  title,
+  subtitle,
+  palette,
+  isDark,
+}: {
+  icon: React.ElementType
+  title: string
+  subtitle: string
+  palette: { muted: string; ink: string; accentLight: string }
+  isDark: boolean
+}) {
+  return (
+    <View style={{ alignItems: "center", paddingVertical: 32, paddingHorizontal: 20 }}>
+      <View
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: 26,
+          backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
+          alignItems: "center",
+          justifyContent: "center",
+          marginBottom: 12,
+        }}
+      >
+        <Icon size={22} color={palette.muted} strokeWidth={1.5} />
+      </View>
+      <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink, marginBottom: 4 }}>{title}</Text>
+      <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>{subtitle}</Text>
+    </View>
   )
 }
 
@@ -680,98 +708,78 @@ function ModelContent({
   const { palette, isDark } = useAppTheme()
 
   return (
-    <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
-      {modelLabel && (
-        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-          <View
-            style={[
-              {
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                padding: 14,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.20)",
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.06)",
-              },
-            ]}
+    <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
+      {availableModels.map((model, i) => {
+        const isActive = Boolean(modelLabel && model.name === modelLabel)
+        return (
+          <AnimatedItemCard
+            key={model.id}
+            onPress={() => {
+              void triggerHaptic("selection")
+              onModelSelect?.(model.id)
+            }}
+            isDark={isDark}
+            borderBottom={i < availableModels.length - 1}
           >
-            <Code2 size={16} color={palette.accentLight} strokeWidth={2} />
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: palette.ink }}>{modelLabel}</Text>
-            <Text style={{ fontSize: 11, fontWeight: "600", color: palette.accentLight }}>Current</Text>
-          </View>
-        </View>
-      )}
-
-      {availableModels.map((model, i) => (
-        <AnimatedItemCard
-          key={model.id}
-          onPress={() => {
-            void triggerHaptic("selection")
-            onModelSelect?.(model.id)
-          }}
-          isDark={isDark}
-          index={i}
-          borderBottom={i < availableModels.length - 1}
-        >
-          <View
-            style={[
-              {
-                width: 36,
-                height: 36,
+            <View
+              style={{
+                width: 34,
+                height: 34,
                 borderRadius: 10,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)",
-              },
-            ]}
-          >
-            <MapPin size={16} color={palette.accentLight} strokeWidth={2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{model.name}</Text>
-            {model.badge && (
-              <View
-                style={[
-                  {
-                    borderRadius: 6,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    marginTop: 4,
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
-                  },
-                ]}
-              >
-                <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
+                backgroundColor: isActive
+                  ? "rgba(14,165,233,0.18)"
+                  : isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(14,165,233,0.08)",
+              }}
+            >
+              <Code2 size={15} color={isActive ? palette.accentLight : palette.muted} strokeWidth={2.2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{model.name}</Text>
+              <View style={{ flexDirection: "row", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                {isActive && (
+                  <View
+                    style={{
+                      borderRadius: 6,
+                      paddingHorizontal: 7,
+                      paddingVertical: 2.5,
+                      backgroundColor: "rgba(52,199,89,0.15)",
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: "#34C759" }}>Active</Text>
+                  </View>
+                )}
+                {model.badge && (
+                  <View
+                    style={{
+                      borderRadius: 6,
+                      paddingHorizontal: 7,
+                      paddingVertical: 2.5,
+                      backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                      alignSelf: "flex-start",
+                    }}
+                  >
+                    <Text style={{ fontSize: 9, fontWeight: "700", color: palette.accentLight }}>{model.badge}</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
-        </AnimatedItemCard>
-      ))}
-      {availableModels.length === 0 && !modelLabel && (
-        <View style={{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 }}>
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Code2 size={24} color={palette.muted} strokeWidth={1.5} />
-          </View>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink, marginBottom: 4 }}>
-            No models available
-          </Text>
-          <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>
-            Configure AI models in settings
-          </Text>
-        </View>
+            </View>
+            <ChevronRight size={14} color={palette.muted} strokeWidth={2} />
+          </AnimatedItemCard>
+        )
+      })}
+      {availableModels.length === 0 && (
+        <EmptyState
+          icon={Code2}
+          title="No models available"
+          subtitle="Configure AI models in settings"
+          palette={palette}
+          isDark={isDark}
+        />
       )}
     </ScrollView>
   )
@@ -789,71 +797,69 @@ function McpContent({
   const { palette, isDark } = useAppTheme()
 
   return (
-    <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
-      {servers.length > 0 ? (
-        servers.map((server, i) => (
-          <AnimatedItemCard
-            key={server.name}
-            onPress={() => onMcpToggle?.(server.name, !server.enabled)}
+    <View style={{ flex: 1 }}>
+      <ScrollView style={{ flex: 1, paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
+        {servers.length > 0 ? (
+          servers.map((server, i) => {
+            const statusIcon = server.connected ? (
+              <Wifi size={15} color="#34C759" strokeWidth={2.2} />
+            ) : !server.enabled ? (
+              <Lock size={15} color={palette.muted} strokeWidth={2.2} />
+            ) : (
+              <Server size={15} color={palette.muted} strokeWidth={2.2} />
+            )
+            const statusText = server.connected ? "Connected" : !server.enabled ? "Disabled" : "Disconnected"
+            const statusColor = server.connected ? "#34C759" : palette.muted
+            const iconBg = server.connected
+              ? "rgba(52,199,89,0.12)"
+              : isDark
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(0,0,0,0.05)"
+
+            return (
+              <AnimatedItemCard
+                key={server.name}
+                onPress={() => onMcpToggle?.(server.name, !server.enabled)}
+                isDark={isDark}
+                borderBottom={i < servers.length - 1}
+              >
+                <View
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 10,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    backgroundColor: iconBg,
+                  }}
+                >
+                  {statusIcon}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{server.name}</Text>
+                  <Text style={{ fontSize: 11, color: statusColor }}>{statusText}</Text>
+                </View>
+                <AnimatedToggleSwitch
+                  value={server.enabled}
+                  onValueChange={(val: boolean) => {
+                    void triggerHaptic("selection")
+                    onMcpToggle?.(server.name, val)
+                  }}
+                  palette={palette}
+                />
+              </AnimatedItemCard>
+            )
+          })
+        ) : (
+          <EmptyState
+            icon={Server}
+            title="No MCP servers"
+            subtitle="Configure MCP servers to enable AI tool integrations"
+            palette={palette}
             isDark={isDark}
-            index={i}
-            borderBottom={i < servers.length - 1}
-          >
-            <View
-              style={[
-                {
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: server.connected ? "rgba(52,199,89,0.12)" : "rgba(255,255,255,0.06)",
-                },
-              ]}
-            >
-              {server.connected ? (
-                <Wifi size={16} color="#34C759" strokeWidth={2} />
-              ) : (
-                <Server size={16} color={palette.muted} strokeWidth={2} />
-              )}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{server.name}</Text>
-              <Text style={{ fontSize: 11, color: server.connected ? "#34C759" : palette.muted }}>
-                {server.connected ? "Connected" : "Disconnected"}
-              </Text>
-            </View>
-            <AnimatedToggleSwitch
-              value={server.enabled}
-              onValueChange={(val: boolean) => {
-                void triggerHaptic("selection")
-                onMcpToggle?.(server.name, val)
-              }}
-              palette={palette}
-            />
-          </AnimatedItemCard>
-        ))
-      ) : (
-        <View style={{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 }}>
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Server size={24} color={palette.muted} strokeWidth={1.5} />
-          </View>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink, marginBottom: 4 }}>No MCP servers</Text>
-          <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>
-            Configure MCP servers to enable AI tool integrations
-          </Text>
-        </View>
-      )}
+          />
+        )}
+      </ScrollView>
 
       {onMcpManage && (
         <AnimatedPressableText
@@ -867,7 +873,7 @@ function McpContent({
           <ChevronRight size={14} color={palette.accentLight} strokeWidth={2} />
         </AnimatedPressableText>
       )}
-    </ScrollView>
+    </View>
   )
 }
 
@@ -882,7 +888,6 @@ function SkillsContent({
 }) {
   const { palette, isDark } = useAppTheme()
   const [search, setSearch] = useState("")
-  const Switch = require("react-native").Switch
 
   const filtered = useMemo(() => {
     if (!search.trim()) return skills
@@ -931,25 +936,24 @@ function SkillsContent({
                 onSkillSelect?.(skill.name)
               }}
               isDark={isDark}
-              index={i}
               borderBottom={i < filtered.length - 1}
             >
               <View
                 style={[
                   {
-                    width: 36,
-                    height: 36,
+                    width: 34,
+                    height: 34,
                     borderRadius: 10,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)",
+                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
                   },
                 ]}
               >
-                <Sparkles size={16} color={palette.accentLight} strokeWidth={2} />
+                <Sparkles size={15} color={palette.accentLight} strokeWidth={2.2} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{skill.name}</Text>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{skill.name}</Text>
                 {skill.description && (
                   <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }} numberOfLines={1}>
                     {skill.description}
@@ -960,27 +964,13 @@ function SkillsContent({
             </AnimatedItemCard>
           ))
         ) : (
-          <View style={{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 }}>
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 28,
-                backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-                alignItems: "center",
-                justifyContent: "center",
-                marginBottom: 12,
-              }}
-            >
-              <Sparkles size={24} color={palette.muted} strokeWidth={1.5} />
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink, marginBottom: 4 }}>
-              {search ? "No matching skills" : "No skills available"}
-            </Text>
-            <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>
-              {search ? "Try a different search term" : "Skills will appear here when installed"}
-            </Text>
-          </View>
+          <EmptyState
+            icon={Sparkles}
+            title={search ? "No matching skills" : "No skills available"}
+            subtitle={search ? "Try a different search term" : "Skills will appear here when installed"}
+            palette={palette}
+            isDark={isDark}
+          />
         )}
       </ScrollView>
 
@@ -1107,73 +1097,94 @@ function ToolsContent({
   onToolsManage?(): void
 }) {
   const { palette, isDark } = useAppTheme()
+  const [search, setSearch] = useState("")
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return tools
+    const term = search.toLowerCase()
+    return tools.filter((t) => t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term))
+  }, [search, tools])
 
   return (
-    <ScrollView style={{ paddingVertical: 12 }} showsVerticalScrollIndicator={false}>
-      {tools.length > 0 ? (
-        tools.map((tool, i) => (
-          <AnimatedItemCard
-            key={tool.name}
-            onPress={() => onToolToggle?.(tool.name, !tool.enabled)}
-            isDark={isDark}
-            index={i}
-            borderBottom={i < tools.length - 1}
-          >
-            <View
-              style={[
-                {
-                  width: 36,
-                  height: 36,
+    <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 14,
+            borderWidth: 1,
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            borderColor: palette.border,
+          }}
+        >
+          <Search size={14} color={palette.muted} strokeWidth={2} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search tools..."
+            placeholderTextColor={palette.muted}
+            style={{ flex: 1, fontSize: 14, color: palette.ink, paddingVertical: 0 }}
+          />
+        </View>
+      </View>
+
+      <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {filtered.length > 0 ? (
+          filtered.map((tool, i) => (
+            <AnimatedItemCard
+              key={tool.name}
+              onPress={onToolToggle ? () => onToolToggle(tool.name, !tool.enabled) : undefined}
+              isDark={isDark}
+              borderBottom={i < filtered.length - 1}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
                   borderRadius: 10,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.07)",
-                },
-              ]}
-            >
-              <Terminal size={16} color={palette.accentLight} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink }}>{tool.name}</Text>
-              {tool.description && (
-                <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }} numberOfLines={1}>
-                  {tool.description}
-                </Text>
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                }}
+              >
+                <Terminal size={15} color={palette.accentLight} strokeWidth={2.2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13.5, fontWeight: "600", color: palette.ink }}>{tool.name}</Text>
+                {tool.description && (
+                  <Text style={{ fontSize: 11, color: palette.muted, marginTop: 2 }} numberOfLines={1}>
+                    {tool.description}
+                  </Text>
+                )}
+              </View>
+              {onToolToggle ? (
+                <AnimatedToggleSwitch
+                  value={tool.enabled}
+                  onValueChange={(val: boolean) => {
+                    void triggerHaptic("selection")
+                    onToolToggle(tool.name, val)
+                  }}
+                  palette={palette}
+                />
+              ) : (
+                <Text style={{ fontSize: 11, fontWeight: "600", color: palette.muted }}>Available</Text>
               )}
-            </View>
-            <AnimatedToggleSwitch
-              value={tool.enabled}
-              onValueChange={(val: boolean) => {
-                void triggerHaptic("selection")
-                onToolToggle?.(tool.name, val)
-              }}
-              palette={palette}
-            />
-          </AnimatedItemCard>
-        ))
-      ) : (
-        <View style={{ alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 }}>
-          <View
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 12,
-            }}
-          >
-            <Terminal size={24} color={palette.muted} strokeWidth={1.5} />
-          </View>
-          <Text style={{ fontSize: 14, fontWeight: "600", color: palette.ink, marginBottom: 4 }}>
-            No tools available
-          </Text>
-          <Text style={{ fontSize: 12, color: palette.muted, textAlign: "center" }}>
-            Tools will appear here when available
-          </Text>
-        </View>
-      )}
+            </AnimatedItemCard>
+          ))
+        ) : (
+          <EmptyState
+            icon={Terminal}
+            title={search ? "No matching tools" : "No tools available"}
+            subtitle={search ? "Try a different search term" : "Tools will appear here when available"}
+            palette={palette}
+            isDark={isDark}
+          />
+        )}
+      </ScrollView>
 
       {onToolsManage && (
         <AnimatedPressableText
@@ -1187,7 +1198,7 @@ function ToolsContent({
           <ChevronRight size={14} color={palette.accentLight} strokeWidth={2} />
         </AnimatedPressableText>
       )}
-    </ScrollView>
+    </View>
   )
 }
 

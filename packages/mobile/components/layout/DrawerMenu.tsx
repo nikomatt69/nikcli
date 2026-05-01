@@ -83,7 +83,12 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
           />
         </Animated.View>
 
-        <Pressable style={StyleSheet.absoluteFill} onPress={close} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={close}
+          accessibilityRole="button"
+          accessibilityLabel="Close navigation drawer"
+        />
 
         {/* Drawer panel */}
         <Animated.View
@@ -130,14 +135,13 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
           />
 
           <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 12, gap: 18 }}>
-            {/* Hero card */}
             <View
               style={{
                 overflow: "hidden",
-                borderRadius: 30,
+                borderRadius: 20,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.80)",
-                padding: 20,
+                padding: 18,
               }}
             >
               <AdaptiveBlur
@@ -153,18 +157,6 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                 ]}
                 pointerEvents="none"
               />
-              {/* Orb decoration */}
-              <View
-                style={{
-                  position: "absolute",
-                  right: -40,
-                  top: -40,
-                  width: 112,
-                  height: 112,
-                  borderRadius: 999,
-                  backgroundColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(14,165,233,0.12)",
-                }}
-              />
               <View
                 style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}
               >
@@ -178,7 +170,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                       color: palette.accentLight,
                     }}
                   >
-                    Enterprise Nav
+                    Navigation
                   </Text>
                   <Text
                     style={{
@@ -189,17 +181,18 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                       color: palette.ink,
                     }}
                   >
-                    Operate your host from anywhere.
+                    {getCurrentProjectLabel(bootstrap, "No active workspace")}
                   </Text>
                   <Text style={{ marginTop: 12, fontSize: 14, lineHeight: 24, color: palette.soft }}>
-                    Jump between operations, inspect trust posture, and keep GitHub automation aligned with the active
-                    host.
+                    Switch views, check host status, and keep execution settings aligned with the connected server.
                   </Text>
                 </View>
                 <Pressable
                   onPress={close}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close navigation drawer"
                   style={{
-                    borderRadius: 16,
+                    borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.80)",
                     backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)",
@@ -215,7 +208,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
             <View
               style={{
                 overflow: "hidden",
-                borderRadius: 28,
+                borderRadius: 20,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.75)",
                 padding: 16,
@@ -253,9 +246,13 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                     <Pressable
                       key={tab.route}
                       onPress={() => navigate(tab.path)}
+                      accessibilityRole="button"
+                      accessibilityState={active ? { selected: true } : {}}
+                      accessibilityLabel={`Open ${tab.label}`}
+                      accessibilityHint={tab.subtitle}
                       style={{
                         overflow: "hidden",
-                        borderRadius: 24,
+                          borderRadius: 16,
                         borderWidth: 1,
                         borderColor: active
                           ? isDark
@@ -281,7 +278,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
                         <View
                           style={{
-                            borderRadius: 16,
+                            borderRadius: 12,
                             padding: 12,
                             backgroundColor: active
                               ? isDark
@@ -323,7 +320,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
             <View
               style={{
                 overflow: "hidden",
-                borderRadius: 28,
+                borderRadius: 20,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.78)",
                 padding: 16,
@@ -365,13 +362,17 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
               <Pressable
                 disabled={!config}
                 onPress={() => void refreshBootstrap().catch(() => null)}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh host state"
+                accessibilityHint="Reloads connection, workspace, GitHub, and execution status from the host"
+                accessibilityState={{ disabled: !config }}
                 style={{
                   marginTop: 16,
                   flexDirection: "row",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  borderRadius: 16,
+                  borderRadius: 12,
                   borderWidth: 1,
                   borderColor: isDark ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.78)",
                   backgroundColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.55)",

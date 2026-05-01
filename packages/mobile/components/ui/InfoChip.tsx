@@ -20,8 +20,8 @@ export function InfoChip({ label, tone = "neutral" }: InfoChipProps) {
           : "rgba(34,197,94,0.10)"
         : tone === "warn"
           ? isDark
-            ? "rgba(143,143,143,0.08)"
-            : "rgba(239,68,68,0.10)"
+            ? "rgba(251,191,36,0.12)"
+            : "rgba(217,119,6,0.10)"
           : isDark
             ? "rgba(255,255,255,0.05)"
             : "rgba(241,246,251,0.8)"
@@ -37,8 +37,8 @@ export function InfoChip({ label, tone = "neutral" }: InfoChipProps) {
           : "rgba(34,197,94,0.22)"
         : tone === "warn"
           ? isDark
-            ? "rgba(143,143,143,0.16)"
-            : "rgba(239,68,68,0.22)"
+            ? "rgba(251,191,36,0.24)"
+            : "rgba(217,119,6,0.22)"
           : isDark
             ? "rgba(255,255,255,0.08)"
             : "rgba(193,208,223,0.72)"
@@ -49,9 +49,9 @@ export function InfoChip({ label, tone = "neutral" }: InfoChipProps) {
       : tone === "good"
         ? palette.success
         : tone === "warn"
-          ? palette.danger
+          ? palette.warn
           : palette.ink
-  const dotColor = tone === "accent" ? palette.accent : tone === "good" ? palette.success : palette.danger
+  const dotColor = tone === "accent" ? palette.accent : tone === "good" ? palette.success : palette.warn
 
   return (
     <View

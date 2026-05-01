@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native"
-import { router } from "expo-router"
+import { router, useRootNavigationState } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { ConnectionStatus } from "@/components/ConnectionStatus"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -40,6 +40,7 @@ export default function ConnectScreen() {
   const { palette } = useAppTheme()
   const { top } = useSafeAreaInsets()
   const { config, loading, ready, save, userToken } = useServer()
+  const rootNavigationState = useRootNavigationState()
   const [url, setUrl] = useState(config?.url ?? "")
   const [token, setToken] = useState(config?.token ?? "")
   const [directory, setDirectory] = useState(config?.directory ?? "")
@@ -48,6 +49,7 @@ export default function ConnectScreen() {
   const [connected, setConnected] = useState(false)
 
   useEffect(() => {
+    if (!rootNavigationState?.key) return
     if (!ready) return
 
     let cancelled = false
@@ -69,7 +71,7 @@ export default function ConnectScreen() {
     return () => {
       cancelled = true
     }
-  }, [config, ready])
+  }, [config, ready, rootNavigationState?.key, userToken])
 
   useEffect(() => {
     let mounted = true
@@ -118,7 +120,7 @@ export default function ConnectScreen() {
         ...form,
       })
       setConnected(true)
-      router.replace(nextRouteAfterConnect(userToken))
+      if (rootNavigationState?.key) router.replace(nextRouteAfterConnect(userToken))
     } catch (nextError) {
       setConnected(false)
       setError(nextError instanceof Error ? nextError.message : String(nextError))

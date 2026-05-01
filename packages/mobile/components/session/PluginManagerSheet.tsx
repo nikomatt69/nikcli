@@ -103,25 +103,25 @@ export function PluginManagerSheet({
   const enabledCount = plugins.filter((p) => p.enabled).length
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
-        Animated.spring(slideAnim, { toValue: 1, damping: 20, stiffness: 260, mass: 0.8, useNativeDriver: true }),
-        Animated.spring(contentScaleAnim, {
-          toValue: 1,
-          damping: 22,
-          stiffness: 300,
-          mass: 0.7,
-          useNativeDriver: true,
-        }),
-      ]).start()
-    } else {
-      Animated.parallel([
-        Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-        Animated.timing(contentScaleAnim, { toValue: 0.94, duration: 160, useNativeDriver: true }),
-      ]).start(() => onClose())
-    }
+    const animation = visible
+      ? Animated.parallel([
+          Animated.timing(opacityAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+          Animated.spring(slideAnim, { toValue: 1, damping: 20, stiffness: 260, mass: 0.8, useNativeDriver: true }),
+          Animated.spring(contentScaleAnim, {
+            toValue: 1,
+            damping: 22,
+            stiffness: 300,
+            mass: 0.7,
+            useNativeDriver: true,
+          }),
+        ])
+      : Animated.parallel([
+          Animated.timing(opacityAnim, { toValue: 0, duration: 160, useNativeDriver: true }),
+          Animated.timing(slideAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+          Animated.timing(contentScaleAnim, { toValue: 0.94, duration: 160, useNativeDriver: true }),
+        ])
+    animation.start()
+    return () => animation.stop()
   }, [visible, opacityAnim, slideAnim, contentScaleAnim, onClose])
 
   const translateY = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT * 0.7, 0] })
@@ -153,7 +153,7 @@ export function PluginManagerSheet({
             shadowOpacity: isDark ? 0.5 : 0.2,
             shadowRadius: 28,
             shadowOffset: { width: 0, height: -8 },
-            maxHeight: SCREEN_HEIGHT * 0.85,
+            height: SCREEN_HEIGHT * 0.85,
           }}
         >
           <AdaptiveBlur

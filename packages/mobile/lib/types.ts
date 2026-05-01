@@ -380,6 +380,7 @@ export type MobileBootstrap = {
   }
   github: {
     connected: boolean
+    tokenAvailable?: boolean
     oauthDeviceEnabled: boolean
     oauthDeviceConfigured?: boolean
     oauthClientSource?: "flag" | "config" | "env"
@@ -581,8 +582,11 @@ export type GitFileStatus = {
 
 export type ParsedFileDiff = {
   file: string
+  oldPath?: string
+  stage?: "staged" | "unstaged"
   additions?: number
   deletions?: number
+  isBinary?: boolean
   hunks: Array<{
     header: {
       oldStart: number
@@ -606,7 +610,7 @@ export type DiffLine = DiffHunk["lines"][number]
 export type GitCommit = {
   sha: string
   message: string
-  author: { name: string; email: string; timestamp: number }
+  author: { name: string; email: string }
   timestamp: number
   additions: number
   deletions: number
@@ -620,6 +624,20 @@ export type GitState = {
   untracked: string[]
   commitsAhead: number
   commitsBehind: number
+  lastCommit?: { sha: string; message: string; author: string; timestamp: number }
+}
+
+export type GitBranchInfo = {
+  name: string
+  isCurrent: boolean
+  isProtected: boolean
+  aheadBy: number
+  behindBy: number
+}
+
+export type GitCommitResult = {
+  sha: string
+  message: string
 }
 
 export type GitHubDeviceAuthPollResult = {

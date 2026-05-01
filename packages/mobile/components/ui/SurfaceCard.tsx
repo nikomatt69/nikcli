@@ -25,20 +25,20 @@ export function SurfaceCard({
   const { palette, isDark } = useAppTheme()
   const compact = useMemo(() => width < 390, [width])
   const backgroundColor =
-    tone === "panel" ? palette.panel : tone === "background" ? `${palette.background}dd` : palette.surface
-  const borderColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)"
+    tone === "panel" ? palette.panel : tone === "background" ? `${palette.background}dd` : palette.surfaceRaised
+  const borderColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.86)"
 
   return (
     <View
-      className={cn(`overflow-hidden rounded-[28px] ${compact ? "px-4 py-4" : "px-5 py-5"}`, className)}
+      className={cn(`overflow-hidden rounded-[8px] ${compact ? "px-4 py-4" : "px-5 py-5"}`, className)}
       style={{
         borderWidth: 1,
         borderColor,
         backgroundColor,
         shadowColor: isDark ? "#000000" : palette.shadow,
-        shadowOpacity: isDark ? 0.32 : 0.1,
-        shadowRadius: isDark ? 18 : 20,
-        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: isDark ? 0.28 : 0.08,
+        shadowRadius: isDark ? 10 : 12,
+        shadowOffset: { width: 0, height: 6 },
       }}
     >
       <View pointerEvents="none" style={StyleSheet.absoluteFillObject}>
@@ -53,22 +53,11 @@ export function SurfaceCard({
         <View
           style={{
             position: "absolute",
-            right: -22,
-            top: -26,
-            width: 84,
-            height: 84,
-            borderRadius: 999,
-            backgroundColor: isDark ? "rgba(255,255,255,0.028)" : "rgba(14,165,233,0.08)",
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
             left: 0,
             right: 0,
             bottom: 0,
             height: 28,
-            backgroundColor: isDark ? "rgba(255,255,255,0.015)" : "rgba(232,240,248,0.28)",
+            backgroundColor: isDark ? "rgba(255,255,255,0.018)" : "rgba(232,240,248,0.24)",
           }}
         />
       </View>
@@ -80,7 +69,7 @@ export function SurfaceCard({
       {title ? (
         <Text
           selectable
-          className={`mt-2 font-semibold tracking-[-0.4px] text-ink ${compact ? "text-[23px] leading-[28px]" : "text-[27px] leading-[31px]"}`}
+          className={`mt-2 font-semibold text-ink ${compact ? "text-[20px] leading-[25px]" : "text-[22px] leading-[27px]"}`}
         >
           {title}
         </Text>

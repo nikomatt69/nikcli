@@ -9,7 +9,9 @@ import { useAppTheme } from "@/lib/theme"
 
 export default function AppLayout() {
   const segments = useSegments()
-  const hideChrome = segments.length > 2
+  const routeSegments = segments.filter((segment) => !segment.startsWith("("))
+  const [root, child] = routeSegments
+  const hideChrome = (root === "sessions" && Boolean(child)) || (root === "settings" && Boolean(child))
   const closeDrawer = useUIStore((state) => state.closeDrawer)
   const { palette } = useAppTheme()
 
@@ -30,10 +32,10 @@ export default function AppLayout() {
       >
         <Tabs.Screen name="sessions" options={{ title: "Sessions" }} />
         <Tabs.Screen name="repos" options={{ title: "Repos" }} />
-        <Tabs.Screen name="settings" options={{ title: "Settings" }} />
+        <Tabs.Screen name="settings" options={{ title: "Settings", href: null }} />
         <Tabs.Screen name="routines" options={{ title: "Routines" }} />
         <Tabs.Screen name="terminal" options={{ title: "Terminal" }} />
-        <Tabs.Screen name="user" options={{ title: "Profile" }} />
+        <Tabs.Screen name="user" options={{ title: "Profile", href: null }} />
       </Tabs>
     </View>
   )

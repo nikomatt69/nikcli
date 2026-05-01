@@ -57,14 +57,10 @@ export function AppHeader({ routeName }: AppHeaderProps) {
           fallbackColor={isDark ? "rgba(17,17,17,0.85)" : "rgba(241,246,251,0.80)"}
         />
         <View
-          style={[
-            StyleSheet.absoluteFill,
-            { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(241,246,251,0.22)" },
-          ]}
+          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.32)" : "rgba(241,246,251,0.22)" }]}
           pointerEvents="none"
         />
 
-        {/* Inner glass card */}
         <View style={[styles.innerCard, { borderColor: isDark ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.80)" }]}>
           <AdaptiveBlur
             tint={isDark ? "dark" : "extraLight"}
@@ -80,18 +76,6 @@ export function AppHeader({ routeName }: AppHeaderProps) {
             pointerEvents="none"
           />
 
-          {/* Decorative orb */}
-          <View
-            style={{
-              position: "absolute",
-              right: -32,
-              top: -32,
-              width: 56,
-              height: 56,
-              borderRadius: 999,
-              backgroundColor: isDark ? "rgba(255,255,255,0.035)" : "rgba(232,240,248,0.85)",
-            }}
-          />
           <View
             style={{
               position: "absolute",
@@ -132,6 +116,9 @@ export function AppHeader({ routeName }: AppHeaderProps) {
             </View>
             <Pressable
               onPress={() => router.push("/settings")}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              accessibilityHint="Opens connection, model, automation, and app preferences"
               hitSlop={6}
               style={({ pressed }) => ({
                 borderRadius: 13,
@@ -148,6 +135,9 @@ export function AppHeader({ routeName }: AppHeaderProps) {
             </Pressable>
             <Pressable
               onPress={() => router.push("/user")}
+              accessibilityRole="button"
+              accessibilityLabel="Open profile"
+              accessibilityHint="Opens account and user management"
               hitSlop={6}
               style={({ pressed }) => ({
                 borderRadius: 13,
@@ -164,6 +154,9 @@ export function AppHeader({ routeName }: AppHeaderProps) {
             </Pressable>
             <Pressable
               onPress={openDrawer}
+              accessibilityRole="button"
+              accessibilityLabel="Open navigation drawer"
+              accessibilityHint="Shows workspace status and navigation shortcuts"
               hitSlop={6}
               style={({ pressed }) => ({
                 borderRadius: 13,
@@ -196,7 +189,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
                   lineHeight: compact ? 19 : 20,
                 }}
               >
-                Mobile operations
+                {current.label}
               </Text>
               <Text style={{ marginTop: 2, fontSize: 11, lineHeight: 16, color: palette.soft }} numberOfLines={1}>
                 {current.subtitle}
@@ -225,7 +218,11 @@ export function AppHeader({ routeName }: AppHeaderProps) {
               >
                 Workspace
               </Text>
-              <Text selectable style={{ marginTop: 2, fontSize: 10, fontWeight: "600", color: palette.ink }} numberOfLines={1}>
+              <Text
+                selectable
+                style={{ marginTop: 2, fontSize: 10, fontWeight: "600", color: palette.ink }}
+                numberOfLines={1}
+              >
                 {workspaceLabel}
               </Text>
               <Text style={{ marginTop: 2, fontSize: 8, color: palette.soft }}>{executionValue}</Text>
@@ -258,7 +255,7 @@ export function AppHeader({ routeName }: AppHeaderProps) {
 const styles = StyleSheet.create({
   innerCard: {
     overflow: "hidden",
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     padding: 12,
   },

@@ -19,8 +19,18 @@ export function SkeletonBox({
   useEffect(() => {
     const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.85, duration: 460, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 0.38, duration: 460, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(opacity, {
+          toValue: 0.85,
+          duration: 460,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.38,
+          duration: 460,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
       ]),
     )
     animation.start()
@@ -35,7 +45,7 @@ export function SkeletonBox({
           height,
           borderRadius,
           opacity,
-          backgroundColor: isDark ? palette.border : palette.panel,
+          backgroundColor: isDark ? palette.surfaceRaised : palette.panel,
         },
         style,
       ]}
@@ -47,7 +57,7 @@ export function SessionListSkeleton() {
   const { palette, isDark } = useAppTheme()
   const style = {
     borderRadius: 30,
-    backgroundColor: isDark ? palette.surface : palette.surface,
+    backgroundColor: palette.surfaceRaised,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,

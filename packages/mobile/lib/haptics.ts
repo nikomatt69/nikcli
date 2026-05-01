@@ -4,6 +4,9 @@ import { useUIStore } from "@/lib/store"
 
 type HapticKind = "send" | "command" | "permission" | "error" | "success" | "selection"
 
+const SELECTION_THROTTLE_MS = 80
+let lastSelectionAt = 0
+
 function canTrigger(kind: HapticKind) {
   const prefs = useUIStore.getState().haptics
   if (!prefs.enabled || Platform.OS === "web") return false
@@ -14,7 +17,13 @@ function canTrigger(kind: HapticKind) {
   return true
 }
 
-export async function triggerHaptic(kind: HapticKind) {
+async function runHaptic(kind: HapticKind) {
+  if (kind === "selection") {
+    const now = Date.now()
+    if (now - lastSelectionAt < SELECTION_THROTTLE_MS) return
+    lastSelectionAt = now
+  }
+
   if (!canTrigger(kind)) return
 
   try {
@@ -42,4 +51,10 @@ export async function triggerHaptic(kind: HapticKind) {
   } catch {
     // ignore haptic failures on unsupported devices
   }
+}
+
+export function triggerHaptic(kind: HapticKind): Promise<void> {
+  const task = runHaptic(kind)
+  task.catch(() => undefined)
+  return task
 }

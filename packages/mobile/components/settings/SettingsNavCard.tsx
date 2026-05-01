@@ -56,7 +56,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className="rounded-[24px] border border-border bg-background/60 px-4 py-4"
+        className="rounded-[8px] border border-border bg-background/60 px-4 py-4"
         style={({ pressed }) => ({
           opacity: pressed ? 0.9 : 1,
         })}
@@ -74,7 +74,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
                   StyleSheet.absoluteFill,
                   {
                     backgroundColor: isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.12)",
-                    borderRadius: 999,
+                    borderRadius: 8,
                     opacity: shimmerOpacity,
                   },
                 ]}

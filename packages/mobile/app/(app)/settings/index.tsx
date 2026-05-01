@@ -414,22 +414,9 @@ export default function SettingsScreen() {
     try {
       setSaving(true)
       setMessage(null)
-      const snapshot = hostConfig ?? (await client.getConfig())
-      const connectors = { ...(snapshot.connectors ?? {}) }
-      const connectorKey = githubConnectorKey(snapshot)
-      connectors[connectorKey] = {
-        ...(connectors[connectorKey] ?? {}),
-        type: "github",
-        enabled: true,
-        oauthClientId: value,
-        clientId: value,
-      }
-      const nextConfig = await client.updateConfig({
-        ...snapshot,
-        connectors,
-      })
+      const nextConfig = await client.saveGithubOAuthClientID(value)
       setHostConfig(nextConfig)
-      await syncBootstrap("GitHub OAuth client ID saved on host")
+      await syncBootstrap("GitHub OAuth client ID saved globally on host")
       return nextConfig
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error))
@@ -702,6 +689,7 @@ export default function SettingsScreen() {
   const containerRuntime = bootstrap?.execution?.container?.runtime
   const workspaceLabel = bootstrap?.currentProject?.name || bootstrap?.currentProject?.id || "No workspace"
   const oauthConfigured = Boolean(bootstrap?.github?.oauthDeviceConfigured)
+  const githubTokenAvailable = Boolean(bootstrap?.github?.tokenAvailable)
   const currentToken = bootstrap?.auth.currentToken
   const mcpEntries = useMemo(() => Object.entries(hostConfig?.mcp ?? {}), [hostConfig?.mcp])
   const visibleSkills = useMemo(() => {
@@ -838,7 +826,6 @@ export default function SettingsScreen() {
         title="Harden host access and GitHub identity."
         description="Keep the control plane clean: one trusted host, one verified GitHub identity, and one clear path from prompt to pull request."
       >
-        <View className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-accent/15" />
         <View className="absolute bottom-0 left-0 h-20 w-full bg-panel/25" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={config ? "Host linked" : "Host offline"} tone={config ? "good" : "warn"} />
@@ -906,6 +893,7 @@ export default function SettingsScreen() {
                 badges={[
                   githubConnected ? "Connected" : "Offline",
                   oauthConfigured ? "OAuth ready" : "Needs client ID",
+                  githubTokenAvailable ? "GH token stored" : "No GH token",
                 ]}
               />
             </Link>
@@ -977,7 +965,7 @@ export default function SettingsScreen() {
           </View>
 
           <View className="mt-4 gap-3">
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 GitHub profile
               </Text>
@@ -995,7 +983,7 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Host profile
               </Text>
@@ -1050,7 +1038,7 @@ export default function SettingsScreen() {
           })}
         </View>
 
-        <View className="mt-4 rounded-[22px] border border-border bg-background/60 px-4 py-4">
+        <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
           <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
             Visible settings sections
           </Text>
@@ -1094,7 +1082,7 @@ export default function SettingsScreen() {
           </View>
 
           <View className="mt-4 gap-3">
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Notifications
               </Text>
@@ -1120,7 +1108,7 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">Haptics</Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {[
@@ -1145,7 +1133,7 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View className="rounded-[22px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Message gestures
               </Text>
@@ -1298,7 +1286,7 @@ export default function SettingsScreen() {
           description="Connect a provider on the host, then choose the model used on the first prompt of every new mobile session. The recommended preset is already pinned to MiniMax coding plan."
         >
           {providerLoading ? (
-            <View className="items-center rounded-[24px] border border-border bg-background/60 px-4 py-5">
+            <View className="items-center rounded-[8px] border border-border bg-background/60 px-4 py-5">
               <ActivityIndicator color={palette.accent} />
               <Text className="mt-3 text-sm text-soft">Loading providers and model catalog…</Text>
             </View>
@@ -1344,7 +1332,7 @@ export default function SettingsScreen() {
               </View>
 
               {selectedProvider ? (
-                <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                     Selected provider
                   </Text>
@@ -1391,7 +1379,7 @@ export default function SettingsScreen() {
                 onPress={() => void saveSessionDefaults()}
               />
 
-              <View className="rounded-[24px] border border-border bg-panel/55 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-panel/55 px-4 py-4">
                 <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                   Provider API key
                 </Text>
@@ -1454,6 +1442,10 @@ export default function SettingsScreen() {
               label={githubConnected ? "GitHub linked" : "GitHub offline"}
               tone={githubConnected ? "good" : "warn"}
             />
+            <InfoChip
+              label={githubTokenAvailable ? "GH token stored" : "GH token missing"}
+              tone={githubTokenAvailable ? "good" : "warn"}
+            />
           </View>
 
           <View className="mt-4 gap-3">
@@ -1484,7 +1476,7 @@ export default function SettingsScreen() {
           </View>
 
           {!oauthConfigured ? (
-            <View className="mt-4 rounded-[24px] border border-danger/30 bg-danger/10 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-danger/30 bg-danger/10 px-4 py-4">
               <Text className="text-sm leading-6 text-ink">
                 OAuth is always exposed from mobile now. To make device sign-in work on this host, save a GitHub OAuth
                 client ID here or configure it on the host through `connectors.github.oauthClientId`,
@@ -1504,7 +1496,7 @@ export default function SettingsScreen() {
           )}
 
           {githubConnected ? (
-            <View className="mt-4 rounded-[26px] border border-success/20 bg-success/10 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-success/20 bg-success/10 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-ink">Connected account</Text>
               <Text className="mt-2 text-xl font-semibold text-ink">@{bootstrap?.github?.user?.login}</Text>
               {bootstrap?.github?.user?.name ? (
@@ -1522,7 +1514,7 @@ export default function SettingsScreen() {
           ) : null}
 
           {oauthFlow ? (
-            <View className="mt-4 rounded-[26px] border border-border bg-background/60 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Authorization in progress
               </Text>
@@ -1568,7 +1560,7 @@ export default function SettingsScreen() {
             <InfoChip label={`${Object.keys(mcpStatus).length} live statuses`} />
           </View>
 
-          <View className="mt-4 rounded-[24px] border border-border bg-background/60 px-4 py-4">
+          <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
             <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
               Add MCP server
             </Text>
@@ -1623,7 +1615,7 @@ export default function SettingsScreen() {
                 const status = mcpStatus[name]
                 const enabled = entry.enabled !== false
                 return (
-                  <View key={name} className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
@@ -1682,7 +1674,7 @@ export default function SettingsScreen() {
                 )
               })
             ) : (
-              <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                 <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
               </View>
             )}
@@ -1711,7 +1703,7 @@ export default function SettingsScreen() {
             <View className="gap-3">
               {visibleSkills.length ? (
                 visibleSkills.map((skill) => (
-                  <View key={skill.name} className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                  <View key={skill.name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                     <View className="flex-row flex-wrap gap-2">
                       <Text className="text-base font-semibold text-ink">{skill.name}</Text>
                       {skill.category ? <InfoChip label={skill.category} tone="accent" /> : null}
@@ -1727,7 +1719,7 @@ export default function SettingsScreen() {
                   </View>
                 ))
               ) : (
-                <View className="rounded-[24px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
                   <Text className="text-sm leading-6 text-soft">
                     No skills matched this search or the host is not exposing any skill yet.
                   </Text>
@@ -1779,7 +1771,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {bootstrapLoading ? (
-        <View className="items-center rounded-[24px] border border-border bg-surface px-4 py-4">
+        <View className="items-center rounded-[8px] border border-border bg-surface px-4 py-4">
           <ActivityIndicator color={palette.accent} />
           <Text className="mt-3 text-sm text-soft">Refreshing host and GitHub posture…</Text>
         </View>

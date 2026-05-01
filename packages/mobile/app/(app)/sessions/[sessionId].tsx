@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, View } from "react-native"
+import {
+  ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native"
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { AdaptiveBlur } from "@/components/GlassView"
@@ -12,12 +22,14 @@ import { useActionSheetRef } from "@/components/BottomSheet"
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
 import { ComposerPermissionBar } from "@/components/session/ComposerPermissionBar"
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
+import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
 import { ComposerToolbar } from "@/components/session/ComposerToolbar"
 import { type ComposerTab } from "@/components/session/ComposerToolDrawer"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
+import { SessionPreviewStrip, type SessionPreview } from "@/components/session/SessionPreviewStrip"
 import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -37,6 +49,7 @@ import {
   type PromptStashEntry,
   type SessionDetail,
   type SessionStreamEvent,
+  type ToolState,
 } from "@/lib/types"
 
 export type PendingAttachment = {
@@ -106,6 +119,74 @@ function compactActivityText(value: string | null | undefined, limit = 72) {
   const normalized = value.replace(/\s+/g, " ").trim()
   if (normalized.length <= limit) return normalized
   return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
+}
+
+const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`)\]}]+/gi
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
+}
+
+function asToolState(value: unknown): ToolState | null {
+  if (!isRecord(value) || typeof value.status !== "string") return null
+  return value as ToolState
+}
+
+function toolPreviewText(part: MessageWithParts["parts"][number]) {
+  if (part.type !== "tool") return ""
+  const state = asToolState(part.state)
+  if (state?.status !== "completed") return ""
+  return `${state.title ?? ""}\n${state.output}`
+}
+
+function normalizePreviewUrl(raw: string, serverUrl?: string) {
+  try {
+    const url = new URL(raw.replace(/[.,;:]+$/, ""))
+    if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname) && serverUrl) {
+      const host = new URL(serverUrl)
+      url.hostname = host.hostname
+      url.protocol = host.protocol
+    }
+    return url.toString()
+  } catch {
+    return null
+  }
+}
+
+function previewSource(url: string): SessionPreview["source"] {
+  try {
+    const parsed = new URL(url)
+    return parsed.port || ["localhost", "127.0.0.1", "0.0.0.0"].includes(parsed.hostname) ? "local" : "web"
+  } catch {
+    return "web"
+  }
+}
+
+function extractSessionPreviews(messages: MessageWithParts[], serverUrl?: string): SessionPreview[] {
+  const seen = new Set<string>()
+  const previews: SessionPreview[] = []
+
+  for (const message of messages) {
+    for (const part of message.parts) {
+      const text = part.type === "text" && typeof part.text === "string" ? part.text : toolPreviewText(part)
+
+      for (const match of text.matchAll(URL_PATTERN)) {
+        const url = normalizePreviewUrl(match[0], serverUrl)
+        if (!url || seen.has(url)) continue
+        seen.add(url)
+        previews.push({ id: `${message.info.id}:${previews.length}`, url, source: previewSource(url) })
+      }
+    }
+  }
+
+  return previews
+}
+
+function formatAttachmentSize(base64: string) {
+  const bytes = Math.floor((base64.length * 3) / 4)
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${bytes} B`
 }
 
 function buildLiveActivitySnapshot(detail: SessionDetail, input: { publishing: boolean; cleaning: boolean }) {
@@ -200,6 +281,7 @@ export default function SessionScreen() {
   const [renameOpen, setRenameOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [attachmentPickerOpen, setAttachmentPickerOpen] = useState(false)
   const [gitState, setGitState] = useState<GitState | null>(null)
   const [gitLoading, setGitLoading] = useState(false)
   const [gitReviewOpen, setGitReviewOpen] = useState(false)
@@ -260,7 +342,8 @@ export default function SessionScreen() {
       const state = await client.getGitStatus()
       setGitState(state)
     } catch (error) {
-      console.warn("Failed to load git state:", error)
+      const message = error instanceof Error ? error.message : String(error)
+      if (!message.includes("not a git repository")) console.warn("Failed to load git state:", error)
       setGitState(null)
     } finally {
       setGitLoading(false)
@@ -274,10 +357,7 @@ export default function SessionScreen() {
     }
 
     try {
-      const [hostConfig, mcpStatus] = await Promise.all([
-        client.getConfig(),
-        client.listMcpStatus(),
-      ])
+      const [hostConfig, mcpStatus] = await Promise.all([client.getConfig(), client.listMcpStatus()])
 
       const servers = Object.entries(hostConfig?.mcp ?? {}).map(([name, cfg]) => ({
         name,
@@ -463,6 +543,7 @@ export default function SessionScreen() {
   })
 
   const messages = useMemo(() => detail?.messages ?? [], [detail])
+  const previews = useMemo(() => extractSessionPreviews(messages, config?.url), [config?.url, messages])
   const hasUserPrompt = useMemo(() => messages.some((item) => item.info.role === "user"), [messages])
   const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
@@ -533,6 +614,40 @@ export default function SessionScreen() {
   }, [commands, composerPreferences.slashSuggestions, input])
   const activeMcpCount = useMemo(() => commands.filter((c) => c.mcp).length, [commands])
 
+  const handleModelSelect = useCallback(
+    (id: string) => {
+      if (!client || id === "default") return
+      void (async () => {
+        try {
+          const [providerID, modelID] = id.split("/")
+          await client.updateConfig({ modelID, modelProviderID: providerID })
+          void triggerHaptic("selection")
+        } catch (error) {
+          console.warn("Failed to update model:", error)
+          void triggerHaptic("error")
+        }
+      })()
+    },
+    [client],
+  )
+
+  const handleMcpToggle = useCallback(
+    (name: string, enabled: boolean) => {
+      if (!client) return
+      void (async () => {
+        try {
+          await client.toggleMcp(name, enabled)
+          await loadPlugins()
+          void triggerHaptic("selection")
+        } catch (error) {
+          console.warn("Failed to toggle MCP:", error)
+          void triggerHaptic("error")
+        }
+      })()
+    },
+    [client, loadPlugins],
+  )
+
   async function handleRename(title: string) {
     if (!client || !sessionId) return
     try {
@@ -578,6 +693,17 @@ export default function SessionScreen() {
     setPendingAttachments((prev) => [...prev, item])
   }
 
+  function handlePickedAttachment(mime: string, filename: string, base64: string, previewUri?: string) {
+    handleAddAttachment({
+      id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      mime,
+      filename,
+      base64,
+      previewUri,
+      sizeLabel: formatAttachmentSize(base64),
+    })
+  }
+
   function handleRemoveAttachment(id: string) {
     void triggerHaptic("selection")
     setPendingAttachments((prev) => prev.filter((a) => a.id !== id))
@@ -597,24 +723,29 @@ export default function SessionScreen() {
 
   async function send() {
     if (!client || !sessionId || !input.trim() || cleaned) return
+    const submittedInput = input
+    const submittedText = submittedInput.trim()
+    const submittedSlashInput = slashInput
+    const submittedAttachments = pendingAttachments
     try {
       setSending(true)
       setError(null)
-      if (slashInput) {
-        await client.sendCommand(sessionId, slashInput.command, slashInput.argumentsText, {
+      setInput("")
+      if (submittedAttachments.length > 0) setPendingAttachments([])
+
+      if (submittedSlashInput) {
+        await client.sendCommand(sessionId, submittedSlashInput.command, submittedSlashInput.argumentsText, {
           model: hasUserPrompt ? undefined : preferredModel,
         })
         void triggerHaptic("command")
-        setInput("")
         return
       }
-      const text = input.trim()
       const payload =
         mode === "plan"
-          ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${text}`
-          : text
-      if (pendingAttachments.length > 0) {
-        const fileParts = pendingAttachments.map((a) => ({
+          ? `Plan mode: analyze the request, propose the approach, and avoid making changes until explicitly requested.\n\nUser request: ${submittedText}`
+          : submittedText
+      if (submittedAttachments.length > 0) {
+        const fileParts = submittedAttachments.map((a) => ({
           type: "file" as const,
           mime: a.mime,
           filename: a.filename,
@@ -625,18 +756,18 @@ export default function SessionScreen() {
           [{ type: "text", text: payload }, ...fileParts],
           hasUserPrompt ? undefined : { model: preferredModel },
         )
-        setPendingAttachments([])
       } else {
         await client.sendMessage(sessionId, payload, hasUserPrompt ? undefined : { model: preferredModel })
       }
       void triggerHaptic("send")
-      setInput("")
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error))
       void triggerHaptic("error")
+      setInput(submittedInput)
+      if (submittedAttachments.length > 0) setPendingAttachments(submittedAttachments)
       // Queue for offline delivery on next foreground
-      if (sessionId && input.trim() && !slashInput) {
-        void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: input.trim() })
+      if (sessionId && submittedText && !submittedSlashInput) {
+        void enqueueOp({ type: "sendMessage", sessionID: sessionId, text: submittedText })
       }
     } finally {
       setSending(false)
@@ -975,7 +1106,12 @@ export default function SessionScreen() {
     >
       <View className="border-b border-border px-4 pb-3" style={{ paddingTop: top + 8 }}>
         <View className="flex-row items-center gap-3">
-          <Pressable onPress={() => router.back()} style={chromeButtonStyle}>
+          <Pressable
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={chromeButtonStyle}
+          >
             <AdaptiveBlur
               tint={isDark ? "dark" : "light"}
               intensity={44}
@@ -997,15 +1133,28 @@ export default function SessionScreen() {
           {/* File Explorer */}
           <Pressable
             onPress={() => {
-              const dir = detail?.info.github?.worktree.directory ?? detail?.info.directory ?? ""
+              const dir =
+                detail?.info.directory ??
+                detail?.info.github?.worktree.directory ??
+                detail?.info.github?.repositoryDirectory ??
+                ""
               if (!dir) return
+              const fallbackDirectory =
+                detail?.info.github?.worktree.directory && detail.info.github.worktree.directory !== dir
+                  ? detail.info.github.worktree.directory
+                  : detail?.info.github?.repositoryDirectory && detail.info.github.repositoryDirectory !== dir
+                    ? detail.info.github.repositoryDirectory
+                    : undefined
               void triggerHaptic("selection")
               router.push({
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              pathname: "/sessions/explorer" as any,
-                params: { sessionId, directory: dir },
+                pathname: "/sessions/explorer" as any,
+                params: { sessionId, directory: dir, fallbackDirectory },
               })
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Open session files"
+            accessibilityHint="Opens the file explorer for this session workspace"
             style={chromeButtonStyle}
           >
             <AdaptiveBlur
@@ -1024,6 +1173,9 @@ export default function SessionScreen() {
               void triggerHaptic("selection")
               actionsSheetRef.current?.present()
             }}
+            accessibilityRole="button"
+            accessibilityLabel="Open session actions"
+            accessibilityHint="Shows rename, export, publish, and cleanup actions"
             style={chromeButtonStyle}
           >
             <AdaptiveBlur
@@ -1095,6 +1247,7 @@ export default function SessionScreen() {
               onAbort={() => void abort()}
               onCleanup={() => void cleanup()}
             />
+            <SessionPreviewStrip previews={previews} />
             {detail?.permissions.length ? (
               <View className="mb-2">
                 {detail.permissions.map((item) => (
@@ -1125,34 +1278,10 @@ export default function SessionScreen() {
       </View>
 
       <ComposerToolbar
-        onAttach={() => void triggerHaptic("selection")}
+        onAttach={() => setAttachmentPickerOpen(true)}
         onGitPress={() => setGitReviewOpen(true)}
-        onModelSelect={(id) => {
-          if (!client || id === "default") return
-          void (async () => {
-            try {
-              const [providerID, modelID] = id.split("/")
-              await client.updateConfig({ modelID, modelProviderID: providerID })
-              void triggerHaptic("selection")
-            } catch (error) {
-              console.warn("Failed to update model:", error)
-              void triggerHaptic("error")
-            }
-          })()
-        }}
-        onMcpToggle={(name, enabled) => {
-          if (!client) return
-          void (async () => {
-            try {
-              await client.toggleMcp(name, enabled)
-              await loadPlugins()
-              void triggerHaptic("selection")
-            } catch (error) {
-              console.warn("Failed to toggle MCP:", error)
-              void triggerHaptic("error")
-            }
-          })()
-        }}
+        onModelSelect={handleModelSelect}
+        onMcpToggle={handleMcpToggle}
         modelLabel={modelLabel}
         availableModels={availableModels}
         mcpServers={mcpServers}
@@ -1180,12 +1309,27 @@ export default function SessionScreen() {
         onOpenCommands={() => setCommandPaletteOpen(true)}
         onSelectSlash={insertSlashCommand}
         onSend={() => void send()}
+        onOpenGit={() => setGitReviewOpen(true)}
         onStop={() => void abort()}
         pendingAttachments={pendingAttachments}
+        onAttach={() => setAttachmentPickerOpen(true)}
         onAddAttachment={handleAddAttachment}
         onRemoveAttachment={handleRemoveAttachment}
         modelLabel={modelLabel}
         activeMcpCount={activeMcpCount}
+        availableModels={availableModels}
+        mcpServers={mcpServers}
+        skills={drawerSkills}
+        tools={drawerTools}
+        onModelSelect={handleModelSelect}
+        onSkillSelect={insertSlashCommand}
+        onMcpToggle={handleMcpToggle}
+      />
+
+      <AttachmentPickerSheet
+        visible={attachmentPickerOpen}
+        onClose={() => setAttachmentPickerOpen(false)}
+        onFile={handlePickedAttachment}
       />
 
       <CommandPaletteSheet
@@ -1258,9 +1402,9 @@ export default function SessionScreen() {
               }
             : undefined
         }
-        onCommit={async (message, files) => {
+        onCommit={async (message, files, options) => {
           if (!client) return
-          await client.createGitCommit(message, files)
+          await client.createGitCommit(message, files, options)
         }}
         onPublish={openPublishModal}
       />
