@@ -871,9 +871,10 @@ export namespace MessageV2 {
             if (errMsg && typeof errMsg === "string") {
               return `${msg}: ${errMsg}`
             }
-          } catch {}
-
-          return `${msg}: ${e.responseBody}`
+          } catch {
+            // Non-critical: JSON parsing of error body failed, use raw response
+            log.debug("Failed to parse error body JSON", { body })
+          }
         }).trim()
 
         const metadata = e.url ? { url: e.url } : undefined

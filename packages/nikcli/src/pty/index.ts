@@ -76,7 +76,10 @@ export namespace Pty {
       for (const session of sessions.values()) {
         try {
           session.process.kill()
-        } catch {}
+        } catch {
+          // PTY may already be dead - non-critical during shutdown
+          log.debug("PTY kill failed during cleanup", { sessionId: session.info.id })
+        }
         for (const ws of session.subscribers) {
           ws.close()
         }

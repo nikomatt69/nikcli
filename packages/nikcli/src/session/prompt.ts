@@ -604,8 +604,9 @@ export namespace SessionPrompt {
         abort,
       })
 
-      const lastUserMsg = msgs.findLast((m) => m.info.role === "user")
-      const bypassAgentCheck = lastUserMsg?.parts.some((p) => p.type === "agent") ?? false
+      // SECURITY: bypassAgentCheck should ONLY be set to true for internal subtask execution
+      // Do NOT derive from user input - that would allow permission bypass
+      const bypassAgentCheck = false
 
       const tools = await resolveTools({
         agent,

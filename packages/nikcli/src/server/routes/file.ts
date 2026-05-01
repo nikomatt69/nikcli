@@ -144,6 +144,9 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
+        if (!Instance.containsPath(normalizedPath)) {
+          return c.json({ error: "Path outside worktree" }, 403)
+        }
         const content = await File.list(normalizedPath)
         return c.json(content)
       },
@@ -177,6 +180,9 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
+        if (!Instance.containsPath(normalizedPath)) {
+          return c.json({ error: "Path outside worktree" }, 403)
+        }
         const content = await File.read(normalizedPath)
         return c.json(content)
       },
@@ -233,6 +239,9 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
+        if (!Instance.containsPath(normalizedPath)) {
+          return c.json({ error: "Path outside worktree" }, 403)
+        }
         await Bun.write(normalizedPath, content)
         return c.json({ success: true })
       },

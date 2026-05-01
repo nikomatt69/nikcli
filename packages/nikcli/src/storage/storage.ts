@@ -193,7 +193,10 @@ export namespace Storage {
       using _ = await Lock.write(target)
       const content = structuredClone(await Bun.file(target).json())
       fn(content)
-      await Bun.write(target, JSON.stringify(content, null, 2))
+      // Atomic write: temp file + rename for filesystem-level atomicity
+      const tmp = target + `.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`
+      await Bun.write(tmp, JSON.stringify(content, null, 2))
+      await fs.rename(tmp, target)
       return content as T
     })
   }
@@ -203,8 +206,20 @@ export namespace Storage {
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
-      await Bun.write(target, JSON.stringify(content, null, 2))
+      // Atomic write: temp file + rename for filesystem-level atomicity
+      const tmp = target + `.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`
+      await Bun.write(tmp, JSON.stringify(content, null, 2))
+      await fs.rename(tmp, target)
     })
+  }
+
+  /**
+   * Atomic write helper for internal use
+   */
+  async function atomicWrite(filePath: string, data: string): Promise<void> {
+    const tmp = filePath + `.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`
+    await Bun.write(tmp, data)
+    await fs.rename(tmp, filePath)
   }
 
   async function withErrorHandling<T>(body: () => Promise<T>) {

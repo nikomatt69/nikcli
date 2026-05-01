@@ -19,7 +19,7 @@ import { BashArity } from "@/permission/arity"
 import { Truncate } from "./truncation"
 
 const MAX_METADATA_LENGTH = 30_000
-const DEFAULT_TIMEOUT = Flag.NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS || 2 * 60 * 1000
+const DEFAULT_TIMEOUT = Flag.NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS ?? 2 * 60 * 1000
 
 const SHELL_FILE_ARG_COMMANDS = new Set([
   "cd",
@@ -291,14 +291,16 @@ export const BashTool = Tool.define("bash", async () => {
 
       const abortHandler = () => {
         aborted = true
-        void kill()
+        // Handle rejection gracefully - process termination failures are non-critical
+        void kill().catch(() => {})
       }
 
       ctx.abort.addEventListener("abort", abortHandler, { once: true })
 
       const timeoutTimer = setTimeout(() => {
         timedOut = true
-        void kill()
+        // Handle rejection gracefully - process termination failures are non-critical
+        void kill().catch(() => {})
       }, timeout + 100)
 
       await new Promise<void>((resolve, reject) => {

@@ -212,7 +212,7 @@ export namespace UserDB {
     }
 
     if (input.password !== undefined) {
-      const hash = await Bun.password.hash(input.password, { algorithm: "bcrypt", cost: 10 })
+    const hash = await Bun.password.hash(input.password, { algorithm: "bcrypt", cost: 12 })
       updates.push("password_hash = ?")
       values.push(hash)
     }
