@@ -105,15 +105,35 @@ function sessionDeepLink(sessionID: string) {
   }
 }
 
-function compactActivityText(value: string | null | undefined, limit = 72) {
+/** Truncate for Lock Screen / Dynamic Island copy; safe to reuse for notifications. */
+export function compactActivityText(value: string | null | undefined, limit = 72) {
   if (!value) return ""
   const normalized = value.replace(/\s+/g, " ").trim()
   if (normalized.length <= limit) return normalized
   return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
-function buildPersistedActivitySnapshot(detail: SessionDetail) {
+export type SessionLiveActivitySnapshot =
+  | { mode: "upsert"; title: string; subtitle?: string; countdownTo?: number }
+  | { mode: "stop"; title: string; subtitle?: string }
+
+/**
+ * Single source of truth for Live Activity title/subtitle/countdown from session detail.
+ * Optional `publishing` / `cleaning` mirror transient UI state on the session screen.
+ */
+export function buildSessionLiveActivitySnapshot(
+  detail: SessionDetail,
+  overlays?: { publishing?: boolean; cleaning?: boolean },
+): SessionLiveActivitySnapshot | null {
   const title = compactActivityText(detail.info.title || "Nikcli session", 64)
+
+  if (overlays?.publishing) {
+    return { mode: "upsert", title, subtitle: "Publishing GitHub workflow" }
+  }
+
+  if (overlays?.cleaning) {
+    return { mode: "upsert", title, subtitle: "Cleaning GitHub worktree" }
+  }
 
   if (detail.permissions.length > 0) {
     const firstPermission = compactActivityText(detail.permissions[0]?.permission || "Approval needed", 54)
@@ -122,12 +142,12 @@ function buildPersistedActivitySnapshot(detail: SessionDetail) {
         ? `Approval needed: ${firstPermission}`
         : `${detail.permissions.length} approvals pending`
 
-    return { mode: "upsert" as const, title, subtitle }
+    return { mode: "upsert", title, subtitle }
   }
 
   if (detail.status?.type === "retry") {
     return {
-      mode: "upsert" as const,
+      mode: "upsert",
       title,
       subtitle: compactActivityText(`Retry ${detail.status.attempt}: ${detail.status.message}`, 72),
       countdownTo: detail.status.next,
@@ -139,12 +159,12 @@ function buildPersistedActivitySnapshot(detail: SessionDetail) {
       detail.info.github?.fullName || detail.info.directory || "Running session",
       72,
     )
-    return { mode: "upsert" as const, title, subtitle: workspace }
+    return { mode: "upsert", title, subtitle: workspace }
   }
 
   if (detail.status?.type === "idle") {
     const subtitle = detail.info.github?.pullRequest ? "GitHub work ready" : "Ready for next command"
-    return { mode: "stop" as const, title, subtitle }
+    return { mode: "stop", title, subtitle }
   }
 
   return null
@@ -381,7 +401,7 @@ export async function reconcilePersistedLiveActivities(
       continue
     }
 
-    const snapshot = buildPersistedActivitySnapshot(detail)
+    const snapshot = buildSessionLiveActivitySnapshot(detail)
     if (!snapshot) continue
 
     if (snapshot.mode === "upsert") {

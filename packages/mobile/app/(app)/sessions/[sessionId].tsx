@@ -29,13 +29,19 @@ import { type ComposerTab } from "@/components/session/ComposerToolDrawer"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
-import { SessionPreviewStrip, type SessionPreview } from "@/components/session/SessionPreviewStrip"
+import { SessionPreviewStrip, SessionPreviewSheet, type SessionPreview, type SessionProjectPanel } from "@/components/session/SessionPreviewStrip"
 import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { useServer } from "@/lib/server-provider"
 import { triggerHaptic } from "@/lib/haptics"
-import { sendLocalNotification, stopSessionLiveActivity, upsertSessionLiveActivity } from "@/lib/notifications"
+import {
+  buildSessionLiveActivitySnapshot,
+  compactActivityText,
+  sendLocalNotification,
+  stopSessionLiveActivity,
+  upsertSessionLiveActivity,
+} from "@/lib/notifications"
 import { enqueueOp } from "@/lib/offline"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
@@ -114,14 +120,109 @@ function messagePlainText(message: MessageWithParts) {
   return ""
 }
 
-function compactActivityText(value: string | null | undefined, limit = 72) {
-  if (!value) return ""
-  const normalized = value.replace(/\s+/g, " ").trim()
-  if (normalized.length <= limit) return normalized
-  return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
+const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`)\]}]+/gi
+
+/** Hosts that appear in chat but are never the user's running app preview. */
+const PREVIEW_HOST_BLOCK_SUFFIXES = [
+  "github.com",
+  "gist.github.com",
+  "gitlab.com",
+  "bitbucket.org",
+  "npmjs.com",
+  "yarnpkg.com",
+  "jsdelivr.net",
+  "unpkg.com",
+  "raw.githubusercontent.com",
+  "developer.mozilla.org",
+  "mdn.io",
+  "mozilla.org",
+  "stackoverflow.com",
+  "reddit.com",
+  "medium.com",
+  "wikipedia.org",
+  "google.com",
+  "youtube.com",
+  "twitter.com",
+  "x.com",
+  "react.dev",
+  "nextjs.org",
+  "expo.dev",
+]
+
+function trimPreviewRawUrl(raw: string) {
+  return raw.replace(/[.,;:]+$/, "")
 }
 
-const URL_PATTERN = /\bhttps?:\/\/[^\s<>"'`)\]}]+/gi
+function isBlockedPreviewDocumentationHost(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  return PREVIEW_HOST_BLOCK_SUFFIXES.some((suffix) => h === suffix || h.endsWith(`.${suffix}`))
+}
+
+function isLoopbackPreviewHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "")
+  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h === "::1"
+}
+
+function isPrivateOrLanPreviewHost(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  if (h.endsWith(".local")) return true
+  if (h.startsWith("10.")) return true
+  if (h.startsWith("192.168.")) return true
+  const m = /^172\.(\d+)\./.exec(h)
+  if (m) {
+    const n = Number(m[1])
+    if (n >= 16 && n <= 31) return true
+  }
+  return false
+}
+
+function serverPreviewHostname(serverUrl: string | undefined): string | null {
+  if (!serverUrl) return null
+  try {
+    return new URL(serverUrl).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** Public tunnel hostnames — dev server exposed to the device, not generic docs. */
+const PREVIEW_TUNNEL_SUFFIXES = [".exp.direct", ".ngrok.io", ".ngrok-free.app", ".loca.lt", ".localtunnel.me", ".trycloudflare.com"]
+
+function isLikelyDevPreviewTunnel(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  return PREVIEW_TUNNEL_SUFFIXES.some((suffix) => h.endsWith(suffix))
+}
+
+/**
+ * Keep only URLs that plausibly point at the app's dev server for this session:
+ * loopback in the original link, same host as the nikcli server (incl. rewritten localhost), LAN, or dev tunnels.
+ */
+function isSessionWorkspacePreviewUrl(raw: string, normalized: string, serverUrl?: string): boolean {
+  let rawParsed: URL
+  let normParsed: URL
+  try {
+    rawParsed = new URL(trimPreviewRawUrl(raw))
+    normParsed = new URL(normalized)
+  } catch {
+    return false
+  }
+
+  const rawHost = rawParsed.hostname.toLowerCase()
+  const normHost = normParsed.hostname.toLowerCase()
+
+  if (isBlockedPreviewDocumentationHost(rawHost) || isBlockedPreviewDocumentationHost(normHost)) return false
+
+  if (isLoopbackPreviewHost(rawHost)) return true
+
+  const serverHost = serverPreviewHostname(serverUrl)
+  if (serverHost && normHost === serverHost) return true
+
+  if (isPrivateOrLanPreviewHost(normHost)) return true
+
+  if (isLikelyDevPreviewTunnel(normHost)) return true
+
+  return false
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
@@ -141,7 +242,7 @@ function toolPreviewText(part: MessageWithParts["parts"][number]) {
 
 function normalizePreviewUrl(raw: string, serverUrl?: string) {
   try {
-    const url = new URL(raw.replace(/[.,;:]+$/, ""))
+    const url = new URL(trimPreviewRawUrl(raw))
     if (["localhost", "127.0.0.1", "0.0.0.0"].includes(url.hostname) && serverUrl) {
       const host = new URL(serverUrl)
       url.hostname = host.hostname
@@ -173,6 +274,7 @@ function extractSessionPreviews(messages: MessageWithParts[], serverUrl?: string
       for (const match of text.matchAll(URL_PATTERN)) {
         const url = normalizePreviewUrl(match[0], serverUrl)
         if (!url || seen.has(url)) continue
+        if (!isSessionWorkspacePreviewUrl(match[0], url, serverUrl)) continue
         seen.add(url)
         previews.push({ id: `${message.info.id}:${previews.length}`, url, source: previewSource(url) })
       }
@@ -187,52 +289,6 @@ function formatAttachmentSize(base64: string) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`
   return `${bytes} B`
-}
-
-function buildLiveActivitySnapshot(detail: SessionDetail, input: { publishing: boolean; cleaning: boolean }) {
-  const title = compactActivityText(detail.info.title || "Nikcli session", 64)
-
-  if (input.publishing) {
-    return { mode: "upsert" as const, title, subtitle: "Publishing GitHub workflow" }
-  }
-
-  if (input.cleaning) {
-    return { mode: "upsert" as const, title, subtitle: "Cleaning GitHub worktree" }
-  }
-
-  if (detail.permissions.length > 0) {
-    const firstPermission = compactActivityText(detail.permissions[0]?.permission || "Approval needed", 54)
-    const subtitle =
-      detail.permissions.length === 1
-        ? `Approval needed: ${firstPermission}`
-        : `${detail.permissions.length} approvals pending`
-
-    return { mode: "upsert" as const, title, subtitle }
-  }
-
-  if (detail.status?.type === "retry") {
-    return {
-      mode: "upsert" as const,
-      title,
-      subtitle: compactActivityText(`Retry ${detail.status.attempt}: ${detail.status.message}`, 72),
-      countdownTo: detail.status.next,
-    }
-  }
-
-  if (detail.status?.type === "busy") {
-    const workspace = compactActivityText(
-      detail.info.github?.fullName || detail.info.directory || "Running session",
-      72,
-    )
-    return { mode: "upsert" as const, title, subtitle: workspace }
-  }
-
-  if (detail.status?.type === "idle") {
-    const subtitle = detail.info.github?.pullRequest ? "GitHub work ready" : "Ready for next command"
-    return { mode: "stop" as const, title, subtitle }
-  }
-
-  return null
 }
 
 export default function SessionScreen() {
@@ -288,6 +344,7 @@ export default function SessionScreen() {
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; badge?: string }>>([])
   const [mcpServers, setMcpServers] = useState<Array<{ name: string; connected: boolean; enabled: boolean }>>([])
   const actionsSheetRef = useActionSheetRef()
+  const previewSheetRef = useActionSheetRef()
 
   const load = useCallback(async () => {
     if (!client || !sessionId) return
@@ -548,8 +605,51 @@ export default function SessionScreen() {
   const sessionBlocked = detail?.status?.type === "busy" || detail?.status?.type === "retry"
   const cleaned = Boolean(detail?.info.github?.worktree.cleanedAt)
   const sessionLocation = detail?.info.github?.fullName || detail?.info.directory || "Unknown workspace"
+
+  const openSessionExplorer = useCallback(() => {
+    if (!sessionId || !detail) return
+    const dir =
+      detail.info.directory ??
+      detail.info.github?.worktree.directory ??
+      detail.info.github?.repositoryDirectory ??
+      ""
+    if (!dir) return
+    const fallbackDirectory =
+      detail.info.github?.worktree.directory && detail.info.github.worktree.directory !== dir
+        ? detail.info.github.worktree.directory
+        : detail.info.github?.repositoryDirectory && detail.info.github.repositoryDirectory !== dir
+          ? detail.info.github.repositoryDirectory
+          : undefined
+    void triggerHaptic("selection")
+    router.push({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      pathname: "/sessions/explorer" as any,
+      params: { sessionId, directory: dir, fallbackDirectory },
+    })
+  }, [detail, sessionId])
+
+  const sessionProjectPanel = useMemo((): SessionProjectPanel | null => {
+    if (!detail) return null
+    const gh = detail.info.github
+    const workspacePrimary = gh?.fullName ?? detail.info.directory ?? "Workspace"
+    const localPath = detail.info.directory ?? gh?.worktree.directory ?? ""
+    const pathDetail = localPath && localPath !== workspacePrimary ? localPath : undefined
+    const explorerDir =
+      detail.info.directory ??
+      detail.info.github?.worktree.directory ??
+      detail.info.github?.repositoryDirectory ??
+      ""
+    return {
+      sessionTitle: detail.info.title || "Session",
+      workspacePrimary,
+      pathDetail,
+      branchLabel: gh?.worktree.branch ? `On ${gh.worktree.branch}` : undefined,
+      githubUrl: gh?.htmlUrl,
+      onBrowseWorkspace: explorerDir ? openSessionExplorer : undefined,
+    }
+  }, [detail, openSessionExplorer])
   const liveActivitySnapshot = useMemo(
-    () => (detail && sessionId ? buildLiveActivitySnapshot(detail, { publishing, cleaning }) : null),
+    () => (detail && sessionId ? buildSessionLiveActivitySnapshot(detail, { publishing, cleaning }) : null),
     [cleaning, detail, publishing, sessionId],
   )
   const preferredModel = useMemo(
@@ -1132,26 +1232,7 @@ export default function SessionScreen() {
           </View>
           {/* File Explorer */}
           <Pressable
-            onPress={() => {
-              const dir =
-                detail?.info.directory ??
-                detail?.info.github?.worktree.directory ??
-                detail?.info.github?.repositoryDirectory ??
-                ""
-              if (!dir) return
-              const fallbackDirectory =
-                detail?.info.github?.worktree.directory && detail.info.github.worktree.directory !== dir
-                  ? detail.info.github.worktree.directory
-                  : detail?.info.github?.repositoryDirectory && detail.info.github.repositoryDirectory !== dir
-                    ? detail.info.github.repositoryDirectory
-                    : undefined
-              void triggerHaptic("selection")
-              router.push({
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                pathname: "/sessions/explorer" as any,
-                params: { sessionId, directory: dir, fallbackDirectory },
-              })
-            }}
+            onPress={openSessionExplorer}
             accessibilityRole="button"
             accessibilityLabel="Open session files"
             accessibilityHint="Opens the file explorer for this session workspace"
@@ -1247,7 +1328,7 @@ export default function SessionScreen() {
               onAbort={() => void abort()}
               onCleanup={() => void cleanup()}
             />
-            <SessionPreviewStrip previews={previews} />
+            <SessionPreviewStrip previews={previews} project={sessionProjectPanel} />
             {detail?.permissions.length ? (
               <View className="mb-2">
                 {detail.permissions.map((item) => (
@@ -1377,6 +1458,17 @@ export default function SessionScreen() {
           if (sessionId) void Clipboard.setStringAsync(sessionId)
           void triggerHaptic("selection")
         }}
+        onOpenPreview={() => {
+          previewSheetRef.current?.present()
+          void triggerHaptic("selection")
+        }}
+      />
+
+      <SessionPreviewSheet
+        ref={previewSheetRef}
+        title={detail?.info.title ?? "Session"}
+        previews={previews}
+        project={sessionProjectPanel}
       />
 
       <SessionRenameSheet
