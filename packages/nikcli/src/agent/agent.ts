@@ -100,7 +100,7 @@ export namespace Agent {
     ],
     "code-reviewer": ["read", "grep", "glob", "list", "bash"],
     debugger: ["read", "grep", "glob", "list", "bash", "edit"],
-    "test-runner": ["read", "grep", "list", "bash", "edit"],
+    "test-runner": ["read", "grep", "list", "bash", "edit", "write"],
     refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"],
     flue: ["read", "write", "edit", "grep", "glob", "list", "bash", "websearch", "webfetch", "task"],
   }

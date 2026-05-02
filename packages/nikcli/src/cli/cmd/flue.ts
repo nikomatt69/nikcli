@@ -18,7 +18,7 @@ async function requireFlue() {
 }
 
 export const FlueCommand = cmd({
-  command: "flue <subcommand>",
+  command: "flue",
   describe: "manage Flue sandbox agents",
   builder: (yargs: any) =>
     yargs
@@ -51,7 +51,7 @@ export const FlueInitCommand = cmd({
     const s = prompts.spinner()
     s.start("Creating workspace directories")
 
-    for (const dir of [agentsDir, rolesDir, skillsDir]) {
+    for (const dir of [rolesDir, skillsDir]) {
       await Bun.write(path.join(dir, ".gitkeep"), "")
     }
 
@@ -61,7 +61,7 @@ export const FlueInitCommand = cmd({
 
 export const triggers = { webhook: true }
 
-export default async function ({ init, payload, env }: FlueContext) {
+export default async function ({ init, payload }: FlueContext) {
   const agent = await init({ model: 'anthropic/claude-sonnet-4-6' })
   const session = await agent.session()
   return await session.prompt(
@@ -105,7 +105,6 @@ export const FlueRunCommand = cmd({
       .option("id", {
         type: "string",
         describe: "session ID",
-        default: `run-${Date.now()}`,
       })
       .option("payload", {
         type: "string",
@@ -124,6 +123,7 @@ export const FlueRunCommand = cmd({
   async handler(args: any) {
     await requireFlue()
 
+    const id = args.id ?? `run-${Date.now()}`
     const argv: string[] = [
       "flue",
       "run",
@@ -131,7 +131,7 @@ export const FlueRunCommand = cmd({
       "--target",
       args.target ?? "node",
       "--id",
-      args.id ?? `run-${Date.now()}`,
+      id,
     ]
 
     if (args.payload) argv.push("--payload", args.payload)

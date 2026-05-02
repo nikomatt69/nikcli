@@ -18,7 +18,7 @@ import type { FlueContext } from '@flue/sdk/client'
 
 export const triggers = { webhook: true }
 
-export default async function ({ init, payload, env }: FlueContext) {
+export default async function ({ init, payload }: FlueContext) {
   const agent = await init({ model: 'anthropic/claude-sonnet-4-6' })
   const session = await agent.session()
   return await session.prompt(payload.message)
