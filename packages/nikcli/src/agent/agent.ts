@@ -606,11 +606,17 @@ Apply small, safe refactors and verify results.`,
           options: {},
           native: false,
         }
-      if (value.model) item.model = Provider.parseModel(value.model)
+      if (value.model) {
+        const parsed = Provider.parseModel(value.model)
+        if (parsed.modelID) item.model = parsed
+      }
       if (value.advisor) {
-        item.advisor = {
-          model: Provider.parseModel(value.advisor),
-          maxUses: value.advisor_max_uses,
+        const parsed = Provider.parseModel(value.advisor)
+        if (parsed.modelID) {
+          item.advisor = {
+            model: parsed,
+            maxUses: value.advisor_max_uses,
+          }
         }
       } else {
         item.advisor = undefined

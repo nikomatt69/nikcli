@@ -92,8 +92,13 @@ export namespace Config {
 
     // Inline config content has highest precedence
     if (Flag.NIKCLI_CONFIG_CONTENT) {
-      result = mergeConfigConcatArrays(result, JSON.parse(Flag.NIKCLI_CONFIG_CONTENT))
-      log.debug("loaded custom config from NIKCLI_CONFIG_CONTENT")
+      const parsed = Info.safeParse(JSON.parse(Flag.NIKCLI_CONFIG_CONTENT))
+      if (parsed.success) {
+        result = mergeConfigConcatArrays(result, parsed.data)
+        log.debug("loaded custom config from NIKCLI_CONFIG_CONTENT")
+      } else {
+        log.warn("invalid NIKCLI_CONFIG_CONTENT, ignoring", { issues: parsed.error.issues })
+      }
     }
 
     result.agent = result.agent || {}
