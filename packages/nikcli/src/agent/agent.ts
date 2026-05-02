@@ -150,6 +150,8 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
       },
       build: {
         name: "build",
+        description:
+          "Build agent focused on creating and implementing new features. Use when you have a clear feature spec and want autonomous implementation with planning support.",
         prompt: `You are a build agent focused on creating and implementing features.
 
 You are aware of the project context (directory, worktree) and can use all available tools.
@@ -168,6 +170,8 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
       },
       plan: {
         name: "plan",
+        description:
+          "Planning agent that produces structured, step-by-step implementation plans saved as Markdown. Use before a build agent when the task is complex or ambiguous.",
         prompt: `You are a planning agent for multi-step implementation strategies.
 
 You are aware of the project context (directory, worktree) and can use all available tools.

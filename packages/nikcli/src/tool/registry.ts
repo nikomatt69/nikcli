@@ -54,6 +54,8 @@ import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
+import { MultiEditTool } from "./multiedit"
+import { Voice } from "./voice"
 
 const _toolDir = import.meta.dir
 
@@ -145,6 +147,7 @@ export namespace ToolRegistry {
       GlobTool,
       GrepTool,
       EditTool,
+      MultiEditTool,
       WriteTool,
       TaskTool,
       DelegationTool,
@@ -179,6 +182,7 @@ export namespace ToolRegistry {
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
       UseConnectorTool,
       SpeakTool,
+      Voice,
       OpenTUIVizTool,
       AdvisorTool,
       DelegatorTool,
