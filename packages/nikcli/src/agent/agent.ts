@@ -19,6 +19,7 @@ import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
 import PROMPT_DELEGATOR from "./prompt/delegator.txt"
 import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
+import PROMPT_FLUE from "./prompt/flue.txt"
 
 const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 
@@ -99,8 +100,9 @@ export namespace Agent {
     ],
     "code-reviewer": ["read", "grep", "glob", "list", "bash"],
     debugger: ["read", "grep", "glob", "list", "bash", "edit"],
-    "test-runner": ["read", "grep", "list", "bash", "edit", "write"],
+    "test-runner": ["read", "grep", "list", "bash", "edit"],
     refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"],
+    flue: ["read", "write", "edit", "grep", "glob", "list", "bash", "websearch", "webfetch", "task"],
   }
 
   const state = Instance.state(async () => {
@@ -492,6 +494,23 @@ Apply small, safe refactors and verify results.`,
               [Truncate.DIR]: "allow",
               [Truncate.GLOB]: "allow",
             },
+          }),
+          user,
+        ),
+        options: {},
+        mode: "all",
+        native: true,
+      },
+      flue: {
+        name: "flue",
+        description:
+          "Flue sandbox agent — designs, scaffolds, and runs Flue framework agents. Understands the Flue workspace structure (.flue/agents/, .flue/roles/, .flue/skills/), the FlueContext API, and can build and deploy Flue agents to Node.js or Cloudflare Workers.",
+        prompt: PROMPT_FLUE,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            question: "allow",
+            plan_enter: "allow",
           }),
           user,
         ),

@@ -42,6 +42,7 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { AccountCommand } from "./cli/cmd/account"
 import { HeapCommand } from "./cli/cmd/heap"
 import { RoutineCommand } from "./cli/cmd/routine"
+import { FlueCommand } from "./cli/cmd/flue"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -130,6 +131,7 @@ const cli = yargs(hideBin(process.argv))
   .command(MobileCommand)
   .command(RoutineCommand)
   .command(PluginCommand)
+  .command(FlueCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||
