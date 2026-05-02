@@ -1,4 +1,0 @@
-Remove the local RAG index.
-
-Usage:
-- no parameters

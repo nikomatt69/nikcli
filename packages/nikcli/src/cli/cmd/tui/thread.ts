@@ -118,8 +118,13 @@ export const TuiThreadCommand = cmd({
       await client.call("reload", undefined)
     })
 
+    // Mobile (and any nikcli-managed PTY) sets NIKCLI_TERMINAL=1 in env. Bun can still report
+    // `stdin.isTTY === false` in that PTY, which would incorrectly take the "piped stdin" path
+    // below and block forever on `Bun.stdin.text()` — so the OpenTUI renderer never starts.
+    const stdinProbablyInteractive = process.stdin.isTTY || process.env.NIKCLI_TERMINAL === "1"
+
     const prompt = await iife(async () => {
-      const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined
+      const piped = stdinProbablyInteractive ? undefined : await Bun.stdin.text()
       if (!args.prompt) return piped
       return piped ? piped + "\n" + args.prompt : args.prompt
     })

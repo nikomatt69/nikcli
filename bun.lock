@@ -370,7 +370,7 @@
     },
     "packages/nikcli": {
       "name": "nikcli",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "bin": {
         "nikcli": "./bin/nikcli",
       },
@@ -544,7 +544,7 @@
     },
     "packages/script": {
       "name": "@nikcli-ai/script",
-      "version": "0.0.14",
+      "version": "1.2.0",
       "devDependencies": {
         "@types/bun": "catalog:",
       },

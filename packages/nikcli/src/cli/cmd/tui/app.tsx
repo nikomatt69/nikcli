@@ -27,7 +27,6 @@ import { SyncProvider, useSync } from "@tui/context/sync"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
-import { DialogConnectors } from "@tui/component/dialog-connectors"
 import { DialogRoutine } from "@tui/component/dialog-routine"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogUsage } from "@tui/component/dialog-usage"
@@ -639,17 +638,6 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogMcp />)
-      },
-    },
-    {
-      title: "Manage connectors",
-      value: "connectors.list",
-      category: "Integrations",
-      slash: {
-        name: "connectors",
-      },
-      onSelect: () => {
-        dialog.replace(() => <DialogConnectors />)
       },
     },
     {

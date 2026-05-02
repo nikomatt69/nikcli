@@ -2,6 +2,7 @@
 import { $ } from "bun"
 import pkg from "../package.json"
 import { Script } from "@nikcli-ai/script"
+import path from "node:path"
 import { fileURLToPath } from "url"
 
 const dir = fileURLToPath(new URL("..", import.meta.url))
@@ -83,12 +84,14 @@ for (const tag of tags) {
 }
 
 if (!Script.preview) {
-  // Create archives for GitHub release
+  // Same layout as historical GH assets (e.g. 0.0.11): archive root is <triplet>/bin/nikcli (installer fallback path).
+  const distDir = path.join(dir, "dist")
   for (const key of Object.keys(binaries)) {
     if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
+      await $`tar -czf ${key}.tar.gz ${key}`.cwd(distDir)
     } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
+      const zipPath = path.join(distDir, `${key}.zip`)
+      await $`zip -rq ${zipPath} ${key}`.cwd(distDir)
     }
   }
 

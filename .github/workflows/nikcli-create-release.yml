@@ -52,10 +52,10 @@ jobs:
           for src in "$DIST"/*/; do
             name=$(basename "$src")
             if echo "$name" | grep -q "linux"; then
-              tar -czf "${DIST}/${name}.tar.gz" -C "$src" .
+              tar -czf "${DIST}/${name}.tar.gz" -C "$DIST" "$name"
               echo "created: ${name}.tar.gz"
             elif echo "$name" | grep -qE "windows|darwin"; then
-              (cd "$src" && zip -r "${DIST}/${name}.zip" .)
+              (cd "$DIST" && zip -rq "${name}.zip" "$name")
               echo "created: ${name}.zip"
             fi
           done

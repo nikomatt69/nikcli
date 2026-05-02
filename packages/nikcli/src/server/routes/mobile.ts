@@ -1135,7 +1135,7 @@ export const MobileRoutes = lazy(() =>
         summary: "Persist GitHub OAuth client ID for mobile",
         description:
           "Save the GitHub OAuth client ID in the global host config so device sign-in remains available across projects and app restarts.",
-        operationId: "mobile.github.oauth.client.set",
+        operationId: "mobile.github.oauth.clientId.set",
         responses: {
           200: {
             description: "Updated host configuration",

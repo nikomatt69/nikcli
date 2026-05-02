@@ -2797,6 +2797,7 @@ export type MobileBootstrap = {
   }
   github: {
     connected: boolean
+    tokenAvailable?: boolean
     oauthDeviceEnabled: boolean
     oauthDeviceConfigured?: boolean
     oauthClientSource?: "flag" | "config" | "env"
@@ -6097,6 +6098,38 @@ export type MobileGithubImportsResponses = {
 
 export type MobileGithubImportsResponse = MobileGithubImportsResponses[keyof MobileGithubImportsResponses]
 
+export type MobileGithubOauthClientIdSetData = {
+  body?: {
+    clientId: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/github/oauth/client"
+}
+
+export type MobileGithubOauthClientIdSetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileGithubOauthClientIdSetError =
+  MobileGithubOauthClientIdSetErrors[keyof MobileGithubOauthClientIdSetErrors]
+
+export type MobileGithubOauthClientIdSetResponses = {
+  /**
+   * Updated host configuration
+   */
+  200: Config
+}
+
+export type MobileGithubOauthClientIdSetResponse =
+  MobileGithubOauthClientIdSetResponses[keyof MobileGithubOauthClientIdSetResponses]
+
 export type MobileGithubOauthDeviceStartData = {
   body?: never
   path?: never
@@ -6811,6 +6844,7 @@ export type MobileGitDiffData = {
     directory?: string
     workspace?: string
     file?: string
+    staged?: "true" | "false"
   }
   url: "/mobile/git/diff"
 }
@@ -6905,6 +6939,7 @@ export type MobileGitCommitData = {
     message: string
     files?: Array<string>
     amend?: boolean
+    stagedOnly?: boolean
   }
   path?: never
   query?: {

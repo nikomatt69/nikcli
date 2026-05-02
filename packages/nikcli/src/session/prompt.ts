@@ -661,7 +661,6 @@ export namespace SessionPrompt {
       const system = [
         ...(await SystemPrompt.environment()),
         ...(await SystemPrompt.custom()),
-        ...(await SystemPrompt.docs()),
       ]
       const format: MessageV2.OutputFormat = lastUser.format ?? { type: "text" }
       if (format.type === "json_schema") {

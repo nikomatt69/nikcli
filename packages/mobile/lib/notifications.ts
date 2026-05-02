@@ -187,6 +187,64 @@ function buildLiveActivityState(input: {
   }
 }
 
+type LiveActivityStartTone = "attention" | "countdown" | "editorial" | "work"
+
+function deriveLiveActivityStartTone(payload: {
+  subtitle?: string
+  countdownTo?: number
+  progress?: number
+}): LiveActivityStartTone {
+  if (typeof payload.countdownTo === "number") return "countdown"
+  const raw = (payload.subtitle ?? "").trim()
+  const lower = raw.toLowerCase()
+  if (lower.startsWith("approval needed:")) return "attention"
+  if (/^\d+\s+approvals?\s+pending\.?$/i.test(raw)) return "attention"
+  if (lower === "publishing github workflow" || lower === "cleaning github worktree") return "editorial"
+  return "work"
+}
+
+/** Cosmetic attributes baked in at Activity request time (updates keep the frozen palette until the Activity ends). */
+const LIVE_ACTIVITY_PRESENTATION: Record<
+  LiveActivityStartTone,
+  Pick<
+    LiveActivity.LiveActivityConfig,
+    | "backgroundColor"
+    | "titleColor"
+    | "subtitleColor"
+    | "progressViewTint"
+    | "progressViewLabelColor"
+  >
+> = {
+  attention: {
+    backgroundColor: "#29140f",
+    titleColor: "#fff5eb",
+    subtitleColor: "#ffc48a",
+    progressViewTint: "#fb923c",
+    progressViewLabelColor: "#fff1dc",
+  },
+  countdown: {
+    backgroundColor: "#0f172a",
+    titleColor: "#f8fafc",
+    subtitleColor: "#7dd3fc",
+    progressViewTint: "#38bdf8",
+    progressViewLabelColor: "#e0f2fe",
+  },
+  editorial: {
+    backgroundColor: "#141927",
+    titleColor: "#f4f6ff",
+    subtitleColor: "#a7b9da",
+    progressViewTint: "#818cf8",
+    progressViewLabelColor: "#e3e9ff",
+  },
+  work: {
+    backgroundColor: "#071816",
+    titleColor: "#ecfeff",
+    subtitleColor: "#5eead4",
+    progressViewTint: "#2dd4bf",
+    progressViewLabelColor: "#ccfbf1",
+  },
+}
+
 function bindLiveActivityListener() {
   if (liveActivityListenerBound || !canManageLiveActivities()) return
 
@@ -321,14 +379,26 @@ export async function upsertSessionLiveActivity(input: {
   bindLiveActivityListener()
   if (!canManageLiveActivities()) return false
 
+  const tone = deriveLiveActivityStartTone({
+    subtitle: input.subtitle,
+    countdownTo: input.countdownTo,
+    progress: input.progress,
+  })
+  const presentation = LIVE_ACTIVITY_PRESENTATION[tone]
+
   const state = buildLiveActivityState(input)
-  const signature = JSON.stringify(state)
+  const signaturePayload = {
+    tone,
+    state,
+  }
+  const signature = JSON.stringify(signaturePayload)
   if (liveActivitySignatures.get(input.sessionID) === signature) return true
 
   const activityID = liveActivityIDs.get(input.sessionID)
   const config: LiveActivity.LiveActivityConfig = {
     deepLinkUrl: sessionDeepLink(input.sessionID),
     timerType: "digital",
+    ...presentation,
   }
 
   if (activityID) {

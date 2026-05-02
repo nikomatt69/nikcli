@@ -1,4 +1,0 @@
-Show the current documentation context.
-
-Usage:
-- full: include full documentation content

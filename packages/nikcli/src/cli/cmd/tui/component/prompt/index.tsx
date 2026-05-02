@@ -46,7 +46,6 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
-import { DialogRagModel } from "../dialog-rag-model"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
@@ -1330,15 +1329,6 @@ export function Prompt(props: PromptProps) {
       slash: { name: "theme-create" },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogThemeCreate />)
-      },
-    },
-    {
-      title: "RAG Embedding Models",
-      value: "rag-model",
-      category: "Config",
-      slash: { name: "rag-models", aliases: ["rag-model"] },
-      onSelect: (dialog) => {
-        dialog.replace(() => <DialogRagModel />)
       },
     },
     {

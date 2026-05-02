@@ -6,8 +6,6 @@ import { buildNotes, getLatestRelease } from "./changelog"
 import path from "path"
 import fs from "fs"
 
-const bump = process.argv[2] || "patch"
-
 console.log("=== creating github release ===\n")
 
 const previous = await getLatestRelease()
@@ -24,24 +22,22 @@ const dirs = fs
   .map((dirent) => dirent.name)
 
 for (const name of dirs) {
-  const sourcePath = path.join(distPath, name)
-
   // Determine OS from folder name
   const isLinux = name.includes("linux")
   const isWindows = name.includes("windows")
   const isMacOS = name.includes("darwin")
 
-  // Create tar.gz for Linux only
+  // Create tar.gz for Linux only — `<triplet>/bin/…` at archive root (matches install.sh + releases like 0.0.11)
   if (isLinux) {
     const tarPath = path.join(distPath, `${name}.tar.gz`)
-    await $`tar -czf ${tarPath} -C ${sourcePath} .`
+    await $`tar -czf ${tarPath} -C ${distPath} ${name}`
     console.log(`created: ${name}.tar.gz`)
   }
 
   // Create zip for Windows and macOS
   if (isWindows || isMacOS) {
     const zipPath = path.join(distPath, `${name}.zip`)
-    await $`cd ${sourcePath} && zip -r ${zipPath} .`
+    await $`zip -rq ${zipPath} ${name}`.cwd(distPath)
     console.log(`created: ${name}.zip`)
   }
 }
