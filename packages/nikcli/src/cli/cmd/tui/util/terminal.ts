@@ -2,6 +2,24 @@ import { RGBA } from "@opentui/core"
 
 export namespace Terminal {
   export type Colors = Awaited<ReturnType<typeof colors>>
+
+  // Whether this terminal is likely to respond to OSC escape sequence queries.
+  // SSH sessions, Mosh, Termux, and other mobile/headless terminals typically
+  // don't forward OSC responses back to the process, so we skip the query
+  // and immediately return the dark-mode default to avoid a guaranteed timeout.
+  function supportsOSCQuery(): boolean {
+    if (!process.stdin.isTTY) return false
+    // SSH sessions: skip unless the client advertises truecolor support
+    if ((process.env.SSH_CLIENT || process.env.SSH_TTY) && !process.env.COLORTERM) return false
+    return true
+  }
+
+  let _cachedColors: Promise<{
+    background: RGBA | null
+    foreground: RGBA | null
+    colors: RGBA[]
+  }> | undefined
+
   /**
    * Query terminal colors including background, foreground, and palette (0-15).
    * Uses OSC escape sequences to retrieve actual terminal color values.
@@ -12,12 +30,22 @@ export namespace Terminal {
    * Returns an object with background, foreground, and colors array.
    * Any query that fails will be null/empty.
    */
-  export async function colors(): Promise<{
+  export function colors(): Promise<{
     background: RGBA | null
     foreground: RGBA | null
     colors: RGBA[]
   }> {
-    if (!process.stdin.isTTY) return { background: null, foreground: null, colors: [] }
+    if (_cachedColors) return _cachedColors
+    _cachedColors = queryColors()
+    return _cachedColors
+  }
+
+  function queryColors(): Promise<{
+    background: RGBA | null
+    foreground: RGBA | null
+    colors: RGBA[]
+  }> {
+    if (!supportsOSCQuery()) return Promise.resolve({ background: null, foreground: null, colors: [] })
 
     return new Promise((resolve) => {
       let background: RGBA | null = null
@@ -93,10 +121,12 @@ export namespace Terminal {
         process.stdout.write(`\x1b]4;${i};?\x07`)
       }
 
+      // 150ms is enough for any local terminal emulator; SSH/mobile terminals
+      // are already skipped above, so we never burn this timeout for them.
       timeout = setTimeout(() => {
         cleanup()
         resolve({ background, foreground, colors: paletteColors })
-      }, 1000)
+      }, 150)
     })
   }
 

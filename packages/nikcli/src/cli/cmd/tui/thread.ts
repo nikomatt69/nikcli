@@ -9,6 +9,8 @@ import { Log } from "@/util/log"
 import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
 import type { Event } from "@nikcli-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
+import { TuiConfig } from "@/config/tui"
+import { Instance } from "@/project/instance"
 
 declare global {
   const NIKCLI_WORKER_PATH: string
@@ -149,10 +151,18 @@ export const TuiThreadCommand = cmd({
       events = createEventSource(client)
     }
 
+    // Pre-load TuiConfig here so the TUI itself starts immediately without
+    // waiting on config I/O inside the render function.
+    const config = await Instance.provide({
+      directory: cwd,
+      fn: () => TuiConfig.get(),
+    }).catch(() => ({}) as TuiConfig.Info)
+
     const tuiPromise = tui({
       url,
       fetch: customFetch,
       events,
+      config,
       args: {
         continue: args.continue,
         sessionID: args.session,

@@ -1,4 +1,5 @@
 import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { createCliRenderer, type CliRendererConfig } from "@opentui/core"
 import { Clipboard } from "@tui/util/clipboard"
 import * as Sound from "@tui/util/sound"
 import { RouteProvider, useRoute } from "@tui/context/route"
@@ -72,6 +73,7 @@ import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
 import { StartupLoading } from "./component/startup-loading"
 import { initBrainScheduler } from "@/brain/scheduler"
+import { TuiConfigProvider, useTuiConfig } from "@tui/context/tui-config"
 import { BRAIN_SESSION_TITLE } from "@/brain"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { UserDB } from "@/db/users"
@@ -79,163 +81,124 @@ import { DialogLogin } from "@tui/component/dialog-login"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 
-async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
-  // can't set raw mode if not a TTY
-  if (!process.stdin.isTTY) return "dark"
-
-  return new Promise((resolve) => {
-    let timeout: NodeJS.Timeout
-
-    const cleanup = () => {
-      process.stdin.setRawMode(false)
-      process.stdin.removeListener("data", handler)
-      clearTimeout(timeout)
-    }
-
-    const handler = (data: Buffer) => {
-      const str = data.toString()
-      const match = str.match(/\x1b]11;([^\x07\x1b]+)/)
-      if (match) {
-        cleanup()
-        const color = match[1]
-        // Parse RGB values from color string
-        // Formats: rgb:RR/GG/BB or #RRGGBB or rgb(R,G,B)
-        let r = 0,
-          g = 0,
-          b = 0
-
-        if (color.startsWith("rgb:")) {
-          const parts = color.substring(4).split("/")
-          r = parseInt(parts[0], 16) >> 8 // Convert 16-bit to 8-bit
-          g = parseInt(parts[1], 16) >> 8 // Convert 16-bit to 8-bit
-          b = parseInt(parts[2], 16) >> 8 // Convert 16-bit to 8-bit
-        } else if (color.startsWith("#")) {
-          r = parseInt(color.substring(1, 3), 16)
-          g = parseInt(color.substring(3, 5), 16)
-          b = parseInt(color.substring(5, 7), 16)
-        } else if (color.startsWith("rgb(")) {
-          const parts = color.substring(4, color.length - 1).split(",")
-          r = parseInt(parts[0])
-          g = parseInt(parts[1])
-          b = parseInt(parts[2])
-        }
-
-        // Calculate luminance using relative luminance formula
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-        // Determine if dark or light based on luminance threshold
-        resolve(luminance > 0.5 ? "light" : "dark")
-      }
-    }
-
-    process.stdin.setRawMode(true)
-    process.stdin.on("data", handler)
-    process.stdout.write("\x1b]11;?\x07")
-
-    timeout = setTimeout(() => {
-      cleanup()
-      resolve("dark")
-    }, 1000)
-  })
-}
-
 import type { EventSource } from "./context/sdk"
 
-export function tui(input: {
+function rendererConfig(config: TuiConfig.Info): CliRendererConfig {
+  const mouseEnabled = !Flag.NIKCLI_DISABLE_MOUSE && (config.mouse ?? true)
+  return {
+    externalOutputMode: "passthrough",
+    targetFps: 60,
+    gatherStats: false,
+    exitOnCtrlC: false,
+    useKittyKeyboard: {},
+    autoFocus: false,
+    openConsoleOnError: false,
+    useMouse: mouseEnabled,
+    consoleOptions: {
+      keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
+      onCopySelection: (text) => {
+        Clipboard.copy(text).catch((error) => {
+          console.error(`Failed to copy console selection to clipboard: ${error}`)
+        })
+      },
+    },
+  }
+}
+
+export async function tui(input: {
   url: string
   args: Args
+  config: TuiConfig.Info
   directory?: string
   fetch?: typeof fetch
   events?: EventSource
   onExit?: () => Promise<void>
   startServer?: () => Promise<string>
 }) {
-  // promise to prevent immediate exit
-  return new Promise<void>(async (resolve) => {
-    const mode = await getTerminalBackgroundColor()
-    const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
-    const onExit = async () => {
-      await input.onExit?.()
-      resolve()
-    }
+  const onExit = async () => {
+    await input.onExit?.()
+  }
 
-    render(
-      () => {
-        return (
-          <ErrorBoundary
-            fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
-          >
-            <ArgsProvider {...input.args}>
-              <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()}>
-                <ServerProvider startServer={input.startServer}>
-                  <KVProvider>
-                    <ToastProvider>
-                      <RouteProvider>
-                        <SDKProvider
-                          url={input.url}
-                          directory={input.directory}
-                          fetch={input.fetch}
-                          events={input.events}
-                        >
-                          <ProjectProvider>
-                            <SyncProvider>
-                              <ThemeProvider mode={mode}>
-                                <LocalProvider>
-                                  <KeybindProvider>
-                                    <PromptStashProvider>
-                                      <DialogProvider>
-                                        <CommandProvider>
-                                          <FrecencyProvider>
-                                            <PromptHistoryProvider>
-                                              <EditorContextProvider>
-                                                <PromptRefProvider>
-                                                  <App />
-                                                </PromptRefProvider>
-                                              </EditorContextProvider>
-                                            </PromptHistoryProvider>
-                                          </FrecencyProvider>
-                                        </CommandProvider>
-                                      </DialogProvider>
-                                    </PromptStashProvider>
-                                  </KeybindProvider>
-                                </LocalProvider>
-                              </ThemeProvider>
-                            </SyncProvider>
-                          </ProjectProvider>
-                        </SDKProvider>
-                      </RouteProvider>
-                    </ToastProvider>
-                  </KVProvider>
-                </ServerProvider>
-              </ExitProvider>
-            </ArgsProvider>
-          </ErrorBoundary>
-        )
-      },
-      {
-        targetFps: 45,
-        gatherStats: false,
-        exitOnCtrlC: false,
-        useKittyKeyboard: {},
-        useMouse: tuiCfg.mouse ?? true,
-        consoleOptions: {
-          keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
-          onCopySelection: (text) => {
-            Clipboard.copy(text).catch((error) => {
-              console.error(`Failed to copy console selection to clipboard: ${error}`)
-            })
-          },
-        },
-      },
+  const onBeforeExit = async () => {
+    await TuiPluginRuntime.dispose()
+  }
+
+  // createCliRenderer handles all terminal capability detection internally,
+  // including palette queries and theme-mode detection via OSC sequences.
+  // This is faster than the old custom OSC hack and works correctly in SSH
+  // and mobile terminals that don't support OSC queries.
+  const renderer = await createCliRenderer(rendererConfig(input.config))
+
+  // Prewarm palette before ThemeProvider mounts to avoid a first-paint fallback flash.
+  void renderer.getPalette({ size: 16 }).catch(() => undefined)
+
+  // waitForThemeMode queries the terminal's background color via OSC 11.
+  // On SSH/mobile terminals that don't respond it returns null after 1000ms.
+  const mode = (await renderer.waitForThemeMode(1000)) ?? "dark"
+
+  await render(() => {
+    return (
+      <ErrorBoundary
+        fallback={(error, reset) => (
+          <ErrorComponent error={error} reset={reset} onBeforeExit={onBeforeExit} onExit={onExit} mode={mode} />
+        )}
+      >
+        <ArgsProvider {...input.args}>
+          <ExitProvider onExit={onExit} onBeforeExit={onBeforeExit}>
+            <ServerProvider startServer={input.startServer}>
+              <KVProvider>
+                <ToastProvider>
+                  <RouteProvider>
+                    <TuiConfigProvider config={input.config}>
+                      <SDKProvider
+                        url={input.url}
+                        directory={input.directory}
+                        fetch={input.fetch}
+                        events={input.events}
+                      >
+                        <ProjectProvider>
+                          <SyncProvider>
+                            <ThemeProvider mode={mode}>
+                              <LocalProvider>
+                                <KeybindProvider>
+                                  <PromptStashProvider>
+                                    <DialogProvider>
+                                      <CommandProvider>
+                                        <FrecencyProvider>
+                                          <PromptHistoryProvider>
+                                            <EditorContextProvider>
+                                              <PromptRefProvider>
+                                                <App />
+                                              </PromptRefProvider>
+                                            </EditorContextProvider>
+                                          </PromptHistoryProvider>
+                                        </FrecencyProvider>
+                                      </CommandProvider>
+                                    </DialogProvider>
+                                  </PromptStashProvider>
+                                </KeybindProvider>
+                              </LocalProvider>
+                            </ThemeProvider>
+                          </SyncProvider>
+                        </ProjectProvider>
+                      </SDKProvider>
+                    </TuiConfigProvider>
+                  </RouteProvider>
+                </ToastProvider>
+              </KVProvider>
+            </ServerProvider>
+          </ExitProvider>
+        </ArgsProvider>
+      </ErrorBoundary>
     )
-  })
+  }, renderer)
 }
 
 function App() {
+  const tuiConfig = useTuiConfig()
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
-  renderer.externalOutputMode = "passthrough"
   const dialog = useDialog()
   const local = useLocal()
   const kv = useKV()
@@ -255,39 +218,45 @@ function App() {
   const bump = () => setPluginRouteKey((k) => k + 1)
   const [pluginsReady, setPluginsReady] = createSignal(false)
 
+  // Start plugin init immediately (not deferred to onMount) so it runs as
+  // soon as the component tree is active — matching opencode's startup pattern.
+  const api = createTuiApi({
+    command,
+    tuiConfig,
+    dialog,
+    keybind,
+    kv,
+    route,
+    routes,
+    bump,
+    sdk,
+    sync,
+    theme: themeCtx,
+    toast,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    renderer: renderer as any,
+  })
+
+  // initBrainScheduler registers a background hourly task — non-blocking.
+  initBrainScheduler()
+
+  TuiPluginRuntime.init(api)
+    .catch((error) => {
+      console.error("Failed to load TUI plugins", error)
+    })
+    .finally(() => {
+      setPluginsReady(true)
+    })
+
   onMount(() => {
+    // Check user session after first render so the login dialog doesn't
+    // block the TUI from appearing on screen.
     void (async () => {
       const storedToken = UserDB.getActiveSessionSync()
       const validUser = storedToken ? UserDB.verifySession(storedToken) : null
       if (!validUser) {
         await DialogLogin.run(dialog)
       }
-
-      const tuiConfig = await Instance.provide({
-        directory: sdk.directory || process.cwd(),
-        fn: async () => {
-          initBrainScheduler()
-          return TuiConfig.get()
-        },
-      })
-      const api = createTuiApi({
-        command,
-        tuiConfig,
-        dialog,
-        keybind,
-        kv,
-        route,
-        routes,
-        bump,
-        sdk,
-        sync,
-        theme: themeCtx,
-        toast,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        renderer: renderer as any,
-      })
-      await TuiPluginRuntime.init(api)
-      setPluginsReady(true)
     })()
   })
 
