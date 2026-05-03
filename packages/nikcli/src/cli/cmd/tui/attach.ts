@@ -1,5 +1,7 @@
 import { cmd } from "../cmd"
 import { tui } from "./app"
+import { TuiConfig } from "@/config/tui"
+import { Instance } from "@/project/instance"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
@@ -22,10 +24,16 @@ export const AttachCommand = cmd({
       }),
   handler: async (args) => {
     if (args.dir) process.chdir(args.dir)
+    const cwd = process.cwd()
+    const config = await Instance.provide({
+      directory: cwd,
+      fn: () => TuiConfig.get(),
+    }).catch(() => ({}) as TuiConfig.Info)
     await tui({
       url: args.url,
       args: { sessionID: args.session },
-      directory: args.dir ? process.cwd() : undefined,
+      config,
+      directory: args.dir ? cwd : undefined,
     })
   },
 })
