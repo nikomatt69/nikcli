@@ -1,0 +1,802 @@
+[
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323642695,
+    "date": "2026-04-27T21:00:42.695Z",
+    "iterations": 1000000,
+    "totalMs": 2.690458000000035,
+    "perOpMs": 0.000002690458000000035,
+    "opsPerSec": 371683928.9072667
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323642709,
+    "date": "2026-04-27T21:00:42.709Z",
+    "iterations": 200000,
+    "totalMs": 3.040124999999989,
+    "perOpMs": 0.000015200624999999946,
+    "opsPerSec": 65786768.63615829
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323682661,
+    "date": "2026-04-27T21:01:22.661Z",
+    "iterations": 1000000,
+    "totalMs": 3.368167000000085,
+    "perOpMs": 0.000003368167000000085,
+    "opsPerSec": 296897392.55802184
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323682664,
+    "date": "2026-04-27T21:01:22.664Z",
+    "iterations": 200000,
+    "totalMs": 2.3662500000000364,
+    "perOpMs": 0.000011831250000000183,
+    "opsPerSec": 84521922.87374407
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323701732,
+    "date": "2026-04-27T21:01:41.732Z",
+    "iterations": 1000000,
+    "totalMs": 3.314041999999972,
+    "perOpMs": 0.0000033140419999999723,
+    "opsPerSec": 301746326.6910946
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323701735,
+    "date": "2026-04-27T21:01:41.735Z",
+    "iterations": 200000,
+    "totalMs": 2.362707999999998,
+    "perOpMs": 0.000011813539999999989,
+    "opsPerSec": 84648631.99345843
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323726890,
+    "date": "2026-04-27T21:02:06.890Z",
+    "iterations": 1000000,
+    "totalMs": 3.4106659999997646,
+    "perOpMs": 0.0000034106659999997647,
+    "opsPerSec": 293197868.0996817
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323726896,
+    "date": "2026-04-27T21:02:06.896Z",
+    "iterations": 200000,
+    "totalMs": 5.589041999999608,
+    "perOpMs": 0.00002794520999999804,
+    "opsPerSec": 35784307.93685465
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323756419,
+    "date": "2026-04-27T21:02:36.419Z",
+    "iterations": 1000000,
+    "totalMs": 4.159082999998645,
+    "perOpMs": 0.0000041590829999986455,
+    "opsPerSec": 240437615.6956535
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323756424,
+    "date": "2026-04-27T21:02:36.424Z",
+    "iterations": 200000,
+    "totalMs": 3.3106670000015583,
+    "perOpMs": 0.00001655333500000779,
+    "opsPerSec": 60410787.31261884
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323765971,
+    "date": "2026-04-27T21:02:45.971Z",
+    "iterations": 1000000,
+    "totalMs": 3.3087500000001455,
+    "perOpMs": 0.0000033087500000001456,
+    "opsPerSec": 302228938.4208405
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323765975,
+    "date": "2026-04-27T21:02:45.975Z",
+    "iterations": 200000,
+    "totalMs": 2.5538329999999405,
+    "perOpMs": 0.000012769164999999702,
+    "opsPerSec": 78313656.37455726
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323781631,
+    "date": "2026-04-27T21:03:01.631Z",
+    "iterations": 1000000,
+    "totalMs": 3.988459000000148,
+    "perOpMs": 0.000003988459000000148,
+    "opsPerSec": 250723399.68894324
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323781636,
+    "date": "2026-04-27T21:03:01.636Z",
+    "iterations": 200000,
+    "totalMs": 3.653374999999869,
+    "perOpMs": 0.000018266874999999344,
+    "opsPerSec": 54743901.18726032
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323806339,
+    "date": "2026-04-27T21:03:26.339Z",
+    "iterations": 1000000,
+    "totalMs": 3.373875000001135,
+    "perOpMs": 0.000003373875000001135,
+    "opsPerSec": 296395094.66108364
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323806345,
+    "date": "2026-04-27T21:03:26.345Z",
+    "iterations": 200000,
+    "totalMs": 4.6325419999993755,
+    "perOpMs": 0.000023162709999996878,
+    "opsPerSec": 43172841.17446252
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323830952,
+    "date": "2026-04-27T21:03:50.952Z",
+    "iterations": 1000000,
+    "totalMs": 5.808209000002535,
+    "perOpMs": 0.0000058082090000025345,
+    "opsPerSec": 172170113.02443898
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323830958,
+    "date": "2026-04-27T21:03:50.958Z",
+    "iterations": 200000,
+    "totalMs": 3.906417000001966,
+    "perOpMs": 0.00001953208500000983,
+    "opsPerSec": 51197811.19115019
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323845122,
+    "date": "2026-04-27T21:04:05.122Z",
+    "iterations": 1000000,
+    "totalMs": 3.624416000000565,
+    "perOpMs": 0.000003624416000000565,
+    "opsPerSec": 275906518.4569994
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323845126,
+    "date": "2026-04-27T21:04:05.126Z",
+    "iterations": 200000,
+    "totalMs": 2.72400000000016,
+    "perOpMs": 0.0000136200000000008,
+    "opsPerSec": 73421439.06020127
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323868662,
+    "date": "2026-04-27T21:04:28.662Z",
+    "iterations": 1000000,
+    "totalMs": 4.31170800000109,
+    "perOpMs": 0.00000431170800000109,
+    "opsPerSec": 231926651.8047482
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323868666,
+    "date": "2026-04-27T21:04:28.666Z",
+    "iterations": 200000,
+    "totalMs": 3.1003749999999854,
+    "perOpMs": 0.00001550187499999993,
+    "opsPerSec": 64508325.6057738
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323887263,
+    "date": "2026-04-27T21:04:47.263Z",
+    "iterations": 1000000,
+    "totalMs": 6.510749999999462,
+    "perOpMs": 0.000006510749999999462,
+    "opsPerSec": 153592136.08264527
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323887269,
+    "date": "2026-04-27T21:04:47.269Z",
+    "iterations": 200000,
+    "totalMs": 4.300792000000001,
+    "perOpMs": 0.000021503960000000007,
+    "opsPerSec": 46503062.69170886
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323891626,
+    "date": "2026-04-27T21:04:51.626Z",
+    "iterations": 1000000,
+    "totalMs": 4.244082999999591,
+    "perOpMs": 0.000004244082999999592,
+    "opsPerSec": 235622159.1331028
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323891630,
+    "date": "2026-04-27T21:04:51.630Z",
+    "iterations": 200000,
+    "totalMs": 2.7951670000002196,
+    "perOpMs": 0.000013975835000001098,
+    "opsPerSec": 71552075.42160605
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323911872,
+    "date": "2026-04-27T21:05:11.872Z",
+    "iterations": 1000000,
+    "totalMs": 3.3084579999995185,
+    "perOpMs": 0.0000033084579999995183,
+    "opsPerSec": 302255612.7356447
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323911876,
+    "date": "2026-04-27T21:05:11.876Z",
+    "iterations": 200000,
+    "totalMs": 2.799457999999504,
+    "perOpMs": 0.00001399728999999752,
+    "opsPerSec": 71442400.63613579
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323932578,
+    "date": "2026-04-27T21:05:32.578Z",
+    "iterations": 1000000,
+    "totalMs": 3.665166999999201,
+    "perOpMs": 0.000003665166999999201,
+    "opsPerSec": 272838863.82263565
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323932584,
+    "date": "2026-04-27T21:05:32.584Z",
+    "iterations": 200000,
+    "totalMs": 3.2059169999993173,
+    "perOpMs": 0.000016029584999996587,
+    "opsPerSec": 62384646.88887534
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323952769,
+    "date": "2026-04-27T21:05:52.769Z",
+    "iterations": 1000000,
+    "totalMs": 4.002249999999549,
+    "perOpMs": 0.000004002249999999549,
+    "opsPerSec": 249859454.05712104
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323952772,
+    "date": "2026-04-27T21:05:52.772Z",
+    "iterations": 200000,
+    "totalMs": 2.54620900000009,
+    "perOpMs": 0.00001273104500000045,
+    "opsPerSec": 78548147.46157639
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323976257,
+    "date": "2026-04-27T21:06:16.257Z",
+    "iterations": 1000000,
+    "totalMs": 3.5370830000010756,
+    "perOpMs": 0.0000035370830000010755,
+    "opsPerSec": 282718839.2242127
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323976262,
+    "date": "2026-04-27T21:06:16.262Z",
+    "iterations": 200000,
+    "totalMs": 4.182042000000365,
+    "perOpMs": 0.000020910210000001825,
+    "opsPerSec": 47823527.35816201
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777323998958,
+    "date": "2026-04-27T21:06:38.958Z",
+    "iterations": 1000000,
+    "totalMs": 3.6906660000004194,
+    "perOpMs": 0.0000036906660000004193,
+    "opsPerSec": 270953806.1693706
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777323998964,
+    "date": "2026-04-27T21:06:38.964Z",
+    "iterations": 200000,
+    "totalMs": 4.724416999999448,
+    "perOpMs": 0.000023622084999997243,
+    "opsPerSec": 42333265.67066865
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777324950554,
+    "date": "2026-04-27T21:22:30.554Z",
+    "iterations": 1000000,
+    "totalMs": 3.621167000001151,
+    "perOpMs": 0.000003621167000001151,
+    "opsPerSec": 276154068.5639967
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777324950559,
+    "date": "2026-04-27T21:22:30.559Z",
+    "iterations": 200000,
+    "totalMs": 3.495042000002286,
+    "perOpMs": 0.00001747521000001143,
+    "opsPerSec": 57223918.91138052
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777325168046,
+    "date": "2026-04-27T21:26:08.046Z",
+    "iterations": 1000000,
+    "totalMs": 3.8568750000013097,
+    "perOpMs": 0.00000385687500000131,
+    "opsPerSec": 259277264.62477016
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777325168050,
+    "date": "2026-04-27T21:26:08.050Z",
+    "iterations": 200000,
+    "totalMs": 2.88550000000032,
+    "perOpMs": 0.000014427500000001601,
+    "opsPerSec": 69312077.62951925
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777325803380,
+    "date": "2026-04-27T21:36:43.380Z",
+    "iterations": 1000000,
+    "totalMs": 3.42333299999882,
+    "perOpMs": 0.00000342333299999882,
+    "opsPerSec": 292112978.78422713
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777325803384,
+    "date": "2026-04-27T21:36:43.384Z",
+    "iterations": 200000,
+    "totalMs": 2.6815409999981057,
+    "perOpMs": 0.00001340770499999053,
+    "opsPerSec": 74583979.88326164
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777325891998,
+    "date": "2026-04-27T21:38:11.998Z",
+    "iterations": 1000000,
+    "totalMs": 3.4506670000009763,
+    "perOpMs": 0.000003450667000000976,
+    "opsPerSec": 289799044.64838743
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777325892004,
+    "date": "2026-04-27T21:38:12.004Z",
+    "iterations": 200000,
+    "totalMs": 3.0640409999978147,
+    "perOpMs": 0.000015320204999989073,
+    "opsPerSec": 65273278.001222126
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777326068488,
+    "date": "2026-04-27T21:41:08.488Z",
+    "iterations": 1000000,
+    "totalMs": 3.647916999998415,
+    "perOpMs": 0.0000036479169999984153,
+    "opsPerSec": 274129044.0545754
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777326068492,
+    "date": "2026-04-27T21:41:08.492Z",
+    "iterations": 200000,
+    "totalMs": 2.9836660000000848,
+    "perOpMs": 0.000014918330000000423,
+    "opsPerSec": 67031631.55661334
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777326119431,
+    "date": "2026-04-27T21:41:59.431Z",
+    "iterations": 1000000,
+    "totalMs": 3.811334000001807,
+    "perOpMs": 0.000003811334000001807,
+    "opsPerSec": 262375325.80443642
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777326119436,
+    "date": "2026-04-27T21:41:59.436Z",
+    "iterations": 200000,
+    "totalMs": 2.568875000000844,
+    "perOpMs": 0.00001284437500000422,
+    "opsPerSec": 77855092.20959926
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777326180363,
+    "date": "2026-04-27T21:43:00.363Z",
+    "iterations": 1000000,
+    "totalMs": 6.981791999998677,
+    "perOpMs": 0.000006981791999998677,
+    "opsPerSec": 143229703.77808297
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777326180367,
+    "date": "2026-04-27T21:43:00.367Z",
+    "iterations": 200000,
+    "totalMs": 3.0937079999966954,
+    "perOpMs": 0.000015468539999983478,
+    "opsPerSec": 64647342.283180445
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777326656045,
+    "date": "2026-04-27T21:50:56.045Z",
+    "iterations": 1000000,
+    "totalMs": 3.7538750000003347,
+    "perOpMs": 0.0000037538750000003347,
+    "opsPerSec": 266391395.5578997
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777326656051,
+    "date": "2026-04-27T21:50:56.051Z",
+    "iterations": 200000,
+    "totalMs": 3.68683400000009,
+    "perOpMs": 0.00001843417000000045,
+    "opsPerSec": 54247085.710936576
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777326694737,
+    "date": "2026-04-27T21:51:34.737Z",
+    "iterations": 1000000,
+    "totalMs": 3.5556670000005397,
+    "perOpMs": 0.00000355566700000054,
+    "opsPerSec": 281241184.8465698
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777326694741,
+    "date": "2026-04-27T21:51:34.741Z",
+    "iterations": 200000,
+    "totalMs": 2.6210839999985183,
+    "perOpMs": 0.000013105419999992591,
+    "opsPerSec": 76304307.68342909
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777822313512,
+    "date": "2026-05-03T15:31:53.512Z",
+    "iterations": 1000000,
+    "totalMs": 3.9092080000009446,
+    "perOpMs": 0.0000039092080000009444,
+    "opsPerSec": 255806291.1975414
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777822313516,
+    "date": "2026-05-03T15:31:53.516Z",
+    "iterations": 200000,
+    "totalMs": 2.768584000001283,
+    "perOpMs": 0.000013842920000006416,
+    "opsPerSec": 72239094.06393568
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777822361865,
+    "date": "2026-05-03T15:32:41.865Z",
+    "iterations": 1000000,
+    "totalMs": 3.7200419999990118,
+    "perOpMs": 0.0000037200419999990118,
+    "opsPerSec": 268814169.302461
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777822361870,
+    "date": "2026-05-03T15:32:41.870Z",
+    "iterations": 200000,
+    "totalMs": 2.5822920000009617,
+    "perOpMs": 0.000012911460000004808,
+    "opsPerSec": 77450574.91558877
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777822383164,
+    "date": "2026-05-03T15:33:03.164Z",
+    "iterations": 1000000,
+    "totalMs": 3.6381660000006377,
+    "perOpMs": 0.000003638166000000638,
+    "opsPerSec": 274863763.7754365
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777822383167,
+    "date": "2026-05-03T15:33:03.167Z",
+    "iterations": 200000,
+    "totalMs": 2.4992920000004233,
+    "perOpMs": 0.000012496460000002116,
+    "opsPerSec": 80022662.41798323
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777822403136,
+    "date": "2026-05-03T15:33:23.136Z",
+    "iterations": 1000000,
+    "totalMs": 3.5815419999998994,
+    "perOpMs": 0.0000035815419999998994,
+    "opsPerSec": 279209346.1419769
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777822403140,
+    "date": "2026-05-03T15:33:23.140Z",
+    "iterations": 200000,
+    "totalMs": 2.7540420000004815,
+    "perOpMs": 0.000013770210000002407,
+    "opsPerSec": 72620533.74638624
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777822434080,
+    "date": "2026-05-03T15:33:54.080Z",
+    "iterations": 1000000,
+    "totalMs": 4.4181250000001455,
+    "perOpMs": 0.000004418125000000146,
+    "opsPerSec": 226340359.31531295
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777822434084,
+    "date": "2026-05-03T15:33:54.084Z",
+    "iterations": 200000,
+    "totalMs": 2.730999999999767,
+    "perOpMs": 0.000013654999999998835,
+    "opsPerSec": 73233247.89455037
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777825161600,
+    "date": "2026-05-03T16:19:21.600Z",
+    "iterations": 1000000,
+    "totalMs": 4.528666999998677,
+    "perOpMs": 0.000004528666999998677,
+    "opsPerSec": 220815529.16129452
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777825161606,
+    "date": "2026-05-03T16:19:21.606Z",
+    "iterations": 200000,
+    "totalMs": 4.007832999999664,
+    "perOpMs": 0.00002003916499999832,
+    "opsPerSec": 49902278.862421855
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777827803726,
+    "date": "2026-05-03T17:03:23.726Z",
+    "iterations": 1000000,
+    "totalMs": 3.5247920000001614,
+    "perOpMs": 0.0000035247920000001613,
+    "opsPerSec": 283704683.85083556
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777827803730,
+    "date": "2026-05-03T17:03:23.730Z",
+    "iterations": 200000,
+    "totalMs": 3.046416000001045,
+    "perOpMs": 0.000015232080000005226,
+    "opsPerSec": 65650915.69894964
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777829827079,
+    "date": "2026-05-03T17:37:07.079Z",
+    "iterations": 1000000,
+    "totalMs": 3.412500000002183,
+    "perOpMs": 0.0000034125000000021827,
+    "opsPerSec": 293040293.0401056
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777829827082,
+    "date": "2026-05-03T17:37:07.082Z",
+    "iterations": 200000,
+    "totalMs": 2.6475420000024315,
+    "perOpMs": 0.000013237710000012158,
+    "opsPerSec": 75541766.66501091
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777830001249,
+    "date": "2026-05-03T17:40:01.249Z",
+    "iterations": 1000000,
+    "totalMs": 3.6337080000012065,
+    "perOpMs": 0.0000036337080000012064,
+    "opsPerSec": 275200979.2750733
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777830001253,
+    "date": "2026-05-03T17:40:01.253Z",
+    "iterations": 200000,
+    "totalMs": 2.5829999999987194,
+    "perOpMs": 0.000012914999999993597,
+    "opsPerSec": 77429345.72206704
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777830043121,
+    "date": "2026-05-03T17:40:43.121Z",
+    "iterations": 1000000,
+    "totalMs": 3.603541000000405,
+    "perOpMs": 0.000003603541000000405,
+    "opsPerSec": 277504820.95247084
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777830043125,
+    "date": "2026-05-03T17:40:43.125Z",
+    "iterations": 200000,
+    "totalMs": 2.8611669999991136,
+    "perOpMs": 0.000014305834999995569,
+    "opsPerSec": 69901547.16591585
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777830081616,
+    "date": "2026-05-03T17:41:21.616Z",
+    "iterations": 1000000,
+    "totalMs": 3.5401249999995343,
+    "perOpMs": 0.0000035401249999995344,
+    "opsPerSec": 282475901.27470964
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777830081620,
+    "date": "2026-05-03T17:41:21.620Z",
+    "iterations": 200000,
+    "totalMs": 2.69616600000154,
+    "perOpMs": 0.0000134808300000077,
+    "opsPerSec": 74179408.83457687
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777830162013,
+    "date": "2026-05-03T17:42:42.013Z",
+    "iterations": 1000000,
+    "totalMs": 3.4392079999997804,
+    "perOpMs": 0.0000034392079999997805,
+    "opsPerSec": 290764617.9004189
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777830162017,
+    "date": "2026-05-03T17:42:42.017Z",
+    "iterations": 200000,
+    "totalMs": 2.9187089999977616,
+    "perOpMs": 0.000014593544999988807,
+    "opsPerSec": 68523446.4964316
+  },
+  {
+    "name": "CustomSpeedScroll.tick",
+    "module": "tui-scroll",
+    "timestamp": 1777830200422,
+    "date": "2026-05-03T17:43:20.422Z",
+    "iterations": 1000000,
+    "totalMs": 4.374041999999463,
+    "perOpMs": 0.000004374041999999463,
+    "opsPerSec": 228621490.14575598
+  },
+  {
+    "name": "getScrollAcceleration(undefined)",
+    "module": "tui-scroll",
+    "timestamp": 1777830200427,
+    "date": "2026-05-03T17:43:20.427Z",
+    "iterations": 200000,
+    "totalMs": 3.4988330000014685,
+    "perOpMs": 0.000017494165000007342,
+    "opsPerSec": 57161916.55901155
+  }
+]

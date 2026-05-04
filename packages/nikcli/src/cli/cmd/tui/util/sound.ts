@@ -64,7 +64,7 @@ async function file(path: string) {
   const next = join(DIR, basename(path))
   const out = Bun.file(next)
   if (await out.exists()) return next
-  await Bun.write(out, Bun.file(path))
+  await Bun.write(next, Bun.file(path))
   return next
 }
 

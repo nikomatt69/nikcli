@@ -222,12 +222,15 @@ export async function readBenchmarkRun(filePath: string): Promise<StoredBenchmar
       runId?: string
       createdAt?: string
       records?: BenchmarkRecord[]
+      run?: { runId?: string; createdAt?: string; records?: BenchmarkRecord[] }
     }
-    if (!parsed.runId || !Array.isArray(parsed.records)) return null
+    // support both the wrapped format { run: {...} } and the legacy flat format
+    const data = parsed.run ?? parsed
+    if (!data.runId || !Array.isArray(data.records)) return null
     return {
-      runId: parsed.runId,
-      createdAt: parsed.createdAt ?? new Date().toISOString(),
-      records: parsed.records,
+      runId: data.runId,
+      createdAt: data.createdAt ?? new Date().toISOString(),
+      records: data.records,
     }
   } catch {
     return null

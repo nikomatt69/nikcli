@@ -412,9 +412,16 @@ export namespace Session {
     }),
     async (input) => {
       await get(input.sessionID)
+      if (input.limit) {
+        const page = await MessageV2.page({
+          sessionID: input.sessionID,
+          limit: input.limit,
+        })
+        return page.items.toReversed()
+      }
+
       const result = [] as MessageV2.WithParts[]
       for await (const msg of MessageV2.stream(input.sessionID)) {
-        if (input.limit && result.length >= input.limit) break
         result.push(msg)
       }
       result.reverse()

@@ -91,6 +91,9 @@ export function UserRoutes() {
         if (err?.message?.includes("UNIQUE")) {
           return c.json({ error: "Username or email already in use" }, 409)
         }
+        if (err?.message?.includes("not authorized")) {
+          return c.json({ error: err.message }, 403)
+        }
         throw err
       }
     },
@@ -170,11 +173,27 @@ export function UserRoutes() {
 
       // Only admin can change roles
       const body = c.req.valid("json")
-      if (body.role && !isAdmin) return c.json({ error: "Forbidden" }, 403)
+      if (body.role && !isAdmin) return c.json({ error: "Only admins can change roles" }, 403)
 
-      const updated = await UserDB.updateUser(id, body)
-      if (!updated) return c.json({ error: "User not found" }, 404)
-      return c.json(updated)
+      // Enforce admin email allowlist
+      if (body.role === "admin") {
+        const targetUser = UserDB.findById(id)
+        if (!targetUser) return c.json({ error: "User not found" }, 404)
+        if (!UserDB.isAdminEmail(targetUser.email)) {
+          return c.json({ error: "This email address is not authorized to hold the admin role" }, 403)
+        }
+      }
+
+      try {
+        const updated = await UserDB.updateUser(id, body)
+        if (!updated) return c.json({ error: "User not found" }, 404)
+        return c.json(updated)
+      } catch (err: any) {
+        if (err?.message?.includes("not authorized")) {
+          return c.json({ error: err.message }, 403)
+        }
+        throw err
+      }
     },
   )
 

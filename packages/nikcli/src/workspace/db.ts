@@ -1,9 +1,18 @@
 import { Database } from "bun:sqlite"
+import { drizzle } from "drizzle-orm/bun-sqlite"
+import { eq } from "drizzle-orm"
 import path from "path"
 import { Global } from "@/global"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
+import { workspace } from "./workspace.sql"
 import type { Config } from "./config"
+
+/** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
+type RunResult = { changes: number; lastInsertRowid: number | bigint }
+function getChanges(result: void | RunResult): number {
+  return (result as RunResult).changes
+}
 
 export namespace WorkspaceDB {
   const log = Log.create({ service: "workspace-db" })
@@ -34,32 +43,38 @@ export namespace WorkspaceDB {
     eventLimit?: number
   }
 
-  type DbRow = {
-    id: string
-    project_id: string
-    branch: string | null
-    config: string
-    status: string | null
-    events: string | null
-    event_limit: number | null
-    created_at: number
-    updated_at: number
-  }
-
-  let _db: Database | undefined
+  let _rawDb: Database | undefined
+  let _db: ReturnType<typeof drizzle> | undefined
   let _migrated = false
 
-  export function db(): Database {
-    if (!_db) {
+  /**
+   * Get the raw bun:sqlite connection (for migration only).
+   */
+  function rawDb(): Database {
+    if (!_rawDb) {
       const p = path.join(Global.Path.data, "workspaces.db")
-      _db = new Database(p, { create: true })
-      _db.exec("PRAGMA journal_mode=WAL;")
-      _db.exec("PRAGMA foreign_keys=ON;")
-      migrateSchema(_db)
+      _rawDb = new Database(p, { create: true })
+      _rawDb.exec("PRAGMA journal_mode=WAL;")
+      _rawDb.exec("PRAGMA foreign_keys=ON;")
+      migrateSchema(_rawDb)
+    }
+    return _rawDb
+  }
+
+  /**
+   * Get the Drizzle database instance.
+   */
+  function db() {
+    if (!_db) {
+      _db = drizzle(rawDb(), { schema: { workspace } })
     }
     return _db
   }
 
+  /**
+   * Run schema migration on the raw SQLite connection.
+   * Handles existing databases by adding columns that may not exist yet.
+   */
   function migrateSchema(database: Database) {
     database.exec(`
       CREATE TABLE IF NOT EXISTS workspace (
@@ -89,60 +104,85 @@ export namespace WorkspaceDB {
     }
   }
 
-  function rowToInfo(row: DbRow): Info {
+  // ============================================================================
+  // Internal helpers
+  // ============================================================================
+
+  /** Convert a Drizzle row to the legacy Info type */
+  function toInfo(row: typeof workspace.$inferSelect): Info {
     return {
       id: row.id,
-      projectID: row.project_id,
+      projectID: row.projectId,
       branch: row.branch,
       config: JSON.parse(row.config) as Config,
     }
   }
 
-  function rowToState(row: Pick<DbRow, "status" | "events" | "event_limit"> | null | undefined): State {
+  /** Convert a Drizzle row to the legacy State type */
+  function toState(
+    row: Pick<typeof workspace.$inferSelect, "status" | "events" | "eventLimit"> | null | undefined,
+  ): State {
     return {
       status: row?.status ?? undefined,
       events: row?.events ? ((JSON.parse(row.events) as unknown[]) ?? []) : [],
-      eventLimit: row?.event_limit ?? undefined,
+      eventLimit: row?.eventLimit ?? undefined,
     }
   }
 
+  // ============================================================================
+  // CRUD operations
+  // ============================================================================
+
   export function get(id: string): Info | undefined {
-    const row = db().query("SELECT * FROM workspace WHERE id = ?").get(id) as DbRow | null
-    return row ? rowToInfo(row) : undefined
+    const row = db().select().from(workspace).where(eq(workspace.id, id)).get()
+    return row ? toInfo(row) : undefined
   }
 
   export function list(projectID?: string): Info[] {
-    const rows = projectID
-      ? (db().query("SELECT * FROM workspace WHERE project_id = ? ORDER BY id ASC").all(projectID) as DbRow[])
-      : (db().query("SELECT * FROM workspace ORDER BY id ASC").all() as DbRow[])
-    return rows.map(rowToInfo)
+    const query = db().select().from(workspace).orderBy(workspace.id)
+    const rows = projectID ? query.where(eq(workspace.projectId, projectID)).all() : query.all()
+    return rows.map(toInfo)
   }
 
   export function getState(id: string): State {
-    const row = db().query("SELECT status, events, event_limit FROM workspace WHERE id = ?").get(id) as Pick<
-      DbRow,
-      "status" | "events" | "event_limit"
-    > | null
-    return rowToState(row)
+    const row = db()
+      .select({
+        status: workspace.status,
+        events: workspace.events,
+        eventLimit: workspace.eventLimit,
+      })
+      .from(workspace)
+      .where(eq(workspace.id, id))
+      .get()
+    return toState(row)
   }
 
+  /**
+   * Insert or update a workspace using UPSERT.
+   * Replaces the old read-then-write pattern with a single atomic operation.
+   */
   export function upsert(info: Info): Info {
     const now = Date.now()
-    const existing = get(info.id)
-    if (existing) {
-      db().run(
-        `UPDATE workspace
-           SET project_id = ?, branch = ?, config = ?, updated_at = ?
-         WHERE id = ?`,
-        [info.projectID, info.branch, JSON.stringify(info.config), now, info.id],
-      )
-    } else {
-      db().run(
-        `INSERT INTO workspace (id, project_id, branch, config, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [info.id, info.projectID, info.branch, JSON.stringify(info.config), now, now],
-      )
-    }
+    db()
+      .insert(workspace)
+      .values({
+        id: info.id,
+        projectId: info.projectID,
+        branch: info.branch,
+        config: JSON.stringify(info.config),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: workspace.id,
+        set: {
+          projectId: info.projectID,
+          branch: info.branch,
+          config: JSON.stringify(info.config),
+          updatedAt: now,
+        },
+      })
+      .run()
     return info
   }
 
@@ -157,12 +197,16 @@ export namespace WorkspaceDB {
       eventLimit: state.eventLimit ?? current.eventLimit,
     }
 
-    db().run(
-      `UPDATE workspace
-         SET status = ?, events = ?, event_limit = ?, updated_at = ?
-       WHERE id = ?`,
-      [next.status ?? null, JSON.stringify(next.events ?? []), next.eventLimit ?? null, Date.now(), id],
-    )
+    db()
+      .update(workspace)
+      .set({
+        status: next.status ?? null,
+        events: JSON.stringify(next.events ?? []),
+        eventLimit: next.eventLimit ?? null,
+        updatedAt: Date.now(),
+      })
+      .where(eq(workspace.id, id))
+      .run()
 
     return next
   }
@@ -179,8 +223,8 @@ export namespace WorkspaceDB {
   }
 
   export function remove(id: string): boolean {
-    const result = db().run("DELETE FROM workspace WHERE id = ?", [id])
-    return result.changes > 0
+    const result = db().delete(workspace).where(eq(workspace.id, id)).run()
+    return getChanges(result) > 0
   }
 
   /**
@@ -198,22 +242,23 @@ export namespace WorkspaceDB {
       for (const key of keys) {
         const row = await Storage.read<Info>(key).catch(() => undefined)
         if (!row || !row.id || !row.projectID || !row.config) continue
-        const already = db().query("SELECT id FROM workspace WHERE id = ?").get(row.id)
-        if (already) continue
+        // Check if already migrated using Drizzle
+        const existing = db().select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.id)).get()
+        if (existing) continue
         const now = Date.now()
-        db().run(
-          `INSERT OR IGNORE INTO workspace (id, project_id, branch, config, event_limit, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            row.id,
-            row.projectID,
-            row.branch ?? null,
-            JSON.stringify(row.config),
-            row.config.eventLimit ?? null,
-            now,
-            now,
-          ],
-        )
+        db()
+          .insert(workspace)
+          .values({
+            id: row.id,
+            projectId: row.projectID,
+            branch: row.branch ?? null,
+            config: JSON.stringify(row.config),
+            eventLimit: row.config.eventLimit ?? null,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .onConflictDoNothing()
+          .run()
         imported++
       }
       if (imported > 0) {

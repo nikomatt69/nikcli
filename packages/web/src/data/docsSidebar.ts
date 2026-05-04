@@ -32,7 +32,6 @@ export const docsSidebar: DocsNavGroup[] = [
       { title: "Mobile", href: "/docs/mobile" },
       { title: "MCP", href: "/docs/mcp" },
       { title: "LSP", href: "/docs/lsp" },
-      { title: "RAG", href: "/docs/rag" },
       { title: "Storage", href: "/docs/storage" },
       { title: "TUI", href: "/docs/tui" },
     ],

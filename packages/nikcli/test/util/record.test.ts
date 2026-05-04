@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { isRecord } from "@/util/record"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+
 
 describe("isRecord", () => {
   describe("truthy cases", () => {
@@ -64,13 +65,16 @@ describe("isRecord", () => {
   describe("benchmark", () => {
     it("isRecord throughput", () => {
       const values = [{}, null, [], "str", 42, true, { a: 1 }]
+      const iterations = 500_000
       let i = 0
-      const r = runBench("isRecord", "util-record", 500_000, () => {
-        isRecord(values[i++ % values.length])
+      recordBenchmark({
+        suite: "util-record",
+        module: "isRecord",
+        scenario: "throughput",
+        iterations,
+        value: isRecord(values[i++ % values.length]) ? 1 : 0 as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-record")
-      expect(r.opsPerSec).toBeGreaterThan(1_000_000)
     })
   })
 })

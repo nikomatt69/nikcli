@@ -24,23 +24,10 @@ import { Plugin } from "../plugin"
 import { WebSearchTool } from "./websearch"
 import { CodeSearchTool } from "./codesearch"
 import { TreeTool } from "./tree"
-import { DocsAddTool } from "./docs_add"
-import { DocsSearchTool } from "./docs_search"
-import { DocsLoadTool } from "./docs_load"
-import { DocsUnloadTool } from "./docs_unload"
-import { DocsContextTool } from "./docs_context"
-import { DocsRequestTool } from "./docs_request"
-import { DocsGapReportTool } from "./docs_gap_report"
-import { SmartDocsTool } from "./smart_docs"
 import { ContextCollectTool } from "./context_collect"
-import { ContextSearchTool } from "./context_search"
 import { ContextRelatedTool } from "./context_related"
 import { ContextDiagnosticsTool } from "./context_diagnostics"
 import { MemorySearchTool } from "./memory_search"
-import { RagIndexTool } from "./rag_index"
-import { RagSearchTool } from "./rag_search"
-import { RagStatusTool } from "./rag_status"
-import { RagResetTool } from "./rag_reset"
 import { GenerateImageTool } from "./generate_image"
 import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
@@ -48,12 +35,13 @@ import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
-import { UseConnectorTool } from "./use-connector"
 import { SpeakTool } from "./speak"
 import { OpenTUIVizTool } from "./opentui"
 import { DelegationTool } from "./delegation"
 import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
+import { ExecCodeTool } from "./exec_code"
+import { SearchToolsTool } from "./search_tools"
 
 const _toolDir = import.meta.dir
 
@@ -148,23 +136,10 @@ export namespace ToolRegistry {
       WriteTool,
       TaskTool,
       DelegationTool,
-      DocsAddTool,
-      DocsSearchTool,
-      DocsLoadTool,
-      DocsUnloadTool,
-      DocsContextTool,
-      DocsRequestTool,
-      DocsGapReportTool,
-      SmartDocsTool,
       ContextCollectTool,
-      ContextSearchTool,
       ContextRelatedTool,
       ContextDiagnosticsTool,
       MemorySearchTool,
-      RagIndexTool,
-      RagSearchTool,
-      RagStatusTool,
-      RagResetTool,
       GenerateImageTool,
 
       WebFetchTool,
@@ -177,11 +152,12 @@ export namespace ToolRegistry {
       ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
       ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
       ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
-      UseConnectorTool,
       SpeakTool,
       OpenTUIVizTool,
       AdvisorTool,
       DelegatorTool,
+      SearchToolsTool,
+      ExecCodeTool,
       ...custom,
     ]
   }
@@ -190,17 +166,23 @@ export namespace ToolRegistry {
     return all().then((x) => x.map((t) => t.id))
   }
 
+  // Core tools loaded in slim mode — enough for most tasks + search_tools for discovery.
+  const SLIM_TOOLS = new Set(["bash", "read", "glob", "grep", "tree", "edit", "write", "task", "search_tools"])
+
   export async function tools(
     model: {
       providerID: string
       modelID: string
     },
     agent?: Agent.Info,
+    options?: { slim?: boolean },
   ) {
     const tools = await all()
     const result = await Promise.all(
       tools
         .filter((t) => {
+          if (options?.slim) return SLIM_TOOLS.has(t.id)
+
           if (t.id === "codesearch" || t.id === "websearch") {
             return model.providerID === "nikcli" || Flag.NIKCLI_ENABLE_EXA
           }

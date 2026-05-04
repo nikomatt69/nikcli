@@ -9,10 +9,10 @@ import { mapOpenAIResponseFinishReason } from "@/provider/sdk/copilot/responses/
 
 function benchModel(): Provider.Model {
   return {
-    id: "anthropic/claude-3-5-sonnet-20241022",
-    providerID: "anthropic",
-    api: { id: "claude-3-5-sonnet-20241022", url: "https://api.anthropic.com", npm: "@ai-sdk/anthropic" },
-    name: "Claude",
+    id: "minimax-coding-plan",
+    providerID: "minimax-coding-plan",
+    api: { id: "minimax-coding-plan", url: "https://api.minimax.io", npm: "@ai-sdk/anthropic" },
+    name: "minimax-coding-plan",
     capabilities: {
       temperature: true,
       reasoning: true,

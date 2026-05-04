@@ -92,8 +92,9 @@ export const SessionRoutes = lazy(() =>
           if (query.start !== undefined && session.time.updated < query.start) continue
           if (term !== undefined && !session.title.toLowerCase().includes(term)) continue
           sessions.push(session)
-          if (query.limit !== undefined && sessions.length >= query.limit) break
         }
+        sessions.sort((a, b) => b.time.updated - a.time.updated)
+        if (query.limit !== undefined) return c.json(sessions.slice(0, query.limit))
         return c.json(sessions)
       },
     )

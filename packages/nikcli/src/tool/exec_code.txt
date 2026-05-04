@@ -1,0 +1,20 @@
+Execute JavaScript/TypeScript code that calls other tools programmatically. Intermediate tool results are NOT added to the conversation context — only your final console.log output is returned. This keeps the context window clean when chaining many tool calls.
+
+Use this tool when you need to:
+- Process a large number of files and aggregate or filter results
+- Chain multiple tool calls in a loop without bloating the context
+- Perform data transformation on tool outputs before returning them
+- Execute complex multi-step operations where only the final result matters
+
+All standard nikcli tools are available as async functions inside the code. Use console.log() for your final output — everything logged is returned as the result.
+
+Example:
+  const files = await glob({ pattern: "src/**/*.ts" })
+  const todos = []
+  for (const f of files) {
+    const content = await read({ file_path: f })
+    if (content.includes("TODO")) todos.push(f)
+  }
+  console.log(JSON.stringify(todos, null, 2))
+
+IMPORTANT: Do not use import statements. All tools are pre-injected as globals.

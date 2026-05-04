@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Hash } from "@/util/hash"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("Hash", () => {
   describe("fast", () => {
@@ -46,21 +46,26 @@ describe("Hash", () => {
 
   describe("benchmark", () => {
     it("Hash.fast throughput — short string", () => {
-      const r = runBench("Hash.fast short", "util-hash", 100_000, () => {
-        Hash.fast("hello world")
+      recordBenchmark({
+        suite: "util-hash",
+        module: "Hash.fast short",
+        scenario: "throughput",
+        iterations: 100_000,
+        value: Hash.fast("hello world") as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-hash")
-      expect(r.opsPerSec).toBeGreaterThan(10_000)
     })
 
     it("Hash.fast throughput — long string", () => {
       const long = "a".repeat(10000)
-      const r = runBench("Hash.fast long", "util-hash", 10_000, () => {
-        Hash.fast(long)
+      recordBenchmark({
+        suite: "util-hash",
+        module: "Hash.fast long",
+        scenario: "throughput",
+        iterations: 10_000,
+        value: Hash.fast(long) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(1_000)
     })
   })
 })

@@ -455,6 +455,14 @@ export function GitGraph() {
   }
 
   function close() {
+    if (routeData.sessionID) {
+      route.navigate({
+        type: "session",
+        sessionID: routeData.sessionID,
+        workspaceID: routeData.workspaceID ?? sync.session.get(routeData.sessionID)?.workspaceID,
+      })
+      return
+    }
     route.navigate({ type: "home", workspaceID: routeData.workspaceID })
   }
 

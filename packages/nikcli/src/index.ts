@@ -28,14 +28,13 @@ import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
-import { RagModelCommand } from "./cli/cmd/rag-model"
+
 import { ImageModelCommand } from "./cli/cmd/image-model"
 import { SpeakModelCommand } from "./cli/cmd/speak-model"
 import { RemoteCommand } from "./cli/cmd/remote"
-import { ConnectorsCommand } from "./cli/cmd/connectors"
-import { BotCommand } from "./cli/cmd/chatbot"
+
 import { AdsCommand } from "./cli/cmd/ads"
-import { LovableCommand } from "./cli/cmd/lovable"
+
 import { CompanionCommand } from "./cli/cmd/companion"
 import { MobileCommand } from "./cli/cmd/mobile"
 import { PluginCommand } from "./cli/cmd/plug"
@@ -97,9 +96,6 @@ const cli = yargs(hideBin(process.argv))
   .completion("completion", "generate shell completion script")
   .command(AcpCommand)
   .command(McpCommand)
-  .command(ConnectorsCommand)
-  .command(BotCommand)
-  .command(LovableCommand)
   .command(AdsCommand)
   .command(TuiThreadCommand)
   .command(AttachCommand)
@@ -122,7 +118,6 @@ const cli = yargs(hideBin(process.argv))
   .command(GithubCommand)
   .command(PrCommand)
   .command(SessionCommand)
-  .command(RagModelCommand)
   .command(ImageModelCommand)
   .command(SpeakModelCommand)
   .command(RemoteCommand)

@@ -46,15 +46,12 @@ import { useToast } from "../../ui/toast"
 import { useKV } from "../../context/kv"
 import { useTextareaKeybindings } from "../textarea-keybindings"
 import { DialogThemeCreate } from "../dialog-theme-create"
-import { DialogRagModel } from "../dialog-rag-model"
 import { DialogImageModel } from "../dialog-image-model"
 import { DialogSpeakModel } from "../dialog-speak-model"
 import { DialogRemote } from "../dialog-remote"
 import { DialogWebPreview } from "../dialog-web-preview"
-import { DialogSubagent } from "@tui/routes/session/dialog-subagent"
 import os from "os"
 import path from "path"
-import { rmSync } from "fs"
 import { Auth } from "@/auth"
 import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
 
@@ -215,11 +212,9 @@ export function Prompt(props: PromptProps) {
 
   function cleanupVoiceAudio(filePath: string | null) {
     if (!filePath) return
-    try {
-      rmSync(filePath, { force: true })
-    } catch {
-      // ignore cleanup errors
-    }
+    void Bun.file(filePath)
+      .delete()
+      .catch(() => {})
   }
 
   async function ensureSwiftRecorderScriptPath(): Promise<string | null> {
@@ -652,7 +647,7 @@ export function Prompt(props: PromptProps) {
 
       const stderrText =
         recorder.stderr && typeof recorder.stderr !== "number"
-          ? await new Response(recorder.stderr).text().catch(() => "")
+          ? await Bun.readableStreamToText(recorder.stderr).catch(() => "")
           : ""
       if (looksLikeMicPermissionError(stderrText)) {
         const detail = stderrText
@@ -996,7 +991,6 @@ export function Prompt(props: PromptProps) {
       {
         title: "Submit prompt",
         value: "prompt.submit",
-        keybind: "input_submit",
         category: "Prompt",
         hidden: true,
         onSelect: (dialog) => {
@@ -1330,15 +1324,6 @@ export function Prompt(props: PromptProps) {
       slash: { name: "theme-create" },
       onSelect: (dialog) => {
         dialog.replace(() => <DialogThemeCreate />)
-      },
-    },
-    {
-      title: "RAG Embedding Models",
-      value: "rag-model",
-      category: "Config",
-      slash: { name: "rag-models", aliases: ["rag-model"] },
-      onSelect: (dialog) => {
-        dialog.replace(() => <DialogRagModel />)
       },
     },
     {
@@ -2220,16 +2205,11 @@ export function Prompt(props: PromptProps) {
                           )}
                         </Match>
                         <Match when={true}>
-                          <Show when={local.model.variant.list().length > 0}>
-                            <text fg={theme.text}>
-                              {keybind.print("variant_cycle")} <span style={{ fg: theme.textMuted }}>variants</span>
-                            </text>
-                          </Show>
+                          <text fg={theme.text}>
+                            {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
+                          </text>
                         </Match>
                       </Switch>
-                      <text fg={theme.text}>
-                        {keybind.print("command_list")} <span style={{ fg: theme.textMuted }}>commands</span>
-                      </text>
                     </Match>
                     <Match when={store.mode === "shell"}>
                       <text fg={theme.text}>
@@ -2240,7 +2220,11 @@ export function Prompt(props: PromptProps) {
                 </box>
               </Show>
               <Show when={editorFileLabelDisplay()}>
-                {(file) => <text fg={theme.secondary} flexShrink={0} wrapMode="none">{file()}</text>}
+                {(file) => (
+                  <text fg={theme.secondary} flexShrink={0} wrapMode="none">
+                    {file()}
+                  </text>
+                )}
               </Show>
             </box>
           </Show>

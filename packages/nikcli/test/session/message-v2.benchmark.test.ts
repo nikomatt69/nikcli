@@ -6,8 +6,8 @@ import { recordBenchmark } from "../benchmarks/runner"
 describe("MessageV2 benchmark", () => {
   it("records toModelMessages for repeated user turns", () => {
     const model = {
-      api: { npm: "@ai-sdk/openai", id: "gpt-4o-mini" },
-      id: "gpt-4o-mini",
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" }, 
+      id: "MiniMax-M2.7",
       cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
     } as Parameters<typeof MessageV2.toModelMessages>[1]
 
@@ -24,7 +24,7 @@ describe("MessageV2 benchmark", () => {
           sessionID,
           time: { created: i },
           agent: "a",
-          model: { providerID: "openai", modelID: "gpt-4o-mini" },
+          model: { providerID: "minimax-coding-plan", modelID: "MiniMax-M2.7" },
         },
         parts: [
           {

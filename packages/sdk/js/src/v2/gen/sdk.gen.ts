@@ -103,6 +103,8 @@ import type {
   MobileGithubImportRequest,
   MobileGithubImportResponses,
   MobileGithubImportsResponses,
+  MobileGithubOauthClientIdSetErrors,
+  MobileGithubOauthClientIdSetResponses,
   MobileGithubOauthDevicePollErrors,
   MobileGithubOauthDevicePollResponses,
   MobileGithubOauthDeviceStartErrors,
@@ -3384,6 +3386,49 @@ export class Project2 extends HeyApiClient {
   }
 }
 
+export class ClientId extends HeyApiClient {
+  /**
+   * Persist GitHub OAuth client ID for mobile
+   *
+   * Save the GitHub OAuth client ID in the global host config so device sign-in remains available across projects and app restarts.
+   */
+  public set<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      clientId?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "clientId" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      MobileGithubOauthClientIdSetResponses,
+      MobileGithubOauthClientIdSetErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/github/oauth/client",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Device extends HeyApiClient {
   /**
    * Start GitHub OAuth device flow
@@ -3462,6 +3507,11 @@ export class Device extends HeyApiClient {
 }
 
 export class Oauth2 extends HeyApiClient {
+  private _clientId?: ClientId
+  get clientId(): ClientId {
+    return (this._clientId ??= new ClientId({ client: this.client }))
+  }
+
   private _device?: Device
   get device(): Device {
     return (this._device ??= new Device({ client: this.client }))
@@ -4404,6 +4454,7 @@ export class Git extends HeyApiClient {
       directory?: string
       workspace?: string
       file?: string
+      staged?: "true" | "false"
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4415,6 +4466,7 @@ export class Git extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "query", key: "file" },
+            { in: "query", key: "staged" },
           ],
         },
       ],
@@ -4500,6 +4552,7 @@ export class Git extends HeyApiClient {
       message?: string
       files?: Array<string>
       amend?: boolean
+      stagedOnly?: boolean
     },
     options?: Options<never, ThrowOnError>,
   ) {
@@ -4513,6 +4566,7 @@ export class Git extends HeyApiClient {
             { in: "body", key: "message" },
             { in: "body", key: "files" },
             { in: "body", key: "amend" },
+            { in: "body", key: "stagedOnly" },
           ],
         },
       ],

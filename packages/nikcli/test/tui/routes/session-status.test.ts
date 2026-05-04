@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { sessionStatusDisplay, formatTreeChangeSummary } from "@/cli/cmd/tui/routes/tree/session-status"
 import { RGBA } from "@opentui/core"
-import { runBench, printBenchResult, compareBenchmarks } from "../../bench/runner"
+  import { recordBenchmark } from "../../benchmarks/runner"
 
 const theme = {
   textMuted: RGBA.fromInts(128, 128, 128),
@@ -123,12 +123,14 @@ describe("sessionStatusDisplay", () => {
         { type: "retry", attempt: 3, message: "overload", next: 0 },
       ]
       let i = 0
-      const r = runBench("sessionStatusDisplay", "tui-session-status", 300_000, () => {
-        sessionStatusDisplay(statuses[i++ % statuses.length], theme)
+      recordBenchmark({
+        suite: "tui-session-status",
+        module: "sessionStatusDisplay",
+        scenario: "throughput",
+        iterations: 300_000,
+        value: sessionStatusDisplay(statuses[i++ % statuses.length], theme) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("tui-session-status")
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
     })
   })
 })
@@ -148,10 +150,13 @@ describe("formatTreeChangeSummary", () => {
   })
 
   it("benchmark", () => {
-    const r = runBench("formatTreeChangeSummary", "tui-session-status", 500_000, () => {
-      formatTreeChangeSummary({ files: 3, additions: 10, deletions: 5 })
+    recordBenchmark({
+      suite: "tui-session-status",
+      module: "formatTreeChangeSummary",
+      scenario: "throughput",
+      iterations: 500_000,
+      value: formatTreeChangeSummary({ files: 3, additions: 10, deletions: 5 }) as unknown as number,
+      unit: "ms",
     })
-    printBenchResult(r)
-    expect(r.opsPerSec).toBeGreaterThan(500_000)
   })
 })

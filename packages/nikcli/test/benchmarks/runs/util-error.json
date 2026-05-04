@@ -1,0 +1,802 @@
+[
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323529799,
+    "date": "2026-04-27T20:58:49.799Z",
+    "iterations": 200000,
+    "totalMs": 3.5760830000000396,
+    "perOpMs": 0.000017880415000000197,
+    "opsPerSec": 55927113.54853838
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323529811,
+    "date": "2026-04-27T20:58:49.811Z",
+    "iterations": 100000,
+    "totalMs": 11.196583000000032,
+    "perOpMs": 0.00011196583000000032,
+    "opsPerSec": 8931296.271371339
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323682575,
+    "date": "2026-04-27T21:01:22.575Z",
+    "iterations": 200000,
+    "totalMs": 3.1068749999999454,
+    "perOpMs": 0.00001553437499999973,
+    "opsPerSec": 64373365.52001722
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323682583,
+    "date": "2026-04-27T21:01:22.583Z",
+    "iterations": 100000,
+    "totalMs": 6.802042000000029,
+    "perOpMs": 0.00006802042000000029,
+    "opsPerSec": 14701467.588703448
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323701654,
+    "date": "2026-04-27T21:01:41.654Z",
+    "iterations": 200000,
+    "totalMs": 2.9048340000000508,
+    "perOpMs": 0.000014524170000000254,
+    "opsPerSec": 68850750.1633472
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323701661,
+    "date": "2026-04-27T21:01:41.661Z",
+    "iterations": 100000,
+    "totalMs": 6.114708000000064,
+    "perOpMs": 0.00006114708000000065,
+    "opsPerSec": 16354010.690289536
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323723178,
+    "date": "2026-04-27T21:02:03.178Z",
+    "iterations": 200000,
+    "totalMs": 3.2955829999991693,
+    "perOpMs": 0.000016477914999995847,
+    "opsPerSec": 60687289.62373286
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323723186,
+    "date": "2026-04-27T21:02:03.186Z",
+    "iterations": 100000,
+    "totalMs": 6.756875000000946,
+    "perOpMs": 0.00006756875000000946,
+    "opsPerSec": 14799741.00453035
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323752071,
+    "date": "2026-04-27T21:02:32.071Z",
+    "iterations": 200000,
+    "totalMs": 4.177291999998488,
+    "perOpMs": 0.00002088645999999244,
+    "opsPerSec": 47877907.50564538
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323752079,
+    "date": "2026-04-27T21:02:32.079Z",
+    "iterations": 100000,
+    "totalMs": 6.499541000001045,
+    "perOpMs": 0.00006499541000001045,
+    "opsPerSec": 15385701.851866757
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323762832,
+    "date": "2026-04-27T21:02:42.832Z",
+    "iterations": 200000,
+    "totalMs": 2.9527080000007118,
+    "perOpMs": 0.000014763540000003559,
+    "opsPerSec": 67734432.25674595
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323762839,
+    "date": "2026-04-27T21:02:42.839Z",
+    "iterations": 100000,
+    "totalMs": 6.24054199999955,
+    "perOpMs": 0.0000624054199999955,
+    "opsPerSec": 16024249.1757939
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323777924,
+    "date": "2026-04-27T21:02:57.924Z",
+    "iterations": 200000,
+    "totalMs": 3.017250000000786,
+    "perOpMs": 0.000015086250000003928,
+    "opsPerSec": 66285524.89848302
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323777931,
+    "date": "2026-04-27T21:02:57.931Z",
+    "iterations": 100000,
+    "totalMs": 6.56670800000029,
+    "perOpMs": 0.0000656670800000029,
+    "opsPerSec": 15228330.542487284
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323802448,
+    "date": "2026-04-27T21:03:22.448Z",
+    "iterations": 200000,
+    "totalMs": 2.937708000001294,
+    "perOpMs": 0.000014688540000006469,
+    "opsPerSec": 68080285.71931311
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323802455,
+    "date": "2026-04-27T21:03:22.455Z",
+    "iterations": 100000,
+    "totalMs": 6.263167000000976,
+    "perOpMs": 0.00006263167000000977,
+    "opsPerSec": 15966363.343015507
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323827153,
+    "date": "2026-04-27T21:03:47.153Z",
+    "iterations": 200000,
+    "totalMs": 2.9780829999999696,
+    "perOpMs": 0.000014890414999999848,
+    "opsPerSec": 67157295.48169143
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323827161,
+    "date": "2026-04-27T21:03:47.161Z",
+    "iterations": 100000,
+    "totalMs": 6.347624999998516,
+    "perOpMs": 0.00006347624999998515,
+    "opsPerSec": 15753923.711628111
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323841172,
+    "date": "2026-04-27T21:04:01.172Z",
+    "iterations": 200000,
+    "totalMs": 3.5104580000006536,
+    "perOpMs": 0.000017552290000003267,
+    "opsPerSec": 56972622.9454854
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323841181,
+    "date": "2026-04-27T21:04:01.181Z",
+    "iterations": 100000,
+    "totalMs": 7.485458999999537,
+    "perOpMs": 0.00007485458999999536,
+    "opsPerSec": 13359234.216633368
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323863876,
+    "date": "2026-04-27T21:04:23.876Z",
+    "iterations": 200000,
+    "totalMs": 3.2235839999993914,
+    "perOpMs": 0.000016117919999996956,
+    "opsPerSec": 62042744.969585955
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323863885,
+    "date": "2026-04-27T21:04:23.885Z",
+    "iterations": 100000,
+    "totalMs": 6.971707999999126,
+    "perOpMs": 0.00006971707999999126,
+    "opsPerSec": 14343687.371876812
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323884208,
+    "date": "2026-04-27T21:04:44.208Z",
+    "iterations": 200000,
+    "totalMs": 3.176792000000205,
+    "perOpMs": 0.000015883960000001026,
+    "opsPerSec": 62956592.68846908
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323884218,
+    "date": "2026-04-27T21:04:44.218Z",
+    "iterations": 100000,
+    "totalMs": 6.74683400000049,
+    "perOpMs": 0.0000674683400000049,
+    "opsPerSec": 14821766.772384312
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323888096,
+    "date": "2026-04-27T21:04:48.096Z",
+    "iterations": 200000,
+    "totalMs": 2.936874999999418,
+    "perOpMs": 0.000014684374999997089,
+    "opsPerSec": 68099595.65866427
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323888104,
+    "date": "2026-04-27T21:04:48.104Z",
+    "iterations": 100000,
+    "totalMs": 6.320625000000291,
+    "perOpMs": 0.00006320625000000291,
+    "opsPerSec": 15821220.211608091
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323908279,
+    "date": "2026-04-27T21:05:08.279Z",
+    "iterations": 200000,
+    "totalMs": 3.0354999999999563,
+    "perOpMs": 0.000015177499999999781,
+    "opsPerSec": 65887003.78850366
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323908286,
+    "date": "2026-04-27T21:05:08.286Z",
+    "iterations": 100000,
+    "totalMs": 6.310875000001033,
+    "perOpMs": 0.00006310875000001033,
+    "opsPerSec": 15845663.240039397
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323928844,
+    "date": "2026-04-27T21:05:28.844Z",
+    "iterations": 200000,
+    "totalMs": 3.0784590000002936,
+    "perOpMs": 0.00001539229500000147,
+    "opsPerSec": 64967569.81333223
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323928852,
+    "date": "2026-04-27T21:05:28.852Z",
+    "iterations": 100000,
+    "totalMs": 6.7725829999999405,
+    "perOpMs": 0.0000677258299999994,
+    "opsPerSec": 14765415.204213943
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323949136,
+    "date": "2026-04-27T21:05:49.136Z",
+    "iterations": 200000,
+    "totalMs": 3.1052920000001905,
+    "perOpMs": 0.000015526460000000954,
+    "opsPerSec": 64406181.44766667
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323949144,
+    "date": "2026-04-27T21:05:49.144Z",
+    "iterations": 100000,
+    "totalMs": 6.716459000001123,
+    "perOpMs": 0.00006716459000001123,
+    "opsPerSec": 14888797.802530065
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323972666,
+    "date": "2026-04-27T21:06:12.666Z",
+    "iterations": 200000,
+    "totalMs": 3.01929200000086,
+    "perOpMs": 0.000015096460000004299,
+    "opsPerSec": 66240694.83837372
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323972674,
+    "date": "2026-04-27T21:06:12.674Z",
+    "iterations": 100000,
+    "totalMs": 6.526124999998501,
+    "perOpMs": 0.00006526124999998501,
+    "opsPerSec": 15323028.596605638
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777323994976,
+    "date": "2026-04-27T21:06:34.976Z",
+    "iterations": 200000,
+    "totalMs": 3.1673749999990832,
+    "perOpMs": 0.000015836874999995415,
+    "opsPerSec": 63143770.47241261
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777323994983,
+    "date": "2026-04-27T21:06:34.983Z",
+    "iterations": 100000,
+    "totalMs": 6.296207999999751,
+    "perOpMs": 0.00006296207999999751,
+    "opsPerSec": 15882575.670944154
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777324943317,
+    "date": "2026-04-27T21:22:23.317Z",
+    "iterations": 200000,
+    "totalMs": 2.9517909999995027,
+    "perOpMs": 0.000014758954999997514,
+    "opsPerSec": 67755474.55766134
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777324943324,
+    "date": "2026-04-27T21:22:23.324Z",
+    "iterations": 100000,
+    "totalMs": 6.481499999999869,
+    "perOpMs": 0.0000648149999999987,
+    "opsPerSec": 15428527.347065033
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777325158832,
+    "date": "2026-04-27T21:25:58.832Z",
+    "iterations": 200000,
+    "totalMs": 3.1396249999997963,
+    "perOpMs": 0.00001569812499999898,
+    "opsPerSec": 63701875.22395604
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777325158841,
+    "date": "2026-04-27T21:25:58.841Z",
+    "iterations": 100000,
+    "totalMs": 7.046500000000378,
+    "perOpMs": 0.00007046500000000378,
+    "opsPerSec": 14191442.560135476
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777325795303,
+    "date": "2026-04-27T21:36:35.303Z",
+    "iterations": 200000,
+    "totalMs": 3.142166999999972,
+    "perOpMs": 0.000015710834999999862,
+    "opsPerSec": 63650340.672536425
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777325795311,
+    "date": "2026-04-27T21:36:35.311Z",
+    "iterations": 100000,
+    "totalMs": 6.871416999998473,
+    "perOpMs": 0.00006871416999998473,
+    "opsPerSec": 14553039.06021454
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777325884860,
+    "date": "2026-04-27T21:38:04.860Z",
+    "iterations": 200000,
+    "totalMs": 3.0604999999995925,
+    "perOpMs": 0.00001530249999999796,
+    "opsPerSec": 65348799.21582311
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777325884868,
+    "date": "2026-04-27T21:38:04.868Z",
+    "iterations": 100000,
+    "totalMs": 7.051917000000685,
+    "perOpMs": 0.00007051917000000685,
+    "opsPerSec": 14180541.262750298
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777326061223,
+    "date": "2026-04-27T21:41:01.223Z",
+    "iterations": 200000,
+    "totalMs": 3.0631670000002487,
+    "perOpMs": 0.000015315835000001242,
+    "opsPerSec": 65291902.139185935
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777326061231,
+    "date": "2026-04-27T21:41:01.231Z",
+    "iterations": 100000,
+    "totalMs": 6.456416999999419,
+    "perOpMs": 0.0000645641699999942,
+    "opsPerSec": 15488466.745566308
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777326112373,
+    "date": "2026-04-27T21:41:52.373Z",
+    "iterations": 200000,
+    "totalMs": 3.0993339999986347,
+    "perOpMs": 0.000015496669999993174,
+    "opsPerSec": 64529992.57262628
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777326112382,
+    "date": "2026-04-27T21:41:52.382Z",
+    "iterations": 100000,
+    "totalMs": 7.059000000001106,
+    "perOpMs": 0.00007059000000001106,
+    "opsPerSec": 14166312.508851726
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777326173329,
+    "date": "2026-04-27T21:42:53.329Z",
+    "iterations": 200000,
+    "totalMs": 3.073207999999795,
+    "perOpMs": 0.000015366039999998974,
+    "opsPerSec": 65078575.87251281
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777326173338,
+    "date": "2026-04-27T21:42:53.338Z",
+    "iterations": 100000,
+    "totalMs": 7.02337499999885,
+    "perOpMs": 0.00007023374999998851,
+    "opsPerSec": 14238168.9714726
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777326650504,
+    "date": "2026-04-27T21:50:50.504Z",
+    "iterations": 200000,
+    "totalMs": 3.593417000000045,
+    "perOpMs": 0.000017967085000000225,
+    "opsPerSec": 55657331.16974665
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777326650514,
+    "date": "2026-04-27T21:50:50.514Z",
+    "iterations": 100000,
+    "totalMs": 8.176542000000154,
+    "perOpMs": 0.00008176542000000153,
+    "opsPerSec": 12230109.011853436
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777326687690,
+    "date": "2026-04-27T21:51:27.690Z",
+    "iterations": 200000,
+    "totalMs": 2.9737919999988662,
+    "perOpMs": 0.000014868959999994332,
+    "opsPerSec": 67254199.35223319
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777326687698,
+    "date": "2026-04-27T21:51:27.698Z",
+    "iterations": 100000,
+    "totalMs": 6.490583000000697,
+    "perOpMs": 0.00006490583000000697,
+    "opsPerSec": 15406936.480126554
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777822304609,
+    "date": "2026-05-03T15:31:44.609Z",
+    "iterations": 200000,
+    "totalMs": 3.487875000000713,
+    "perOpMs": 0.000017439375000003564,
+    "opsPerSec": 57341504.49771254
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777822304618,
+    "date": "2026-05-03T15:31:44.618Z",
+    "iterations": 100000,
+    "totalMs": 6.904207999999926,
+    "perOpMs": 0.00006904207999999925,
+    "opsPerSec": 14483920.5307837
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777822354997,
+    "date": "2026-05-03T15:32:34.997Z",
+    "iterations": 200000,
+    "totalMs": 3.081207999999606,
+    "perOpMs": 0.00001540603999999803,
+    "opsPerSec": 64909606.88146519
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777822355005,
+    "date": "2026-05-03T15:32:35.005Z",
+    "iterations": 100000,
+    "totalMs": 6.7318750000004,
+    "perOpMs": 0.000067318750000004,
+    "opsPerSec": 14854702.44174083
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777822376252,
+    "date": "2026-05-03T15:32:56.252Z",
+    "iterations": 200000,
+    "totalMs": 3.152291999999761,
+    "perOpMs": 0.000015761459999998806,
+    "opsPerSec": 63445899.04742808
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777822376261,
+    "date": "2026-05-03T15:32:56.261Z",
+    "iterations": 100000,
+    "totalMs": 7.731832999999824,
+    "perOpMs": 0.00007731832999999824,
+    "opsPerSec": 12933543.701733116
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777822395869,
+    "date": "2026-05-03T15:33:15.869Z",
+    "iterations": 200000,
+    "totalMs": 3.6934590000000753,
+    "perOpMs": 0.000018467295000000378,
+    "opsPerSec": 54149782.08773833
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777822395877,
+    "date": "2026-05-03T15:33:15.877Z",
+    "iterations": 100000,
+    "totalMs": 6.827124999999796,
+    "perOpMs": 0.00006827124999999797,
+    "opsPerSec": 14647454.089386525
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777822426629,
+    "date": "2026-05-03T15:33:46.629Z",
+    "iterations": 200000,
+    "totalMs": 3.516708999999537,
+    "perOpMs": 0.000017583544999997684,
+    "opsPerSec": 56871353.30219997
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777822426637,
+    "date": "2026-05-03T15:33:46.637Z",
+    "iterations": 100000,
+    "totalMs": 6.389709000000039,
+    "perOpMs": 0.00006389709000000039,
+    "opsPerSec": 15650164.976214001
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777825154308,
+    "date": "2026-05-03T16:19:14.308Z",
+    "iterations": 200000,
+    "totalMs": 3.0066249999999854,
+    "perOpMs": 0.000015033124999999927,
+    "opsPerSec": 66519768.843803585
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777825154317,
+    "date": "2026-05-03T16:19:14.317Z",
+    "iterations": 100000,
+    "totalMs": 6.815875000000233,
+    "perOpMs": 0.00006815875000000232,
+    "opsPerSec": 14671630.568341788
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777827795647,
+    "date": "2026-05-03T17:03:15.647Z",
+    "iterations": 200000,
+    "totalMs": 2.995042000000467,
+    "perOpMs": 0.000014975210000002335,
+    "opsPerSec": 66777026.833002284
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777827795655,
+    "date": "2026-05-03T17:03:15.655Z",
+    "iterations": 100000,
+    "totalMs": 6.510207999999693,
+    "perOpMs": 0.00006510207999999693,
+    "opsPerSec": 15360492.322212242
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777829819547,
+    "date": "2026-05-03T17:36:59.547Z",
+    "iterations": 200000,
+    "totalMs": 2.9277919999985897,
+    "perOpMs": 0.000014638959999992948,
+    "opsPerSec": 68310863.61329505
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777829819555,
+    "date": "2026-05-03T17:36:59.555Z",
+    "iterations": 100000,
+    "totalMs": 7.073374999999942,
+    "perOpMs": 0.00007073374999999942,
+    "opsPerSec": 14137522.752575796
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777829993301,
+    "date": "2026-05-03T17:39:53.301Z",
+    "iterations": 200000,
+    "totalMs": 2.892374999999447,
+    "perOpMs": 0.000014461874999997235,
+    "opsPerSec": 69147327.02365297
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777829993308,
+    "date": "2026-05-03T17:39:53.308Z",
+    "iterations": 100000,
+    "totalMs": 6.304374999999709,
+    "perOpMs": 0.00006304374999999708,
+    "opsPerSec": 15862000.594825756
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777830034040,
+    "date": "2026-05-03T17:40:34.040Z",
+    "iterations": 200000,
+    "totalMs": 3.169040999999197,
+    "perOpMs": 0.000015845204999995984,
+    "opsPerSec": 63110575.09197599
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777830034047,
+    "date": "2026-05-03T17:40:34.047Z",
+    "iterations": 100000,
+    "totalMs": 6.455541999999696,
+    "perOpMs": 0.00006455541999999696,
+    "opsPerSec": 15490566.090346048
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777830066377,
+    "date": "2026-05-03T17:41:06.377Z",
+    "iterations": 200000,
+    "totalMs": 2.8885000000009313,
+    "perOpMs": 0.000014442500000004656,
+    "opsPerSec": 69240090.01209469
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777830066385,
+    "date": "2026-05-03T17:41:06.385Z",
+    "iterations": 100000,
+    "totalMs": 6.765290999999706,
+    "perOpMs": 0.00006765290999999706,
+    "opsPerSec": 14781330.174859341
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777830151260,
+    "date": "2026-05-03T17:42:31.260Z",
+    "iterations": 200000,
+    "totalMs": 5.414999999999054,
+    "perOpMs": 0.00002707499999999527,
+    "opsPerSec": 36934441.366580784
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777830151277,
+    "date": "2026-05-03T17:42:31.277Z",
+    "iterations": 100000,
+    "totalMs": 13.357040999999299,
+    "perOpMs": 0.00013357040999999298,
+    "opsPerSec": 7486688.10704446
+  },
+  {
+    "name": "errorMessage",
+    "module": "util-error",
+    "timestamp": 1777830193388,
+    "date": "2026-05-03T17:43:13.388Z",
+    "iterations": 200000,
+    "totalMs": 3.0680000000011205,
+    "perOpMs": 0.000015340000000005603,
+    "opsPerSec": 65189048.23987189
+  },
+  {
+    "name": "errorData(Error)",
+    "module": "util-error",
+    "timestamp": 1777830193396,
+    "date": "2026-05-03T17:43:13.396Z",
+    "iterations": 100000,
+    "totalMs": 6.273209000000861,
+    "perOpMs": 0.00006273209000000861,
+    "opsPerSec": 15940804.777903346
+  }
+]

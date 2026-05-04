@@ -1,7 +1,0 @@
-{
-  "version": 1,
-  "model": "qwen/qwen3-embedding-8b",
-  "files": 200,
-  "chunks": 377,
-  "updated": 1771878202746
-}

@@ -1,0 +1,95 @@
+{
+  "run": {
+    "runId": "2026-05-03T17-43-20-554Z",
+    "createdAt": "2026-05-03T17:43:23.898Z",
+    "records": [
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:23.898Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "iterations": 200,
+        "value": 10.092541999999867,
+        "unit": "ms",
+        "valuePerIteration": 0.050462709999999335,
+        "metadata": {
+          "messageCount": 120
+        }
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:23.900Z",
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "iterations": 5000,
+        "value": 1.875,
+        "unit": "ms",
+        "valuePerIteration": 0.000375,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:23.902Z",
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "iterations": 50000,
+        "value": 1.7176250000002256,
+        "unit": "ms",
+        "valuePerIteration": 0.00003435250000000451,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:23.906Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "iterations": 2000,
+        "value": 3.699040999999852,
+        "unit": "ms",
+        "valuePerIteration": 0.001849520499999926,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:24.926Z",
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "iterations": 50000,
+        "value": 3.9535420000001977,
+        "unit": "ms",
+        "valuePerIteration": 0.00007907084000000395,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:24.930Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "iterations": 20000,
+        "value": 3.231832999999824,
+        "unit": "ms",
+        "valuePerIteration": 0.00016159164999999121,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-43-20-554Z",
+        "timestamp": "2026-05-03T17:43:24.931Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "iterations": 50000,
+        "value": 0.4486249999999927,
+        "unit": "ms",
+        "valuePerIteration": 0.000008972499999999855,
+        "metadata": {}
+      }
+    ]
+  },
+  "exportedAt": "2026-05-03T17:43:24.932Z"
+}

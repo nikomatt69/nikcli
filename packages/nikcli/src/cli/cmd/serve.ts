@@ -1,5 +1,4 @@
 import { Server } from "../../server/server"
-import { Ssh } from "../../server/ssh"
 import { cmd } from "./cmd"
 import { withNetworkOptions, resolveNetworkOptions } from "../network"
 import { Flag } from "../../flag/flag"
@@ -35,17 +34,9 @@ export const ServeCommand = cmd({
       workspaceSync = (await Project.list()).map((project) => Workspace.startSyncing(project))
     }
 
-    const sshServer = Ssh.start()
-    if (sshServer) {
-      console.log(`nikcli SSH server listening on ssh://${Flag.NIKCLI_SERVER_SSH_HOST}:${Flag.NIKCLI_SERVER_SSH_PORT}`)
-    }
-
     await new Promise(() => {})
 
     await server.stop()
     await Promise.all(workspaceSync.map((item) => item.stop()))
-    if (sshServer) {
-      await Ssh.stop()
-    }
   },
 })

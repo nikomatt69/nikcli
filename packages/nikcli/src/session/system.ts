@@ -14,7 +14,6 @@ import PROMPT_ANTHROPIC_SPOOF from "./prompt/anthropic_spoof.txt"
 import PROMPT_CODEX from "./prompt/codex_header.txt"
 import type { Provider } from "@/provider/provider"
 import { Flag } from "@/flag/flag"
-import { getContextSummary, getLoadedDocs } from "@/docs/context"
 import { Skill } from "@/skill"
 
 const log = Log.create({ service: "system-prompt" })
@@ -148,15 +147,7 @@ export namespace SystemPrompt {
     return Promise.all([...foundFiles, ...foundUrls]).then((result) => result.filter(Boolean))
   }
 
-  export async function docs() {
-    const loaded = await getLoadedDocs()
-    if (loaded.length === 0) return []
-    const summary = await getContextSummary()
-    if (!summary) return []
-    const block = ["<docs-context>", summary, "</docs-context>"].join("\n")
-    if (!block.trim()) return []
-    return [block]
-  }
+  
 
   export async function skills(names: string[] = []) {
     const uniqueNames = [...new Set(names)]

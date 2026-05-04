@@ -1,24 +1,104 @@
-import { useEffect, useRef } from "react"
-import { Animated, Easing } from "react-native"
+import { useEffect, useRef, useState } from "react"
+import { AccessibilityInfo, Animated, Easing } from "react-native"
 
+/** Canonical durations — prefer these over magic numbers */
+export const DURATION_MS = {
+  hint: 120,
+  snappy: 220,
+  standard: 320,
+  relaxed: 480,
+  emphasis: 640,
+  shimmerCycle: 2000,
+} as const
+
+/**
+ * Opinionated easing tokens (Material-ish + iOS-feel). Use with `timing()`.
+ */
+export const Ease = {
+  standard: Easing.bezier(0.2, 0, 0, 1),
+  emphasized: Easing.bezier(0.34, 0.82, 0.22, 1),
+  decelerate: Easing.out(Easing.cubic),
+  accelerate: Easing.in(Easing.cubic),
+  smooth: Easing.inOut(Easing.cubic),
+} as const
+
+/** Default spring lists & chip moments */
 export const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 240,
-  mass: 0.8,
+  damping: 22,
+  stiffness: 260,
+  mass: 0.82,
   useNativeDriver: true,
 }
 
+/** Sheets & larger surfaces settling in */
+export const SPRING_SETTLE = {
+  damping: 26,
+  stiffness: 200,
+  mass: 1,
+  useNativeDriver: true,
+}
+
+/** Buttons / tactile controls */
 export const PRESS_SPRING = {
-  damping: 15,
-  stiffness: 300,
-  mass: 0.6,
+  damping: 17,
+  stiffness: 320,
+  mass: 0.55,
+  useNativeDriver: true,
+}
+
+/** Lightweight chip / toggle motions */
+export const SPRING_MICRO = {
+  damping: 19,
+  stiffness: 280,
+  mass: 0.45,
   useNativeDriver: true,
 }
 
 // Native-driver helpers in this file are intended for opacity/transform only.
 // Use a local animation with useNativeDriver:false for colors, height, width, or layout props.
 
-export function useStaggeredAnimation(itemCount: number, delayMs = 50): Animated.Value[] {
+/** Respects Settings → Accessibility → Reduce Motion on iOS (and analogous on Android where supported). */
+export function usePrefersReducedMotion(): boolean {
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  useEffect(() => {
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((value) => setReduceMotion(Boolean(value)))
+      .catch(() => undefined)
+
+    let subscription: { remove(): void } | undefined
+    if (AccessibilityInfo.addEventListener) {
+      subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion)
+    }
+
+    return () => {
+      subscription?.remove()
+    }
+  }, [])
+
+  return reduceMotion
+}
+
+export type StaggerOptions = {
+  delayMs?: number
+  /** When false, always animate at full fidelity (studio / debug tooling). Defaults to true. */
+  respectReducedMotion?: boolean
+}
+
+/** List row / card entrance — pass `delayMs` as bare number or a full `{ delayMs }` object. */
+export function useStaggeredAnimation(itemCount: number, delayMs?: number): Animated.Value[]
+export function useStaggeredAnimation(itemCount: number, options?: StaggerOptions): Animated.Value[]
+export function useStaggeredAnimation(
+  itemCount: number,
+  optionsOrDelay?: StaggerOptions | number,
+): Animated.Value[] {
+  const resolved: StaggerOptions =
+    typeof optionsOrDelay === "number" ? { delayMs: optionsOrDelay } : (optionsOrDelay ?? {})
+  const delayMs = resolved.delayMs ?? 54
+  const respectReducedMotion = resolved.respectReducedMotion ?? true
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reduce = respectReducedMotion && prefersReducedMotion
+
   const animValuesRef = useRef<Animated.Value[]>([])
 
   if (animValuesRef.current.length !== itemCount) {
@@ -28,6 +108,11 @@ export function useStaggeredAnimation(itemCount: number, delayMs = 50): Animated
   const animValues = animValuesRef.current
 
   useEffect(() => {
+    if (reduce) {
+      for (const anim of animValues) anim.setValue(1)
+      return undefined
+    }
+
     const animations = animValues.map((anim, index) =>
       Animated.spring(anim, {
         toValue: 1,
@@ -38,15 +123,29 @@ export function useStaggeredAnimation(itemCount: number, delayMs = 50): Animated
     const parallel = Animated.parallel(animations as Animated.CompositeAnimation[], { stopTogether: false })
     parallel.start()
     return () => parallel.stop()
-  }, [animValues, delayMs])
+  }, [animValues, delayMs, reduce])
 
   return animValues
 }
 
-export function useItemAnimation(index: number, delayMs = 50): Animated.Value {
+export type ItemRevealOptions = {
+  delayMs?: number
+  respectReducedMotion?: boolean
+}
+
+/** Single staged item (alternate to stagger arrays when indices are unstable). */
+export function useItemAnimation(index: number, options?: ItemRevealOptions): Animated.Value {
+  const delayMs = options?.delayMs ?? 54
+  const respectReducedMotion = options?.respectReducedMotion ?? true
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const reduce = respectReducedMotion && prefersReducedMotion
   const anim = useRef(new Animated.Value(0)).current
 
   useEffect(() => {
+    if (reduce) {
+      anim.setValue(1)
+      return undefined
+    }
     const animation = Animated.spring(anim, {
       toValue: 1,
       ...SPRING_CONFIG,
@@ -54,26 +153,31 @@ export function useItemAnimation(index: number, delayMs = 50): Animated.Value {
     })
     animation.start()
     return () => animation.stop()
-  }, [anim, index, delayMs])
+  }, [anim, index, delayMs, reduce])
 
   return anim
 }
 
 export function useShimmerAnimation(): Animated.Value {
   const shimmer = useRef(new Animated.Value(0)).current
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
+    if (prefersReducedMotion) {
+      shimmer.setValue(0)
+      return undefined
+    }
     const animation = Animated.loop(
       Animated.timing(shimmer, {
         toValue: 1,
-        duration: 2000,
-        easing: Easing.inOut(Easing.ease),
+        duration: DURATION_MS.shimmerCycle,
+        easing: Ease.smooth,
         useNativeDriver: true,
       }),
     )
     animation.start()
     return () => animation.stop()
-  }, [shimmer])
+  }, [shimmer, prefersReducedMotion])
 
   return shimmer
 }
@@ -82,7 +186,7 @@ export function usePressAnimation() {
   const scale = useRef(new Animated.Value(1)).current
 
   const onPressIn = () => {
-    Animated.spring(scale, { toValue: 0.98, ...PRESS_SPRING }).start()
+    Animated.spring(scale, { toValue: 0.976, ...PRESS_SPRING }).start()
   }
 
   const onPressOut = () => {
@@ -92,25 +196,41 @@ export function usePressAnimation() {
   return { scale, onPressIn, onPressOut }
 }
 
-export function useToggleAnimation(initialValue: boolean): Animated.Value {
-  const progress = useRef(new Animated.Value(initialValue ? 1 : 0)).current
+/** Progress 0 ↔ 1 for purely transform-driven toggles (`useNativeDriver: true`). */
+export function useToggleAnimation(enabled: boolean): Animated.Value {
+  const progress = useRef(new Animated.Value(enabled ? 1 : 0)).current
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
-    const animation = Animated.spring(progress, {
-      toValue: initialValue ? 1 : 0,
+    if (prefersReducedMotion) {
+      progress.setValue(enabled ? 1 : 0)
+      return
+    }
+
+    Animated.spring(progress, {
+      toValue: enabled ? 1 : 0,
       damping: 18,
       stiffness: 200,
       mass: 0.5,
       useNativeDriver: true,
-    })
-    animation.start()
-    return () => animation.stop()
-  }, [initialValue, progress])
+    }).start()
+  }, [enabled, prefersReducedMotion, progress])
 
   return progress
 }
 
-export function getAnimatedStyle(anim: Animated.Value) {
+export type EntranceIntensity = "subtle" | "standard" | "dramatic"
+
+export type EntranceStyleOptions = {
+  intensity?: EntranceIntensity
+}
+
+/** Row / toast entrance */
+export function getAnimatedStyle(anim: Animated.Value, options?: EntranceStyleOptions) {
+  const intensity = options?.intensity ?? "standard"
+  const drift = intensity === "subtle" ? 10 : intensity === "dramatic" ? 28 : 20
+  const scaleFrom = intensity === "subtle" ? 0.985 : intensity === "dramatic" ? 0.904 : 0.95
+
   return {
     opacity: anim.interpolate({
       inputRange: [0, 1],
@@ -120,20 +240,25 @@ export function getAnimatedStyle(anim: Animated.Value) {
       {
         translateY: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [20, 0] as [number, number],
+          outputRange: [drift, 0] as [number, number],
         }),
       },
       {
         scale: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.95, 1] as [number, number],
+          outputRange: [scaleFrom, 1] as [number, number],
         }),
       },
     ],
   }
 }
 
-export function getCardAnimatedStyle(anim: Animated.Value) {
+/** Denser layouts (dashboard cards, settings rows) */
+export function getCardAnimatedStyle(anim: Animated.Value, options?: EntranceStyleOptions) {
+  const intensity = options?.intensity ?? "standard"
+  const drift = intensity === "subtle" ? 16 : intensity === "dramatic" ? 44 : 32
+  const scaleFrom = intensity === "subtle" ? 0.968 : intensity === "dramatic" ? 0.888 : 0.92
+
   return {
     opacity: anim.interpolate({
       inputRange: [0, 1],
@@ -143,13 +268,13 @@ export function getCardAnimatedStyle(anim: Animated.Value) {
       {
         translateY: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [30, 0] as [number, number],
+          outputRange: [drift, 0] as [number, number],
         }),
       },
       {
         scale: anim.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.92, 1] as [number, number],
+          outputRange: [scaleFrom, 1] as [number, number],
         }),
       },
     ],

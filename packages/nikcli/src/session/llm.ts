@@ -29,6 +29,41 @@ export namespace LLM {
   const log = Log.create({ service: "llm" })
   export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
 
+  // Build request headers based on provider and model configuration
+  function buildRequestHeaders(
+    providerID: string,
+    sessionID: string,
+    userID: string,
+    isCodex: boolean,
+    modelHeaders?: Record<string, string>,
+  ): Record<string, string> | undefined {
+    if (isCodex) {
+      return {
+        originator: "nikcli",
+        "User-Agent": `nikcli/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
+        session_id: sessionID,
+      }
+    }
+
+    if (providerID.startsWith("nikcli")) {
+      return {
+        "x-nikcli-project": Instance.project.id,
+        "x-nikcli-session": sessionID,
+        "x-nikcli-request": userID,
+        "x-nikcli-client": Flag.NIKCLI_CLIENT,
+      }
+    }
+
+    if (providerID !== "anthropic") {
+      return {
+        "User-Agent": `nikcli/${Installation.VERSION}`,
+      }
+    }
+
+    // Return undefined for anthropic (no extra headers needed)
+    return undefined
+  }
+
   export type StreamInput = {
     user: MessageV2.User
     sessionID: string
@@ -193,29 +228,14 @@ export namespace LLM {
       toolChoice: input.toolChoice,
       maxOutputTokens,
       abortSignal: input.abort,
-      headers: {
-        ...(isCodex
-          ? {
-              originator: "nikcli",
-              "User-Agent": `nikcli/${Installation.VERSION} (${os.platform()} ${os.release()}; ${os.arch()})`,
-              session_id: input.sessionID,
-            }
-          : undefined),
-        ...(input.model.providerID.startsWith("nikcli")
-          ? {
-              "x-nikcli-project": Instance.project.id,
-              "x-nikcli-session": input.sessionID,
-              "x-nikcli-request": input.user.id,
-              "x-nikcli-client": Flag.NIKCLI_CLIENT,
-            }
-          : input.model.providerID !== "anthropic"
-            ? {
-                "User-Agent": `nikcli/${Installation.VERSION}`,
-              }
-            : undefined),
-        ...input.model.headers,
-      },
       maxRetries: input.retries ?? 0,
+      headers: buildRequestHeaders(
+        input.model.providerID,
+        input.sessionID,
+        input.user.id,
+        isCodex,
+        input.model.headers,
+      ),
       messages: [
         ...(isCodex
           ? [

@@ -27,7 +27,6 @@ import { SyncProvider, useSync } from "@tui/context/sync"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
-import { DialogConnectors } from "@tui/component/dialog-connectors"
 import { DialogRoutine } from "@tui/component/dialog-routine"
 import { DialogStatus } from "@tui/component/dialog-status"
 import { DialogUsage } from "@tui/component/dialog-usage"
@@ -76,6 +75,7 @@ import { BRAIN_SESSION_TITLE } from "@/brain"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { UserDB } from "@/db/users"
 import { DialogLogin } from "@tui/component/dialog-login"
+import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 
@@ -254,12 +254,32 @@ function App() {
   const [pluginRouteKey, setPluginRouteKey] = createSignal(0)
   const bump = () => setPluginRouteKey((k) => k + 1)
   const [pluginsReady, setPluginsReady] = createSignal(false)
+  const [onboardingActive, setOnboardingActive] = createSignal(false)
 
   onMount(() => {
     void (async () => {
+      const isFirstRun = !UserDB.hasUsers()
+
       const storedToken = UserDB.getActiveSessionSync()
       const validUser = storedToken ? UserDB.verifySession(storedToken) : null
-      if (!validUser) {
+
+      if (isFirstRun && !kv.get("onboarding_complete", false)) {
+        // First-time user: unified onboarding handles account creation + provider setup
+        setOnboardingActive(true)
+        await DialogOnboarding.run(dialog)
+        setOnboardingActive(false)
+        // Mark complete only if an account was actually created
+        const postToken = UserDB.getActiveSessionSync()
+        const postUser = postToken ? UserDB.verifySession(postToken) : null
+        if (postUser) {
+          kv.set("onboarding_complete", true)
+          const needsProvider = untrack(() => sync.status === "complete" && sync.data.provider.length === 0)
+          if (needsProvider && dialog.stack.length === 0) {
+            dialog.replace(() => <DialogProviderList />)
+          }
+        }
+      } else if (!validUser) {
+        // Returning user with no active session: standard login
         await DialogLogin.run(dialog)
       }
 
@@ -407,6 +427,7 @@ function App() {
       (isEmpty, wasEmpty) => {
         // only trigger when we transition into an empty-provider state
         if (!isEmpty || wasEmpty) return
+        if (onboardingActive()) return
         dialog.replace(() => <DialogProviderList />)
       },
     ),
@@ -517,9 +538,13 @@ function App() {
         aliases: ["gitgraph", "commits"],
       },
       onSelect: () => {
+        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
         route.navigate({
           type: "git-graph",
-          workspaceID: route.data.workspaceID,
+          sessionID,
+          workspaceID: sessionID
+            ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
+            : route.data.workspaceID,
         })
         dialog.clear()
       },
@@ -534,9 +559,13 @@ function App() {
         aliases: ["gh"],
       },
       onSelect: () => {
+        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
         route.navigate({
           type: "github",
-          workspaceID: route.data.workspaceID,
+          sessionID,
+          workspaceID: sessionID
+            ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
+            : route.data.workspaceID,
         })
         dialog.clear()
       },
@@ -639,17 +668,6 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogMcp />)
-      },
-    },
-    {
-      title: "Manage connectors",
-      value: "connectors.list",
-      category: "Integrations",
-      slash: {
-        name: "connectors",
-      },
-      onSelect: () => {
-        dialog.replace(() => <DialogConnectors />)
       },
     },
     {

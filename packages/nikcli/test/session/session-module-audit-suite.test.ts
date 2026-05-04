@@ -348,7 +348,7 @@ describe("Session retry matrix", () => {
     },
   )
 
-  it.each(retryableCases)("maps retryable reason for %message", ({ message, expected }) => {
+  it.each([...retryableCases])("maps retryable reason for $message", ({ message, expected }) => {
     const result = SessionRetry.retryable(
       new MessageV2.APIError({ message, isRetryable: true, statusCode: 429 } as never, { cause: new Error(message) }) as never,
     )
@@ -509,7 +509,7 @@ describe("Legacy Message schemas", () => {
     { label: "invalid-step", value: { type: "step-start", extra: true }, valid: true },
   ] as const
 
-  it.each(legacyCases)("legacy Message part $label validation", ({ value, valid }) => {
+  it.each([...legacyCases])("legacy Message part $label validation", ({ value, valid }) => {
     const result = Message.MessagePart.safeParse(value)
     expect(result.success).toBe(valid)
   })
@@ -565,8 +565,8 @@ describe("MessageV2 conversion and cursor matrix", () => {
       part.messageID = assistant.info.id
     })
     const model = {
-      api: { npm: "@ai-sdk/openai", id: "gpt-4o-mini" },
-      id: "gpt-4o-mini",
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },   
+      id: "MiniMax-M2.7",
       cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
     } as never
     const converted = MessageV2.toModelMessages([user, assistant], model)

@@ -1,5 +1,0 @@
-Unload documentation from the AI context.
-
-Usage:
-- ids: list of documentation IDs or titles to unload
-- all: unload everything

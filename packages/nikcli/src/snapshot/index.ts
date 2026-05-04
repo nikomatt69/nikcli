@@ -23,6 +23,7 @@ export namespace Snapshot {
       interval: hour,
       run: cleanup,
       scope: "instance",
+      skipInitialRun: true,
     })
   }
 

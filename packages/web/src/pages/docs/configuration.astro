@@ -9,7 +9,7 @@ const toc = [
   { title: "Config Schema", href: "#config-schema", depth: 2 },
   { title: "Top-Level Fields", href: "#top-level-fields", depth: 2 },
   { title: "Providers & Connectors", href: "#providers-connectors", depth: 2 },
-  { title: "RAG, Image & Speak", href: "#rag-media", depth: 2 },
+  { title: "Image & Speak", href: "#image-speak", depth: 2 },
   { title: "Notifications & Mobile", href: "#notifications-mobile", depth: 2 },
   { title: "Keybinds", href: "#keybinds", depth: 2 },
   { title: "Flags & Env", href: "#flags-env", depth: 2 },
@@ -88,7 +88,6 @@ const topFields = [
   { key: "enterprise", desc: "Enterprise settings." },
   { key: "compaction", desc: "Auto compaction settings." },
   { key: "experimental", desc: "Experimental flags, hooks, and feature toggles." },
-  { key: "rag", desc: "RAG embedding configuration." },
   { key: "image", desc: "Image generation defaults." },
   { key: "speak", desc: "Text-to-speech defaults." },
   { key: "notifications", desc: "Todo and general notification settings." },
@@ -143,10 +142,6 @@ const topFields = [
       "type": "local",
       "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
     }
-  },
-  "rag": {
-    "provider": "openai",
-    "model": "text-embedding-3-small"
   },
   "image": {
     "provider": "openrouter",
@@ -216,17 +211,10 @@ const topFields = [
     </DocCode>
   </section>
 
-  <section id="rag-media" class="mb-16 scroll-mt-24">
-    <h2>RAG, Image & Speak</h2>
-    <DocCallout type="warn" title="RAG requires explicit config">
-      <p>
-        RAG no longer assumes a bundled embedding model. Set both <code>rag.provider</code> and
-        <code>rag.model</code>, or use <code>nikcli rag-model</code>.
-      </p>
-    </DocCallout>
+  <section id="image-speak" class="mb-16 scroll-mt-24">
+    <h2>Image & Speak</h2>
     <DocCode language="json">
 {`{
-  "rag": { "provider": "openai", "model": "text-embedding-3-small" },
   "image": { "provider": "openrouter", "model": "openai/gpt-5-image" },
   "speak": { "provider": "elevenlabs", "model": "YOq2y2Up4RgXP2HyXjE5" }
 }`}

@@ -44,7 +44,7 @@ describe("MessageV2 schemas and helpers", () => {
 
   it("fromError maps AbortError to aborted shape", () => {
     const err = new DOMException("x", "AbortError")
-    const out = MessageV2.fromError(err, { providerID: "openai" })
+      const out = MessageV2.fromError(err, { providerID: "minimax-coding-plan" })
     expect(out.name).toBe("MessageAbortedError")
   })
 
@@ -58,7 +58,7 @@ describe("MessageV2 schemas and helpers", () => {
         sessionID,
         time: { created: 1 },
         agent: "a",
-        model: { providerID: "openai", modelID: "gpt-4o-mini" },
+        model: { providerID: "minimax-coding-plan", modelID: "MiniMax-M2.7" },
       },
       parts: [
         {
@@ -71,8 +71,8 @@ describe("MessageV2 schemas and helpers", () => {
       ],
     }
     const model = {
-      api: { npm: "@ai-sdk/openai", id: "gpt-4o-mini" },
-      id: "gpt-4o-mini",
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
+      id: "MiniMax-M2.7",
       cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
     } as Parameters<typeof MessageV2.toModelMessages>[1]
 

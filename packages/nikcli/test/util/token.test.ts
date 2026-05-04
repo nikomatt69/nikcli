@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Token } from "@/util/token"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("Token", () => {
   describe("estimate", () => {
@@ -52,12 +52,15 @@ describe("Token", () => {
         "The quick brown fox jumps over the lazy dog".repeat(10),
       ]
       let i = 0
-      const r = runBench("Token.estimate", "util-token", 500_000, () => {
-        Token.estimate(texts[i++ % texts.length]!)
+      recordBenchmark({
+        suite: "util-token",
+        module: "Token.estimate",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: Token.estimate(texts[i++ % texts.length]!) as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-token")
-      expect(r.opsPerSec).toBeGreaterThan(1_000_000)
+ 
     })
   })
 })

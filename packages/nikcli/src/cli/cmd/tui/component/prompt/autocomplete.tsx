@@ -116,7 +116,7 @@ export function Autocomplete(props: {
 
   const position = createMemo(() => {
     if (!store.visible) return { x: 0, y: 0, width: 0 }
-    const dims = dimensions()
+    dimensions()
     positionTick()
     const anchor = props.anchor()
     const parent = anchor.parent
@@ -314,7 +314,7 @@ export function Autocomplete(props: {
         const width = props.anchor().width - 4
         options.push(
           ...sortedFiles.map((item): AutocompleteOption => {
-            const { filename, url, part } = createFilePart(item, lineRange)
+            const { filename, part } = createFilePart(item, lineRange)
 
             const isDir = item.endsWith("/")
             return {

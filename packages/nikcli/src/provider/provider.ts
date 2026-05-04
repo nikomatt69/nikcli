@@ -1254,6 +1254,29 @@ export namespace Provider {
           }
         }
 
+        // Inject cache_control on the last tool definition for Anthropic-compatible providers.
+        // Anthropic treats this as a cache breakpoint — all preceding tools get cached together.
+        // Saves 5-15k tokens/call after the first request in a session.
+        const isAnthropicLike =
+          model.api.npm === "@ai-sdk/anthropic" ||
+          model.api.npm === "@ai-sdk/google-vertex/anthropic" ||
+          model.api.npm === "@ai-sdk/amazon-bedrock" ||
+          model.providerID === "google-vertex-anthropic"
+        if (isAnthropicLike && opts.body && opts.method === "POST") {
+          try {
+            const body = JSON.parse(opts.body as string)
+            if (Array.isArray(body.tools) && body.tools.length > 0) {
+              const last = body.tools[body.tools.length - 1]
+              if (!last.cache_control) {
+                last.cache_control = { type: "ephemeral" }
+                opts.body = JSON.stringify(body)
+              }
+            }
+          } catch {
+            // Malformed body — skip caching, don't break the request
+          }
+        }
+
         return fetchFn(input, {
           ...opts,
           // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
@@ -1315,7 +1338,7 @@ export namespace Provider {
       const availableProviders = Object.keys(s.providers)
       const matches = fuzzysort.go(providerID, availableProviders, { limit: 3, threshold: -10000 })
       const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions })
+      throw new ModelNotFoundError({ providerID, modelID, suggestions: suggestions as string[] })
     }
 
     const info = provider.models[modelID]
@@ -1323,7 +1346,7 @@ export namespace Provider {
       const availableModels = Object.keys(provider.models)
       const matches = fuzzysort.go(modelID, availableModels, { limit: 3, threshold: -10000 })
       const suggestions = matches.map((m) => m.target)
-      throw new ModelNotFoundError({ providerID, modelID, suggestions })
+      throw new ModelNotFoundError({ providerID, modelID, suggestions: suggestions as string[] })
     }
     return info
   }
@@ -1474,10 +1497,39 @@ export namespace Provider {
 
   export async function defaultModel() {
     const cfg = await Config.get()
-    if (cfg.model) return parseModel(cfg.model)
+    const s = await state()
 
-    // Return the hardcoded default
-    return parseModel(DEFAULT_MODEL)
+    function isAvailable(providerID: string, modelID: string) {
+      return !!s.providers[providerID]?.models[modelID]
+    }
+
+    function bestAvailable() {
+      const allModels: Model[] = []
+      for (const [pid, provider] of Object.entries(s.providers)) {
+        for (const mid of Object.keys(provider.models)) {
+          const m = provider.models[mid]
+          if (m) allModels.push({ ...m, providerID: pid } as Model)
+        }
+      }
+      const sorted = sort(allModels)
+      if (sorted.length > 0) {
+        const best = sorted[0]
+        return { providerID: (best as any).providerID as string, modelID: best.id }
+      }
+      return undefined
+    }
+
+    if (cfg.model) {
+      const parsed = parseModel(cfg.model)
+      // If the configured model's provider is connected, use it as-is
+      if (isAvailable(parsed.providerID, parsed.modelID)) return parsed
+      // Provider not connected — fall back to best available
+      return bestAvailable() ?? parsed
+    }
+
+    const { providerID, modelID } = parseModel(DEFAULT_MODEL)
+    if (isAvailable(providerID, modelID)) return { providerID, modelID }
+    return bestAvailable() ?? { providerID, modelID }
   }
 
   export function parseModel(model: string) {

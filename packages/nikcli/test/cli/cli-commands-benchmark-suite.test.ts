@@ -212,7 +212,7 @@ describe("CLI command suite", () => {
       unit: "ms",
       metadata: {
         checksum,
-        describeType: typeof command.describe ?? "none",
+        describeType: typeof command.describe === "function" ? "function" : "string",
         hasAliases: !!command.aliases?.length,
       },
     })

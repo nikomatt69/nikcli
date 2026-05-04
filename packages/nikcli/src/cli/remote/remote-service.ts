@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events"
-import fs from "node:fs"
 import path from "node:path"
 import os from "node:os"
+import { mkdir } from "node:fs/promises"
 import {
   checkTunnelAvailability,
   createTunnel,
@@ -311,13 +311,13 @@ export class RemoteService extends EventEmitter {
   }
 
   async listPersistedSessions(): Promise<RemoteSessionPersistence[]> {
-    if (!fs.existsSync(this.sessionsDir)) return []
+    if (!(await Bun.file(this.sessionsDir).exists())) return []
 
     const result: RemoteSessionPersistence[] = []
-    for (const file of fs.readdirSync(this.sessionsDir)) {
-      if (!file.endsWith(".json")) continue
+    const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: this.sessionsDir }))
+    for (const file of files) {
       const filePath = path.join(this.sessionsDir, file)
-      const loaded = this.readPersistedSession(filePath)
+      const loaded = await this.readPersistedSession(filePath)
       if (loaded) {
         result.push(loaded)
       }
@@ -332,8 +332,8 @@ export class RemoteService extends EventEmitter {
 
   async getPersistedSession(sessionId: string): Promise<RemoteSessionPersistence | null> {
     const filePath = this.getSessionFilePath(sessionId)
-    if (!fs.existsSync(filePath)) return null
-    return this.readPersistedSession(filePath)
+    if (!(await Bun.file(filePath).exists())) return null
+    return await this.readPersistedSession(filePath)
   }
 
   async getLivePersistedSession(sessionId?: string): Promise<ResolvedRemoteSession | null> {
@@ -612,9 +612,9 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private readPersistedSession(filePath: string): RemoteSessionPersistence | null {
+  private async readPersistedSession(filePath: string): Promise<RemoteSessionPersistence | null> {
     try {
-      const data = fs.readFileSync(filePath, "utf-8")
+      const data = await Bun.file(filePath).text()
       const parsed = JSON.parse(data) as Partial<RemoteSessionPersistence>
       if (!parsed || typeof parsed !== "object") return null
       if (!parsed.sessionId || !parsed.name || !parsed.qrUrl) return null
@@ -641,16 +641,16 @@ export class RemoteService extends EventEmitter {
     const dirs = [path.dirname(this.configPath), this.sessionsDir]
 
     for (const dir of dirs) {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true })
+      if (!(await Bun.file(dir).exists())) {
+        await mkdir(dir, { recursive: true })
       }
     }
   }
 
   private async loadConfig(): Promise<RemoteServiceConfig> {
     try {
-      if (fs.existsSync(this.configPath)) {
-        const data = fs.readFileSync(this.configPath, "utf-8")
+      if (await Bun.file(this.configPath).exists()) {
+        const data = await Bun.file(this.configPath).text()
         const loaded = JSON.parse(data)
         return { ...this.getDefaultConfig(), ...loaded }
       }
@@ -662,7 +662,7 @@ export class RemoteService extends EventEmitter {
 
   private async saveConfig(): Promise<void> {
     try {
-      fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2))
+      await Bun.write(this.configPath, JSON.stringify(this.config, null, 2))
     } catch {
       // ignore
     }
@@ -689,14 +689,13 @@ export class RemoteService extends EventEmitter {
 
   private async recoverPreviousSessions(): Promise<void> {
     try {
-      if (!fs.existsSync(this.sessionsDir)) return
-      const files = fs.readdirSync(this.sessionsDir)
+      if (!(await Bun.file(this.sessionsDir).exists())) return
+      const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: this.sessionsDir }))
       for (const file of files) {
-        if (!file.endsWith(".json")) continue
         const filePath = path.join(this.sessionsDir, file)
-        const session = this.readPersistedSession(filePath)
+        const session = await this.readPersistedSession(filePath)
         if (!session) {
-          fs.unlinkSync(filePath)
+          await Bun.file(filePath).delete()
           continue
         }
 
@@ -704,7 +703,7 @@ export class RemoteService extends EventEmitter {
         const now = new Date()
         const ageSeconds = (now.getTime() - startedAt.getTime()) / 1000
         if (ageSeconds > this.config.sessionExpiry) {
-          fs.unlinkSync(filePath)
+          await Bun.file(filePath).delete()
         }
       }
     } catch {
@@ -719,7 +718,7 @@ export class RemoteService extends EventEmitter {
   private async persistSessionRecord(session: RemoteSessionPersistence): Promise<void> {
     try {
       const filePath = this.getSessionFilePath(session.sessionId)
-      fs.writeFileSync(filePath, JSON.stringify(session, null, 2))
+      await Bun.write(filePath, JSON.stringify(session, null, 2))
     } catch {
       // ignore
     }
@@ -745,8 +744,8 @@ export class RemoteService extends EventEmitter {
   private async cleanupPersistedSession(sessionId: string): Promise<void> {
     try {
       const filePath = this.getSessionFilePath(sessionId)
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath)
+      if (await Bun.file(filePath).exists()) {
+        await Bun.file(filePath).delete()
       }
     } catch {
       // ignore

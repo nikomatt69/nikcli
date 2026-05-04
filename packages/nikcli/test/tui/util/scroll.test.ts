@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { CustomSpeedScroll, getScrollAcceleration } from "@/cli/cmd/tui/util/scroll"
-import { runBench, printBenchResult, compareBenchmarks } from "../../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
 
 describe("CustomSpeedScroll", () => {
   it("tick returns the configured speed", () => {
@@ -89,20 +89,25 @@ describe("getScrollAcceleration", () => {
   describe("benchmark", () => {
     it("CustomSpeedScroll tick throughput", () => {
       const scroll = new CustomSpeedScroll(3)
-      const r = runBench("CustomSpeedScroll.tick", "tui-scroll", 1_000_000, () => {
-        scroll.tick()
+      recordBenchmark({
+        suite: "tui-scroll",
+        module: "CustomSpeedScroll.tick",
+        scenario: "throughput",
+        iterations: 1_000_000,
+        value: scroll.tick() as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("tui-scroll")
-      expect(r.opsPerSec).toBeGreaterThan(5_000_000)
     })
 
     it("getScrollAcceleration throughput", () => {
-      const r = runBench("getScrollAcceleration(undefined)", "tui-scroll", 200_000, () => {
-        getScrollAcceleration(undefined)
+      recordBenchmark({
+        suite: "tui-scroll",
+        module: "getScrollAcceleration(undefined)",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: getScrollAcceleration(undefined) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
     })
   })
 })

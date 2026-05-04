@@ -33,6 +33,7 @@ export async function initialize() {
 
   await Promise.all([
     fs.mkdir(Global.Path.data, { recursive: true }),
+    fs.mkdir(Global.Path.cache, { recursive: true }),
     fs.mkdir(Global.Path.config, { recursive: true }),
     fs.mkdir(Global.Path.state, { recursive: true }),
     fs.mkdir(Global.Path.log, { recursive: true }),

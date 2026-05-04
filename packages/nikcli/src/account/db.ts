@@ -1,32 +1,52 @@
 import { Database } from "bun:sqlite"
+import { drizzle } from "drizzle-orm/bun-sqlite"
+import { eq } from "drizzle-orm"
 import path from "path"
 import { Global } from "@/global"
 import { Log } from "@/util/log"
+import { account, config } from "./account.sql"
 import type { AccountRow, ConfigRow } from "./schema"
+
+/** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
+type RunResult = { changes: number; lastInsertRowid: number | bigint }
+function getChanges(result: void | RunResult): number {
+  return (result as RunResult).changes
+}
 
 export namespace AccountDB {
   const log = Log.create({ service: "account-db" })
 
-  let _db: Database | undefined
+  let _rawDb: Database | undefined
+  let _db: ReturnType<typeof drizzle> | undefined
 
   /**
-   * Get the database connection (singleton)
+   * Get the raw bun:sqlite connection (for migration only).
    */
-  export function db(): Database {
-    if (!_db) {
+  function rawDb(): Database {
+    if (!_rawDb) {
       const dbPath = path.join(Global.Path.data, "accounts.db")
-      _db = new Database(dbPath, { create: true })
-      _db.exec("PRAGMA journal_mode=WAL;")
-      _db.exec("PRAGMA foreign_keys=ON;")
-      migrate(_db)
+      _rawDb = new Database(dbPath, { create: true })
+      _rawDb.exec("PRAGMA journal_mode=WAL;")
+      _rawDb.exec("PRAGMA foreign_keys=ON;")
+      migrateSchema(_rawDb)
+    }
+    return _rawDb
+  }
+
+  /**
+   * Get the Drizzle database instance.
+   */
+  export function db() {
+    if (!_db) {
+      _db = drizzle(rawDb(), { schema: { account, config } })
     }
     return _db
   }
 
   /**
-   * Initialize schema
+   * Run schema migration on the raw SQLite connection.
    */
-  function migrate(database: Database) {
+  function migrateSchema(database: Database) {
     database.exec(`
       CREATE TABLE IF NOT EXISTS account (
         id           TEXT PRIMARY KEY,
@@ -51,71 +71,106 @@ export namespace AccountDB {
   }
 
   // ============================================================================
-  // Prepared statements (cached)
+  // Config cache — avoids repeated reads of the singleton config row
   // ============================================================================
 
-  const stmts = {
-    getAccount: db().prepare("SELECT * FROM account WHERE id = ?"),
-    listAccounts: db().prepare("SELECT * FROM account ORDER BY id ASC"),
-    upsertAccount: db().prepare(`
-      INSERT INTO account (id, email, url, access_token, refresh_token, token_expiry, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(id) DO UPDATE SET
-        email = excluded.email,
-        url = excluded.url,
-        access_token = excluded.access_token,
-        refresh_token = excluded.refresh_token,
-        token_expiry = excluded.token_expiry,
-        updated_at = excluded.updated_at
-    `),
-    deleteAccount: db().prepare("DELETE FROM account WHERE id = ?"),
-    getConfig: db().prepare("SELECT * FROM config WHERE id = 1"),
-    setActiveAccount: db().prepare("UPDATE config SET active_account_id = ? WHERE id = 1"),
-    setActiveOrg: db().prepare("UPDATE config SET active_org_id = ? WHERE id = 1"),
+  let _configCache: { row: ConfigRow; cachedAt: number } | undefined
+  const CONFIG_CACHE_TTL = 5_000 // 5 seconds
+
+  function getConfigCached(): ConfigRow {
+    const now = Date.now()
+    if (_configCache && now - _configCache.cachedAt < CONFIG_CACHE_TTL) {
+      return _configCache.row
+    }
+    const row = db().select().from(config).where(eq(config.id, 1)).get()
+    const configRow: ConfigRow = {
+      id: row!.id,
+      active_account_id: row!.activeAccountId ?? null,
+      active_org_id: row!.activeOrgId ?? null,
+    }
+    _configCache = { row: configRow, cachedAt: now }
+    return configRow
+  }
+
+  function invalidateConfigCache() {
+    _configCache = undefined
   }
 
   // ============================================================================
   // Account operations
   // ============================================================================
 
+  /** Convert a Drizzle row to the legacy AccountRow type */
+  function toAccountRow(row: typeof account.$inferSelect): AccountRow {
+    return {
+      id: row.id,
+      email: row.email,
+      url: row.url,
+      access_token: row.accessToken,
+      refresh_token: row.refreshToken,
+      token_expiry: row.tokenExpiry,
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }
+  }
+
   export function getAccount(id: string): AccountRow | undefined {
-    return stmts.getAccount.get(id) as AccountRow | undefined
+    const row = db().select().from(account).where(eq(account.id, id)).get()
+    return row ? toAccountRow(row) : undefined
   }
 
   export function listAccounts(): AccountRow[] {
-    return stmts.listAccounts.all() as AccountRow[]
+    return db().select().from(account).orderBy(account.id).all().map(toAccountRow)
   }
 
   export function upsertAccount(row: AccountRow): void {
-    stmts.upsertAccount.run(
-      row.id,
-      row.email,
-      row.url,
-      row.access_token,
-      row.refresh_token,
-      row.token_expiry,
-      row.created_at,
-      row.updated_at,
-    )
+    db()
+      .insert(account)
+      .values({
+        id: row.id,
+        email: row.email,
+        url: row.url,
+        accessToken: row.access_token,
+        refreshToken: row.refresh_token,
+        tokenExpiry: row.token_expiry,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })
+      .onConflictDoUpdate({
+        target: account.id,
+        set: {
+          email: row.email,
+          url: row.url,
+          accessToken: row.access_token,
+          refreshToken: row.refresh_token,
+          tokenExpiry: row.token_expiry,
+          updatedAt: row.updated_at,
+        },
+      })
+      .run()
+  }
+
+  /**
+   * Persist only the token fields — does NOT overwrite email, url, or created_at.
+   * This fixes the critical bug where upsertAccount with blank fields destroyed user data.
+   */
+  export function persistToken(id: string, accessToken: string, refreshToken: string, expiresIn: number): void {
+    const now = Date.now()
+    db()
+      .update(account)
+      .set({
+        accessToken,
+        refreshToken,
+        tokenExpiry: now + expiresIn * 1000,
+        updatedAt: now,
+      })
+      .where(eq(account.id, id))
+      .run()
   }
 
   export function deleteAccount(id: string): boolean {
-    const result = stmts.deleteAccount.run(id)
-    return result.changes > 0
-  }
-
-  export function persistToken(id: string, accessToken: string, refreshToken: string, expiresIn: number): void {
-    const now = Date.now()
-    upsertAccount({
-      id,
-      email: "",
-      url: "",
-      access_token: accessToken,
-      refresh_token: refreshToken,
-      token_expiry: now + expiresIn * 1000,
-      created_at: 0,
-      updated_at: now,
-    })
+    const result = db().delete(account).where(eq(account.id, id)).run()
+    return getChanges(result) > 0
   }
 
   // ============================================================================
@@ -123,30 +178,30 @@ export namespace AccountDB {
   // ============================================================================
 
   export function getConfig(): ConfigRow {
-    return stmts.getConfig.get() as ConfigRow
+    return getConfigCached()
   }
 
   export function setActiveAccount(accountId: string | null): void {
-    stmts.setActiveAccount.run(accountId)
+    db().update(config).set({ activeAccountId: accountId }).where(eq(config.id, 1)).run()
+    invalidateConfigCache()
   }
 
   export function setActiveOrg(orgId: string | null): void {
-    stmts.setActiveOrg.run(orgId)
+    db().update(config).set({ activeOrgId: orgId }).where(eq(config.id, 1)).run()
+    invalidateConfigCache()
   }
 
   /**
-   * Get the active account ID
+   * Get the active account ID (uses cached config).
    */
   export function getActiveAccountId(): string | undefined {
-    const config = getConfig()
-    return config.active_account_id ?? undefined
+    return getConfigCached().active_account_id ?? undefined
   }
 
   /**
-   * Get the active org ID
+   * Get the active org ID (uses cached config).
    */
   export function getActiveOrgId(): string | undefined {
-    const config = getConfig()
-    return config.active_org_id ?? undefined
+    return getConfigCached().active_org_id ?? undefined
   }
 }

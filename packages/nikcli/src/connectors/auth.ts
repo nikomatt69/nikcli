@@ -26,23 +26,21 @@ export namespace ConnectorAuth {
   }
 
   export async function set(connectorName: string, entry: Entry): Promise<void> {
-    const file = Bun.file(filepath)
     const data = await all()
-    await Bun.write(file, JSON.stringify({ ...data, [connectorName]: entry }, null, 2))
+    await Bun.write(filepath, JSON.stringify({ ...data, [connectorName]: entry }, null, 2))
     // chmod is Unix-only, skip on Windows
     if (process.platform !== "win32") {
-      await fs.chmod(file.name!, 0o600)
+      await fs.chmod(filepath, 0o600)
     }
   }
 
   export async function remove(connectorName: string): Promise<void> {
-    const file = Bun.file(filepath)
     const data = await all()
     delete data[connectorName]
-    await Bun.write(file, JSON.stringify(data, null, 2))
+    await Bun.write(filepath, JSON.stringify(data, null, 2))
     // chmod is Unix-only, skip on Windows
     if (process.platform !== "win32") {
-      await fs.chmod(file.name!, 0o600)
+      await fs.chmod(filepath, 0o600)
     }
   }
 

@@ -125,7 +125,7 @@ function createMessageV2User(id: string, text: string, extraParts: MessageV2.Par
       body: "body",
       diffs: [],
     },
-  } as unknown as MessageV2.Info & { format: MessageV2.OutputFormat; metadata?: MessageV2.Info["metadata"] }
+  } as unknown as MessageV2.Info & { format: MessageV2.OutputFormat; summary?: MessageV2.User["summary"] }
 
   const basePart = {
     id: `part-${id}`,
@@ -290,7 +290,7 @@ describe("Session retry helpers", () => {
     { headers: { "retry-after": "invalid" }, attempt: 3, expected: 8_000 },
   ] as const
 
-  it.each(delayCases)("delay case for attempt $attempt", (entry) => {
+  it.each([...delayCases])("delay case for attempt $attempt", (entry) => {
     const headers = "headers" in entry ? entry.headers : undefined
     const error = headers ? createApiError("retry", headers) : undefined
     expect(SessionRetry.delay(entry.attempt, error)).toBe(entry.expected)
@@ -337,7 +337,7 @@ describe("Session retry helpers", () => {
     },
   ] as const
 
-  it.each(retryableCases)("$label is mapped", ({ input, expected }) => {
+  it.each([...retryableCases])("$label is mapped", ({ input, expected }) => {
     expect(SessionRetry.retryable(input)).toBe(expected)
   })
 
@@ -366,7 +366,7 @@ describe("Session retry helpers", () => {
 
     const startRetry = performance.now()
     for (const error of retryErrors) {
-      SessionRetry.retryable(error as any)
+          SessionRetry.retryable(error as unknown as MessageV2.APIError)
     }
     const elapsedRetry = performance.now() - startRetry
 
@@ -597,7 +597,7 @@ describe("Message schema and converter suite", () => {
     },
   ] as const
 
-  it.each(messageSchemaCases)("$label", ({ parse, value, valid }) => {
+  it.each([...messageSchemaCases])("$label", ({ parse, value, valid }) => {
     if (valid) {
       expect(() => parse(value as never)).not.toThrow()
       expect(parse(value as never)).toBeTruthy()
@@ -677,16 +677,12 @@ describe("Message schema and converter suite", () => {
 
 describe("MessageV2 toModelMessages and error conversion", () => {
   const openAIModel = {
-    api: { npm: "@ai-sdk/openai", id: "gpt-4o-mini" },
-    id: "gpt-4o-mini",
+    api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
+    id: "MiniMax-M2.7",
   }
   const customModel = {
     api: { npm: "@my-org/custom", id: "custom-1" },
     id: "custom-1",
-  }
-  const anthropicModel = {
-    api: { npm: "@ai-sdk/anthropic", id: "claude-3-7-sonnet" },
-    id: "claude-3-7-sonnet",
   }
 
   const toolMessages: MessageV2.WithParts[] = [
@@ -750,7 +746,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     const converted = MessageV2.toModelMessages([message], openAIModel as never)
     expect(converted.length).toBe(1)
     expect(converted[0].role).toBe("user")
-    expect(converted[0].parts[0]).toHaveProperty("type", "text")
+    expect((converted[0] as unknown as { parts: MessageV2.Part[] }).parts[0]).toHaveProperty("type", "text")
   })
 
   it.each([
@@ -840,7 +836,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
               status: "pending",
               input: { term: "abc" },
               time: { start: 1 },
-            },
+            } as any,
           },
         ]),
       ],
@@ -898,7 +894,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
           },
         ]),
       ],
-      model: anthropicModel as never,
+      model: openAIModel as never,
       expected: 1,
       hasVisual: false,
     },
@@ -948,12 +944,12 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     },
   ])("toModelMessages: $label", ({ label: _label, messages, model, expected, hasVisual }) => {
     if (_label === "assistant with error is skipped") {
-      ;(messages[0].info as MessageV2.Assistant).error = new MessageV2.OutputLengthError({} as never, { cause: new Error("x") })
+      ;(messages[0].info as unknown as MessageV2.Assistant).error = new MessageV2.OutputLengthError({} as never, { cause: new Error("x") })
     }
-    const converted = MessageV2.toModelMessages(messages as MessageV2.WithParts[], model as never)
+    const converted = MessageV2.toModelMessages(messages as unknown as MessageV2.WithParts[], model as never)
     expect(converted.length).toBe(expected)
     if (hasVisual) {
-      expect(converted.some((message) => message.role === "user" && message.parts.some((part) => part.type === "file"))).toBe(true)
+      expect(converted.some((message) => message.role === "user" && (message as unknown as { parts: MessageV2.Part[] }).parts.some((part: MessageV2.Part) => part.type === "file"))).toBe(true)
     }
   })
 
@@ -1022,7 +1018,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     const toModelIterations = 400
     const filterIterations = 120
 
-    const modelSet = [openAIModel, customModel, anthropicModel]
+    const modelSet = [openAIModel, customModel]
     const startConvert = performance.now()
     let partCount = 0
     for (let i = 0; i < toModelIterations; i += 1) {
@@ -1162,7 +1158,7 @@ describe("Session usage and ids", () => {
     },
   ] as const
 
-  it.each(usageCases)("usage output for $label", ({ model, usage, metadata, expectedTotal }) => {
+  it.each([...usageCases])("usage output for $label", ({ model, usage, metadata, expectedTotal }) => {
     const result = Session.getUsage({
       model: model as never,
       usage: {
@@ -1209,7 +1205,7 @@ describe("Session usage and ids", () => {
         model: model as never,
         usage,
       })
-      sum += result.tokens.total
+      sum += result.tokens.total ?? 0
     }
     const elapsed = performance.now() - start
     recordBenchmark({

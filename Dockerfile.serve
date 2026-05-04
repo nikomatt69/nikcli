@@ -116,6 +116,7 @@ ENV NIKCLI_SERVER_USERNAME=nikcli
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
 ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
+ENV NIKCLI_TERMINAL=1
 # Comma-separated list of extra origins to allow for CORS (e.g. your web domain)
 # Set NIKCLI_SERVER_CORS_ORIGINS=https://yourdomain.com in Railway environment variables
 

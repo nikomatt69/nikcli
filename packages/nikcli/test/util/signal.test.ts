@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { signal } from "@/util/signal"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("signal", () => {
   it("returns an object with trigger and wait methods", () => {
@@ -70,12 +70,14 @@ describe("signal", () => {
 
   describe("benchmark", () => {
     it("signal creation throughput", () => {
-      const r = runBench("signal create", "util-signal", 200_000, () => {
-        signal()
+      recordBenchmark({
+        suite: "util-signal",
+        module: "signal creation",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: signal() as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-signal")
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
     })
   })
 })

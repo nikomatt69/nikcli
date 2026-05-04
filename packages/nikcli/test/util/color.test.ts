@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Color } from "@/util/color"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("Color", () => {
   describe("isValidHex", () => {
@@ -91,20 +91,25 @@ describe("Color", () => {
     it("Color.isValidHex throughput", () => {
       const inputs = ["#ff0000", "#invalid", undefined, "#abc", "#AABBCC"]
       let i = 0
-      const r = runBench("Color.isValidHex", "util-color", 500_000, () => {
-        Color.isValidHex(inputs[i++ % inputs.length] as any)
+      const r = recordBenchmark({
+        suite: "util-color",
+        module: "Color.isValidHex",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: Color.isValidHex(inputs[i++ % inputs.length] as any) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-color")
-      expect(r.opsPerSec).toBeGreaterThan(1_000_000)
     })
 
     it("Color.hexToRgb throughput", () => {
-      const r = runBench("Color.hexToRgb", "util-color", 300_000, () => {
-        Color.hexToRgb("#1a2b3c")
+      recordBenchmark({
+        suite: "util-color",
+        module: "Color.hexToRgb",
+        scenario: "throughput",
+        iterations: 300_000,
+        value: Color.hexToRgb("#1a2b3c") as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
   })
 })

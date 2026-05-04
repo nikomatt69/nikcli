@@ -105,15 +105,35 @@ function sessionDeepLink(sessionID: string) {
   }
 }
 
-function compactActivityText(value: string | null | undefined, limit = 72) {
+/** Truncate for Lock Screen / Dynamic Island copy; safe to reuse for notifications. */
+export function compactActivityText(value: string | null | undefined, limit = 72) {
   if (!value) return ""
   const normalized = value.replace(/\s+/g, " ").trim()
   if (normalized.length <= limit) return normalized
   return `${normalized.slice(0, Math.max(0, limit - 1)).trimEnd()}…`
 }
 
-function buildPersistedActivitySnapshot(detail: SessionDetail) {
+export type SessionLiveActivitySnapshot =
+  | { mode: "upsert"; title: string; subtitle?: string; countdownTo?: number }
+  | { mode: "stop"; title: string; subtitle?: string }
+
+/**
+ * Single source of truth for Live Activity title/subtitle/countdown from session detail.
+ * Optional `publishing` / `cleaning` mirror transient UI state on the session screen.
+ */
+export function buildSessionLiveActivitySnapshot(
+  detail: SessionDetail,
+  overlays?: { publishing?: boolean; cleaning?: boolean },
+): SessionLiveActivitySnapshot | null {
   const title = compactActivityText(detail.info.title || "Nikcli session", 64)
+
+  if (overlays?.publishing) {
+    return { mode: "upsert", title, subtitle: "Publishing GitHub workflow" }
+  }
+
+  if (overlays?.cleaning) {
+    return { mode: "upsert", title, subtitle: "Cleaning GitHub worktree" }
+  }
 
   if (detail.permissions.length > 0) {
     const firstPermission = compactActivityText(detail.permissions[0]?.permission || "Approval needed", 54)
@@ -122,12 +142,12 @@ function buildPersistedActivitySnapshot(detail: SessionDetail) {
         ? `Approval needed: ${firstPermission}`
         : `${detail.permissions.length} approvals pending`
 
-    return { mode: "upsert" as const, title, subtitle }
+    return { mode: "upsert", title, subtitle }
   }
 
   if (detail.status?.type === "retry") {
     return {
-      mode: "upsert" as const,
+      mode: "upsert",
       title,
       subtitle: compactActivityText(`Retry ${detail.status.attempt}: ${detail.status.message}`, 72),
       countdownTo: detail.status.next,
@@ -139,12 +159,12 @@ function buildPersistedActivitySnapshot(detail: SessionDetail) {
       detail.info.github?.fullName || detail.info.directory || "Running session",
       72,
     )
-    return { mode: "upsert" as const, title, subtitle: workspace }
+    return { mode: "upsert", title, subtitle: workspace }
   }
 
   if (detail.status?.type === "idle") {
     const subtitle = detail.info.github?.pullRequest ? "GitHub work ready" : "Ready for next command"
-    return { mode: "stop" as const, title, subtitle }
+    return { mode: "stop", title, subtitle }
   }
 
   return null
@@ -165,6 +185,64 @@ function buildLiveActivityState(input: {
         ? { progressBar: { progress: input.progress } }
         : {}),
   }
+}
+
+type LiveActivityStartTone = "attention" | "countdown" | "editorial" | "work"
+
+function deriveLiveActivityStartTone(payload: {
+  subtitle?: string
+  countdownTo?: number
+  progress?: number
+}): LiveActivityStartTone {
+  if (typeof payload.countdownTo === "number") return "countdown"
+  const raw = (payload.subtitle ?? "").trim()
+  const lower = raw.toLowerCase()
+  if (lower.startsWith("approval needed:")) return "attention"
+  if (/^\d+\s+approvals?\s+pending\.?$/i.test(raw)) return "attention"
+  if (lower === "publishing github workflow" || lower === "cleaning github worktree") return "editorial"
+  return "work"
+}
+
+/** Cosmetic attributes baked in at Activity request time (updates keep the frozen palette until the Activity ends). */
+const LIVE_ACTIVITY_PRESENTATION: Record<
+  LiveActivityStartTone,
+  Pick<
+    LiveActivity.LiveActivityConfig,
+    | "backgroundColor"
+    | "titleColor"
+    | "subtitleColor"
+    | "progressViewTint"
+    | "progressViewLabelColor"
+  >
+> = {
+  attention: {
+    backgroundColor: "#29140f",
+    titleColor: "#fff5eb",
+    subtitleColor: "#ffc48a",
+    progressViewTint: "#fb923c",
+    progressViewLabelColor: "#fff1dc",
+  },
+  countdown: {
+    backgroundColor: "#0f172a",
+    titleColor: "#f8fafc",
+    subtitleColor: "#7dd3fc",
+    progressViewTint: "#38bdf8",
+    progressViewLabelColor: "#e0f2fe",
+  },
+  editorial: {
+    backgroundColor: "#141927",
+    titleColor: "#f4f6ff",
+    subtitleColor: "#a7b9da",
+    progressViewTint: "#818cf8",
+    progressViewLabelColor: "#e3e9ff",
+  },
+  work: {
+    backgroundColor: "#071816",
+    titleColor: "#ecfeff",
+    subtitleColor: "#5eead4",
+    progressViewTint: "#2dd4bf",
+    progressViewLabelColor: "#ccfbf1",
+  },
 }
 
 function bindLiveActivityListener() {
@@ -301,14 +379,26 @@ export async function upsertSessionLiveActivity(input: {
   bindLiveActivityListener()
   if (!canManageLiveActivities()) return false
 
+  const tone = deriveLiveActivityStartTone({
+    subtitle: input.subtitle,
+    countdownTo: input.countdownTo,
+    progress: input.progress,
+  })
+  const presentation = LIVE_ACTIVITY_PRESENTATION[tone]
+
   const state = buildLiveActivityState(input)
-  const signature = JSON.stringify(state)
+  const signaturePayload = {
+    tone,
+    state,
+  }
+  const signature = JSON.stringify(signaturePayload)
   if (liveActivitySignatures.get(input.sessionID) === signature) return true
 
   const activityID = liveActivityIDs.get(input.sessionID)
   const config: LiveActivity.LiveActivityConfig = {
     deepLinkUrl: sessionDeepLink(input.sessionID),
     timerType: "digital",
+    ...presentation,
   }
 
   if (activityID) {
@@ -381,7 +471,7 @@ export async function reconcilePersistedLiveActivities(
       continue
     }
 
-    const snapshot = buildPersistedActivitySnapshot(detail)
+    const snapshot = buildSessionLiveActivitySnapshot(detail)
     if (!snapshot) continue
 
     if (snapshot.mode === "upsert") {

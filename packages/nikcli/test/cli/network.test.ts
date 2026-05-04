@@ -41,7 +41,7 @@ describe("resolveNetworkOptions", () => {
     process.argv = ["bun", "cli"]
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string    ,
       mdns: false,
       cors: [],
     })
@@ -63,7 +63,7 @@ describe("resolveNetworkOptions", () => {
     })
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: [],
     })
@@ -79,7 +79,7 @@ describe("resolveNetworkOptions", () => {
     await writeGlobalConfig({ server: { port: 9000 } })
     const r = await resolveNetworkOptions({
       port: 3000,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: [],
     })
@@ -92,7 +92,7 @@ describe("resolveNetworkOptions", () => {
     await writeGlobalConfig({})
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: [],
     })
@@ -104,7 +104,7 @@ describe("resolveNetworkOptions", () => {
     await writeGlobalConfig({ server: { mdns: true } })
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: [],
     })
@@ -117,7 +117,7 @@ describe("resolveNetworkOptions", () => {
     await writeGlobalConfig({ server: { cors: ["https://a.example"] } })
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1",
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: ["https://b.example"],
     })

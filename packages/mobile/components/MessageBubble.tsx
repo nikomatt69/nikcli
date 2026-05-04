@@ -75,6 +75,15 @@ function getLanguage(node: ASTNode): string {
   return info?.split(/\s+/)[0]?.toLowerCase() || "code"
 }
 
+function stableMarkdownCodeKey(node: ASTNode, messageId: string): string {
+  if (node.key != null && String(node.key).length > 0) return `${messageId}:${node.key}`
+  const code = trimmedCodeContent(node)
+  const lang = getLanguage(node)
+  let h = 0
+  for (let i = 0; i < Math.min(code.length, 240); i++) h = (h * 31 + code.charCodeAt(i)) | 0
+  return `${messageId}:cb:${lang}:${code.length}:${h}`
+}
+
 function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundColor: string; borderColor: string }) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -107,7 +116,6 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
 
   return (
     <View
-      key={props.node.key}
       className="mt-1 mb-0 overflow-hidden rounded-2xl border"
       style={{ backgroundColor: palette.codeBlockBackground, borderColor: palette.border }}
     >
@@ -153,18 +161,21 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         }}
       >
         <View>
-          {lineHighlights.map((lineHighlighted, lineIndex) => {
-            return (
-              <Text key={lineIndex} selectable className="text-[11px] leading-[18px]" style={{ fontFamily: "Menlo" }}>
-                {lineHighlighted.map((seg, i) => (
-                  <Text key={i} style={{ color: seg.color }}>
-                    {seg.text}
-                  </Text>
-                ))}
-                {"\n"}
-              </Text>
-            )
-          })}
+          {lineHighlights.map((lineHighlighted, lineIndex) => (
+            <Text
+              key={`line-${lineIndex}`}
+              selectable
+              className="text-[11px] leading-[18px]"
+              style={{ fontFamily: "Menlo" }}
+            >
+              {lineHighlighted.map((seg, i) => (
+                <Text key={`line-${lineIndex}-seg-${i}`} style={{ color: seg.color }}>
+                  {seg.text}
+                </Text>
+              ))}
+              {"\n"}
+            </Text>
+          ))}
         </View>
       </ScrollView>
       {isLong && (
@@ -268,6 +279,7 @@ export function MessageBubble(props: {
     () => ({
       code_block: (node, _children, _parent, styles, inheritedStyles = {}) => (
         <ScrollableCodeBlock
+          key={stableMarkdownCodeKey(node, props.message.info.id)}
           node={node}
           textStyle={[inheritedStyles, styles.code_block]}
           backgroundColor={palette.codeBackground}
@@ -276,6 +288,7 @@ export function MessageBubble(props: {
       ),
       fence: (node, _children, _parent, styles, inheritedStyles = {}) => (
         <ScrollableCodeBlock
+          key={stableMarkdownCodeKey(node, props.message.info.id)}
           node={node}
           textStyle={[inheritedStyles, styles.fence]}
           backgroundColor={palette.codeBackground}
@@ -283,7 +296,7 @@ export function MessageBubble(props: {
         />
       ),
     }),
-    [palette.border, palette.codeBackground],
+    [palette.border, palette.codeBackground, props.message.info.id],
   )
   const summaryLine = useMemo(() => {
     const items = [] as string[]

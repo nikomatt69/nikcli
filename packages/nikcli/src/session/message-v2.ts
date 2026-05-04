@@ -12,6 +12,7 @@ import { STATUS_CODES } from "http"
 import { iife } from "@/util/iife"
 import { type SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
+import { workMap } from "@/util/queue"
 
 export namespace MessageV2 {
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
@@ -491,17 +492,7 @@ export namespace MessageV2 {
     //
     // Only apply this workaround if the model actually supports image input -
     // otherwise there's no point extracting images.
-    const supportsMediaInToolResults = (() => {
-      if (model.api.npm === "@ai-sdk/anthropic") return true
-      if (model.api.npm === "@ai-sdk/openai") return true
-      if (model.api.npm === "@ai-sdk/amazon-bedrock") return true
-      if (model.api.npm === "@ai-sdk/google-vertex/anthropic") return true
-      if (model.api.npm === "@ai-sdk/google") {
-        const id = model.api.id.toLowerCase()
-        return id.includes("gemini-3") && !id.includes("gemini-2")
-      }
-      return false
-    })()
+    const supportsMediaInToolResults = ProviderTransform.supportsMediaInToolResults(model)
 
     const toModelOutput = (output: unknown) => {
       if (typeof output === "string") {
@@ -726,11 +717,12 @@ export namespace MessageV2 {
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
     const list = await Array.fromAsync(await Storage.list(["message", sessionID]))
-    for (let i = list.length - 1; i >= 0; i--) {
-      yield await get({
-        sessionID,
-        messageID: list[i][2],
-      })
+    // Fetch messages in reverse order (newest first) with bounded concurrency
+    const messages = await workMap(8, list.slice().reverse(), (item) =>
+      get({ sessionID, messageID: item[2] }).catch(() => null as WithParts | null),
+    )
+    for (const msg of messages) {
+      if (msg) yield msg
     }
   })
 
@@ -747,17 +739,20 @@ export namespace MessageV2 {
       startIndex = list.length
     }
 
-    const items: WithParts[] = []
-    for (let i = startIndex - 1; i >= 0 && items.length < input.limit; i--) {
+    // Collect the slice of message IDs we need
+    const ids: string[] = []
+    for (let i = startIndex - 1; i >= 0 && ids.length < input.limit; i--) {
       const messageID = list[i][2]
-      if (!messageID) continue
-      try {
-        const msg = await get({ sessionID: input.sessionID, messageID })
-        items.push(msg)
-      } catch {
-        continue
-      }
+      if (messageID) ids.push(messageID)
     }
+
+    // Fetch all messages with bounded concurrency
+    const results = await workMap(8, ids, (messageID) =>
+      get({ sessionID: input.sessionID, messageID }).catch(() => null as WithParts | null),
+    )
+    // Preserve the same ordering as sequential fetch (ids order). Session.messages(limit)
+    // applies toReversed() once for chronological UI — reversing here inverted it twice vs pre-workMap behavior.
+    const items = results.filter((r): r is WithParts => r !== null)
 
     const more = items.length === input.limit
     const last = items[items.length - 1]
@@ -767,11 +762,8 @@ export namespace MessageV2 {
   })
 
   export const parts = fn(Identifier.schema("message"), async (messageID) => {
-    const result = [] as MessageV2.Part[]
-    for (const item of await Storage.list(["part", messageID])) {
-      const read = await Storage.read<MessageV2.Part>(item)
-      result.push(read)
-    }
+    const items = await Storage.list(["part", messageID])
+    const result = await workMap(8, items, (item) => Storage.read<MessageV2.Part>(item))
     result.sort((a, b) => (a.id > b.id ? 1 : -1))
     return result
   })
@@ -782,10 +774,11 @@ export namespace MessageV2 {
       messageID: Identifier.schema("message"),
     }),
     async (input): Promise<WithParts> => {
-      return {
-        info: await Storage.read<MessageV2.Info>(["message", input.sessionID, input.messageID]),
-        parts: await parts(input.messageID),
-      }
+      const [info, partsResult] = await Promise.all([
+        Storage.read<MessageV2.Info>(["message", input.sessionID, input.messageID]),
+        parts(input.messageID),
+      ])
+      return { info, parts: partsResult }
     },
   )
 
@@ -845,7 +838,7 @@ export namespace MessageV2 {
           },
           { cause: e },
         ).toObject()
-      case APICallError.isInstance(e):
+      case APICallError.isInstance(e): {
         const message = iife(() => {
           let msg = e.message
           if (msg === "") {
@@ -888,6 +881,8 @@ export namespace MessageV2 {
           },
           { cause: e },
         ).toObject()
+      }
+      // falls through — both cases have return statements, so fall-through is unreachable
       case e instanceof Error:
         return new NamedError.Unknown({ message: e.toString() }, { cause: e }).toObject()
       default:

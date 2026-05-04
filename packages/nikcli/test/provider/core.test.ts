@@ -12,9 +12,9 @@ import { openaiErrorDataSchema } from "@/provider/sdk/copilot/responses/openai-e
 function makeModel(overrides: Partial<Provider.Model> = {}): Provider.Model {
   return {
     id: "m1",
-    providerID: "openai",
-    api: { id: "gpt-4o", url: "https://api.openai.com", npm: "@ai-sdk/openai" },
-    name: "Test",
+    providerID: "minimax-coding-plan",
+    api: { id: "MiniMax-M2.7", url: "https://api.minimax.io", npm: "@ai-sdk/anthropic" },
+    name: "MiniMax-M2.7",
     capabilities: {
       temperature: true,
       reasoning: true,

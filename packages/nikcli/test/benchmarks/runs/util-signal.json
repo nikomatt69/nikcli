@@ -1,0 +1,402 @@
+[
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323541284,
+    "date": "2026-04-27T20:59:01.284Z",
+    "iterations": 200000,
+    "totalMs": 11.220540999999912,
+    "perOpMs": 0.00005610270499999956,
+    "opsPerSec": 17824452.492977083
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323682568,
+    "date": "2026-04-27T21:01:22.568Z",
+    "iterations": 200000,
+    "totalMs": 8.392291999999998,
+    "perOpMs": 0.000041961459999999985,
+    "opsPerSec": 23831391.948707223
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323701647,
+    "date": "2026-04-27T21:01:41.647Z",
+    "iterations": 200000,
+    "totalMs": 7.487332999999921,
+    "perOpMs": 0.000037436664999999605,
+    "opsPerSec": 26711781.08413264
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323723169,
+    "date": "2026-04-27T21:02:03.169Z",
+    "iterations": 200000,
+    "totalMs": 19.476332999998704,
+    "perOpMs": 0.00009738166499999352,
+    "opsPerSec": 10268873.509197718
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323752062,
+    "date": "2026-04-27T21:02:32.062Z",
+    "iterations": 200000,
+    "totalMs": 11.101584000000003,
+    "perOpMs": 0.00005550792000000001,
+    "opsPerSec": 18015447.16501717
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323762824,
+    "date": "2026-04-27T21:02:42.824Z",
+    "iterations": 200000,
+    "totalMs": 14.777082999999038,
+    "perOpMs": 0.00007388541499999519,
+    "opsPerSec": 13534470.9101257
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323777916,
+    "date": "2026-04-27T21:02:57.916Z",
+    "iterations": 200000,
+    "totalMs": 11.191124999999374,
+    "perOpMs": 0.000055955624999996875,
+    "opsPerSec": 17871304.27012576
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323802439,
+    "date": "2026-04-27T21:03:22.439Z",
+    "iterations": 200000,
+    "totalMs": 14.827667000001384,
+    "perOpMs": 0.00007413833500000692,
+    "opsPerSec": 13488298.59747871
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323827146,
+    "date": "2026-04-27T21:03:47.146Z",
+    "iterations": 200000,
+    "totalMs": 18.27308400000038,
+    "perOpMs": 0.0000913654200000019,
+    "opsPerSec": 10945059.958132727
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323841164,
+    "date": "2026-04-27T21:04:01.164Z",
+    "iterations": 200000,
+    "totalMs": 20.174958999999944,
+    "perOpMs": 0.00010087479499999972,
+    "opsPerSec": 9913279.129836177
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323863868,
+    "date": "2026-04-27T21:04:23.868Z",
+    "iterations": 200000,
+    "totalMs": 19.433915999999954,
+    "perOpMs": 0.00009716957999999977,
+    "opsPerSec": 10291286.635179471
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323884199,
+    "date": "2026-04-27T21:04:44.199Z",
+    "iterations": 200000,
+    "totalMs": 21.50500000000011,
+    "perOpMs": 0.00010752500000000054,
+    "opsPerSec": 9300162.752848128
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323888090,
+    "date": "2026-04-27T21:04:48.090Z",
+    "iterations": 200000,
+    "totalMs": 9.691375000000335,
+    "perOpMs": 0.00004845687500000167,
+    "opsPerSec": 20636906.527710784
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323908270,
+    "date": "2026-04-27T21:05:08.270Z",
+    "iterations": 200000,
+    "totalMs": 13.185249999998632,
+    "perOpMs": 0.00006592624999999317,
+    "opsPerSec": 15168464.761761874
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323928836,
+    "date": "2026-04-27T21:05:28.836Z",
+    "iterations": 200000,
+    "totalMs": 14.989250000000538,
+    "perOpMs": 0.0000749462500000027,
+    "opsPerSec": 13342895.741947917
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323949128,
+    "date": "2026-04-27T21:05:49.128Z",
+    "iterations": 200000,
+    "totalMs": 22.14679199999955,
+    "perOpMs": 0.00011073395999999775,
+    "opsPerSec": 9030653.288295843
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323972659,
+    "date": "2026-04-27T21:06:12.659Z",
+    "iterations": 200000,
+    "totalMs": 15.034040999998979,
+    "perOpMs": 0.0000751702049999949,
+    "opsPerSec": 13303143.18020109
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777323994968,
+    "date": "2026-04-27T21:06:34.968Z",
+    "iterations": 200000,
+    "totalMs": 15.478124999999636,
+    "perOpMs": 0.00007739062499999818,
+    "opsPerSec": 12921461.740359683
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777324943309,
+    "date": "2026-04-27T21:22:23.309Z",
+    "iterations": 200000,
+    "totalMs": 10.236124999999447,
+    "perOpMs": 0.00005118062499999723,
+    "opsPerSec": 19538643.7738901
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777325158823,
+    "date": "2026-04-27T21:25:58.823Z",
+    "iterations": 200000,
+    "totalMs": 24.77179199999955,
+    "perOpMs": 0.00012385895999999776,
+    "opsPerSec": 8073699.310893763
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777325795295,
+    "date": "2026-04-27T21:36:35.295Z",
+    "iterations": 200000,
+    "totalMs": 23.47833399999945,
+    "perOpMs": 0.00011739166999999724,
+    "opsPerSec": 8518491.984993683
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777325884853,
+    "date": "2026-04-27T21:38:04.853Z",
+    "iterations": 200000,
+    "totalMs": 16.55866700000115,
+    "perOpMs": 0.00008279333500000575,
+    "opsPerSec": 12078266.928128097
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777326061214,
+    "date": "2026-04-27T21:41:01.214Z",
+    "iterations": 200000,
+    "totalMs": 24.98345899999913,
+    "perOpMs": 0.00012491729499999565,
+    "opsPerSec": 8005296.624458886
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777326112365,
+    "date": "2026-04-27T21:41:52.365Z",
+    "iterations": 200000,
+    "totalMs": 19.77154100000007,
+    "perOpMs": 0.00009885770500000035,
+    "opsPerSec": 10115549.415192233
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777326173320,
+    "date": "2026-04-27T21:42:53.320Z",
+    "iterations": 200000,
+    "totalMs": 13.952792000000045,
+    "perOpMs": 0.00006976396000000022,
+    "opsPerSec": 14334048.697923638
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777326650493,
+    "date": "2026-04-27T21:50:50.493Z",
+    "iterations": 200000,
+    "totalMs": 24.67516599999999,
+    "perOpMs": 0.00012337582999999994,
+    "opsPerSec": 8105315.279337942
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777326687682,
+    "date": "2026-04-27T21:51:27.682Z",
+    "iterations": 200000,
+    "totalMs": 17.030749999999898,
+    "perOpMs": 0.00008515374999999949,
+    "opsPerSec": 11743464.028301818
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777822304600,
+    "date": "2026-05-03T15:31:44.600Z",
+    "iterations": 200000,
+    "totalMs": 20.299958999999944,
+    "perOpMs": 0.00010149979499999972,
+    "opsPerSec": 9852236.647374537
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777822354987,
+    "date": "2026-05-03T15:32:34.987Z",
+    "iterations": 200000,
+    "totalMs": 25.3125,
+    "perOpMs": 0.0001265625,
+    "opsPerSec": 7901234.567901234
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777822376243,
+    "date": "2026-05-03T15:32:56.243Z",
+    "iterations": 200000,
+    "totalMs": 9.385917000000518,
+    "perOpMs": 0.000046929585000002586,
+    "opsPerSec": 21308519.98797656
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777822395859,
+    "date": "2026-05-03T15:33:15.859Z",
+    "iterations": 200000,
+    "totalMs": 14.522167000000081,
+    "perOpMs": 0.0000726108350000004,
+    "opsPerSec": 13772049.309169829
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777822426619,
+    "date": "2026-05-03T15:33:46.619Z",
+    "iterations": 200000,
+    "totalMs": 9.341458999999304,
+    "perOpMs": 0.00004670729499999652,
+    "opsPerSec": 21409931.789029412
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777825154300,
+    "date": "2026-05-03T16:19:14.300Z",
+    "iterations": 200000,
+    "totalMs": 11.154333999998926,
+    "perOpMs": 0.00005577166999999463,
+    "opsPerSec": 17930250.250711452
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777827795639,
+    "date": "2026-05-03T17:03:15.639Z",
+    "iterations": 200000,
+    "totalMs": 18.87250000000131,
+    "perOpMs": 0.00009436250000000654,
+    "opsPerSec": 10597430.12319439
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777829819539,
+    "date": "2026-05-03T17:36:59.539Z",
+    "iterations": 200000,
+    "totalMs": 16.975917000001573,
+    "perOpMs": 0.00008487958500000787,
+    "opsPerSec": 11781395.962290665
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777829993293,
+    "date": "2026-05-03T17:39:53.293Z",
+    "iterations": 200000,
+    "totalMs": 15.15441600000122,
+    "perOpMs": 0.0000757720800000061,
+    "opsPerSec": 13197473.264557598
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777830034031,
+    "date": "2026-05-03T17:40:34.031Z",
+    "iterations": 200000,
+    "totalMs": 17.07537500000035,
+    "perOpMs": 0.00008537687500000175,
+    "opsPerSec": 11712773.511562463
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777830066370,
+    "date": "2026-05-03T17:41:06.370Z",
+    "iterations": 200000,
+    "totalMs": 12.930084000001443,
+    "perOpMs": 0.00006465042000000721,
+    "opsPerSec": 15467803.612101644
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777830151241,
+    "date": "2026-05-03T17:42:31.241Z",
+    "iterations": 200000,
+    "totalMs": 49.3755000000001,
+    "perOpMs": 0.0002468775000000005,
+    "opsPerSec": 4050591.892740318
+  },
+  {
+    "name": "signal create",
+    "module": "util-signal",
+    "timestamp": 1777830193378,
+    "date": "2026-05-03T17:43:13.378Z",
+    "iterations": 200000,
+    "totalMs": 12.812332999999853,
+    "perOpMs": 0.00006406166499999926,
+    "opsPerSec": 15609959.560058445
+  }
+]

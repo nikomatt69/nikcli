@@ -65,7 +65,7 @@ export function useTextareaKeybindings() {
     const keybinds = keybind.all
 
     return [
-      { name: "return", action: "submit" },
+      // Submit via `input_submit` from merged config only — hardcoding `return`/submit duplicated it.
       { name: "return", meta: true, action: "newline" },
       ...TEXTAREA_ACTIONS.flatMap((action) => mapTextareaKeybindings(keybinds, action)),
     ] satisfies KeyBinding[]

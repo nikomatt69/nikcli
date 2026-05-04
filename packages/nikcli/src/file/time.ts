@@ -3,7 +3,7 @@ import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
 import { Global } from "../global"
 import path from "path"
-import { lazy } from "@/util/lazy"
+import { lazy, lazyAsync } from "@/util/lazy"
 
 interface FileTimeEntry {
   mtime: number
@@ -41,7 +41,7 @@ export namespace FileTime {
     }
   })
 
-  const storage = lazy(async () => {
+  const storage = lazyAsync(async () => {
     const dir = path.join(Global.Path.data, "filetime")
     await Bun.write(dir, "")
     return { dir }

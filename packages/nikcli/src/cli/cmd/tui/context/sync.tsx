@@ -466,9 +466,17 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
             sdk.client.vcs.get().then((x) => setStore("vcs", reconcile(x.data))),
             sdk.client.path.get().then((x) => setStore("path", reconcile(x.data!))),
             syncWorkspaces(),
-          ]).then(() => {
-            setStore("status", "complete")
-          })
+          ])
+            .then(() => {
+              setStore("status", "complete")
+            })
+            .catch((e) => {
+              Log.Default.warn("tui bootstrap non-blocking refresh failed", {
+                error: e instanceof Error ? e.message : String(e),
+                name: e instanceof Error ? e.name : undefined,
+              })
+              if (store.status !== "complete") setStore("status", "partial")
+            })
         })
         .catch(async (e) => {
           Log.Default.error("tui bootstrap failed", {

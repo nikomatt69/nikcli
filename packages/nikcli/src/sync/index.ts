@@ -2,7 +2,7 @@ import { Global } from "@/global"
 import path from "path"
 import fs from "fs/promises"
 import { Log } from "@/util/log"
-import { lazy } from "@/util/lazy"
+import { lazy, lazyAsync } from "@/util/lazy"
 import { Identifier } from "@/id/id"
 import z from "zod"
 import { Lock } from "@/util/lock"
@@ -117,7 +117,7 @@ export interface SyncSequence {
 export namespace SyncStorage {
   const log = Log.create({ service: "sync.storage" })
 
-  const storage = lazy(async () => {
+  const storage = lazyAsync(async () => {
     const dir = path.join(Global.Path.data, "sync")
     await fs.mkdir(dir, { recursive: true })
     return { dir }

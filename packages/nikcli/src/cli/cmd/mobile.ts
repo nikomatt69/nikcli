@@ -6,7 +6,6 @@ import { MobileAuth } from "@/mobile/auth"
 
 import { generateQR } from "@nikcli-ai/remote"
 import { Installation } from "@/installation"
-import { Ssh } from "@/server/ssh"
 import { networkInterfaces } from "os"
 
 function normalizePublicUrl(input?: string) {
@@ -140,17 +139,9 @@ export const MobileCommand = cmd({
             }
           }
 
-          const sshServer = Ssh.start()
-          if (sshServer) {
-            console.log(
-              `nikcli SSH server listening on ssh://${Flag.NIKCLI_SERVER_SSH_HOST}:${Flag.NIKCLI_SERVER_SSH_PORT}`,
-            )
-          }
-
           await new Promise(() => { })
 
           await server.stop()
-          if (sshServer) await Ssh.stop()
         },
       })
       .command({

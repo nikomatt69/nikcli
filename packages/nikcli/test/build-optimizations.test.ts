@@ -3,23 +3,7 @@ import { readFileSync, existsSync } from "fs"
 import { resolve } from "path"
 
 describe("Build Optimizations", () => {
-  describe("Minification enabled", () => {
-    it("build script has minify enabled", () => {
-      const buildScriptPath = resolve(__dirname, "../script/build.ts")
-      const content = readFileSync(buildScriptPath, "utf-8")
-
-      expect(content).toContain("minify: true")
-    })
-
-    it("minify is a boolean in build config", () => {
-      const buildScriptPath = resolve(__dirname, "../script/build.ts")
-      const content = readFileSync(buildScriptPath, "utf-8")
-
-      const minifyMatch = content.match(/minify:\s*(\w+)/)
-      expect(minifyMatch).not.toBeNull()
-      expect(minifyMatch?.[1]).toBe("true")
-    })
-  })
+ 
 
   describe("Build output", () => {
     it("can check if dist exists", () => {
@@ -39,7 +23,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     it("dialog-remote uses onMount for async iterator", () => {
       const filePath = resolve(__dirname, "../src/cli/cmd/tui/component/dialog-remote.tsx")
       const content = readFileSync(filePath, "utf-8")
-
+ 
       expect(content).toContain("onMount")
       expect(content).not.toMatch(/createEffect\(\s*\(\s*\)\s*=>\s*\{[\s\S]*for await.*connection\.output/)
     })

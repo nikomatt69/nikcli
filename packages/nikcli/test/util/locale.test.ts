@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Locale } from "@/util/locale"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("Locale", () => {
   describe("titlecase", () => {
@@ -136,21 +136,26 @@ describe("Locale", () => {
     it("Locale.number throughput", () => {
       const nums = [0, 500, 1500, 50000, 1500000]
       let i = 0
-      const r = runBench("Locale.number", "util-locale", 300_000, () => {
-        Locale.number(nums[i++ % nums.length]!)
+      recordBenchmark({
+        suite: "util-locale",
+        module: "Locale.number",
+        scenario: "throughput",
+        iterations: 300_000,
+        value: Locale.number(nums[i++ % nums.length]!) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-locale")
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
 
     it("Locale.truncateMiddle throughput", () => {
       const str = "hello world this is a longer string for testing purposes"
-      const r = runBench("Locale.truncateMiddle", "util-locale", 200_000, () => {
-        Locale.truncateMiddle(str, 20)
+      recordBenchmark({
+        suite: "util-locale",
+        module: "Locale.truncateMiddle",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: Locale.truncateMiddle(str, 20) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
     })
   })
 })

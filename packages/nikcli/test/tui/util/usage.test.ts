@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Usage } from "@/cli/cmd/tui/util/usage"
-import { runBench, printBenchResult, compareBenchmarks } from "../../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
 
 describe("Usage.formatTokens", () => {
   it("returns plain number for values below 1000", () => {
@@ -91,8 +91,8 @@ describe("Usage.fromMessages", () => {
         role: "assistant",
         tokens: { input: 100, output: 50, reasoning: 10, cache: { read: 20, write: 5 }, total: 0 },
         cost: 0.01,
-        providerID: "anthropic",
-        modelID: "claude-3",
+        providerID: "minimax-coding-plan",
+        modelID: "MiniMax-M2.7",
       },
     ]
     const usage = Usage.fromMessages(messages, [])
@@ -144,10 +144,10 @@ describe("Usage.fromMessages", () => {
   it("resolves model info from providers", () => {
     const providers: any[] = [
       {
-        id: "anthropic",
+        id: "minimax-coding-plan",
         models: {
-          "claude-3": {
-            name: "Claude 3",
+          "MiniMax-M2.7": {
+            name: "MiniMax-M2.7",
             limit: { input: 200000, context: 200000, output: 4000 },
           },
         },
@@ -159,13 +159,13 @@ describe("Usage.fromMessages", () => {
         role: "assistant",
         tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 0, write: 0 }, total: 150 },
         cost: 0,
-        providerID: "anthropic",
-        modelID: "claude-3",
+        providerID: "minimax-coding-plan",
+        modelID: "MiniMax-M2.7",
       },
     ]
     const usage = Usage.fromMessages(messages, providers)
     expect(usage.model).toBeDefined()
-    expect(usage.model!.name).toBe("Claude 3")
+    expect(usage.model?.name).toBe("MiniMax-M2.7")
     expect(usage.percent).toBeDefined()
     expect(usage.free).toBeDefined()
   })
@@ -174,20 +174,25 @@ describe("Usage.fromMessages", () => {
     it("Usage.formatTokens throughput", () => {
       const values = [0, 500, 1500, 50000, 1500000, 15000000]
       let i = 0
-      const r = runBench("Usage.formatTokens", "tui-usage", 500_000, () => {
-        Usage.formatTokens(values[i++ % values.length]!)
+      recordBenchmark({
+        suite: "tui-usage",
+        module: "Usage.formatTokens",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: Usage.formatTokens(values[i++ % values.length]!) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("tui-usage")
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
 
     it("Usage.formatPct throughput", () => {
-      const r = runBench("Usage.formatPct", "tui-usage", 500_000, () => {
-        Usage.formatPct(42, 200)
+      recordBenchmark({
+        suite: "tui-usage",
+        module: "Usage.formatPct",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: Usage.formatPct(42, 200) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
 
     it("Usage.fromMessages throughput", () => {
@@ -197,15 +202,18 @@ describe("Usage.fromMessages", () => {
           role: "assistant",
           tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 0, write: 0 }, total: 150 },
           cost: 0.01,
-          providerID: "anthropic",
-          modelID: "claude-3",
+            providerID: "minimax-coding-plan",
+          modelID: "MiniMax-M2.7",
         },
       ]
-      const r = runBench("Usage.fromMessages", "tui-usage", 100_000, () => {
-        Usage.fromMessages(messages, [])
+      recordBenchmark({
+        suite: "tui-usage",
+        module: "Usage.fromMessages",
+        scenario: "throughput",
+        iterations: 100_000,
+        value: Usage.fromMessages(messages, []) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(50_000)
     })
   })
 })

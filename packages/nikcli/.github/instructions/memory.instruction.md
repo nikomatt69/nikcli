@@ -2,6 +2,24 @@
 
 ## Architecture Overview
 
+### Monorepo Structure (`/Volumes/SSD/Projects/nikcli/`)
+
+24 packages managed with Bun workspaces + Turbo:
+
+| Package | Purpose | Key Tech |
+|---------|---------|----------|
+| **nikcli** | Main CLI with TUI (primary focus) | SolidJS, Bun, TypeScript |
+| **mobile** | React Native mobile app | Expo, NativeWind, Tailwind |
+| **desktop** | Cross-platform desktop app | Tauri (Rust), SolidJS, Vite |
+| **web** | Web application | Astro, SolidJS, Tailwind |
+| **sdk** | TypeScript API client | Auto-generated from OpenAPI |
+| **plugin** | Plugin system | TypeScript |
+| **remote** | Remote execution (ghostty terminal) | Vite, ghostty-web |
+| **companion** | Companion services UI | Vite, SolidJS |
+| **ui** | Shared UI component library | SolidJS, Tailwind CSS |
+| **webrenderer** | WebView + native modules | Rust, WebGPU/3D |
+| **app** | Core app pages/components | SolidJS |
+
 ### Core Structure
 
 - **Session System** (`src/session/`) - Message storage, LLM processing, prompts, streaming
@@ -255,6 +273,81 @@ refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch
 - MAX_LINES = 2000, MAX_BYTES = 50KB
 - Output stored to `~/.nikcli/tool-output/{tool_id}` for 7 days
 
+## Session Processing System (`src/session/`)
+
+### Stream Processing (`processor.ts`)
+
+Core loop consumes AI SDK `streamText()` `fullStream` async iterator. Handles 20 event types:
+
+| Event Type | Handler | Description |
+|------------|---------|-------------|
+| `start` | 129-131 | Sets session "busy" |
+| `reasoning-start/delta/end` | 133-173 | Creates/appends/flushes `ReasoningPart` |
+| `tool-input-start/delta/end` | 176-200 | Creates pending `ToolPart` |
+| `tool-call` | 202-230 | Starts execution, doom-loop detection |
+| `tool-result` | 231-253 | Completes tool with output |
+| `tool-error` | 255-280 | Error state, permission rejection check |
+| `error` | 281-282 | Exception for retry handling |
+| `start-step/finish-step` | 284-343 | Step tracking, usage/cost, compaction check |
+| `text-start/delta/end` | 345-390 | Creates/appends/flushes `TextPart` |
+| `finish` | 392-393 | Final event marker |
+
+### Doom-Loop Detection (`processor.ts:22-58`)
+
+- Ring buffer of last 3 tool calls `{tool, input}`
+- When 3 identical consecutive calls detected → `PermissionNext.ask("doom_loop")`
+- Returns permission prompt with `tool` + `input` metadata
+
+### Retry Logic (`retry.ts` + `processor.ts:403-440`)
+
+- Conditions: `APIError` with `isRetryable`, rate limits, server errors
+- Exponential backoff: 2s initial × 2^attempt, max 30s
+- Server `retry-after-ms` / `retry-after` headers respected
+- Max 5 attempts; partial parts cleaned up on retry
+
+### Compaction Triggering (`compaction.ts`)
+
+- Overflow detected at `finish-step`: `tokens.total >= (inputLimit - reserved)`
+- Reserved defaults: `min(20_000, maxOutput)` tokens
+- Creates `"compaction"` agent message, runs summarization, injects "Continue" message
+
+### Text-Delta Flow (arrival → persistence)
+
+```
+text-delta event
+  → append to currentText.text (in-memory)
+  → Bus.publish(PartUpdated) // UI gets it immediately
+  → DeltaCoalescer.schedule(key, part, Storage.write)
+      → 150ms debounce timer reset on each schedule()
+      → Timer fires → Storage.write(key, content)
+text-end
+  → DeltaCoalescer.flushNow(key) // clears timer, immediate write
+  → Session.updatePart(currentText) // publishes Bus event only (2026-05-04 fix)
+```
+
+### LLM Integration (`llm.ts`)
+
+`LLM.stream()` wraps AI SDK `streamText()`:
+- Builds system prompt from `SystemPrompt.header()` + agent prompt + provider prompt
+- Resolves tools from `ToolRegistry.tools()` + MCP + connectors
+- Returns `StreamTextResult` with `fullStream` async iterator
+
+### Session Loop (`prompt.ts:284-766`)
+
+`SessionPrompt.loop()`:
+1. `createUserMessage()` saves user message to storage
+2. `while (true)` main loop with `MessageV2.stream(sessionID)`
+3. `SessionProcessor.create()` for each assistant turn
+4. `resolveTools()` builds AI SDK tool set
+5. `LLM.stream()` → `processor.process()` → result (`continue`/`stop`/`compact`)
+
+### `lazyAsync` (`src/util/lazy.ts`)
+
+Async-safe initialization for `state()` and similar singletons:
+- Uses `Promise`-caching pattern (subsequent callers share init promise)
+- Replaces original `lazy()` for async initializers to prevent race conditions
+- Both `lazy()` (sync) and `lazyAsync()` exist; `lazyAsync` used for all async init
+
 ## Mobile Development System (`src/mobile/`)
 
 ### Core Modules
@@ -332,18 +425,140 @@ nikcli mobile dev
 1. **Event Bus** - Server→TUI via Bus.publish()
 2. **SSE** - `/event` endpoint for real-time updates
 3. **Request/Response Queue** - External control via `/tui/control/*`
+4. **SDK Client** - Auto-generated from OpenAPI spec in `packages/sdk/js/src/`
+
+### SDK Client Pattern (`packages/sdk/js/src/client.ts`)
+
+```typescript
+export function createNikcliClient(config?: Config & { directory?: string }) {
+  const client = createClient(config)  // Generated from OpenAPI spec
+  return new NikcliClient({ client })
+}
+
+// Usage with directory header
+const sdk = createNikcliClient({
+  baseUrl: "http://nikcli.local",
+  directory: "/path/to/project",
+  fetch: customFetch,
+})
+```
+
+### TUI Worker Communication (`src/cli/cmd/tui/worker.ts`)
+
+```typescript
+const fetchFn = (input: RequestInfo | URL, init?: RequestInit) => {
+  const request = new Request(input, init)
+  const auth = getAuthorizationHeader()  // Basic auth
+  request.headers.set("Authorization", auth)
+  return Server.App().fetch(request)
+}
+
+for await (const event of sdk.event.subscribe({}).stream) {
+  Rpc.emit("event", { id, event })
+}
+```
 
 ### Middleware Stack
 
 1. Error Handler → 2. User Auth (Bearer nku\_) → 3. CORS → 4. Workspace Context → 5. Query Validation
 
-## Storage System (`src/storage/`)
+## Event Bus System (`src/bus/`)
+
+### Bus Architecture
+
+Two-layer event system:
+- **`Bus`** (`bus/index.ts`): Per-instance, type-safe subscriptions via `Map<type, callback[]>` + wildcard `*` support. Local-only.
+- **`GlobalBus`** (`bus/global.ts`): Node.js `EventEmitter` singleton. Cross-process forwarding.
 
 ### Key Operations
 
-- `Storage.read/write/list/remove`
-- Git snapshots for file tracking
-- File watchers for real-time sync
+- `Bus.publish(def, props)` — fires local subscribers, then emits to `GlobalBus` for SSE/RPC propagation
+- `Bus.subscribe(def, callback)` — returns unsubscribe function; stores in `subscriptions` Map
+- `Bus.subscribeAll(callback)` — subscribes to all events (used by SSE endpoint at `server.ts:738`)
+- `Bus.once(def, callback)` — single-fire subscription helper
+
+### TUI Event Propagation
+
+```
+Server: Bus.publish(PartUpdated, {part, delta})
+  → Local subscribers: ShareSync, TaskTool, ShareNext
+  → GlobalBus.emit("event", {directory, payload})
+    → SSE route (server/routes/global.ts:81) → TUI stream
+    → Workspace SSE (workspace/workspace-server/routes.ts:30)
+    → Mobile stream (server/routes/mobile.ts:2073)
+    → Worker RPC (cli/cmd/tui/worker.ts:36-38) → Rpc.emit("global.event")
+      → Thread.ts RPC client → SDK context → SolidJS emitter
+        → TUI component subscriptions (app.tsx:1015-1109)
+```
+
+### Subscribers to `MessageV2.Event.PartUpdated`
+
+| File | Purpose |
+| ---- | ------- |
+| `tool/task.ts:345` | Background delegation progress |
+| `tool/task.ts:739` | Foreground task live summary |
+| `share/share.ts:56` | Share service cache sync |
+| `share/share-next.ts:87` | Share service cache sync (new) |
+
+## Storage System (`src/storage/`)
+
+### In-Memory Cache
+
+- **Read-through cache** with 5s TTL (`DEFAULT_TTL_MS = 5000`)
+- `Cache.get()` returns `undefined` if missing or expired (auto-deletes expired entries)
+- `Cache.set()` with optional TTL; `Cache.invalidate(key)` / `Cache.invalidatePrefix(prefix)`
+- `Storage.read()` populates cache on disk read; `Storage.write/update()` update cache
+
+### Key Operations
+
+- `Storage.read/write/list/remove` — JSON file storage with key→path mapping
+- `Storage.update()` — read-modify-write with exclusive lock
+- `Storage.NotFoundError` thrown for missing files (via `withErrorHandling`)
+- Key format: `["collection", "id1", "id2"]` → `storage/collection/id1/id2.json`
+
+### Locking Mechanism
+
+Two lock types:
+- **`Lock`** (`src/util/lock.ts`): In-memory reader-writer lock, single-process. Multiple concurrent readers, single writer, writers prioritized. Auto-cleanup when no active readers/writers.
+- **`Flock`** (`src/util/flock.ts`): File-based distributed lock with lease. Used for cross-process coordination (snapshot, account refresh). Exponential backoff + heartbeat + breaker pattern.
+
+### Storage Key Patterns (`<data>/storage/`)
+
+| Key Pattern | File Path | Contains |
+|-------------|-----------|----------|
+| `["project", "<id>"]` | `storage/project/<id>.json` | Project metadata |
+| `["session", "<projectID>", "<sessionID>"]` | `storage/session/<pid>/<sid>.json` | Session info |
+| `["message", "<sessionID>", "<messageID>"]` | `storage/message/<sid>/<mid>.json` | Message info |
+| `["part", "<messageID>", "<partID>"]` | `storage/part/<mid>/<pid>.json` | Message part |
+| `["session_diff", "<sessionID>"]` | `storage/session_diff/<sid>.json` | Snapshot file diffs |
+| `["session_share", "<sessionID>"]` | `storage/session_share/<sid>.json` | Share data |
+| `["todo", "<sessionID>"]` | `storage/todo/<sid>.json` | Session TODO |
+
+### Migrations
+
+Two JSON file migrations tracked via `<data>/storage/migration` marker file:
+- **Migration 0** (lines 64-159): Legacy project format → `session/{projectID}/` layout
+- **Migration 1** (lines 160-180): Extracts `diffs` from session files → separate `session_diff/` files
+
+Database migrations via Drizzle in `migration/` (timestamped subdirs).
+
+### DeltaCoalescer (`src/session/delta-coalescer.ts`)
+
+Reduces ~500 Storage writes per message to ~10-20 via debouncing:
+- `schedule(key, content, callback)` — queues write with 150ms debounce timer
+- `flushNow(key)` — forces immediate flush (clears timer, writes now)
+- `flushAll()` — flushes all pending writes
+- `clear()` — clears all timers and pending entries
+
+**Flow for streaming text**: `text-delta` → `updatePartCoalesced()` → Bus.publish + coalescer.schedule → 150ms debounce → Storage.write
+**Flow for terminal text**: `text-end` → `flushNow()` + `Session.updatePart()` (flushNow persists, updatePart publishes Bus event only)
+
+### Database (`src/storage/db.ts`)
+
+- SQLite with Drizzle ORM, Bun driver
+- PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`
+
+### Git snapshots and file watchers for real-time sync
 
 ## Bug Fixes (2026-04-06)
 
@@ -390,7 +605,16 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | data:text/plain decoding | `prompt.ts`        | `decodeDataUrlTextPayload()` helper handles base64/base64url/percent-encoded  |
 | ACP mode validation      | `agent.ts:957-965` | `setSessionMode()` validates against visible non-subagent modes + session.cwd |
 
-### Confirmed Issues (Updated 2026-04-30)
+### Session Fixes (2026-05-04)
+
+| Fix                          | File               | Description                                                                   |
+| ---------------------------- | ------------------ | ----------------------------------------------------------------------------- |
+| Double-write on terminal     | `processor.ts:386-387` | Removed `Session.updatePart()` after `flushNow()` — `flushNow` already persists via coalescer |
+| Timer nulling in clear()     | `delta-coalescer.ts:167` | Added `entry.timer = null` after `clearTimeout()` in `clear()` |
+| Error safety for flushAll    | `processor.ts:475-481` | Wrapped `flushAll()` + `clear()` in try/finally |
+| Race condition in lazy init  | `util/lazy.ts`     | Added `lazyAsync()` for async-safe singleton init (uses Promise-caching pattern) |
+
+### Confirmed Issues (Updated 2026-05-04)
 
 | #   | File                               | Issue                                                                   | Status          |
 | --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
@@ -407,6 +631,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 11  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
 | 12  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
 | 13  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
+| 14  | `session/processor.ts:159-173`    | Reasoning-end double-write (was same as text-end, removed updatePart)   | **Fixed**       |
 
 ## Mobile IDE Backend Issues
 
@@ -456,27 +681,228 @@ Token stored server-side in `${Global.Path.data}/connectors-auth.json`. If serve
 - Actual plugin implementations are external npm packages (e.g., `@nikcli-ai/plugin-agent-memory`)
 - Health score: ~5/10 — plugin infrastructure is well-designed but ecosystem source is absent from repo
 
-## TUI Route System (`src/cli/cmd/tui/routes/`)
+## TUI Architecture (`src/cli/cmd/tui/`)
 
-### Core Route Types (`context/route.tsx`)
+### Framework
 
-| Route            | File                    | Purpose                                |
-| ---------------- | ----------------------- | -------------------------------------- |
-| `home`           | `home/index.tsx`        | Main landing screen with logo + tips   |
-| `session`        | `session/index.tsx`     | Main chat interface                    |
-| `changes`        | `changes/index.tsx`     | Code review with inline comments       |
-| `tree`           | `tree/index.tsx`        | Session hierarchy browser              |
-| `git-graph`      | `git-graph/index.tsx`   | Git commit history browser (GHUI-style) |
+**SolidJS + OpenTUI** — `@opentui/solid` renders SolidJS JSX to terminal-native elements.
 
-All routes support `workspaceID?: string` for multi-workspace routing.
+**Entry point**: `src/cli/cmd/tui/app.tsx` — `tui()` calls `render(() => <App />, { targetFps: 45, useMouse: true, useKittyKeyboard: {}, exitOnCtrlC: false })`
 
-### Delete-Safe Navigation
+**OpenTUI primitives**: `<box>` (flexbox container), `<text>` (styled text), `<span>` (inline text), `<scrollbox>` (scrollable), `<textarea>` (input), `<spinner>`, `<flex>`
 
-`app.tsx` implements unified `onDelete` handling for ALL routes (session, changes, tree). When a session is deleted from any view, user is redirected to `home` route instead of leaving a dangling reference.
+**SolidJS patterns**: `createSignal`, `createMemo`, `createEffect`, `createStore`/`setStore`, `For`/`Show`/`Switch`/`Match`, `onMount`/`onCleanup`, `untrack`, `batch`
+
+### Route System
+
+**File**: `context/route.tsx` — flat discriminated union stored in SolidJS store:
+
+```typescript
+export type Route =
+  | { type: "home"; initialPrompt?: PromptInfo; workspaceID?: string }
+  | { type: "session"; sessionID: string; initialPrompt?: PromptInfo; workspaceID?: string }
+  | { type: "changes"; sessionID: string; workspaceID?: string }
+  | { type: "tree"; sessionID?: string; workspaceID?: string }
+  | { type: "git-graph"; sessionID?: string; workspaceID?: string }
+  | { type: "github"; sessionID?: string; workspaceID?: string }
+  | { type: "plugin"; id: string; data?: Record<string, unknown>; workspaceID?: string }
+```
+
+**Route switching**: `app.tsx` uses `<Switch>/<Match>` to render route components. Navigate via `route.navigate({ type: "..." })`.
+
+**All routes** support `workspaceID?: string` for multi-workspace routing. Delete-safe navigation redirects to `home` on session deletion.
+
+### Context/Provider Pattern
+
+**Factory**: `createSimpleContext<T, Props>` in `context/helper.tsx` — wraps SolidJS `createContext` + provider/consumer with optional `ready` gating.
+
+**Provider nesting** (app.tsx, outer→inner):
+```
+ArgsProvider > ExitProvider > ServerProvider > KVProvider > ToastProvider >
+RouteProvider > SDKProvider > ProjectProvider > SyncProvider > ThemeProvider >
+LocalProvider > KeybindProvider > PromptStashProvider > DialogProvider >
+CommandProvider > FrecencyProvider > PromptHistoryProvider > EditorContextProvider > PromptRefProvider
+```
+
+**Key contexts** (all in `context/`):
+| Context | File | Purpose |
+|---------|------|---------|
+| `RouteProvider` | `route.tsx` | Navigation |
+| `ThemeProvider` | `theme.tsx` | 50+ built-in themes from JSON |
+| `LocalProvider` | `local.tsx` | Agent/model selection, MCP toggle |
+| `SyncProvider` | `sync.tsx` | Server data sync (sessions, messages, config) |
+| `KeybindProvider` | `keybind.tsx` | Keyboard shortcuts with leader-key |
+| `KVProvider` | `kv.tsx` | Persistent key-value store (JSON on disk) |
+| `SDKProvider` | `sdk.tsx` | API client connection |
+| `DialogProvider` | `dialog.tsx` | Dialog stack management |
+
+### Dialog System
+
+**File**: `ui/dialog.tsx` — stack-based overlays, full-screen absolute-positioned boxes.
+
+**API**:
+```typescript
+const dialog = useDialog()
+dialog.replace(() => <MyComponent />)    // Replace/open dialog
+dialog.clear()                           // Close all dialogs
+dialog.setSize("medium" | "large" | "xlarge")  // max 60/88/116 chars
+```
+
+**Static patterns**: `DialogAlert.show()`, `DialogConfirm.show()` (returns `Promise<boolean>`), `DialogOnboarding.run(dialog)`, `DialogExportOptions.show()`
+
+**Dialog components** (`component/dialog-*`): onboarding (4-step wizard), status, command palette, session list, model/agent/theme pickers, settings, provider, workspace list, confirm, alert, export.
+
+### Styling System
+
+**File**: `context/theme.tsx` — 50+ built-in themes (catppuccin, dracula, tokyonight, nord, etc.) from JSON in `context/theme/`. Custom themes from `themes/*.json` in config dir.
+
+**Theme tokens**: `theme.primary`, `theme.textMuted`, `theme.borderSubtle`, `theme.backgroundPanel`, `theme.warning`, `theme.success`, `theme.error`, `theme.textDim` (note: `textDim` may not exist on all themes — use `textMuted` as fallback).
+
+**Styling**: All colors via `theme.*` tokens (no hardcoded hex). Components use `<box>` with `flexGrow`, `flexShrink`, `flexDirection`, `gap`, `padding*`, `border`, `backgroundColor`.
+
+### OpenTUI Primitive Components
+
+| Primitive | Purpose | Key Props |
+|-----------|---------|-----------|
+| `<box>` | Flexbox container | `flexDirection`, `gap`, `flexGrow`, `flexShrink`, `padding*`, `backgroundColor`, `border`, `position` |
+| `<text>` | Styled text | `fg`, `bg`, `attributes` (BOLD/ITALIC/etc), `wrapMode`, `selectable` |
+| `<span>` | Inline text | Same as `<text>` |
+| `<scrollbox>` | Scrollable container | `scrollTop`, handles j/k navigation |
+| `<textarea>` | Input field | `value`, `onChange`, `onKeyDown`, keybindings |
+| `<spinner>` | Loading animation | `frames`, `interval`, `color` |
+| `<flex>` | Flex row helper | `gap`, `alignItems`, `justifyContent` |
+
+### TUI State Management Patterns
+
+**Pattern 1: `createSimpleContext` factory (context/helper.tsx)**
+```typescript
+export const { use: useKV, provider: KVProvider } = createSimpleContext({
+  name: "KV",
+  init: () => {
+    const [ready, setReady] = createSignal(false)
+    const [store, setStore] = createStore<Record<string, any>>()
+    return {
+      ready() { return ready() },
+      get(key, defaultValue) { return store[key] ?? defaultValue },
+      set(key, value) { 
+        setStore(key, value)
+        Bun.write(file, JSON.stringify(store, null, 2))
+      },
+      signal<T>(name, defaultValue) { /* reactive signal pair */ },
+    }
+  },
+})
+```
+
+**Pattern 2: `createStore` for centralized state (sync.tsx)**
+```typescript
+const [store, setStore] = createStore<{
+  status: "loading" | "partial" | "complete"
+  provider: Provider[]
+  config: Config
+  session: Session[]
+  message: Record<string, Message[]>
+}>({ status: "loading", provider: [], ... })
+```
+
+**Pattern 3: `createSignal` for simple state**
+```typescript
+const [conceal, setConceal] = createSignal(true)
+const [showThinking, setShowThinking] = kv.signal("thinking_visibility", true)
+```
+
+**Pattern 4: `createMemo` for derived state**
+```typescript
+const mcp = createMemo(() => Object.keys(sync.data.mcp).length > 0)
+const showTips = createMemo(() => !kv.get("onboarding_complete", false))
+```
+
+### Onboarding Dialog (`component/dialog-onboarding.tsx`)
+
+4-step wizard: **Welcome → Create account → Filesystem → Connect**
+
+**Step 3 (Filesystem Footprint)**: Visual dashboard showing 4 sections with indented trees:
+- **Application Data** (● sensitive): `storage/`, `auth.json`, `accounts.db`, `workspaces.db`, `plans/`, `snapshot/`, `worktree/`, `sync/`
+- **Configuration**: `nikcli.json`, `tui.json`, `AGENTS.md`, `skills/`
+- **Cache & Runtime State** (◦ ephemeral): `cache/`, `state/`
+- **Project Directory**: `.nikcli/`, `commands/`, `agents/`, `plugins/`
+
+Paths resolved dynamically from `Global.Path`, displayed with `~` for home. Legend: ● = sensitive (warning color), ◦ = ephemeral (muted).
 
 ### Plugin Route API
 
-`plugin/api.tsx` exports `changes.navigate(id?)`, `tree.navigate(id?)`, and `git-graph.navigate()` helpers. Also provides `changes.url(id?)`, `tree.url(id?)`, and `git-graph.url()` for URL construction. `git-graph` navigation preserves `workspaceID`.
+`plugin/api.tsx` exports `changes.navigate(id?)`, `tree.navigate(id?)`, `git-graph.navigate()` helpers + URL constructors. `git-graph` navigation preserves `workspaceID`.
+
+## Filesystem Paths
+
+### XDG Base Directories (created by `initialize()` in `src/global/index.ts`)
+
+| Variable | Resolved Path | Purpose |
+|----------|---------------|---------|
+| `Global.Path.data` | `<XDG_DATA_HOME>/nikcli/` | Primary data storage |
+| `Global.Path.cache` | `<XDG_CACHE_HOME>/nikcli/` | Versioned cache (cleared on version bump) |
+| `Global.Path.config` | `<XDG_CONFIG_HOME>/nikcli/` | Global config files |
+| `Global.Path.state` | `<XDG_STATE_HOME>/nikcli/` | Runtime state (locks, prefs, history) |
+| `Global.Path.log` | `<XDG_DATA_HOME>/nikcli/log/` | Log files |
+| `Global.Path.bin` | `<XDG_DATA_HOME>/nikcli/bin/` | Binary directory (curl install) |
+| `Global.Path.home` | `os.homedir()` or `NIKCLI_TEST_HOME` | User home (read-only) |
+
+### Config File Discovery (priority order, first existing wins)
+
+**`nikcli.json`**: `<cwd>/nikcli.json` → `<cwd>/.nikcli/nikcli.json` → `<XDG_CONFIG_HOME>/nikcli/nikcli.json` → `<XDG_CONFIG_HOME>/nikcli/managed/nikcli.json` → `NIKCLI_CONFIG_DIR` → `~/.nikcli/nikcli.json` → `NIKCLI_CONFIG` env → `NIKCLI_CONFIG_CONTENT` env
+
+**`tui.json`**: Same discovery as nikcli.json, plus `NIKCLI_TUI_CONFIG` env var. Supports `.json` and `.jsonc`. Auto-migrated from `nikcli.json` by `migrateTuiConfig()`.
+
+### Data Files
+
+| File | Path | Contains |
+|------|------|----------|
+| `auth.json` | `<data>/auth.json` | OAuth tokens, API keys (chmod 600) |
+| `connectors-auth.json` | `<data>/connectors-auth.json` | Connector tokens (chmod 600) |
+| `accounts.db` | `<data>/accounts.db` | SQLite: account + config tables |
+| `workspaces.db` | `<data>/workspaces.db` | SQLite: workspace table |
+| `mobile-github-imports.json` | `<data>/mobile-github-imports.json` | GitHub import records |
+| `mobile-repos/<owner>/<repo>/` | `<data>/mobile-repos/` | Cloned mobile repos |
+| `snapshot/<projectID>/` | `<data>/snapshot/` | Bare git repos for diff tracking |
+| `worktree/<projectID>/` | `<data>/worktree/` | Git worktrees + `registry.json` |
+| `tool-output/tool_*` | `<data>/tool-output/` | Truncated tool output (7-day cleanup) |
+| `sync/<projectID>.events.json` | `<data>/sync/` | Event-sourced sync records |
+
+### Storage Key Patterns (`<data>/storage/`)
+
+| Key Pattern | Example | Contains |
+|-------------|---------|----------|
+| `["project", "<id>"]` | `storage/project/<id>.json` | Project metadata |
+| `["session", "<projectID>", "<sessionID>"]` | `storage/session/<pid>/<sid>.json` | Session info |
+| `["message", "<sessionID>", "<messageID>"]` | `storage/message/<sid>/<mid>.json` | Message info |
+| `["part", "<messageID>", "<partID>"]` | `storage/part/<mid>/<pid>.json` | Message part |
+| `["session_diff", "<sessionID>"]` | `storage/session_diff/<sid>.json` | Snapshot file diffs |
+| `["session_share", "<sessionID>"]` | `storage/session_share/<sid>.json` | Share data |
+| `["todo", "<sessionID>"]` | `storage/todo/<sid>.json` | Session TODO |
+| `["permission", "<projectID>"]` | `storage/permission/<pid>.json` | Permission rules |
+
+### Lock Files
+
+| File | Path | Purpose |
+|------|------|---------|
+| `serve.lock` | `<state>/serve.lock` | Server PID lock |
+| `session/<sessionID>.lock` | `<state>/session/<sid>.lock` | Session-level reader-writer lock |
+
+## TUI Route System (`src/cli/cmd/tui/routes/`)
+
+### Route Components
+
+| Route | File | Purpose |
+| ----- | ---- | ------- |
+| `home` | `home/index.tsx` | Landing screen: logo, prompt, tips, version |
+| `session` | `session/index.tsx` | Main chat with message scrollbox |
+| `changes` | `changes/index.tsx` | Code review: diff view + inline comments + GitHub PR panel |
+| `tree` | `tree/index.tsx` | Session hierarchy browser (vim-like: j/k/l/h/gg/G) |
+| `git-graph` | `git-graph/index.tsx` | Git commit browser (GHUI-style, Ctrl-G) |
+| `github` | `github/index.tsx` | GitHub panel |
+| `plugin` | Dynamic | Plugin-rendered routes via `route.register()` |
+
+Delete-safe navigation: `app.tsx` redirects to `home` on session deletion from any route.
 
 ### Credential Resolution
 
@@ -670,19 +1096,19 @@ Simple static ASCII logo (104 lines):
 
 ## TUI Component Library (`component/`)
 
-| Component              | Purpose                                              |
-| ---------------------- | ---------------------------------------------------- |
-| `image-preview.tsx`    | ASCII art preview for image URLs (Jimp, 40×16 chars) |
-| `logo.tsx`             | Static nikcli ASCII logo with shadow rendering       |
-| `border.tsx`           | `SplitBorder` (left-side accent line) component      |
-| `dialog-*`             | 20+ dialog components (settings, theme, model, etc.)  |
-| `prompt/`              | Prompt bar with history, frecency, autocomplete      |
+| Component | Purpose |
+| --------- | ------- |
+| `image-preview.tsx` | ASCII art preview for image URLs (Jimp, 40×16 chars, `▀` block chars) |
+| `logo.tsx` | Static nikcli ASCII logo with shadow rendering |
+| `border.tsx` | `SplitBorder` (left-side accent line) component |
+| `dialog-*` | 20+ dialog components: onboarding (4-step), status, command palette, session/model/agent/theme pickers, settings, provider, workspace, confirm, alert, export |
+| `prompt/` | Prompt bar with history, frecency, autocomplete |
+| `tips.tsx` | Home screen tips (from `ralph/feature-plugins/home`) |
+| `spinner.tsx` | Loading spinner component |
 
-## Blocking Issues
+### Dialog System Details
 
-### Auth Middleware Fix Blocked (Pre-2026-04-24)
-
-Requires exporting `requireUser` from `src/server/routes/users.ts` to complete auth bypass fixes.
+Dialogs are stack-based overlays rendered as full-screen absolute-positioned boxes with semi-transparent backdrop. Sizes: `medium` (60 chars), `large` (88 chars), `xlarge` (116 chars). Close on backdrop click or Esc/Ctrl+C. Components call `dialog.clear()` to dismiss.
 
 ## Mobile App (`packages/mobile/`)
 
@@ -848,55 +1274,48 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
 
-## Session Summary (2026-04-29)
+## Session Summary (2026-05-03)
 
 ### Completed Work
 
-1. **GitHub patterns exploration** via explore subagent
-   - Found existing GitHub REST wrapper (`src/connectors/api/github.ts`), credential resolution, mobile GitHub routes, session metadata
-   - Recommended building TUI GitHub support around `Session.github`, `sync.data.session`/`session_diff`, `GithubApi`, and connector credentials
+1. **Workspace exploration** — Comprehensive analysis of nikcli monorepo via background agents:
+   - **Monorepo structure**: 24 packages including nikcli, mobile, desktop, web, sdk, plugin, remote, companion, ui, webrenderer, app
+   - **Server & API patterns**: Hono framework, REST + SSE + WebSocket, Zod validation, OpenAPI auto-generated SDK
+   - **Tool system deep-dive**: `Tool.define()` factory, Zod parameter schemas, auto-truncation wrapper, registry with model-specific filtering
+   - **TUI component patterns**: OpenTUI primitives (`<box>`, `<text>`, `<scrollbox>`), `createSimpleContext` provider factory, theme tokens, SolidJS state management
+   - **Core architecture**: Yargs CLI, Instance DI pattern, project bootstrap, command-based modular structure
 
-2. **Changes GitHub panel** (build agent)
-   - Added `src/cli/cmd/tui/util/github.ts` with `gh` CLI wrapper (OAuth, PR metadata, checks, copy helpers)
-   - Added `src/cli/cmd/tui/routes/changes/github-panel.tsx` as left sidebar
-   - Updated changes route: `g` toggles Files/GitHub, `a` starts OAuth, `r` refresh, `o` open PR, `y` copy metadata
-   - Updated header/footer with GitHub context and hints
-   - `bun run typecheck` OK; tests pass
+### Key Findings
 
-3. **Git graph route** (build agent, 5 code review rounds)
-   - GHUI-style commit browser with PR details, checks, split view
-   - PR detection: only `pull/<n>` refs or anchored `Merge pull request #n` pattern (not loose `#123`)
-   - Robust spawn: `GH_PROMPT_DISABLED=1`, `GIT_TERMINAL_PROMPT=0`, timeout, non-zero exit handling
-   - Stale data guard: directory/hash/PR matched before showing graph/details/GitHub
-   - Keyboard: modifiers respected, dialog stack checked, leader key mode handled
-   - Fixed-width cells with explicit `backgroundColor` to prevent row overlap on scroll
-   - Scroll-to-selected via `listScroll.scrollTo()`
-   - Theme consistency verified: all `theme.*` tokens, consistent component patterns
+**SDK Client Pattern** (`packages/sdk/js/src/client.ts`):
+- Auto-generated from OpenAPI spec
+- `createNikcliClient(config)` returns `NikcliClient` with typed API methods
+- Supports `directory` header for workspace-aware requests
 
-4. **Theme review** (code-reviewer subagent)
-   - git-graph fully consistent with rest of TUI app across 10 categories (colors, typography, layout, keyboard hints, border, dialogs, empty states, responsive sizing)
+**Server Communication** (`src/cli/cmd/tui/worker.ts`):
+- Internal fetch via RPC with `getAuthorizationHeader()` for Basic auth
+- Event subscription via `sdk.event.subscribe({}).stream` (async iterable)
+- Routes: `/session/*`, `/tui/*`, `/global/*`, `/project/*`, `/mcp/*`, `/auth/*`, `/permission/*`
 
-5. **Mobile UI polish** (build agent, 2026-04-29)
-   - Explored `packages/mobile/app` + `packages/mobile/components` via parallel explore agents
-   - Created 7-phase polish plan via planner agent (UI-only, no backend changes)
-   - Code review audit identified 8 specific risks in shared components, app shell, terminal, and composer
-   - Implemented full polish pass across theme tokens, UI components, layout/shell, terminal safe-area, session composer/detail/transcript
-   - `bun run typecheck` passes in `packages/mobile`
-   - Plan archived at `.nikcli/plans/1777478578333-curious-circuit.md`
+**Tool Metadata Pattern**:
+- Tools return `{ title, metadata, output, attachments? }`
+- `metadata()` callback auto-injects `truncated: false` via wrapper
+- `ctx.ask()` for permission requests before file operations
+- Output truncation: MAX_LINES=2000, MAX_BYTES=50KB, 7-day file retention
 
-4. **Mobile IDE backend audit** (explore agent, 2026-04-30)
-   - Found client/backend mismatch: mobile calls `/git/*` but backend uses `/mobile/git/*`
-   - Git backend bugs: porcelain parsing errors, missing staged diffs, wrong commit return
-   - GitHub OAuth persistence bug: token stored server-side, disappears on restart
-   - Recommended minimal changes: fix client paths/bodies, align types, add path containment checks
+**TUI State Management**:
+- `createSimpleContext` factory pattern for context providers
+- `createStore` for complex centralized state (sync.tsx)
+- `createSignal` for simple reactive state
+- `createMemo` for derived computed state
 
-5. **PTY/WebSocket terminal fixes** (build agent, 2026-04-30)
-   - Terminal stuck in "Connecting..." under load — timeout too short, no retry logic
-   - Improvements: timeout 10s→30s, auto-retry up to 3x with 2s delay, error overlay with retry button
-   - WebSocket auth fix: `server.ts:161` accepts token from query parameter for WS connections
+## Session Summary (2026-04-29 to 2026-05-02)
 
-6. **WebSocket auth security review** (code-reviewer agent, 2026-04-30)
-   - CRITICAL: Token leaks in server logs via `c.req.path`
-   - CRITICAL: Timing attack in `MobileAuth.verify()` using `===` instead of `crypto.timingSafeEqual()`
-   - MEDIUM: Railway proxy logs full URLs with query params
-   - MEDIUM: No CORS headers on WebSocket upgrade response
+### Completed Work
+
+1. **Changes GitHub panel** — Added `gh` CLI wrapper (`util/github.ts`), GitHub PR sidebar in changes route (`g` toggle), OAuth/login/refresh/copy keybinds
+2. **Git graph route** — GHUI-style commit browser, 5 code review rounds, PR detection via refs/merge pattern only, robust spawn, stale data guards, theme consistency
+3. **Mobile UI polish** — 7-phase plan: theme tokens, app shell, screen patterns, session/transcript, settings, repos/git/routines, terminal. `bun run typecheck` passes
+4. **Mobile IDE backend audit** — Found client/backend mismatch (`/git/*` vs `/mobile/git/*`), git backend bugs, GitHub OAuth persistence issue
+5. **PTY/WebSocket terminal fixes** — Timeout 10s→30s, auto-retry 3x, error overlay with retry, WS auth via query param token
+6. **Onboarding dialog update** (2026-05-02) — Step 3 changed from "Configuration & docs" to "Filesystem Footprint" visual dashboard showing 4 sections (Application Data, Configuration, Cache & State, Project Directory) with color-coded sensitivity legend

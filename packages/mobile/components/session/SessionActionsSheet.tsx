@@ -1,6 +1,6 @@
 import type { RefObject } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { Braces, Copy, FileText, PencilLine, TerminalSquare, type LucideIcon } from "lucide-react-native"
+import { Braces, Copy, FileText, MonitorPlay, PencilLine, TerminalSquare, type LucideIcon } from "lucide-react-native"
 import { router } from "expo-router"
 import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import { useAppTheme } from "@/lib/theme"
@@ -14,6 +14,7 @@ type Props = {
   onExportJSON(): void
   onCopyID(): void
   onOpenTerminal?(): void
+  onOpenPreview?(): void
 }
 
 type RowProps = {
@@ -138,6 +139,7 @@ export function SessionActionsSheet({
   onExportJSON,
   onCopyID,
   onOpenTerminal,
+  onOpenPreview,
 }: Props) {
   const { palette, isDark } = useAppTheme()
 
@@ -189,6 +191,19 @@ export function SessionActionsSheet({
           description="Raw session data with all metadata"
           onPress={onExportJSON}
           tone="success"
+        />
+
+        <SectionDivider />
+        <SectionLabel label="Preview" />
+        <SheetRow
+          Icon={MonitorPlay}
+          label="Session preview"
+          description="Project folder and dev URLs from this chat"
+          onPress={() => {
+            onOpenPreview?.()
+            setTimeout(() => sheetRef.current?.dismiss(), 120)
+          }}
+          tone="accent"
         />
 
         <SectionDivider />

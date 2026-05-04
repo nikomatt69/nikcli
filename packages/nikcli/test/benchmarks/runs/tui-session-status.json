@@ -1,0 +1,802 @@
+[
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323659437,
+    "date": "2026-04-27T21:00:59.437Z",
+    "iterations": 300000,
+    "totalMs": 10.528125000000045,
+    "perOpMs": 0.00003509375000000015,
+    "opsPerSec": 28495102.40427414
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323659453,
+    "date": "2026-04-27T21:00:59.453Z",
+    "iterations": 500000,
+    "totalMs": 14.577834000000053,
+    "perOpMs": 0.000029155668000000104,
+    "opsPerSec": 34298648.207957245
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323683014,
+    "date": "2026-04-27T21:01:23.014Z",
+    "iterations": 300000,
+    "totalMs": 9.880959000000075,
+    "perOpMs": 0.00003293653000000025,
+    "opsPerSec": 30361425.444635253
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323683026,
+    "date": "2026-04-27T21:01:23.026Z",
+    "iterations": 500000,
+    "totalMs": 10.672415999999885,
+    "perOpMs": 0.00002134483199999977,
+    "opsPerSec": 46849747.98583614
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323702071,
+    "date": "2026-04-27T21:01:42.071Z",
+    "iterations": 300000,
+    "totalMs": 10.240000000000009,
+    "perOpMs": 0.00003413333333333336,
+    "opsPerSec": 29296874.999999974
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323702083,
+    "date": "2026-04-27T21:01:42.083Z",
+    "iterations": 500000,
+    "totalMs": 11.169165999999905,
+    "perOpMs": 0.00002233833199999981,
+    "opsPerSec": 44766099.814435944
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323727534,
+    "date": "2026-04-27T21:02:07.534Z",
+    "iterations": 300000,
+    "totalMs": 12.66266700000051,
+    "perOpMs": 0.0000422088900000017,
+    "opsPerSec": 23691691.489635468
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323727570,
+    "date": "2026-04-27T21:02:07.570Z",
+    "iterations": 500000,
+    "totalMs": 35.26270799999838,
+    "perOpMs": 0.00007052541599999677,
+    "opsPerSec": 14179285.379898304
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323756829,
+    "date": "2026-04-27T21:02:36.829Z",
+    "iterations": 300000,
+    "totalMs": 11.236750000000029,
+    "perOpMs": 0.00003745583333333343,
+    "opsPerSec": 26698111.108638994
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323756863,
+    "date": "2026-04-27T21:02:36.863Z",
+    "iterations": 500000,
+    "totalMs": 33.33062499999869,
+    "perOpMs": 0.00006666124999999738,
+    "opsPerSec": 15001218.849032072
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323766286,
+    "date": "2026-04-27T21:02:46.286Z",
+    "iterations": 300000,
+    "totalMs": 11.646832999998878,
+    "perOpMs": 0.00003882277666666293,
+    "opsPerSec": 25758075.17803586
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323766300,
+    "date": "2026-04-27T21:02:46.300Z",
+    "iterations": 500000,
+    "totalMs": 13.40179100000023,
+    "perOpMs": 0.00002680358200000046,
+    "opsPerSec": 37308446.31139162
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323781930,
+    "date": "2026-04-27T21:03:01.930Z",
+    "iterations": 300000,
+    "totalMs": 10.778833000000304,
+    "perOpMs": 0.000035929443333334346,
+    "opsPerSec": 27832326.560768828
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323781946,
+    "date": "2026-04-27T21:03:01.946Z",
+    "iterations": 500000,
+    "totalMs": 15.493375000000015,
+    "perOpMs": 0.00003098675000000003,
+    "opsPerSec": 32271858.132911615
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323806676,
+    "date": "2026-04-27T21:03:26.676Z",
+    "iterations": 300000,
+    "totalMs": 10.86620799999946,
+    "perOpMs": 0.00003622069333333153,
+    "opsPerSec": 27608527.280171234
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323806693,
+    "date": "2026-04-27T21:03:26.693Z",
+    "iterations": 500000,
+    "totalMs": 15.444833000001381,
+    "perOpMs": 0.00003088966600000276,
+    "opsPerSec": 32373286.2634355
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323831315,
+    "date": "2026-04-27T21:03:51.315Z",
+    "iterations": 300000,
+    "totalMs": 12.257042000001093,
+    "perOpMs": 0.000040856806666670306,
+    "opsPerSec": 24475725.872520734
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323831340,
+    "date": "2026-04-27T21:03:51.340Z",
+    "iterations": 500000,
+    "totalMs": 23.303500000001804,
+    "perOpMs": 0.00004660700000000361,
+    "opsPerSec": 21456004.462847266
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323845472,
+    "date": "2026-04-27T21:04:05.472Z",
+    "iterations": 300000,
+    "totalMs": 10.967333000000508,
+    "perOpMs": 0.00003655777666666836,
+    "opsPerSec": 27353961.07695336
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323845489,
+    "date": "2026-04-27T21:04:05.489Z",
+    "iterations": 500000,
+    "totalMs": 15.527125000000524,
+    "perOpMs": 0.000031054250000001045,
+    "opsPerSec": 32201711.52096625
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323869014,
+    "date": "2026-04-27T21:04:29.014Z",
+    "iterations": 300000,
+    "totalMs": 11.45141700000022,
+    "perOpMs": 0.00003817139000000073,
+    "opsPerSec": 26197631.262575995
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323869040,
+    "date": "2026-04-27T21:04:29.040Z",
+    "iterations": 500000,
+    "totalMs": 24.340291999998954,
+    "perOpMs": 0.000048680583999997905,
+    "opsPerSec": 20542070.736046284
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323887590,
+    "date": "2026-04-27T21:04:47.590Z",
+    "iterations": 300000,
+    "totalMs": 11.250374999999622,
+    "perOpMs": 0.000037501249999998736,
+    "opsPerSec": 26665777.807407316
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323887606,
+    "date": "2026-04-27T21:04:47.606Z",
+    "iterations": 500000,
+    "totalMs": 14.96099999999933,
+    "perOpMs": 0.00002992199999999866,
+    "opsPerSec": 33420225.92072872
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323892019,
+    "date": "2026-04-27T21:04:52.019Z",
+    "iterations": 300000,
+    "totalMs": 13.459000000000742,
+    "perOpMs": 0.00004486333333333581,
+    "opsPerSec": 22289917.52730392
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323892036,
+    "date": "2026-04-27T21:04:52.036Z",
+    "iterations": 500000,
+    "totalMs": 16.25787500000115,
+    "perOpMs": 0.0000325157500000023,
+    "opsPerSec": 30754326.749342375
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323912260,
+    "date": "2026-04-27T21:05:12.260Z",
+    "iterations": 300000,
+    "totalMs": 11.771624999999403,
+    "perOpMs": 0.00003923874999999801,
+    "opsPerSec": 25485011.627537847
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323912286,
+    "date": "2026-04-27T21:05:12.286Z",
+    "iterations": 500000,
+    "totalMs": 24.50262499999917,
+    "perOpMs": 0.00004900524999999834,
+    "opsPerSec": 20405976.910637815
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323932909,
+    "date": "2026-04-27T21:05:32.909Z",
+    "iterations": 300000,
+    "totalMs": 10.905792000001384,
+    "perOpMs": 0.00003635264000000461,
+    "opsPerSec": 27508318.515515603
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323932939,
+    "date": "2026-04-27T21:05:32.939Z",
+    "iterations": 500000,
+    "totalMs": 28.26654200000121,
+    "perOpMs": 0.00005653308400000242,
+    "opsPerSec": 17688757.25937678
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323953127,
+    "date": "2026-04-27T21:05:53.127Z",
+    "iterations": 300000,
+    "totalMs": 10.891832999999679,
+    "perOpMs": 0.00003630610999999893,
+    "opsPerSec": 27543573.244283937
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323953144,
+    "date": "2026-04-27T21:05:53.144Z",
+    "iterations": 500000,
+    "totalMs": 15.050250000000233,
+    "perOpMs": 0.000030100500000000465,
+    "opsPerSec": 33222039.501004454
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323976620,
+    "date": "2026-04-27T21:06:16.620Z",
+    "iterations": 300000,
+    "totalMs": 17.127540999999837,
+    "perOpMs": 0.00005709180333333279,
+    "opsPerSec": 17515649.210823834
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323976649,
+    "date": "2026-04-27T21:06:16.649Z",
+    "iterations": 500000,
+    "totalMs": 27.965291999998954,
+    "perOpMs": 0.000055930583999997905,
+    "opsPerSec": 17879305.533445485
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777323999317,
+    "date": "2026-04-27T21:06:39.317Z",
+    "iterations": 300000,
+    "totalMs": 13.816791999999623,
+    "perOpMs": 0.000046055973333332076,
+    "opsPerSec": 21712710.157322206
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777323999339,
+    "date": "2026-04-27T21:06:39.339Z",
+    "iterations": 500000,
+    "totalMs": 20.47295800000029,
+    "perOpMs": 0.00004094591600000058,
+    "opsPerSec": 24422460.105666846
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777324950854,
+    "date": "2026-04-27T21:22:30.854Z",
+    "iterations": 300000,
+    "totalMs": 10.50825000000259,
+    "perOpMs": 0.000035027500000008636,
+    "opsPerSec": 28548997.216465734
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777324950879,
+    "date": "2026-04-27T21:22:30.879Z",
+    "iterations": 500000,
+    "totalMs": 23.154583999999886,
+    "perOpMs": 0.00004630916799999977,
+    "opsPerSec": 21593996.24713631
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777325168379,
+    "date": "2026-04-27T21:26:08.379Z",
+    "iterations": 300000,
+    "totalMs": 12.051707999999053,
+    "perOpMs": 0.00004017235999999684,
+    "opsPerSec": 24892737.19542687
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777325168395,
+    "date": "2026-04-27T21:26:08.395Z",
+    "iterations": 500000,
+    "totalMs": 14.46087500000067,
+    "perOpMs": 0.00002892175000000134,
+    "opsPerSec": 34576054.35355584
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777325803708,
+    "date": "2026-04-27T21:36:43.708Z",
+    "iterations": 300000,
+    "totalMs": 11.59570900000108,
+    "perOpMs": 0.00003865236333333693,
+    "opsPerSec": 25871639.241720542
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777325803739,
+    "date": "2026-04-27T21:36:43.739Z",
+    "iterations": 500000,
+    "totalMs": 29.715166000001773,
+    "perOpMs": 0.000059430332000003544,
+    "opsPerSec": 16826424.594093475
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777325892295,
+    "date": "2026-04-27T21:38:12.295Z",
+    "iterations": 300000,
+    "totalMs": 11.102624999999534,
+    "perOpMs": 0.00003700874999999845,
+    "opsPerSec": 27020637.01151868
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777325892312,
+    "date": "2026-04-27T21:38:12.312Z",
+    "iterations": 500000,
+    "totalMs": 14.931708000000071,
+    "perOpMs": 0.000029863416000000142,
+    "opsPerSec": 33485787.426327754
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777326068770,
+    "date": "2026-04-27T21:41:08.770Z",
+    "iterations": 300000,
+    "totalMs": 11.010207999999693,
+    "perOpMs": 0.00003670069333333231,
+    "opsPerSec": 27247441.64687973
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777326068788,
+    "date": "2026-04-27T21:41:08.788Z",
+    "iterations": 500000,
+    "totalMs": 16.276624999998603,
+    "perOpMs": 0.000032553249999997204,
+    "opsPerSec": 30718899.034661233
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777326119725,
+    "date": "2026-04-27T21:41:59.725Z",
+    "iterations": 300000,
+    "totalMs": 11.172833000000537,
+    "perOpMs": 0.00003724277666666846,
+    "opsPerSec": 26850844.365076035
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777326119744,
+    "date": "2026-04-27T21:41:59.744Z",
+    "iterations": 500000,
+    "totalMs": 17.222459000000526,
+    "perOpMs": 0.00003444491800000105,
+    "opsPerSec": 29031858.923280627
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777326180666,
+    "date": "2026-04-27T21:43:00.666Z",
+    "iterations": 300000,
+    "totalMs": 11.974541999999929,
+    "perOpMs": 0.00003991513999999976,
+    "opsPerSec": 25053150.258273076
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777326180683,
+    "date": "2026-04-27T21:43:00.683Z",
+    "iterations": 500000,
+    "totalMs": 15.47229199999856,
+    "perOpMs": 0.00003094458399999712,
+    "opsPerSec": 32315832.715673055
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777326656412,
+    "date": "2026-04-27T21:50:56.412Z",
+    "iterations": 300000,
+    "totalMs": 23.074625000001106,
+    "perOpMs": 0.00007691541666667036,
+    "opsPerSec": 13001294.712264473
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777326656457,
+    "date": "2026-04-27T21:50:56.457Z",
+    "iterations": 500000,
+    "totalMs": 42.54237499999908,
+    "perOpMs": 0.00008508474999999817,
+    "opsPerSec": 11752987.462500878
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777326695050,
+    "date": "2026-04-27T21:51:35.050Z",
+    "iterations": 300000,
+    "totalMs": 10.599417000001267,
+    "perOpMs": 0.000035331390000004226,
+    "opsPerSec": 28303443.481840946
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777326695072,
+    "date": "2026-04-27T21:51:35.072Z",
+    "iterations": 500000,
+    "totalMs": 20.982457999998587,
+    "perOpMs": 0.00004196491599999717,
+    "opsPerSec": 23829429.326155864
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777822313825,
+    "date": "2026-05-03T15:31:53.825Z",
+    "iterations": 300000,
+    "totalMs": 12.332957999999053,
+    "perOpMs": 0.000041109859999996844,
+    "opsPerSec": 24325064.595210902
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777822313848,
+    "date": "2026-05-03T15:31:53.848Z",
+    "iterations": 500000,
+    "totalMs": 21.197707999999693,
+    "perOpMs": 0.000042395415999999385,
+    "opsPerSec": 23587455.77587951
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777822362147,
+    "date": "2026-05-03T15:32:42.147Z",
+    "iterations": 300000,
+    "totalMs": 10.878999999998996,
+    "perOpMs": 0.00003626333333332999,
+    "opsPerSec": 27576063.97647097
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777822362162,
+    "date": "2026-05-03T15:32:42.162Z",
+    "iterations": 500000,
+    "totalMs": 13.21020800000042,
+    "perOpMs": 0.000026420416000000843,
+    "opsPerSec": 37849517.58518746
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777822383436,
+    "date": "2026-05-03T15:33:03.436Z",
+    "iterations": 300000,
+    "totalMs": 10.332334000000628,
+    "perOpMs": 0.00003444111333333543,
+    "opsPerSec": 29035066.036384594
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777822383452,
+    "date": "2026-05-03T15:33:03.452Z",
+    "iterations": 500000,
+    "totalMs": 14.87841600000138,
+    "perOpMs": 0.000029756832000002758,
+    "opsPerSec": 33605727.92157133
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777822403436,
+    "date": "2026-05-03T15:33:23.436Z",
+    "iterations": 300000,
+    "totalMs": 11.647624999999607,
+    "perOpMs": 0.00003882541666666536,
+    "opsPerSec": 25756323.71406275
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777822403457,
+    "date": "2026-05-03T15:33:23.457Z",
+    "iterations": 500000,
+    "totalMs": 19.691584000000148,
+    "perOpMs": 0.000039383168000000297,
+    "opsPerSec": 25391558.139761444
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777822434451,
+    "date": "2026-05-03T15:33:54.451Z",
+    "iterations": 300000,
+    "totalMs": 19.31354199999987,
+    "perOpMs": 0.0000643784733333329,
+    "opsPerSec": 15533142.496596534
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777822434478,
+    "date": "2026-05-03T15:33:54.478Z",
+    "iterations": 500000,
+    "totalMs": 25.223250000000917,
+    "perOpMs": 0.000050446500000001835,
+    "opsPerSec": 19822980.78161941
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777825161876,
+    "date": "2026-05-03T16:19:21.876Z",
+    "iterations": 300000,
+    "totalMs": 10.37525000000096,
+    "perOpMs": 0.000034584166666669865,
+    "opsPerSec": 28914965.90443336
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777825161892,
+    "date": "2026-05-03T16:19:21.892Z",
+    "iterations": 500000,
+    "totalMs": 13.644875000001775,
+    "perOpMs": 0.00002728975000000355,
+    "opsPerSec": 36643794.83138797
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777827804013,
+    "date": "2026-05-03T17:03:24.013Z",
+    "iterations": 300000,
+    "totalMs": 12.955083999997441,
+    "perOpMs": 0.000043183613333324805,
+    "opsPerSec": 23156932.05849219
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777827804031,
+    "date": "2026-05-03T17:03:24.031Z",
+    "iterations": 500000,
+    "totalMs": 16.889125000001513,
+    "perOpMs": 0.00003377825000000303,
+    "opsPerSec": 29604849.27430848
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777829827658,
+    "date": "2026-05-03T17:37:07.658Z",
+    "iterations": 300000,
+    "totalMs": 11.248999999999796,
+    "perOpMs": 0.000037496666666665985,
+    "opsPerSec": 26669037.247755837
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777829827676,
+    "date": "2026-05-03T17:37:07.676Z",
+    "iterations": 500000,
+    "totalMs": 17.014792000001762,
+    "perOpMs": 0.000034029584000003523,
+    "opsPerSec": 29386195.258804705
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777830001550,
+    "date": "2026-05-03T17:40:01.550Z",
+    "iterations": 300000,
+    "totalMs": 11.798875000000407,
+    "perOpMs": 0.00003932958333333469,
+    "opsPerSec": 25426152.917120457
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777830001568,
+    "date": "2026-05-03T17:40:01.568Z",
+    "iterations": 500000,
+    "totalMs": 15.44758400000137,
+    "perOpMs": 0.00003089516800000274,
+    "opsPerSec": 32367521.031117596
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777830043466,
+    "date": "2026-05-03T17:40:43.466Z",
+    "iterations": 300000,
+    "totalMs": 12.970750000000407,
+    "perOpMs": 0.00004323583333333469,
+    "opsPerSec": 23128963.24422185
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777830043492,
+    "date": "2026-05-03T17:40:43.492Z",
+    "iterations": 500000,
+    "totalMs": 24.453750000000582,
+    "perOpMs": 0.000048907500000001164,
+    "opsPerSec": 20446761.74410829
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777830081908,
+    "date": "2026-05-03T17:41:21.908Z",
+    "iterations": 300000,
+    "totalMs": 11.129708000000392,
+    "perOpMs": 0.00003709902666666797,
+    "opsPerSec": 26954885.06976009
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777830081928,
+    "date": "2026-05-03T17:41:21.928Z",
+    "iterations": 500000,
+    "totalMs": 18.689290999998775,
+    "perOpMs": 0.00003737858199999755,
+    "opsPerSec": 26753288.821926568
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777830162369,
+    "date": "2026-05-03T17:42:42.369Z",
+    "iterations": 300000,
+    "totalMs": 13.126542000001791,
+    "perOpMs": 0.00004375514000000597,
+    "opsPerSec": 22854457.784842275
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777830162400,
+    "date": "2026-05-03T17:42:42.400Z",
+    "iterations": 500000,
+    "totalMs": 29.795916000002762,
+    "perOpMs": 0.000059591832000005524,
+    "opsPerSec": 16780823.25107755
+  },
+  {
+    "name": "sessionStatusDisplay",
+    "module": "tui-session-status",
+    "timestamp": 1777830200765,
+    "date": "2026-05-03T17:43:20.765Z",
+    "iterations": 300000,
+    "totalMs": 11.907415999998193,
+    "perOpMs": 0.00003969138666666064,
+    "opsPerSec": 25194383.063466124
+  },
+  {
+    "name": "formatTreeChangeSummary",
+    "module": "tui-session-status",
+    "timestamp": 1777830200784,
+    "date": "2026-05-03T17:43:20.784Z",
+    "iterations": 500000,
+    "totalMs": 17.72754200000054,
+    "perOpMs": 0.00003545508400000108,
+    "opsPerSec": 28204699.782969616
+  }
+]

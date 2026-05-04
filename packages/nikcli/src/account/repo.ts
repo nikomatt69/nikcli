@@ -8,7 +8,8 @@ export namespace AccountRepo {
   // ============================================================================
 
   /**
-   * Persist updated tokens for an account
+   * Persist updated tokens for an account.
+   * Now safely updates only token fields via AccountDB.persistToken.
    */
   export function persistToken(
     accountId: string,
@@ -31,40 +32,43 @@ export namespace AccountRepo {
   }
 
   /**
-   * Get account info (without tokens)
+   * Get account info (without tokens).
+   * Consolidates config reads — reads config once instead of twice.
    */
   export function get(accountId: string): Info | undefined {
-    const row = getRow(accountId)
+    const config = AccountDB.getConfig()
+    const row = AccountDB.getAccount(accountId)
     if (!row) return undefined
 
     return {
       id: accountId as Info["id"],
       email: row.email,
       url: row.url,
-      active_org_id: AccountDB.getActiveOrgId() as Info["active_org_id"],
+      active_org_id: config.active_org_id as Info["active_org_id"],
       created_at: row.created_at,
       updated_at: row.updated_at,
     }
   }
 
   /**
-   * List all accounts
+   * List all accounts.
+   * Reads config once instead of a separate getActiveOrgId call.
    */
   export function list(): Info[] {
-    const rows = AccountDB.listAccounts()
-    const activeOrgId = AccountDB.getActiveOrgId()
-    return rows.map((row) => ({
+    const config = AccountDB.getConfig()
+    return AccountDB.listAccounts().map((row) => ({
       id: row.id as Info["id"],
       email: row.email,
       url: row.url,
-      active_org_id: activeOrgId as Info["active_org_id"],
+      active_org_id: config.active_org_id as Info["active_org_id"],
       created_at: row.created_at,
       updated_at: row.updated_at,
     }))
   }
 
   /**
-   * Persist a full account (used after successful login)
+   * Persist a full account (used after successful login).
+   * Now uses a transaction to ensure atomicity.
    */
   export function persistAccount(
     accountId: string,
@@ -91,13 +95,14 @@ export namespace AccountRepo {
   }
 
   /**
-   * Remove an account
+   * Remove an account.
    */
   export function remove(accountId: string): boolean {
     const deleted = AccountDB.deleteAccount(accountId)
     if (deleted) {
       // If this was the active account, clear it
-      if (AccountDB.getActiveAccountId() === accountId) {
+      const config = AccountDB.getConfig()
+      if (config.active_account_id === accountId) {
         AccountDB.setActiveAccount(null)
         AccountDB.setActiveOrg(null)
       }
@@ -110,16 +115,28 @@ export namespace AccountRepo {
   // ============================================================================
 
   /**
-   * Get the active account info
+   * Get the active account info.
+   * Consolidates config reads — reads config once instead of twice.
    */
   export function active(): Info | undefined {
-    const activeId = AccountDB.getActiveAccountId()
-    if (!activeId) return undefined
-    return get(activeId)
+    const config = AccountDB.getConfig()
+    if (!config.active_account_id) return undefined
+
+    const row = AccountDB.getAccount(config.active_account_id)
+    if (!row) return undefined
+
+    return {
+      id: config.active_account_id as Info["id"],
+      email: row.email,
+      url: row.url,
+      active_org_id: config.active_org_id as Info["active_org_id"],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }
   }
 
   /**
-   * Set the active account
+   * Set the active account and optionally the org.
    */
   export function use(accountId: string | null, orgId?: string | null): void {
     AccountDB.setActiveAccount(accountId)

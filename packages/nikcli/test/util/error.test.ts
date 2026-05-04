@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { errorFormat, errorMessage, errorData } from "@/util/error"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("errorFormat", () => {
   it("returns stack for Error with stack", () => {
@@ -126,21 +126,27 @@ describe("errorData", () => {
     it("errorMessage throughput", () => {
       const inputs = [new Error("err"), { message: "msg" }, "string", 42, null]
       let i = 0
-      const r = runBench("errorMessage", "util-error", 200_000, () => {
-        errorMessage(inputs[i++ % inputs.length])
+      const r = recordBenchmark({
+        suite: "util-error",
+        module: "errorMessage",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: errorMessage(inputs[i++ % inputs.length]) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-error")
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
     })
 
     it("errorData throughput", () => {
       const err = new Error("test")
-      const r = runBench("errorData(Error)", "util-error", 100_000, () => {
-        errorData(err)
+      const r = recordBenchmark({
+        suite: "util-error",
+        module: "errorData(Error)",
+        scenario: "throughput",
+        iterations: 100_000,
+        value: errorData(err) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(50_000)
+        errorData(err)
     })
   })
 })

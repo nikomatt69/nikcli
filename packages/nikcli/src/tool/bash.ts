@@ -5,7 +5,7 @@ import path from "path"
 import DESCRIPTION from "./bash.txt"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
-import { lazy } from "@/util/lazy"
+import { lazy, lazyAsync } from "@/util/lazy"
 import { Language } from "web-tree-sitter"
 
 import { Filesystem } from "@/util/filesystem"
@@ -41,7 +41,10 @@ const SHELL_FILE_ARG_COMMANDS = new Set([
 export const log = Log.create({ service: "bash-tool" })
 
 function normalizePathInput(value: string) {
-  return value.trim().replace(/^[\"'`]|[\"'`]$/g, "").trim()
+  return value
+    .trim()
+    .replace(/^[\"'`]|[\"'`]$/g, "")
+    .trim()
 }
 
 function looksLikeGlob(value: string) {
@@ -133,7 +136,7 @@ export async function authorizeBashCommand(command: string, cwd: string, ctx: To
   const patterns = new Set<string>()
   const always = new Set<string>()
 
-  const tree = await parser()
+  const tree = await Promise.resolve(parser())
     .then((p) => p.parse(command))
     .catch(() => undefined)
 
@@ -194,7 +197,7 @@ const resolveWasm = (asset: string) => {
   return fileURLToPath(url)
 }
 
-const parser = lazy(async () => {
+const parser = lazyAsync(async () => {
   const { Parser } = await import("web-tree-sitter")
   const { default: treeWasm } = await import("web-tree-sitter/tree-sitter.wasm" as string, {
     with: { type: "wasm" },

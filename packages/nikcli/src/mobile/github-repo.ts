@@ -8,6 +8,20 @@ import { Log } from "@/util/log"
 const log = Log.create({ service: "mobile-github-repo" })
 
 export namespace MobileGithubRepo {
+  export const Owner = z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[A-Za-z0-9_.-]+$/, "GitHub owner contains unsupported characters")
+    .refine((value) => value !== "." && value !== "..", "GitHub owner is invalid")
+
+  export const Repository = z
+    .string()
+    .trim()
+    .min(1)
+    .regex(/^[A-Za-z0-9_.-]+$/, "GitHub repository contains unsupported characters")
+    .refine((value) => value !== "." && value !== "..", "GitHub repository is invalid")
+
   export const Import = z
     .object({
       owner: z.string(),
@@ -27,11 +41,20 @@ export namespace MobileGithubRepo {
 
   export const ImportRequest = z
     .object({
-      owner: z.string().min(1),
-      repo: z.string().min(1),
+      owner: Owner,
+      repo: Repository,
       cloneUrl: z.url(),
       defaultBranch: z.string().min(1),
       private: z.boolean().default(false),
+    })
+    .superRefine((input, ctx) => {
+      if (!isSafeCloneUrl(input)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["cloneUrl"],
+          message: "cloneUrl must be an HTTPS github.com URL matching owner/repo",
+        })
+      }
     })
     .meta({ ref: "MobileGithubImportRequest" })
 
@@ -41,12 +64,40 @@ export namespace MobileGithubRepo {
   const FILE = path.join(Global.Path.data, "mobile-github-imports.json")
 
   function target(owner: string, repo: string) {
-    return path.join(ROOT, owner.toLowerCase(), repo.toLowerCase())
+    const root = path.resolve(ROOT)
+    const directory = path.resolve(root, owner.toLowerCase(), repo.toLowerCase())
+    const relative = path.relative(root, directory)
+    if (!relative || relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error("Invalid GitHub repository path")
+    }
+    return directory
+  }
+
+  export function canonicalCloneUrl(input: { owner: string; repo: string }) {
+    return `https://github.com/${encodeURIComponent(input.owner.trim())}/${encodeURIComponent(input.repo.trim())}.git`
+  }
+
+  export function isSafeCloneUrl(input: { owner: string; repo: string; cloneUrl: string }) {
+    try {
+      const url = new URL(input.cloneUrl)
+      if (url.protocol !== "https:") return false
+      if (url.hostname.toLowerCase() !== "github.com") return false
+      if (url.username || url.password || url.port || url.search || url.hash) return false
+
+      const parts = url.pathname.split("/").filter(Boolean)
+      if (parts.length !== 2) return false
+
+      const [owner, rawRepo] = parts.map((part) => decodeURIComponent(part).toLowerCase())
+      const repo = rawRepo.endsWith(".git") ? rawRepo.slice(0, -4) : rawRepo
+      return owner === input.owner.trim().toLowerCase() && repo === input.repo.trim().toLowerCase()
+    } catch {
+      return false
+    }
   }
 
   async function write(imports: Import[]) {
     await fs.mkdir(ROOT, { recursive: true })
-    await Bun.write(Bun.file(FILE), JSON.stringify(imports, null, 2))
+    await Bun.write(FILE, JSON.stringify(imports, null, 2))
   }
 
   export async function list(): Promise<Import[]> {
@@ -105,7 +156,9 @@ export namespace MobileGithubRepo {
   }
 
   export async function prepareManagedClone(input: ImportRequest, token: string) {
-    const directory = target(input.owner, input.repo)
+    const request = ImportRequest.parse(input)
+    const directory = target(request.owner, request.repo)
+    const cloneUrl = canonicalCloneUrl(request)
     await fs.mkdir(path.dirname(directory), { recursive: true })
     const gitDir = path.join(directory, ".git")
     const exists = await fs
@@ -117,30 +170,14 @@ export namespace MobileGithubRepo {
       await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)
       try {
         await runGit(
-          [
-            "clone",
-            "--filter=blob:none",
-            "--branch",
-            input.defaultBranch,
-            "--single-branch",
-            input.cloneUrl,
-            directory,
-          ],
+          ["clone", "--filter=blob:none", "--branch", request.defaultBranch, "--single-branch", cloneUrl, directory],
           { token },
         )
       } catch (error) {
-        if (input.private) throw error
+        if (request.private) throw error
         await fs.rm(directory, { recursive: true, force: true }).catch(() => undefined)
         await runGit(
-          [
-            "clone",
-            "--filter=blob:none",
-            "--branch",
-            input.defaultBranch,
-            "--single-branch",
-            input.cloneUrl,
-            directory,
-          ],
+          ["clone", "--filter=blob:none", "--branch", request.defaultBranch, "--single-branch", cloneUrl, directory],
           {},
         )
       }
@@ -148,29 +185,33 @@ export namespace MobileGithubRepo {
     }
 
     try {
-      await runGit(["fetch", "origin", input.defaultBranch, "--prune"], { cwd: directory, token })
-      await runGit(["checkout", "-B", input.defaultBranch, `origin/${input.defaultBranch}`], { cwd: directory, token })
+      await runGit(["fetch", "origin", request.defaultBranch, "--prune"], { cwd: directory, token })
+      await runGit(["checkout", "-B", request.defaultBranch, `origin/${request.defaultBranch}`], {
+        cwd: directory,
+        token,
+      })
     } catch (error) {
-      if (input.private) throw error
-      await runGit(["fetch", "origin", input.defaultBranch, "--prune"], { cwd: directory })
-      await runGit(["checkout", "-B", input.defaultBranch, `origin/${input.defaultBranch}`], { cwd: directory })
+      if (request.private) throw error
+      await runGit(["fetch", "origin", request.defaultBranch, "--prune"], { cwd: directory })
+      await runGit(["checkout", "-B", request.defaultBranch, `origin/${request.defaultBranch}`], { cwd: directory })
     }
     return directory
   }
 
   export async function importRepo(input: ImportRequest, token: string) {
-    const directory = await prepareManagedClone(input, token)
+    const request = ImportRequest.parse(input)
+    const directory = await prepareManagedClone(request, token)
     const { project } = await Project.fromDirectory(directory)
     const now = Date.now()
-    const existing = (await list()).find((item) => item.fullName === `${input.owner}/${input.repo}`)
+    const existing = (await list()).find((item) => item.fullName === `${request.owner}/${request.repo}`)
     const entry = await save({
-      owner: input.owner,
-      repo: input.repo,
-      fullName: `${input.owner}/${input.repo}`,
+      owner: request.owner,
+      repo: request.repo,
+      fullName: `${request.owner}/${request.repo}`,
       directory,
-      cloneUrl: input.cloneUrl,
-      defaultBranch: input.defaultBranch,
-      private: input.private,
+      cloneUrl: canonicalCloneUrl(request),
+      defaultBranch: request.defaultBranch,
+      private: request.private,
       importedAt: existing?.importedAt ?? now,
       updatedAt: now,
       projectID: project.id,

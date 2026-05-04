@@ -1,11 +1,46 @@
 import { Database } from "bun:sqlite"
+import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite"
+import { eq, and, or, sql, desc, asc } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
 import fs from "fs/promises"
 import { readFileSync } from "fs"
 import path from "path"
 import { Global } from "@/global"
+import { users, userSessions, chatContacts, chatMessages } from "./users.sql"
+
+/** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
+type RunResult = { changes: number; lastInsertRowid: number | bigint }
+function getChanges(result: void | RunResult): number {
+  return (result as RunResult).changes
+}
 
 export namespace UserDB {
+  // ============================================================================
+  // Admin email allowlist — only these emails can hold the "admin" role
+  // ============================================================================
+
+  const ADMIN_EMAILS = new Set(["nicom.19@icloud.com", "nicola.mattioli.95@gmail.com"])
+
+  /**
+   * Check if an email address is allowed to hold the admin role.
+   * This is the single source of truth for admin eligibility.
+   */
+  export function isAdminEmail(email: string): boolean {
+    return ADMIN_EMAILS.has(email.trim().toLowerCase())
+  }
+
+  /**
+   * Get the list of admin-eligible email addresses.
+   * Useful for UI hints and validation messages.
+   */
+  export function getAdminEmails(): string[] {
+    return [...ADMIN_EMAILS]
+  }
+
+  // ============================================================================
+  // Types — keep the same public API shape for backwards compatibility
+  // ============================================================================
+
   export type User = {
     id: string
     username: string
@@ -27,20 +62,52 @@ export namespace UserDB {
     created_at: number
   }
 
-  let _db: Database | undefined
-
-  export function db(): Database {
-    if (!_db) {
-      const p = path.join(Global.Path.data, "users.db")
-      _db = new Database(p, { create: true })
-      _db.exec("PRAGMA journal_mode=WAL;")
-      _db.exec("PRAGMA foreign_keys=ON;")
-      migrate(_db)
-    }
-    return _db
+  export type ChatMessage = {
+    id: string
+    sender_id: string
+    receiver_id: string
+    content: string
+    read: number
+    created_at: number
   }
 
-  function migrate(database: Database) {
+  // ============================================================================
+  // Database connection (lazy singleton)
+  // ============================================================================
+
+  let _rawDb: Database | undefined
+  let _drizzle: ReturnType<typeof drizzle> | undefined
+
+  /**
+   * Get the raw bun:sqlite connection (for migration only).
+   * All queries should go through `db()` which returns the Drizzle instance.
+   */
+  function rawDb(): Database {
+    if (!_rawDb) {
+      const p = path.join(Global.Path.data, "users.db")
+      _rawDb = new Database(p, { create: true })
+      _rawDb.exec("PRAGMA journal_mode=WAL;")
+      _rawDb.exec("PRAGMA foreign_keys=ON;")
+      migrateSchema(_rawDb)
+    }
+    return _rawDb
+  }
+
+  /**
+   * Get the Drizzle database instance.
+   */
+  export function db() {
+    if (!_drizzle) {
+      _drizzle = drizzle(rawDb(), { schema: { users, userSessions, chatContacts, chatMessages } })
+    }
+    return _drizzle
+  }
+
+  /**
+   * Run schema migration on the raw SQLite connection.
+   * Uses CREATE TABLE IF NOT EXISTS for backward compatibility with existing databases.
+   */
+  function migrateSchema(database: Database) {
     database.exec(`
       CREATE TABLE IF NOT EXISTS users (
         id           TEXT PRIMARY KEY,
@@ -84,8 +151,34 @@ export namespace UserDB {
         ON chat_messages(sender_id, receiver_id, created_at);
       CREATE INDEX IF NOT EXISTS idx_chat_messages_receiver
         ON chat_messages(receiver_id, read);
+      CREATE INDEX IF NOT EXISTS idx_users_created_at
+        ON users(created_at);
     `)
   }
+
+  // ============================================================================
+  // Session cache — eliminates SHA-256 + 2 DB queries on every authenticated request
+  // ============================================================================
+
+  const sessionCache = new Map<string, { user: PublicUser; expiresAt: number | null; cachedAt: number }>()
+  const SESSION_CACHE_TTL = 60_000 // 1 minute
+
+  /**
+   * Invalidate session cache entries.
+   * Call when sessions are revoked or users are modified.
+   */
+  function invalidateSessionCache(hash?: string, userId?: string) {
+    if (hash) sessionCache.delete(hash)
+    if (userId) {
+      for (const [key, val] of sessionCache) {
+        if (val.user.id === userId) sessionCache.delete(key)
+      }
+    }
+  }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
 
   function hashToken(token: string): string {
     return createHash("sha256").update(token).digest("hex")
@@ -95,10 +188,45 @@ export namespace UserDB {
     return `${prefix}_${randomBytes(12).toString("hex")}`
   }
 
+  /** Convert a Drizzle row to the legacy PublicUser type */
+  function rowToPublic(row: typeof users.$inferSelect): PublicUser {
+    return {
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      display_name: row.displayName,
+      role: row.role as "admin" | "user",
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }
+  }
+
+  /** Convert a Drizzle row to the legacy User type */
+  function rowToUser(row: typeof users.$inferSelect): User {
+    return {
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      password_hash: row.passwordHash,
+      display_name: row.displayName,
+      role: row.role as "admin" | "user",
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }
+  }
+
+  /**
+   * Public utility to convert a User to PublicUser (strips password_hash).
+   * Kept for backward compatibility with consumers.
+   */
   export function toPublic(user: User): PublicUser {
     const { password_hash: _, ...pub } = user
     return pub as PublicUser
   }
+
+  // ============================================================================
+  // User CRUD
+  // ============================================================================
 
   export async function create(input: {
     username: string
@@ -107,37 +235,63 @@ export namespace UserDB {
     displayName?: string
     role?: "admin" | "user"
   }): Promise<PublicUser> {
-    const database = db()
-    const count = (database.query("SELECT COUNT(*) as count FROM users").get() as { count: number }).count
-    const role = input.role ?? (count === 0 ? "admin" : "user")
+    const normalizedEmail = input.email.trim().toLowerCase()
+
+    // Determine role: explicit override takes precedence, then email allowlist, then fallback
+    let role: "admin" | "user"
+    if (input.role) {
+      // Explicit role requested — enforce admin allowlist
+      if (input.role === "admin" && !isAdminEmail(normalizedEmail)) {
+        throw new Error("This email address is not authorized to hold the admin role")
+      }
+      role = input.role
+    } else if (!hasUsers()) {
+      // No users exist yet — grant admin only if email is in the allowlist
+      role = isAdminEmail(normalizedEmail) ? "admin" : "user"
+    } else {
+      role = "user"
+    }
+
     const hash = await Bun.password.hash(input.password, { algorithm: "bcrypt", cost: 10 })
     const now = Date.now()
     const id = generateId("usr")
 
-    database.run(
-      `INSERT INTO users (id, username, email, password_hash, display_name, role, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
+    db()
+      .insert(users)
+      .values({
         id,
-        input.username.trim(),
-        input.email.trim().toLowerCase(),
-        hash,
-        input.displayName?.trim() ?? null,
+        username: input.username.trim(),
+        email: input.email.trim().toLowerCase(),
+        passwordHash: hash,
+        displayName: input.displayName?.trim() ?? null,
         role,
-        now,
-        now,
-      ],
-    )
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run()
 
-    return toPublic(database.query("SELECT * FROM users WHERE id = ?").get(id) as User)
+    const row = db().select().from(users).where(eq(users.id, id)).get()
+    return row
+      ? rowToPublic(row)
+      : {
+          id,
+          username: input.username.trim(),
+          email: input.email.trim().toLowerCase(),
+          display_name: input.displayName?.trim() ?? null,
+          role,
+          created_at: now,
+          updated_at: now,
+        }
   }
 
   export function findByEmail(email: string): User | null {
-    return db().query("SELECT * FROM users WHERE email = ?").get(email.toLowerCase()) as User | null
+    const row = db().select().from(users).where(eq(users.email, email.toLowerCase())).get()
+    return row ? rowToUser(row) : null
   }
 
   export function findById(id: string): User | null {
-    return db().query("SELECT * FROM users WHERE id = ?").get(id) as User | null
+    const row = db().select().from(users).where(eq(users.id, id)).get()
+    return row ? rowToUser(row) : null
   }
 
   export async function verifyPassword(user: User, password: string): Promise<boolean> {
@@ -150,50 +304,113 @@ export namespace UserDB {
     const now = Date.now()
     const expiresAt = expiresInDays ? now + expiresInDays * 24 * 60 * 60 * 1000 : null
 
-    db().run(
-      `INSERT INTO user_sessions (id, user_id, token_hash, expires_at, created_at)
-       VALUES (?, ?, ?, ?, ?)`,
-      [id, userId, hashToken(token), expiresAt, now],
-    )
+    db()
+      .insert(userSessions)
+      .values({
+        id,
+        userId,
+        tokenHash: hashToken(token),
+        expiresAt,
+        createdAt: now,
+      })
+      .run()
 
     return token
   }
 
+  /**
+   * Verify a bearer token and return the associated public user.
+   * Uses an in-memory cache to avoid hitting the database on every request.
+   */
   export function verifySession(rawToken: string): PublicUser | null {
     if (!rawToken.startsWith("nku_")) return null
     const hash = hashToken(rawToken)
     const now = Date.now()
 
-    const session = db().query("SELECT * FROM user_sessions WHERE token_hash = ?").get(hash) as Session | null
+    // Check cache first
+    const cached = sessionCache.get(hash)
+    if (cached) {
+      if (now - cached.cachedAt < SESSION_CACHE_TTL) {
+        // Cache entry is still within TTL
+        if (cached.expiresAt === null || cached.expiresAt > now) {
+          return cached.user
+        }
+        // Session expired — remove from cache
+        sessionCache.delete(hash)
+        return null
+      }
+      // TTL expired — fall through to DB
+      sessionCache.delete(hash)
+    }
 
-    if (!session) return null
-    if (session.expires_at && session.expires_at <= now) {
-      db().run("DELETE FROM user_sessions WHERE token_hash = ?", [hash])
+    // Cache miss — use JOIN query (1 query instead of 2)
+    const row = db()
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+        expiresAt: userSessions.expiresAt,
+      })
+      .from(userSessions)
+      .innerJoin(users, eq(userSessions.userId, users.id))
+      .where(eq(userSessions.tokenHash, hash))
+      .get()
+
+    if (!row) {
+      // Token not found
       return null
     }
 
-    const user = findById(session.user_id)
-    if (!user) return null
-    return toPublic(user)
+    if (row.expiresAt !== null && row.expiresAt <= now) {
+      // Session expired — delete and return null
+      db().delete(userSessions).where(eq(userSessions.tokenHash, hash)).run()
+      sessionCache.delete(hash)
+      return null
+    }
+
+    const publicUser: PublicUser = {
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      display_name: row.displayName,
+      role: row.role as "admin" | "user",
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }
+
+    // Populate cache
+    sessionCache.set(hash, { user: publicUser, expiresAt: row.expiresAt, cachedAt: now })
+    return publicUser
   }
 
   export function revokeSession(rawToken: string): boolean {
     const hash = hashToken(rawToken)
-    const result = db().run("DELETE FROM user_sessions WHERE token_hash = ?", [hash])
-    return result.changes > 0
+    invalidateSessionCache(hash)
+    const result = db().delete(userSessions).where(eq(userSessions.tokenHash, hash)).run()
+    return getChanges(result) > 0
   }
 
   export function revokeAllUserSessions(userId: string): void {
-    db().run("DELETE FROM user_sessions WHERE user_id = ?", [userId])
+    invalidateSessionCache(undefined, userId)
+    db().delete(userSessions).where(eq(userSessions.userId, userId)).run()
   }
 
   export function listUsers(): PublicUser[] {
-    return (db().query("SELECT * FROM users ORDER BY created_at ASC").all() as User[]).map(toPublic)
+    return db().select().from(users).orderBy(asc(users.createdAt)).all().map(rowToPublic)
   }
 
   export function hasUsers(): boolean {
-    const row = db().query("SELECT COUNT(*) as count FROM users").get() as { count: number }
-    return row.count > 0
+    const result = db()
+      .select({ exists: sql`exists(select 1 from users)` })
+      .from(users)
+      .limit(1)
+      .get()
+    // SQLite returns 1 or 0 for EXISTS
+    return (result as any)?.exists ? true : false
   }
 
   export async function updateUser(
@@ -203,42 +420,72 @@ export namespace UserDB {
     const user = findById(id)
     if (!user) return null
 
-    const updates: string[] = []
-    const values: (string | number | null)[] = []
+    // Enforce admin email allowlist: only allowlisted emails can hold the admin role
+    if (input.role === "admin" && !isAdminEmail(user.email)) {
+      throw new Error("This email address is not authorized to hold the admin role")
+    }
+
+    const updates: Partial<typeof users.$inferInsert> = {}
 
     if (input.displayName !== undefined) {
-      updates.push("display_name = ?")
-      values.push(input.displayName.trim() || null)
+      updates.displayName = input.displayName.trim() || null
     }
 
     if (input.password !== undefined) {
-      const hash = await Bun.password.hash(input.password, { algorithm: "bcrypt", cost: 10 })
-      updates.push("password_hash = ?")
-      values.push(hash)
+      updates.passwordHash = await Bun.password.hash(input.password, { algorithm: "bcrypt", cost: 10 })
     }
 
     if (input.role !== undefined) {
-      updates.push("role = ?")
-      values.push(input.role)
+      updates.role = input.role
     }
 
-    if (updates.length === 0) return toPublic(user)
+    if (Object.keys(updates).length === 0) return toPublic(user)
 
-    updates.push("updated_at = ?")
-    values.push(Date.now())
-    values.push(id)
+    updates.updatedAt = Date.now()
 
-    db().run(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, values)
+    // Use RETURNING to get updated row in one query instead of read + write + read
+    const [updated] = db()
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .all()
 
-    return toPublic(findById(id)!)
+    if (!updated) return null
+
+    // Invalidate session cache if role changed
+    if (input.role !== undefined) {
+      invalidateSessionCache(undefined, id)
+    }
+
+    return {
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
+      display_name: updated.displayName,
+      role: updated.role as "admin" | "user",
+      created_at: updated.createdAt,
+      updated_at: updated.updatedAt,
+    }
   }
 
   export function deleteUser(id: string): boolean {
-    const result = db().run("DELETE FROM users WHERE id = ?", [id])
-    return result.changes > 0
+    invalidateSessionCache(undefined, id)
+    const result = db().delete(users).where(eq(users.id, id)).run()
+    return getChanges(result) > 0
   }
 
-  // --- Active TUI session persisted to disk ---
+  // ============================================================================
+  // Active TUI session persisted to disk
+  // ============================================================================
 
   const SESSION_FILE = path.join(Global.Path.data, "user-session.token")
 
@@ -253,9 +500,6 @@ export namespace UserDB {
 
   export function getActiveSessionSync(): string | null {
     try {
-      const file = Bun.file(SESSION_FILE)
-      const exists = file.size >= 0
-      if (!exists) return null
       const token = readFileSync(SESSION_FILE, "utf8").trim()
       return token || null
     } catch {
@@ -275,108 +519,175 @@ export namespace UserDB {
     await fs.unlink(SESSION_FILE).catch(() => undefined)
   }
 
-  // --- Chat ---
+  // ============================================================================
+  // Chat — contacts, messages, search
+  // ============================================================================
 
-  export type ChatMessage = {
-    id: string
-    sender_id: string
-    receiver_id: string
-    content: string
-    read: number
-    created_at: number
-  }
-
+  /**
+   * Add a contact bidirectionally (wrapped in a transaction).
+   */
   export function addContact(userId: string, contactId: string): void {
-    db().run(`INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`, [
-      userId,
-      contactId,
-      Date.now(),
-    ])
-    // Make it symmetric so both sides can see each other
-    db().run(`INSERT OR IGNORE INTO chat_contacts (user_id, contact_id, created_at) VALUES (?, ?, ?)`, [
-      contactId,
-      userId,
-      Date.now(),
-    ])
+    const now = Date.now()
+    db().transaction((tx) => {
+      tx.insert(chatContacts).values({ userId, contactId, createdAt: now }).onConflictDoNothing().run()
+      tx.insert(chatContacts)
+        .values({ userId: contactId, contactId: userId, createdAt: now })
+        .onConflictDoNothing()
+        .run()
+    })
   }
 
+  /**
+   * Remove a contact bidirectionally (both directions).
+   */
   export function removeContact(userId: string, contactId: string): void {
-    db().run(`DELETE FROM chat_contacts WHERE user_id = ? AND contact_id = ?`, [userId, contactId])
+    db()
+      .delete(chatContacts)
+      .where(
+        or(
+          and(eq(chatContacts.userId, userId), eq(chatContacts.contactId, contactId)),
+          and(eq(chatContacts.userId, contactId), eq(chatContacts.contactId, userId)),
+        ),
+      )
+      .run()
   }
 
   export function listContacts(userId: string): PublicUser[] {
-    return db()
-      .query(
-        `SELECT u.id, u.username, u.email, u.display_name, u.role, u.created_at, u.updated_at
-           FROM chat_contacts cc
-           JOIN users u ON u.id = cc.contact_id
-           WHERE cc.user_id = ?
-           ORDER BY cc.created_at ASC`,
-      )
-      .all(userId) as PublicUser[]
+    const rows = db()
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(chatContacts)
+      .innerJoin(users, eq(chatContacts.contactId, users.id))
+      .where(eq(chatContacts.userId, userId))
+      .orderBy(asc(chatContacts.createdAt))
+      .all()
+
+    return rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      display_name: row.displayName,
+      role: row.role as "admin" | "user",
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }))
   }
 
   export function searchUsers(query: string, excludeUserId: string): PublicUser[] {
     const like = `%${query.toLowerCase()}%`
-    return db()
-      .query(
-        `SELECT id, username, email, display_name, role, created_at, updated_at
-           FROM users
-           WHERE id != ?
-             AND (LOWER(username) LIKE ? OR LOWER(email) LIKE ? OR LOWER(display_name) LIKE ?)
-           LIMIT 10`,
+    const rows = db()
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        displayName: users.displayName,
+        role: users.role,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      })
+      .from(users)
+      .where(
+        and(
+          sql`${users.id} != ${excludeUserId}`,
+          or(
+            sql`LOWER(${users.username}) LIKE ${like}`,
+            sql`LOWER(${users.email}) LIKE ${like}`,
+            sql`LOWER(${users.displayName}) LIKE ${like}`,
+          ),
+        ),
       )
-      .all(excludeUserId, like, like, like) as PublicUser[]
+      .limit(10)
+      .all()
+
+    return rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      email: row.email,
+      display_name: row.displayName,
+      role: row.role as "admin" | "user",
+      created_at: row.createdAt,
+      updated_at: row.updatedAt,
+    }))
   }
 
   export function sendMessage(senderId: string, receiverId: string, content: string): ChatMessage {
     const id = generateId("msg")
     const now = Date.now()
-    db().run(
-      `INSERT INTO chat_messages (id, sender_id, receiver_id, content, read, created_at)
-       VALUES (?, ?, ?, ?, 0, ?)`,
-      [id, senderId, receiverId, content, now],
-    )
+    db()
+      .insert(chatMessages)
+      .values({
+        id,
+        senderId,
+        receiverId,
+        content,
+        read: false,
+        createdAt: now,
+      })
+      .run()
     return { id, sender_id: senderId, receiver_id: receiverId, content, read: 0, created_at: now }
   }
 
   export function getMessages(userId: string, contactId: string, limit = 100): ChatMessage[] {
-    return db()
-      .query(
-        `SELECT * FROM (
-           SELECT * FROM chat_messages
-           WHERE (sender_id = ? AND receiver_id = ?)
-              OR (sender_id = ? AND receiver_id = ?)
-           ORDER BY created_at DESC
-           LIMIT ?
-         ) AS recent_messages
-         ORDER BY created_at ASC`,
+    // Use a subquery approach with Drizzle for the bidirectional conversation query
+    const recentMessages = db()
+      .select()
+      .from(chatMessages)
+      .where(
+        or(
+          and(eq(chatMessages.senderId, userId), eq(chatMessages.receiverId, contactId)),
+          and(eq(chatMessages.senderId, contactId), eq(chatMessages.receiverId, userId)),
+        ),
       )
-      .all(userId, contactId, contactId, userId, limit) as ChatMessage[]
+      .orderBy(desc(chatMessages.createdAt))
+      .limit(limit)
+      .as("recent_messages")
+
+    const rows = db().select().from(recentMessages).orderBy(asc(recentMessages.createdAt)).all()
+
+    return rows.map((row) => ({
+      id: row.id,
+      sender_id: row.senderId,
+      receiver_id: row.receiverId,
+      content: row.content,
+      read: row.read ? 1 : 0,
+      created_at: row.createdAt,
+    }))
   }
 
   export function markMessagesRead(userId: string, senderId: string): void {
-    db().run(
-      `UPDATE chat_messages SET read = 1
-       WHERE receiver_id = ? AND sender_id = ? AND read = 0`,
-      [userId, senderId],
-    )
+    db()
+      .update(chatMessages)
+      .set({ read: true })
+      .where(
+        and(eq(chatMessages.receiverId, userId), eq(chatMessages.senderId, senderId), eq(chatMessages.read, false)),
+      )
+      .run()
   }
 
   export function getUnreadCount(userId: string, senderId: string): number {
-    const row = db()
-      .query(
-        `SELECT COUNT(*) as count FROM chat_messages
-         WHERE receiver_id = ? AND sender_id = ? AND read = 0`,
+    const [result] = db()
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(chatMessages)
+      .where(
+        and(eq(chatMessages.receiverId, userId), eq(chatMessages.senderId, senderId), eq(chatMessages.read, false)),
       )
-      .get(userId, senderId) as { count: number }
-    return row?.count ?? 0
+      .all()
+    return result?.count ?? 0
   }
 
   export function getTotalUnreadCount(userId: string): number {
-    const row = db()
-      .query(`SELECT COUNT(*) as count FROM chat_messages WHERE receiver_id = ? AND read = 0`)
-      .get(userId) as { count: number }
-    return row?.count ?? 0
+    const [result] = db()
+      .select({ count: sql<number>`cast(count(*) as integer)` })
+      .from(chatMessages)
+      .where(and(eq(chatMessages.receiverId, userId), eq(chatMessages.read, false)))
+      .all()
+    return result?.count ?? 0
   }
 }

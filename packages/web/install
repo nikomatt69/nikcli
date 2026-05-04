@@ -356,6 +356,9 @@ download_and_install() {
 
     local extracted_binary="$tmp_dir/bin/$APP"
     if [ ! -f "$extracted_binary" ]; then
+        extracted_binary="$tmp_dir/$APP-$target/bin/$APP"
+    fi
+    if [ ! -f "$extracted_binary" ]; then
         echo -e "${RED}Error: Binary not found in archive at expected path${NC}"
         rm -rf "$tmp_dir"
         exit 1

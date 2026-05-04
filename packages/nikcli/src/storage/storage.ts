@@ -1,13 +1,52 @@
 import { Log } from "../util/log"
 import path from "path"
-import fs from "fs/promises"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
-import { lazy } from "../util/lazy"
+import { lazy, lazyAsync } from "../util/lazy"
 import { Lock } from "../util/lock"
 import { $ } from "bun"
 import { NamedError } from "@nikcli-ai/util/error"
 import z from "zod"
+
+/** In-memory read-through cache with write-through invalidation. */
+namespace Cache {
+  const store = new Map<string, { value: unknown; expires: number }>()
+  const DEFAULT_TTL_MS = 5_000
+
+  export function get<T>(key: string): T | undefined {
+    const entry = store.get(key)
+    if (!entry) return undefined
+    if (Date.now() > entry.expires) {
+      store.delete(key)
+      return undefined
+    }
+    return entry.value as T
+  }
+
+  export function set<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_MS): void {
+    store.set(key, { value, expires: Date.now() + ttlMs })
+  }
+
+  export function invalidate(key: string): void {
+    store.delete(key)
+  }
+
+  export function invalidatePrefix(prefix: string): void {
+    for (const key of store.keys()) {
+      if (key.startsWith(prefix)) {
+        store.delete(key)
+      }
+    }
+  }
+
+  export function clear(): void {
+    store.clear()
+  }
+
+  export function size(): number {
+    return store.size
+  }
+}
 
 export namespace Storage {
   const log = Log.create({ service: "storage" })
@@ -141,7 +180,7 @@ export namespace Storage {
     },
   ]
 
-  const state = lazy(async () => {
+  const state = lazyAsync(async () => {
     const dir = path.join(Global.Path.data, "storage")
     const migration = await Bun.file(path.join(dir, "migration"))
       .json()
@@ -164,11 +203,13 @@ export namespace Storage {
   })
 
   export async function remove(key: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const cacheKey = key.join("/")
+    Cache.invalidate(cacheKey)
+    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       try {
-        await fs.unlink(target)
+        await Bun.file(target).delete()
       } catch (e: any) {
         // Only ignore ENOENT (file doesn't exist) - other errors should propagate
         if (e?.code !== "ENOENT") throw e
@@ -177,33 +218,40 @@ export namespace Storage {
   }
 
   export async function read<T>(key: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const cacheKey = key.join("/")
+    const cached = Cache.get<T>(cacheKey)
+    if (cached !== undefined) return cached
+
+    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.read(target)
       const result = await Bun.file(target).json()
+      Cache.set(cacheKey, result as T)
       return result as T
     })
   }
 
   export async function update<T>(key: string[], fn: (draft: T) => void) {
-    const dir = await state().then((x) => x.dir)
+    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
       const content = structuredClone(await Bun.file(target).json())
       fn(content)
       await Bun.write(target, JSON.stringify(content, null, 2))
+      Cache.set(key.join("/"), content as T)
       return content as T
     })
   }
 
   export async function write<T>(key: string[], content: T) {
-    const dir = await state().then((x) => x.dir)
+    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
       await Bun.write(target, JSON.stringify(content, null, 2))
+      Cache.set(key.join("/"), content)
     })
   }
 
@@ -220,7 +268,7 @@ export namespace Storage {
 
   const glob = new Bun.Glob("**/*")
   export async function list(prefix: string[]) {
-    const dir = await state().then((x) => x.dir)
+    const { dir } = await state()
     try {
       const result = await Array.fromAsync(
         glob.scan({
@@ -230,7 +278,8 @@ export namespace Storage {
       ).then((results) => results.map((x) => [...prefix, ...x.slice(0, -5).split(path.sep)]))
       result.sort()
       return result
-    } catch {
+    } catch (error) {
+      log.error("list failed", { prefix, error })
       return []
     }
   }

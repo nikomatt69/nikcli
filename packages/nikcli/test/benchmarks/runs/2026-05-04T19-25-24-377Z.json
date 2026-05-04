@@ -1,0 +1,178 @@
+{
+  "run": {
+    "runId": "2026-05-04T19-25-24-377Z",
+    "createdAt": "2026-05-04T19:25:27.970Z",
+    "records": [
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:27.970Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "iterations": 200,
+        "value": 9.284125000000131,
+        "unit": "ms",
+        "valuePerIteration": 0.04642062500000065,
+        "metadata": {
+          "messageCount": 120
+        }
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:27.972Z",
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "iterations": 5000,
+        "value": 1.5256249999997635,
+        "unit": "ms",
+        "valuePerIteration": 0.00030512499999995273,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:27.973Z",
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "iterations": 50000,
+        "value": 1.2174159999999574,
+        "unit": "ms",
+        "valuePerIteration": 0.00002434831999999915,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:27.976Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "iterations": 2000,
+        "value": 3.284334000000399,
+        "unit": "ms",
+        "valuePerIteration": 0.0016421670000001996,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:29.510Z",
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "iterations": 50000,
+        "value": 5.6516249999995125,
+        "unit": "ms",
+        "valuePerIteration": 0.00011303249999999025,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:29.514Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "iterations": 20000,
+        "value": 3.3899579999997513,
+        "unit": "ms",
+        "valuePerIteration": 0.00016949789999998757,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-04T19-25-24-377Z",
+        "timestamp": "2026-05-04T19:25:29.515Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "iterations": 50000,
+        "value": 0.41404099999999744,
+        "unit": "ms",
+        "valuePerIteration": 0.00000828081999999995,
+        "metadata": {}
+      }
+    ]
+  },
+  "comparison": {
+    "baseRunId": "2026-05-04T19-25-11-776Z",
+    "currentRunId": "2026-05-04T19-25-24-377Z",
+    "rows": [
+      {
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "unit": "ms",
+        "iterations": 200,
+        "baseline": 8.951375000000098,
+        "current": 9.284125000000131,
+        "delta": 0.33275000000003274,
+        "deltaPercent": 3.717306000475112
+      },
+      {
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "unit": "ms",
+        "iterations": 5000,
+        "baseline": 1.7209579999998823,
+        "current": 1.5256249999997635,
+        "delta": -0.19533300000011877,
+        "deltaPercent": -11.350247943304376
+      },
+      {
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 1.2063750000002074,
+        "current": 1.2174159999999574,
+        "delta": 0.011040999999750056,
+        "deltaPercent": 0.9152212205780257
+      },
+      {
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "unit": "ms",
+        "iterations": 2000,
+        "baseline": 3.306749999999738,
+        "current": 3.284334000000399,
+        "delta": -0.022415999999338965,
+        "deltaPercent": -0.6778861419623721
+      },
+      {
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 5.588915999999699,
+        "current": 5.6516249999995125,
+        "delta": 0.06270899999981339,
+        "deltaPercent": 1.1220243782482464
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "unit": "ms",
+        "iterations": 20000,
+        "baseline": 3.1612499999991996,
+        "current": 3.3899579999997513,
+        "delta": 0.2287080000005517,
+        "deltaPercent": 7.2347330961046925
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 0.40279199999986304,
+        "current": 0.41404099999999744,
+        "delta": 0.011249000000134401,
+        "deltaPercent": 2.792756559250985
+      }
+    ]
+  },
+  "exportedAt": "2026-05-04T19:25:29.516Z"
+}

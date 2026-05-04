@@ -1,8 +1,10 @@
+import { AccountDB } from "./db"
 import { AccountRepo } from "./repo"
 import { normalizeServerUrl } from "./url"
 import { Identifier } from "@/id/id"
 import { Lock } from "@/util/lock"
 import { Log } from "@/util/log"
+import type { AccountRow } from "./schema"
 import {
   AccountID,
   type DeviceCode,
@@ -24,6 +26,41 @@ export namespace Account {
   // ============================================================================
 
   const DEFAULT_ACCOUNT_URL = process.env.NIKCLI_ACCOUNT_URL ?? "https://auth.nikcli.mintlify.app"
+
+  // ============================================================================
+  // Token cache — with eviction and size limits
+  // ============================================================================
+
+  const tokenCache = new Map<string, { accessToken: string; expiresAt: number }>()
+  const MAX_TOKEN_CACHE_SIZE = 50
+
+  /** Evict stale entries from the token cache */
+  function evictTokenCache() {
+    const now = Date.now()
+    // Remove expired entries first
+    for (const [key, val] of tokenCache) {
+      if (val.expiresAt <= now) tokenCache.delete(key)
+    }
+    // If still over size, evict the entry with the soonest expiry (LRU-like)
+    if (tokenCache.size > MAX_TOKEN_CACHE_SIZE) {
+      let oldest: string | undefined
+      let oldestAt = Infinity
+      for (const [key, val] of tokenCache) {
+        if (val.expiresAt < oldestAt) {
+          oldest = key
+          oldestAt = val.expiresAt
+        }
+      }
+      if (oldest) tokenCache.delete(oldest)
+    }
+  }
+
+  // ============================================================================
+  // Account row cache — avoids double-reads in token() + orgs()
+  // ============================================================================
+
+  const accountRowCache = new Map<string, { row: AccountRow; cachedAt: number }>()
+  const ACCOUNT_ROW_CACHE_TTL = 5_000 // 5 seconds
 
   // ============================================================================
   // Device code flow
@@ -197,11 +234,6 @@ export namespace Account {
   // ============================================================================
 
   /**
-   * Token cache for in-memory access token
-   */
-  const tokenCache = new Map<string, { accessToken: string; expiresAt: number }>()
-
-  /**
    * Get a valid access token for an account.
    * Automatically refreshes if expired (within threshold).
    * Uses Lock.write to serialize concurrent refresh attempts.
@@ -213,8 +245,8 @@ export namespace Account {
       return cached.accessToken
     }
 
-    // Get account from DB
-    const account = AccountRepo.getRow(accountID)
+    // Get account from DB (with row cache)
+    const account = getAccountRowCached(accountID)
     if (!account) {
       throw new Error(`Account not found: ${accountID}`)
     }
@@ -231,7 +263,7 @@ export namespace Account {
     using _ = await Lock.write(lockKey)
 
     // Re-check after acquiring lock
-    const recheck = AccountRepo.getRow(accountID)
+    const recheck = getAccountRowCached(accountID)
     if (!recheck) {
       throw new Error(`Account not found: ${accountID}`)
     }
@@ -267,7 +299,7 @@ export namespace Account {
       expires_in: number
     }
 
-    // Persist updated tokens
+    // Persist updated tokens (only token fields, not email/url/created_at)
     AccountRepo.persistToken(
       accountID,
       result.access_token,
@@ -275,9 +307,12 @@ export namespace Account {
       result.expires_in,
     )
 
-    // Update cache
+    // Update caches
     const expiresAt = Date.now() + result.expires_in * 1000
     tokenCache.set(accountID, { accessToken: result.access_token, expiresAt })
+    // Invalidate the row cache so next read gets fresh data
+    accountRowCache.delete(accountID)
+    evictTokenCache()
 
     return result.access_token
   }
@@ -287,11 +322,13 @@ export namespace Account {
   // ============================================================================
 
   /**
-   * List organizations for an account
+   * List organizations for an account.
+   * Uses the cached account row from token() to avoid double-reads.
    */
   export async function orgs(accountID: AccountID): Promise<Org[]> {
     const accessToken = await token(accountID)
-    const account = AccountRepo.getRow(accountID)
+    // Reuse the cached account row instead of reading from DB again
+    const account = getAccountRowCached(accountID)
     if (!account) {
       throw new Error(`Account not found: ${accountID}`)
     }
@@ -340,14 +377,23 @@ export namespace Account {
   }
 
   /**
-   * Switch to a different account and optionally org
+   * Switch to a different account and optionally org.
+   * Clears token cache for both the outgoing and incoming accounts.
    */
   export function use(accountID: AccountID | null, orgID?: OrgID | null): void {
-    AccountRepo.use(accountID, orgID)
-    // Clear token cache for the old account
+    // Clear the outgoing account's cache too
+    const config = AccountDB.getConfig()
+    const previousActiveId = config.active_account_id
+    if (previousActiveId) {
+      tokenCache.delete(previousActiveId)
+      accountRowCache.delete(previousActiveId)
+    }
+    // Clear the incoming account's cache
     if (accountID) {
       tokenCache.delete(accountID)
+      accountRowCache.delete(accountID)
     }
+    AccountRepo.use(accountID, orgID)
   }
 
   /**
@@ -355,6 +401,7 @@ export namespace Account {
    */
   export function remove(accountID: AccountID): boolean {
     tokenCache.delete(accountID)
+    accountRowCache.delete(accountID)
     return AccountRepo.remove(accountID)
   }
 
@@ -365,5 +412,23 @@ export namespace Account {
     return {
       serverUrl: DEFAULT_ACCOUNT_URL,
     }
+  }
+
+  // ============================================================================
+  // Internal helpers
+  // ============================================================================
+
+  /** Get an account row with short-lived caching to avoid double-reads */
+  function getAccountRowCached(accountID: string): AccountRow | undefined {
+    const now = Date.now()
+    const cached = accountRowCache.get(accountID)
+    if (cached && now - cached.cachedAt < ACCOUNT_ROW_CACHE_TTL) {
+      return cached.row
+    }
+    const row = AccountDB.getAccount(accountID)
+    if (row) {
+      accountRowCache.set(accountID, { row, cachedAt: now })
+    }
+    return row
   }
 }

@@ -5,9 +5,9 @@ import { SystemPrompt } from "@/session/system"
 function makeModel(overrides: Partial<Provider.Model> = {}): Provider.Model {
   return {
     id: "m1",
-    providerID: "openai",
-    api: { id: "gpt-4o", url: "https://api.openai.com", npm: "@ai-sdk/openai" },
-    name: "Test",
+    providerID: "minimax-coding-plan",
+    api: { id: "MiniMax-M2.7", url: "https://api.minimax.io", npm: "@ai-sdk/anthropic" },
+    name: "MiniMax-M2.7",
     capabilities: {
       temperature: true,
       reasoning: true,
@@ -37,7 +37,7 @@ describe("SystemPrompt", () => {
     })
 
     it("returns empty array when provider id does not include anthropic", () => {
-      expect(SystemPrompt.header("openai")).toEqual([])
+      expect(SystemPrompt.header("minimax-coding-plan")).toEqual([])
       expect(SystemPrompt.header("unknown")).toEqual([])
     })
   })
@@ -50,15 +50,9 @@ describe("SystemPrompt", () => {
       expect(result.every((s) => typeof s === "string" && s.length > 0)).toBe(true)
     })
 
-    it("uses codex line when api id includes gpt-5", () => {
-      const result = SystemPrompt.provider(makeModel({ api: { id: "gpt-5.1", url: "x", npm: "y" } }))
+    it("uses minimax line when api id includes MiniMax-M2.7", () => {
+      const result = SystemPrompt.provider(makeModel({ api: { id: "MiniMax-M2.7", url: "x", npm: "y" } }))
       expect(result.length).toBeGreaterThan(0)
-    })
-
-    it("uses beast line when api id includes gpt- or o1 or o3", () => {
-      const gpt4 = SystemPrompt.provider(makeModel({ api: { id: "gpt-4o", url: "x", npm: "y" } }))
-      const o3 = SystemPrompt.provider(makeModel({ api: { id: "o3-2024", url: "x", npm: "y" } }))
-      expect(gpt4[0]).toBe(o3[0])
     })
 
     it("uses gemini line when api id includes gemini-", () => {
@@ -66,9 +60,9 @@ describe("SystemPrompt", () => {
       expect(result.length).toBeGreaterThan(0)
     })
 
-    it("uses anthropic line when api id includes claude", () => {
+    it("uses minimax line when api id includes MiniMax-M2.7", () => {
       const result = SystemPrompt.provider(
-        makeModel({ api: { id: "claude-3-5-sonnet-20241022", url: "x", npm: "y" } }),
+        makeModel({ api: { id: "MiniMax-M2.7", url: "x", npm: "y" } }),
       )
       expect(result.length).toBeGreaterThan(0)
     })

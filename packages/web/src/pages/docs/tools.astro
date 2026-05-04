@@ -7,7 +7,7 @@ const toc = [
   { title: "Tool Registry", href: "#tool-registry", depth: 2 },
   { title: "Files & Search", href: "#files-search", depth: 2 },
   { title: "Orchestration", href: "#orchestration", depth: 2 },
-  { title: "Docs & Context", href: "#docs-context", depth: 2 },
+  { title: "Context & Memory", href: "#context-memory", depth: 2 },
   { title: "Integrations & Media", href: "#integrations-media", depth: 2 },
   { title: "Full Tool Index", href: "#full-tool-index", depth: 2 },
 ];
@@ -24,23 +24,11 @@ const toolIndex = [
   { id: "write", file: "src/tool/write.ts", desc: "Write or overwrite files." },
   { id: "task", file: "src/tool/task.ts", desc: "Launch a delegated subagent." },
   { id: "delegation", file: "src/tool/delegation.ts", desc: "Inspect or control background delegations." },
-  { id: "docs_add", file: "src/tool/docs_add.ts", desc: "Add documentation from a URL." },
-  { id: "docs_search", file: "src/tool/docs_search.ts", desc: "Search the local docs library." },
-  { id: "docs_load", file: "src/tool/docs_load.ts", desc: "Load docs into context." },
-  { id: "docs_unload", file: "src/tool/docs_unload.ts", desc: "Unload docs from context." },
-  { id: "docs_context", file: "src/tool/docs_context.ts", desc: "Show current docs context." },
-  { id: "docs_request", file: "src/tool/docs_request.ts", desc: "Request missing documentation." },
-  { id: "docs_gap_report", file: "src/tool/docs_gap_report.ts", desc: "Report documentation gaps." },
-  { id: "smart_docs", file: "src/tool/smart_docs.ts", desc: "Search and optionally auto-load docs." },
+  { id: "delegator", file: "src/tool/delegator.ts", desc: "Monitor and supervise background delegation jobs." },
   { id: "context_collect", file: "src/tool/context_collect.ts", desc: "Collect workspace context from files." },
-  { id: "context_search", file: "src/tool/context_search.ts", desc: "Search workspace text." },
   { id: "context_related", file: "src/tool/context_related.ts", desc: "List files related to an entry file." },
   { id: "context_diagnostics", file: "src/tool/context_diagnostics.ts", desc: "List LSP diagnostics." },
   { id: "memory_search", file: "src/tool/memory_search.ts", desc: "Search past session memory." },
-  { id: "rag_index", file: "src/tool/rag_index.ts", desc: "Index workspace content for RAG." },
-  { id: "rag_search", file: "src/tool/rag_search.ts", desc: "Run semantic RAG search." },
-  { id: "rag_status", file: "src/tool/rag_status.ts", desc: "Show RAG index status." },
-  { id: "rag_reset", file: "src/tool/rag_reset.ts", desc: "Reset the local RAG index." },
   { id: "generate_image", file: "src/tool/generate_image.ts", desc: "Generate images from prompts." },
   { id: "webfetch", file: "src/tool/webfetch.ts", desc: "Fetch and convert URL content." },
   { id: "todowrite", file: "src/tool/todo.ts", desc: "Write the session todo list." },
@@ -49,14 +37,14 @@ const toolIndex = [
   { id: "codesearch", file: "src/tool/codesearch.ts", desc: "Search code via Exa when enabled." },
   { id: "skill", file: "src/tool/skill.ts", desc: "Load a skill definition." },
   { id: "apply_patch", file: "src/tool/apply_patch.ts", desc: "Patch files with structured diffs." },
-  { id: "use_connector", file: "src/tool/use-connector.ts", desc: "Run an operation on a configured connector." },
   { id: "speak", file: "src/tool/speak.ts", desc: "Convert text to speech and play audio." },
-  { id: "tophat_install", file: "src/tool/tophat.ts", desc: "Install a mobile build on a device or simulator." },
   { id: "opentui", file: "src/tool/opentui.ts", desc: "Render terminal dashboards and rich visualizations." },
   { id: "lsp", file: "src/tool/lsp.ts", desc: "LSP tool exposed behind experimental flags." },
   { id: "batch", file: "src/tool/batch.ts", desc: "Batch tool calls behind experimental flags." },
   { id: "plan_enter", file: "src/tool/plan.ts", desc: "Enter plan mode." },
   { id: "plan_exit", file: "src/tool/plan.ts", desc: "Exit plan mode." },
+  { id: "advisor", file: "src/tool/advisor.ts", desc: "Receive background strategic guidance." },
+  { id: "invalid", file: "src/tool/invalid.ts", desc: "Placeholder for invalid tool calls." },
 ];
 ---
 
@@ -101,11 +89,14 @@ const toolIndex = [
       <DocCard title="bash / monitor" eyebrow="Execution">
         <p>Run shell commands directly or keep them alive in the background with persisted logs.</p>
       </DocCard>
-      <DocCard title="task / delegation" eyebrow="Subagents">
-        <p>Launch delegated agents, then inspect, read, count, or cancel those delegations.</p>
+      <DocCard title="task / delegation / delegator" eyebrow="Subagents">
+        <p>Launch delegated agents, inspect or cancel them, and supervise background jobs.</p>
       </DocCard>
       <DocCard title="todowrite / todoread" eyebrow="Task tracking">
         <p>Track structured task state inside a session and surface progress to the user.</p>
+      </DocCard>
+      <DocCard title="advisor" eyebrow="Guidance">
+        <p>Request background strategic advice from an advisor agent when available.</p>
       </DocCard>
       <DocCard title="opentui" eyebrow="Visualization">
         <p>Render tables, charts, timelines, and progress widgets directly in the terminal UI.</p>
@@ -113,17 +104,11 @@ const toolIndex = [
     </div>
   </section>
 
-  <section id="docs-context" class="mb-16 scroll-mt-24">
-    <h2>Docs & Context</h2>
+  <section id="context-memory" class="mb-16 scroll-mt-24">
+    <h2>Context & Memory</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="docs_* / smart_docs" eyebrow="Docs library">
-        <p>Ingest external docs, search them locally, and load relevant entries into prompt context.</p>
-      </DocCard>
       <DocCard title="context_* / memory_search" eyebrow="Workspace context">
         <p>Collect repo context, related files, diagnostics, and prior-session memory.</p>
-      </DocCard>
-      <DocCard title="rag_*" eyebrow="Semantic retrieval">
-        <p>Index workspace files with embeddings, search them semantically, and inspect index status.</p>
       </DocCard>
     </div>
   </section>
@@ -131,14 +116,8 @@ const toolIndex = [
   <section id="integrations-media" class="mb-16 scroll-mt-24">
     <h2>Integrations & Media</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="use_connector" eyebrow="Connectors">
-        <p>Run typed operations against configured Figma, Slack, GitHub, and Lovable connectors.</p>
-      </DocCard>
       <DocCard title="generate_image / speak" eyebrow="Generative media">
         <p>Create images and play text-to-speech output using the configured providers.</p>
-      </DocCard>
-      <DocCard title="tophat_install" eyebrow="Mobile">
-        <p>Install mobile artifacts on devices or simulators through Shopify Tophat.</p>
       </DocCard>
       <DocCard title="skill" eyebrow="Instruction packs">
         <p>Load a skill to bring focused instructions into the current session.</p>

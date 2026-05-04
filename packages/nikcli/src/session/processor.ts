@@ -15,6 +15,8 @@ import { Config } from "@/config/config"
 import { SessionCompaction } from "./compaction"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
+import { DeltaCoalescer } from "./delta-coalescer"
+import { Storage } from "@/storage/storage"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
@@ -22,6 +24,38 @@ export namespace SessionProcessor {
 
   export type Info = Awaited<ReturnType<typeof create>>
   export type Result = Awaited<ReturnType<Info["process"]>>
+
+  // Doom-loop detection: returns PermissionNext.ask call if pattern detected
+  function detectDoomLoop(
+    buffer: Array<{ tool: string; input: unknown }>,
+    toolName: string,
+    toolInput: unknown,
+    sessionID: string,
+    agent: Agent.Info,
+  ): Promise<void> | void {
+    const entry = { tool: toolName, input: toolInput }
+    buffer.push(entry)
+    if (buffer.length > DOOM_LOOP_THRESHOLD) {
+      buffer.shift()
+    }
+
+    if (buffer.length === DOOM_LOOP_THRESHOLD) {
+      const lastThree = buffer.slice(-DOOM_LOOP_THRESHOLD)
+      if (lastThree.every((p) => p.tool === toolName && Bun.deepEquals(p.input, toolInput))) {
+        return PermissionNext.ask({
+          permission: "doom_loop",
+          patterns: [toolName],
+          sessionID,
+          metadata: {
+            tool: toolName,
+            input: toolInput,
+          },
+          always: [toolName],
+          ruleset: agent.permission,
+        })
+      }
+    }
+  }
 
   export function create(input: {
     assistantMessage: MessageV2.Assistant
@@ -36,6 +70,36 @@ export namespace SessionProcessor {
     let needsCompaction = false
     // Ring buffer for doom-loop detection - avoids repeated storage I/O
     const doomLoopBuffer: Array<{ tool: string; input: unknown }> = []
+
+    // Coalesce streaming delta writes to disk — publish Bus events immediately
+    // for UI responsiveness, but batch disk writes to reduce ~500 writes/response
+    // down to ~10-20 coalesced flushes.
+    const coalescer = DeltaCoalescer
+
+    // For streaming deltas: publish Bus event immediately but coalesce the disk write.
+    // This avoids ~500 Storage.write calls per response while keeping the UI responsive.
+    async function updatePartCoalesced(part: MessageV2.TextPart | MessageV2.ReasoningPart, delta: string) {
+      Bus.publish(MessageV2.Event.PartUpdated, { part, delta })
+      const key = ["part", part.messageID, part.id]
+      coalescer.schedule(key, part, async (k, content) => {
+        await Storage.write(k, content)
+      })
+    }
+
+    // Hoisted: cleanup function used across retry iterations
+    const cleanupRetryAttempt = async (attemptPartIDs: Set<string>) => {
+      for (const partID of attemptPartIDs) {
+        await Session.removePart({
+          sessionID: input.sessionID,
+          messageID: input.assistantMessage.id,
+          partID,
+        }).catch(() => {})
+      }
+      for (const key of Object.keys(toolcalls)) {
+        delete toolcalls[key]
+      }
+      snapshot = undefined
+    }
 
     const result = {
       get message() {
@@ -53,19 +117,6 @@ export namespace SessionProcessor {
           const trackPart = <T extends { id: string }>(part: T) => {
             attemptPartIDs.add(part.id)
             return part
-          }
-          const cleanupRetryAttempt = async () => {
-            for (const partID of attemptPartIDs) {
-              await Session.removePart({
-                sessionID: input.sessionID,
-                messageID: input.assistantMessage.id,
-                partID,
-              }).catch(() => {})
-            }
-            for (const key of Object.keys(toolcalls)) {
-              delete toolcalls[key]
-            }
-            snapshot = undefined
           }
           try {
             let currentText: MessageV2.TextPart | undefined
@@ -101,7 +152,7 @@ export namespace SessionProcessor {
                     const part = reasoningMap[value.id]
                     part.text += value.text
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    if (part.text) await Session.updatePart({ part, delta: value.text })
+                    if (part.text) await updatePartCoalesced(part, value.text)
                   }
                   break
 
@@ -115,7 +166,8 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    await Session.updatePart(part)
+                    // flushNow persists the part - no need for Session.updatePart (avoids double-write)
+                    await coalescer.flushNow(["part", part.messageID, part.id]).catch(() => {})
                     delete reasoningMap[value.id]
                   }
                   break
@@ -163,30 +215,15 @@ export namespace SessionProcessor {
                     })
                     toolcalls[value.toolCallId] = part as MessageV2.ToolPart
 
-                    // Use in-memory ring buffer for doom-loop detection
-                    const entry = { tool: value.toolName, input: value.input }
-                    doomLoopBuffer.push(entry)
-                    if (doomLoopBuffer.length > DOOM_LOOP_THRESHOLD) {
-                      doomLoopBuffer.shift()
-                    }
-
-                    if (doomLoopBuffer.length === DOOM_LOOP_THRESHOLD) {
-                      const lastThree = doomLoopBuffer.slice(-DOOM_LOOP_THRESHOLD)
-                      if (lastThree.every((p) => p.tool === value.toolName && Bun.deepEquals(p.input, value.input))) {
-                        const agent = await Agent.get(input.assistantMessage.agent)
-                        await PermissionNext.ask({
-                          permission: "doom_loop",
-                          patterns: [value.toolName],
-                          sessionID: input.assistantMessage.sessionID,
-                          metadata: {
-                            tool: value.toolName,
-                            input: value.input,
-                          },
-                          always: [value.toolName],
-                          ruleset: agent.permission,
-                        })
-                      }
-                    }
+                    // Use helper for doom-loop detection
+                    const agent = await Agent.get(input.assistantMessage.agent)
+                    await detectDoomLoop(
+                      doomLoopBuffer,
+                      value.toolName,
+                      value.input,
+                      input.assistantMessage.sessionID,
+                      agent,
+                    )
                   }
                   break
                 }
@@ -322,11 +359,7 @@ export namespace SessionProcessor {
                   if (currentText) {
                     currentText.text += value.text
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    if (currentText.text)
-                      await Session.updatePart({
-                        part: currentText,
-                        delta: value.text,
-                      })
+                    if (currentText.text) await updatePartCoalesced(currentText, value.text)
                   }
                   break
 
@@ -348,7 +381,8 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) currentText.metadata = value.providerMetadata
-                    await Session.updatePart(currentText)
+                    // flushNow persists the part - no need for Session.updatePart (avoids double-write)
+                    await coalescer.flushNow(["part", currentText.messageID, currentText.id]).catch(() => {})
                   }
                   currentText = undefined
                   break
@@ -377,7 +411,7 @@ export namespace SessionProcessor {
               if (nextAttempt <= SessionRetry.RETRY_MAX_ATTEMPTS) {
                 attempt = nextAttempt
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
-                await cleanupRetryAttempt()
+                await cleanupRetryAttempt(attemptPartIDs)
                 SessionStatus.set(input.sessionID, {
                   type: "retry",
                   attempt,
@@ -437,6 +471,13 @@ export namespace SessionProcessor {
           }
           input.assistantMessage.time.completed = Date.now()
           await Session.updateMessage(input.assistantMessage)
+          // Flush any remaining coalesced delta writes before returning
+          try {
+            await coalescer.flushAll()
+          } finally {
+            // Clear pending state to prevent memory leak across messages
+            coalescer.clear()
+          }
           if (needsCompaction) return "compact"
           if (blocked) return "stop"
           if (input.assistantMessage.error) return "stop"

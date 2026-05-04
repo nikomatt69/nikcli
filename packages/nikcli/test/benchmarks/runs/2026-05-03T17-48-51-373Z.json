@@ -1,0 +1,134 @@
+{
+  "run": {
+    "runId": "2026-05-03T17-48-51-373Z",
+    "createdAt": "2026-05-03T17:48:51.373Z",
+    "records": [
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:51.373Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "iterations": 200,
+        "value": 9.551832999999988,
+        "unit": "ms",
+        "valuePerIteration": 0.04775916499999994,
+        "metadata": {
+          "messageCount": 120
+        }
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:51.375Z",
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "iterations": 5000,
+        "value": 1.5284999999998945,
+        "unit": "ms",
+        "valuePerIteration": 0.0003056999999999789,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:51.376Z",
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "iterations": 50000,
+        "value": 1.1670830000002752,
+        "unit": "ms",
+        "valuePerIteration": 0.000023341660000005503,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:51.379Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "iterations": 2000,
+        "value": 3.2162920000000668,
+        "unit": "ms",
+        "valuePerIteration": 0.0016081460000000334,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:52.612Z",
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "iterations": 50000,
+        "value": 5.877958000000035,
+        "unit": "ms",
+        "valuePerIteration": 0.0001175591600000007,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:52.616Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "iterations": 20000,
+        "value": 3.390041999999994,
+        "unit": "ms",
+        "valuePerIteration": 0.0001695020999999997,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T17-48-51-373Z",
+        "timestamp": "2026-05-03T17:48:52.617Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "iterations": 50000,
+        "value": 0.43220800000017334,
+        "unit": "ms",
+        "valuePerIteration": 0.000008644160000003468,
+        "metadata": {}
+      }
+    ]
+  },
+  "comparison": {
+    "baseRunId": "2026-05-03T16-26-44-396Z",
+    "currentRunId": "2026-05-03T17-48-51-373Z",
+    "rows": [
+      {
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 5.392124999999851,
+        "current": 5.877958000000035,
+        "delta": 0.48583300000018426,
+        "deltaPercent": 9.010047059372654
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "unit": "ms",
+        "iterations": 20000,
+        "baseline": 3.5442080000002534,
+        "current": 3.390041999999994,
+        "delta": -0.15416600000025937,
+        "deltaPercent": -4.3498011403464005
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 0.6908339999999953,
+        "current": 0.43220800000017334,
+        "delta": -0.25862599999982194,
+        "deltaPercent": -37.43677931309456
+      }
+    ]
+  },
+  "exportedAt": "2026-05-03T17:48:52.619Z"
+}

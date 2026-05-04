@@ -24,7 +24,6 @@ const directories = [
   { name: "config", desc: "Config schema, parsing, and resolution." },
   { name: "connectors", desc: "External service connectors and auth." },
   { name: "delegation", desc: "Background delegation manager." },
-  { name: "docs", desc: "Local docs library and context." },
   { name: "flag", desc: "Environment flag parsing." },
   { name: "global", desc: "Global paths and cache." },
   { name: "installation", desc: "Installer detection and upgrades." },
@@ -36,7 +35,6 @@ const directories = [
   { name: "plugin", desc: "Plugin loading and hooks." },
   { name: "project", desc: "Project discovery and instance context." },
   { name: "provider", desc: "Provider SDK adapters and model catalog." },
-  { name: "rag", desc: "RAG indexing, search, and storage." },
   { name: "server", desc: "HTTP server, routes, and SSE." },
   { name: "session", desc: "Session lifecycle, messages, and storage." },
   { name: "share", desc: "Session sharing utilities." },
@@ -99,11 +97,10 @@ const directories = [
   </section>
 
   <section id="tools-docs" class="mb-16 scroll-mt-24">
-    <h2>Tools & Docs</h2>
+    <h2>Tools</h2>
     <p>
       Tool descriptions live in <code>src/tool/*.txt</code> and are wired into the registry at
-      <code>src/tool/registry.ts</code>. Docs and RAG tools live under <code>src/docs/</code> and
-      <code>src/rag/</code>.
+      <code>src/tool/registry.ts</code>.
     </p>
   </section>
 

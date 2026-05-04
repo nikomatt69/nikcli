@@ -2,7 +2,7 @@
 
 ## Overview
 
-**nikcli** is an AI-powered development CLI tool (v0.0.6/0.0.7) — an autonomous coding agent with TUI, server mode, multi-agent system, 40+ tools, and 20+ AI provider support.
+**nikcli** is an AI-powered development CLI tool (v1.2.0) — an autonomous coding agent with TUI, server mode, multi-agent system, 40+ tools, and 20+ AI provider support.
 
 - **Repository**: https://github.com/nikomatt69/nikcli
 - **Default branch**: `dev`
@@ -13,7 +13,7 @@
 
 ### Core
 
-- **Bun** (v1.3.12) — runtime, package manager
+- **Bun** (v1.3.12–1.3.13) — runtime, package manager
 - **TypeScript** 5.8/5.9 — primary language (also `tsgo` for typecheck)
 - **Turborepo** 2.5.6 — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)
@@ -56,7 +56,7 @@
 - **Cloudflare Workers** — edge deployment
 - **Tauri v2** — desktop app (Rust + WebView, 96.6 MB build output)
 - **Expo** 52.0.46 / **React Native** 0.76.7 — mobile (iOS + Android)
-- **Docker** — `Dockerfile` (mobile host) + `Dockerfile.serve` (SSH serve)
+- **Docker** — `Dockerfile` (mobile host) + `Dockerfile.serve` (Railway SSH serve with Bun + Homebrew + Node.js pre-installed)
 - **Nix** — reproducible builds (`flake.nix`)
 - **GitHub Actions** — 23 workflows
 
@@ -402,9 +402,43 @@ External TUI plugin package using OpenTUI SolidJS components:
 - Expo Router with routes: `index.tsx`, `connect.tsx`, `(app)/`, `+not-found.tsx`
 - Components: chat/, layout/, session/, settings/, ui/, BottomSheet, ConnectionStatus, DiffViewer, GlassView, GlobalErrorBoundary, MessageBubble, NetworkBanner, PermissionCard, RepoCard, SessionListItem, Skeleton, ToolCallView
 - Hooks: `use-session-stream.ts`
-- Lib: chat-types, client, cn, haptics, notifications, offline, server-provider, storage, store, theme, types
+- Lib: chat-types, client (centralized auth/endpoints), cn, haptics, notifications, offline, server-provider, storage, store, theme, types, animation
 - TailwindCSS v3 with NativeWind
 - iOS + Android native builds
+
+**Mobile Client (`lib/client.ts`) — refactored (2026-04-30/05-01):**
+
+- `parseMobileResponse()` — JSON error parsing with structured error extraction (`error`/`message`/`detail` fields), HTML detection, 204 handling
+- `buildMobileHeaders()` — bearer token + Basic auth fallback from `ServerConfig.username/password`, directory header
+- `buildMobileUrl()` — URL construction that preserved base path (e.g., `/nikcli` in server URL)
+- `ptyConnectUrl()` — WebSocket URL with token + directory query params (fixes terminal WebSocket errors when session is not in `/app` root); WebSocket can't send custom headers so directory must be in query string
+- Basic auth fields exist in `ServerConfig` but were historically ignored; now respected
+- Singleton pattern with cache key comparison and invalidation
+
+**Terminal (`assets/terminal.html` + `app/(app)/terminal/index.tsx`):**
+
+- Copy/paste via RN → WebView messages (`copy`, `paste` types)
+- `collectTerminalText()` — uses `window.getSelection()` first, falls back to `.term-row` text nodes, then `textContent`
+- Both `window.message` and `document.message` listeners (Android RN WebView compatibility)
+- Lifecycle state (`stopped` flag) declared before use; `clearLifecycleTimers()` on close/retry
+- Timeout in `startConnectionTimeout()` fires in `connect()` (called after socket creation, after clearing prior timeout); `onclose` handles retry accounting
+- `TerminalWebView` caches HTML at module level (`terminalHtmlPromise`) instead of re-reading per tab
+- Toolbar: Copy/Paste/New/Close all buttons with `expo-clipboard`
+- Only active WebView visible + `pointerEvents="none"` for hidden ones
+- Resize debounced 80ms via `resizeTimersRef`
+
+**Known mobile issues (pending fix):**
+
+- `GitStatusBar.tsx:66` — `setPulseKeys(newPulseKeys)` called unconditionally inside effect that depends on `pulseKeys`, creating potential render/effect loop when `gitState` is present; fix: only call `setPulseKeys` inside `if (hasChanged)` block
+- `use-session-stream.ts:83` dependencies — missing `input.config?.username` and `input.config?.password` in effect deps; switching Basic Auth credentials can leave SSE stream with stale/missing auth
+- `sessions/editor.tsx:543` — mode focus logic uses stale `mode` check instead of computing `nextMode` first; `view→edit` transition misses focus, `edit→view` schedules focus on hidden input
+- `sessions/editor.tsx:286` — trailing newline dropped from highlighted view; files ending with `\n` show fewer rendered rows than `lineNumbers`, causing line-number/content mismatch near EOF
+- Theme tokens duplicated across `lib/theme.ts`, `global.css`, `tailwind.config.js`
+- `lib/storage.ts` / `lib/store.ts` duplicate defaults
+- `lib/haptics.ts` — await on every haptic, no throttling for rapid selection triggers
+- `lib/animation.ts` — staggered animations recreate all `Animated.Value`s on `itemCount` change without preserving values or cleanup
+- `lib/types.ts` — may drift from server bootstrap fields (especially `expo`/`mobileProject`)
+- `lib/server-provider.tsx` — duplicates request/error logic from `MobileClient`
 
 ### Desktop Package (`packages/desktop`)
 
@@ -427,21 +461,50 @@ External TUI plugin package using OpenTUI SolidJS components:
 - CI tests: `bun turbo typecheck`, `bun turbo test`, plus Playwright/e2e app flow
 - Release/publish workflow: builds CLI artifacts first, then Tauri desktop artifacts, then completes release
 - Cross-platform CLI binary build matrix: `script/build.ts:22` (packages/nikcli)
+- Build long-running commands (archives, releases): use `timeout=3600000` (1 hour)
 
 ## Build Agent Risks / Patterns
 
 - **Root tests are blocked**: `bunfig.toml:4` redirects root test to fake path; use package-level tests or `bun turbo test`
 - **Bun version pin enforced on push**: mismatched local Bun will fail pre-push/typecheck
 - **SDK is generated from CLI server/OpenAPI flow**: server endpoint edits in `src/server/server.ts` require SDK regeneration via `script/generate.ts:5` (runs `bun dev generate`, writes `openapi.json`, regenerates SDK)
-- **Infra split across multiple deploy surfaces**: SST/Cloudflare, direct Wrangler packages, Tauri desktop, Expo mobile, Nix packaging — edits can have cross-target consequences
+- **Infra split across multiple deploy surfaces**: SST/Cloudflare, direct Wrangler packages, Tauri desktop, Expo mobile, Railway SSH serve, Nix packaging — edits can have cross-target consequences
 - **Nested manifests below declared workspace globs** (e.g., `packages/remote/web-client/package.json`) are internal/build-only, not first-class workspaces
 - **Config loading is side-effectful**: reading config can trigger npm package installation logic; `src/config/config.ts:203`
 - **Provider state is `Instance.state(...)` cached**: long-lived processes keep older resolved provider sets until instance disposal/recreation
 - **`models --refresh` only refreshes models.dev cache**: provider-specific catalogs like Ollama or GitHub Copilot come from their own runtime fetch paths
 
+## Install/Release System (`packages/web/install`, `packages/web/public/install.sh`)
+
+Two install scripts exist with different feature sets:
+
+- `packages/web/install` (cache-bust 2026-04-16): older, no `--local` flag, no GitHub `v` prefix fallback
+- `packages/web/public/install.sh` (cache-bust 2026-01-31): newer, has `--local [dist-dir]` and `v` prefix fallback
+
+Both support:
+- Platform detection: `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `windows-x64`
+- Archive formats: `.tar.gz` (Linux), `.zip` (macOS/Windows)
+- Special targets: `baseline` (no AVX2), `musl` (Alpine/musl libc)
+- Version stripping: leading `v` stripped from `--version` argument
+- Dual download: `nikcli.store` (primary) + GitHub (fallback)
+- Shell support: fish, zsh, bash, ash, sh
+
+Archive structure: top-level `bin/nikcli` (not nested in `nikcli-<target>/`)
+Post-install: updates `/usr/local/bin/nikcli` if running as root on Unix.
+
+**Important**: `packages/web/install` (served at `/install`) lacks the `--local` flag and GitHub `v` prefix fallback that `public/install.sh` has. Align before future releases.
+
+Release archive naming: `nikcli-<target>.<ext>` (e.g., `nikcli-linux-x64.tar.gz`)
+GitHub release tag format: `X.Y.Z` (without `v` prefix — installer strips `v` internally)
+
 ## Workspace Catalog (shared dependency versions)
 
 Key catalog-pinned deps: `ai: 5.0.119`, `hono: 4.10.7`, `zod: 4.1.8`, `solid-js: 1.9.10`, `vite: 7.1.4`, `tailwindcss: 4.1.11`, `typescript: 5.8.2`, `shiki: 3.20.0`, `marked: 17.0.1`, `remeda: 2.26.0`, `diff: 8.0.2`
+
+- `packages/mobile/app/(app)/sessions/explorer.tsx` — debounced search without stale-result cancellation, no per-row loading state, silent expand failures
+- `packages/mobile/app/(app)/sessions/editor.tsx` — renders all highlighted lines + line numbers in nested ScrollViews with whole-file TextInput; needs file-size guards and virtualized read-only rendering
+- `packages/mobile/app/(app)/_layout.tsx` — chrome hidden via brittle `segments.length > 2` check (now `root === "sessions" && Boolean(child)` / `root === "settings" && Boolean(child)`)
+- `packages/mobile/components/session/ComposerToolDrawer.tsx` — `connectedCount` computed as `mcpServers.filter(s => s.connected).length` (MCP servers only, not MCP tools)
 
 ## Spec Files (`specs/`)
 
@@ -454,3 +517,19 @@ Key catalog-pinned deps: `ai: 5.0.119`, `hono: 4.10.7`, `zod: 4.1.8`, `solid-js:
 - `07-ui-i18n-audit.md` — UI i18n audit
 - `perf-roadmap.md` — performance roadmap
 - `project.md` — project/session API design spec
+
+## Mobile Optimization Roadmap (2026-04-30 planner session — pending implementation)
+
+9-phase plan for `packages/mobile` (app + components + lib):
+
+1. Stabilize networking/auth — `lib/client.ts` centralization, `server-provider.tsx` / `use-session-stream.ts` sharing
+2. Fix high-impact lifecycle/runtime bugs — terminal.html lifecycle, animation cleanup, haptics non-blocking, `_layout.tsx` route matching
+3. Repair explorer — per-row loading, expand errors, stale search protection
+4. Consolidate sheet/button primitives — shared `BottomSheet` chrome, normalize `ActionButton`
+5. Decompose settings without route changes — extract section components, reuse from dedicated screens
+6. Decompose session detail into hooks/views — `use-session-detail.ts`, `use-session-events.ts`, etc.
+7. Add list/editor/terminal performance guards — file-size limits, FlatList, WebView tab limits
+8. Normalize tokens, storage defaults, state components — single source of truth for themes/defaults
+9. Final regression pass — typecheck + device testing
+
+Key files per phase are documented in the session transcript (ses_21f8bfe60ffeDvGMYWXKqpyr4h). Note: `connectedCount` in `ComposerToolDrawer.tsx` currently uses MCP server connections only, not MCP tool connections (pending fix in Phase 4).

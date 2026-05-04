@@ -8,7 +8,7 @@ import { ModelsDev } from "../provider/models"
 import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
-import { lazy } from "../util/lazy"
+import { lazy, lazyAsync } from "../util/lazy"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
@@ -105,12 +105,12 @@ export namespace Config {
       // Only scan project .nikcli/ directories when project discovery is enabled
       ...(!Flag.NIKCLI_DISABLE_PROJECT_CONFIG
         ? await Array.fromAsync(
-          Filesystem.up({
-            targets: [".nikcli"],
-            start: Instance.directory,
-            stop: Instance.worktree,
-          }),
-        )
+            Filesystem.up({
+              targets: [".nikcli"],
+              start: Instance.directory,
+              stop: Instance.worktree,
+            }),
+          )
         : []),
       // Always scan ~/.nikcli/ (user home directory)
       ...(await Array.fromAsync(
@@ -216,11 +216,11 @@ export namespace Config {
       {
         cwd: dir,
       },
-    ).catch(() => { })
+    ).catch(() => {})
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
-    await BunProc.run(["install"], { cwd: dir }).catch(() => { })
+    await BunProc.run(["install"], { cwd: dir }).catch(() => {})
   }
 
   function rel(item: string, patterns: string[]) {
@@ -996,10 +996,7 @@ export namespace Config {
       .describe("Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column"),
     mouse: z.boolean().optional().describe("Enable or disable mouse capture (default: true)"),
     sound: z.boolean().optional().describe("Enable or disable ambient sound feedback (default: false)"),
-    bg_pulse: z
-      .boolean()
-      .optional()
-      .describe("Enable animated background pulse behind the home logo (default: false)"),
+    bg_pulse: z.boolean().optional().describe("Enable animated background pulse behind the home logo (default: false)"),
   })
 
   export const AdsItem = z
@@ -1087,8 +1084,6 @@ export namespace Config {
       ref: "ImageConfig",
     })
   export type Image = z.infer<typeof Image>
-
-
 
   export const Speak = z
     .object({
@@ -1523,7 +1518,7 @@ export namespace Config {
 
   export type Info = z.output<typeof Info>
 
-  export const global = lazy(async () => {
+  export const global = lazyAsync(async () => {
     return await loadFile(path.join(Global.Path.config, "nikcli.json"))
   })
 

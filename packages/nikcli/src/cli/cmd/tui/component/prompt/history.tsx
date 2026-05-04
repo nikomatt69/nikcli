@@ -4,7 +4,6 @@ import { onMount } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import { clone } from "remeda"
 import { createSimpleContext } from "../../context/helper"
-import { appendFile, writeFile } from "fs/promises"
 import type { AgentPart, FilePart, TextPart } from "@nikcli-ai/sdk/v2"
 
 export type PromptInfo = {
@@ -31,6 +30,11 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
   name: "PromptHistory",
   init: () => {
     const historyFile = Bun.file(path.join(Global.Path.state, "prompt-history.jsonl"))
+    const writeHistory = (history: PromptInfo[]) => {
+      const content = history.map((line) => JSON.stringify(line)).join("\n") + (history.length > 0 ? "\n" : "")
+      Bun.write(historyFile, content).catch(() => {})
+    }
+
     onMount(async () => {
       const text = await historyFile.text().catch(() => "")
       const lines = text
@@ -50,8 +54,7 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
 
       // Rewrite file with only valid entries to self-heal corruption
       if (lines.length > 0) {
-        const content = lines.map((line) => JSON.stringify(line)).join("\n") + "\n"
-        writeFile(historyFile.name!, content).catch(() => {})
+        writeHistory(lines)
       }
     })
 
@@ -83,25 +86,17 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
       },
       append(item: PromptInfo) {
         const entry = clone(item)
-        let trimmed = false
         setStore(
           produce((draft) => {
             draft.history.push(entry)
             if (draft.history.length > MAX_HISTORY_ENTRIES) {
               draft.history = draft.history.slice(-MAX_HISTORY_ENTRIES)
-              trimmed = true
             }
             draft.index = 0
           }),
         )
 
-        if (trimmed) {
-          const content = store.history.map((line) => JSON.stringify(line)).join("\n") + "\n"
-          writeFile(historyFile.name!, content).catch(() => {})
-          return
-        }
-
-        appendFile(historyFile.name!, JSON.stringify(entry) + "\n").catch(() => {})
+        writeHistory(store.history)
       },
     }
   },

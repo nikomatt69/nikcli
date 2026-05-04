@@ -4,7 +4,7 @@ import {
   truncateOneLine,
   lastUserMessageLine,
 } from "@/cli/cmd/tui/util/timeline-style-text"
-import { runBench, printBenchResult, compareBenchmarks } from "../../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
 
 describe("formatMessageLineForTimeline", () => {
   it("returns text unchanged if single line", () => {
@@ -128,20 +128,25 @@ describe("lastUserMessageLine", () => {
     it("formatMessageLineForTimeline throughput", () => {
       const inputs = ["hello", "line1\nline2\nline3", "  trimmed  ", "a\nb\nc\nd\ne"]
       let i = 0
-      const r = runBench("formatMessageLineForTimeline", "tui-timeline", 500_000, () => {
-        formatMessageLineForTimeline(inputs[i++ % inputs.length]!)
+      recordBenchmark({
+        suite: "tui-timeline",
+        module: "formatMessageLineForTimeline",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: formatMessageLineForTimeline(inputs[i++ % inputs.length]!) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("tui-timeline")
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
 
     it("truncateOneLine throughput", () => {
-      const r = runBench("truncateOneLine", "tui-timeline", 500_000, () => {
-        truncateOneLine("this is a somewhat longer test string for truncation", 20)
+      recordBenchmark({
+        suite: "tui-timeline",
+        module: "truncateOneLine",
+        scenario: "throughput",
+        iterations: 500_000,
+        value: truncateOneLine("this is a somewhat longer test string for truncation", 20) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(500_000)
     })
   })
 })

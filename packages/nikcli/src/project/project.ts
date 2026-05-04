@@ -80,6 +80,7 @@ export namespace Project {
     log.info("fromDirectory", { directory })
 
     const { id, sandbox, worktree, vcs } = await iife(async () => {
+      let topResult: string | undefined
       const matches = Filesystem.up({ targets: [".git"], start: directory })
       const git = await matches.next().then((x) => x.value)
       await matches.return()
@@ -88,17 +89,21 @@ export namespace Project {
 
         const gitBinary = Bun.which("git")
 
-        let commonGitDir: string | undefined
-        let id = await readCachedID(git)
+        // Parallelize initial operations: git binary check + cache read
+        const [cachedId, commonGitDirResult] = await Promise.all([
+          readCachedID(git),
+          gitBinary
+            ? Git.run(["rev-parse", "--git-common-dir"], { cwd: sandbox })
+                .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
+                .catch(() => undefined)
+            : Promise.resolve(undefined),
+        ])
 
-        if (gitBinary) {
-          commonGitDir = await Git.run(["rev-parse", "--git-common-dir"], { cwd: sandbox })
-            .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
-            .catch(() => undefined)
+        let commonGitDir = commonGitDirResult
+        let id = cachedId
 
-          if (!id && commonGitDir && commonGitDir !== git) {
-            id = await readCachedID(commonGitDir)
-          }
+        if (!id && commonGitDir && commonGitDir !== git) {
+          id = await readCachedID(commonGitDir)
         }
 
         if (!gitBinary) {
@@ -111,19 +116,26 @@ export namespace Project {
         }
 
         if (!id) {
-          const roots = await Git.run(["rev-list", "--max-parents=0", "--all"], { cwd: sandbox })
-            .then((result) => {
-              if (result.exitCode !== 0) return undefined
-              return result
-                .text()
-                .split("\n")
-                .filter(Boolean)
-                .map((item) => item.trim())
-                .toSorted()
-            })
-            .catch(() => undefined)
+          // Parallelize: rev-list + rev-parse --show-toplevel
+          const [rootsResult, top] = await Promise.all([
+            Git.run(["rev-list", "--max-parents=0", "--all"], { cwd: sandbox })
+              .then((result) => {
+                if (result.exitCode !== 0) return undefined
+                return result
+                  .text()
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((item) => item.trim())
+                  .toSorted()
+              })
+              .catch(() => undefined),
+            Git.run(["rev-parse", "--show-toplevel"], { cwd: sandbox })
+              .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
+              .catch(() => undefined),
+          ])
+          topResult = top
 
-          if (!roots) {
+          if (!rootsResult) {
             return {
               id: "global",
               worktree: sandbox,
@@ -132,7 +144,7 @@ export namespace Project {
             }
           }
 
-          id = roots[0]
+          id = rootsResult[0]
           if (id) {
             const derivedID = id
             const cacheDir = commonGitDir ?? git
@@ -143,37 +155,67 @@ export namespace Project {
               })
               .catch(() => undefined)
           }
-        }
 
-        if (!id) {
-          return {
-            id: "global",
-            worktree: sandbox,
-            sandbox: sandbox,
-            vcs: "git",
+          if (!id) {
+            return {
+              id: "global",
+              worktree: sandbox,
+              sandbox: sandbox,
+              vcs: "git",
+            }
+          }
+
+          // If we have top from the parallel call, use it
+          if (topResult) {
+            sandbox = topResult
+            const worktree = commonGitDir ? cacheDirToWorktree(commonGitDir, sandbox) : undefined
+            if (worktree) {
+              return {
+                id,
+                sandbox,
+                worktree,
+                vcs: "git",
+              }
+            }
+            return {
+              id,
+              sandbox,
+              worktree: sandbox,
+              vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
+            }
           }
         }
 
-        const top = await Git.run(["rev-parse", "--show-toplevel"], { cwd: sandbox })
-          .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
-          .catch(() => undefined)
+        // Parallelize: rev-parse --show-toplevel + (cache read if needed)
+        const needsTop = !topResult
+        const [top, _idCheck] = await Promise.all([
+          Git.run(["rev-parse", "--show-toplevel"], { cwd: sandbox })
+            .then((result) => (result.exitCode === 0 ? path.resolve(sandbox, result.text().trim()) : undefined))
+            .catch(() => undefined),
+          needsTop && !id ? readCachedID(git) : Promise.resolve(id),
+        ])
+        // Update topResult for any subsequent use
+        topResult = top
 
-        if (!top) {
+        // Use top from this call, falling back to topResult from earlier parallel call
+        const finalTop = top ?? topResult
+
+        if (!finalTop) {
           return {
-            id,
+            id: id ?? "global",
             sandbox,
             worktree: sandbox,
             vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
           }
         }
 
-        sandbox = top
+        sandbox = finalTop
 
         const worktree = commonGitDir ? cacheDirToWorktree(commonGitDir, sandbox) : undefined
 
         if (!worktree) {
           return {
-            id,
+            id: id ?? "global",
             sandbox,
             worktree: sandbox,
             vcs: Info.shape.vcs.parse(Flag.NIKCLI_FAKE_VCS),
@@ -181,7 +223,7 @@ export namespace Project {
         }
 
         return {
-          id,
+          id: id ?? "global",
           sandbox,
           worktree,
           vcs: "git",
@@ -215,7 +257,11 @@ export namespace Project {
 
     if (!existing.sandboxes) existing.sandboxes = []
 
-    if (Flag.NIKCLI_EXPERIMENTAL_ICON_DISCOVERY) discover(existing)
+    if (Flag.NIKCLI_EXPERIMENTAL_ICON_DISCOVERY) {
+      void discover(existing).catch((error) => {
+        log.warn("icon discovery failed", { directory, error })
+      })
+    }
 
     const result: Info = {
       ...existing,

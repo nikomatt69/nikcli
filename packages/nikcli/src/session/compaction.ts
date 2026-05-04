@@ -50,6 +50,41 @@ export namespace SessionCompaction {
 
   const PRUNE_PROTECTED_TOOLS = ["skill"]
 
+  // Removes tool results older than keepLastNTurns user turns regardless of size,
+  // allowing the context window to stay clean for long sessions.
+  export async function editContext(input: { sessionID: string; keepLastNTurns?: number }): Promise<void> {
+    const config = await Config.get()
+    if (config.compaction?.prune === false) return
+
+    const keepTurns = input.keepLastNTurns ?? 10
+    const msgs = await Session.messages({ sessionID: input.sessionID })
+    let turns = 0
+    const toPrune: MessageV2.ToolPart[] = []
+
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const msg = msgs[i]
+      if (msg.info.role === "user") turns++
+      if (turns < keepTurns) continue
+      if (msg.info.role === "assistant" && (msg.info as MessageV2.Assistant).summary) break
+
+      for (const part of msg.parts) {
+        if (part.type !== "tool") continue
+        if (part.state.status !== "completed") continue
+        if (PRUNE_PROTECTED_TOOLS.includes(part.tool)) continue
+        if (part.state.time.compacted) break
+        toPrune.push(part)
+      }
+    }
+
+    for (const part of toPrune) {
+      if (part.state.status === "completed") {
+        part.state.time.compacted = Date.now()
+        await Session.updatePart(part)
+      }
+    }
+    log.info("editContext pruned", { count: toPrune.length })
+  }
+
   export async function prune(input: { sessionID: string }) {
     const config = await Config.get()
     if (config.compaction?.prune === false) return

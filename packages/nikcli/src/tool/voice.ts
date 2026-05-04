@@ -25,7 +25,9 @@ export const Voice = Tool.define("voice", async () => {
 
   async function cleanupTempAudio(filepath: string) {
     try {
-      await fs.rm(filepath, { force: true })
+      await Bun.file(filepath)
+        .delete()
+        .catch(() => {})
     } catch (error) {
       log.warn("failed to clean up temp audio", { filepath, error })
     }

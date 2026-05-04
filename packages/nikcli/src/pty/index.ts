@@ -6,7 +6,7 @@ import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
 import { Instance } from "../project/instance"
-import { lazy } from "@nikcli-ai/util/lazy"
+import { lazy, lazyAsync } from "@nikcli-ai/util/lazy"
 import { Shell } from "@/shell/shell"
 
 export namespace Pty {
@@ -15,7 +15,7 @@ export namespace Pty {
   const BUFFER_LIMIT = 1024 * 1024 * 2
   const BUFFER_CHUNK = 64 * 1024
 
-  const pty = lazy(async () => {
+  const pty = lazyAsync(async () => {
     const { spawn } = await import("bun-pty")
     return spawn
   })

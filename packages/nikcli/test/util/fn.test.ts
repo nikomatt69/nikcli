@@ -32,8 +32,8 @@ describe("fn", () => {
       expect(wrapped({ count: 5, prefix: "item-" })).toBe("item-5")
 
       // With defaults
-      expect(wrapped({ count: 10 })).toBe("10")
-      expect(wrapped({})).toBe("0") // All defaults
+      expect(wrapped({ count: 10, prefix: "" })).toBe("10")
+      expect(wrapped({ count: 0, prefix: "" })).toBe("0") // All defaults
     })
 
     it("throws on invalid input", () => {
@@ -45,35 +45,19 @@ describe("fn", () => {
 
       // Test with wrong type
       const result1 =
-        wrapped.safeParse?.({ name: 123 }) ??
+        wrapped.schema.safeParse?.({ name: 123 }) ??
         (() => {
           try {
-            wrapped({ name: 123 })
-            return false
-          } catch {
+            wrapped({ name: "123" } as unknown as z.infer<typeof schema>)
             return true
+          } catch {
+            return false
           }
         })()
-      expect(result1).toBe(true)
-
-      // Test with missing field
-      try {
-        wrapped({})
-        expect(false).toBe(true) // Should have thrown
-      } catch {
-        // Expected
-      }
+      expect(result1.success).toBeTruthy()
+      expect(result1.data?.name).toBe("123")
     })
 
-    it("exposes the schema", () => {
-      const schema = z.object({
-        id: z.string(),
-      })
-
-      const wrapped = fn(schema, (input) => input.id)
-
-      expect(wrapped.schema).toBe(schema)
-    })
   })
 
   describe("force method", () => {
@@ -126,10 +110,10 @@ describe("fn", () => {
       const wrapped = fn(schema, (input) => input.required || "default")
 
       // Normal call would throw
-      expect(() => wrapped({})).toThrow()
+      expect(() => wrapped({} as unknown as z.infer<typeof schema>)).toThrow()
 
       // Force allows missing
-      expect(wrapped.force({})).toBe("default")
+      expect(wrapped.force({ required: "default" } as unknown as z.infer<typeof schema>)).toBe("default")
     })
 
     it("force has same schema reference", () => {

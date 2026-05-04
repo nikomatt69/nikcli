@@ -66,7 +66,12 @@ function routeRegister(routes: RouteMap, list: TuiRouteDefinition[], bump: () =>
   }
 }
 
-function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?: Record<string, unknown>) {
+function routeNavigate(
+  route: ReturnType<typeof useRoute>,
+  sync: ReturnType<typeof useSync>,
+  name: string,
+  params?: Record<string, unknown>,
+) {
   if (name === "home") {
     route.navigate({ type: "home" })
     return
@@ -93,12 +98,32 @@ function routeNavigate(route: ReturnType<typeof useRoute>, name: string, params?
   }
 
   if (name === "git-graph" || name === "graph") {
-    route.navigate({ type: "git-graph", workspaceID: route.data.workspaceID })
+    const sessionID =
+      typeof params?.sessionID === "string"
+        ? params.sessionID
+        : route.data.type === "session"
+          ? route.data.sessionID
+          : undefined
+    const workspaceID = sessionID
+      ? sync.session.get(sessionID)?.workspaceID ??
+        (route.data.type === "session" ? route.data.workspaceID : undefined)
+      : route.data.workspaceID
+    route.navigate({ type: "git-graph", sessionID, workspaceID })
     return
   }
 
   if (name === "github" || name === "gh") {
-    route.navigate({ type: "github", workspaceID: route.data.workspaceID })
+    const sessionID =
+      typeof params?.sessionID === "string"
+        ? params.sessionID
+        : route.data.type === "session"
+          ? route.data.sessionID
+          : undefined
+    const workspaceID = sessionID
+      ? sync.session.get(sessionID)?.workspaceID ??
+        (route.data.type === "session" ? route.data.workspaceID : undefined)
+      : route.data.workspaceID
+    route.navigate({ type: "github", sessionID, workspaceID })
     return
   }
 
@@ -134,11 +159,17 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
   }
 
   if (route.data.type === "git-graph") {
-    return { name: "git-graph" }
+    return {
+      name: "git-graph",
+      params: route.data.sessionID ? { sessionID: route.data.sessionID } : undefined,
+    }
   }
 
   if (route.data.type === "github") {
-    return { name: "github" }
+    return {
+      name: "github",
+      params: route.data.sessionID ? { sessionID: route.data.sessionID } : undefined,
+    }
   }
 
   return {
@@ -270,7 +301,7 @@ export function createTuiApi(input: Input): TuiPluginApi {
         return routeRegister(input.routes, list, input.bump)
       },
       navigate(name, params) {
-        routeNavigate(input.route, name, params)
+        routeNavigate(input.route, input.sync, name, params)
       },
       get current() {
         return routeCurrent(input.route)

@@ -50,3 +50,22 @@ export async function work<T>(concurrency: number, items: T[], fn: (item: T) => 
     }),
   )
 }
+
+/**
+ * Like `work()` but collects and returns results. Returns results in the
+ * same order as the input items array.
+ */
+export async function workMap<T, R>(concurrency: number, items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R | undefined>(items.length)
+  const pending = items.map((item, index) => ({ item, index }))
+  await Promise.all(
+    Array.from({ length: concurrency }, async () => {
+      while (true) {
+        const entry = pending.pop()
+        if (entry === undefined) return
+        results[entry.index] = await fn(entry.item)
+      }
+    }),
+  )
+  return results as R[]
+}

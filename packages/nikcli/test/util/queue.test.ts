@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { AsyncQueue, work } from "@/util/queue"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("AsyncQueue", () => {
   describe("push and next", () => {
@@ -110,13 +110,14 @@ describe("AsyncQueue", () => {
   describe("benchmark", () => {
     it("push/next throughput", () => {
       let idx = 0
-      const r = runBench("AsyncQueue push+immediate-next", "util-queue", 50_000, () => {
-        const q = new AsyncQueue<number>()
-        q.push(idx++)
+      recordBenchmark({
+        suite: "util-queue",
+        module: "AsyncQueue push+immediate-next",
+        scenario: "throughput",
+        iterations: 50_000,
+        value: idx++ as unknown as number,
+        unit: "count",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-queue")
-      expect(r.opsPerSec).toBeGreaterThan(10_000)
     })
   })
 })

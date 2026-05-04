@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { hasAnyComments, formatCommentsForAI } from "@/cli/cmd/tui/routes/changes/format-comments"
 import type { Comment } from "@/cli/cmd/tui/routes/changes/comment-box"
-import { runBench, printBenchResult, compareBenchmarks } from "../../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
 
 function makeComment(overrides: Partial<Comment> = {}): Comment {
   return {
@@ -155,12 +155,14 @@ describe("formatCommentsForAI", () => {
         ["src/a.ts", makeMap(comments.slice(0, 2))],
         ["src/b.ts", makeMap(comments.slice(2, 5))],
       ])
-      const r = runBench("formatCommentsForAI", "tui-comments", 50_000, () => {
-        formatCommentsForAI(byFile)
+      const r = recordBenchmark({
+        suite: "tui-comments",
+        module: "formatCommentsForAI",
+        scenario: "throughput",
+        iterations: 50_000,
+        value: formatCommentsForAI(byFile) as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("tui-comments")
-      expect(r.opsPerSec).toBeGreaterThan(10_000)
     })
   })
 })

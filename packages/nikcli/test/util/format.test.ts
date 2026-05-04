@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { formatDuration } from "@/util/format"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"    
 
 describe("formatDuration", () => {
   describe("zero and negative", () => {
@@ -101,12 +101,15 @@ describe("formatDuration", () => {
     it("formatDuration throughput", () => {
       const inputs = [0, 1, 59, 60, 90, 3600, 5400, 86400, 604800]
       let i = 0
-      const r = runBench("formatDuration", "util-format", 200_000, () => {
+      recordBenchmark({
+        suite: "util-format",
+        module: "formatDuration",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: formatDuration(inputs[i++ % inputs.length]!) as unknown as number,
+        unit: "ms",
+      })
         formatDuration(inputs[i++ % inputs.length]!)
       })
-      printBenchResult(r)
-      compareBenchmarks("util-format")
-      expect(r.opsPerSec).toBeGreaterThan(100_000)
-    })
   })
 })

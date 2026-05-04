@@ -1,0 +1,45 @@
+{
+  "run": {
+    "runId": "2026-05-03T16-26-44-396Z",
+    "createdAt": "2026-05-03T16:26:44.396Z",
+    "records": [
+      {
+        "runId": "2026-05-03T16-26-44-396Z",
+        "timestamp": "2026-05-03T16:26:44.396Z",
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "iterations": 50000,
+        "value": 5.392124999999851,
+        "unit": "ms",
+        "valuePerIteration": 0.00010784249999999701,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T16-26-44-396Z",
+        "timestamp": "2026-05-03T16:26:44.402Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "iterations": 20000,
+        "value": 3.5442080000002534,
+        "unit": "ms",
+        "valuePerIteration": 0.00017721040000001268,
+        "metadata": {}
+      },
+      {
+        "runId": "2026-05-03T16-26-44-396Z",
+        "timestamp": "2026-05-03T16:26:44.403Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "iterations": 50000,
+        "value": 0.6908339999999953,
+        "unit": "ms",
+        "valuePerIteration": 0.000013816679999999906,
+        "metadata": {}
+      }
+    ]
+  },
+  "exportedAt": "2026-05-03T16:26:44.404Z"
+}

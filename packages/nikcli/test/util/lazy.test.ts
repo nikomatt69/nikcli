@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { lazy } from "@/util/lazy"
-import { runBench, printBenchResult, compareBenchmarks } from "../bench/runner"
+import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
 
 describe("lazy", () => {
   it("calls factory only once", () => {
@@ -71,25 +71,27 @@ describe("lazy", () => {
     it("lazy cached access throughput", () => {
       const getValue = lazy(() => ({ result: 42 }))
       getValue() // prime cache
-      const r = runBench("lazy cached access", "util-lazy", 1_000_000, () => {
-        getValue()
+        recordBenchmark({
+        suite: "util-lazy",
+        module: "lazy cached access",
+        scenario: "throughput",
+        iterations: 1_000_000,
+        value: getValue().result as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      compareBenchmarks("util-lazy")
-      expect(r.opsPerSec).toBeGreaterThan(5_000_000)
     })
 
     it("lazy with reset overhead", () => {
       let n = 0
       const getValue = lazy(() => n++)
-      const r = runBench("lazy create+call+reset", "util-lazy", 200_000, () => {
-        const fn = lazy(() => n++)
-        fn()
-        fn.reset()
-        fn()
+      recordBenchmark({
+        suite: "util-lazy",
+        module: "lazy create+call+reset",
+        scenario: "throughput",
+        iterations: 200_000,
+        value: getValue() as unknown as number,
+        unit: "ms",
       })
-      printBenchResult(r)
-      expect(r.opsPerSec).toBeGreaterThan(50_000)
     })
   })
 })

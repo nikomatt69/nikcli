@@ -907,4 +907,20 @@ export namespace ProviderTransform {
 
     return message
   }
+
+  // Check if a provider supports media (images, PDFs) in tool results.
+  // OpenAI-compatible APIs only support string content, so media must be
+  // extracted and sent as separate user messages for those providers.
+  export function supportsMediaInToolResults(model: Provider.Model): boolean {
+    if (model.api.npm === "@ai-sdk/anthropic") return true
+    if (model.api.npm === "@ai-sdk/openai") return true
+    if (model.api.npm === "@ai-sdk/openai-compatible") return true
+    if (model.api.npm === "@ai-sdk/amazon-bedrock") return true
+    if (model.api.npm === "@ai-sdk/google-vertex/anthropic") return true
+    if (model.api.npm === "@ai-sdk/google") {
+      const id = model.api.id.toLowerCase()
+      return id.includes("gemini-3") && !id.includes("gemini-2")
+    }
+    return false
+  }
 }

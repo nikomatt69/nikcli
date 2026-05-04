@@ -47,14 +47,6 @@ const log = Log.create({ service: "mobile-routes" })
 const MobileProject = Project.Info.extend({ current: z.boolean() }).meta({ ref: "MobileProject" })
 const MobileExecutionTarget = z.enum(["local", "container"]).meta({ ref: "MobileExecutionTarget" })
 
-const MobileTophatStatus = z
-  .object({
-    available: z.boolean(),
-    providers: z.array(z.object({ id: z.string() })),
-    devices: z.array(z.object({ name: z.string(), platform: z.string() })),
-  })
-  .meta({ ref: "MobileTophatStatus" })
-
 const MobileProjectType = z
   .object({
     detected: z.boolean(),
@@ -95,6 +87,11 @@ const MobileBootstrap = z
         })
         .optional(),
     }),
+    expo: z.object({
+      available: z.boolean(),
+      easAvailable: z.boolean(),
+      details: z.array(z.string()),
+    }),
     mobileProject: MobileProjectType.optional(),
   })
   .meta({ ref: "MobileBootstrap" })
@@ -130,8 +127,8 @@ const MobileGithubBranch = z
 
 const MobileGithubSessionCreateInput = z
   .object({
-    owner: z.string().min(1),
-    repo: z.string().min(1),
+    owner: MobileGithubRepo.Owner,
+    repo: MobileGithubRepo.Repository,
     cloneUrl: z.url(),
     htmlUrl: z.url().optional(),
     defaultBranch: z.string().min(1),
@@ -139,6 +136,15 @@ const MobileGithubSessionCreateInput = z
     private: z.boolean().default(false),
     title: z.string().optional(),
     executionTarget: MobileExecutionTarget.default("local"),
+  })
+  .superRefine((input, ctx) => {
+    if (!MobileGithubRepo.isSafeCloneUrl(input)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["cloneUrl"],
+        message: "cloneUrl must be an HTTPS github.com URL matching owner/repo",
+      })
+    }
   })
   .meta({ ref: "MobileGithubSessionCreateInput" })
 
@@ -293,12 +299,6 @@ type PromptHistoryRecord = {
   parts?: unknown[]
 }
 
-type PromptStashRecord = {
-  input: string
-  timestamp: number
-  parts?: unknown[]
-}
-
 async function readJsonLines<T>(filePath: string) {
   const text = await Bun.file(filePath)
     .text()
@@ -318,10 +318,6 @@ async function readJsonLines<T>(filePath: string) {
 
 function historyFilePath() {
   return path.join(Global.Path.state, "prompt-history.jsonl")
-}
-
-function stashFilePath() {
-  return path.join(Global.Path.state, "prompt-stash.jsonl")
 }
 
 async function listPromptHistory() {
@@ -1135,7 +1131,7 @@ export const MobileRoutes = lazy(() =>
         summary: "Persist GitHub OAuth client ID for mobile",
         description:
           "Save the GitHub OAuth client ID in the global host config so device sign-in remains available across projects and app restarts.",
-        operationId: "mobile.github.oauth.client.set",
+        operationId: "mobile.github.oauth.clientId.set",
         responses: {
           200: {
             description: "Updated host configuration",
@@ -1344,7 +1340,7 @@ export const MobileRoutes = lazy(() =>
                       baseBranch,
                       headBranch,
                       repositoryDirectory: imported.import.directory,
-                      cloneUrl: body.cloneUrl,
+                      cloneUrl: imported.import.cloneUrl,
                       htmlUrl: body.htmlUrl,
                       private: body.private,
                       worktree,
@@ -2149,10 +2145,15 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const { sessionID } = c.req.valid("param")
         const { title } = c.req.valid("json")
-        const session = await Session.get(sessionID)
+        const session = await Session.getAnyProject(sessionID).catch(() => undefined)
         if (!session) return c.json({ error: "not found" }, 404)
-        await Session.update(sessionID, (draft) => {
-          draft.title = title.trim()
+        await Instance.provide({
+          directory: session.directory,
+          async fn() {
+            await Session.update(sessionID, (draft) => {
+              draft.title = title.trim()
+            })
+          },
         })
         return c.json({ success: true as const })
       },
@@ -2499,7 +2500,7 @@ export const MobileRoutes = lazy(() =>
               const timestampMs = Number.parseInt(timestamp, 10) * 1000
 
               const statOutput = await MobileGithubRepo.runGit(
-                ["show", "--stat", "--no-color", "--format=''", sha.trim()],
+                ["show", "--numstat", "--no-color", "--format=", sha.trim()],
                 {
                   cwd: Instance.directory,
                   token,
@@ -3104,17 +3105,6 @@ export const MobileRoutes = lazy(() =>
     ),
 )
 
-function parseDiffStat(path: string): { additions: number; deletions: number } {
-  const match = path.match(/\s+\+(\d+)\s+(-(\d+))?$/)
-  if (match) {
-    return {
-      additions: Number.parseInt(match[1], 10) || 0,
-      deletions: Number.parseInt(match[3] ?? match[1], 10) || 0,
-    }
-  }
-  return { additions: 0, deletions: 0 }
-}
-
 function parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
   const stats = new Map<string, { additions: number; deletions: number }>()
   for (const line of output.split("\n")) {
@@ -3131,18 +3121,14 @@ function parseNumstat(output: string): Map<string, { additions: number; deletion
 }
 
 function parseCommitStat(output: string): { filesCount: number; additions: number; deletions: number } {
-  let filesCount = 0
+  const stats = parseNumstat(output)
   let additions = 0
   let deletions = 0
-  for (const line of output.split("\n")) {
-    const fileMatch = line.match(/^\s+(\d+)\s+(\d+)\s+(.+)$/)
-    if (fileMatch) {
-      filesCount++
-      additions += Number.parseInt(fileMatch[1], 10) || 0
-      deletions += Number.parseInt(fileMatch[2], 10) || 0
-    }
+  for (const stat of stats.values()) {
+    additions += stat.additions
+    deletions += stat.deletions
   }
-  return { filesCount, additions, deletions }
+  return { filesCount: stats.size, additions, deletions }
 }
 
 function parseFileDiffs(output: string): Array<{
@@ -3157,7 +3143,10 @@ function parseFileDiffs(output: string): Array<{
   deletions: number
 }> {
   const results: ReturnType<typeof parseFileDiffs> = []
-  const fileBlocks = output.split(/^diff --git /m).filter(Boolean)
+  const fileBlocks = output
+    .split(/(?=^diff --git )/m)
+    .map((block) => block.trimEnd())
+    .filter((block) => block.startsWith("diff --git "))
 
   for (const block of fileBlocks) {
     const headerMatch = block.match(/^diff --git a\/(.*) b\/(.*)$/m)
@@ -3183,45 +3172,45 @@ function parseFileDiffs(output: string): Array<{
     let additions = 0
     let deletions = 0
 
-    const hunkPattern = /@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@(.*)/g
-    let hunkMatch = hunkPattern.exec(block)
-    while (hunkMatch) {
-      const [, oldStart, oldLinesStr, newStart, newLinesStr] = hunkMatch
-      const hunkStart = hunkMatch.index!
-      const nextHunkStart = block.indexOf("@@ ", hunkStart + 1)
-      const hunkContent = nextHunkStart === -1 ? block.slice(hunkStart) : block.slice(hunkStart, nextHunkStart)
+    let currentHunk: ReturnType<typeof parseFileDiffs>[number]["hunks"][number] | undefined
+    let oldLine = 0
+    let newLine = 0
 
-      const lines: ReturnType<typeof parseFileDiffs>[number]["hunks"][number]["lines"] = []
-      let oldLine = Number.parseInt(oldStart, 10)
-      let newLine = Number.parseInt(newStart, 10)
-
-      for (const line of hunkContent.split("\n")) {
-        if (line.startsWith("+") && !line.startsWith("+++")) {
-          lines.push({ type: "add", text: line.slice(1), newLineNumber: newLine++ })
-          additions++
-        } else if (line.startsWith("-") && !line.startsWith("---")) {
-          lines.push({ type: "remove", text: line.slice(1), oldLineNumber: oldLine++ })
-          deletions++
-        } else if (line.startsWith(" ") || line === "") {
-          lines.push({
-            type: "context",
-            text: line.startsWith(" ") ? line.slice(1) : "",
-            oldLineNumber: oldLine++,
-            newLineNumber: newLine++,
-          })
+    for (const line of block.split("\n")) {
+      const hunkMatch = line.match(/^@@ -(\d+),?(\d*) \+(\d+),?(\d*) @@/)
+      if (hunkMatch) {
+        const [, oldStart, oldLinesStr, newStart, newLinesStr] = hunkMatch
+        oldLine = Number.parseInt(oldStart, 10)
+        newLine = Number.parseInt(newStart, 10)
+        currentHunk = {
+          header: {
+            oldStart: oldLine,
+            oldLines: Number.parseInt(oldLinesStr || "1", 10),
+            newStart: newLine,
+            newLines: Number.parseInt(newLinesStr || "1", 10),
+          },
+          lines: [],
         }
+        hunks.push(currentHunk)
+        continue
       }
 
-      hunks.push({
-        header: {
-          oldStart: Number.parseInt(oldStart, 10),
-          oldLines: Number.parseInt(oldLinesStr || "1", 10),
-          newStart: Number.parseInt(newStart, 10),
-          newLines: Number.parseInt(newLinesStr || "1", 10),
-        },
-        lines,
-      })
-      hunkMatch = hunkPattern.exec(block)
+      if (!currentHunk || line.startsWith("\\")) continue
+
+      if (line.startsWith("+") && !line.startsWith("+++")) {
+        currentHunk.lines.push({ type: "add", text: line.slice(1), newLineNumber: newLine++ })
+        additions++
+      } else if (line.startsWith("-") && !line.startsWith("---")) {
+        currentHunk.lines.push({ type: "remove", text: line.slice(1), oldLineNumber: oldLine++ })
+        deletions++
+      } else if (line.startsWith(" ")) {
+        currentHunk.lines.push({
+          type: "context",
+          text: line.slice(1),
+          oldLineNumber: oldLine++,
+          newLineNumber: newLine++,
+        })
+      }
     }
 
     results.push({
