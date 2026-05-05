@@ -16,6 +16,12 @@ import { createStore } from "solid-js/store"
 import { Clipboard } from "@tui/util/clipboard"
 import { useToast } from "./toast"
 
+/**
+ * Gap convention for dialog layouts:
+ * - Container gap: 2 (between major sections)
+ * - List rows gap: 1 (between items)
+ * - Button spacing: gap=2 for grouped buttons
+ */
 export type DialogSize = "medium" | "large" | "xlarge"
 type DialogElement = JSX.Element | (() => JSX.Element)
 type DialogEntry = {
@@ -113,10 +119,38 @@ function init() {
   }
 
   useKeyboard((evt) => {
-    if ((evt.name === "escape" || (evt.ctrl && evt.name === "c")) && store.stack.length > 0) {
+    // Escape closes only the top dialog
+    if (evt.name === "escape" && store.stack.length > 0) {
       closeTop()
       evt.preventDefault()
       evt.stopPropagation()
+      return
+    }
+
+    // Ctrl+C closes entire stack if in non-interactive top-level dialog
+    // (e.g., alert, confirm), otherwise propagate to interrupt AI response
+    if (evt.ctrl && evt.name === "c") {
+      if (store.stack.length > 0) {
+        // Check if top dialog is interactive (has textarea/input focused)
+        const topElement = store.stack.at(-1)?.element
+        const isInteractive =
+          typeof topElement === "function" &&
+          String(topElement).includes("textarea") &&
+          document.activeElement?.tagName !== "TEXTAREA"
+
+        if (!isInteractive) {
+          // Clear entire stack for non-interactive dialogs
+          const callbacks = closeCallbacks()
+          batch(() => {
+            setStore("size", "medium")
+            setStore("stack", [])
+          })
+          runCloseCallbacks(callbacks)
+          evt.preventDefault()
+          evt.stopPropagation()
+        }
+        // Otherwise, let the event propagate (e.g., to interrupt AI)
+      }
     }
   })
 

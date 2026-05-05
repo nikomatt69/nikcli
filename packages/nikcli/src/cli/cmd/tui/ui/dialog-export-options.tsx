@@ -35,8 +35,10 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
 
   useKeyboard((evt) => {
     if (evt.name === "return") {
+      const filename = textarea.plainText.trim()
+      if (!filename) return
       props.onConfirm?.({
-        filename: textarea.plainText,
+        filename,
         thinking: store.thinking,
         toolDetails: store.toolDetails,
         assistantMetadata: store.assistantMetadata,
@@ -67,9 +69,11 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
 
   onMount(() => {
     dialog.setSize("medium")
-    setTimeout(() => {
-      textarea.focus()
-    }, 1)
+    queueMicrotask(() => {
+      if (!textarea.isDestroyed && !textarea.focused) {
+        textarea.focus()
+      }
+    })
     textarea.gotoLineEnd()
   })
 
@@ -87,8 +91,10 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         </box>
         <textarea
           onSubmit={() => {
+            const filename = textarea.plainText.trim()
+            if (!filename) return
             props.onConfirm?.({
-              filename: textarea.plainText,
+              filename,
               thinking: store.thinking,
               toolDetails: store.toolDetails,
               assistantMetadata: store.assistantMetadata,
@@ -99,7 +105,7 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
           keyBindings={[{ name: "return", action: "submit" }]}
           ref={(val: TextareaRenderable) => (textarea = val)}
           initialValue={props.defaultFilename}
-          placeholder="Enter filename"
+          placeholder="Enter filename (.md, .txt, .json)"
           textColor={theme.text}
           focusedTextColor={theme.text}
           cursorColor={theme.text}
@@ -156,16 +162,22 @@ export function DialogExportOptions(props: DialogExportOptionsProps) {
         </box>
       </box>
       <Show when={store.active !== "filename"}>
-        <text fg={theme.textMuted} paddingBottom={1}>
-          Press <span style={{ fg: theme.text }}>space</span> to toggle, <span style={{ fg: theme.text }}>return</span>{" "}
-          to confirm
-        </text>
+        <box flexDirection="row" flexWrap="wrap" gap={1} paddingBottom={1}>
+          <text fg={theme.textMuted}>space</text>
+          <text fg={theme.textMuted}>toggle</text>
+          <text fg={theme.borderSubtle}>·</text>
+          <text fg={theme.textMuted}>return</text>
+          <text fg={theme.textMuted}>confirm</text>
+        </box>
       </Show>
       <Show when={store.active === "filename"}>
-        <text fg={theme.textMuted} paddingBottom={1}>
-          Press <span style={{ fg: theme.text }}>return</span> to confirm, <span style={{ fg: theme.text }}>tab</span>{" "}
-          for options
-        </text>
+        <box flexDirection="row" flexWrap="wrap" gap={1} paddingBottom={1}>
+          <text fg={theme.textMuted}>return</text>
+          <text fg={theme.textMuted}>confirm</text>
+          <text fg={theme.borderSubtle}>·</text>
+          <text fg={theme.textMuted}>tab</text>
+          <text fg={theme.textMuted}>options</text>
+        </box>
       </Show>
     </box>
   )

@@ -6,6 +6,8 @@ import { PromptStashStore, type StashEntry } from "@/prompt/stash-store"
 
 export type { StashEntry } from "@/prompt/stash-store"
 
+const MAX_STASH_ENTRIES = 20
+
 export const { use: usePromptStash, provider: PromptStashProvider } = createSimpleContext({
   name: "PromptStash",
   init: () => {
@@ -31,10 +33,20 @@ export const { use: usePromptStash, provider: PromptStashProvider } = createSimp
         })
         setStore(
           produce((draft) => {
+            // Evict oldest if at max
+            if (draft.entries.length >= MAX_STASH_ENTRIES) {
+              const evict = draft.entries.shift()
+              if (evict) void PromptStashStore.removeByID(evict.id)
+            }
             draft.entries.push(stash)
           }),
         )
-        void PromptStashStore.push(stash).then((entries) => setStore("entries", entries))
+        void PromptStashStore.push(stash).then(
+          (entries) => setStore("entries", entries),
+          (err) => {
+            console.error("[stash] Failed to persist:", err)
+          },
+        )
       },
       pop() {
         if (store.entries.length === 0) return undefined

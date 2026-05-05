@@ -21,6 +21,8 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
         setReady(true)
       })
 
+    let flushTimer: ReturnType<typeof setTimeout> | undefined
+
     const result = {
       get ready() {
         return ready()
@@ -44,9 +46,25 @@ export const { use: useKV, provider: KVProvider } = createSimpleContext({
       },
       set(key: string, value: any) {
         setStore(key, value)
+        // Debounce writes to disk (flush on exit via onCleanup)
+        if (flushTimer) clearTimeout(flushTimer)
+        flushTimer = setTimeout(() => {
+          flushTimer = undefined
+          Bun.write(file, JSON.stringify(store, null, 2))
+        }, 250)
+      },
+      flush() {
+        if (flushTimer) {
+          clearTimeout(flushTimer)
+          flushTimer = undefined
+        }
         Bun.write(file, JSON.stringify(store, null, 2))
       },
     }
+
+    // Ensure pending writes are flushed on exit
+    process.on("exit", () => result.flush())
+
     return result
   },
 })

@@ -11,13 +11,15 @@ export type DialogConfirmProps = {
   message: string
   onConfirm?: () => void
   onCancel?: () => void
+  /** Which button should be focused by default. Defaults to "cancel" for safety. */
+  defaultFocus?: "confirm" | "cancel"
 }
 
 export function DialogConfirm(props: DialogConfirmProps) {
   const dialog = useDialog()
   const { theme } = useTheme()
   const [store, setStore] = createStore({
-    active: "confirm" as "confirm" | "cancel",
+    active: (props.defaultFocus ?? "cancel") as "confirm" | "cancel",
   })
 
   useKeyboard((evt) => {
@@ -25,6 +27,20 @@ export function DialogConfirm(props: DialogConfirmProps) {
       if (store.active === "confirm") props.onConfirm?.()
       if (store.active === "cancel") props.onCancel?.()
       dialog.clear()
+    }
+
+    // Y/N shortcuts for quick confirm/cancel
+    if (evt.name === "y" && !evt.ctrl && !evt.meta) {
+      evt.preventDefault()
+      props.onConfirm?.()
+      dialog.clear()
+      return
+    }
+    if (evt.name === "n" && !evt.ctrl && !evt.meta) {
+      evt.preventDefault()
+      props.onCancel?.()
+      dialog.clear()
+      return
     }
 
     if (evt.name === "left" || evt.name === "right") {
@@ -42,14 +58,18 @@ export function DialogConfirm(props: DialogConfirmProps) {
       <box paddingBottom={1}>
         <text fg={theme.textMuted}>{props.message}</text>
       </box>
-      <box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
+      <box flexDirection="row" justifyContent="flex-end" paddingBottom={1} gap={2}>
         <For each={["cancel", "confirm"]}>
           {(key) => (
             <box
-              paddingLeft={1}
-              paddingRight={1}
+              paddingLeft={4}
+              paddingRight={4}
+              paddingTop={1}
+              paddingBottom={1}
+              border={true}
+              borderColor={key === store.active ? theme.borderActive : theme.border}
               backgroundColor={key === store.active ? theme.primary : undefined}
-              onMouseUp={(evt) => {
+              onMouseUp={() => {
                 if (key === "confirm") props.onConfirm?.()
                 if (key === "cancel") props.onCancel?.()
                 dialog.clear()
@@ -62,17 +82,24 @@ export function DialogConfirm(props: DialogConfirmProps) {
           )}
         </For>
       </box>
+      <box flexDirection="row" justifyContent="flex-end" paddingBottom={1}>
+        <text fg={theme.textMuted}>
+          Y/N or <span style={{ fg: theme.text }}>←→</span> to switch, <span style={{ fg: theme.text }}>enter</span> to
+          confirm
+        </text>
+      </box>
     </box>
   )
 }
 
-DialogConfirm.show = (dialog: DialogContext, title: string, message: string) => {
+DialogConfirm.show = (dialog: DialogContext, title: string, message: string, defaultFocus?: "confirm" | "cancel") => {
   return new Promise<boolean>((resolve) => {
     dialog.replace(
       () => (
         <DialogConfirm
           title={title}
           message={message}
+          defaultFocus={defaultFocus}
           onConfirm={() => resolve(true)}
           onCancel={() => resolve(false)}
         />

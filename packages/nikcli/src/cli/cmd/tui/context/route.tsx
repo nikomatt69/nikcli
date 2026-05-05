@@ -46,17 +46,29 @@ export type GitHubRoute = {
   workspaceID?: string
 }
 
-export type Route = HomeRoute | SessionRoute | PluginRoute | ChangesRoute | SessionTreeRoute | GitGraphRoute | GitHubRoute
+export type Route =
+  | HomeRoute
+  | SessionRoute
+  | PluginRoute
+  | ChangesRoute
+  | SessionTreeRoute
+  | GitGraphRoute
+  | GitHubRoute
 
 export const { use: useRoute, provider: RouteProvider } = createSimpleContext({
   name: "Route",
   init: () => {
     const [store, setStore] = createStore<Route>(
-      process.env["NIKCLI_ROUTE"]
-        ? JSON.parse(process.env["NIKCLI_ROUTE"])
-        : {
-            type: "home",
-          },
+      (() => {
+        const raw = process.env["NIKCLI_ROUTE"]
+        if (!raw) return { type: "home" }
+        try {
+          return JSON.parse(raw)
+        } catch (err) {
+          console.warn("[route] Failed to parse NIKCLI_ROUTE, falling back to home:", err)
+          return { type: "home" }
+        }
+      })(),
     )
 
     return {

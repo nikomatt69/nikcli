@@ -25,25 +25,36 @@ export const { use: useKeybind, provider: KeybindProvider } = createSimpleContex
 
     let focus: Renderable | null
     let timeout: NodeJS.Timeout
+
+    /** Safely blur a renderable, checking isDestroyed first */
+    function safeBlur(r: Renderable | null) {
+      if (!r || r.isDestroyed) return
+      r.blur()
+    }
+
+    /** Safely focus a renderable, checking isDestroyed first */
+    function safeFocus(r: Renderable | null) {
+      if (!r || r.isDestroyed) return
+      r.focus()
+    }
+
     function leader(active: boolean) {
       if (active) {
         setStore("leader", true)
         focus = renderer.currentFocusedRenderable
-        focus?.blur()
+        safeBlur(focus)
         if (timeout) clearTimeout(timeout)
         timeout = setTimeout(() => {
           if (!store.leader) return
           leader(false)
-          if (focus) {
-            focus.focus()
-          }
+          safeFocus(focus)
         }, 2000)
         return
       }
 
       if (!active) {
         if (focus && !renderer.currentFocusedRenderable) {
-          focus.focus()
+          safeFocus(focus)
         }
         setStore("leader", false)
       }
@@ -58,7 +69,7 @@ export const { use: useKeybind, provider: KeybindProvider } = createSimpleContex
       if (store.leader && evt.name) {
         setImmediate(() => {
           if (focus && renderer.currentFocusedRenderable === focus) {
-            focus.focus()
+            safeFocus(focus)
           }
           leader(false)
         })

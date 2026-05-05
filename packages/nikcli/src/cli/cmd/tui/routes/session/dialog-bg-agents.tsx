@@ -9,6 +9,7 @@ import { useTheme } from "@tui/context/theme"
 import { useLocal } from "@tui/context/local"
 import { Keybind } from "@/util/keybind"
 import { Spinner } from "../../component/spinner"
+import { dismissBackground, getBackgroundDismissed } from "../../util/background"
 
 type MonitorOption = {
   kind: "monitor"
@@ -31,7 +32,6 @@ type JobOption = {
 }
 
 type BgOption = MonitorOption | JobOption
-type BackgroundDismissedMap = Record<string, string[]>
 
 function monitorStatusLabel(status: string, exitCode?: number) {
   switch (status) {
@@ -75,15 +75,10 @@ export function DialogBgAgents(props: {
   const dialog = useDialog()
   const { theme } = useTheme()
 
-  const dismissed = createMemo(() => {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    return new Set(map[props.sessionID] ?? [])
-  })
+  const dismissed = createMemo(() => getBackgroundDismissed(kv, props.sessionID))
 
   function dismissJob(delegationID: string) {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const next = Array.from(new Set([...(map[props.sessionID] ?? []), delegationID]))
-    kv.set("background_subtasks_dismissed", { ...map, [props.sessionID]: next })
+    dismissBackground(kv, props.sessionID, delegationID)
   }
 
   const monitors = createMemo(() => {

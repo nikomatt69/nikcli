@@ -1,6 +1,7 @@
 import { TextareaRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "./dialog"
+import { useKeybind } from "@tui/context/keybind"
 import { createEffect, onMount, Show, type JSX } from "solid-js"
 import { Spinner } from "../component/spinner"
 
@@ -18,13 +19,18 @@ export type DialogPromptProps = {
 export function DialogPrompt(props: DialogPromptProps) {
   const dialog = useDialog()
   const { theme } = useTheme()
+  const keybind = useKeybind()
   let textarea: TextareaRenderable
+
+  const submitKey = () => keybind.print("input_submit") || "enter"
 
   onMount(() => {
     dialog.setSize("medium")
-    setTimeout(() => {
-      if (!textarea.isDestroyed && !props.busy) textarea.focus()
-    }, 1)
+    queueMicrotask(() => {
+      if (!textarea.isDestroyed && !textarea.focused && !props.busy) {
+        textarea.focus()
+      }
+    })
     textarea.gotoLineEnd()
   })
 
@@ -52,13 +58,17 @@ export function DialogPrompt(props: DialogPromptProps) {
           when={!props.busy}
           fallback={
             <box height={3} flexDirection="row" alignItems="center" gap={1}>
-              <Spinner>{props.busyText ?? "processing..."}</Spinner>
+              <Spinner>{props.busyText ?? "Processing…"}</Spinner>
             </box>
           }
         >
           <textarea
             onSubmit={() => {
-              props.onConfirm?.(textarea.plainText)
+              const val = textarea.plainText.trim()
+              if (!val) {
+                return
+              }
+              props.onConfirm?.(val)
             }}
             onKeyPress={(evt) => {
               if (props.busy) {
@@ -77,12 +87,9 @@ export function DialogPrompt(props: DialogPromptProps) {
         </Show>
       </box>
       <box paddingBottom={1} gap={1} flexDirection="row">
-        <Show
-          when={!props.busy}
-          fallback={<text fg={theme.textMuted}>please wait...</text>}
-        >
+        <Show when={!props.busy} fallback={<text fg={theme.textMuted}>Please wait…</text>}>
           <text fg={theme.text}>
-            enter <span style={{ fg: theme.textMuted }}>submit</span>
+            <span style={{ fg: theme.primary }}>{submitKey()}</span> <span style={{ fg: theme.textMuted }}>submit</span>
           </text>
         </Show>
       </box>

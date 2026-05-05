@@ -1,8 +1,8 @@
-import { createContext, useContext, type ParentProps, Show } from "solid-js"
+import { createContext, useContext, type ParentProps, Show, For } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "@tui/context/theme"
 import { useTerminalDimensions } from "@opentui/solid"
-import { GlassBorderLight } from "../component/border"
+import { GlassBorder } from "../component/border"
 import { TextAttributes } from "@opentui/core"
 import z from "zod"
 import { TuiEvent } from "../event"
@@ -13,55 +13,62 @@ type ToastCurrent = Omit<ToastParsed, "duration">
 
 export type ToastOptions = ToastInput
 
+/** Default toast durations by variant */
+export const TOAST_DURATION = {
+  info: 3000,
+  success: 3000,
+  warning: 5000,
+  error: 7000,
+} as const
+
+const MAX_TOASTS = 3
+const TOAST_GAP = 5
+const TOAST_BASE_TOP = 2
+
 export function Toast() {
   const toast = useToast()
   const { theme } = useTheme()
   const dimensions = useTerminalDimensions()
 
   return (
-    <Show when={toast.currentToast}>
-      {(current) => {
-        const tone = variantTone(current().variant, theme)
-        const icon = variantIcon(current().variant)
-        const messageColor = current().title ? theme.textMuted : theme.text
-        return (
-          <box
-            position="absolute"
-            justifyContent="center"
-            alignItems="flex-start"
-            top={2}
-            right={2}
-            maxWidth={Math.min(60, dimensions().width - 6)}
-            paddingLeft={2}
-            paddingRight={2}
-            paddingTop={1}
-            paddingBottom={1}
-            backgroundColor={theme.backgroundPanel}
-            borderColor={theme.borderSubtle}
-            border={[...GlassBorderLight.border]}
-            customBorderChars={GlassBorderLight.customBorderChars}
-          >
-            <box flexDirection="row" gap={1} width="100%" alignItems="center">
-              <box width={3} flexShrink={0} alignItems="center" justifyContent="center">
-                <text attributes={TextAttributes.BOLD} fg={tone}>
-                  {icon}
+    <For each={toast.toasts}>
+      {(item, index) => (
+        <box
+          position="absolute"
+          justifyContent="center"
+          alignItems="flex-start"
+          top={TOAST_BASE_TOP + index() * (item.height + TOAST_GAP)}
+          right={2}
+          maxWidth={Math.min(60, dimensions().width - 6)}
+          paddingLeft={2}
+          paddingRight={2}
+          paddingTop={1}
+          paddingBottom={1}
+          backgroundColor={theme.backgroundPanel}
+          borderColor={theme.borderSubtle}
+          border={[...GlassBorder.border]}
+          customBorderChars={GlassBorder.customBorderChars}
+        >
+          <box flexDirection="row" gap={1} width="100%" alignItems="center">
+            <box width={3} flexShrink={0} alignItems="center" justifyContent="center">
+              <text attributes={TextAttributes.BOLD} fg={variantTone(item.variant, theme)}>
+                {variantIcon(item.variant)}
+              </text>
+            </box>
+            <box flexDirection="column" gap={0} flexGrow={1} minWidth={0}>
+              <Show when={item.title}>
+                <text attributes={TextAttributes.BOLD} fg={theme.text}>
+                  {item.title}
                 </text>
-              </box>
-              <box flexDirection="column" gap={0} flexGrow={1} minWidth={0}>
-                <Show when={current().title}>
-                  <text attributes={TextAttributes.BOLD} fg={theme.text}>
-                    {current().title}
-                  </text>
-                </Show>
-                <text fg={messageColor} wrapMode="word" width="100%">
-                  {current().message}
-                </text>
-              </box>
+              </Show>
+              <text fg={item.title ? theme.textMuted : theme.text} wrapMode="word" width="100%">
+                {item.message}
+              </text>
             </box>
           </box>
-        )
-      }}
-    </Show>
+        </box>
+      )}
+    </For>
   )
 }
 
@@ -87,34 +94,41 @@ function variantIcon(variant: ToastOptions["variant"]) {
 
 function init() {
   const [store, setStore] = createStore({
-    currentToast: null as ToastCurrent | null,
+    toasts: [] as Array<ToastCurrent & { id: number; height: number }>,
   })
 
-  let timeoutHandle: NodeJS.Timeout | null = null
+  let nextId = 0
 
   const toast = {
     show(options: ToastInput) {
       const parsedOptions = TuiEvent.ToastShow.properties.parse(options)
       const { duration, ...currentToast } = parsedOptions
-      setStore("currentToast", currentToast)
-      if (timeoutHandle) clearTimeout(timeoutHandle)
-      timeoutHandle = setTimeout(() => {
-        setStore("currentToast", null)
+
+      const id = nextId++
+      const height = currentToast.title ? 7 : 5
+
+      setStore("toasts", (prev) => {
+        const updated = [...prev, { ...currentToast, id, height }]
+        // Keep max MAX_TOASTS
+        return updated.slice(-MAX_TOASTS)
+      })
+
+      // Auto-remove after duration
+      setTimeout(() => {
+        setStore("toasts", (prev) => prev.filter((t) => t.id !== id))
       }, duration).unref()
     },
-    error: (err: any) => {
-      if (err instanceof Error)
-        return toast.show({
-          variant: "error",
-          message: err.message,
-        })
+    error(err: unknown) {
+      const message =
+        err instanceof Error ? err.message : typeof err === "string" ? err : "Something went wrong. Please try again."
       toast.show({
         variant: "error",
-        message: "An unknown error has occurred",
+        message,
+        duration: TOAST_DURATION.error,
       })
     },
-    get currentToast(): ToastCurrent | null {
-      return store.currentToast
+    get toasts() {
+      return store.toasts
     },
   }
   return toast

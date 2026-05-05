@@ -38,23 +38,9 @@ export const GlassBorder = {
   },
 }
 
-// Glass border with lighter/blurred effect characters
-export const GlassBorderLight = {
-  border: ["top", "bottom", "left", "right"] as const,
-  customBorderChars: {
-    topLeft: "╭",
-    topRight: "╮",
-    bottomLeft: "╰",
-    bottomRight: "╯",
-    vertical: "│",
-    horizontal: "─",
-    topT: "┬",
-    bottomT: "┴",
-    leftT: "├",
-    rightT: "┤",
-    cross: "┼",
-  },
-}
+// Re-export GlassBorder as GlassBorderLight for backward compatibility
+// The distinction was cosmetic; both styles are identical.
+export const GlassBorderLight = GlassBorder
 
 // Minimal glass border - only corners, no sides
 /** Single-line characters shared by dialog dividers and separators */

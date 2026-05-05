@@ -9,8 +9,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { type DialogContext } from "@tui/ui/dialog"
 import { Keybind } from "@/util/keybind"
 import { useTheme } from "@tui/context/theme"
-
-type BackgroundDismissedMap = Record<string, string[]>
+import { dismissBackground, getBackgroundDismissed } from "../../util/background"
 
 function statusLabel(status: string) {
   switch (status) {
@@ -40,15 +39,10 @@ export function DialogSubagent(props: { sessionID: string }) {
   const dialog = useDialog()
   const { theme } = useTheme()
 
-  const dismissed = createMemo(() => {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    return new Set(map[props.sessionID] ?? [])
-  })
+  const dismissed = createMemo(() => getBackgroundDismissed(kv, props.sessionID))
 
   function dismissJob(delegationID: string) {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const next = Array.from(new Set([...(map[props.sessionID] ?? []), delegationID]))
-    kv.set("background_subtasks_dismissed", { ...map, [props.sessionID]: next })
+    dismissBackground(kv, props.sessionID, delegationID)
   }
 
   const options = createMemo(() => {

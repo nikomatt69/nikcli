@@ -2,9 +2,6 @@ import { createMemo, For } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
 import type { Config } from "@nikcli-ai/sdk/v2/client"
 
-const themeCount = Object.keys(DEFAULT_THEMES).length
-const themeTip = `Use {highlight}/theme{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${themeCount} built-in themes`
-
 type TipPart = { text: string; highlight: boolean }
 type TipEntry = { type: "tip"; text: string }
 type AdEntry = { type: "ad"; text: string }
@@ -43,6 +40,10 @@ export function Tips(props: { ads?: AdsConfig }) {
   const entry = createMemo(() => selectEntry(props.ads))
   const parts = createMemo(() => parse(entry().text))
   const label = createMemo(() => (entry().type === "ad" ? "Sponsored" : "Tip"))
+  const themeTip = createMemo(
+    () =>
+      `Use {highlight}/themes{/highlight} or {highlight}Ctrl+X T{/highlight} to switch between ${Object.keys(DEFAULT_THEMES).length} built-in themes`,
+  )
 
   return (
     <box flexDirection="row" maxWidth="100%">
@@ -102,7 +103,6 @@ const TIPS = [
   "Press {highlight}Ctrl+X E{/highlight} or {highlight}/editor{/highlight} to compose messages in your external editor",
   "Run {highlight}/init{/highlight} to auto-generate project rules based on your codebase",
   "Run {highlight}/models{/highlight} or {highlight}Ctrl+X M{/highlight} to see and switch between available AI models",
-  themeTip,
   "Press {highlight}Ctrl+X N{/highlight} or {highlight}/new{/highlight} to start a fresh conversation session",
   "Use {highlight}/sessions{/highlight} or {highlight}Ctrl+X L{/highlight} to list and continue previous conversations",
   "Run {highlight}/compact{/highlight} to summarize long sessions near context limits",

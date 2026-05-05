@@ -28,8 +28,21 @@ export function BgPulse(props: { centerX?: number; centerY?: number; masks?: BgP
   const [size, setSize] = createSignal<{ width: number; height: number }>({ width: 0, height: 0 })
   let box: BoxRenderable | undefined
 
-  const timer = setInterval(() => setNow(performance.now()), 50)
-  onCleanup(() => clearInterval(timer))
+  // Adaptive frame-rate: start at ~20fps, back off to ~10fps when frames cost more than the budget.
+  let interval = 50
+  let timer: ReturnType<typeof setTimeout>
+  let lastFrameStart = performance.now()
+  const tick = () => {
+    const start = performance.now()
+    const cost = start - lastFrameStart - interval
+    if (cost > 30 && interval < 100) interval = 100
+    else if (cost < 5 && interval > 50) interval = 50
+    lastFrameStart = start
+    setNow(start)
+    timer = setTimeout(tick, interval)
+  }
+  timer = setTimeout(tick, interval)
+  onCleanup(() => clearTimeout(timer))
 
   const sync = () => {
     if (!box) return

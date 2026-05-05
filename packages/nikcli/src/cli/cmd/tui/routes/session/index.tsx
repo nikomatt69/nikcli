@@ -94,17 +94,17 @@ import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
 import { ImagePreviewList } from "@tui/component/image-preview"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
+import {
+  dismissBackground as dismissBackgroundUtil,
+  getBackgroundDismissed,
+  undismissBackground as undismissBackgroundUtil,
+} from "../../util/background"
+import { friendlyErrorMessage } from "../../util/error-message"
 
 addDefaultParsers(parsers.parsers)
 
 function shareErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) return error.message
-  if (error && typeof error === "object") {
-    const value = error as any
-    const message = value?.error?.message ?? value?.data?.message ?? value?.message
-    if (typeof message === "string" && message.trim()) return message.trim()
-  }
-  return "Failed to share session"
+  return friendlyErrorMessage(error, "Failed to share session")
 }
 
 class CustomSpeedScroll implements ScrollAcceleration {
@@ -280,22 +280,11 @@ export function Session() {
   const keybind = useKeybind()
   const status = createMemo(() => sync.data.session_status?.[route.sessionID] ?? { type: "idle" as const })
 
-  type BackgroundDismissedMap = Record<string, string[]>
-  function getDismissed(parentID: string) {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    return new Set(map[parentID] ?? [])
-  }
-  function undismissBackground(parentID: string, delegationID: string) {
-    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = (dismissedMap[parentID] ?? []).filter((id) => id !== delegationID)
-    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
-  }
-
-  function dismissBackground(parentID: string, delegationID: string) {
-    const dismissedMap = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    const dismissed = Array.from(new Set([...(dismissedMap[parentID] ?? []), delegationID]))
-    kv.set("background_subtasks_dismissed", { ...dismissedMap, [parentID]: dismissed })
-  }
+  const getDismissed = (parentID: string) => getBackgroundDismissed(kv, parentID)
+  const dismissBackground = (parentID: string, delegationID: string) =>
+    dismissBackgroundUtil(kv, parentID, delegationID)
+  const undismissBackground = (parentID: string, delegationID: string) =>
+    undismissBackgroundUtil(kv, parentID, delegationID)
 
   // Allow exit when in child session (prompt is hidden)
   const exit = useExit()
@@ -2451,7 +2440,7 @@ function DialogMonitorLog(props: {
       toast.show({ message: `Stopped ${props.title}`, variant: "info" })
       await refresh()
     } catch (error) {
-      toast.show({ message: error instanceof Error ? error.message : "Failed to stop monitor", variant: "error" })
+      toast.show({ message: friendlyErrorMessage(error, "Failed to stop monitor"), variant: "error" })
     }
   }
 

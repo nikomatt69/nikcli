@@ -1,6 +1,6 @@
 import { InputRenderable, RGBA, ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useTheme, selectedForeground } from "@tui/context/theme"
-import { entries, filter, flatMap, groupBy, pipe, take } from "remeda"
+import { entries, filter, flatMap, groupBy, pipe } from "remeda"
 import { batch, createEffect, createMemo, For, onCleanup, Show, type JSX, on } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
@@ -77,11 +77,17 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
       return props.options.filter((x) => x.disabled !== true)
     }
     const needle = store.filter.toLowerCase()
-    const result = pipe(
-      props.options,
-      filter((x) => x.disabled !== true),
-      (x) => (!needle ? x : fuzzysort.go(needle, x, { keys: ["title", "category"] }).map((x) => x.obj)),
-    )
+    // Preprocess options for case-insensitive fuzzysort
+    const normalizedOptions = props.options
+      .filter((x) => x.disabled !== true)
+      .map((opt) => ({
+        ...opt,
+        _normalizedTitle: opt.title.toLowerCase(),
+        _normalizedCategory: (opt.category ?? "").toLowerCase(),
+      }))
+    const result = !needle
+      ? normalizedOptions
+      : fuzzysort.go(needle, normalizedOptions, { keys: ["_normalizedTitle", "_normalizedCategory"] }).map((x) => x.obj)
     return result
   })
 
@@ -126,6 +132,8 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
   )
 
   const selected = createMemo(() => flat()[store.selected])
+  // Memoized reference to selected value for cheap reference equality checks
+  const selectedValue = createMemo(() => selected()?.value)
 
   const optionIDs = createMemo(() =>
     flat().map((option, index) => {
@@ -309,7 +317,7 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
         when={grouped().length > 0}
         fallback={
           <box paddingLeft={4} paddingRight={4} paddingTop={1}>
-            <text fg={theme.textMuted}>No results found</text>
+            <text fg={theme.textMuted}>No results matching "{store.filter}"</text>
           </box>
         }
       >
@@ -321,10 +329,10 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           maxHeight={height()}
         >
           <For each={grouped()}>
-            {([category, options], index) => (
+            {([category, options], groupIndex) => (
               <>
                 <Show when={category}>
-                  <box paddingTop={index() > 0 ? 1 : 0} paddingLeft={3}>
+                  <box paddingTop={groupIndex() > 0 ? 1 : 0} paddingLeft={3}>
                     <text fg={theme.accent} attributes={TextAttributes.BOLD}>
                       {category}
                     </text>
@@ -332,29 +340,35 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
                 </Show>
                 <For each={options}>
                   {(option) => {
-                    const active = createMemo(() => isDeepEqual(option.value, selected()?.value))
-                    const current = createMemo(() => isDeepEqual(option.value, props.current))
+                    const active = createMemo(() => {
+                      const sel = selectedValue()
+                      if (sel === option.value) return true
+                      return isDeepEqual(sel, option.value)
+                    })
+                    const current = createMemo(() => {
+                      const cur = props.current
+                      if (cur === option.value) return true
+                      return isDeepEqual(cur, option.value)
+                    })
                     return (
                       <box
                         id={optionID(optionIndex(option))}
                         flexDirection="row"
-                        onMouseMove={() => {
-                          setStore("input", "mouse")
-                        }}
+                        onMouseMove={() => setStore("input", "mouse")}
                         onMouseUp={() => {
                           option.onSelect?.(dialog)
                           props.onSelect?.(option)
                         }}
                         onMouseOver={() => {
                           if (store.input !== "mouse") return
-                          const index = optionIndex(option)
-                          if (index === -1) return
-                          moveTo(index)
+                          const idx = optionIndex(option)
+                          if (idx === -1) return
+                          moveTo(idx)
                         }}
                         onMouseDown={() => {
-                          const index = optionIndex(option)
-                          if (index === -1) return
-                          moveTo(index)
+                          const idx = optionIndex(option)
+                          if (idx === -1) return
+                          moveTo(idx)
                         }}
                         backgroundColor={active() ? (option.bg ?? theme.primary) : RGBA.fromInts(0, 0, 0, 0)}
                         paddingLeft={current() || option.gutter ? 1 : 3}
@@ -378,10 +392,21 @@ export function DialogSelect<T>(props: DialogSelectProps<T>) {
           </For>
         </scrollbox>
       </Show>
-      <Show when={keybinds().length} fallback={<box flexShrink={0} />}>
+      <Show
+        when={keybinds().length}
+        fallback={
+          <box paddingRight={2} paddingLeft={4} flexDirection="row" gap={1} flexShrink={0} paddingTop={1}>
+            <text fg={theme.textMuted}>↑↓ navigate</text>
+            <text fg={theme.borderSubtle}>·</text>
+            <text fg={theme.textMuted}>↵ select</text>
+            <text fg={theme.borderSubtle}>·</text>
+            <text fg={theme.textMuted}>esc close</text>
+          </box>
+        }
+      >
         <box paddingRight={2} paddingLeft={4} flexDirection="row" gap={2} flexShrink={0} paddingTop={1}>
           <For each={keybinds()}>
-            {(item, index) => (
+            {(item) => (
               <box
                 onMouseUp={() => {
                   const option = flat().at(store.selected)

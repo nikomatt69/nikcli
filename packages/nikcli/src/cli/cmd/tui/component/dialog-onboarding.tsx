@@ -463,8 +463,17 @@ function OnboardingWizard(props: { onComplete: () => void }) {
   onMount(() => dialog.setSize("large"))
 
   // Enter advances info steps (account step manages its own keyboard via textarea)
+  // Escape or Backspace goes back (except on step 0)
   useKeyboard((evt) => {
     if (step() === 1) return // textarea captures Enter
+
+    // Back navigation
+    if ((evt.name === "escape" || evt.name === "backspace") && step() > 0) {
+      evt.preventDefault()
+      setStep((s) => s - 1)
+      return
+    }
+
     if (evt.name !== "return") return
     evt.preventDefault()
     evt.stopPropagation()
@@ -513,7 +522,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Top separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(72)}</text>
+        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
       </box>
 
       {/* Content */}
@@ -555,7 +564,7 @@ function OnboardingWizard(props: { onComplete: () => void }) {
 
       {/* Bottom separator */}
       <box paddingLeft={2} paddingRight={2}>
-        <text fg={theme.borderSubtle}>{"─".repeat(72)}</text>
+        <text fg={theme.borderSubtle}>{"─".repeat(Math.min(72, dimensions().width - 4))}</text>
       </box>
 
       {/* Footer */}

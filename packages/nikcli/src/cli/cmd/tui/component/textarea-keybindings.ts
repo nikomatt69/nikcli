@@ -63,11 +63,11 @@ export function useTextareaKeybindings() {
 
   return createMemo(() => {
     const keybinds = keybind.all
-
-    return [
-      // Submit via `input_submit` from merged config only — hardcoding `return`/submit duplicated it.
-      { name: "return", meta: true, action: "newline" },
-      ...TEXTAREA_ACTIONS.flatMap((action) => mapTextareaKeybindings(keybinds, action)),
-    ] satisfies KeyBinding[]
+    const mapped = TEXTAREA_ACTIONS.flatMap((action) => mapTextareaKeybindings(keybinds, action))
+    const fallbacks: KeyBinding[] = []
+    if (!keybinds["input_newline"]?.length) {
+      fallbacks.push({ name: "return", meta: true, action: "newline" })
+    }
+    return [...fallbacks, ...mapped] satisfies KeyBinding[]
   })
 }

@@ -41,6 +41,11 @@ function args(kind: Kind, file: string, volume: number) {
   return [kind, "-c", `(New-Object Media.SoundPlayer '${file.replace(/'/g, "''")}').PlaySync()`]
 }
 
+process.on("SIGUSR2", () => {
+  // Invalidate cached player on reload so we re-detect available players
+  item = undefined
+  kind = undefined
+})
 let item: Player | null | undefined
 let kind: Kind | null | undefined
 let proc: ReturnType<typeof Bun.spawn> | undefined

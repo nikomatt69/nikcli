@@ -30,7 +30,7 @@ export function ErrorComponent(props: {
   })
   const [copied, setCopied] = createSignal(false)
 
-  const issueURL = new URL("https://github.com/anomalyco/opencode/issues/new?template=bug-report.yml")
+  const issueURL = new URL("https://github.com/nikcli/nikcli/issues/new?template=bug-report.yml")
 
   const isLight = props.mode === "light"
   const colors = {
@@ -41,7 +41,7 @@ export function ErrorComponent(props: {
   }
 
   if (props.error.message) {
-    issueURL.searchParams.set("title", `opentui: fatal: ${props.error.message}`)
+    issueURL.searchParams.set("title", `nikcli: fatal: ${props.error.message}`)
   }
 
   if (props.error.stack) {
@@ -51,7 +51,7 @@ export function ErrorComponent(props: {
     )
   }
 
-  issueURL.searchParams.set("opencode-version", Installation.VERSION)
+  issueURL.searchParams.set("nikcli-version", Installation.VERSION)
 
   const copyIssueURL = () => {
     Clipboard.copy(issueURL.toString()).then(() => {

@@ -54,6 +54,8 @@ import os from "os"
 import path from "path"
 import { Auth } from "@/auth"
 import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
+import { getBackgroundDismissed } from "../../util/background"
+import { friendlyErrorMessage } from "../../util/error-message"
 
 export type PromptProps = {
   sessionID?: string
@@ -76,7 +78,7 @@ export type PromptRef = {
   submit(): void
 }
 
-const PLACEHOLDERS = ["Fix a TODO in the codebase", "What is the tech stack of this project?", "Fix broken tests"]
+const PLACEHOLDERS = ["Find a TODO comment and fix it", "What is the tech stack of this project?", "Fix broken tests"]
 const SHELL_PLACEHOLDERS = ["ls -la", "git status", "pwd"]
 const money = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -702,7 +704,7 @@ export function Prompt(props: PromptProps) {
 
       toast.show({ variant: "success", message: "Voice transcript inserted and copied", duration: 2000 })
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Voice transcription failed"
+      const message = friendlyErrorMessage(error, "Voice transcription failed")
       toast.show({ variant: "error", message, duration: 4000 })
     } finally {
       cleanupVoiceAudio(filePath)
@@ -749,16 +751,9 @@ export function Prompt(props: PromptProps) {
     voiceAudioPath = null
   })
 
-  type BackgroundDismissedMap = Record<string, string[]>
-
-  function getDismissed(parentID: string) {
-    const map = (kv.get("background_subtasks_dismissed", {}) ?? {}) as BackgroundDismissedMap
-    return new Set(map[parentID] ?? [])
-  }
-
   const backgroundJobs = createMemo(() => {
     if (!props.sessionID) return [] as ReturnType<typeof sync.background.list>
-    const dismissed = getDismissed(props.sessionID)
+    const dismissed = getBackgroundDismissed(kv, props.sessionID)
     return sync.background.list(props.sessionID).filter((job) => !dismissed.has(job.rootDelegationID))
   })
 
@@ -1359,7 +1354,7 @@ export function Prompt(props: PromptProps) {
     if (props.disabled) return
     if (autocomplete?.visible) return
     if (!store.prompt.input) return
-    const trimmed = store.prompt.input.trim()
+    const trimmed = store.prompt.input.trim().toLowerCase()
     if (trimmed === "exit" || trimmed === "quit" || trimmed === ":q") {
       exit()
       return
@@ -1883,6 +1878,12 @@ export function Prompt(props: PromptProps) {
                 const pastedContent = normalizedText.trim()
                 if (!pastedContent) {
                   command.trigger("prompt.paste")
+                  return
+                }
+
+                // Skip whitespace-only pastes
+                if (!pastedContent.trim()) {
+                  event.preventDefault()
                   return
                 }
 

@@ -7,6 +7,7 @@
   "private": false,
   "scripts": {
     "typecheck": "tsgo --noEmit",
+    "lint": "npx oxlint",
     "test": "bun test",
     "test:unit": "bun test --path-ignore-patterns='**/*.benchmark.test.ts'",
     "test:bench": "bun test '**/*.benchmark.test.ts'",
@@ -19,7 +20,6 @@
     "dev": "bun run --conditions=browser ./src/index.ts",
     "random": "echo 'Random script updated at $(date)' && echo 'Change queued successfully' && echo 'Another change made' && echo 'Yet another change' && echo 'One more change' && echo 'Final change' && echo 'Another final change' && echo 'Yet another final change'",
     "clean": "echo 'Cleaning up...' && rm -rf node_modules dist",
-    "lint": "echo 'Running lint checks...' && bun test --coverage",
     "format": "echo 'Formatting code...' && bun run --prettier --write src/**/*.ts",
     "docs": "echo 'Generating documentation...' && find src -name '*.ts' -exec echo 'Processing: {}' \\;",
     "deploy": "echo 'Deploying application...' && bun run build && echo 'Deployment completed successfully'",

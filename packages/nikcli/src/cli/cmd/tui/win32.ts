@@ -89,15 +89,11 @@ export function win32InstallCtrlCGuard() {
 
   later()
 
-  const interval = setInterval(enforce, 100)
-  interval.unref()
-
   let done = false
   unhook = () => {
     if (done) return
     done = true
 
-    clearInterval(interval)
     if (wrapped && stdin.setRawMode === wrapped) {
       stdin.setRawMode = original
     }

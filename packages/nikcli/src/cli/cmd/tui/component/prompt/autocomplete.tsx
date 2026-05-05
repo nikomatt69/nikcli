@@ -63,6 +63,8 @@ export type AutocompleteOption = {
   isDirectory?: boolean
   onSelect?: () => void
   path?: string
+  /** Optional type for sorting purposes */
+  type?: "agent" | "file" | "command" | "mcp"
 }
 
 export function Autocomplete(props: {
@@ -428,27 +430,54 @@ export function Autocomplete(props: {
     const agentsValue = agents()
     const commandsValue = commands()
 
-    const mixed: AutocompleteOption[] =
-      store.visible === "@" ? [...agentsValue, ...(filesValue || []), ...mcpResources()] : [...commandsValue]
-
+    let mixed: AutocompleteOption[]
     const currentFilter = filter()
 
+    if (store.visible === "@") {
+      const all = [...agentsValue, ...(filesValue || []), ...mcpResources()]
+      if (!currentFilter) {
+        // Sort: agents alphabetically, files by frecency
+        const agents = all.filter((x) => x.type === "agent").sort((a, b) => a.display.localeCompare(b.display))
+        const files = all
+          .filter((x) => x.type === "file")
+          .sort((a, b) => {
+            const fa = frecency.getFrecency(a.path ?? "")
+            const fb = frecency.getFrecency(b.path ?? "")
+            return fb - fa
+          })
+        const others = all.filter((x) => x.type !== "agent" && x.type !== "file")
+        mixed = [...agents, ...files, ...others]
+      } else {
+        mixed = all
+      }
+    } else {
+      mixed = [...commandsValue]
+      if (!currentFilter) {
+        // Sort commands alphabetically when no filter
+        mixed.sort((a, b) => a.display.localeCompare(b.display))
+      }
+    }
+
     if (!currentFilter) {
-      return mixed
+      return mixed.slice(0, 15) // Limit initial options
     }
 
     if (files.loading && prev && prev.length > 0) {
       return prev
     }
 
-    const result = fuzzysort.go(removeLineRange(currentFilter), mixed, {
+    const searchTerm = removeLineRange(currentFilter)
+    const result = fuzzysort.go(searchTerm, mixed, {
       keys: [
         (obj) => removeLineRange((obj.value ?? obj.display).trimEnd()),
-        "description",
-        (obj) => obj.aliases?.join(" ") ?? "",
+        (obj) => removeLineRange(obj.description ?? ""),
+        (obj) => (obj.aliases ?? []).map((a) => removeLineRange(a)).join(" "),
       ],
       limit: 10,
+      threshold: -1000, // Require minimum match quality
       scoreFn: (objResults) => {
+        // Filter out very loose matches
+        if (objResults.score < -10000) return -Infinity
         const displayResult = objResults[0]
         let score = objResults.score
         if (displayResult && displayResult.target.startsWith(store.visible + currentFilter)) {

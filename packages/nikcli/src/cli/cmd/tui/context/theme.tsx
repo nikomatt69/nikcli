@@ -534,7 +534,7 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     const subtleSyntax = createMemo(() => generateSubtleSyntax(values()))
 
     return {
-      theme: new Proxy(values(), {
+      theme: new Proxy({} as Theme, {
         get(_target, prop) {
           // @ts-expect-error
           return values()[prop]
