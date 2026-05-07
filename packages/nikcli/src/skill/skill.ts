@@ -12,24 +12,26 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import fs from "fs/promises"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
   const COMMAND_PREFIX = "skill:"
 
-  export const Info = z.object({
-    name: z.string(),
-    description: z.string(),
-    location: z.string(),
-    category: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-    version: z.string().optional(),
+  const InfoSchema = Schema.Struct({
+    name: Schema.String,
+    description: Schema.String,
+    location: Schema.String,
+    category: Schema.optional(Schema.String),
+    tags: Schema.optional(Schema.Array(Schema.String)),
+    version: Schema.optional(Schema.String),
   })
+  export const Info = zodObject(InfoSchema)
   const Metadata = Info.omit({
     location: true,
   })
-  export type Info = z.infer<typeof Info>
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
   export type Loaded = Info & {
     dir: string
     content: string
@@ -113,17 +115,24 @@ export namespace Skill {
     )
   }
 
-  const CreateInput = z.object({
-    name: z.string().min(1).describe("Skill name (kebab-case recommended)"),
-    description: z.string().min(1).describe("Short description of the skill"),
-    category: z.string().optional().describe("Optional category"),
-    tags: z.array(z.string()).optional().describe("Optional tags"),
-    content: z.string().optional().describe("Optional markdown content body"),
-    scope: z.enum(["workspace", "global"]).optional().default("workspace").describe("Where to create the skill"),
+  const CreateInputSchema = Schema.Struct({
+    name: Schema.String.pipe(Schema.minLength(1)).annotations({
+      description: "Skill name (kebab-case recommended)",
+    }),
+    description: Schema.String.pipe(Schema.minLength(1)).annotations({
+      description: "Short description of the skill",
+    }),
+    category: Schema.optional(Schema.String).annotations({ description: "Optional category" }),
+    tags: Schema.optional(Schema.Array(Schema.String)).annotations({ description: "Optional tags" }),
+    content: Schema.optional(Schema.String).annotations({ description: "Optional markdown content body" }),
+    scope: Schema.optionalWith(Schema.Literal("workspace", "global"), {
+      default: () => "workspace" as const,
+    }).annotations({ description: "Where to create the skill" }),
   })
+  const CreateInput = zodObject(CreateInputSchema)
 
-  export type CreateInput = z.input<typeof CreateInput>
-  export type CreateParsedInput = z.output<typeof CreateInput>
+  export type CreateInput = Schema.Schema.Encoded<typeof CreateInputSchema>
+  export type CreateParsedInput = Schema.Schema.Type<typeof CreateInputSchema>
 
   export const layer = Layer.scoped(
     Service,

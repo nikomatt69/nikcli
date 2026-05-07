@@ -302,7 +302,7 @@ export const AuthLoginCommand = cmd({
             token = await runAuth(
               Effect.gen(function* () {
                 const auth = yield* Auth.Service
-                return yield* auth.fetchWellKnownToken(url, wellknown.data.auth.command)
+                return yield* auth.fetchWellKnownToken(url, [...wellknown.data.auth.command])
               }),
             )
           } catch (error) {

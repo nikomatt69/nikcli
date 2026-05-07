@@ -144,9 +144,7 @@ export namespace ProviderAuth {
               access: result.access,
               refresh: result.refresh,
               expires: result.expires,
-            }
-            if (result.accountId) {
-              info.accountId = result.accountId
+              ...(result.accountId ? { accountId: result.accountId } : {}),
             }
             yield* authService.set(parsed.providerID, info)
           }

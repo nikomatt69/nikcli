@@ -7,7 +7,8 @@ import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Pty {
   const log = Log.create({ service: "pty" })
@@ -20,41 +21,39 @@ export namespace Pty {
     return spawn
   })
 
-  export const Info = z
-    .object({
-      id: Identifier.schema("pty"),
-      title: z.string(),
-      command: z.string(),
-      args: z.array(z.string()),
-      cwd: z.string(),
-      status: z.enum(["running", "exited"]),
-      pid: z.number(),
-    })
-    .meta({ ref: "Pty" })
+  const InfoSchema = Schema.Struct({
+    id: Schema.String.pipe(Schema.startsWith("pty")),
+    title: Schema.String,
+    command: Schema.String,
+    args: Schema.Array(Schema.String),
+    cwd: Schema.String,
+    status: Schema.Literal("running", "exited"),
+    pid: Schema.Number,
+  }).annotations({ identifier: "Pty" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  export type Info = z.infer<typeof Info>
-
-  export const CreateInput = z.object({
-    command: z.string().optional(),
-    args: z.array(z.string()).optional(),
-    cwd: z.string().optional(),
-    title: z.string().optional(),
-    env: z.record(z.string(), z.string()).optional(),
+  const CreateInputSchema = Schema.Struct({
+    command: Schema.optional(Schema.String),
+    args: Schema.optional(Schema.Array(Schema.String)),
+    cwd: Schema.optional(Schema.String),
+    title: Schema.optional(Schema.String),
+    env: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   })
+  export const CreateInput = zodObject(CreateInputSchema)
+  export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
 
-  export type CreateInput = z.infer<typeof CreateInput>
-
-  export const UpdateInput = z.object({
-    title: z.string().optional(),
-    size: z
-      .object({
-        rows: z.number(),
-        cols: z.number(),
-      })
-      .optional(),
+  const UpdateInputSchema = Schema.Struct({
+    title: Schema.optional(Schema.String),
+    size: Schema.optional(
+      Schema.Struct({
+        rows: Schema.Number,
+        cols: Schema.Number,
+      }),
+    ),
   })
-
-  export type UpdateInput = z.infer<typeof UpdateInput>
+  export const UpdateInput = zodObject(UpdateInputSchema)
+  export type UpdateInput = Schema.Schema.Type<typeof UpdateInputSchema>
 
   export const Event = {
     Created: BusEvent.define("pty.created", z.object({ info: Info })),
@@ -179,7 +178,7 @@ export namespace Pty {
         })
         ptyProcess.onExit(({ exitCode }) => {
           log.info("session exited", { id, exitCode })
-          session.info.status = "exited"
+          ;(session.info as { status: "running" | "exited" }).status = "exited"
           for (const ws of session.subscribers) {
             ws.close()
           }
@@ -195,7 +194,7 @@ export namespace Pty {
         const session = (yield* InstanceState.get(state)).get(id)
         if (!session) return undefined
         if (input.title) {
-          session.info.title = input.title
+          ;(session.info as { title: string }).title = input.title
         }
         if (input.size) {
           session.process.resize(input.size.cols, input.size.rows)

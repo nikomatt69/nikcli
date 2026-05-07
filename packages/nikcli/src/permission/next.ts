@@ -6,7 +6,8 @@ import { Identifier } from "@/id/id"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
-import { Context, Effect, Layer } from "effect"
+import { zod, zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import os from "os"
 import z from "zod"
 
@@ -21,26 +22,25 @@ export namespace PermissionNext {
     return pattern
   }
 
-  export const Action = z.enum(["allow", "deny", "ask"]).meta({
-    ref: "PermissionAction",
+  export const ActionSchema = Schema.Literal("allow", "deny", "ask").annotations({
+    identifier: "PermissionAction",
   })
-  export type Action = z.infer<typeof Action>
+  export const Action = zod(ActionSchema)
+  export type Action = Schema.Schema.Type<typeof ActionSchema>
 
-  export const Rule = z
-    .object({
-      permission: z.string(),
-      pattern: z.string(),
-      action: Action,
-    })
-    .meta({
-      ref: "PermissionRule",
-    })
-  export type Rule = z.infer<typeof Rule>
+  export const RuleSchema = Schema.Struct({
+    permission: Schema.String,
+    pattern: Schema.String,
+    action: ActionSchema,
+  }).annotations({ identifier: "PermissionRule" })
+  export const Rule = zodObject(RuleSchema)
+  export type Rule = Schema.Schema.Type<typeof RuleSchema>
 
-  export const Ruleset = Rule.array().meta({
-    ref: "PermissionRuleset",
+  export const RulesetSchema = Schema.mutable(Schema.Array(RuleSchema)).annotations({
+    identifier: "PermissionRuleset",
   })
-  export type Ruleset = z.infer<typeof Ruleset>
+  export const Ruleset = zod(RulesetSchema)
+  export type Ruleset = Schema.Schema.Type<typeof RulesetSchema>
 
   export function fromConfig(permission: Config.Permission) {
     const ruleset: Ruleset = []
@@ -64,34 +64,33 @@ export namespace PermissionNext {
     return rulesets.flat()
   }
 
-  export const Request = z
-    .object({
-      id: Identifier.schema("permission"),
-      sessionID: Identifier.schema("session"),
-      permission: z.string(),
-      patterns: z.string().array(),
-      metadata: z.record(z.string(), z.any()),
-      always: z.string().array(),
-      tool: z
-        .object({
-          messageID: z.string(),
-          callID: z.string(),
-        })
-        .optional(),
-    })
-    .meta({
-      ref: "PermissionRequest",
-    })
+  const RequestSchema = Schema.Struct({
+    id: Schema.String.pipe(Schema.startsWith("per")),
+    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    permission: Schema.String,
+    patterns: Schema.Array(Schema.String),
+    metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    always: Schema.Array(Schema.String),
+    tool: Schema.optional(
+      Schema.Struct({
+        messageID: Schema.String,
+        callID: Schema.String,
+      }),
+    ),
+  }).annotations({ identifier: "PermissionRequest" })
+  export const Request = zodObject(RequestSchema)
+  export type Request = Schema.Schema.Type<typeof RequestSchema>
 
-  export type Request = z.infer<typeof Request>
+  const ReplySchema = Schema.Literal("once", "always", "reject")
+  export const Reply = zod(ReplySchema)
+  export type Reply = Schema.Schema.Type<typeof ReplySchema>
 
-  export const Reply = z.enum(["once", "always", "reject"])
-  export type Reply = z.infer<typeof Reply>
-
-  export const Approval = z.object({
-    projectID: z.string(),
-    patterns: z.string().array(),
-  })
+  export const Approval = zodObject(
+    Schema.Struct({
+      projectID: Schema.String,
+      patterns: Schema.Array(Schema.String),
+    }),
+  )
 
   export const Event = {
     Asked: BusEvent.define("permission.asked", Request),

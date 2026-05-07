@@ -3,34 +3,35 @@ import { BusEvent } from "@/bus/bus-event"
 import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
 import { Log } from "@/util/log"
-import { Context, Effect, Layer } from "effect"
+import { zod, zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 
 export namespace Question {
   const log = Log.create({ service: "question" })
 
-  export const Option = z
-    .object({
-      label: z.string().max(30).describe("Display text (1-5 words, concise)"),
-      description: z.string().describe("Explanation of choice"),
-    })
-    .meta({
-      ref: "QuestionOption",
-    })
-  export type Option = z.infer<typeof Option>
+  const OptionSchema = Schema.Struct({
+    label: Schema.String.pipe(Schema.maxLength(30)).annotations({
+      description: "Display text (1-5 words, concise)",
+    }),
+    description: Schema.String.annotations({ description: "Explanation of choice" }),
+  }).annotations({ identifier: "QuestionOption" })
+  export const Option = zodObject(OptionSchema)
+  export type Option = Schema.Schema.Type<typeof OptionSchema>
 
-  export const Info = z
-    .object({
-      question: z.string().describe("Complete question"),
-      header: z.string().max(30).describe("Very short label (max 30 chars)"),
-      options: z.array(Option).describe("Available choices"),
-      multiple: z.boolean().optional().describe("Allow selecting multiple choices"),
-      custom: z.boolean().optional().describe("Allow typing a custom answer (default: true)"),
-    })
-    .meta({
-      ref: "QuestionInfo",
-    })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    question: Schema.String.annotations({ description: "Complete question" }),
+    header: Schema.String.pipe(Schema.maxLength(30)).annotations({
+      description: "Very short label (max 30 chars)",
+    }),
+    options: Schema.Array(OptionSchema).annotations({ description: "Available choices" }),
+    multiple: Schema.optional(Schema.Boolean).annotations({ description: "Allow selecting multiple choices" }),
+    custom: Schema.optional(Schema.Boolean).annotations({
+      description: "Allow typing a custom answer (default: true)",
+    }),
+  }).annotations({ identifier: "QuestionInfo" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const Request = z
     .object({
@@ -49,10 +50,9 @@ export namespace Question {
     })
   export type Request = z.infer<typeof Request>
 
-  export const Answer = z.array(z.string()).meta({
-    ref: "QuestionAnswer",
-  })
-  export type Answer = z.infer<typeof Answer>
+  const AnswerSchema = Schema.Array(Schema.String).annotations({ identifier: "QuestionAnswer" })
+  export const Answer = zod(AnswerSchema)
+  export type Answer = Schema.Schema.Type<typeof AnswerSchema>
 
   export const Reply = z.object({
     answers: z

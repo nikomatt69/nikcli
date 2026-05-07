@@ -9,7 +9,8 @@ import { Scheduler } from "../scheduler"
 import { Lock } from "@/util/lock"
 import { Log } from "../util/log"
 import { InstanceState, type InstanceContext, runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Snapshot {
   const log = Log.create({ service: "snapshot" })
@@ -351,11 +352,12 @@ export namespace Snapshot {
     })
   }
 
-  export const Patch = z.object({
-    hash: z.string(),
-    files: z.string().array(),
+  const PatchSchema = Schema.Struct({
+    hash: Schema.String,
+    files: Schema.mutable(Schema.Array(Schema.String)),
   })
-  export type Patch = z.infer<typeof Patch>
+  export const Patch = zodObject(PatchSchema)
+  export type Patch = Schema.Schema.Type<typeof PatchSchema>
 
   async function patchImpl(ctx: InstanceContext, hash: string): Promise<Patch> {
     return withLock(ctx, async () => {

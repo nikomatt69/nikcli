@@ -18,8 +18,9 @@ import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
 import PROMPT_DELEGATOR from "./prompt/delegator.txt"
 import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { zodObject } from "@/util/effect-zod"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
   return runPromiseWithLayer(Auth.defaultLayer, effect)
@@ -45,41 +46,37 @@ When you identify a knowledge gap, outdated external dependency question, missin
 `
 
 export namespace Agent {
-  export const Info = z
-    .object({
-      name: z.string(),
-      description: z.string().optional(),
-      mode: z.enum(["subagent", "primary", "all"]),
-      native: z.boolean().optional(),
-      hidden: z.boolean().optional(),
-      topP: z.number().optional(),
-      temperature: z.number().optional(),
-      color: z.string().optional(),
-      permission: PermissionNext.Ruleset,
-      model: z
-        .object({
-          modelID: z.string(),
-          providerID: z.string(),
-        })
-        .optional(),
-      advisor: z
-        .object({
-          model: z.object({
-            modelID: z.string(),
-            providerID: z.string(),
-          }),
-          maxUses: z.number().int().positive().optional(),
-        })
-        .optional(),
-      variant: z.string().optional(),
-      prompt: z.string().optional(),
-      options: z.record(z.string(), z.any()),
-      steps: z.number().int().positive().optional(),
-    })
-    .meta({
-      ref: "Agent",
-    })
-  export type Info = z.infer<typeof Info>
+  const ModelRefSchema = Schema.Struct({
+    modelID: Schema.String,
+    providerID: Schema.String,
+  })
+
+  const InfoSchema = Schema.mutable(
+    Schema.Struct({
+      name: Schema.String,
+      description: Schema.optional(Schema.String),
+      mode: Schema.Literal("subagent", "primary", "all"),
+      native: Schema.optional(Schema.Boolean),
+      hidden: Schema.optional(Schema.Boolean),
+      topP: Schema.optional(Schema.Number),
+      temperature: Schema.optional(Schema.Number),
+      color: Schema.optional(Schema.String),
+      permission: Schema.mutable(Schema.Array(PermissionNext.RuleSchema)),
+      model: Schema.optional(ModelRefSchema),
+      advisor: Schema.optional(
+        Schema.Struct({
+          model: ModelRefSchema,
+          maxUses: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+        }),
+      ),
+      variant: Schema.optional(Schema.String),
+      prompt: Schema.optional(Schema.String),
+      options: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+      steps: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+    }),
+  ).annotations({ identifier: "Agent" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],

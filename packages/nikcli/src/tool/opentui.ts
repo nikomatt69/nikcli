@@ -1,114 +1,124 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 
-const BarChartComponent = z.object({
-  type: z.literal("bar_chart"),
-  title: z.string().optional().describe("Optional heading for this chart"),
-  items: z
-    .array(
-      z.object({
-        label: z.string().describe("Bar label, shown to the left"),
-        value: z.number().describe("Numeric value for this bar"),
-        unit: z.string().optional().describe("Optional unit suffix, e.g. '%', 'ms'"),
-      }),
-    )
-    .min(1)
-    .describe("Data rows. Values are normalised to the maximum automatically."),
-  maxValue: z
-    .number()
-    .optional()
-    .describe("Override the 100% ceiling. Defaults to the largest value in items."),
-  barWidth: z
-    .number()
-    .int()
-    .min(10)
-    .max(60)
-    .optional()
-    .describe("Character width of the bar area. Defaults to 40."),
+const BarChartComponent = Schema.Struct({
+  type: Schema.Literal("bar_chart"),
+  title: Schema.optional(Schema.String).annotations({ description: "Optional heading for this chart" }),
+  items: Schema.Array(
+    Schema.Struct({
+      label: Schema.String.annotations({ description: "Bar label, shown to the left" }),
+      value: Schema.Number.annotations({ description: "Numeric value for this bar" }),
+      unit: Schema.optional(Schema.String).annotations({ description: "Optional unit suffix, e.g. '%', 'ms'" }),
+    }),
+  )
+    .pipe(Schema.minItems(1))
+    .annotations({ description: "Data rows. Values are normalised to the maximum automatically." }),
+  maxValue: Schema.optional(Schema.Number).annotations({
+    description: "Override the 100% ceiling. Defaults to the largest value in items.",
+  }),
+  barWidth: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(10), Schema.lessThanOrEqualTo(60)),
+  ).annotations({ description: "Character width of the bar area. Defaults to 40." }),
 })
 
-const TableComponent = z.object({
-  type: z.literal("table"),
-  title: z.string().optional(),
-  headers: z.array(z.string()).min(1).describe("Column header labels"),
-  rows: z
-    .array(z.array(z.string()))
-    .describe("2D array of cell values. Each inner array must match headers length."),
+const TableComponent = Schema.Struct({
+  type: Schema.Literal("table"),
+  title: Schema.optional(Schema.String),
+  headers: Schema.Array(Schema.String)
+    .pipe(Schema.minItems(1))
+    .annotations({ description: "Column header labels" }),
+  rows: Schema.Array(Schema.Array(Schema.String)).annotations({
+    description: "2D array of cell values. Each inner array must match headers length.",
+  }),
 })
 
-const KeyValueComponent = z.object({
-  type: z.literal("key_value"),
-  title: z.string().optional(),
-  items: z.array(
-    z.object({
-      key: z.string(),
-      value: z.string(),
-      status: z
-        .enum(["default", "success", "warning", "error", "info"])
-        .optional()
-        .describe(
+const KeyValueComponent = Schema.Struct({
+  type: Schema.Literal("key_value"),
+  title: Schema.optional(Schema.String),
+  items: Schema.Array(
+    Schema.Struct({
+      key: Schema.String,
+      value: Schema.String,
+      status: Schema.optional(Schema.Literal("default", "success", "warning", "error", "info")).annotations({
+        description:
           "Colour-codes the value: success=green, warning=yellow, error=red, info=blue, default=text",
-        ),
+      }),
     }),
   ),
 })
 
-const ProgressBarsComponent = z.object({
-  type: z.literal("progress_bars"),
-  title: z.string().optional(),
-  items: z.array(
-    z.object({
-      label: z.string(),
-      value: z.number().min(0).describe("Current value"),
-      max: z.number().positive().describe("Maximum value (100% mark)"),
-      unit: z.string().optional(),
+const ProgressBarsComponent = Schema.Struct({
+  type: Schema.Literal("progress_bars"),
+  title: Schema.optional(Schema.String),
+  items: Schema.Array(
+    Schema.Struct({
+      label: Schema.String,
+      value: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)).annotations({ description: "Current value" }),
+      max: Schema.Number.pipe(Schema.greaterThan(0)).annotations({ description: "Maximum value (100% mark)" }),
+      unit: Schema.optional(Schema.String),
     }),
   ),
-  barWidth: z.number().int().min(10).max(60).optional(),
+  barWidth: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(10), Schema.lessThanOrEqualTo(60)),
+  ),
 })
 
-const TextComponent = z.object({
-  type: z.literal("text"),
-  title: z.string().optional(),
-  content: z.string().describe("Plain or markdown-lite text content"),
-  style: z
-    .enum(["default", "info", "success", "warning", "error", "code", "muted"])
-    .optional()
-    .describe(
+const TextComponent = Schema.Struct({
+  type: Schema.Literal("text"),
+  title: Schema.optional(Schema.String),
+  content: Schema.String.annotations({ description: "Plain or markdown-lite text content" }),
+  style: Schema.optional(
+    Schema.Literal("default", "info", "success", "warning", "error", "code", "muted"),
+  ).annotations({
+    description:
       "Semantic colour: info=blue, success=green, warning=yellow, error=red, code=monospace block, muted=subdued",
-    ),
+  }),
 })
 
-const TimelineComponent = z.object({
-  type: z.literal("timeline"),
-  title: z.string().optional(),
-  events: z.array(
-    z.object({
-      time: z.string().optional().describe("Human-readable timestamp or duration label"),
-      label: z.string().describe("Event description"),
-      status: z
-        .enum(["done", "active", "pending", "error"])
-        .describe("done=✓, active=●, pending=○, error=✗"),
-      detail: z.string().optional().describe("Optional secondary text rendered below the label"),
+const TimelineComponent = Schema.Struct({
+  type: Schema.Literal("timeline"),
+  title: Schema.optional(Schema.String),
+  events: Schema.Array(
+    Schema.Struct({
+      time: Schema.optional(Schema.String).annotations({ description: "Human-readable timestamp or duration label" }),
+      label: Schema.String.annotations({ description: "Event description" }),
+      status: Schema.Literal("done", "active", "pending", "error").annotations({
+        description: "done=✓, active=●, pending=○, error=✗",
+      }),
+      detail: Schema.optional(Schema.String).annotations({
+        description: "Optional secondary text rendered below the label",
+      }),
     }),
   ),
 })
 
-const VisualizationComponent = z.discriminatedUnion("type", [
+const VisualizationComponent = Schema.Union(
   BarChartComponent,
   TableComponent,
   KeyValueComponent,
   ProgressBarsComponent,
   TextComponent,
   TimelineComponent,
-])
+)
 
 export type OpenTUIVizSpecType = {
   title: string
-  components: z.infer<typeof VisualizationComponent>[]
+  components: Schema.Schema.Type<typeof VisualizationComponent>[]
 }
 
-export type VizComponent = z.infer<typeof VisualizationComponent>
+export type VizComponent = Schema.Schema.Type<typeof VisualizationComponent>
+
+const Parameters = Schema.Struct({
+  title: Schema.String.annotations({ description: "Overall title shown in the dialog header" }),
+  components: Schema.Array(VisualizationComponent)
+    .pipe(Schema.minItems(1), Schema.maxItems(8))
+    .annotations({
+      description:
+        "One or more visualization blocks. Use multiple components to build dashboards. " +
+        "Tab-navigation is shown automatically when there are 2+ components.",
+    }),
+})
 
 const DESCRIPTION = `
 Render a rich terminal visualization in the TUI dialog panel.
@@ -138,17 +148,7 @@ Tips:
 
 export const OpenTUIVizTool = Tool.define("opentui", {
   description: DESCRIPTION,
-  parameters: z.object({
-    title: z.string().describe("Overall title shown in the dialog header"),
-    components: z
-      .array(VisualizationComponent)
-      .min(1)
-      .max(8)
-      .describe(
-        "One or more visualization blocks. Use multiple components to build dashboards. " +
-          "Tab-navigation is shown automatically when there are 2+ components.",
-      ),
-  }),
+  parameters: zod(Parameters),
   async execute(params, _ctx) {
     return {
       title: params.title,

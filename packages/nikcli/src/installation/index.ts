@@ -6,7 +6,8 @@ import { NamedError } from "@nikcli-ai/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 declare global {
   const NIKCLI_VERSION: string
@@ -33,15 +34,12 @@ export namespace Installation {
     ),
   }
 
-  export const Info = z
-    .object({
-      version: z.string(),
-      latest: z.string(),
-    })
-    .meta({
-      ref: "InstallationInfo",
-    })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    version: Schema.String,
+    latest: Schema.String,
+  }).annotations({ identifier: "InstallationInfo" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export class Service extends Context.Tag("Installation.Service")<
     Service,

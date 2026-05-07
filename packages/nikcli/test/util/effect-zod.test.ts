@@ -180,4 +180,24 @@ describe("effect-zod walker", () => {
     expect(s.safeParse(42).success).toBe(true)
     expect(s.safeParse("not a number").success).toBe(false)
   })
+
+  it("zodObject preserves field types through .omit and .partial", () => {
+    const s = zodObject(
+      Schema.Struct({
+        question: Schema.String,
+        header: Schema.String,
+        custom: Schema.optional(Schema.Boolean),
+      }),
+    )
+    type Out = z.infer<typeof s>
+    const _: Out = { question: "q", header: "h" }
+    expect(_).toEqual({ question: "q", header: "h" })
+
+    const omitted = s.omit({ custom: true })
+    type Omitted = z.infer<typeof omitted>
+    const _2: Omitted = { question: "q", header: "h" }
+    expect(_2).toEqual({ question: "q", header: "h" })
+
+    expect(omitted.safeParse({ question: "q", header: "h" }).success).toBe(true)
+  })
 })

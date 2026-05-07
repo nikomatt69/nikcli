@@ -288,7 +288,7 @@ Migrated to Effect Schema → `zod()` (Phase J, 2026-05-07):
 
 - [x] `src/tool/invalid.ts`
 - [x] `src/tool/multiedit.ts`
-- [x] `src/tool/todo.ts` — `TodoReadTool` migrated; `TodoWriteTool` keeps Zod (depends on `Todo.Info` Zod, moves with Phase P)
+- [x] `src/tool/todo.ts` — both `TodoReadTool` and `TodoWriteTool` migrated. `Todo.Info` migrated to Effect Schema (Phase P starter), `TodoWriteTool.parameters` declares the same field shape as a dedicated Schema.Struct to keep tool params self-contained.
 - [x] `src/tool/websearch.ts`
 - [x] `src/tool/glob.ts`
 - [x] `src/tool/write.ts`
@@ -309,8 +309,8 @@ Migrated to Effect Schema → `zod()` (Phase J, 2026-05-07):
 Intentionally Zod-pinned (with rationale):
 
 - [x] `src/tool/read.ts` — migrated. Walker now maps `Schema.NumberFromString` → `z.coerce.number()` so `offset` and `limit` accept either string (HTTP query) or number (AI SDK tool call) and decode to number.
-- [x] `src/tool/opentui.ts` — uses `z.discriminatedUnion` for visualization components. Walker would need discriminated-union support via `Schema.Union` with tagged literals; deferred.
-- [x] `src/tool/question.ts` — depends on `Question.Info` (Zod) via `.omit({ custom: true })`. Migrate together with `Question.Info` in Phase P.
+- [x] `src/tool/opentui.ts` — migrated. `z.discriminatedUnion("type", [...])` mapped to `Schema.Union(...)` of tagged structs (`Schema.Literal("bar_chart")` etc.). Functionally equivalent JSON Schema (oneOf with const discriminator); runtime parsing falls back from O(1) tag dispatch to O(n) try-each, but this tool is invoked once per dialog so the cost is irrelevant.
+- [x] `src/tool/question.ts` — migrated. Uses a dedicated `QuestionWithoutCustom` Schema.Struct instead of `Question.Info.omit({custom:true})` because the walker doesn't introspect Zod's `.omit`. Functionally equivalent: same fields, same JSON Schema; the omitted-custom variant is what the AI SDK sees.
 - [x] `src/tool/registry.ts` — `Tool.Def.parameters: z.ZodType` is the canonical public type; plugin-provided tools also pass Zod via `def.args` (`@nikcli-ai/plugin` SDK is Zod-first). Keeping Zod is intentional.
 - [x] `src/tool/apply_patch.ts` / `src/tool/task.ts` — already on canonical shape per migration sweep; verify on a follow-up pass.
 - [x] `src/tool/tool.ts` — `Tool.define` core; receives Zod from authored tools, no schema migration needed.

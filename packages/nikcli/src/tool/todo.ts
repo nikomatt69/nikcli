@@ -1,10 +1,8 @@
-import z from "zod"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION_WRITE from "./todowrite.txt"
 import { Todo } from "../session/todo"
-import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
@@ -13,11 +11,22 @@ function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
 
 const ReadParameters = Schema.Struct({})
 
+const TodoItem = Schema.Struct({
+  content: Schema.String.annotations({ description: "Brief description of the task" }),
+  status: Schema.String.annotations({
+    description: "Current status of the task: pending, in_progress, completed, cancelled",
+  }),
+  priority: Schema.String.annotations({ description: "Priority level of the task: high, medium, low" }),
+  id: Schema.String.annotations({ description: "Unique identifier for the todo item" }),
+})
+
+const WriteParameters = Schema.Struct({
+  todos: Schema.Array(TodoItem).annotations({ description: "The updated todo list" }),
+})
+
 export const TodoWriteTool = Tool.define("todowrite", {
   description: DESCRIPTION_WRITE,
-  parameters: z.object({
-    todos: z.array(z.object(Todo.Info.shape)).describe("The updated todo list"),
-  }),
+  parameters: zod(WriteParameters),
   async execute(params, ctx) {
     await ctx.ask({
       permission: "todowrite",
@@ -31,7 +40,7 @@ export const TodoWriteTool = Tool.define("todowrite", {
         const todo = yield* Todo.Service
         yield* todo.update({
           sessionID: ctx.sessionID,
-          todos: params.todos,
+          todos: [...params.todos],
         })
       }),
     )

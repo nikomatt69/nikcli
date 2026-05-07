@@ -42,7 +42,7 @@ import { errors } from "../error"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
-import { InstanceScope, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { InstanceScope, runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 const log = Log.create({ service: "mobile-routes" })
 
@@ -577,9 +577,7 @@ async function latestPromptDefaults(sessionID: string) {
 }
 
 async function resolveMobilePromptDefaults(session: Session.Info) {
-  return Instance.provide({
-    directory: session.directory,
-    async fn() {
+  return withInstanceAsync({ directory: session.directory }, async () => {
       const current = await latestPromptDefaults(session.id)
       if (current.agent && current.model) return current
 
@@ -621,7 +619,6 @@ async function resolveMobilePromptDefaults(session: Session.Info) {
             }),
           )),
       }
-    },
   })
 }
 
@@ -1529,9 +1526,7 @@ export const MobileRoutes = lazy(() =>
             target: body.executionTarget,
           })
 
-          const session = await Instance.provide({
-            directory: worktree.directory,
-            async fn() {
+          const session = await withInstanceAsync({ directory: worktree.directory }, async () => {
               return WorkspaceContext.provide({
                 workspaceID: workspace?.id,
                 async fn() {
@@ -1558,7 +1553,6 @@ export const MobileRoutes = lazy(() =>
                   )
                 },
               })
-            },
           })
 
           return c.json({ session, worktree, project: imported.project, workspace })
@@ -1716,9 +1710,7 @@ export const MobileRoutes = lazy(() =>
             return yield* service.getAnyProject(sessionID)
           }),
         )
-        const { messages, permissions, status } = await Instance.provide({
-          directory: info.directory,
-          async fn() {
+        const { messages, permissions, status } = await withInstanceAsync({ directory: info.directory }, async () => {
             const [messages, permissions] = await Promise.all([
               runSessionForSession(
                 info,
@@ -1742,7 +1734,6 @@ export const MobileRoutes = lazy(() =>
               }),
             )
             return { messages, permissions, status }
-          },
         })
         return c.json({
           info,
@@ -1774,16 +1765,13 @@ export const MobileRoutes = lazy(() =>
             return yield* service.getAnyProject(params.sessionID)
           }),
         )
-        const result = await Instance.provide({
-          directory: session.directory,
-          async fn() {
+        const result = await withInstanceAsync({ directory: session.directory }, async () => {
             return runSummary(
               Effect.gen(function* () {
                 const summary = yield* SessionSummary.Service
                 return yield* summary.diff({ sessionID: params.sessionID, messageID: params.messageID })
               }),
             )
-          },
         })
         return c.json(result)
       },
@@ -2168,9 +2156,7 @@ export const MobileRoutes = lazy(() =>
         if (sessionInfo.github.worktree.cleanedAt)
           return c.json({ error: "Session worktree has already been cleaned" }, 400)
 
-        return Instance.provide({
-          directory: sessionInfo.directory,
-          async fn() {
+        return withInstanceAsync({ directory: sessionInfo.directory }, async () => {
             const session = await runSession(
               Effect.gen(function* () {
                 const service = yield* Session.Service
@@ -2290,7 +2276,6 @@ export const MobileRoutes = lazy(() =>
               branch: github.headBranch,
               pullRequest,
             })
-          },
         })
       },
     )
@@ -2322,9 +2307,7 @@ export const MobileRoutes = lazy(() =>
         if (sessionInfo.github.worktree.cleanedAt) return c.json({ success: true as const })
 
         const repositoryDirectory = sessionInfo.github.repositoryDirectory || sessionInfo.github.worktree.directory
-        const idle = await Instance.provide({
-          directory: sessionInfo.directory,
-          async fn() {
+        const idle = await withInstanceAsync({ directory: sessionInfo.directory }, async () => {
             const status = await runStatus(
               Effect.gen(function* () {
                 const sessionStatus = yield* SessionStatus.Service
@@ -2332,15 +2315,12 @@ export const MobileRoutes = lazy(() =>
               }),
             )
             return status.type === "idle"
-          },
         })
         if (!idle) {
           return c.json({ error: "Wait for the session to become idle before cleaning up the worktree" }, 400)
         }
 
-        await Instance.provide({
-          directory: repositoryDirectory,
-          async fn() {
+        await withInstanceAsync({ directory: repositoryDirectory }, async () => {
             if (sessionInfo.workspaceID) {
               await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
             }
@@ -2350,12 +2330,9 @@ export const MobileRoutes = lazy(() =>
                 yield* service.remove({ directory: sessionInfo.github!.worktree.directory })
               }),
             )
-          },
         })
 
-        await Instance.provide({
-          directory: repositoryDirectory,
-          async fn() {
+        await withInstanceAsync({ directory: repositoryDirectory }, async () => {
             await runSessionForSession(
               sessionInfo,
               Effect.gen(function* () {
@@ -2366,7 +2343,6 @@ export const MobileRoutes = lazy(() =>
                 })
               }),
             )
-          },
         })
 
         return c.json({ success: true as const })
@@ -2495,9 +2471,7 @@ export const MobileRoutes = lazy(() =>
           }),
         ).catch(() => undefined)
         if (!session) return c.json({ error: "not found" }, 404)
-        await Instance.provide({
-          directory: session.directory,
-          async fn() {
+        await withInstanceAsync({ directory: session.directory }, async () => {
             await runSessionForSession(
               session,
               Effect.gen(function* () {
@@ -2507,7 +2481,6 @@ export const MobileRoutes = lazy(() =>
                 })
               }),
             )
-          },
         })
         return c.json({ success: true as const })
       },
@@ -2607,9 +2580,7 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const [statusOutput, branchOutput, aheadBehind, stagedNumstat, unstagedNumstat] = await Promise.all([
               MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
@@ -2733,7 +2704,6 @@ export const MobileRoutes = lazy(() =>
               commitsBehind,
               lastCommit,
             })
-          },
         })
       },
     )
@@ -2787,9 +2757,7 @@ export const MobileRoutes = lazy(() =>
         z.object({ file: z.string().optional(), staged: z.enum(["true", "false"]).optional() }).optional(),
       ),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const args = ["diff", "--no-color", "-U1000"]
@@ -2800,7 +2768,6 @@ export const MobileRoutes = lazy(() =>
 
             const output = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
             return c.json(parseFileDiffs(output))
-          },
         })
       },
     )
@@ -2835,9 +2802,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("query", z.object({ limit: z.coerce.number().default(50) }).optional()),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const limit = query?.limit ?? 50
@@ -2885,7 +2850,6 @@ export const MobileRoutes = lazy(() =>
             }
 
             return c.json(commits)
-          },
         })
       },
     )
@@ -2917,9 +2881,7 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const branchOutput = await MobileGithubRepo.runGit(["branch", "-a", "-v"], {
               cwd: Instance.directory,
@@ -2953,7 +2915,6 @@ export const MobileRoutes = lazy(() =>
             }
 
             return c.json(branches)
-          },
         })
       },
     )
@@ -2990,9 +2951,7 @@ export const MobileRoutes = lazy(() =>
         }),
       ),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
@@ -3020,7 +2979,6 @@ export const MobileRoutes = lazy(() =>
               : body.message
 
             return c.json({ sha: sha.trim(), message })
-          },
         })
       },
     )
@@ -3040,15 +2998,12 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", z.object({ branch: z.string().min(1), create: z.boolean().optional() })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             const args = body.create ? ["checkout", "-b", body.branch] : ["checkout", body.branch]
             await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
             return c.json({ success: true as const })
-          },
         })
       },
     )
@@ -3067,14 +3022,11 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
-          },
         })
       },
     )
@@ -3093,14 +3045,11 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["reset", "HEAD", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
-          },
         })
       },
     )
@@ -3119,14 +3068,11 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const body = c.req.valid("json")
             await MobileGithubRepo.runGit(["checkout", "--", ...body.files], { cwd: Instance.directory, token })
             return c.json({ success: true as const })
-          },
         })
       },
     )
@@ -3150,9 +3096,7 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("query", z.object({ upstream: z.string().optional() }).optional()),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             const query = c.req.valid("query")
             const currentBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], {
@@ -3169,7 +3113,6 @@ export const MobileRoutes = lazy(() =>
             } catch {
               return c.json({ success: true as const, pushed: false })
             }
-          },
         })
       },
     )
@@ -3198,9 +3141,7 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const token = (await githubToken()) ?? undefined
             try {
               await MobileGithubRepo.runGit(["fetch", "origin"], { cwd: Instance.directory, token })
@@ -3222,7 +3163,6 @@ export const MobileRoutes = lazy(() =>
               }
               return c.json({ success: true as const, pulled: false })
             }
-          },
         })
       },
     )
@@ -3242,11 +3182,8 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             return c.json(await Routine.list())
-          },
         })
       },
     )
@@ -3266,12 +3203,9 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", MobileRoutineCreateInput),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const body = c.req.valid("json")
             return c.json(await Routine.create(body))
-          },
         })
       },
     )
@@ -3291,12 +3225,9 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             return c.json(await Routine.get(id))
-          },
         })
       },
     )
@@ -3317,13 +3248,10 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       validator("json", MobileRoutineUpdateInput),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             const body = c.req.valid("json")
             return c.json(await Routine.update(id, body))
-          },
         })
       },
     )
@@ -3343,13 +3271,10 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             await Routine.remove(id)
             return c.json({ success: true as const })
-          },
         })
       },
     )
@@ -3370,14 +3295,11 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       validator("json", MobileRoutineRunInput.optional()),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             const body = c.req.valid("json")
             const session = await Routine.run(id, { text: body?.text })
             return c.json(session)
-          },
         })
       },
     )
@@ -3397,12 +3319,9 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             return c.json(await Routine.pause(id))
-          },
         })
       },
     )
@@ -3422,12 +3341,9 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ id: z.string() })),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { id } = c.req.valid("param")
             return c.json(await Routine.resume(id))
-          },
         })
       },
     )
@@ -3449,9 +3365,7 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ token: z.string() })),
       validator("json", MobileRoutineTriggerInput.optional()),
       async (c) => {
-        return Instance.provide({
-          directory: Instance.directory,
-          async fn() {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
             const { token: pathToken } = c.req.valid("param")
             const authorization = c.req.header("authorization")
             const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
@@ -3463,7 +3377,6 @@ export const MobileRoutes = lazy(() =>
             }
             const session = await Routine.run(routine.id, { text: body?.text })
             return c.json(session)
-          },
         })
       },
     ),

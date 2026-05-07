@@ -47,9 +47,63 @@ Audit revealed 9 of 12 listed schema leaf files don't exist on this branch (the 
 - 🚧 Sync routes (`POST /sync/{start,replay,history}`) blocked by Phase I (`Sync.Service` not yet effectified).
 - 🚧 Session prompt/share/init/summarize/shell/command + auth/observability layer wiring blocked on Phase D2.
 
-## Phase F status — partial complete
+## Phase F status — fully migrated
 
-`Instance.provide` call sites remaining on this branch: **2 files only**.
+`Instance.provide` call sites remaining on this branch: **1 file only** (`src/cli/bootstrap.ts`, intentionally kept until Phase G replaces the promise cache).
+
+`src/server/routes/mobile.ts` 29 sites successfully migrated using a small bracket-balancing migration script (see `Migration log` below). Bulk perl regex over-matched on recursive bodies; the bracket-balancing parser correctly tracks `{}` and `()` depth across the multi-line `async fn() { ... }` body.
+
+## Phase G status — design ready
+
+`src/project/instance.ts` cache replacement design:
+
+1. Create `Effect.ScopedCache<string, Context>` keyed by `normalizeDirectory(directory)`, with `capacity: Number.MAX_SAFE_INTEGER` and `timeToLive: Duration.infinity`. The lookup function builds the `Context` (project + sandbox + disposers) inside an `Effect.acquireRelease`, so disposers run via scope finalizer when `Instance.dispose()` invalidates that key.
+2. `Instance.provide({directory, init?, fn})` becomes:
+   - `AppRuntime.runPromise(Effect.gen(function* () { const ctx = yield* cache.get(directory); /* run init once if first time */; return yield* Effect.promise(() => contextProvide(ctx, fn)) }))`
+3. `Instance.dispose()` invalidates the key in the cache: `cache.invalidate(directory)`. Scope finalizer fires disposers automatically.
+4. `Instance.disposeAll()` becomes `cache.invalidateAll`.
+5. ALS-backed `Instance.directory/worktree/project` reads stay until Phase H. The cache replacement is *internal* — the Instance public API stays identical.
+
+Risks to validate before landing:
+- Concurrent `Instance.provide({directory: D, fn})` calls during boot must dedupe (ScopedCache handles this via fiber-join).
+- `Instance.dispose()` fired while boot is still in flight: verify ScopedCache.invalidate before lookup completes.
+- `init?` callback must run exactly once per directory across concurrent calls (ScopedCache's `lookup` runs once; `init` becomes part of it).
+
+Implementation deferred to a dedicated PR with focused test coverage.
+
+## Phase P status — starter complete, walker shape inference landed
+
+Walker enhancement landed: `zodObject<Fields>(schema)` now returns `z.ZodObject<FieldsToShape<Fields>>` where `FieldsToShape` recursively maps each Effect Schema field to its Zod equivalent (`PropertySignature<"?:", A, ...>` → `z.ZodOptional<z.ZodType<A>>`, `Schema.Schema<A, ...>` → `z.ZodType<A>`). `.omit`, `.partial`, `.merge`, `.extend` now preserve typed shapes for downstream callers.
+
+Migrated namespace-level schemas:
+
+- ✅ `src/question/index.ts` — `Option`, `Info`, `Answer` now declared as Effect Schema with `zodObject(...)` derivation. `Schema.Schema.Type<typeof InfoSchema>` is the canonical type.
+- ✅ `src/session/todo.ts` — `Todo.Info` declared as Effect Schema with `zodObject(...)`.
+- ✅ `src/pty/index.ts` — `Pty.Info`, `Pty.CreateInput`, `Pty.UpdateInput`. Status enum via `Schema.Literal("running", "exited")`, env via `Schema.Record({key, value})`, nested optional struct for size.
+- ✅ `src/permission/next.ts` — `Action`, `Rule`, `Ruleset`, `Request`, `Reply`, `Approval`. `Schema.mutable(Schema.Array(...))` for `Ruleset`. ID `startsWith` prefixes match `Identifier.prefixes` short keys. Schemas re-exported (`ActionSchema`, `RuleSchema`, `RulesetSchema`) for cross-namespace Effect Schema composition.
+- ✅ `src/installation/index.ts` — `Info`.
+- ✅ `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
+- ✅ `src/skill/skill.ts` — `Info`, `CreateInput`. `Schema.optionalWith(..., {default})` for `scope`. Public `CreateInput` aliased to `Schema.Schema.Encoded`; `CreateParsedInput` = `Schema.Schema.Type` (after default).
+- ✅ `src/agent/agent.ts` — `Info` declared as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
+- ✅ `src/snapshot/index.ts` — `Patch` migrated; `files` array marked `Schema.mutable`.
+
+Walker enhancement landed during this Phase P iteration:
+
+- `zodObject` now has 2 overloads: typed `Schema.Struct<Fields>` (preserves `.shape`/`.omit` field types) and broad `Schema.Schema<A,I,R>` (for `Schema.mutable(...)`-wrapped or other non-Struct compositions).
+
+Knock-on tool migrations unblocked:
+
+- ✅ `src/tool/question.ts` — uses a dedicated `QuestionWithoutCustom` Schema.Struct for params (clean alternative to `.omit`).
+- ✅ `src/tool/todo.ts` — `TodoWriteTool` now uses Effect Schema params.
+
+Remaining Phase P scope (per `schema.md` §large surfaces):
+
+- Provider domain (`provider/auth.ts`, `provider/models.ts`, `provider/provider.ts`)
+- Session domain (compaction, message-v2, message, prompt, revert, summary, status, todo, session)
+- Server route DTO files (~20 files)
+- Bus events, command, plugin, agent, control-plane, ide, util, etc.
+
+Each is a self-contained migration following the `Question.Info` pattern: declare `Schema.Struct(...)`, expose `zodObject(...)`/`zod(...)` for compat, mirror downstream callers as needed.
 
 Migrated (21 files, ~50 call sites, all behind green typecheck):
 

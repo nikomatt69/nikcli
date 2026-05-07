@@ -421,14 +421,41 @@ export function zod<A, I>(schema: Schema.Schema<A, I, never>): z.ZodType<A> {
 }
 
 /**
- * Convert an Effect Schema known to be a Struct into a `z.ZodObject` (so
- * `.shape`, `.partial`, `.merge`, etc. are available on the consumer side).
+ * Convert an Effect Schema known to be a Struct into a `z.ZodObject` whose
+ * inferred output type matches `Schema.Schema.Type<typeof schema>`. The
+ * walker emits the correct shape at runtime; we only need TypeScript to
+ * surface the precise field types so consumers (HTTP handlers, AI SDK tool
+ * params, downstream typed wrappers) keep their static guarantees.
+ *
+ * `.shape`, `.partial`, `.omit`, `.merge`, `.extend` are all available on
+ * the result.
  */
+type FieldToZod<F> = F extends Schema.PropertySignature<infer Token, infer A, any, any, any, any, any>
+  ? Token extends "?:"
+    ? z.ZodOptional<z.ZodType<A>>
+    : z.ZodType<A>
+  : F extends Schema.Schema<infer A, any, any>
+    ? z.ZodType<A>
+    : z.ZodType<unknown>
+
+type FieldsToShape<Fields extends Schema.Struct.Fields> = {
+  [K in keyof Fields]: FieldToZod<Fields[K]>
+}
+
+// Overload: typed Struct (preserves field shape inference for `.shape`/`.omit`/etc.)
 export function zodObject<Fields extends Schema.Struct.Fields>(
   schema: Schema.Struct<Fields>,
-): z.ZodObject<{ [K in keyof Fields]: z.ZodType }> {
+): z.ZodObject<FieldsToShape<Fields>>
+// Overload: any Schema producing an object value (e.g. `Schema.mutable(Schema.Struct(...))`).
+// Loses the precise field shape but still gives a `z.ZodObject` with the correct output type.
+export function zodObject<A extends object, I, R>(
+  schema: Schema.Schema<A, I, R>,
+): z.ZodType<A> & z.ZodObject<z.ZodRawShape>
+export function zodObject(schema: Schema.Schema<any, any, any>): z.ZodObject<any> {
   const out = walk(schema.ast)
-  if (out instanceof z.ZodObject) return out as any
+  if (out instanceof z.ZodObject) {
+    return out as z.ZodObject<any>
+  }
   throw new Error("zodObject: schema did not produce a z.ZodObject")
 }
 

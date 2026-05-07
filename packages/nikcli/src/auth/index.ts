@@ -4,7 +4,8 @@ import fs from "fs/promises"
 import z from "zod"
 import { Lock } from "../util/lock"
 import { Log } from "../util/log"
-import { Context, Effect, Layer } from "effect"
+import { zod, zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export const OAUTH_DUMMY_KEY = "nikcli-oauth-dummy-key"
 
@@ -29,41 +30,41 @@ export namespace Auth {
   const SAFE_WGET_FLAGS = new Set(["-q", "--quiet", "-O-", "-qO-"])
   const REDIRECT_STATUS = new Set([301, 302, 303, 307, 308])
 
-  export const Oauth = z
-    .object({
-      type: z.literal("oauth"),
-      refresh: z.string(),
-      access: z.string(),
-      expires: z.number(),
-      accountId: z.string().optional(),
-      enterpriseUrl: z.string().optional(),
-    })
-    .meta({ ref: "OAuth" })
+  const OauthSchema = Schema.Struct({
+    type: Schema.Literal("oauth"),
+    refresh: Schema.String,
+    access: Schema.String,
+    expires: Schema.Number,
+    accountId: Schema.optional(Schema.String),
+    enterpriseUrl: Schema.optional(Schema.String),
+  }).annotations({ identifier: "OAuth" })
+  export const Oauth = zodObject(OauthSchema)
 
-  export const Api = z
-    .object({
-      type: z.literal("api"),
-      key: z.string(),
-    })
-    .meta({ ref: "ApiAuth" })
+  const ApiSchema = Schema.Struct({
+    type: Schema.Literal("api"),
+    key: Schema.String,
+  }).annotations({ identifier: "ApiAuth" })
+  export const Api = zodObject(ApiSchema)
 
-  export const WellKnown = z
-    .object({
-      type: z.literal("wellknown"),
-      key: z.string(),
-      token: z.string(),
-    })
-    .meta({ ref: "WellKnownAuth" })
+  const WellKnownSchema = Schema.Struct({
+    type: Schema.Literal("wellknown"),
+    key: Schema.String,
+    token: Schema.String,
+  }).annotations({ identifier: "WellKnownAuth" })
+  export const WellKnown = zodObject(WellKnownSchema)
 
-  export const Info = z.discriminatedUnion("type", [Oauth, Api, WellKnown]).meta({ ref: "Auth" })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Union(OauthSchema, ApiSchema, WellKnownSchema).annotations({ identifier: "Auth" })
+  export const Info = zod(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  export const WellKnownAuthResponse = z.object({
-    auth: z.object({
-      command: z.array(z.string().min(1)).min(1),
-      env: z.string().regex(/^[A-Z_][A-Z0-9_]*$/),
+  export const WellKnownAuthResponse = zodObject(
+    Schema.Struct({
+      auth: Schema.Struct({
+        command: Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(Schema.minItems(1)),
+        env: Schema.String.pipe(Schema.pattern(/^[A-Z_][A-Z0-9_]*$/)),
+      }),
     }),
-  })
+  )
 
   export interface Interface {
     fetchWellKnown(baseURL: string): Effect.Effect<Response, unknown>

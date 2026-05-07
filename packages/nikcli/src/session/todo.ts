@@ -9,7 +9,8 @@ import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "todo-notifications" })
@@ -20,15 +21,16 @@ type MacIcon = {
 }
 
 export namespace Todo {
-  export const Info = z
-    .object({
-      content: z.string().describe("Brief description of the task"),
-      status: z.string().describe("Current status of the task: pending, in_progress, completed, cancelled"),
-      priority: z.string().describe("Priority level of the task: high, medium, low"),
-      id: z.string().describe("Unique identifier for the todo item"),
-    })
-    .meta({ ref: "Todo" })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    content: Schema.String.annotations({ description: "Brief description of the task" }),
+    status: Schema.String.annotations({
+      description: "Current status of the task: pending, in_progress, completed, cancelled",
+    }),
+    priority: Schema.String.annotations({ description: "Priority level of the task: high, medium, low" }),
+    id: Schema.String.annotations({ description: "Unique identifier for the todo item" }),
+  }).annotations({ identifier: "Todo" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const Event = {
     Updated: BusEvent.define(
