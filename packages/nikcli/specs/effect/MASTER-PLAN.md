@@ -71,7 +71,7 @@ Risks to validate before landing:
 
 Implementation deferred to a dedicated PR with focused test coverage.
 
-## Phase P status — starter complete, walker shape inference landed
+## Phase P status — current priority, starter complete, walker shape inference landed
 
 Walker enhancement landed: `zodObject<Fields>(schema)` now returns `z.ZodObject<FieldsToShape<Fields>>` where `FieldsToShape` recursively maps each Effect Schema field to its Zod equivalent (`PropertySignature<"?:", A, ...>` → `z.ZodOptional<z.ZodType<A>>`, `Schema.Schema<A, ...>` → `z.ZodType<A>`). `.omit`, `.partial`, `.merge`, `.extend` now preserve typed shapes for downstream callers.
 
@@ -86,19 +86,23 @@ Migrated namespace-level schemas:
 - ✅ `src/skill/skill.ts` — `Info`, `CreateInput`. `Schema.optionalWith(..., {default})` for `scope`. Public `CreateInput` aliased to `Schema.Schema.Encoded`; `CreateParsedInput` = `Schema.Schema.Type` (after default).
 - ✅ `src/agent/agent.ts` — `Info` declared as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
 - ✅ `src/snapshot/index.ts` — `Patch` migrated; `files` array marked `Schema.mutable`.
+- ✅ `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are Effect Schema-first with Zod derived via `zodObject(...)`.
+- ✅ `src/project/project.ts` — `Info`, `UpdateInput`. `Info` re-exported as `Mutable<Schema.Schema.Type<typeof InfoSchema>>` (local deep-strip readonly) because the project record is mutated extensively during merge/update flows. `IconSchema` extracted for reuse via `Info.shape.icon` access.
+- 🔁 Extension/tool schema unlocks — the walker now supports enough shape inference for the already-migrated tool parameter schemas tracked in `schema.md` Phase J; SDK byte-identity work is therefore unblocked by continuing Phase P before the generator flip.
 
-Walker enhancement landed during this Phase P iteration:
+Walker enhancements landed during this Phase P iteration:
 
 - `zodObject` now has 2 overloads: typed `Schema.Struct<Fields>` (preserves `.shape`/`.omit` field types) and broad `Schema.Schema<A,I,R>` (for `Schema.mutable(...)`-wrapped or other non-Struct compositions).
+- `zodObjectMode("strict" | "strip" | "passthrough")` annotation: schemas can opt out of the default `.strict()` behavior (e.g. forward-compatible JSON payloads where unknown fields should pass through or be silently dropped). Test coverage in `test/util/effect-zod.test.ts`.
 
 Knock-on tool migrations unblocked:
 
 - ✅ `src/tool/question.ts` — uses a dedicated `QuestionWithoutCustom` Schema.Struct for params (clean alternative to `.omit`).
 - ✅ `src/tool/todo.ts` — `TodoWriteTool` now uses Effect Schema params.
 
-Remaining Phase P scope (per `schema.md` §large surfaces):
+Remaining Phase P scope (per `schema.md` large surfaces):
 
-- Provider domain (`provider/auth.ts`, `provider/models.ts`, `provider/provider.ts`)
+- Provider domain (`provider/models.ts`, `provider/provider.ts`; `provider/auth.ts` landed)
 - Session domain (compaction, message-v2, message, prompt, revert, summary, status, todo, session)
 - Server route DTO files (~20 files)
 - Bus events, command, plugin, agent, control-plane, ide, util, etc.
@@ -151,6 +155,7 @@ Phase-specific gates are listed inline.
 | B2 | `env/index.ts` → `Env.Service` | env, provider | medium | — |
 | B3 | TUI config callers → `TuiConfig.Service` | `cli/cmd/tui/*` | low | — |
 | B4 | `migrate-tui-config.ts` decision: leave plain or effectify | tui | low | — |
+| P | Schema large surfaces (session domain, provider, route DTOs, config root, remaining namespaces) | many | high | J, K, L |
 | C | Tool internals cleanup (`read`, `bash`, `webfetch`, `ripgrep`, `patch`) | `tool/*`, `file/ripgrep.ts`, `patch/index.ts` | medium | J |
 | D1 | Route effectification (lighter routes) | `server/routes/{provider,mcp,file,experimental}.ts` | medium | F |
 | D2 | Route effectification (heavy routes) | `server/routes/{session,mobile,global}.ts`, `server/server.ts` | high | F |
@@ -161,13 +166,12 @@ Phase-specific gates are listed inline.
 | I | `SyncEvent` and `Workspace` service shapes | `sync/index.ts`, `control-plane/workspace.ts` | medium | K |
 | J | Tool params schemas (16 files) | `tool/*.ts` | medium | L |
 | K | HttpApi: complete remaining bridge slices | `server/httpapi/*` | medium | L |
-| L | HttpApi: backend fork + OpenAPI source flip | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high | N |
+| L | HttpApi: backend fork + OpenAPI source flip / SDK byte-identity | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high | N |
 | M | Special routes (event SSE, pty WS, tui control) | `server/event.ts`, `server/routes/pty.ts`, `server/routes/tui.ts` | high | N |
 | N | Hono deletion (group by group) | `server/routes/*.ts`, `server/server.ts` | high | — |
-| O | `packages/server` extraction | new package | high | — |
-| P | Schema large surfaces (session domain, route DTOs, etc.) | many | high | — |
+| O | `packages/server` extraction | new package | high | last |
 
-The plan executes **A → B → C → E → D → F → G → H → I → J → K → L → M → N → O → P** with the dependency edges enforced. Phases inside each capital block can run in parallel where their files do not overlap.
+Current execution order from this point is **P → C → D2 → G → H → I → J → K → L → M → N → O**. Phase O is intentionally last; extracting `packages/server` before schemas, instance context, HttpApi parity, and SDK byte-identity are stable would create an extraction target that still churns. Phases can run in parallel only when their write sets do not overlap and the downstream SDK/OpenAPI contract stays byte-identical.
 
 ## Phase A — service-internal swaps (low risk, no shape change)
 
@@ -401,7 +405,7 @@ Validation per tool: existing tool tests + AI-SDK JSON Schema diff.
 
 Open bridge work from `http-api.md`:
 
-- K1 — MCP OAuth: `POST /mcp/:name/auth`, `/auth/callback`, `/auth/authenticate`.
+- K1 — ✅ MCP OAuth: `POST /mcp/:name/auth`, `/auth/callback`, `/auth/authenticate` are bridged and tracked as complete in `http-api.md`.
 - K2 — experimental console: `GET /experimental/console`, `/console/orgs`, `POST /console/switch`. Confirm Hono registration first; if absent, remove from inventory.
 - K3 — experimental global session: `GET /experimental/session`.
 - K4 — sync routes: `POST /sync/start`, `/sync/replay`, `/sync/history`. Depends on Phase I1.
@@ -467,11 +471,11 @@ Follow `server-package.md`. PR plan:
 
 ## Phase P — schema large surfaces
 
-Migrate the remaining ~70 schema items from `schema.md` after the leaves are done and the SDK generator path is stable. Order:
+Migrate the remaining large schema surfaces now, before the SDK generator flip. Phase P is the current unlock for SDK byte-identity because the Effect OpenAPI path needs canonical Effect Schema names and stable derived Zod compatibility before it can replace the Hono/Zod source. Order:
 
-1. Provider domain (`provider/auth.ts`, `provider/models.ts`, `provider/provider.ts`).
+1. Provider domain (`provider/models.ts`, `provider/provider.ts`; `provider/auth.ts` is already landed).
 2. Session domain (compaction, message-v2, message, prompt, revert, summary, status, todo, session).
-3. Server route DTO files (one per route file).
+3. Config root and server route DTO files (one per route file).
 4. Everything else (acp, bus, cli, command, plugin, ide, util, etc.).
 
 Each migration validates SDK byte-identity. Any deliberate diff is reviewed and documented.

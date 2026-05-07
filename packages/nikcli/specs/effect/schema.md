@@ -273,7 +273,7 @@ Possible later tightening after the Schema-first migration is stable:
 
 ### Provider domain
 
-- [ ] `src/provider/auth.ts`
+- [x] `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are now Effect Schema-first with Zod derived via `zodObject(...)`. Evidence: `bun run typecheck`, `bun test test/provider/auth-effect-service.test.ts test/server/httpapi-provider.test.ts`, and `bun test test/provider/core.test.ts -t "ProviderAuth contracts"`.
 - [ ] `src/provider/models.ts`
 - [ ] `src/provider/provider.ts`
 

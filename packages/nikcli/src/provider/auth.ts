@@ -5,48 +5,46 @@ import z from "zod"
 import type { AuthOuathResult, Hooks } from "@nikcli-ai/plugin"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Auth } from "@/auth"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ProviderAuth {
-  export const Method = z
-    .object({
-      type: z.union([z.literal("oauth"), z.literal("api")]),
-      label: z.string(),
-    })
-    .meta({
-      ref: "ProviderAuthMethod",
-  })
-  export type Method = z.infer<typeof Method>
+  const MethodSchema = Schema.Struct({
+    type: Schema.Literal("oauth", "api"),
+    label: Schema.String,
+  }).annotations({ identifier: "ProviderAuthMethod" })
+  export const Method = zodObject(MethodSchema)
+  export type Method = Schema.Schema.Type<typeof MethodSchema>
 
-  export const Authorization = z
-    .object({
-      url: z.string(),
-      method: z.union([z.literal("auto"), z.literal("code")]),
-      instructions: z.string(),
-    })
-    .meta({
-      ref: "ProviderAuthAuthorization",
-  })
-  export type Authorization = z.infer<typeof Authorization>
+  const AuthorizationSchema = Schema.Struct({
+    url: Schema.String,
+    method: Schema.Literal("auto", "code"),
+    instructions: Schema.String,
+  }).annotations({ identifier: "ProviderAuthAuthorization" })
+  export const Authorization = zodObject(AuthorizationSchema)
+  export type Authorization = Schema.Schema.Type<typeof AuthorizationSchema>
 
-  const AuthorizeInput = z.object({
-    providerID: z.string(),
-    method: z.number(),
+  const AuthorizeInputSchema = Schema.Struct({
+    providerID: Schema.String,
+    method: Schema.Number,
   })
-  export type AuthorizeInput = z.infer<typeof AuthorizeInput>
+  const AuthorizeInput = zodObject(AuthorizeInputSchema)
+  export type AuthorizeInput = Schema.Schema.Type<typeof AuthorizeInputSchema>
 
-  const CallbackInput = z.object({
-    providerID: z.string(),
-    method: z.number(),
-    code: z.string().optional(),
+  const CallbackInputSchema = Schema.Struct({
+    providerID: Schema.String,
+    method: Schema.Number,
+    code: Schema.optional(Schema.String),
   })
-  export type CallbackInput = z.infer<typeof CallbackInput>
+  const CallbackInput = zodObject(CallbackInputSchema)
+  export type CallbackInput = Schema.Schema.Type<typeof CallbackInputSchema>
 
-  const ApiInput = z.object({
-    providerID: z.string(),
-    key: z.string(),
+  const ApiInputSchema = Schema.Struct({
+    providerID: Schema.String,
+    key: Schema.String,
   })
-  export type ApiInput = z.infer<typeof ApiInput>
+  const ApiInput = zodObject(ApiInputSchema)
+  export type ApiInput = Schema.Schema.Type<typeof ApiInputSchema>
 
   type State = {
     methods: Record<string, Hooks["auth"] & { provider: string }>

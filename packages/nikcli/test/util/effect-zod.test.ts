@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { Schema } from "effect"
 import z from "zod"
-import { zod, zodObject, zodOverride, ZodOverrideId } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@/util/effect-zod"
 
 describe("effect-zod walker", () => {
   it("primitives", () => {
@@ -104,6 +104,26 @@ describe("effect-zod walker", () => {
     )
     expect(s.shape.a).toBeDefined()
     expect(s.shape.b).toBeDefined()
+  })
+
+  it("object mode annotation preserves legacy strip behavior", () => {
+    const s = zod(
+      Schema.Struct({
+        name: Schema.String,
+      }).annotations(zodObjectMode("strip")),
+    )
+    expect(s.parse({ name: "x", extra: true } as any)).toEqual({ name: "x" })
+  })
+
+  it("object mode annotation can opt into passthrough behavior", () => {
+    const s = zod(
+      Schema.Struct({
+        name: Schema.String,
+      }).annotations(zodObjectMode("passthrough")),
+    )
+    expect(s.parse({ name: "x", extra: true } as unknown as { name: string })).toEqual(
+      { name: "x", extra: true } as unknown as { name: string },
+    )
   })
 
   it("zodOverride escape hatch replaces derivation", () => {

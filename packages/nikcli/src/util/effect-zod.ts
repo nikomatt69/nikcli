@@ -47,8 +47,10 @@ import z from "zod"
 
 /** Identifier symbol for the ZodOverride escape hatch annotation. */
 export const ZodOverrideId = Symbol.for("nikcli/effect-zod/ZodOverride")
+export const ZodObjectModeId = Symbol.for("nikcli/effect-zod/ZodObjectMode")
 
 type ZodOverrideFn = () => z.ZodType<any>
+type ZodObjectMode = "strict" | "strip" | "passthrough"
 
 /**
  * Annotation helper: forces the walker to use the supplied zod schema instead
@@ -56,6 +58,10 @@ type ZodOverrideFn = () => z.ZodType<any>
  */
 export function zodOverride(fn: ZodOverrideFn) {
   return { [ZodOverrideId]: fn }
+}
+
+export function zodObjectMode(mode: ZodObjectMode) {
+  return { [ZodObjectModeId]: mode }
 }
 
 const IdentifierAnnotationId = Symbol.for("effect/annotation/Identifier")
@@ -77,6 +83,7 @@ interface RefAnnotation {
   brand?: ReadonlyArray<string | symbol>
   schemaId?: string | symbol
   override?: ZodOverrideFn
+  objectMode?: ZodObjectMode
 }
 
 // Effect's primitive keywords (`Schema.String`, `Schema.Number`, etc.) carry default
@@ -147,6 +154,8 @@ function readAnnotations(ast: Annotated): RefAnnotation {
   }
   const override = getAnnotation<ZodOverrideFn>(ZodOverrideId)(ast)
   if (Option.isSome(override)) out.override = override.value
+  const objectMode = getAnnotation<ZodObjectMode>(ZodObjectModeId)(ast)
+  if (Option.isSome(objectMode)) out.objectMode = objectMode.value
   return out
 }
 
@@ -337,7 +346,10 @@ function walk(ast: AST): z.ZodType {
       }
       let object: z.ZodType = z.object(shape)
       if (literalAst.indexSignatures.length === 0) {
-        object = (object as z.ZodObject<any>).strict()
+        const base = object as z.ZodObject<any>
+        if (ann.objectMode === "strip") object = base
+        else if (ann.objectMode === "passthrough") object = base.passthrough()
+        else object = base.strict()
       } else {
         const idx = literalAst.indexSignatures[0]
         const valueZ = walk(idx.type)

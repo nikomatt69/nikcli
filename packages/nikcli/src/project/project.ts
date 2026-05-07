@@ -13,7 +13,8 @@ import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
 import { existsSync } from "fs"
 import { Git } from "@/git"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
 export namespace Project {
@@ -97,41 +98,50 @@ export namespace Project {
     return path.resolve(sandbox, dirname)
   }
 
-  export const Info = z
-    .object({
-      id: z.string(),
-      worktree: z.string(),
-      vcs: z.literal("git").optional(),
-      name: z.string().optional(),
-      icon: z
-        .object({
-          url: z.string().optional(),
-          override: z.string().optional(),
-          color: z.string().optional(),
-        })
-        .optional(),
-      time: z.object({
-        created: z.number(),
-        updated: z.number(),
-        initialized: z.number().optional(),
-      }),
-      sandboxes: z.array(z.string()),
-    })
-    .meta({
-      ref: "Project",
-    })
-  export type Info = z.infer<typeof Info>
+  const IconSchema = Schema.Struct({
+    url: Schema.optional(Schema.String),
+    override: Schema.optional(Schema.String),
+    color: Schema.optional(Schema.String),
+  })
+
+  const InfoSchema = Schema.Struct({
+    id: Schema.String,
+    worktree: Schema.String,
+    vcs: Schema.optional(Schema.Literal("git")),
+    name: Schema.optional(Schema.String),
+    icon: Schema.optional(IconSchema),
+    time: Schema.Struct({
+      created: Schema.Number,
+      updated: Schema.Number,
+      initialized: Schema.optional(Schema.Number),
+    }),
+    sandboxes: Schema.mutable(Schema.Array(Schema.String)),
+  }).annotations({ identifier: "Project" })
+  export const Info = zodObject(InfoSchema)
+  type _ReadonlyInfo = Schema.Schema.Type<typeof InfoSchema>
+  // The Project service mutates `Info` records during merge/update flows. Strip readonly so
+  // those internal mutations type-check; the wire format is still emitted via `zodObject` /
+  // walker-derived JSON Schema.
+  type Mutable<T> = T extends ReadonlyArray<infer U>
+    ? Mutable<U>[]
+    : T extends Date | RegExp | Function
+      ? T
+      : T extends object
+        ? { -readonly [K in keyof T]: Mutable<T[K]> }
+        : T
+  export type Info = Mutable<_ReadonlyInfo>
 
   export const Event = {
     Updated: BusEvent.define("project.updated", Info),
   }
 
-  export const UpdateInput = z.object({
-    projectID: z.string(),
-    name: z.string().optional(),
-    icon: Info.shape.icon.optional(),
+  const UpdateInputSchema = Schema.Struct({
+    projectID: Schema.String,
+    name: Schema.optional(Schema.String),
+    icon: Schema.optional(IconSchema),
   })
-  export type UpdateInput = z.infer<typeof UpdateInput>
+  export const UpdateInput = zodObject(UpdateInputSchema)
+  export type UpdateInput = Schema.Schema.Type<typeof UpdateInputSchema>
 
   export interface Interface {
     fromDirectory(directory: string): Effect.Effect<{ project: Info; sandbox: string }, unknown>
