@@ -12,7 +12,8 @@ import { Auth } from "../auth"
 import { Env } from "../env"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
-import { Context, Effect, Layer } from "effect"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 // Direct imports for bundled providers
@@ -672,91 +673,82 @@ export namespace Provider {
     },
   }
 
-  export const Model = z
-    .object({
-      id: z.string(),
-      providerID: z.string(),
-      api: z.object({
-        id: z.string(),
-        url: z.string(),
-        npm: z.string(),
-      }),
-      name: z.string(),
-      family: z.string().optional(),
-      capabilities: z.object({
-        temperature: z.boolean(),
-        reasoning: z.boolean(),
-        attachment: z.boolean(),
-        toolcall: z.boolean(),
-        input: z.object({
-          text: z.boolean(),
-          audio: z.boolean(),
-          image: z.boolean(),
-          video: z.boolean(),
-          pdf: z.boolean(),
-        }),
-        output: z.object({
-          text: z.boolean(),
-          audio: z.boolean(),
-          image: z.boolean(),
-          video: z.boolean(),
-          pdf: z.boolean(),
-        }),
-        interleaved: z.union([
-          z.boolean(),
-          z.object({
-            field: z.enum(["reasoning_content", "reasoning_details"]),
-          }),
-        ]),
-      }),
-      cost: z.object({
-        input: z.number(),
-        output: z.number(),
-        cache: z.object({
-          read: z.number(),
-          write: z.number(),
-        }),
-        experimentalOver200K: z
-          .object({
-            input: z.number(),
-            output: z.number(),
-            cache: z.object({
-              read: z.number(),
-              write: z.number(),
-            }),
-          })
-          .optional(),
-      }),
-      limit: z.object({
-        context: z.number(),
-        input: z.number().optional(),
-        output: z.number(),
-      }),
-      status: z.enum(["alpha", "beta", "deprecated", "active"]),
-      options: z.record(z.string(), z.any()),
-      headers: z.record(z.string(), z.string()),
-      release_date: z.string(),
-      variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
-    })
-    .meta({
-      ref: "Model",
-    })
-  export type Model = z.infer<typeof Model>
+  const CostBlockSchema = Schema.Struct({
+    read: Schema.Number,
+    write: Schema.Number,
+  })
 
-  export const Info = z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      source: z.enum(["env", "config", "custom", "api"]),
-      env: z.string().array(),
-      key: z.string().optional(),
-      options: z.record(z.string(), z.any()),
-      models: z.record(z.string(), Model),
-    })
-    .meta({
-      ref: "Provider",
-    })
-  export type Info = z.infer<typeof Info>
+  const CapabilitiesIOSchema = Schema.Struct({
+    text: Schema.Boolean,
+    audio: Schema.Boolean,
+    image: Schema.Boolean,
+    video: Schema.Boolean,
+    pdf: Schema.Boolean,
+  })
+
+  const ModelSchema = Schema.Struct({
+    id: Schema.String,
+    providerID: Schema.String,
+    api: Schema.Struct({
+      id: Schema.String,
+      url: Schema.String,
+      npm: Schema.String,
+    }),
+    name: Schema.String,
+    family: Schema.optional(Schema.String),
+    capabilities: Schema.Struct({
+      temperature: Schema.Boolean,
+      reasoning: Schema.Boolean,
+      attachment: Schema.Boolean,
+      toolcall: Schema.Boolean,
+      input: CapabilitiesIOSchema,
+      output: CapabilitiesIOSchema,
+      interleaved: Schema.Union(
+        Schema.Boolean,
+        Schema.Struct({
+          field: Schema.Literal("reasoning_content", "reasoning_details"),
+        }),
+      ),
+    }),
+    cost: Schema.Struct({
+      input: Schema.Number,
+      output: Schema.Number,
+      cache: CostBlockSchema,
+      experimentalOver200K: Schema.optional(
+        Schema.Struct({
+          input: Schema.Number,
+          output: Schema.Number,
+          cache: CostBlockSchema,
+        }),
+      ),
+    }),
+    limit: Schema.Struct({
+      context: Schema.Number,
+      input: Schema.optional(Schema.Number),
+      output: Schema.Number,
+    }),
+    status: Schema.Literal("alpha", "beta", "deprecated", "active"),
+    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    headers: Schema.Record({ key: Schema.String, value: Schema.String }),
+    release_date: Schema.String,
+    variants: Schema.optional(
+      Schema.Record({ key: Schema.String, value: Schema.Record({ key: Schema.String, value: Schema.Unknown }) }),
+    ),
+  }).annotations({ identifier: "Model" })
+  export const Model = zodObject(ModelSchema)
+  export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
+
+  const InfoSchema = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    source: Schema.Literal("env", "config", "custom", "api"),
+    env: Schema.mutable(Schema.Array(Schema.String)),
+    key: Schema.optional(Schema.String),
+    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    models: Schema.Record({ key: Schema.String, value: ModelSchema }),
+  }).annotations({ identifier: "Provider" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   function fromModelsDevModel(provider: ModelsDev.Provider, model: ModelsDev.Model): Model {
     const m: Model = {
@@ -1280,7 +1272,7 @@ export namespace Provider {
       if (options["apiKey"] === undefined && provider.key) options["apiKey"] = provider.key
       if (model.headers)
         options["headers"] = {
-          ...options["headers"],
+          ...((options["headers"] as Record<string, unknown> | undefined) ?? {}),
           ...model.headers,
         }
 
@@ -1288,7 +1280,9 @@ export namespace Provider {
       const existing = s.sdk.get(key)
       if (existing) return existing
 
-      const customFetch = options["fetch"]
+      const customFetch = options["fetch"] as
+        | ((input: any, init?: BunFetchRequestInit) => Promise<Response>)
+        | undefined
 
       options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
         // Preserve custom fetch if it exists, wrap it with timeout logic
@@ -1298,7 +1292,7 @@ export namespace Provider {
         if (options["timeout"] !== undefined && options["timeout"] !== null) {
           const signals: AbortSignal[] = []
           if (opts.signal) signals.push(opts.signal)
-          if (options["timeout"] !== false) signals.push(AbortSignal.timeout(options["timeout"]))
+          if (options["timeout"] !== false) signals.push(AbortSignal.timeout(options["timeout"] as number))
 
           const combined = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
 
