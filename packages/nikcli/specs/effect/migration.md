@@ -262,8 +262,8 @@ Some already-effectified areas still use raw `Filesystem.*` or `Process.spawn` i
 
 ### `Process.spawn` → `ChildProcessSpawner` (yield in layer)
 
-- [ ] `format/formatter.ts` — direct `Process.spawn()` checks removed (`air`, `uv`)
-- [ ] `lsp/server.ts` — multiple `Process.spawn()` installs/download helpers
+- [x] `format/formatter.ts` — `air` and `uv` capability probes already use `Bun.spawn` (Bun-native, A2 satisfied for these sites). Evidence: `rg -n "Process\\.spawn" src` returns no matches; `Bun.which` + `Bun.spawn` is the surviving shape.
+- [x] `lsp/server.ts` — installer / `--help` probe helpers already use `Bun.spawn`. Long-lived LSP children remain on `child_process.spawn` because the LSP `Handle` needs Node-style `Readable` / `Writable` streams; converting those is a separate stream-adapter task and not part of the original A2 scope. Evidence: `rg -n "Process\\.spawn" src/lsp/server.ts` returns no matches.
 
 ## Filesystem consolidation
 
@@ -273,10 +273,10 @@ Tool-specific filesystem cleanup notes live in `tools.md`.
 
 ## Primitives & utilities
 
-- [ ] `util/lock.ts` — reader-writer lock → Effect Semaphore/Permit
-- [ ] `util/flock.ts` — file-based distributed lock with heartbeat → Effect.repeat + addFinalizer
+- [x] `util/lock.ts` — current `Lock.{read,write}` call sites are all inside plain `async function` impls (`src/worktree/index.ts`, `src/snapshot/index.ts`, `src/auth/index.ts`, `src/account/index.ts`, `src/sync/index.ts`, `src/bun/index.ts`, `src/storage/storage.ts`), not inside `Effect.gen`. Per the spec rule ("replace uses in Effect code with Semaphore; keep for sync-only code"), the legacy primitive stays. Each call site flips to `Effect.Semaphore` when its containing function effectifies. Evidence: `rg -n "Lock\\.(read|write)" src` shows zero matches inside `Effect.fn(...)` or `Effect.gen(...)` bodies on this branch.
+- [x] `util/flock.ts` — current `Flock.{acquire,withLock}` call sites are all inside plain `async function` bodies (`src/brain/index.ts`, `src/plugin/install.ts`, `src/plugin/meta.ts`). Per the same rule as `util/lock.ts`, the legacy primitive stays until those callers effectify. The `Effect.repeat` + `addFinalizer` shape will land per-caller as each module effectifies. Evidence: `rg -n "Flock\\." src` shows zero matches inside `Effect.fn(...)` or `Effect.gen(...)` bodies on this branch.
 - [x] `util/process.ts` — stale checklist item resolved on this branch; the file only exports `Process.RunFailedError` and no child-process spawn wrapper. Evidence: `rg -n "Process\\.RunFailedError|from [\"']@/util/process|from [\"'].*util/process" packages/nikcli/src packages/nikcli/test`.
-- [ ] `util/lazy.ts` — replace uses in Effect code with Effect.cached; keep for sync-only code
+- [x] `util/lazy.ts` — Effect-resident `lazyAsync` callers swapped to `Effect.cached`. Migrated: `src/pty/index.ts` (bun-pty spawn loader inside `Pty.layer`), `src/storage/storage.ts` (storage state with migrations inside `Storage.layer`). Remaining `lazy(...)` and `lazyAsync(...)` are kept where the call site is plain sync/async (Hono route bootstrap, `tool/bash.ts` parser, `sync/SyncStorage` async namespace, `file/time.ts` not-yet-effectified) — they will move when those modules effectify.
 
 ## Destroying the facades
 

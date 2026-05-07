@@ -10,7 +10,7 @@ import { clone } from "remeda"
 import { Instance } from "../project/instance"
 import { ProviderTransform } from "../provider/transform"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 const log = Log.create({ service: "chatbot-handlers" })
 
@@ -158,17 +158,11 @@ export namespace BotHandlers {
     const directory = Instance.directory
 
     ChatBot.registerMentionHandler(bot, async (thread, message) => {
-      await Instance.provide({
-        directory,
-        fn: () => handleMention(thread, message, opts),
-      })
+      await withInstanceAsync({ directory }, () => handleMention(thread, message, opts))
     })
 
     ChatBot.registerMessageHandler(bot, async (thread, message) => {
-      await Instance.provide({
-        directory,
-        fn: () => handleMessage(thread, message, opts),
-      })
+      await withInstanceAsync({ directory }, () => handleMessage(thread, message, opts))
     })
 
     log.info("AI handler registered for bot")

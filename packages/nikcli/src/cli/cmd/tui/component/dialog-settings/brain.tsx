@@ -4,8 +4,7 @@ import { useToast } from "../../ui/toast"
 import { useDialog } from "@tui/ui/dialog"
 import { Config } from "@/config/config"
 import { useSync } from "../../context/sync"
-import { Instance } from "@/project/instance"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 
 type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled"
@@ -36,10 +35,7 @@ export function DialogSettingsBrain() {
   onMount(async () => {
     try {
       const { getBrainConfig } = await import("@/brain")
-      const config = await Instance.provide({
-        directory: instanceDirectory(),
-        fn: () => getBrainConfig(),
-      })
+      const config = await withInstanceAsync({ directory: instanceDirectory() }, () => getBrainConfig())
       setBrainEnabled(config.enabled)
       setMemoryEnabled(config.memoryEnabled)
       setMinHours(config.minHours)
@@ -83,13 +79,9 @@ export function DialogSettingsBrain() {
     rollback: () => void,
   ) => {
     try {
-      await Instance.provide({
-        directory: instanceDirectory(),
-        fn: () =>
-          configUpdate({
-            experimental: patch as any,
-          }),
-      })
+      await withInstanceAsync({ directory: instanceDirectory() }, () =>
+        configUpdate({ experimental: patch as any }),
+      )
       toast.show({ message: success, variant: "success" })
       dialog.clear()
     } catch (error) {

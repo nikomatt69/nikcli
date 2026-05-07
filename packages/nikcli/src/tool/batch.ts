@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./batch.txt"
 
@@ -8,17 +9,20 @@ const FILTERED_FROM_SUGGESTIONS = new Set(["invalid", "patch", ...DISALLOWED])
 export const BatchTool = Tool.define("batch", async () => {
   return {
     description: DESCRIPTION,
-    parameters: z.object({
-      tool_calls: z
-        .array(
-          z.object({
-            tool: z.string().describe("The name of the tool to execute"),
-            parameters: z.object({}).loose().describe("Parameters for the tool"),
+    parameters: zod(
+      Schema.Struct({
+        tool_calls: Schema.Array(
+          Schema.Struct({
+            tool: Schema.String.annotations({ description: "The name of the tool to execute" }),
+            parameters: Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+              description: "Parameters for the tool",
+            }),
           }),
         )
-        .min(1, "Provide at least one tool call")
-        .describe("Array of tool calls to execute in parallel"),
-    }),
+          .pipe(Schema.minItems(1))
+          .annotations({ description: "Array of tool calls to execute in parallel" }),
+      }),
+    ),
     formatValidationError(error) {
       const formattedErrors = error.issues
         .map((issue) => {
@@ -94,7 +98,7 @@ export const BatchTool = Tool.define("batch", async () => {
             },
           })
 
-          const result = await tool.execute(validatedParams, { ...ctx, callID: partID })
+          const result = await tool.executeAsync(validatedParams, { ...ctx, callID: partID })
 
           await updatePart({
             id: partID,

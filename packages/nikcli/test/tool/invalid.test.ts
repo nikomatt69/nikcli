@@ -13,7 +13,7 @@ describe("InvalidTool", () => {
 
   it("returns formatted error output for a valid call", async () => {
     const def = await InvalidTool.init()
-    const result = await def.execute(
+    const result = await def.executeAsync(
       { tool: "read", error: "missing path" },
       {
         sessionID: "ses_test",

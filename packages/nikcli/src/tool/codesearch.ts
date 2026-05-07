@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./codesearch.txt"
 import { callTool } from "./mcp-exa"
@@ -8,23 +9,23 @@ interface McpCodeRequest extends Record<string, unknown> {
   tokensNum: number
 }
 
+const Parameters = Schema.Struct({
+  query: Schema.String.annotations({
+    description:
+      "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
+  }),
+  tokensNum: Schema.optionalWith(
+    Schema.Number.pipe(Schema.greaterThanOrEqualTo(1000), Schema.lessThanOrEqualTo(50000)),
+    { default: () => 5000 },
+  ).annotations({
+    description:
+      "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
+  }),
+})
+
 export const CodeSearchTool = Tool.define("codesearch", {
   description: DESCRIPTION,
-  parameters: z.object({
-    query: z
-      .string()
-      .describe(
-        "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
-      ),
-    tokensNum: z
-      .number()
-      .min(1000)
-      .max(50000)
-      .default(5000)
-      .describe(
-        "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
-      ),
-  }),
+  parameters: zod(Parameters),
   async execute(params, ctx) {
     await ctx.ask({
       permission: "codesearch",

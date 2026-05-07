@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema, Effect } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import path from "path"
 import { LSP } from "../lsp"
@@ -7,7 +8,6 @@ import { Instance } from "../project/instance"
 import { pathToFileURL } from "url"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
 
 function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
@@ -25,14 +25,20 @@ const operations = [
   "outgoingCalls",
 ] as const
 
+const Parameters = Schema.Struct({
+  operation: Schema.Literal(...operations).annotations({ description: "The LSP operation to perform" }),
+  filePath: Schema.String.annotations({ description: "The absolute or relative path to the file" }),
+  line: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)).annotations({
+    description: "The line number (1-based, as shown in editors)",
+  }),
+  character: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)).annotations({
+    description: "The character offset (1-based, as shown in editors)",
+  }),
+})
+
 export const LspTool = Tool.define("lsp", {
   description: DESCRIPTION,
-  parameters: z.object({
-    operation: z.enum(operations).describe("The LSP operation to perform"),
-    filePath: z.string().describe("The absolute or relative path to the file"),
-    line: z.number().int().min(1).describe("The line number (1-based, as shown in editors)"),
-    character: z.number().int().min(1).describe("The character offset (1-based, as shown in editors)"),
-  }),
+  parameters: zod(Parameters),
   execute: async (args, ctx) => {
     const file = path.isAbsolute(args.filePath) ? args.filePath : path.join(Instance.directory, args.filePath)
     await assertExternalDirectory(ctx, file)

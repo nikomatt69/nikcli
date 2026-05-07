@@ -1,4 +1,6 @@
 import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import path from "path"
 import { Tool } from "./tool"
 import { Question } from "../question"
@@ -49,7 +51,7 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
 
 export const PlanExitTool = Tool.define("plan_exit", {
   description: EXIT_DESCRIPTION,
-  parameters: z.object({}),
+  parameters: zod(Schema.Struct({})),
   async execute(_params, ctx) {
     const plan = await runSession(
       Effect.gen(function* () {
@@ -114,7 +116,7 @@ export const PlanExitTool = Tool.define("plan_exit", {
 
 export const PlanEnterTool = Tool.define("plan_enter", {
   description: ENTER_DESCRIPTION,
-  parameters: z.object({}),
+  parameters: zod(Schema.Struct({})),
   async execute(_params, ctx) {
     const plan = await runSession(
       Effect.gen(function* () {

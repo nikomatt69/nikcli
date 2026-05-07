@@ -1,10 +1,11 @@
 import z from "zod"
+import { Effect, Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import { Skill } from "../skill"
 import { PermissionNext } from "../permission/next"
 import { Session } from "../session"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
 
 function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
   return runPromiseWithLayer(Skill.defaultLayer, effect)
@@ -57,12 +58,15 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
     .join(", ")
   const hint = examples.length > 0 ? ` (e.g., ${examples}, ...)` : ""
 
-  const parameters = z.object({
-    name: z.string().optional().describe(`The skill identifier from available_skills${hint}`),
-    search: z.string().optional().describe("Filter skills by name or description"),
-    category: z.string().optional().describe("Filter skills by category"),
-    tags: z.string().optional().describe("Filter by comma-separated tags"),
+  const parametersSchema = Schema.Struct({
+    name: Schema.optional(Schema.String).annotations({
+      description: `The skill identifier from available_skills${hint}`,
+    }),
+    search: Schema.optional(Schema.String).annotations({ description: "Filter skills by name or description" }),
+    category: Schema.optional(Schema.String).annotations({ description: "Filter skills by category" }),
+    tags: Schema.optional(Schema.String).annotations({ description: "Filter by comma-separated tags" }),
   })
+  const parameters = zod(parametersSchema)
 
   return {
     description,

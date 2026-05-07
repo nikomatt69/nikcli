@@ -18,6 +18,7 @@ import { Log } from "@/util/log"
 import { errorData, errorMessage } from "@/util/error"
 import { isRecord } from "@/util/record"
 import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import {
   checkPluginCompatibility,
   getPluginIdFromPackage,
@@ -784,15 +785,13 @@ async function addPluginBySpec(state: RuntimeState | undefined, raw: string) {
 
   const meta = pending?.meta ?? defaultPluginMeta(state)
 
-  const ready = await Instance.provide({
-    directory: state.directory,
-    fn: () =>
-      resolveExternalPlugins(
-        [item],
-        () => TuiConfig.waitForDependencies(),
-        () => meta,
-      ),
-  }).catch((error) => {
+  const ready = await withInstanceAsync({ directory: state.directory }, () =>
+    resolveExternalPlugins(
+      [item],
+      () => TuiConfig.waitForDependencies(),
+      () => meta,
+    ),
+  ).catch((error) => {
     fail("failed to add tui plugin", { path: nextSpec, error })
     return [] as PluginLoad[]
   })
@@ -988,9 +987,8 @@ export namespace TuiPluginRuntime {
     }
     runtime = next
 
-    await Instance.provide({
-      directory: cwd,
-      fn: async () => {
+    await withInstanceAsync({ directory: cwd }, async () => {
+      {
         const config = await TuiConfig.get()
         const plugins = Flag.NIKCLI_PURE ? [] : (config.plugin ?? [])
         if (Flag.NIKCLI_PURE && config.plugin?.length) {
@@ -1039,7 +1037,7 @@ export namespace TuiPluginRuntime {
           // and hook chains rely on stable plugin ordering.
           await activatePluginEntry(next, plugin, false)
         }
-      },
+      }
     }).catch((error) => {
       fail("failed to load tui plugins", { directory: cwd, error })
     })

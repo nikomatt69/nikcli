@@ -1,8 +1,19 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import { NativeExecutor } from "@/session/native-executor"
 import { Log } from "@/util/log"
 import DESCRIPTION from "./exec_code.txt"
+
+const Parameters = Schema.Struct({
+  code: Schema.String.annotations({
+    description: "JavaScript/TypeScript code to execute. Tools are available as async globals.",
+  }),
+  timeout: Schema.optionalWith(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1), Schema.lessThanOrEqualTo(120)),
+    { default: () => 30 },
+  ).annotations({ description: "Execution timeout in seconds (default: 30, max: 120)" }),
+})
 
 const log = Log.create({ service: "tool.exec_code" })
 
@@ -38,17 +49,7 @@ export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
 
   return {
     description: `${DESCRIPTION}\n\nAvailable tools: ${availableNames}`,
-    parameters: z.object({
-      code: z.string().describe("JavaScript/TypeScript code to execute. Tools are available as async globals."),
-      timeout: z
-        .number()
-        .int()
-        .min(1)
-        .max(120)
-        .optional()
-        .default(30)
-        .describe("Execution timeout in seconds (default: 30, max: 120)"),
-    }),
+    parameters: zod(Parameters),
 
     async execute({ code, timeout }, ctx) {
       const timeoutMs = Math.min((timeout ?? 30) * 1000, 120_000)
@@ -68,7 +69,7 @@ export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
       for (const t of bridgeable) {
         bridge[t.id] = async (args) => {
           try {
-            const result = await t.execute(args as any, ctx)
+            const result = await t.executeAsync(args as any, ctx)
             return result.output
           } catch (e) {
             return `Error: ${e instanceof Error ? e.message : String(e)}`

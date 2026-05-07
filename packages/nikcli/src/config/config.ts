@@ -3,7 +3,6 @@ import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
 import z from "zod"
-import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
 import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
@@ -24,6 +23,8 @@ import { Event } from "../server/event"
 import { Context, Effect, Layer } from "effect"
 import { InstanceState, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
+import { ConfigPaths } from "./paths"
+import { AppFileSystem } from "@/filesystem"
 
 export namespace Config {
   const log = Log.create({ service: "config" })
@@ -59,7 +60,11 @@ export namespace Config {
 
   export class Service extends Context.Tag("Config.Service")<Service, Interface>() {}
 
-  async function loadState(ctx: InstanceContext): Promise<State> {
+  async function loadState(
+    ctx: InstanceContext,
+    directories: string[],
+    projectFiles: string[],
+  ): Promise<State> {
     const auth = await runAuth(
       Effect.gen(function* () {
         const auth = yield* Auth.Service
@@ -115,8 +120,7 @@ export namespace Config {
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      const found = await Filesystem.findUp("nikcli.json", ctx.directory, ctx.worktree)
-      for (const resolved of found.toReversed()) {
+      for (const resolved of projectFiles) {
         result = mergeConfigConcatArrays(result, await loadFile(resolved))
       }
     }
@@ -131,30 +135,7 @@ export namespace Config {
     result.mode = result.mode || {}
     result.plugin = result.plugin || []
 
-    const directories = [
-      Global.Path.config,
-      // Only scan project .nikcli/ directories when project discovery is enabled
-      ...(!Flag.NIKCLI_DISABLE_PROJECT_CONFIG
-        ? await Array.fromAsync(
-            Filesystem.up({
-              targets: [".nikcli"],
-              start: ctx.directory,
-              stop: ctx.worktree,
-            }),
-          )
-        : []),
-      // Always scan ~/.nikcli/ (user home directory)
-      ...(await Array.fromAsync(
-        Filesystem.up({
-          targets: [".nikcli"],
-          start: Global.Path.home,
-          stop: Global.Path.home,
-        }),
-      )),
-    ]
-
     if (Flag.NIKCLI_CONFIG_DIR) {
-      directories.push(Flag.NIKCLI_CONFIG_DIR)
       log.debug("loading config from NIKCLI_CONFIG_DIR", { path: Flag.NIKCLI_CONFIG_DIR })
     }
 
@@ -231,7 +212,18 @@ export namespace Config {
     }
   }
 
-  const scopedStateEffect = InstanceState.make<State>((ctx) => Effect.promise(() => loadState(ctx)))
+  function makeScopedState(paths: ConfigPaths.Interface, appFs: AppFileSystem.Interface) {
+    return InstanceState.make<State>((ctx) =>
+      Effect.gen(function* () {
+        const directories = yield* paths.directories(ctx.directory, ctx.worktree)
+        const found = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
+          ? []
+          : yield* appFs.findUp("nikcli.json", ctx.directory, ctx.worktree)
+        const projectFiles = found.toReversed()
+        return yield* Effect.promise(() => loadState(ctx, directories, projectFiles))
+      }),
+    )
+  }
 
   export async function installDependencies(dir: string) {
     const pkg = path.join(dir, "package.json")
@@ -1780,7 +1772,9 @@ export namespace Config {
   export const layer = Layer.scoped(
     Service,
     Effect.gen(function* () {
-      const scopedState = yield* scopedStateEffect
+      const paths = yield* ConfigPaths.Service
+      const appFs = yield* AppFileSystem.Service
+      const scopedState = yield* makeScopedState(paths, appFs)
 
       const get: Interface["get"] = Effect.fn("Config.get")(function* () {
         return (yield* InstanceState.get(scopedState)).config
@@ -1815,5 +1809,8 @@ export namespace Config {
     }),
   )
 
-  export const defaultLayer = layer
+  export const defaultLayer = layer.pipe(
+    Layer.provide(ConfigPaths.defaultLayer),
+    Layer.provide(AppFileSystem.defaultLayer),
+  )
 }

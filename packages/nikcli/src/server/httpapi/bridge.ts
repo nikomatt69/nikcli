@@ -73,6 +73,9 @@ export namespace HttpApiBridge {
     ["POST", /^\/session\/[^/]+\/unrevert$/],
     ["PUT", /^\/file\/content$/],
     ["DELETE", /^\/mcp\/[^/]+\/auth$/],
+    ["POST", /^\/mcp\/[^/]+\/auth$/],
+    ["POST", /^\/mcp\/[^/]+\/auth\/callback$/],
+    ["POST", /^\/mcp\/[^/]+\/auth\/authenticate$/],
     ["DELETE", /^\/experimental\/worktree$/],
   ] as const
 

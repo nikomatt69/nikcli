@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./websearch.txt"
 import { callTool } from "./mcp-exa"
@@ -13,31 +14,29 @@ interface SearchInput extends Record<string, unknown> {
   contextMaxCharacters?: number
 }
 
+const Parameters = Schema.Struct({
+  query: Schema.String.annotations({ description: "Websearch query" }),
+  numResults: Schema.optional(Schema.Number).annotations({
+    description: "Number of search results to return (default: 8)",
+  }),
+  livecrawl: Schema.optional(Schema.Literal("fallback", "preferred")).annotations({
+    description:
+      "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
+  }),
+  type: Schema.optional(Schema.Literal("auto", "fast", "deep")).annotations({
+    description: "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
+  }),
+  contextMaxCharacters: Schema.optional(Schema.Number).annotations({
+    description: "Maximum characters for context string optimized for LLMs (default: 10000)",
+  }),
+})
+
 export const WebSearchTool = Tool.define("websearch", async () => {
   return {
     get description() {
       return DESCRIPTION.replace("{{date}}", new Date().toISOString().slice(0, 10))
     },
-    parameters: z.object({
-      query: z.string().describe("Websearch query"),
-      numResults: z.number().optional().describe("Number of search results to return (default: 8)"),
-      livecrawl: z
-        .enum(["fallback", "preferred"])
-        .optional()
-        .describe(
-          "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
-        ),
-      type: z
-        .enum(["auto", "fast", "deep"])
-        .optional()
-        .describe(
-          "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
-        ),
-      contextMaxCharacters: z
-        .number()
-        .optional()
-        .describe("Maximum characters for context string optimized for LLMs (default: 10000)"),
-    }),
+    parameters: zod(Parameters),
     async execute(params, ctx) {
       await ctx.ask({
         permission: "websearch",

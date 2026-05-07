@@ -1,6 +1,7 @@
 import type { Argv } from "yargs"
 import { cmd } from "./cmd"
 import { Instance } from "../../project/instance"
+import { withInstanceAsync } from "@/effect"
 import { UI } from "../ui"
 import { remoteService, qrRenderer, type RemoteSession, type SessionOptions } from "../remote"
 import { createTunnel, checkTunnelAvailability, probeTunnel, type TunnelProvider } from "@nikcli-ai/remote"
@@ -59,9 +60,8 @@ const RemoteStartCommand = cmd({
         type: "string",
       }),
   handler: async (args) => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         try {
           await ensureRemoteService()
 
@@ -92,7 +92,7 @@ const RemoteStartCommand = cmd({
         } catch (error: any) {
           UI.error(`Failed to start remote session: ${error?.message ?? error}`)
         }
-      },
+      }
     })
   },
 })
@@ -101,9 +101,8 @@ const RemoteStopCommand = cmd({
   command: "stop",
   describe: "stop the active remote session",
   handler: async () => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         try {
           await ensureRemoteService()
           if (!remoteService.hasActiveSession()) {
@@ -116,7 +115,7 @@ const RemoteStopCommand = cmd({
         } catch (error: any) {
           UI.error(`Failed to stop session: ${error?.message ?? error}`)
         }
-      },
+      }
     })
   },
 })
@@ -130,9 +129,8 @@ const RemoteStatusCommand = cmd({
       type: "boolean",
     }),
   handler: async (args) => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         await ensureRemoteService()
         const session = remoteService.getSession()
 
@@ -167,7 +165,7 @@ const RemoteStatusCommand = cmd({
         }
 
         await qrRenderer.render(session)
-      },
+      }
     })
   },
 })
@@ -176,12 +174,11 @@ const RemoteShareCommand = cmd({
   command: "share",
   describe: "get shareable session link",
   handler: async () => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         await ensureRemoteService()
         await shareSession()
-      },
+      }
     })
   },
 })
@@ -190,13 +187,12 @@ const RemoteAttachCommand = cmd({
   command: "attach <sessionId>",
   describe: "attach to an existing session",
   handler: async (args) => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         await ensureRemoteService()
         UI.println(`Attaching to session ${args.sessionId}...`)
         UI.println("This feature is not yet implemented.")
-      },
+      }
     })
   },
 })

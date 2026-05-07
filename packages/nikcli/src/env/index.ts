@@ -1,26 +1,21 @@
-import { Instance } from "../project/instance"
-
 export namespace Env {
-  const state = Instance.state(() => {
+  function backing(): Record<string, string | undefined> {
     return process.env as Record<string, string | undefined>
-  })
+  }
 
   export function get(key: string) {
-    const env = state()
-    return env[key]
+    return backing()[key]
   }
 
   export function all() {
-    return state()
+    return backing()
   }
 
   export function set(key: string, value: string) {
-    const env = state()
-    env[key] = value
+    backing()[key] = value
   }
 
   export function remove(key: string) {
-    const env = state()
-    delete env[key]
+    delete backing()[key]
   }
 }

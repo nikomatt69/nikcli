@@ -219,7 +219,7 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 | `config`                  | `bridged`     | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open |
 | `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch |
 | `file`                    | `bridged`     | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open |
-| `mcp`                     | `bridged` partial | non-OAuth management routes are bridged; OAuth start/callback/authenticate remain open |
+| `mcp`                     | `bridged`     | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle |
 | `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found |
 | top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch |
 | experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open |
@@ -292,9 +292,9 @@ This checklist tracks bridge parity only. Checked routes are available through t
 
 - [x] `GET /mcp` - MCP status.
 - [x] `POST /mcp` - add MCP server at runtime.
-- [ ] `POST /mcp/:name/auth` - start MCP OAuth.
-- [ ] `POST /mcp/:name/auth/callback` - finish MCP OAuth callback.
-- [ ] `POST /mcp/:name/auth/authenticate` - run MCP OAuth authenticate flow.
+- [x] `POST /mcp/:name/auth` - start MCP OAuth. Evidence: `src/server/httpapi/mcp.ts` `startAuth` endpoint, mounted in `bridge.ts`.
+- [x] `POST /mcp/:name/auth/callback` - finish MCP OAuth callback. Evidence: `src/server/httpapi/mcp.ts` `authCallback` endpoint, mounted in `bridge.ts`.
+- [x] `POST /mcp/:name/auth/authenticate` - run MCP OAuth authenticate flow. Evidence: `src/server/httpapi/mcp.ts` `authenticate` endpoint, mounted in `bridge.ts`.
 - [x] `DELETE /mcp/:name/auth` - remove MCP OAuth credentials.
 - [x] `POST /mcp/:name/connect` - connect MCP server.
 - [x] `POST /mcp/:name/disconnect` - disconnect MCP server.
@@ -302,16 +302,16 @@ This checklist tracks bridge parity only. Checked routes are available through t
 
 ### Experimental Routes
 
-- [ ] `GET /experimental/console` - active Console provider metadata.
-- [ ] `GET /experimental/console/orgs` - switchable Console orgs.
-- [ ] `POST /experimental/console/switch` - switch active Console org.
+- [x] `GET /experimental/console` - resolved: no matching Hono registration on this branch. Evidence: `rg -n "experimental/console" src/server` returns no matches. Remove from inventory or reintroduce intentionally.
+- [x] `GET /experimental/console/orgs` - resolved: no matching Hono registration on this branch.
+- [x] `POST /experimental/console/switch` - resolved: no matching Hono registration on this branch.
 - [x] `GET /experimental/tool/ids` - tool IDs.
 - [x] `GET /experimental/tool` - tools for provider/model.
 - [x] `GET /experimental/worktree` - list worktrees.
 - [x] `POST /experimental/worktree` - create worktree. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
 - [x] `DELETE /experimental/worktree` - remove worktree. Evidence: `src/server/httpapi/experimental.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-experimental.test.ts`.
 - [x] `POST /experimental/worktree/reset` - reset worktree. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
-- [ ] `GET /experimental/session` - global session list.
+- [x] `GET /experimental/session` - resolved: no matching Hono registration on this branch. Evidence: `rg -n "experimental/session" src/server` returns no matches.
 - [x] `GET /experimental/resource` - MCP resources.
 
 ### Workspace Routes
@@ -319,16 +319,16 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `GET /experimental/workspace/adaptor` - list workspace adaptors. Current branch route spelling is `adaptor`, matching `src/server/routes/workspace.ts`.
 - [x] `POST /experimental/workspace/:id` - create workspace. Current branch route includes a required workspace id path parameter. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 - [x] `GET /experimental/workspace` - list workspaces.
-- [ ] `GET /experimental/workspace/status` - workspace status.
+- [x] `GET /experimental/workspace/status` - resolved: no matching Hono registration on this branch. Evidence: `rg -n "workspace/status" src/server` returns no matches.
 - [x] `DELETE /experimental/workspace/:id` - remove workspace. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
 - [x] `POST /experimental/workspace/:id/restore` - restore workspace state. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 - [x] `POST /experimental/workspace/:id/session/:sessionID/restore` - restore session into workspace. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 
 ### Sync Routes
 
-- [ ] `POST /sync/start` - start workspace sync.
-- [ ] `POST /sync/replay` - replay sync events.
-- [ ] `POST /sync/history` - list sync event history.
+- [ ] `POST /sync/start` - start workspace sync. Blocked by Phase I (`Sync.Service` does not exist as Effect service yet on this branch).
+- [ ] `POST /sync/replay` - replay sync events. Blocked by Phase I.
+- [ ] `POST /sync/history` - list sync event history. Blocked by Phase I.
 
 ### Session Routes
 

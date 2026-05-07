@@ -4,7 +4,7 @@ import { UI } from "../ui"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
 import { Locale } from "../../util/locale"
-import { runPromiseWithLayer } from "@/effect"
+import { runPromiseWithLayer, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 import type { Argv } from "yargs"
 
@@ -119,9 +119,8 @@ export const AdsCreateCommand = cmd({
         describe: "create the ad as disabled",
       }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Create ad")
 
@@ -206,7 +205,7 @@ export const AdsCreateCommand = cmd({
         await saveAds(next)
         prompts.log.success(`Ad created: ${id}`)
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -216,9 +215,8 @@ export const AdsListCommand = cmd({
   aliases: ["ls"],
   describe: "list ads",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Ads")
 
@@ -249,7 +247,7 @@ export const AdsListCommand = cmd({
         }
 
         prompts.outro(`${items.length} ad(s)`)
-      },
+      }
     })
   },
 })
@@ -264,9 +262,8 @@ export const AdsRemoveCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Remove ad")
 
@@ -294,7 +291,7 @@ export const AdsRemoveCommand = cmd({
         await saveAds(next)
         prompts.log.success(`Ad removed: ${id}`)
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -308,9 +305,8 @@ export const AdsToggleCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Toggle ad")
 
@@ -345,7 +341,7 @@ export const AdsToggleCommand = cmd({
         const status = nextItem?.enabled === false ? "disabled" : "enabled"
         prompts.log.success(`Ad ${id} is now ${status}`)
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -354,9 +350,8 @@ export const AdsEnableCommand = cmd({
   command: "enable",
   describe: "enable ads globally",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Enable ads")
 
@@ -366,7 +361,7 @@ export const AdsEnableCommand = cmd({
 
         prompts.log.success("Ads enabled")
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -375,9 +370,8 @@ export const AdsDisableCommand = cmd({
   command: "disable",
   describe: "disable ads globally",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Disable ads")
 
@@ -387,7 +381,7 @@ export const AdsDisableCommand = cmd({
 
         prompts.log.success("Ads disabled")
         prompts.outro("Done")
-      },
+      }
     })
   },
 })

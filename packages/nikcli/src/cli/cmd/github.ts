@@ -17,6 +17,7 @@ import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
 import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import { bootstrap } from "../bootstrap"
 import { Session } from "../../session"
 import { Identifier } from "../../id/id"
@@ -173,9 +174,8 @@ export const GithubInstallCommand = cmd({
   command: "install",
   describe: "install the GitHub agent",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Install GitHub agent")
         const app = await getAppInfo()
@@ -385,7 +385,7 @@ jobs:
 
           prompts.log.success(`Added workflow file: "${WORKFLOW_FILE}"`)
         }
-      },
+      }
     })
   },
 })

@@ -12,7 +12,7 @@ import { Plugin } from "../../plugin"
 import { Instance } from "../../project/instance"
 import type { Hooks } from "@nikcli-ai/plugin"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
@@ -272,9 +272,8 @@ export const AuthLoginCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Add credential")
         if (args.url) {
@@ -436,7 +435,7 @@ export const AuthLoginCommand = cmd({
         })
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })

@@ -10,7 +10,7 @@ import { Global } from "../../global"
 import { Server } from "../../server/server"
 import path from "path"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 type ConnectorConfigured = Config.Connector
 
@@ -103,9 +103,8 @@ export const BotListCommand = cmd({
   aliases: ["ls"],
   describe: "list configured chat bots and their status",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Chat Bots")
 
@@ -140,7 +139,7 @@ export const BotListCommand = cmd({
         }
 
         prompts.outro(`${items.length} bot(s)`)
-      },
+      }
     })
   },
 })
@@ -149,9 +148,8 @@ export const BotAddCommand = cmd({
   command: "add",
   describe: "add a new chat bot",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Add Chat Bot")
 
@@ -242,7 +240,7 @@ export const BotAddCommand = cmd({
         }
 
         prompts.outro("Bot added successfully")
-      },
+      }
     })
   },
 })
@@ -256,9 +254,8 @@ export const BotStartCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Start Chat Bot")
 
@@ -322,7 +319,7 @@ export const BotStartCommand = cmd({
         }
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -336,9 +333,8 @@ export const BotStopCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Stop Chat Bot")
 
@@ -372,7 +368,7 @@ export const BotStopCommand = cmd({
         }
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -386,9 +382,8 @@ export const BotWebhookCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Chat Bot Webhook")
 
@@ -438,7 +433,7 @@ export const BotWebhookCommand = cmd({
         prompts.log.info("\nConfigure this URL in your " + connectorConfig.type + " app settings.")
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })

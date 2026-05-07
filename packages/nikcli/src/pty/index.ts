@@ -5,7 +5,6 @@ import z from "zod"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
-import { lazyAsync } from "@nikcli-ai/util/lazy"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
 import { Context, Effect, Layer } from "effect"
@@ -16,7 +15,7 @@ export namespace Pty {
   const BUFFER_LIMIT = 1024 * 1024 * 2
   const BUFFER_CHUNK = 64 * 1024
 
-  const pty = lazyAsync(async () => {
+  const loadSpawn = Effect.promise(async () => {
     const { spawn } = await import("bun-pty")
     return spawn
   })
@@ -111,6 +110,8 @@ export namespace Pty {
         ),
       )
 
+      const cachedSpawn = yield* Effect.cached(loadSpawn)
+
       const list: Interface["list"] = Effect.fn("Pty.list")(function* () {
         return Array.from((yield* InstanceState.get(state)).values()).map((session) => session.info)
       })
@@ -138,7 +139,7 @@ export namespace Pty {
         } as Record<string, string>
         log.info("creating session", { id, cmd: command, args, cwd })
 
-        const spawn = yield* Effect.promise(async () => pty())
+        const spawn = yield* cachedSpawn
         const ptyProcess = spawn(command, args, {
           name: "xterm-256color",
           cwd,

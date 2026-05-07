@@ -2,6 +2,7 @@ import { Installation } from "@/installation"
 import { Server } from "@/server/server"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@/util/rpc"
 import { upgrade } from "@/cli/upgrade"
@@ -125,13 +126,12 @@ export const rpc = {
     return { url: server.url.toString() }
   },
   async checkUpgrade(input: { directory: string }) {
-    await Instance.provide({
-      directory: input.directory,
-      init: InstanceBootstrap,
-      fn: async () => {
+    await withInstanceAsync(
+      { directory: input.directory, init: InstanceBootstrap },
+      async () => {
         await upgrade().catch(() => {})
       },
-    })
+    )
   },
   async reload() {
     await Instance.disposeAll()

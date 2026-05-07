@@ -1,12 +1,15 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
+
+const Parameters = Schema.Struct({
+  tool: Schema.String,
+  error: Schema.String,
+})
 
 export const InvalidTool = Tool.define("invalid", {
   description: "Do not use",
-  parameters: z.object({
-    tool: z.string(),
-    error: z.string(),
-  }),
+  parameters: zod(Parameters),
   async execute(params) {
     return {
       title: "Invalid Tool",

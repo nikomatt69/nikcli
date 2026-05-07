@@ -8,7 +8,7 @@ import { Instance } from "../../project/instance"
 import { ttsRegistry } from "@/tool/speak/provider"
 import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@/tool/speak/elevenlabs"
 import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@/tool/speak/openrouter"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 
 const DEFAULT_SPEAK_PROVIDER = "elevenlabs"
@@ -86,9 +86,8 @@ export const SpeakModelCommand = cmd({
       })
   },
   handler: async (args) => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         const config = await configGet()
 
         if (args.reset) {
@@ -179,7 +178,7 @@ export const SpeakModelCommand = cmd({
             }
           }
         }
-      },
+      }
     })
   },
 })

@@ -18,7 +18,7 @@ import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
@@ -182,36 +182,32 @@ export namespace Workspace {
     const directory = syncDirectory(space)
     if (!directory || !event?.type) return
 
-    await Instance.provide({
-      directory,
-      init: InstanceBootstrap,
-      async fn() {
-        if (event.type === "session.status" && event.properties?.sessionID && event.properties?.status) {
-          await hydrateStatus(event.properties.sessionID, event.properties.status)
-        }
+    await withInstanceAsync({ directory, init: InstanceBootstrap }, async () => {
+      if (event.type === "session.status" && event.properties?.sessionID && event.properties?.status) {
+        await hydrateStatus(event.properties.sessionID, event.properties.status)
+      }
 
-        if (event.type === "session.idle" && event.properties?.sessionID) {
-          await hydrateStatus(event.properties.sessionID, { type: "idle" })
-        }
+      if (event.type === "session.idle" && event.properties?.sessionID) {
+        await hydrateStatus(event.properties.sessionID, { type: "idle" })
+      }
 
-        if (event.type === "permission.asked" && event.properties?.id) {
-          await runPermission(
-            Effect.gen(function* () {
-              const permission = yield* PermissionNext.Service
-              yield* permission.hydrateAsk(event.properties)
-            }),
-          )
-        }
+      if (event.type === "permission.asked" && event.properties?.id) {
+        await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            yield* permission.hydrateAsk(event.properties)
+          }),
+        )
+      }
 
-        if (event.type === "permission.replied" && event.properties?.requestID) {
-          await runPermission(
-            Effect.gen(function* () {
-              const permission = yield* PermissionNext.Service
-              yield* permission.hydrateReply(event.properties.requestID)
-            }),
-          )
-        }
-      },
+      if (event.type === "permission.replied" && event.properties?.requestID) {
+        await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            yield* permission.hydrateReply(event.properties.requestID)
+          }),
+        )
+      }
     })
   }
 

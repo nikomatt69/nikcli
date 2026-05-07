@@ -6,6 +6,7 @@ import { Global } from "../../global"
 import { installPlugin, patchPluginConfig, readPluginManifest } from "../../plugin/install"
 import { resolvePluginTarget } from "../../plugin/shared"
 import { Instance } from "../../project/instance"
+import { withInstanceAsync } from "@/effect"
 import { errorMessage } from "../../util/error"
 import { Filesystem } from "../../util/filesystem"
 import { Process } from "../../util/process"
@@ -214,15 +215,12 @@ export const PluginCommand = cmd({
     })
     let ok = true
 
-    await Instance.provide({
-      directory: process.cwd(),
-      fn: async () => {
-        ok = await run({
-          vcs: Instance.project.vcs,
-          worktree: Instance.worktree,
-          directory: Instance.directory,
-        })
-      },
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      ok = await run({
+        vcs: Instance.project.vcs,
+        worktree: Instance.worktree,
+        directory: Instance.directory,
+      })
     })
 
     outro("Done")

@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import path from "path"
 import os from "os"
 import { spawn } from "child_process"
@@ -244,28 +245,36 @@ function playAudioNonBlocking(player: AudioPlayer, filePath: string, volume: num
 
 export const SpeakTool = Tool.define("speak", {
   description: DESCRIPTION,
-  parameters: z.object({
-    text: z.string().describe("Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc."),
-    provider: z.string().optional().describe("TTS provider (e.g., elevenlabs, openrouter)"),
-    stability: z
-      .number()
-      .min(0)
-      .max(1)
-      .optional()
-      .describe("Voice stability (0-1). Lower = more expressive. Default: 0.5"),
-    similarityBoost: z.number().min(0).max(1).optional().describe("Voice similarity boost (0-1). Default: 0.75"),
-    speed: z.number().min(0.5).max(2).optional().describe("Speech speed multiplier (0.5-2). Default: 1.0"),
-    volume: z.number().min(0).max(2).optional().describe("Playback volume (0-2). Default: 1.0"),
-    voiceId: z.string().optional().describe("TTS voice ID (provider-dependent default)"),
-    modelId: z.string().optional().describe("TTS model ID (provider-dependent default)"),
-    outputFormat: z.string().optional().describe("TTS output format (provider-dependent default)"),
-    timeoutMs: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe(`Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})`),
-  }),
+  parameters: zod(
+    Schema.Struct({
+      text: Schema.String.annotations({
+        description: "Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.",
+      }),
+      provider: Schema.optional(Schema.String).annotations({
+        description: "TTS provider (e.g., elevenlabs, openrouter)",
+      }),
+      stability: Schema.optional(
+        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1)),
+      ).annotations({ description: "Voice stability (0-1). Lower = more expressive. Default: 0.5" }),
+      similarityBoost: Schema.optional(
+        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1)),
+      ).annotations({ description: "Voice similarity boost (0-1). Default: 0.75" }),
+      speed: Schema.optional(
+        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0.5), Schema.lessThanOrEqualTo(2)),
+      ).annotations({ description: "Speech speed multiplier (0.5-2). Default: 1.0" }),
+      volume: Schema.optional(
+        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(2)),
+      ).annotations({ description: "Playback volume (0-2). Default: 1.0" }),
+      voiceId: Schema.optional(Schema.String).annotations({ description: "TTS voice ID (provider-dependent default)" }),
+      modelId: Schema.optional(Schema.String).annotations({ description: "TTS model ID (provider-dependent default)" }),
+      outputFormat: Schema.optional(Schema.String).annotations({
+        description: "TTS output format (provider-dependent default)",
+      }),
+      timeoutMs: Schema.optional(
+        Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+      ).annotations({ description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})` }),
+    }),
+  ),
   async execute(params, ctx) {
     const config = await configGet()
     const speakConfig = config.speak ?? {}

@@ -758,8 +758,8 @@ export namespace SessionPrompt {
             })
           },
         }
-        const result = await taskTool.execute(taskArgs, taskCtx).catch((error) => {
-          executionError = error
+        const result = await taskTool.executeAsync(taskArgs, taskCtx).catch((error: unknown) => {
+          executionError = error instanceof Error ? error : new Error(String(error))
           log.error("subtask execution failed", { error, agent: task.agent, description: task.description })
           return undefined
         })
@@ -1176,7 +1176,7 @@ export namespace SessionPrompt {
               )
             }),
           )
-          const result = await item.execute(args, ctx)
+          const result = await item.executeAsync(args, ctx)
           await runPlugin(
             Effect.gen(function* () {
               const plugin = yield* Plugin.Service
@@ -1622,7 +1622,7 @@ export namespace SessionPrompt {
                     metadata: async () => {},
                     ask: async () => {},
                   }
-                  const result = await tool.execute(args, readCtx)
+                  const result = await tool.executeAsync(args, readCtx)
                   pieces.push({
                     id: Identifier.ascending("part"),
                     messageID: info.id,
@@ -1682,7 +1682,7 @@ export namespace SessionPrompt {
                   metadata: async () => {},
                   ask: async () => {},
                 }
-                const result = await ListTool.init().then((t) => t.execute(args, listCtx))
+                const result = await ListTool.init().then((t) => t.executeAsync(args, listCtx))
                 return [
                   {
                     id: Identifier.ascending("part"),

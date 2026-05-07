@@ -1,6 +1,6 @@
 import { Hono } from "hono"
 import { InstanceBootstrap } from "@/project/bootstrap"
-import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import { SessionRoutes } from "@/server/routes/session"
 import { WorkspaceContext } from "../workspace-context"
 import { WorkspaceServerRoutes } from "./routes"
@@ -21,15 +21,11 @@ export namespace WorkspaceServer {
 
         return WorkspaceContext.provide({
           workspaceID,
-          async fn() {
-            return Instance.provide({
-              directory,
-              init: InstanceBootstrap,
-              async fn() {
-                return next()
-              },
-            })
-          },
+          fn: () =>
+            withInstanceAsync(
+              { directory, workspaceID, init: InstanceBootstrap },
+              async () => next(),
+            ),
         })
       })
       .route("/", SessionRoutes())

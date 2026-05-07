@@ -2,7 +2,6 @@ import { Log } from "../util/log"
 import path from "path"
 import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
-import { lazy, lazyAsync } from "../util/lazy"
 import { Lock } from "../util/lock"
 import { $ } from "bun"
 import { NamedError } from "@nikcli-ai/util/error"
@@ -191,7 +190,7 @@ export namespace Storage {
     },
   ]
 
-  const state = lazyAsync(async () => {
+  const loadState = Effect.promise(async () => {
     const dir = path.join(Global.Path.data, "storage")
     const migration = await Bun.file(path.join(dir, "migration"))
       .json()
@@ -213,10 +212,9 @@ export namespace Storage {
     }
   })
 
-  async function removeImpl(key: string[]) {
+  async function removeImpl(dir: string, key: string[]) {
     const cacheKey = key.join("/")
     Cache.invalidate(cacheKey)
-    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       try {
@@ -228,12 +226,11 @@ export namespace Storage {
     })
   }
 
-  async function readImpl<T>(key: string[]) {
+  async function readImpl<T>(dir: string, key: string[]) {
     const cacheKey = key.join("/")
     const cached = Cache.get<T>(cacheKey)
     if (cached !== undefined) return cached
 
-    const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.read(target)
@@ -243,8 +240,7 @@ export namespace Storage {
     })
   }
 
-  async function updateImpl<T>(key: string[], fn: (draft: T) => void) {
-    const { dir } = await state()
+  async function updateImpl<T>(dir: string, key: string[], fn: (draft: T) => void) {
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
@@ -256,8 +252,7 @@ export namespace Storage {
     })
   }
 
-  async function writeImpl<T>(key: string[], content: T) {
-    const { dir } = await state()
+  async function writeImpl<T>(dir: string, key: string[], content: T) {
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
       using _ = await Lock.write(target)
@@ -278,8 +273,7 @@ export namespace Storage {
   }
 
   const glob = new Bun.Glob("**/*")
-  async function listImpl(prefix: string[]) {
-    const { dir } = await state()
+  async function listImpl(dir: string, prefix: string[]) {
     try {
       const result = await Array.fromAsync(
         glob.scan({
@@ -295,14 +289,38 @@ export namespace Storage {
     }
   }
 
-  const layer = Layer.succeed(
+  const layer = Layer.effect(
     Service,
-    Service.of({
-      remove: (key) => Effect.tryPromise(() => removeImpl(key)),
-      read: <T>(key: string[]) => Effect.tryPromise(() => readImpl<T>(key)),
-      update: <T>(key: string[], fn: (draft: T) => void) => Effect.tryPromise(() => updateImpl<T>(key, fn)),
-      write: (key, content) => Effect.tryPromise(() => writeImpl(key, content)),
-      list: (prefix) => Effect.tryPromise(() => listImpl(prefix)),
+    Effect.gen(function* () {
+      const cachedState = yield* Effect.cached(loadState)
+
+      return Service.of({
+        remove: (key) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => removeImpl(dir, key))
+          }),
+        read: <T>(key: string[]) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => readImpl<T>(dir, key))
+          }),
+        update: <T>(key: string[], fn: (draft: T) => void) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => updateImpl<T>(dir, key, fn))
+          }),
+        write: (key, content) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => writeImpl(dir, key, content))
+          }),
+        list: (prefix) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => listImpl(dir, prefix))
+          }),
+      })
     }),
   )
 

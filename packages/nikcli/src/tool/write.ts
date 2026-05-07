@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import * as path from "path"
 import { Tool } from "./tool"
 import { LSP } from "../lsp"
@@ -21,12 +22,16 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+const Parameters = Schema.Struct({
+  content: Schema.String.annotations({ description: "The content to write to the file" }),
+  filePath: Schema.String.annotations({
+    description: "The absolute path to the file to write (must be absolute, not relative)",
+  }),
+})
+
 export const WriteTool = Tool.define("write", {
   description: DESCRIPTION,
-  parameters: z.object({
-    content: z.string().describe("The content to write to the file"),
-    filePath: z.string().describe("The absolute path to the file to write (must be absolute, not relative)"),
-  }),
+  parameters: zod(Parameters),
   async execute(params, ctx) {
     const filepath = path.isAbsolute(params.filePath) ? params.filePath : path.join(Instance.directory, params.filePath)
     await assertExternalDirectory(ctx, filepath)

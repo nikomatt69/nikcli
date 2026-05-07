@@ -89,6 +89,9 @@ export namespace PublicHttpApi {
     handlers
       .handle("status", () => McpHttpApi.handlers.status())
       .handle("add", (request) => McpHttpApi.handlers.add(request))
+      .handle("startAuth", (request) => McpHttpApi.handlers.startAuth(request))
+      .handle("authCallback", (request) => McpHttpApi.handlers.authCallback(request))
+      .handle("authenticate", (request) => McpHttpApi.handlers.authenticate(request))
       .handle("removeAuth", (request) => McpHttpApi.handlers.removeAuth(request))
       .handle("connect", (request) => McpHttpApi.handlers.connect(request))
       .handle("disconnect", (request) => McpHttpApi.handlers.disconnect(request))

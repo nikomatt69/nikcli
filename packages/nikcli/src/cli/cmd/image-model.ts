@@ -7,7 +7,7 @@ import path from "path"
 import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 
 const DEFAULT_IMAGE_PROVIDER = "openrouter"
@@ -67,9 +67,8 @@ export const ImageModelCommand = cmd({
       })
   },
   handler: async (args) => {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         if (args.refresh) {
           await ModelsDev.refresh()
           UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Models cache refreshed" + UI.Style.TEXT_NORMAL)
@@ -132,7 +131,7 @@ export const ImageModelCommand = cmd({
             UI.println(`${prefix}${providerID}/${modelID}`)
           }
         }
-      },
+      }
     })
   },
 })

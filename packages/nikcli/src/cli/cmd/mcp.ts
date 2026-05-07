@@ -15,7 +15,7 @@ import { Global } from "../../global"
 import { modify, applyEdits } from "jsonc-parser"
 import { Bus } from "../../bus"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 function runMcpAuth<A, E>(effect: Effect.Effect<A, E, McpAuth.Service>) {
   return runPromiseWithLayer(McpAuth.defaultLayer, effect)
@@ -135,9 +135,8 @@ export const McpListCommand = cmd({
   aliases: ["ls"],
   describe: "list MCP servers and their status",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("MCP Servers")
 
@@ -196,7 +195,7 @@ export const McpListCommand = cmd({
         }
 
         prompts.outro(`${servers.length} server(s)`)
-      },
+      }
     })
   },
 })
@@ -212,9 +211,8 @@ export const McpAuthCommand = cmd({
       })
       .command(McpAuthListCommand),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("MCP OAuth Authentication")
 
@@ -335,7 +333,7 @@ export const McpAuthCommand = cmd({
         }
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -345,9 +343,8 @@ export const McpAuthListCommand = cmd({
   aliases: ["ls"],
   describe: "list OAuth-capable MCP servers and their auth status",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("MCP OAuth Status")
 
@@ -374,7 +371,7 @@ export const McpAuthListCommand = cmd({
         }
 
         prompts.outro(`${oauthServers.length} OAuth-capable server(s)`)
-      },
+      }
     })
   },
 })
@@ -388,9 +385,8 @@ export const McpLogoutCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("MCP OAuth Logout")
 
@@ -441,7 +437,7 @@ export const McpLogoutCommand = cmd({
         await mcpRemoveAuth(serverName)
         prompts.log.success(`Removed OAuth credentials for ${serverName}`)
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -484,9 +480,8 @@ export const McpAddCommand = cmd({
   command: "add",
   describe: "add an MCP server",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Add MCP server")
 
@@ -637,7 +632,7 @@ export const McpAddCommand = cmd({
         }
 
         prompts.outro("MCP server added successfully")
-      },
+      }
     })
   },
 })
@@ -652,9 +647,8 @@ export const McpDebugCommand = cmd({
       demandOption: true,
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("MCP OAuth Debug")
 
@@ -808,7 +802,7 @@ export const McpDebugCommand = cmd({
         }
 
         prompts.outro("Debug complete")
-      },
+      }
     })
   },
 })

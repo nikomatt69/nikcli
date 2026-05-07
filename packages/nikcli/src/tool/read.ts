@@ -1,4 +1,5 @@
-import z from "zod"
+import { Effect, Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import * as fs from "fs"
 import * as path from "path"
 import { Tool } from "./tool"
@@ -9,7 +10,6 @@ import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
@@ -19,13 +19,19 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+const Parameters = Schema.Struct({
+  filePath: Schema.String.annotations({ description: "The absolute path to the file or directory to read" }),
+  offset: Schema.optional(Schema.NumberFromString).annotations({
+    description: "The line number to start reading from (1-indexed)",
+  }),
+  limit: Schema.optional(Schema.NumberFromString).annotations({
+    description: "The maximum number of lines to read (defaults to 2000)",
+  }),
+})
+
 export const ReadTool = Tool.define("read", {
   description: DESCRIPTION,
-  parameters: z.object({
-    filePath: z.string().describe("The absolute path to the file or directory to read"),
-    offset: z.coerce.number().describe("The line number to start reading from (1-indexed)").optional(),
-    limit: z.coerce.number().describe("The maximum number of lines to read (defaults to 2000)").optional(),
-  }),
+  parameters: zod(Parameters),
   async execute(params, ctx) {
     if (params.offset !== undefined && params.offset < 1) {
       throw new Error("offset must be greater than or equal to 1")

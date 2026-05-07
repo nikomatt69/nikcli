@@ -46,6 +46,14 @@ export namespace McpHttpApi {
     success: Schema.Literal(true),
   }).annotations({ identifier: "McpMutationSuccess" })
 
+  const AuthCallbackPayload = Schema.Struct({
+    code: Schema.String,
+  }).annotations({ identifier: "McpAuthCallbackPayload" })
+
+  const StartAuthResponse = Schema.Struct({
+    authorizationUrl: Schema.String,
+  }).annotations({ identifier: "McpStartAuthResponse" })
+
   const Status = Schema.Union(
     Schema.Struct({
       status: Schema.Literal("connected"),
@@ -85,6 +93,14 @@ export namespace McpHttpApi {
   export const Group = HttpApiGroup.make("mcp")
     .add(HttpApiEndpoint.get("status", "/").addSuccess(StatusMap))
     .add(HttpApiEndpoint.post("add", "/").setPayload(AddPayload).addSuccess(StatusMap))
+    .add(HttpApiEndpoint.post("startAuth", "/:name/auth").setPath(NamePath).addSuccess(StartAuthResponse))
+    .add(
+      HttpApiEndpoint.post("authCallback", "/:name/auth/callback")
+        .setPath(NamePath)
+        .setPayload(AuthCallbackPayload)
+        .addSuccess(Status),
+    )
+    .add(HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate").setPath(NamePath).addSuccess(Status))
     .add(HttpApiEndpoint.del("removeAuth", "/:name/auth").setPath(NamePath).addSuccess(Success))
     .add(HttpApiEndpoint.post("connect", "/:name/connect").setPath(NamePath).addSuccess(Schema.Boolean))
     .add(HttpApiEndpoint.post("disconnect", "/:name/disconnect").setPath(NamePath).addSuccess(Schema.Boolean))
@@ -111,6 +127,35 @@ export namespace McpHttpApi {
         const mcp = yield* MCP.Service
         const result = yield* mcp.add(payload.name, payload.config as Config.Mcp)
         return normalizeStatusMap(payload.name, result.status)
+      }).pipe(Effect.orDie),
+    startAuth: ({ path }: { path: { name: string } }) =>
+      Effect.gen(function* () {
+        const mcp = yield* MCP.Service
+        const supports = yield* mcp.supportsOAuth(path.name)
+        if (!supports) {
+          return yield* Effect.die(new Error(`MCP server ${path.name} does not support OAuth`))
+        }
+        return yield* mcp.startAuth(path.name)
+      }).pipe(Effect.orDie),
+    authCallback: ({
+      path,
+      payload,
+    }: {
+      path: { name: string }
+      payload: typeof AuthCallbackPayload.Type
+    }) =>
+      Effect.gen(function* () {
+        const mcp = yield* MCP.Service
+        return yield* mcp.finishAuth(path.name, payload.code)
+      }).pipe(Effect.orDie),
+    authenticate: ({ path }: { path: { name: string } }) =>
+      Effect.gen(function* () {
+        const mcp = yield* MCP.Service
+        const supports = yield* mcp.supportsOAuth(path.name)
+        if (!supports) {
+          return yield* Effect.die(new Error(`MCP server ${path.name} does not support OAuth`))
+        }
+        return yield* mcp.authenticate(path.name)
       }).pipe(Effect.orDie),
     removeAuth: ({ path }: { path: { name: string } }) =>
       Effect.gen(function* () {
@@ -147,6 +192,9 @@ export namespace McpHttpApi {
     builder
       .handle("status", () => handlers.status())
       .handle("add", (request) => handlers.add(request))
+      .handle("startAuth", (request) => handlers.startAuth(request))
+      .handle("authCallback", (request) => handlers.authCallback(request))
+      .handle("authenticate", (request) => handlers.authenticate(request))
       .handle("removeAuth", (request) => handlers.removeAuth(request))
       .handle("connect", (request) => handlers.connect(request))
       .handle("disconnect", (request) => handlers.disconnect(request))

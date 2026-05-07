@@ -1,4 +1,5 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import TurndownService from "turndown"
 import DESCRIPTION from "./webfetch.txt"
@@ -8,16 +9,17 @@ const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB
 const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
 const MAX_TIMEOUT = 120 * 1000 // 2 minutes
 
+const Parameters = Schema.Struct({
+  url: Schema.String.annotations({ description: "The URL to fetch content from" }),
+  format: Schema.optionalWith(Schema.Literal("text", "markdown", "html"), { default: () => "markdown" as const }).annotations({
+    description: "The format to return the content in (text, markdown, or html). Defaults to markdown.",
+  }),
+  timeout: Schema.optional(Schema.Number).annotations({ description: "Optional timeout in seconds (max 120)" }),
+})
+
 export const WebFetchTool = Tool.define("webfetch", {
   description: DESCRIPTION,
-  parameters: z.object({
-    url: z.string().describe("The URL to fetch content from"),
-    format: z
-      .enum(["text", "markdown", "html"])
-      .default("markdown")
-      .describe("The format to return the content in (text, markdown, or html). Defaults to markdown."),
-    timeout: z.number().describe("Optional timeout in seconds (max 120)").optional(),
-  }),
+  parameters: zod(Parameters),
   async execute(params, ctx) {
     // Validate URL
     if (!params.url.startsWith("http://") && !params.url.startsWith("https://")) {

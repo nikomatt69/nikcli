@@ -9,7 +9,7 @@ import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Provider } from "@/provider/provider"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
@@ -238,10 +238,7 @@ export namespace Routine {
       scope: "instance",
       skipInitialRun: true,
       run: async () => {
-        await Instance.provide({
-          directory: routine.directory,
-          fn: () => run(routine.id),
-        })
+        await withInstanceAsync({ directory: routine.directory }, () => run(routine.id))
       },
     })
   }

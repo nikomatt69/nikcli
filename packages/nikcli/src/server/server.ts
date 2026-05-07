@@ -38,7 +38,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { websocket } from "hono/bun"
 import { HTTPException } from "hono/http-exception"
 import { errors } from "./error"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
@@ -338,15 +338,11 @@ export namespace Server {
 
           return WorkspaceContext.provide({
             workspaceID,
-            async fn() {
-              return Instance.provide({
-                directory,
-                init: InstanceBootstrap,
-                async fn() {
-                  return next()
-                },
-              })
-            },
+            fn: () =>
+              withInstanceAsync(
+                { directory, workspaceID, init: InstanceBootstrap },
+                async () => next(),
+              ),
           })
         })
         .get(

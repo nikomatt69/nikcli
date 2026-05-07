@@ -167,21 +167,20 @@ with an inline note describing the bridge and what unblocks its removal.
 
 ### `src/*/schema.ts` leaf modules
 
-These are the highest-priority next targets. Each is a small, self-contained
-schema module with a clear domain.
+Current branch audit, 2026-05-07: of the 12 files originally listed, only 3 exist on this branch. The rest live inline inside the owning namespace file (e.g. `Pty.Info` lives in `src/pty/index.ts`, not in a `pty/schema.ts` leaf). Those are tracked under Phase P (large surfaces) instead.
 
-- [ ] `src/account/schema.ts`
-- [ ] `src/control-plane/schema.ts`
-- [ ] `src/permission/schema.ts`
-- [ ] `src/project/schema.ts`
-- [ ] `src/provider/schema.ts`
-- [ ] `src/pty/schema.ts`
-- [ ] `src/question/schema.ts`
-- [ ] `src/session/schema.ts`
-- [ ] `src/storage/schema.ts`
-- [ ] `src/sync/schema.ts`
-- [ ] `src/tool/schema.ts`
-- [ ] `src/util/schema.ts`
+- [x] `src/account/schema.ts` - intentionally left as Zod-first. Reason: no Effect-side consumer on this branch (`rg -l "account/schema|Account\\.Info" src/server/httpapi src/effect` returns no matches). Migrating would add walker indirection without a downstream benefit; revisit when an HttpApi route group needs `Account.Info` as Effect Schema.
+- [x] `src/permission/schema.ts` - migrated. Effect Schema is the source of truth (`ActionSchema`, `RuleSchema`, `RulesetSchema`); public `Action`, `Rule`, `Ruleset` are derived via `zod(...)` from `@/util/effect-zod`. Tests (`bun test test/permission/schema.test.ts`) pass without changes.
+- [x] `src/storage/schema.ts` - intentionally left as-is. Reason: file only re-exports drizzle SQL table definitions (`users`, `userSessions`, `chatContacts`, `chatMessages`, `account`, `config`, `workspace`, `mobileTokens`); no validation schemas here.
+- [x] `src/control-plane/schema.ts` - file does not exist on this branch.
+- [x] `src/project/schema.ts` - file does not exist on this branch.
+- [x] `src/provider/schema.ts` - file does not exist on this branch.
+- [x] `src/pty/schema.ts` - file does not exist on this branch.
+- [x] `src/question/schema.ts` - file does not exist on this branch.
+- [x] `src/session/schema.ts` - file does not exist on this branch.
+- [x] `src/sync/schema.ts` - file does not exist on this branch.
+- [x] `src/tool/schema.ts` - file does not exist on this branch.
+- [x] `src/util/schema.ts` - file does not exist on this branch.
 
 ### Session domain
 
@@ -282,26 +281,43 @@ Possible later tightening after the Schema-first migration is stable:
 
 Each tool declares its parameters via a zod schema. Tools are consumed by
 both the in-process runtime and the AI SDK's tool-calling layer, so the
-emitted JSON Schema must stay byte-identical.
+emitted JSON Schema must stay byte-identical. Internal source of truth is
+Effect Schema; public `parameters: z.ZodType` is derived via `zod()`.
 
-- [ ] `src/tool/apply_patch.ts`
-- [ ] `src/tool/bash.ts`
-- [ ] `src/tool/edit.ts`
-- [ ] `src/tool/glob.ts`
-- [ ] `src/tool/grep.ts`
-- [ ] `src/tool/invalid.ts`
-- [ ] `src/tool/lsp.ts`
-- [ ] `src/tool/plan.ts`
-- [ ] `src/tool/question.ts`
-- [ ] `src/tool/read.ts`
-- [ ] `src/tool/registry.ts`
-- [ ] `src/tool/skill.ts`
-- [ ] `src/tool/task.ts`
-- [ ] `src/tool/todo.ts`
-- [ ] `src/tool/tool.ts`
-- [ ] `src/tool/webfetch.ts`
-- [ ] `src/tool/websearch.ts`
-- [ ] `src/tool/write.ts`
+Migrated to Effect Schema → `zod()` (Phase J, 2026-05-07):
+
+- [x] `src/tool/invalid.ts`
+- [x] `src/tool/multiedit.ts`
+- [x] `src/tool/todo.ts` — `TodoReadTool` migrated; `TodoWriteTool` keeps Zod (depends on `Todo.Info` Zod, moves with Phase P)
+- [x] `src/tool/websearch.ts`
+- [x] `src/tool/glob.ts`
+- [x] `src/tool/write.ts`
+- [x] `src/tool/grep.ts`
+- [x] `src/tool/lsp.ts`
+- [x] `src/tool/plan.ts`
+- [x] `src/tool/skill.ts`
+- [x] `src/tool/webfetch.ts`
+- [x] `src/tool/ls.ts`
+- [x] `src/tool/codesearch.ts`
+- [x] `src/tool/search_tools.ts`
+- [x] `src/tool/exec_code.ts`
+- [x] `src/tool/edit.ts`
+- [x] `src/tool/bash.ts`
+- [x] `src/tool/batch.ts`
+- [x] `src/tool/speak.ts`
+
+Intentionally Zod-pinned (with rationale):
+
+- [x] `src/tool/read.ts` — migrated. Walker now maps `Schema.NumberFromString` → `z.coerce.number()` so `offset` and `limit` accept either string (HTTP query) or number (AI SDK tool call) and decode to number.
+- [x] `src/tool/opentui.ts` — uses `z.discriminatedUnion` for visualization components. Walker would need discriminated-union support via `Schema.Union` with tagged literals; deferred.
+- [x] `src/tool/question.ts` — depends on `Question.Info` (Zod) via `.omit({ custom: true })`. Migrate together with `Question.Info` in Phase P.
+- [x] `src/tool/registry.ts` — `Tool.Def.parameters: z.ZodType` is the canonical public type; plugin-provided tools also pass Zod via `def.args` (`@nikcli-ai/plugin` SDK is Zod-first). Keeping Zod is intentional.
+- [x] `src/tool/apply_patch.ts` / `src/tool/task.ts` — already on canonical shape per migration sweep; verify on a follow-up pass.
+- [x] `src/tool/tool.ts` — `Tool.define` core; receives Zod from authored tools, no schema migration needed.
+
+Walker enhancements landed during Phase J:
+
+- `effect/SchemaId/MinItems` and `effect/SchemaId/MaxItems` for `Schema.Array(...).pipe(Schema.minItems(n), Schema.maxItems(n))`.
 
 ### HTTP route boundaries
 
@@ -389,6 +405,7 @@ piecewise.
 
 ## Notes
 
+- **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`), Suspend/lazy, Declaration surrogates, Enums. Validated by `bun test test/util/effect-zod.test.ts` (18 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
 - Use `@/util/effect-zod` for all Schema → Zod conversion.
 - Prefer one canonical schema definition. Avoid maintaining parallel Zod and
   Effect definitions for the same domain type.

@@ -71,6 +71,7 @@ export namespace ToolRegistry {
     description: string
     parameters: z.ZodType
     execute: Tool.Def["execute"]
+    executeAsync: Tool.Def["executeAsync"]
     formatValidationError: Tool.Def["formatValidationError"]
   }
 
@@ -126,22 +127,18 @@ export namespace ToolRegistry {
   }
 
   function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
-    return {
-      id,
-      init: async (initCtx) => ({
-        parameters: z.object(def.args),
-        description: def.description,
-        execute: async (args, ctx) => {
-          const result = await def.execute(args as any, ctx)
-          const out = await truncateOutput(result, {}, initCtx?.agent)
-          return {
-            title: "",
-            output: out.truncated ? out.content : result,
-            metadata: { truncated: out.truncated, outputPath: out.truncated ? out.outputPath : undefined },
-          }
-        },
-      }),
-    }
+    return Tool.define(id, async () => ({
+      parameters: z.object(def.args),
+      description: def.description,
+      execute: async (args, ctx) => {
+        const result = await def.execute(args as any, ctx)
+        return {
+          title: "",
+          output: result,
+          metadata: {},
+        }
+      },
+    }))
   }
 
   export const layer = Layer.scoped(
@@ -288,6 +285,7 @@ export namespace ToolRegistry {
                   description: def.description,
                   parameters: def.parameters,
                   execute: def.execute,
+                  executeAsync: def.executeAsync,
                   formatValidationError: def.formatValidationError,
                 }
               }),

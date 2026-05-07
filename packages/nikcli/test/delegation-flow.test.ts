@@ -104,29 +104,29 @@ describe("delegation flow", () => {
       const ctx = createContext(parentSessionID)
       let countOutput = ""
       for (let i = 0; i < 20; i++) {
-        const count = await tool.execute({ action: "count" }, ctx)
+        const count = await tool.executeAsync({ action: "count" }, ctx)
         countOutput = count.output
         if (countOutput.includes("1 delegation(s)")) break
         await sleep(50)
       }
       expect(countOutput).toContain("1 delegation(s)")
 
-      const list = await tool.execute({ action: "list" }, ctx)
+      const list = await tool.executeAsync({ action: "list" }, ctx)
       expect(list.output).toContain(running.id)
       expect(list.output).toContain(completed.id)
       expect(list.output).not.toContain(foreign.id)
 
-      const denied = await tool.execute({ action: "list", parentSessionId: otherSessionID }, ctx)
+      const denied = await tool.executeAsync({ action: "list", parentSessionId: otherSessionID }, ctx)
       expect(denied.title).toBe("Delegation access denied")
 
-      const read = await tool.execute({ action: "read", delegationId: completed.id }, ctx)
+      const read = await tool.executeAsync({ action: "read", delegationId: completed.id }, ctx)
       expect(read.output).toContain("Advisor recommendation")
       expect(read.output).toContain("**Status:** complete")
 
-      const notFound = await tool.execute({ action: "read", delegationId: foreign.id }, ctx)
+      const notFound = await tool.executeAsync({ action: "read", delegationId: foreign.id }, ctx)
       expect(notFound.title).toBe("Delegation not found")
 
-      const cancelled = await tool.execute({ action: "cancel", delegationId: running.id }, ctx)
+      const cancelled = await tool.executeAsync({ action: "cancel", delegationId: running.id }, ctx)
       expect(cancelled.output).toBe(`Cancelled delegation ${running.id}.`)
 
       // Poll until cancellation finalizes (scheduleForcedFinalize fires after 1000ms)
@@ -139,7 +139,7 @@ describe("delegation flow", () => {
       }
       expect(cancelledStatus).toBe("cancelled")
 
-      const cancelledRead = await tool.execute({ action: "read", delegationId: running.id }, ctx)
+      const cancelledRead = await tool.executeAsync({ action: "read", delegationId: running.id }, ctx)
       expect(cancelledRead.output).toContain("**Status:** cancelled")
       expect(cancelledRead.output).toContain("**Error:** Cancelled")
     })
@@ -159,26 +159,26 @@ describe("delegation flow", () => {
       await Delegation.updateProgress(delegation.id, "Tool grep: completed (delegation lifecycle)")
 
       const ctx = createContext(parentSessionID)
-      const status = await tool.execute({ action: "status", delegationId: delegation.id }, ctx)
+      const status = await tool.executeAsync({ action: "status", delegationId: delegation.id }, ctx)
       expect(status.output).toContain("**Status:** running")
       expect(status.output).toContain("Tool grep: completed (delegation lifecycle)")
 
-      const progress = await tool.execute({ action: "progress", delegationId: delegation.id }, ctx)
+      const progress = await tool.executeAsync({ action: "progress", delegationId: delegation.id }, ctx)
       expect(progress.output).toContain("Tool grep: completed (delegation lifecycle)")
 
-      const runningSummary = await tool.execute({ action: "summarize", delegationId: delegation.id }, ctx)
+      const runningSummary = await tool.executeAsync({ action: "summarize", delegationId: delegation.id }, ctx)
       expect(runningSummary.output).toContain("Tool grep: completed (delegation lifecycle)")
 
       await Delegation.finalize(delegation.id, "complete", "Final synthesized result for parent session")
 
-      const doneStatus = await tool.execute({ action: "status", delegationId: delegation.id }, ctx)
+      const doneStatus = await tool.executeAsync({ action: "status", delegationId: delegation.id }, ctx)
       expect(doneStatus.output).toContain("**Status:** complete")
 
-      const summary = await tool.execute({ action: "summarize", delegationId: delegation.id }, ctx)
+      const summary = await tool.executeAsync({ action: "summarize", delegationId: delegation.id }, ctx)
       expect(summary.output).toContain("Final synthesized result for parent session")
       expect(summary.output).toContain('Use `delegation(action="read", delegationId="')
 
-      const outsider = await tool.execute({ action: "status", delegationId: delegation.id }, createContext("ses_other"))
+      const outsider = await tool.executeAsync({ action: "status", delegationId: delegation.id }, createContext("ses_other"))
       expect(outsider.title).toBe("Delegator (not found)")
     })
   })
@@ -216,10 +216,10 @@ describe("delegation flow", () => {
       )
 
       const ctx = createContext(parentSessionID)
-      const status = await tool.execute({ action: "status", delegationId: delegation.id }, ctx)
+      const status = await tool.executeAsync({ action: "status", delegationId: delegation.id }, ctx)
       expect(status.output).toContain("**Progress:** Question: How should nikcli integrate autoresearch?")
 
-      const summary = await tool.execute({ action: "summarize", delegationId: delegation.id }, ctx)
+      const summary = await tool.executeAsync({ action: "summarize", delegationId: delegation.id }, ctx)
       expect(summary.output).toContain("**Research Summary:**")
       expect(summary.output).toContain("**Confidence:** high")
       expect(summary.output).toContain("**Sources:** 2")

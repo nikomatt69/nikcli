@@ -1,6 +1,7 @@
 import { UI } from "../ui"
 import { cmd } from "./cmd"
 import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import { $ } from "bun"
 
 export const PrCommand = cmd({
@@ -13,9 +14,8 @@ export const PrCommand = cmd({
       demandOption: true,
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         const project = Instance.project
         if (project.vcs !== "git") {
           UI.error("Could not find git repository. Please run this command from a git repository.")
@@ -98,7 +98,7 @@ export const PrCommand = cmd({
           })
           nikcliProcess.on("error", reject)
         })
-      },
+      }
     })
   },
 })

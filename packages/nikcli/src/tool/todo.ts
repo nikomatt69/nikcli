@@ -1,4 +1,6 @@
 import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION_WRITE from "./todowrite.txt"
 import { Todo } from "../session/todo"
@@ -8,6 +10,8 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
   return runPromiseWithLayer(Todo.defaultLayer, withCurrentInstance(effect))
 }
+
+const ReadParameters = Schema.Struct({})
 
 export const TodoWriteTool = Tool.define("todowrite", {
   description: DESCRIPTION_WRITE,
@@ -43,7 +47,7 @@ export const TodoWriteTool = Tool.define("todowrite", {
 
 export const TodoReadTool = Tool.define("todoread", {
   description: "Use this tool to read your todo list",
-  parameters: z.object({}),
+  parameters: zod(ReadParameters),
   async execute(_params, ctx) {
     await ctx.ask({
       permission: "todoread",

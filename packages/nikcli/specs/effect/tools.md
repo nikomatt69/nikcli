@@ -4,7 +4,9 @@ Practical reference for the current tool-migration state in `packages/nikcli`.
 
 ## Status
 
-`Tool.Def.execute` and `Tool.Info.init` already return `Effect` on this branch, and the built-in tool surface is now largely on the target shape.
+`Tool.Def.execute` returns `Effect.Effect<Tool.Result<M>, Error>` on this branch (Phase J.0 landed 2026-05-07). `Tool.Def.executeAsync` is the compatibility Promise wrapper around `Effect.runPromise(execute(...))` so existing callers (`session/prompt.ts`, `tool/batch.ts`, `tool/multiedit.ts`, `tool/exec_code.ts`, `cli/cmd/debug/agent.ts`, `tool/registry.ts` `Resolved`) keep their `await tool.executeAsync(...)` shape until each call site migrates to `yield* tool.execute(...)`.
+
+`Tool.define(...)` accepts authored bodies that return either `Promise<Tool.Result<M>>` or `Effect.Effect<Tool.Result<M>, Error>`; the wrapper auto-converts via `Effect.tryPromise(...)`. New tools should target the Effect shape directly. The built-in tool surface stays Promise-shaped at authoring level for now — flipping each tool body is incremental.
 
 The current exported tools in `src/tool` all use `Tool.define(...)` with Effect-based initialization, and nearly all of them already build their tool body with `Effect.gen(...)` and `Effect.fn(...)`.
 
@@ -85,8 +87,12 @@ Notable items that are already effectively on the target path and do not need se
 
 ## Filesystem notes
 
-Current raw fs users that still appear relevant here:
+Current raw fs users on this branch (`rg -n "fs\\.|from \"fs|from \"fs/promises" src` audit, 2026-05-07):
 
-- `tool/read.ts` — `fs.createReadStream`, `readline`
-- `file/ripgrep.ts` — `fs/promises`
-- `patch/index.ts` — `fs`, `fs/promises`
+- `tool/read.ts` — `fs.readdirSync` (single use, fuzzy file suggestion path); the `fs.createReadStream` / `readline` mention in older specs is stale.
+- `file/searchBackend.ts` — `fs.realpath`, `fs.stat` (3 sites).
+- `file/fff.ts` — `fs.realpath`, `fs.mkdir` (3 sites).
+- `patch/index.ts` — `fs.mkdir`, `fs.writeFile`, `fs.unlink`, `fs.readFile` (8 sites).
+- `file/ripgrep.ts` — does not exist on this branch; remove from spec inventory.
+
+Migration prerequisite: the `searchBackend.ts` / `fff.ts` `fs.realpath` calls are tightly coupled to ambient `Instance.directory` / `Instance.worktree` reads. Migrating the `fs.*` half without first removing the `Instance.*` reads (Phase F of the master plan) would leave a half-migration. Defer until Phase F lands.

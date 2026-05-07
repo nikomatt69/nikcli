@@ -65,7 +65,7 @@ import { writeHeapSnapshot } from "v8"
 import { PromptRefProvider, usePromptRef } from "./context/prompt"
 import { EditorContextProvider } from "./context/editor"
 import { TuiConfig } from "@/config/tui"
-import { Instance } from "@/project/instance"
+import { withInstanceAsync } from "@/effect"
 import { TuiPluginRuntime, createTuiApi, type RouteMap } from "./plugin"
 import { ErrorComponent } from "./component/error-component"
 import { PluginRouteMissing } from "./component/plugin-route-missing"
@@ -283,13 +283,13 @@ function App() {
         await DialogLogin.run(dialog)
       }
 
-      const tuiConfig = await Instance.provide({
-        directory: sdk.directory || process.cwd(),
-        fn: async () => {
+      const tuiConfig = await withInstanceAsync(
+        { directory: sdk.directory || process.cwd() },
+        async () => {
           initBrainScheduler()
           return TuiConfig.get()
         },
-      })
+      )
       const api = createTuiApi({
         command,
         tuiConfig,
@@ -788,10 +788,7 @@ function App() {
         toast.show({ message: "Brain started in background", variant: "info" })
         void (async () => {
           const { Brain } = await import("@/brain")
-          const result = await Instance.provide({
-            directory,
-            fn: () => Brain.trigger({ force: true }),
-          })
+          const result = await withInstanceAsync({ directory }, () => Brain.trigger({ force: true }))
           if (!result.success) {
             toast.show({
               message: result.error ?? "Brain failed",

@@ -11,7 +11,7 @@ import { Instance } from "../../project/instance"
 import { EOL } from "os"
 import type { Argv } from "yargs"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 type AgentMode = "all" | "primary" | "subagent"
 
@@ -83,9 +83,8 @@ const AgentCreateCommand = cmd({
         describe: "model to use in the format of provider/model",
       }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         const cliPath = args.path
         const cliDescription = args.description
         const cliMode = args.mode as AgentMode | undefined
@@ -248,7 +247,7 @@ const AgentCreateCommand = cmd({
           prompts.log.success(`Agent created: ${filePath}`)
           prompts.outro("Done")
         }
-      },
+      }
     })
   },
 })
@@ -257,9 +256,8 @@ const AgentListCommand = cmd({
   command: "list",
   describe: "list all available agents",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         const agents = await agentList()
         const sortedAgents = agents.sort((a, b) => {
           if (a.native !== b.native) {
@@ -272,7 +270,7 @@ const AgentListCommand = cmd({
           process.stdout.write(`${agent.name} (${agent.mode})` + EOL)
           process.stdout.write(`  ${JSON.stringify(agent.permission, null, 2)}` + EOL)
         }
-      },
+      }
     })
   },
 })

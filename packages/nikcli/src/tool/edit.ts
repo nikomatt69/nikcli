@@ -1,4 +1,5 @@
-import z from "zod"
+import { Effect, Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import * as path from "path"
 import { Tool } from "./tool"
 import { LSP } from "../lsp"
@@ -12,7 +13,6 @@ import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const WHITESPACE_RUN_REGEX = /\s+/g
@@ -29,14 +29,20 @@ function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
 }
 
+const Parameters = Schema.Struct({
+  filePath: Schema.String.annotations({ description: "The absolute path to the file to modify" }),
+  oldString: Schema.String.annotations({ description: "The text to replace" }),
+  newString: Schema.String.annotations({
+    description: "The text to replace it with (must be different from oldString)",
+  }),
+  replaceAll: Schema.optional(Schema.Boolean).annotations({
+    description: "Replace all occurrences of oldString (default false)",
+  }),
+})
+
 export const EditTool = Tool.define("edit", {
   description: DESCRIPTION,
-  parameters: z.object({
-    filePath: z.string().describe("The absolute path to the file to modify"),
-    oldString: z.string().describe("The text to replace"),
-    newString: z.string().describe("The text to replace it with (must be different from oldString)"),
-    replaceAll: z.boolean().optional().describe("Replace all occurrences of oldString (default false)"),
-  }),
+  parameters: zod(Parameters),
   async execute(params, ctx) {
     if (!params.filePath) {
       throw new Error("filePath is required")

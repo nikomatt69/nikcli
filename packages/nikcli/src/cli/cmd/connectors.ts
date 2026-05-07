@@ -9,7 +9,7 @@ import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "../../global"
 import path from "path"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 type ConnectorConfigured = Config.Connector
 
@@ -109,9 +109,8 @@ export const ConnectorsListCommand = cmd({
   aliases: ["ls"],
   describe: "list configured connectors and their status",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Connectors")
 
@@ -166,7 +165,7 @@ export const ConnectorsListCommand = cmd({
         }
 
         prompts.outro(`${items.length} connector(s)`)
-      },
+      }
     })
   },
 })
@@ -180,9 +179,8 @@ export const ConnectorsAuthCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Connector Authentication")
 
@@ -327,7 +325,7 @@ export const ConnectorsAuthCommand = cmd({
         }
 
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -341,9 +339,8 @@ export const ConnectorsLogoutCommand = cmd({
       type: "string",
     }),
   async handler(args) {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Connector Logout")
 
@@ -378,7 +375,7 @@ export const ConnectorsLogoutCommand = cmd({
         await connectorAuthRemove(connectorName)
         prompts.log.success(`Removed credentials for ${connectorName}`)
         prompts.outro("Done")
-      },
+      }
     })
   },
 })
@@ -421,9 +418,8 @@ export const ConnectorsAddCommand = cmd({
   command: "add",
   describe: "add a connector",
   async handler() {
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         UI.empty()
         prompts.intro("Add Connector")
 
@@ -641,7 +637,7 @@ export const ConnectorsAddCommand = cmd({
         }
 
         prompts.outro("Connector added successfully")
-      },
+      }
     })
   },
 })

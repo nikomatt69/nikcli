@@ -6,7 +6,7 @@ import { cmd } from "./cmd"
 import { UI } from "../ui"
 import { EOL } from "os"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
@@ -37,9 +37,8 @@ export const ModelsCommand = cmd({
       UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Models cache refreshed" + UI.Style.TEXT_NORMAL)
     }
 
-    await Instance.provide({
-      directory: process.cwd(),
-      async fn() {
+    await withInstanceAsync({ directory: process.cwd() }, async () => {
+      {
         const providers = await runProvider(
           Effect.gen(function* () {
             const provider = yield* Provider.Service
@@ -82,7 +81,7 @@ export const ModelsCommand = cmd({
         for (const providerID of providerIDs) {
           printModels(providerID, args.verbose)
         }
-      },
+      }
     })
   },
 })
