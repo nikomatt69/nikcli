@@ -5,6 +5,12 @@ import { ModelsDev } from "../../provider/models"
 import { cmd } from "./cmd"
 import { UI } from "../ui"
 import { EOL } from "os"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ModelsCommand = cmd({
   command: "models [provider]",
@@ -34,7 +40,12 @@ export const ModelsCommand = cmd({
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
-        const providers = await Provider.list()
+        const providers = await runProvider(
+          Effect.gen(function* () {
+            const provider = yield* Provider.Service
+            return yield* provider.list()
+          }),
+        )
 
         function printModels(providerID: string, verbose?: boolean) {
           const provider = providers[providerID]

@@ -5,6 +5,12 @@ import { Question } from "../../question"
 import z from "zod"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runQuestion<A, E>(effect: Effect.Effect<A, E, Question.Service>) {
+  return runPromiseWithLayer(Question.defaultLayer, withCurrentInstance(effect))
+}
 
 export const QuestionRoutes = lazy(() =>
   new Hono()
@@ -26,7 +32,12 @@ export const QuestionRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const questions = await Question.list()
+        const questions = await runQuestion(
+          Effect.gen(function* () {
+            const question = yield* Question.Service
+            return yield* question.list()
+          }),
+        )
         return c.json(questions)
       },
     )
@@ -58,10 +69,15 @@ export const QuestionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")
-        await Question.reply({
-          requestID: params.requestID,
-          answers: json.answers,
-        })
+        await runQuestion(
+          Effect.gen(function* () {
+            const question = yield* Question.Service
+            yield* question.reply({
+              requestID: params.requestID,
+              answers: json.answers,
+            })
+          }),
+        )
         return c.json(true)
       },
     )
@@ -91,7 +107,12 @@ export const QuestionRoutes = lazy(() =>
       ),
       async (c) => {
         const params = c.req.valid("param")
-        await Question.reject(params.requestID)
+        await runQuestion(
+          Effect.gen(function* () {
+            const question = yield* Question.Service
+            yield* question.reject(params.requestID)
+          }),
+        )
         return c.json(true)
       },
     ),

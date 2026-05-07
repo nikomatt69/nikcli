@@ -10,6 +10,24 @@ import { ProviderAuth } from "../../provider/auth"
 import { mapValues } from "remeda"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runProviderAuth<A, E>(effect: Effect.Effect<A, E, ProviderAuth.Service>) {
+  return runPromiseWithLayer(ProviderAuth.defaultLayer, withCurrentInstance(effect))
+}
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ProviderRoutes = lazy(() =>
   new Hono()
@@ -37,7 +55,12 @@ export const ProviderRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const config = await Config.get()
+        const config = await runConfig(
+          Effect.gen(function* () {
+            const service = yield* Config.Service
+            return yield* service.get()
+          }),
+        )
         const disabled = new Set(config.disabled_providers ?? [])
         const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
 
@@ -49,7 +72,12 @@ export const ProviderRoutes = lazy(() =>
           }
         }
 
-        const connected = await Provider.list()
+        const connected = await runProvider(
+          Effect.gen(function* () {
+            const provider = yield* Provider.Service
+            return yield* provider.list()
+          }),
+        )
         const providers = Object.assign(
           mapValues(filteredProviders, (x) => Provider.fromModelsDevProvider(x)),
           connected,
@@ -79,7 +107,13 @@ export const ProviderRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await ProviderAuth.methods())
+        const methods = await runProviderAuth(
+          Effect.gen(function* () {
+            const providerAuth = yield* ProviderAuth.Service
+            return yield* providerAuth.methods()
+          }),
+        )
+        return c.json(methods)
       },
     )
     .post(
@@ -115,7 +149,12 @@ export const ProviderRoutes = lazy(() =>
       async (c) => {
         const providerID = c.req.valid("param").providerID
         const { key } = c.req.valid("json")
-        await ProviderAuth.api({ providerID, key })
+        await runProviderAuth(
+          Effect.gen(function* () {
+            const providerAuth = yield* ProviderAuth.Service
+            yield* providerAuth.api({ providerID, key })
+          }),
+        )
         await Instance.dispose()
         return c.json({ success: true as const })
       },
@@ -145,7 +184,12 @@ export const ProviderRoutes = lazy(() =>
       ),
       async (c) => {
         const providerID = c.req.valid("param").providerID
-        await Auth.remove(providerID)
+        await runAuth(
+          Effect.gen(function* () {
+            const auth = yield* Auth.Service
+            yield* auth.remove(providerID)
+          }),
+        )
         await Instance.dispose()
         return c.json({ success: true as const })
       },
@@ -183,10 +227,15 @@ export const ProviderRoutes = lazy(() =>
       async (c) => {
         const providerID = c.req.valid("param").providerID
         const { method } = c.req.valid("json")
-        const result = await ProviderAuth.authorize({
-          providerID,
-          method,
-        })
+        const result = await runProviderAuth(
+          Effect.gen(function* () {
+            const providerAuth = yield* ProviderAuth.Service
+            return yield* providerAuth.authorize({
+              providerID,
+              method,
+            })
+          }),
+        )
         return c.json(result)
       },
     )
@@ -224,11 +273,16 @@ export const ProviderRoutes = lazy(() =>
       async (c) => {
         const providerID = c.req.valid("param").providerID
         const { method, code } = c.req.valid("json")
-        await ProviderAuth.callback({
-          providerID,
-          method,
-          code,
-        })
+        await runProviderAuth(
+          Effect.gen(function* () {
+            const providerAuth = yield* ProviderAuth.Service
+            yield* providerAuth.callback({
+              providerID,
+              method,
+              code,
+            })
+          }),
+        )
         return c.json(true)
       },
     ),

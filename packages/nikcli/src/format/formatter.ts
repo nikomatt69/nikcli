@@ -1,15 +1,19 @@
 import { readableStreamToText } from "bun"
 import { BunProc } from "../bun"
-import { Instance } from "../project/instance"
 import { Filesystem } from "../util/filesystem"
 import { Flag } from "@/flag/flag"
+
+export interface EnableContext {
+  directory: string
+  worktree: string
+}
 
 export interface Info {
   name: string
   command: string[]
   environment?: Record<string, string>
   extensions: string[]
-  enabled(): Promise<boolean>
+  enabled(context: EnableContext): Promise<boolean>
 }
 
 export const gofmt: Info = {
@@ -64,8 +68,8 @@ export const prettier: Info = {
     ".graphql",
     ".gql",
   ],
-  async enabled() {
-    const items = await Filesystem.findUp("package.json", Instance.directory, Instance.worktree)
+  async enabled(context) {
+    const items = await Filesystem.findUp("package.json", context.directory, context.worktree)
     for (const item of items) {
       const json = await Bun.file(item).json()
       if (json.dependencies?.prettier) return true
@@ -82,9 +86,9 @@ export const oxfmt: Info = {
     BUN_BE_BUN: "1",
   },
   extensions: [".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"],
-  async enabled() {
+  async enabled(context) {
     if (!Flag.NIKCLI_EXPERIMENTAL_OXFMT) return false
-    const items = await Filesystem.findUp("package.json", Instance.directory, Instance.worktree)
+    const items = await Filesystem.findUp("package.json", context.directory, context.worktree)
     for (const item of items) {
       const json = await Bun.file(item).json()
       if (json.dependencies?.oxfmt) return true
@@ -128,10 +132,10 @@ export const biome: Info = {
     ".graphql",
     ".gql",
   ],
-  async enabled() {
+  async enabled(context) {
     const configs = ["biome.json", "biome.jsonc"]
     for (const config of configs) {
-      const found = await Filesystem.findUp(config, Instance.directory, Instance.worktree)
+      const found = await Filesystem.findUp(config, context.directory, context.worktree)
       if (found.length > 0) {
         return true
       }
@@ -153,8 +157,8 @@ export const clang: Info = {
   name: "clang-format",
   command: ["clang-format", "-i", "$FILE"],
   extensions: [".c", ".cc", ".cpp", ".cxx", ".c++", ".h", ".hh", ".hpp", ".hxx", ".h++", ".ino", ".C", ".H"],
-  async enabled() {
-    const items = await Filesystem.findUp(".clang-format", Instance.directory, Instance.worktree)
+  async enabled(context) {
+    const items = await Filesystem.findUp(".clang-format", context.directory, context.worktree)
     return items.length > 0
   },
 }
@@ -172,11 +176,11 @@ export const ruff: Info = {
   name: "ruff",
   command: ["ruff", "format", "$FILE"],
   extensions: [".py", ".pyi"],
-  async enabled() {
+  async enabled(context) {
     if (!Bun.which("ruff")) return false
     const configs = ["pyproject.toml", "ruff.toml", ".ruff.toml"]
     for (const config of configs) {
-      const found = await Filesystem.findUp(config, Instance.directory, Instance.worktree)
+      const found = await Filesystem.findUp(config, context.directory, context.worktree)
       if (found.length > 0) {
         if (config === "pyproject.toml") {
           const content = await Bun.file(found[0]).text()
@@ -188,7 +192,7 @@ export const ruff: Info = {
     }
     const deps = ["requirements.txt", "pyproject.toml", "Pipfile"]
     for (const dep of deps) {
-      const found = await Filesystem.findUp(dep, Instance.directory, Instance.worktree)
+      const found = await Filesystem.findUp(dep, context.directory, context.worktree)
       if (found.length > 0) {
         const content = await Bun.file(found[0]).text()
         if (content.includes("ruff")) return true
@@ -228,8 +232,8 @@ export const uvformat: Info = {
   name: "uv",
   command: ["uv", "format", "--", "$FILE"],
   extensions: [".py", ".pyi"],
-  async enabled() {
-    if (await ruff.enabled()) return false
+  async enabled(context) {
+    if (await ruff.enabled(context)) return false
     if (Bun.which("uv") !== null) {
       const proc = Bun.spawn(["uv", "format", "--help"], { stderr: "pipe", stdout: "pipe" })
       const code = await proc.exited
@@ -279,9 +283,9 @@ export const ocamlformat: Info = {
   name: "ocamlformat",
   command: ["ocamlformat", "-i", "$FILE"],
   extensions: [".ml", ".mli"],
-  async enabled() {
+  async enabled(context) {
     if (!Bun.which("ocamlformat")) return false
-    const items = await Filesystem.findUp(".ocamlformat", Instance.directory, Instance.worktree)
+    const items = await Filesystem.findUp(".ocamlformat", context.directory, context.worktree)
     return items.length > 0
   },
 }
@@ -344,8 +348,8 @@ export const pint: Info = {
   name: "pint",
   command: ["./vendor/bin/pint", "$FILE"],
   extensions: [".php"],
-  async enabled() {
-    const items = await Filesystem.findUp("composer.json", Instance.directory, Instance.worktree)
+  async enabled(context) {
+    const items = await Filesystem.findUp("composer.json", context.directory, context.worktree)
     for (const item of items) {
       const json = await Bun.file(item).json()
       if (json.require?.["laravel/pint"]) return true

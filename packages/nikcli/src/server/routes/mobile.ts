@@ -41,8 +41,151 @@ import { PromptStashStore } from "@/prompt/stash-store"
 import { errors } from "../error"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { InstanceScope, runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "mobile-routes" })
+
+function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
+  return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
+}
+
+function runCommand<A, E>(effect: Effect.Effect<A, E, Command.Service>) {
+  return runPromiseWithLayer(Command.defaultLayer, withCurrentInstance(effect))
+}
+
+function runCommandForSession<A, E>(
+  session: Pick<Session.Info, "directory" | "workspaceID">,
+  effect: Effect.Effect<A, E, Command.Service>,
+) {
+  return runPromiseWithLayer(
+    Command.defaultLayer,
+    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  )
+}
+
+function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
+  return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function runStatusForSession<A, E>(
+  session: Pick<Session.Info, "directory" | "workspaceID">,
+  effect: Effect.Effect<A, E, SessionStatus.Service>,
+) {
+  return runPromiseWithLayer(
+    SessionStatus.defaultLayer,
+    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  )
+}
+
+function runSessionPromptForSession<A, E>(
+  session: Pick<Session.Info, "directory" | "workspaceID">,
+  effect: Effect.Effect<A, E, SessionPrompt.Service>,
+) {
+  return runPromiseWithLayer(
+    SessionPrompt.defaultLayer,
+    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  )
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSessionForSession<A, E>(
+  session: Pick<Session.Info, "directory" | "workspaceID">,
+  effect: Effect.Effect<A, E, Session.Service>,
+) {
+  return runPromiseWithLayer(
+    Session.defaultLayer,
+    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  )
+}
+
+function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+  return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+}
+
+function runAgent<A, E>(effect: Effect.Effect<A, E, Agent.Service>) {
+  return runPromiseWithLayer(Agent.defaultLayer, withCurrentInstance(effect))
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
+
+function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+}
+
+function runWorktreeForDirectory<A, E>(directory: string, effect: Effect.Effect<A, E, Worktree.Service>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, InstanceScope.with({ directory }, effect))
+}
+
+function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
+  return runPromiseWithLayer(ConnectorAuth.defaultLayer, effect)
+}
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+function runGlobalConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, effect)
+}
+
+function configGet() {
+  return runConfig(
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      return yield* config.get()
+    }),
+  )
+}
+
+function configGetGlobal() {
+  return runGlobalConfig(
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      return yield* config.getGlobal()
+    }),
+  )
+}
+
+function configUpdateGlobal(info: Config.Info) {
+  return runGlobalConfig(
+    Effect.gen(function* () {
+      const config = yield* Config.Service
+      yield* config.updateGlobal(info)
+    }),
+  )
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 const MobileProject = Project.Info.extend({ current: z.boolean() }).meta({ ref: "MobileProject" })
 const MobileExecutionTarget = z.enum(["local", "container"]).meta({ ref: "MobileExecutionTarget" })
@@ -383,12 +526,18 @@ async function searchPromptMemories(query: string) {
     preview: string
   }> = []
 
-  const sessionKeys = await Storage.list(["session"])
+  const sessionKeys = await storageList(["session"])
   for (const key of sessionKeys) {
     if (key.length !== 3) continue
-    const session = await Storage.read<Session.Info>(key).catch(() => undefined)
+    const session = await storageRead<Session.Info>(key).catch(() => undefined)
     if (!session) continue
-    const messages = await Session.messages({ sessionID: session.id }).catch(() => [])
+    const messages = await runSessionForSession(
+      session,
+      Effect.gen(function* () {
+        const service = yield* Session.Service
+        return yield* service.messages({ sessionID: session.id })
+      }),
+    ).catch(() => [])
     for (const message of messages) {
       const text = messageSearchText(message)
       if (!text || !text.toLowerCase().includes(normalized)) continue
@@ -410,7 +559,12 @@ async function searchPromptMemories(query: string) {
 }
 
 async function latestPromptDefaults(sessionID: string) {
-  const messages = await Session.messages({ sessionID, limit: 24 }).catch(() => [])
+  const messages = await runSession(
+    Effect.gen(function* () {
+      const service = yield* Session.Service
+      return yield* service.messages({ sessionID, limit: 24 })
+    }),
+  ).catch(() => [])
   for (let index = messages.length - 1; index >= 0; index--) {
     const info = messages[index]?.info
     if (!info || info.role !== "user") continue
@@ -429,11 +583,11 @@ async function resolveMobilePromptDefaults(session: Session.Info) {
       const current = await latestPromptDefaults(session.id)
       if (current.agent && current.model) return current
 
-      const allKeys = await Storage.list(["session"])
+      const allKeys = await storageList(["session"])
       const sessions: Session.Info[] = []
       for (const key of allKeys) {
         if (key.length !== 3 || key[2] === session.id) continue
-        const candidate = await Storage.read<Session.Info>(key).catch(() => undefined)
+        const candidate = await storageRead<Session.Info>(key).catch(() => undefined)
         if (!candidate || candidate.projectID !== session.projectID) continue
         sessions.push(candidate)
       }
@@ -450,8 +604,22 @@ async function resolveMobilePromptDefaults(session: Session.Info) {
       }
 
       return {
-        agent: current.agent ?? (await Agent.defaultAgent()),
-        model: current.model ?? (await Provider.defaultModel()),
+        agent:
+          current.agent ??
+          (await runAgent(
+            Effect.gen(function* () {
+              const agent = yield* Agent.Service
+              return yield* agent.defaultAgent()
+            }),
+          )),
+        model:
+          current.model ??
+          (await runProvider(
+            Effect.gen(function* () {
+              const provider = yield* Provider.Service
+              return yield* provider.defaultModel()
+            }),
+          )),
       }
     },
   })
@@ -483,7 +651,7 @@ function isGithubConnector(value: unknown): value is Config.ConnectorGithub {
   return typeof value === "object" && value !== null && "type" in value && value.type === "github"
 }
 
-function githubConnectorEntry(config?: Awaited<ReturnType<typeof Config.get>>): GithubConnectorEntry {
+function githubConnectorEntry(config?: Config.Info): GithubConnectorEntry {
   for (const [key, connector] of Object.entries(config?.connectors ?? {})) {
     if (isGithubConnector(connector)) {
       return { key, connector: connector as Config.ConnectorGithub }
@@ -494,8 +662,8 @@ function githubConnectorEntry(config?: Awaited<ReturnType<typeof Config.get>>): 
 }
 
 async function ensureGlobalGithubConnector(input?: Partial<Config.ConnectorGithub>) {
-  const globalConfig = await Config.getGlobal().catch(() => ({}) as Awaited<ReturnType<typeof Config.getGlobal>>)
-  const currentConfig = await Config.get().catch(() => undefined)
+  const globalConfig = await configGetGlobal().catch(() => ({}) as Config.Info)
+  const currentConfig = await configGet().catch(() => undefined)
   const globalEntry = githubConnectorEntry(globalConfig)
   const currentEntry = githubConnectorEntry(currentConfig)
   const key = globalConfig.connectors?.[globalEntry.key] ? globalEntry.key : currentEntry.key
@@ -513,18 +681,28 @@ async function ensureGlobalGithubConnector(input?: Partial<Config.ConnectorGithu
     enabled: input?.enabled ?? existing.enabled ?? true,
   }
 
-  await Config.updateGlobal({ connectors })
+  await configUpdateGlobal({ connectors })
   return { key, connector: connectors[key] as Config.ConnectorGithub }
 }
 
 async function storeGithubToken(token: string) {
   const { key } = await ensureGlobalGithubConnector({ enabled: true })
-  const existing = await ConnectorAuth.get(key)
-  await ConnectorAuth.set(key, { ...existing, token })
+  await runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      const existing = yield* auth.get(key)
+      yield* auth.set(key, { ...existing, token })
+    }),
+  )
 
   if (key !== "github") {
-    const canonical = await ConnectorAuth.get("github")
-    await ConnectorAuth.set("github", { ...canonical, token })
+    await runConnectorAuth(
+      Effect.gen(function* () {
+        const auth = yield* ConnectorAuth.Service
+        const canonical = yield* auth.get("github")
+        yield* auth.set("github", { ...canonical, token })
+      }),
+    )
   }
 
   Connectors.invalidateConnector(key)
@@ -532,7 +710,7 @@ async function storeGithubToken(token: string) {
 }
 
 async function githubToken() {
-  const config = await Config.get().catch(() => undefined)
+  const config = await configGet().catch(() => undefined)
   const { key, connector } = githubConnectorEntry(config)
   const credential = await resolveCredential(key, connector)
   if (credential) return credential
@@ -545,7 +723,7 @@ async function githubToken() {
 }
 
 async function githubOAuthClientID() {
-  const config = await Config.get().catch(() => undefined)
+  const config = await configGet().catch(() => undefined)
   const githubConnector = Object.values(config?.connectors ?? {}).find(
     (connector): connector is Config.ConnectorGithub =>
       typeof connector === "object" && connector !== null && "type" in connector && connector.type === "github",
@@ -727,7 +905,12 @@ async function createExecutionWorkspace(input: {
     )
   }
   const runtime: "docker" | "podman" = runtimeInfo.runtime
-  const project = await Project.fromDirectory(input.directory)
+  const project = await runProject(
+    Effect.gen(function* () {
+      const project = yield* Project.Service
+      return yield* project.fromDirectory(input.directory)
+    }),
+  )
   return Workspace.create({
     projectID: project.project.id,
     branch: input.branch ?? null,
@@ -744,12 +927,13 @@ async function createExecutionWorkspace(input: {
 }
 
 async function statusForSession(session: Session.Info) {
-  return Instance.provide({
-    directory: session.directory,
-    async fn() {
-      return SessionStatus.get(session.id)
-    },
-  })
+  return runStatusForSession(
+    session,
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.get(session.id)
+    }),
+  )
 }
 
 export const MobileRoutes = lazy(() =>
@@ -836,7 +1020,12 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const projects = await Project.list()
+        const projects = await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            return yield* project.list()
+          }),
+        )
         const token = currentToken(c)
         const [user, storedGithubToken] = await Promise.all([githubUser(), githubToken()])
         const container = await getContainerRuntimeInfo()
@@ -1014,7 +1203,12 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const commands = await Command.list()
+        const commands = await runCommand(
+          Effect.gen(function* () {
+            const command = yield* Command.Service
+            return yield* command.list()
+          }),
+        )
         return c.json(
           commands
             .map((command) => ({
@@ -1045,7 +1239,12 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const projects = await Project.list()
+        const projects = await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            return yield* project.list()
+          }),
+        )
         return c.json(
           projects.map((project) => ({
             ...project,
@@ -1146,7 +1345,7 @@ export const MobileRoutes = lazy(() =>
         const { key } = await ensureGlobalGithubConnector({ oauthClientId: clientId.trim(), clientId: clientId.trim() })
         Connectors.invalidateConnector(key)
         Connectors.invalidateConnector("github")
-        return c.json(await Config.get())
+        return c.json(await configGet())
       },
     )
     .post(
@@ -1229,10 +1428,15 @@ export const MobileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const config = await Config.get().catch(() => undefined)
+        const config = await configGet().catch(() => undefined)
         const { key } = githubConnectorEntry(config)
-        await ConnectorAuth.remove(key)
-        if (key !== "github") await ConnectorAuth.remove("github")
+        await runConnectorAuth(
+          Effect.gen(function* () {
+            const auth = yield* ConnectorAuth.Service
+            yield* auth.remove(key)
+            if (key !== "github") yield* auth.remove("github")
+          }),
+        )
         Connectors.invalidateConnector(key)
         Connectors.invalidateConnector("github")
         return c.json({ success: true as const })
@@ -1305,17 +1509,18 @@ export const MobileRoutes = lazy(() =>
         const seed = sessionSeed()
         const headBranch = `nikcli/mobile/${slug(body.repo)}/${seed}`
         let workspace: Workspace.Info | undefined
-        const worktree = await Instance.provide({
-          directory: imported.import.directory,
-          async fn() {
-            return Worktree.create({
+        const worktree = await runWorktreeForDirectory(
+          imported.import.directory,
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            return yield* service.create({
               name: `${slug(body.repo)}-${slug(baseBranch)}-${seed}`,
               branch: headBranch,
               baseBranch,
               remote: "origin",
             })
-          },
-        })
+          }),
+        )
 
         try {
           workspace = await createExecutionWorkspace({
@@ -1330,22 +1535,27 @@ export const MobileRoutes = lazy(() =>
               return WorkspaceContext.provide({
                 workspaceID: workspace?.id,
                 async fn() {
-                  return Session.create({
-                    title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
-                    workspaceID: workspace?.id,
-                    github: {
-                      owner: body.owner,
-                      repo: body.repo,
-                      fullName: `${body.owner}/${body.repo}`,
-                      baseBranch,
-                      headBranch,
-                      repositoryDirectory: imported.import.directory,
-                      cloneUrl: imported.import.cloneUrl,
-                      htmlUrl: body.htmlUrl,
-                      private: body.private,
-                      worktree,
-                    },
-                  })
+                  return runSession(
+                    Effect.gen(function* () {
+                      const service = yield* Session.Service
+                      return yield* service.create({
+                        title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
+                        workspaceID: workspace?.id,
+                        github: {
+                          owner: body.owner,
+                          repo: body.repo,
+                          fullName: `${body.owner}/${body.repo}`,
+                          baseBranch,
+                          headBranch,
+                          repositoryDirectory: imported.import.directory,
+                          cloneUrl: imported.import.cloneUrl,
+                          htmlUrl: body.htmlUrl,
+                          private: body.private,
+                          worktree,
+                        },
+                      })
+                    }),
+                  )
                 },
               })
             },
@@ -1356,12 +1566,13 @@ export const MobileRoutes = lazy(() =>
           if (workspace) {
             await Workspace.remove(workspace.id).catch(() => undefined)
           }
-          await Instance.provide({
-            directory: imported.import.directory,
-            async fn() {
-              await Worktree.remove({ directory: worktree.directory }).catch(() => undefined)
-            },
-          }).catch(() => undefined)
+          await runWorktreeForDirectory(
+            imported.import.directory,
+            Effect.gen(function* () {
+              const service = yield* Worktree.Service
+              yield* service.remove({ directory: worktree.directory })
+            }),
+          ).catch(() => undefined)
           throw error
         }
       },
@@ -1391,7 +1602,7 @@ export const MobileRoutes = lazy(() =>
         const term = query.search?.toLowerCase()
         const sessions: z.infer<typeof MobileSessionSummary>[] = []
         // List sessions across all projects for mobile (cross-project view)
-        const allKeys = await Storage.list(["session"])
+        const allKeys = await storageList(["session"])
         const seen = new Set<string>()
         for (const key of allKeys) {
           if (key.length !== 3) continue
@@ -1399,7 +1610,7 @@ export const MobileRoutes = lazy(() =>
           if (seen.has(sessionID)) continue
           seen.add(sessionID)
           try {
-            const session = await Storage.read<Session.Info>(key)
+            const session = await storageRead<Session.Info>(key)
             if (term) {
               const haystack = [
                 session.title,
@@ -1458,13 +1669,18 @@ export const MobileRoutes = lazy(() =>
           const session = await WorkspaceContext.provide({
             workspaceID: workspace?.id,
             async fn() {
-              return Session.create(
-                workspace?.id
-                  ? {
-                      ...sessionInput,
-                      workspaceID: workspace.id,
-                    }
-                  : sessionInput,
+              return runSession(
+                Effect.gen(function* () {
+                  const service = yield* Session.Service
+                  return yield* service.create(
+                    workspace?.id
+                      ? {
+                          ...sessionInput,
+                          workspaceID: workspace.id,
+                        }
+                      : sessionInput,
+                  )
+                }),
               )
             },
           })
@@ -1494,15 +1710,38 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const info = await Session.getAnyProject(sessionID)
+        const info = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        )
         const { messages, permissions, status } = await Instance.provide({
           directory: info.directory,
           async fn() {
             const [messages, permissions] = await Promise.all([
-              Session.messages({ sessionID }),
-              PermissionNext.list().then((items) => items.filter((item) => item.sessionID === sessionID)),
+              runSessionForSession(
+                info,
+                Effect.gen(function* () {
+                  const service = yield* Session.Service
+                  return yield* service.messages({ sessionID })
+                }),
+              ),
+              runPermission(
+                Effect.gen(function* () {
+                  const permission = yield* PermissionNext.Service
+                  const items = yield* permission.list()
+                  return items.filter((item) => item.sessionID === sessionID)
+                }),
+              ),
             ])
-            return { messages, permissions, status: SessionStatus.get(sessionID) }
+            const status = await runStatus(
+              Effect.gen(function* () {
+                const sessionStatus = yield* SessionStatus.Service
+                return yield* sessionStatus.get(sessionID)
+              }),
+            )
+            return { messages, permissions, status }
           },
         })
         return c.json({
@@ -1529,11 +1768,21 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string(), messageID: z.string() })),
       async (c) => {
         const params = c.req.valid("param")
-        const session = await Session.getAnyProject(params.sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(params.sessionID)
+          }),
+        )
         const result = await Instance.provide({
           directory: session.directory,
           async fn() {
-            return SessionSummary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+            return runSummary(
+              Effect.gen(function* () {
+                const summary = yield* SessionSummary.Service
+                return yield* summary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+              }),
+            )
           },
         })
         return c.json(result)
@@ -1556,7 +1805,12 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await Session.getAnyProject(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        )
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1594,17 +1848,13 @@ export const MobileRoutes = lazy(() =>
           }
         }
 
-        const commands = await Instance.provide({
-          directory: session.directory,
-          async fn() {
-            return WorkspaceContext.provide({
-              workspaceID: session.workspaceID,
-              async fn() {
-                return Command.list()
-              },
-            })
-          },
-        })
+        const commands = await runCommandForSession(
+          session,
+          Effect.gen(function* () {
+            const command = yield* Command.Service
+            return yield* command.list()
+          }),
+        )
         return c.json(
           commands
             .map((command) => ({
@@ -1640,7 +1890,12 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const session = await Session.getAnyProject(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        )
         if (session.github?.worktree.cleanedAt) {
           return c.json({ error: "Session worktree has been cleaned up" }, 400)
         }
@@ -1676,17 +1931,24 @@ export const MobileRoutes = lazy(() =>
           }
         }
 
-        void Instance.provide({
-          directory: session.directory,
-          async fn() {
-            return SessionPrompt.prompt({
+        void runSessionPromptForSession(
+          session,
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.prompt({
               ...promptBody,
               sessionID,
             })
-          },
-        }).catch((error) => {
+          }),
+        ).catch((error) => {
           const message = error instanceof Error ? error.message : String(error)
-          SessionStatus.set(sessionID, { type: "idle" })
+          void runStatusForSession(
+            session,
+            Effect.gen(function* () {
+              const status = yield* SessionStatus.Service
+              return yield* status.set(sessionID, { type: "idle" })
+            }),
+          ).catch(() => undefined)
           void Bus.publish(Session.Event.Error, {
             sessionID,
             error: new NamedError.Unknown({ message }).toObject(),
@@ -1718,7 +1980,12 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const session = await Session.getAnyProject(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        )
         if (session.github?.worktree.cleanedAt) {
           return c.json({ error: "Session worktree has been cleaned up" }, 400)
         }
@@ -1750,15 +2017,16 @@ export const MobileRoutes = lazy(() =>
           }
         }
 
-        const result = await Instance.provide({
-          directory: session.directory,
-          async fn() {
-            return SessionPrompt.command({
+        const result = await runSessionPromptForSession(
+          session,
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.command({
               ...commandBody,
               sessionID,
             })
-          },
-        })
+          }),
+        )
 
         return c.json(result)
       },
@@ -1779,7 +2047,12 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await Session.getAnyProject(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        )
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1799,7 +2072,13 @@ export const MobileRoutes = lazy(() =>
             return c.json({ success: true as const })
           }
         }
-        SessionPrompt.cancel(sessionID)
+        await runSessionPromptForSession(
+          session,
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            yield* sessionPrompt.cancel(sessionID)
+          }),
+        )
         return c.json({ success: true as const })
       },
     )
@@ -1820,7 +2099,12 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ response: PermissionNext.Reply })),
       async (c) => {
         const params = c.req.valid("param")
-        const session = await Session.getAnyProject(params.sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(params.sessionID)
+          }),
+        )
         if (session.workspaceID) {
           const response = await proxyWorkspaceRequest({
             workspaceID: session.workspaceID,
@@ -1844,7 +2128,12 @@ export const MobileRoutes = lazy(() =>
             return c.json({ success: true as const })
           }
         }
-        PermissionNext.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
+        await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            yield* permission.reply({ requestID: params.permissionID, reply: c.req.valid("json").response })
+          }),
+        )
         return c.json({ success: true as const })
       },
     )
@@ -1869,7 +2158,12 @@ export const MobileRoutes = lazy(() =>
         if (!token) return c.json({ error: "GitHub token not configured" }, 401)
 
         const body = c.req.valid("json") ?? {}
-        const sessionInfo = await Session.getAnyProject(c.req.valid("param").sessionID)
+        const sessionInfo = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(c.req.valid("param").sessionID)
+          }),
+        )
         if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
         if (sessionInfo.github.worktree.cleanedAt)
           return c.json({ error: "Session worktree has already been cleaned" }, 400)
@@ -1877,10 +2171,21 @@ export const MobileRoutes = lazy(() =>
         return Instance.provide({
           directory: sessionInfo.directory,
           async fn() {
-            const session = await Session.get(sessionInfo.id)
+            const session = await runSession(
+              Effect.gen(function* () {
+                const service = yield* Session.Service
+                return yield* service.get(sessionInfo.id)
+              }),
+            )
             const github = session.github
             if (!github) return c.json({ error: "Session is not linked to GitHub" }, 400)
-            if (SessionStatus.get(session.id).type !== "idle") {
+            const status = await runStatus(
+              Effect.gen(function* () {
+                const sessionStatus = yield* SessionStatus.Service
+                return yield* sessionStatus.get(session.id)
+              }),
+            )
+            if (status.type !== "idle") {
               return c.json({ error: "Wait for the session to become idle before publishing" }, 400)
             }
 
@@ -1966,13 +2271,19 @@ export const MobileRoutes = lazy(() =>
               return c.json({ error: "Create changes in the worktree before publishing a pull request" }, 400)
             }
 
-            await Session.update(session.id, (draft) => {
-              if (!draft.github) return
-              draft.github.pullRequest = pullRequest
-              draft.github.lastCommitSha = commitSha.trim()
-              draft.github.publishedAt = Date.now()
-              draft.github.publishError = undefined
-            })
+            await runSessionForSession(
+              session,
+              Effect.gen(function* () {
+                const service = yield* Session.Service
+                yield* service.update(session.id, (draft) => {
+                  if (!draft.github) return
+                  draft.github.pullRequest = pullRequest
+                  draft.github.lastCommitSha = commitSha.trim()
+                  draft.github.publishedAt = Date.now()
+                  draft.github.publishError = undefined
+                })
+              }),
+            )
 
             return c.json({
               commitSha: commitSha.trim(),
@@ -2001,7 +2312,12 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("param", z.object({ sessionID: z.string() })),
       async (c) => {
-        const sessionInfo = await Session.getAnyProject(c.req.valid("param").sessionID)
+        const sessionInfo = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(c.req.valid("param").sessionID)
+          }),
+        )
         if (!sessionInfo.github) return c.json({ error: "Session is not linked to GitHub" }, 400)
         if (sessionInfo.github.worktree.cleanedAt) return c.json({ success: true as const })
 
@@ -2009,7 +2325,13 @@ export const MobileRoutes = lazy(() =>
         const idle = await Instance.provide({
           directory: sessionInfo.directory,
           async fn() {
-            return SessionStatus.get(sessionInfo.id).type === "idle"
+            const status = await runStatus(
+              Effect.gen(function* () {
+                const sessionStatus = yield* SessionStatus.Service
+                return yield* sessionStatus.get(sessionInfo.id)
+              }),
+            )
+            return status.type === "idle"
           },
         })
         if (!idle) {
@@ -2022,17 +2344,28 @@ export const MobileRoutes = lazy(() =>
             if (sessionInfo.workspaceID) {
               await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
             }
-            await Worktree.remove({ directory: sessionInfo.github!.worktree.directory })
+            await runWorktree(
+              Effect.gen(function* () {
+                const service = yield* Worktree.Service
+                yield* service.remove({ directory: sessionInfo.github!.worktree.directory })
+              }),
+            )
           },
         })
 
         await Instance.provide({
           directory: repositoryDirectory,
           async fn() {
-            await Session.update(sessionInfo.id, (draft) => {
-              if (!draft.github) return
-              draft.github.worktree.cleanedAt = Date.now()
-            })
+            await runSessionForSession(
+              sessionInfo,
+              Effect.gen(function* () {
+                const service = yield* Session.Service
+                yield* service.update(sessionInfo.id, (draft) => {
+                  if (!draft.github) return
+                  draft.github.worktree.cleanedAt = Date.now()
+                })
+              }),
+            )
           },
         })
 
@@ -2104,7 +2437,12 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", Worktree.CreateInput.optional()),
       async (c) => {
-        const worktree = await Worktree.create(c.req.valid("json") ?? undefined)
+        const worktree = await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            return yield* service.create(c.req.valid("json") ?? undefined)
+          }),
+        )
         return c.json(worktree)
       },
     )
@@ -2123,7 +2461,12 @@ export const MobileRoutes = lazy(() =>
       }),
       validator("json", Worktree.ResetInput),
       async (c) => {
-        await Worktree.reset(c.req.valid("json"))
+        await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            yield* service.reset(c.req.valid("json"))
+          }),
+        )
         return c.json({ success: true as const })
       },
     )
@@ -2145,14 +2488,25 @@ export const MobileRoutes = lazy(() =>
       async (c) => {
         const { sessionID } = c.req.valid("param")
         const { title } = c.req.valid("json")
-        const session = await Session.getAnyProject(sessionID).catch(() => undefined)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(sessionID)
+          }),
+        ).catch(() => undefined)
         if (!session) return c.json({ error: "not found" }, 404)
         await Instance.provide({
           directory: session.directory,
           async fn() {
-            await Session.update(sessionID, (draft) => {
-              draft.title = title.trim()
-            })
+            await runSessionForSession(
+              session,
+              Effect.gen(function* () {
+                const service = yield* Session.Service
+                yield* service.update(sessionID, (draft) => {
+                  draft.title = title.trim()
+                })
+              }),
+            )
           },
         })
         return c.json({ success: true as const })
@@ -2174,8 +2528,18 @@ export const MobileRoutes = lazy(() =>
       validator("json", Worktree.RemoveInput),
       async (c) => {
         const input = c.req.valid("json")
-        await Worktree.remove(input)
-        await Project.removeSandbox(Instance.project.id, input.directory).catch(() => undefined)
+        await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            yield* service.remove(input)
+          }),
+        )
+        await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            yield* project.removeSandbox(Instance.project.id, input.directory)
+          }),
+        ).catch(() => undefined)
         return c.json({ success: true as const })
       },
     )

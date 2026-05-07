@@ -7,8 +7,18 @@ import { mapValues } from "remeda"
 import { errors } from "../error"
 import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const log = Log.create({ service: "server" })
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ConfigRoutes = lazy(() =>
   new Hono()
@@ -30,7 +40,13 @@ export const ConfigRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await Config.get())
+        const config = await runConfig(
+          Effect.gen(function* () {
+            const service = yield* Config.Service
+            return yield* service.get()
+          }),
+        )
+        return c.json(config)
       },
     )
     .patch(
@@ -54,7 +70,12 @@ export const ConfigRoutes = lazy(() =>
       validator("json", Config.Info),
       async (c) => {
         const config = c.req.valid("json")
-        await Config.update(config)
+        await runConfig(
+          Effect.gen(function* () {
+            const service = yield* Config.Service
+            yield* service.update(config)
+          }),
+        )
         return c.json(config)
       },
     )
@@ -82,7 +103,13 @@ export const ConfigRoutes = lazy(() =>
       }),
       async (c) => {
         using _ = log.time("providers")
-        const providers = await Provider.list().then((x) => mapValues(x, (item) => item))
+        const providers = await runProvider(
+          Effect.gen(function* () {
+            const provider = yield* Provider.Service
+            const list = yield* provider.list()
+            return mapValues(list, (item) => item)
+          }),
+        )
         return c.json({
           providers: Object.values(providers),
           default: mapValues(providers, (item) => Provider.sort(Object.values(item.models))[0].id),

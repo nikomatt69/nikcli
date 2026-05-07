@@ -3,9 +3,15 @@ import { Installation } from "../installation"
 import { Session } from "../session"
 import { MessageV2 } from "../session/message-v2"
 import { Log } from "../util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace Share {
   const log = Log.create({ service: "share" })
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
 
   let queue: Promise<void> = Promise.resolve()
   const pending = new Map<string, any>()
@@ -16,7 +22,12 @@ export namespace Share {
     if (root !== "session") return
     const [sub, sessionID] = splits
     if (sub === "share") return
-    const share = await Session.getShare(sessionID).catch(() => {})
+    const share = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.getShare(sessionID)
+      }),
+    ).catch(() => {})
     if (!share) return
     const { secret } = share
     pending.set(key, content)

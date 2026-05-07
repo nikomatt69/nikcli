@@ -5,6 +5,12 @@ import { Connectors } from "../../connectors"
 import { ConnectorAuth } from "../../connectors/auth"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
+  return runPromiseWithLayer(ConnectorAuth.defaultLayer, effect)
+}
 
 const AuthInput = ConnectorAuth.Entry.refine(
   (value) => !!(value.token || value.botToken || value.apiKey),
@@ -56,8 +62,13 @@ export const ConnectorsRoutes = lazy(() =>
       async (c) => {
         const name = c.req.param("name")
         const payload = c.req.valid("json")
-        const existing = await ConnectorAuth.get(name)
-        await ConnectorAuth.set(name, { ...existing, ...payload })
+        await runConnectorAuth(
+          Effect.gen(function* () {
+            const auth = yield* ConnectorAuth.Service
+            const existing = yield* auth.get(name)
+            yield* auth.set(name, { ...existing, ...payload })
+          }),
+        )
         Connectors.invalidateConnector(name)
         return c.json({ success: true as const })
       },
@@ -82,7 +93,12 @@ export const ConnectorsRoutes = lazy(() =>
       }),
       async (c) => {
         const name = c.req.param("name")
-        await ConnectorAuth.remove(name)
+        await runConnectorAuth(
+          Effect.gen(function* () {
+            const auth = yield* ConnectorAuth.Service
+            yield* auth.remove(name)
+          }),
+        )
         Connectors.invalidateConnector(name)
         return c.json({ success: true as const })
       },

@@ -1,6 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import { Instance } from "@/project/instance"
+import { InstanceState } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 import z from "zod"
 
 export namespace SessionStatus {
@@ -41,44 +42,65 @@ export namespace SessionStatus {
     ),
   }
 
-  const state = Instance.state(() => {
-    const data: Record<string, Info> = {}
-    return data
-  })
+  const state = InstanceState.make<Record<string, Info>>(() => Effect.succeed({}))
 
-  export function get(sessionID: string) {
-    return (
-      state()[sessionID] ?? {
-        type: "idle",
-      }
-    )
-  }
+  export class Service extends Context.Tag("SessionStatus.Service")<
+    Service,
+    {
+      get(sessionID: string): Effect.Effect<Info>
+      list(): Effect.Effect<Record<string, Info>>
+      set(sessionID: string, status: Info): Effect.Effect<void>
+      hydrate(sessionID: string, status: Info): Effect.Effect<void>
+    }
+  >() {}
 
-  export function list() {
-    return state()
-  }
-
-  export function set(sessionID: string, status: Info) {
-    Bus.publish(Event.Status, {
-      sessionID,
-      status,
-    })
-    if (status.type === "idle") {
-      // deprecated
-      Bus.publish(Event.Idle, {
-        sessionID,
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const cache = yield* state
+      return Service.of({
+        get(sessionID) {
+          return InstanceState.get(cache).pipe(
+            Effect.map(
+              (statuses) =>
+              statuses[sessionID] ?? {
+                type: "idle" as const,
+              },
+            ),
+          )
+        },
+        list() {
+          return InstanceState.get(cache)
+        },
+        set(sessionID, status) {
+          return InstanceState.get(cache).pipe(Effect.map((statuses) => {
+            Bus.publish(Event.Status, {
+              sessionID,
+              status,
+            })
+            if (status.type === "idle") {
+              // deprecated
+              Bus.publish(Event.Idle, {
+                sessionID,
+              })
+              delete statuses[sessionID]
+              return
+            }
+            statuses[sessionID] = status
+          }))
+        },
+        hydrate(sessionID, status) {
+          return InstanceState.get(cache).pipe(Effect.map((statuses) => {
+            if (status.type === "idle") {
+              delete statuses[sessionID]
+              return
+            }
+            statuses[sessionID] = status
+          }))
+        },
       })
-      delete state()[sessionID]
-      return
-    }
-    state()[sessionID] = status
-  }
+    }),
+  )
 
-  export function hydrate(sessionID: string, status: Info) {
-    if (status.type === "idle") {
-      delete state()[sessionID]
-      return
-    }
-    state()[sessionID] = status
-  }
+  export const defaultLayer = layer
 }

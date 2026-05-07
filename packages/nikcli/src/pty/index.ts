@@ -5,9 +5,10 @@ import z from "zod"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
-import { Instance } from "../project/instance"
-import { lazy, lazyAsync } from "@nikcli-ai/util/lazy"
+import { lazyAsync } from "@nikcli-ai/util/lazy"
 import { Shell } from "@/shell/shell"
+import { InstanceState } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Pty {
   const log = Log.create({ service: "pty" })
@@ -70,172 +71,216 @@ export namespace Pty {
     subscribers: Set<WSContext>
   }
 
-  const state = Instance.state(
-    () => new Map<string, ActiveSession>(),
-    async (sessions) => {
-      for (const session of sessions.values()) {
+  export interface Connection {
+    readonly onMessage: (message: string | ArrayBuffer) => void
+    readonly onClose: () => void
+  }
+
+  export interface Interface {
+    readonly list: () => Effect.Effect<Info[], unknown>
+    readonly get: (id: string) => Effect.Effect<Info | undefined, unknown>
+    readonly create: (input: CreateInput) => Effect.Effect<Info, unknown>
+    readonly update: (id: string, input: UpdateInput) => Effect.Effect<Info | undefined, unknown>
+    readonly remove: (id: string) => Effect.Effect<void, unknown>
+    readonly resize: (id: string, cols: number, rows: number) => Effect.Effect<void, unknown>
+    readonly write: (id: string, data: string) => Effect.Effect<void, unknown>
+    readonly connect: (id: string, ws: WSContext) => Effect.Effect<Connection | undefined, unknown>
+  }
+
+  export class Service extends Context.Tag("@nikcli/Pty")<Service, Interface>() {}
+
+  function closeSessions(sessions: Map<string, ActiveSession>) {
+    for (const session of sessions.values()) {
+      try {
+        session.process.kill()
+      } catch {}
+      for (const ws of session.subscribers) {
+        ws.close()
+      }
+    }
+    sessions.clear()
+  }
+
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make(() =>
+        Effect.acquireRelease(
+          Effect.sync(() => new Map<string, ActiveSession>()),
+          (sessions) => Effect.sync(() => closeSessions(sessions)),
+        ),
+      )
+
+      const list: Interface["list"] = Effect.fn("Pty.list")(function* () {
+        return Array.from((yield* InstanceState.get(state)).values()).map((session) => session.info)
+      })
+
+      const get: Interface["get"] = Effect.fn("Pty.get")(function* (id: string) {
+        return (yield* InstanceState.get(state)).get(id)?.info
+      })
+
+      const create: Interface["create"] = Effect.fn("Pty.create")(function* (input: CreateInput) {
+        const sessions = yield* InstanceState.get(state)
+        const directory = yield* InstanceState.directory
+        const id = Identifier.create("pty", false)
+        const command = input.command || Shell.preferred()
+        const args = [...(input.args || [])]
+        if (command.endsWith("sh")) {
+          args.push("-l")
+        }
+
+        const cwd = input.cwd || directory
+        const env = {
+          ...process.env,
+          ...input.env,
+          TERM: "xterm-256color",
+          NIKCLI_TERMINAL: "1",
+        } as Record<string, string>
+        log.info("creating session", { id, cmd: command, args, cwd })
+
+        const spawn = yield* Effect.promise(async () => pty())
+        const ptyProcess = spawn(command, args, {
+          name: "xterm-256color",
+          cwd,
+          env,
+        })
+
+        const info = {
+          id,
+          title: input.title || `Terminal ${id.slice(-4)}`,
+          command,
+          args,
+          cwd,
+          status: "running",
+          pid: ptyProcess.pid,
+        } as const
+        const session: ActiveSession = {
+          info,
+          process: ptyProcess,
+          buffer: "",
+          subscribers: new Set(),
+        }
+        sessions.set(id, session)
+        ptyProcess.onData((data) => {
+          let open = false
+          for (const ws of session.subscribers) {
+            if (ws.readyState !== 1) {
+              session.subscribers.delete(ws)
+              continue
+            }
+            open = true
+            ws.send(data)
+          }
+          if (open) return
+          session.buffer += data
+          if (session.buffer.length <= BUFFER_LIMIT) return
+          session.buffer = session.buffer.slice(-BUFFER_LIMIT)
+        })
+        ptyProcess.onExit(({ exitCode }) => {
+          log.info("session exited", { id, exitCode })
+          session.info.status = "exited"
+          for (const ws of session.subscribers) {
+            ws.close()
+          }
+          session.subscribers.clear()
+          void Bus.publish(Event.Exited, { id, exitCode })
+          sessions.delete(id)
+        })
+        yield* Effect.promise(() => Bus.publish(Event.Created, { info }))
+        return info
+      })
+
+      const update: Interface["update"] = Effect.fn("Pty.update")(function* (id: string, input: UpdateInput) {
+        const session = (yield* InstanceState.get(state)).get(id)
+        if (!session) return undefined
+        if (input.title) {
+          session.info.title = input.title
+        }
+        if (input.size) {
+          session.process.resize(input.size.cols, input.size.rows)
+        }
+        yield* Effect.promise(() => Bus.publish(Event.Updated, { info: session.info }))
+        return session.info
+      })
+
+      const remove: Interface["remove"] = Effect.fn("Pty.remove")(function* (id: string) {
+        const sessions = yield* InstanceState.get(state)
+        const session = sessions.get(id)
+        if (!session) return
+        log.info("removing session", { id })
         try {
           session.process.kill()
         } catch {}
         for (const ws of session.subscribers) {
           ws.close()
         }
-      }
-      sessions.clear()
-    },
+        sessions.delete(id)
+        yield* Effect.promise(() => Bus.publish(Event.Deleted, { id }))
+      })
+
+      const resize: Interface["resize"] = Effect.fn("Pty.resize")(function* (id: string, cols: number, rows: number) {
+        const session = (yield* InstanceState.get(state)).get(id)
+        if (session && session.info.status === "running") {
+          session.process.resize(cols, rows)
+        }
+      })
+
+      const write: Interface["write"] = Effect.fn("Pty.write")(function* (id: string, data: string) {
+        const session = (yield* InstanceState.get(state)).get(id)
+        if (session && session.info.status === "running") {
+          session.process.write(data)
+        }
+      })
+
+      const connect: Interface["connect"] = Effect.fn("Pty.connect")(function* (id: string, ws: WSContext) {
+        const session = (yield* InstanceState.get(state)).get(id)
+        if (!session) {
+          ws.close()
+          return undefined
+        }
+        log.info("client connected to session", { id })
+        session.subscribers.add(ws)
+        if (session.buffer) {
+          const buffer = session.buffer.length <= BUFFER_LIMIT ? session.buffer : session.buffer.slice(-BUFFER_LIMIT)
+          session.buffer = ""
+          let sentUpTo = 0
+          try {
+            for (let i = 0; i < buffer.length; i += BUFFER_CHUNK) {
+              ws.send(buffer.slice(i, i + BUFFER_CHUNK))
+              sentUpTo = i + BUFFER_CHUNK
+            }
+          } catch {
+            session.subscribers.delete(ws)
+            session.buffer = buffer.slice(sentUpTo)
+            ws.close()
+            return undefined
+          }
+        }
+
+        return {
+          onMessage: (message: string | ArrayBuffer) => {
+            const text = message instanceof ArrayBuffer ? new TextDecoder().decode(message) : message
+            session.process.write(text)
+          },
+          onClose: () => {
+            log.info("client disconnected from session", { id })
+            session.subscribers.delete(ws)
+          },
+        }
+      })
+
+      return Service.of({
+        list,
+        get,
+        create,
+        update,
+        remove,
+        resize,
+        write,
+        connect,
+      })
+    }),
   )
 
-  export function list() {
-    return Array.from(state().values()).map((s) => s.info)
-  }
-
-  export function get(id: string) {
-    return state().get(id)?.info
-  }
-
-  export async function create(input: CreateInput) {
-    const id = Identifier.create("pty", false)
-    const command = input.command || Shell.preferred()
-    const args = input.args || []
-    if (command.endsWith("sh")) {
-      args.push("-l")
-    }
-
-    const cwd = input.cwd || Instance.directory
-    const env = {
-      ...process.env,
-      ...input.env,
-      TERM: "xterm-256color",
-      NIKCLI_TERMINAL: "1",
-    } as Record<string, string>
-    log.info("creating session", { id, cmd: command, args, cwd })
-
-    const spawn = await pty()
-    const ptyProcess = spawn(command, args, {
-      name: "xterm-256color",
-      cwd,
-      env,
-    })
-
-    const info = {
-      id,
-      title: input.title || `Terminal ${id.slice(-4)}`,
-      command,
-      args,
-      cwd,
-      status: "running",
-      pid: ptyProcess.pid,
-    } as const
-    const session: ActiveSession = {
-      info,
-      process: ptyProcess,
-      buffer: "",
-      subscribers: new Set(),
-    }
-    state().set(id, session)
-    ptyProcess.onData((data) => {
-      let open = false
-      for (const ws of session.subscribers) {
-        if (ws.readyState !== 1) {
-          session.subscribers.delete(ws)
-          continue
-        }
-        open = true
-        ws.send(data)
-      }
-      if (open) return
-      session.buffer += data
-      if (session.buffer.length <= BUFFER_LIMIT) return
-      session.buffer = session.buffer.slice(-BUFFER_LIMIT)
-    })
-    ptyProcess.onExit(({ exitCode }) => {
-      log.info("session exited", { id, exitCode })
-      session.info.status = "exited"
-      for (const ws of session.subscribers) {
-        ws.close()
-      }
-      session.subscribers.clear()
-      Bus.publish(Event.Exited, { id, exitCode })
-      state().delete(id)
-    })
-    Bus.publish(Event.Created, { info })
-    return info
-  }
-
-  export async function update(id: string, input: UpdateInput) {
-    const session = state().get(id)
-    if (!session) return
-    if (input.title) {
-      session.info.title = input.title
-    }
-    if (input.size) {
-      session.process.resize(input.size.cols, input.size.rows)
-    }
-    Bus.publish(Event.Updated, { info: session.info })
-    return session.info
-  }
-
-  export async function remove(id: string) {
-    const session = state().get(id)
-    if (!session) return
-    log.info("removing session", { id })
-    try {
-      session.process.kill()
-    } catch {}
-    for (const ws of session.subscribers) {
-      ws.close()
-    }
-    state().delete(id)
-    Bus.publish(Event.Deleted, { id })
-  }
-
-  export function resize(id: string, cols: number, rows: number) {
-    const session = state().get(id)
-    if (session && session.info.status === "running") {
-      session.process.resize(cols, rows)
-    }
-  }
-
-  export function write(id: string, data: string) {
-    const session = state().get(id)
-    if (session && session.info.status === "running") {
-      session.process.write(data)
-    }
-  }
-
-  export function connect(id: string, ws: WSContext) {
-    const session = state().get(id)
-    if (!session) {
-      ws.close()
-      return
-    }
-    log.info("client connected to session", { id })
-    session.subscribers.add(ws)
-    if (session.buffer) {
-      const buffer = session.buffer.length <= BUFFER_LIMIT ? session.buffer : session.buffer.slice(-BUFFER_LIMIT)
-      session.buffer = ""
-      let sentUpTo = 0
-      try {
-        for (let i = 0; i < buffer.length; i += BUFFER_CHUNK) {
-          ws.send(buffer.slice(i, i + BUFFER_CHUNK))
-          sentUpTo = i + BUFFER_CHUNK
-        }
-      } catch {
-        session.subscribers.delete(ws)
-        session.buffer = buffer.slice(sentUpTo)
-        ws.close()
-        return
-      }
-    }
-    return {
-      onMessage: (message: string | ArrayBuffer) => {
-        const text = message instanceof ArrayBuffer ? new TextDecoder().decode(message) : message
-        session.process.write(text)
-      },
-      onClose: () => {
-        log.info("client disconnected from session", { id })
-        session.subscribers.delete(ws)
-      },
-    }
-  }
+  export const defaultLayer = layer
 }

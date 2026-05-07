@@ -4,6 +4,7 @@ import fs from "fs/promises"
 import z from "zod"
 import { Lock } from "../util/lock"
 import { Log } from "../util/log"
+import { Context, Effect, Layer } from "effect"
 
 export const OAUTH_DUMMY_KEY = "nikcli-oauth-dummy-key"
 
@@ -64,7 +65,38 @@ export namespace Auth {
     }),
   })
 
-  const filepath = path.join(Global.Path.data, "auth.json")
+  export interface Interface {
+    fetchWellKnown(baseURL: string): Effect.Effect<Response, unknown>
+    fetchWellKnownToken(baseURL: string, command: string[]): Effect.Effect<string, unknown>
+    get(providerID: string): Effect.Effect<Info | undefined, unknown>
+    all(): Effect.Effect<Record<string, Info>, unknown>
+    set(key: string, info: Info): Effect.Effect<void, unknown>
+    remove(key: string): Effect.Effect<void, unknown>
+    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, unknown>
+    getValid(providerID: string): Effect.Effect<Info | undefined, unknown>
+  }
+
+  export class Service extends Context.Tag("Auth.Service")<Service, Interface>() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      fetchWellKnown: (baseURL) => Effect.tryPromise(() => fetchWellKnownImpl(baseURL)),
+      fetchWellKnownToken: (baseURL, command) => Effect.tryPromise(() => fetchWellKnownTokenImpl(baseURL, command)),
+      get: (providerID) => Effect.tryPromise(() => getImpl(providerID)),
+      all: () => Effect.tryPromise(() => allImpl()),
+      set: (key, info) => Effect.tryPromise(() => setImpl(key, info)),
+      remove: (key) => Effect.tryPromise(() => removeImpl(key)),
+      refresh: (providerID) => Effect.tryPromise(() => refreshImpl(providerID)),
+      getValid: (providerID) => Effect.tryPromise(() => getValidImpl(providerID)),
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  function filepath() {
+    return path.join(Global.Path.data, "auth.json")
+  }
 
   function sameOriginURL(baseURL: string, value: string) {
     const base = new URL(baseURL)
@@ -135,11 +167,11 @@ export namespace Auth {
     throw new Error("Too many well-known redirects")
   }
 
-  export async function fetchWellKnown(baseURL: string) {
+  async function fetchWellKnownImpl(baseURL: string) {
     return fetchSameOrigin(new URL("/.well-known/nikcli", baseURL).toString())
   }
 
-  export async function fetchWellKnownToken(baseURL: string, command: string[]) {
+  async function fetchWellKnownTokenImpl(baseURL: string, command: string[]) {
     const url =
       command[0] === "curl"
         ? extractCurlURL(baseURL, command)
@@ -163,13 +195,13 @@ export namespace Auth {
     return key.replace(/\/+$/, "")
   }
 
-  export async function get(providerID: string) {
-    const auth = await all()
+  async function getImpl(providerID: string) {
+    const auth = await allImpl()
     return auth[normalizeKey(providerID)]
   }
 
-  export async function all(): Promise<Record<string, Info>> {
-    const file = Bun.file(filepath)
+  async function allImpl(): Promise<Record<string, Info>> {
+    const file = Bun.file(filepath())
     // On Windows, Bun.file might have issues with certain paths
     // Use fs.readFile as fallback for better Windows compatibility
     let data: Record<string, unknown> = {}
@@ -178,7 +210,7 @@ export namespace Auth {
     } catch {
       // Fallback: try reading with fs for better Windows compatibility
       try {
-        const text = await fs.readFile(filepath, "utf-8")
+        const text = await fs.readFile(filepath(), "utf-8")
         data = JSON.parse(text)
       } catch {
         // File doesn't exist or is corrupted, leave data empty
@@ -215,34 +247,36 @@ export namespace Auth {
     return result
   }
 
-  export async function set(key: string, info: Info) {
+  async function setImpl(key: string, info: Info) {
     const normalized = normalizeKey(key)
-    const tmp = filepath + ".tmp"
+    const file = filepath()
+    const tmp = file + ".tmp"
     try {
-      const data = await all()
+      const data = await allImpl()
       await Bun.write(tmp, JSON.stringify({ ...data, [normalized]: info }, null, 2))
       // chmod is Unix-only, skip on Windows
       if (process.platform !== "win32") {
         await fs.chmod(tmp, 0o600)
       }
-      await fs.rename(tmp, filepath)
+      await fs.rename(tmp, file)
     } finally {
       await fs.unlink(tmp).catch(() => { })
     }
   }
 
-  export async function remove(key: string) {
+  async function removeImpl(key: string) {
     const normalized = normalizeKey(key)
-    const tmp = filepath + ".tmp"
+    const file = filepath()
+    const tmp = file + ".tmp"
     try {
-      const data = await all()
+      const data = await allImpl()
       delete data[normalized]
       await Bun.write(tmp, JSON.stringify(data, null, 2))
       // chmod is Unix-only, skip on Windows
       if (process.platform !== "win32") {
         await fs.chmod(tmp, 0o600)
       }
-      await fs.rename(tmp, filepath)
+      await fs.rename(tmp, file)
     } finally {
       await fs.unlink(tmp).catch(() => { })
     }
@@ -253,9 +287,9 @@ export namespace Auth {
    * Returns the updated auth info.
    * Only works for providers with type "oauth".
    */
-  export async function refresh(providerID: string): Promise<z.infer<typeof Oauth>> {
+  async function refreshImpl(providerID: string): Promise<z.infer<typeof Oauth>> {
     const normalized = normalizeKey(providerID)
-    const current = await get(normalized)
+    const current = await getImpl(normalized)
 
     if (!current) {
       throw new Error(`No auth found for provider: ${providerID}`)
@@ -308,7 +342,7 @@ export namespace Auth {
     }
 
     // Persist the updated auth
-    await set(normalized, updated)
+    await setImpl(normalized, updated)
 
     log.info("token refreshed", { providerID, expiresAt: new Date(updated.expires).toISOString() })
 
@@ -325,9 +359,9 @@ export namespace Auth {
    * Uses Lock.write to serialize concurrent refresh attempts.
    * Returns the auth info with a valid (non-expired) access token.
    */
-  export async function getValid(providerID: string): Promise<Info | undefined> {
+  async function getValidImpl(providerID: string): Promise<Info | undefined> {
     const normalized = normalizeKey(providerID)
-    const current = await get(normalized)
+    const current = await getImpl(normalized)
 
     if (!current) {
       return undefined
@@ -351,7 +385,7 @@ export namespace Auth {
     using _ = await Lock.write(lockKey)
 
     // Re-check after acquiring lock (another caller may have refreshed)
-    const recheck = await get(normalized)
+    const recheck = await getImpl(normalized)
     if (!recheck || recheck.type !== "oauth") {
       return recheck
     }
@@ -363,7 +397,7 @@ export namespace Auth {
 
     // Still expired — perform refresh
     try {
-      return await refresh(normalized)
+      return await refreshImpl(normalized)
     } catch (error) {
       log.warn("token refresh failed, returning current token", {
         providerID: normalized,

@@ -1,4 +1,16 @@
 import { ConnectorAuth } from "../auth"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function connectorAuthGet(name: string) {
+  return runPromiseWithLayer(
+    ConnectorAuth.defaultLayer,
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.get(name)
+    }),
+  )
+}
 
 const SLACK_API_BASE = "https://slack.com/api"
 
@@ -127,11 +139,11 @@ export namespace SlackApi {
 }
 
 export async function getBotToken(name: string): Promise<string | null> {
-  const auth = await ConnectorAuth.get(name)
+  const auth = await connectorAuthGet(name)
   return auth?.botToken ?? null
 }
 
 export async function getTeamId(name: string): Promise<string | null> {
-  const auth = await ConnectorAuth.get(name)
+  const auth = await connectorAuthGet(name)
   return auth?.teamId ?? null
 }

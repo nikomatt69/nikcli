@@ -17,6 +17,34 @@ import { Config } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 export namespace Workspace {
   export const ConnectionStatus = z.enum(["connecting", "connected", "disconnected", "error"])
@@ -55,6 +83,22 @@ export namespace Workspace {
       ref: "Workspace",
     })
   export type Info = z.infer<typeof Info>
+
+  function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
+    return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function hydrateStatus(sessionID: string, status: SessionStatus.Info) {
+    return runPromiseWithLayer(
+      SessionStatus.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const sessionStatus = yield* SessionStatus.Service
+          return yield* sessionStatus.hydrate(sessionID, status)
+        }),
+      ),
+    )
+  }
 
   export const Restore = z
     .object({
@@ -98,8 +142,8 @@ export namespace Workspace {
 
   async function listRootSessions(workspaceID: string) {
     const sessions = [] as Session.Info[]
-    for (const key of await Storage.list(["session", Instance.project.id])) {
-      const session = await Storage.read<Session.Info>(key).catch(() => undefined)
+    for (const key of await storageList(["session", Instance.project.id])) {
+      const session = await storageRead<Session.Info>(key).catch(() => undefined)
       if (!session || session.workspaceID !== workspaceID || session.parentID) continue
       sessions.push(session)
     }
@@ -143,19 +187,29 @@ export namespace Workspace {
       init: InstanceBootstrap,
       async fn() {
         if (event.type === "session.status" && event.properties?.sessionID && event.properties?.status) {
-          SessionStatus.hydrate(event.properties.sessionID, event.properties.status)
+          await hydrateStatus(event.properties.sessionID, event.properties.status)
         }
 
         if (event.type === "session.idle" && event.properties?.sessionID) {
-          SessionStatus.hydrate(event.properties.sessionID, { type: "idle" })
+          await hydrateStatus(event.properties.sessionID, { type: "idle" })
         }
 
         if (event.type === "permission.asked" && event.properties?.id) {
-          await PermissionNext.hydrateAsk(event.properties)
+          await runPermission(
+            Effect.gen(function* () {
+              const permission = yield* PermissionNext.Service
+              yield* permission.hydrateAsk(event.properties)
+            }),
+          )
         }
 
         if (event.type === "permission.replied" && event.properties?.requestID) {
-          await PermissionNext.hydrateReply(event.properties.requestID)
+          await runPermission(
+            Effect.gen(function* () {
+              const permission = yield* PermissionNext.Service
+              yield* permission.hydrateReply(event.properties.requestID)
+            }),
+          )
         }
       },
     })
@@ -433,9 +487,14 @@ export namespace Workspace {
     }),
     async ({ workspaceID, sessionID, timeoutMs, signal }) => {
       await restore({ workspaceID, timeoutMs, signal })
-      await Session.update(sessionID, (draft) => {
-        draft.workspaceID = workspaceID
-      })
+      await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          yield* session.update(sessionID, (draft) => {
+            draft.workspaceID = workspaceID
+          })
+        }),
+      )
       const payload = await buildRestorePayload(workspaceID)
       return {
         ...payload,

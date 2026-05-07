@@ -23,8 +23,62 @@ import { Instance } from "@/project/instance"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "server" })
+
+function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
+  return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
+}
+
+function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
+  return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
+  return runPromiseWithLayer(Todo.defaultLayer, withCurrentInstance(effect))
+}
+
+function runShareNext<A, E>(effect: Effect.Effect<A, E, ShareNext.Service>) {
+  return runPromiseWithLayer(ShareNext.defaultLayer, effect)
+}
+
+function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+  return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+}
+
+function runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>) {
+  return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+}
+
+function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
+  return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+}
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function defaultAgent() {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.defaultAgent()
+      }),
+    ),
+  )
+}
 
 const BackgroundJobStatus = z.enum(["running", "synthesizing", "complete", "error", "timeout", "cancelled", "orphaned"])
 
@@ -85,17 +139,24 @@ export const SessionRoutes = lazy(() =>
         const query = c.req.valid("query")
         const term = query.search?.toLowerCase()
         const directory = WorkspaceContext.workspaceID ? Instance.directory : query.directory
-        const sessions: Session.Info[] = []
-        for await (const session of Session.list()) {
+        const sessions = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            const iterable = yield* service.list()
+            return yield* Effect.promise(() => Array.fromAsync(iterable))
+          }),
+        )
+        const filteredSessions: Session.Info[] = []
+        for (const session of sessions) {
           if (directory !== undefined && session.directory !== directory) continue
           if (query.roots && session.parentID) continue
           if (query.start !== undefined && session.time.updated < query.start) continue
           if (term !== undefined && !session.title.toLowerCase().includes(term)) continue
-          sessions.push(session)
+          filteredSessions.push(session)
         }
-        sessions.sort((a, b) => b.time.updated - a.time.updated)
-        if (query.limit !== undefined) return c.json(sessions.slice(0, query.limit))
-        return c.json(sessions)
+        filteredSessions.sort((a, b) => b.time.updated - a.time.updated)
+        if (query.limit !== undefined) return c.json(filteredSessions.slice(0, query.limit))
+        return c.json(filteredSessions)
       },
     )
     .get(
@@ -117,7 +178,12 @@ export const SessionRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const result = SessionStatus.list()
+        const result = await runStatus(
+          Effect.gen(function* () {
+            const status = yield* SessionStatus.Service
+            return yield* status.list()
+          }),
+        )
         return c.json(result)
       },
     )
@@ -143,13 +209,18 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: Session.get.schema,
+          sessionID: Session.ID,
         }),
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         log.info("SEARCH", { url: c.req.url })
-        const session = await Session.get(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.get(sessionID)
+          }),
+        )
         return c.json(session)
       },
     )
@@ -175,12 +246,17 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: Session.children.schema,
+          sessionID: Session.ID,
         }),
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await Session.children(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.children(sessionID)
+          }),
+        )
         return c.json(session)
       },
     )
@@ -210,7 +286,12 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const todos = await Todo.get(sessionID)
+        const todos = await runTodo(
+          Effect.gen(function* () {
+            const todo = yield* Todo.Service
+            return yield* todo.get(sessionID)
+          }),
+        )
         return c.json(todos)
       },
     )
@@ -232,11 +313,16 @@ export const SessionRoutes = lazy(() =>
           },
         },
       }),
-      validator("json", Session.create.schema.optional()),
+      validator("json", Session.CreateInput),
       async (c) => {
         try {
           const body = c.req.valid("json") ?? {}
-          const session = await Session.create(body)
+          const session = await runSession(
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              return yield* service.create(body)
+            }),
+          )
           return c.json(session)
         } catch (err) {
           console.error("Session creation error:", err)
@@ -265,12 +351,17 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: Session.remove.schema,
+          sessionID: Session.ID,
         }),
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        await Session.remove(sessionID)
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.remove(sessionID)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -313,15 +404,20 @@ export const SessionRoutes = lazy(() =>
         const sessionID = c.req.valid("param").sessionID
         const updates = c.req.valid("json")
 
-        const updatedSession = await Session.update(
-          sessionID,
-          (session) => {
-            if (updates.title !== undefined) {
-              session.title = updates.title
-            }
-            if (updates.time?.archived !== undefined) session.time.archived = updates.time.archived
-          },
-          { touch: false },
+        const updatedSession = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.update(
+              sessionID,
+              (session) => {
+                if (updates.title !== undefined) {
+                  session.title = updates.title
+                }
+                if (updates.time?.archived !== undefined) session.time.archived = updates.time.archived
+              },
+              { touch: false },
+            )
+          }),
         )
 
         return c.json(updatedSession)
@@ -352,11 +448,16 @@ export const SessionRoutes = lazy(() =>
           sessionID: z.string().meta({ description: "Session ID" }),
         }),
       ),
-      validator("json", Session.initialize.schema.omit({ sessionID: true })),
+      validator("json", Session.InitializeInput.omit({ sessionID: true })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        await Session.initialize({ ...body, sessionID })
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.initialize({ ...body, sessionID })
+          }),
+        )
         return c.json(true)
       },
     )
@@ -380,14 +481,19 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: Session.fork.schema.shape.sessionID,
+          sessionID: Session.ForkInput.shape.sessionID,
         }),
       ),
-      validator("json", Session.fork.schema.omit({ sessionID: true })),
+      validator("json", Session.ForkInput.omit({ sessionID: true })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const result = await Session.fork({ ...body, sessionID })
+        const result = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.fork({ ...body, sessionID })
+          }),
+        )
         return c.json(result)
       },
     )
@@ -418,7 +524,12 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         // Validate session exists before exposing its background jobs
-        const session = await Session.get(sessionID).catch(() => undefined)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.get(sessionID)
+          }),
+        ).catch(() => undefined)
         if (!session) {
           return c.json({ error: "Session not found" }, 404)
         }
@@ -546,7 +657,12 @@ export const SessionRoutes = lazy(() =>
         // belongs to explicit "stop-the-world" flows, not the per-session abort.
         await Delegation.cancelOwnedBySessionID(sessionID)
         await Monitor.cancelAll(sessionID)
-        SessionPrompt.cancel(sessionID)
+        await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            yield* sessionPrompt.cancel(sessionID)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -576,25 +692,40 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const config = await Config.get()
+        const config = await runConfig(
+          Effect.gen(function* () {
+            const service = yield* Config.Service
+            return yield* service.get()
+          }),
+        )
         if (config.share === "disabled") {
           throw new Error("Sharing is disabled in configuration")
         }
         const origin = new URL(c.req.url).origin
-        const share = await ShareNext.create(
-          sessionID,
-          /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(origin) ? undefined : { baseUrl: origin },
+        const share = await runShareNext(
+          Effect.gen(function* () {
+            const shareNext = yield* ShareNext.Service
+            return yield* shareNext.create(
+              sessionID,
+              /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(origin) ? undefined : { baseUrl: origin },
+            )
+          }),
         )
-        await Session.update(
-          sessionID,
-          (draft) => {
-            draft.share = {
-              url: share.url,
-            }
-          },
-          { touch: false },
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.update(
+              sessionID,
+              (draft) => {
+                draft.share = {
+                  url: share.url,
+                }
+              },
+              { touch: false },
+            )
+            return yield* service.get(sessionID)
+          }),
         )
-        const session = await Session.get(sessionID)
         return c.json(session)
       },
     )
@@ -618,22 +749,27 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: SessionSummary.diff.schema.shape.sessionID,
+          sessionID: SessionSummary.DiffInput.shape.sessionID,
         }),
       ),
       validator(
         "query",
         z.object({
-          messageID: SessionSummary.diff.schema.shape.messageID,
+          messageID: SessionSummary.DiffInput.shape.messageID,
         }),
       ),
       async (c) => {
         const query = c.req.valid("query")
         const params = c.req.valid("param")
-        const result = await SessionSummary.diff({
-          sessionID: params.sessionID,
-          messageID: query.messageID,
-        })
+        const result = await runSummary(
+          Effect.gen(function* () {
+            const summary = yield* SessionSummary.Service
+            return yield* summary.diff({
+              sessionID: params.sessionID,
+              messageID: query.messageID,
+            })
+          }),
+        )
         return c.json(result)
       },
     )
@@ -658,13 +794,18 @@ export const SessionRoutes = lazy(() =>
       validator(
         "param",
         z.object({
-          sessionID: Session.unshare.schema,
+          sessionID: Session.ID,
         }),
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        await Session.unshare(sessionID)
-        const session = await Session.get(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.unshare(sessionID)
+            return yield* service.get(sessionID)
+          }),
+        )
         return c.json(session)
       },
     )
@@ -703,27 +844,48 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const session = await Session.get(sessionID)
-        await SessionRevert.cleanup(session)
-        const msgs = await Session.messages({ sessionID })
-        let currentAgent = await Agent.defaultAgent()
+        const { session, msgs } = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            const session = yield* service.get(sessionID)
+            const msgs = yield* service.messages({ sessionID })
+            return { session, msgs }
+          }),
+        )
+        await runRevert(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            yield* revert.cleanup(session)
+          }),
+        )
+        let currentAgent = await defaultAgent()
         for (let i = msgs.length - 1; i >= 0; i--) {
           const info = msgs[i].info
           if (info.role === "user") {
-            currentAgent = info.agent || (await Agent.defaultAgent())
+            currentAgent = info.agent || (await defaultAgent())
             break
           }
         }
-        await SessionCompaction.create({
-          sessionID,
-          agent: currentAgent,
-          model: {
-            providerID: body.providerID,
-            modelID: body.modelID,
-          },
-          auto: body.auto,
-        })
-        await SessionPrompt.loop(sessionID)
+        await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            yield* compaction.create({
+              sessionID,
+              agent: currentAgent,
+              model: {
+                providerID: body.providerID,
+                modelID: body.modelID,
+              },
+              auto: body.auto,
+            })
+          }),
+        )
+        await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            yield* sessionPrompt.loop(sessionID)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -759,10 +921,15 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const query = c.req.valid("query")
-        const messages = await Session.messages({
-          sessionID: c.req.valid("param").sessionID,
-          limit: query.limit,
-        })
+        const messages = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.messages({
+              sessionID: c.req.valid("param").sessionID,
+              limit: query.limit,
+            })
+          }),
+        )
         return c.json(messages)
       },
     )
@@ -798,7 +965,12 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const params = c.req.valid("param")
-        await Session.get(params.sessionID)
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(params.sessionID)
+          }),
+        )
         const message = await MessageV2.get({
           sessionID: params.sessionID,
           messageID: params.messageID,
@@ -833,12 +1005,17 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const params = c.req.valid("param")
-        await Session.get(params.sessionID)
-        await Session.removePart({
-          sessionID: params.sessionID,
-          messageID: params.messageID,
-          partID: params.partID,
-        })
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(params.sessionID)
+            yield* service.removePart({
+              sessionID: params.sessionID,
+              messageID: params.messageID,
+              partID: params.partID,
+            })
+          }),
+        )
         return c.json(true)
       },
     )
@@ -871,14 +1048,24 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const body = c.req.valid("json")
-        await Session.get(params.sessionID)
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(params.sessionID)
+          }),
+        )
         if (body.id !== params.partID || body.messageID !== params.messageID || body.sessionID !== params.sessionID) {
           throw new Error(
             `Part mismatch: body.id='${body.id}' vs partID='${params.partID}', body.messageID='${body.messageID}' vs messageID='${params.messageID}', body.sessionID='${body.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
         await MessageV2.get({ sessionID: params.sessionID, messageID: params.messageID })
-        const part = await Session.updatePart(body)
+        const part = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.updatePart(body)
+          }),
+        )
         return c.json(part)
       },
     )
@@ -918,7 +1105,12 @@ export const SessionRoutes = lazy(() =>
         return stream(c, async (stream) => {
           const sessionID = c.req.valid("param").sessionID
           const body = c.req.valid("json")
-          const msg = await SessionPrompt.prompt({ ...body, sessionID })
+          const msg = await runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              return yield* sessionPrompt.prompt({ ...body, sessionID })
+            }),
+          )
           stream.write(JSON.stringify(msg))
         })
       },
@@ -950,7 +1142,12 @@ export const SessionRoutes = lazy(() =>
         return stream(c, async () => {
           const sessionID = c.req.valid("param").sessionID
           const body = c.req.valid("json")
-          void SessionPrompt.prompt({ ...body, sessionID }).catch(() => undefined)
+          void runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              return yield* sessionPrompt.prompt({ ...body, sessionID })
+            }),
+          ).catch(() => undefined)
         })
       },
     )
@@ -987,7 +1184,12 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const msg = await SessionPrompt.command({ ...body, sessionID })
+        const msg = await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.command({ ...body, sessionID })
+          }),
+        )
         return c.json(msg)
       },
     )
@@ -1019,7 +1221,12 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         const body = c.req.valid("json")
-        const msg = await SessionPrompt.shell({ ...body, sessionID })
+        const msg = await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.shell({ ...body, sessionID })
+          }),
+        )
         return c.json(msg)
       },
     )
@@ -1051,10 +1258,15 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
         log.info("revert", c.req.valid("json"))
-        const session = await SessionRevert.revert({
-          sessionID,
-          ...c.req.valid("json"),
-        })
+        const session = await runRevert(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.revert({
+              sessionID,
+              ...c.req.valid("json"),
+            })
+          }),
+        )
         return c.json(session)
       },
     )
@@ -1084,7 +1296,12 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const session = await SessionRevert.unrevert({ sessionID })
+        const session = await runRevert(
+          Effect.gen(function* () {
+            const revert = yield* SessionRevert.Service
+            return yield* revert.unrevert({ sessionID })
+          }),
+        )
         return c.json(session)
       },
     )
@@ -1117,10 +1334,15 @@ export const SessionRoutes = lazy(() =>
       validator("json", z.object({ response: PermissionNext.Reply })),
       async (c) => {
         const params = c.req.valid("param")
-        PermissionNext.reply({
-          requestID: params.permissionID,
-          reply: c.req.valid("json").response,
-        })
+        await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            yield* permission.reply({
+              requestID: params.permissionID,
+              reply: c.req.valid("json").response,
+            })
+          }),
+        )
         return c.json(true)
       },
     )

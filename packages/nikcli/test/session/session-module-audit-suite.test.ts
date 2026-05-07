@@ -13,6 +13,8 @@ import { SessionRetry } from "@/session/retry"
 import { SessionStatus } from "@/session/status"
 import { Todo } from "@/session/todo"
 import { Bus } from "@/bus"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-audit-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -27,6 +29,112 @@ async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T
     directory: projectDir,
     fn: () => fn(projectDir),
   })
+}
+
+function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
+  return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
+  return runPromiseWithLayer(Todo.defaultLayer, withCurrentInstance(effect))
+}
+
+function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
+  return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function createSession() {
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.createNext({ directory: Instance.directory })
+    }),
+  )
+}
+
+function updateMessage(info: MessageV2.Info) {
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.updateMessage(info)
+    }),
+  )
+}
+
+function updatePart(part: MessageV2.Part) {
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.updatePart(part)
+    }),
+  )
+}
+
+function removeMessage(input: { sessionID: string; messageID: string }) {
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.removeMessage(input)
+    }),
+  )
+}
+
+function listMessages(sessionID: string) {
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.messages({ sessionID })
+    }),
+  )
+}
+
+function updateTodo(sessionID: string, todos: Todo.Info[]) {
+  return runTodo(
+    Effect.gen(function* () {
+      const todo = yield* Todo.Service
+      yield* todo.update({ sessionID, todos })
+    }),
+  )
+}
+
+function getTodo(sessionID: string) {
+  return runTodo(
+    Effect.gen(function* () {
+      const todo = yield* Todo.Service
+      return yield* todo.get(sessionID)
+    }),
+  )
+}
+
+function getStatus(sessionID: string) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.get(sessionID)
+    }),
+  )
+}
+
+function setStatus(sessionID: string, input: SessionStatus.Info) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.set(sessionID, input)
+    }),
+  )
+}
+
+function listStatus() {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.list()
+    }),
+  )
 }
 
 type ModuleImport = {
@@ -397,7 +505,12 @@ describe("Session compaction matrix", () => {
 
   it.each(compactTokens)("compaction overflow check $label", async ({ tokens, expected }) => {
     await withProject(async () => {
-      const result = await SessionCompaction.isOverflow({ tokens: tokens as never, model })
+      const result = await runCompaction(
+        Effect.gen(function* () {
+          const compaction = yield* SessionCompaction.Service
+          return yield* compaction.isOverflow({ tokens: tokens as never, model })
+        }),
+      )
       expect(result).toBe(expected)
     })
   })
@@ -415,7 +528,12 @@ describe("Session compaction matrix", () => {
           reasoning: 0,
           cache: { read: 0, write: 0 },
         }
-        const value = await SessionCompaction.isOverflow({ tokens: input as never, model })
+        const value = await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            return yield* compaction.isOverflow({ tokens: input as never, model })
+          }),
+        )
         score += value ? 1 : 0
       }
       const elapsed = performance.now() - start
@@ -455,10 +573,10 @@ describe("Session status matrix", () => {
 
   it.each(statusCases)("$sessionID is tracked with status type %status.type", async ({ sessionID, status }) => {
     await withProject(async () => {
-      SessionStatus.set(sessionID, status)
-      const observed = SessionStatus.get(sessionID)
+      await setStatus(sessionID, status)
+      const observed = await getStatus(sessionID)
       expect(observed).toEqual(status)
-      SessionStatus.set(sessionID, { type: "idle" })
+      await setStatus(sessionID, { type: "idle" })
     })
   })
 
@@ -467,14 +585,14 @@ describe("Session status matrix", () => {
       const iterations = 4_000
       const start = performance.now()
       for (let i = 0; i < iterations; i += 1) {
-        SessionStatus.set(`bench-status-${i}`, {
+        await setStatus(`bench-status-${i}`, {
           type: i % 2 === 0 ? "busy" : "retry",
           attempt: 1,
           message: "bench",
           next: 2_000,
         })
       }
-      const snapshot = SessionStatus.list()
+      const snapshot = await listStatus()
       const hasRetry = Object.values(snapshot).filter((item) => item?.type === "retry").length
       const elapsed = performance.now() - start
 
@@ -622,8 +740,8 @@ describe("Todo list matrix", () => {
   it.each(todoCases)("stores and reads todo batch $label", async ({ todos }) => {
     await withProject(async () => {
       const sessionID = `todo-${todos[0].id}`
-      await Todo.update({ sessionID, todos })
-      const read = await Todo.get(sessionID)
+      await updateTodo(sessionID, todos)
+      const read = await getTodo(sessionID)
       expect(read).toHaveLength(todos.length)
     })
   })
@@ -637,17 +755,11 @@ describe("Todo list matrix", () => {
           completed: evt.properties.diff.completed.length,
         })
       })
-      await Todo.update({
-        sessionID: "todo-diff-event",
-        todos: [
-          { id: "a", content: "first", status: "pending", priority: "low" },
-          { id: "b", content: "second", status: "completed", priority: "high" },
-        ],
-      })
-      await Todo.update({
-        sessionID: "todo-diff-event",
-        todos: [{ id: "a", content: "first", status: "completed", priority: "low" }],
-      })
+      await updateTodo("todo-diff-event", [
+        { id: "a", content: "first", status: "pending", priority: "low" },
+        { id: "b", content: "second", status: "completed", priority: "high" },
+      ])
+      await updateTodo("todo-diff-event", [{ id: "a", content: "first", status: "completed", priority: "low" }])
       unsubscribe()
       expect(events.length).toBe(2)
       expect(events[0].added).toBeGreaterThan(0)
@@ -663,12 +775,12 @@ describe("Session persistence matrix", () => {
 
   it.each(lifecycleCases)("stores conversation for $label", async ({ turns }) => {
     await withProject(async () => {
-      const session = await Session.createNext({ directory: Instance.directory })
+      const session = await createSession()
       for (let i = 0; i < turns; i += 1) {
         const user = createUserMessage(session.id, `turn ${i}`)
         user.parts[0].messageID = user.info.id
-        await Session.updateMessage(user.info)
-        await Session.updatePart(user.parts[0])
+        await updateMessage(user.info)
+        await updatePart(user.parts[0])
         if (i % 2 === 0) {
           const assistant = createAssistantMessage(session.id, user.info.id, i % 3 === 0, {
             cwd: Instance.directory,
@@ -677,14 +789,14 @@ describe("Session persistence matrix", () => {
           assistant.info.id = Identifier.ascending("message")
           assistant.parts[0].messageID = assistant.info.id
           if (assistant.parts[1]) assistant.parts[1].messageID = assistant.info.id
-          await Session.updateMessage(assistant.info)
+          await updateMessage(assistant.info)
           for (const part of assistant.parts) {
-            await Session.updatePart(part)
+            await updatePart(part)
           }
         }
       }
 
-      const messages = await Session.messages({ sessionID: session.id })
+      const messages = await listMessages(session.id)
       expect(messages.length).toBeGreaterThan(0)
       const userCount = messages.filter((msg) => msg.info.role === "user").length
       const assistantCount = messages.filter((msg) => msg.info.role === "assistant").length
@@ -696,11 +808,11 @@ describe("Session persistence matrix", () => {
 
   it.each(Array.from({ length: 18 }, (_, index) => `remove-loop-${index}`))("removes messages for %s", async (label) => {
     await withProject(async () => {
-      const session = await Session.createNext({ directory: Instance.directory })
+      const session = await createSession()
       const user = createUserMessage(session.id, label)
       user.parts[0].messageID = user.info.id
-      await Session.updateMessage(user.info)
-      await Session.updatePart(user.parts[0])
+      await updateMessage(user.info)
+      await updatePart(user.parts[0])
 
       const assistant = createAssistantMessage(session.id, user.info.id, false, {
         cwd: Instance.directory,
@@ -708,11 +820,11 @@ describe("Session persistence matrix", () => {
       })
       assistant.info.id = Identifier.ascending("message")
       assistant.parts[0].messageID = assistant.info.id
-      await Session.updateMessage(assistant.info)
-      await Session.updatePart(assistant.parts[0])
+      await updateMessage(assistant.info)
+      await updatePart(assistant.parts[0])
 
-      await Session.removeMessage({ sessionID: session.id, messageID: user.info.id })
-      const remaining = await Session.messages({ sessionID: session.id })
+      await removeMessage({ sessionID: session.id, messageID: user.info.id })
+      const remaining = await listMessages(session.id)
       expect(remaining.every((msg) => msg.info.id !== user.info.id)).toBe(true)
     })
   })

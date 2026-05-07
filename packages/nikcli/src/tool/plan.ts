@@ -9,21 +9,56 @@ import { Provider } from "../provider/provider"
 import { Instance } from "../project/instance"
 import EXIT_DESCRIPTION from "./plan-exit.txt"
 import ENTER_DESCRIPTION from "./plan-enter.txt"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 async function getLastModel(sessionID: string) {
   for await (const item of MessageV2.stream(sessionID)) {
     if (item.info.role === "user" && item.info.model) return item.info.model
   }
-  return Provider.defaultModel()
+  return runPromiseWithLayer(
+    Provider.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.defaultModel()
+      }),
+    ),
+  )
+}
+
+function askQuestion(input: {
+  sessionID: string
+  questions: Question.Info[]
+  tool?: { messageID: string; callID: string }
+}) {
+  return runPromiseWithLayer(
+    Question.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const question = yield* Question.Service
+        return yield* question.ask(input)
+      }),
+    ),
+  )
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
 export const PlanExitTool = Tool.define("plan_exit", {
   description: EXIT_DESCRIPTION,
   parameters: z.object({}),
   async execute(_params, ctx) {
-    const session = await Session.get(ctx.sessionID)
-    const plan = path.relative(Instance.worktree, Session.plan(session))
-    const answers = await Question.ask({
+    const plan = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        const info = yield* session.get(ctx.sessionID)
+        return path.relative(Instance.worktree, yield* session.plan(info))
+      }),
+    )
+    const answers = await askQuestion({
       sessionID: ctx.sessionID,
       questions: [
         {
@@ -54,15 +89,20 @@ export const PlanExitTool = Tool.define("plan_exit", {
       agent: "build",
       model,
     }
-    await Session.updateMessage(userMsg)
-    await Session.updatePart({
-      id: Identifier.ascending("part"),
-      messageID: userMsg.id,
-      sessionID: ctx.sessionID,
-      type: "text",
-      text: `The plan at ${plan} has been approved, you can now edit files. Execute the plan`,
-      synthetic: true,
-    } satisfies MessageV2.TextPart)
+    await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.updateMessage(userMsg)
+        yield* session.updatePart({
+          id: Identifier.ascending("part"),
+          messageID: userMsg.id,
+          sessionID: ctx.sessionID,
+          type: "text",
+          text: `The plan at ${plan} has been approved, you can now edit files. Execute the plan`,
+          synthetic: true,
+        } satisfies MessageV2.TextPart)
+      }),
+    )
 
     return {
       title: "Switching to build agent",
@@ -76,10 +116,15 @@ export const PlanEnterTool = Tool.define("plan_enter", {
   description: ENTER_DESCRIPTION,
   parameters: z.object({}),
   async execute(_params, ctx) {
-    const session = await Session.get(ctx.sessionID)
-    const plan = path.relative(Instance.worktree, Session.plan(session))
+    const plan = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        const info = yield* session.get(ctx.sessionID)
+        return path.relative(Instance.worktree, yield* session.plan(info))
+      }),
+    )
 
-    const answers = await Question.ask({
+    const answers = await askQuestion({
       sessionID: ctx.sessionID,
       questions: [
         {
@@ -111,15 +156,20 @@ export const PlanEnterTool = Tool.define("plan_enter", {
       agent: "plan",
       model,
     }
-    await Session.updateMessage(userMsg)
-    await Session.updatePart({
-      id: Identifier.ascending("part"),
-      messageID: userMsg.id,
-      sessionID: ctx.sessionID,
-      type: "text",
-      text: "User has requested to enter plan mode. Switch to plan mode and begin planning.",
-      synthetic: true,
-    } satisfies MessageV2.TextPart)
+    await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.updateMessage(userMsg)
+        yield* session.updatePart({
+          id: Identifier.ascending("part"),
+          messageID: userMsg.id,
+          sessionID: ctx.sessionID,
+          type: "text",
+          text: "User has requested to enter plan mode. Switch to plan mode and begin planning.",
+          synthetic: true,
+        } satisfies MessageV2.TextPart)
+      }),
+    )
 
     return {
       title: "Switching to plan agent",

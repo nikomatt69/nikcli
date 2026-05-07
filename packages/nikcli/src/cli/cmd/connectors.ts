@@ -8,8 +8,62 @@ import { Instance } from "../../project/instance"
 import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "../../global"
 import path from "path"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 type ConnectorConfigured = Config.Connector
+
+function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
+  return runPromiseWithLayer(ConnectorAuth.defaultLayer, effect)
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function connectorAuthAll() {
+  return runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.all()
+    }),
+  )
+}
+
+function connectorAuthRemove(name: string) {
+  return runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      yield* auth.remove(name)
+    }),
+  )
+}
+
+function connectorAuthUpdateToken(name: string, token: string) {
+  return runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      yield* auth.updateToken(name, token)
+    }),
+  )
+}
+
+function connectorAuthUpdateBotToken(name: string, botToken: string) {
+  return runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      yield* auth.updateBotToken(name, botToken)
+    }),
+  )
+}
 
 function getConnectorIcon(status: Connectors.Status): string {
   switch (status.status) {
@@ -61,7 +115,7 @@ export const ConnectorsListCommand = cmd({
         UI.empty()
         prompts.intro("Connectors")
 
-        const config = await Config.get()
+        const config = await configGet()
         const connectors = config.connectors ?? {}
         const statuses = await Connectors.status()
 
@@ -132,7 +186,7 @@ export const ConnectorsAuthCommand = cmd({
         UI.empty()
         prompts.intro("Connector Authentication")
 
-        const config = await Config.get()
+        const config = await configGet()
         const connectors = config.connectors ?? {}
 
         const configuredConnectors = Object.entries(connectors).filter(
@@ -182,7 +236,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(token)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateToken(connectorName, token)
+              await connectorAuthUpdateToken(connectorName, token)
               spinner.stop("Figma token saved!")
               break
             }
@@ -193,7 +247,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(botToken)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              await connectorAuthUpdateBotToken(connectorName, botToken)
               spinner.stop("Slack bot token saved!")
               break
             }
@@ -205,7 +259,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(token)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateToken(connectorName, token)
+              await connectorAuthUpdateToken(connectorName, token)
               spinner.stop("GitHub token saved!")
               break
             }
@@ -216,7 +270,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(token)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateToken(connectorName, token)
+              await connectorAuthUpdateToken(connectorName, token)
               spinner.stop("Lovable token saved!")
               break
             }
@@ -227,7 +281,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(botToken)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              await connectorAuthUpdateBotToken(connectorName, botToken)
               spinner.stop("Discord bot token saved!")
               break
             }
@@ -238,7 +292,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(botToken)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              await connectorAuthUpdateBotToken(connectorName, botToken)
               spinner.stop("Teams bot token saved!")
               break
             }
@@ -249,7 +303,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(botToken)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              await connectorAuthUpdateBotToken(connectorName, botToken)
               spinner.stop("Google Chat bot token saved!")
               break
             }
@@ -260,7 +314,7 @@ export const ConnectorsAuthCommand = cmd({
               })
               if (prompts.isCancel(botToken)) throw new UI.CancelledError()
 
-              await ConnectorAuth.updateBotToken(connectorName, botToken)
+              await connectorAuthUpdateBotToken(connectorName, botToken)
               spinner.stop("Linear bot token saved!")
               break
             }
@@ -293,7 +347,7 @@ export const ConnectorsLogoutCommand = cmd({
         UI.empty()
         prompts.intro("Connector Logout")
 
-        const credentials = await ConnectorAuth.all()
+        const credentials = await connectorAuthAll()
         const connectorNames = Object.keys(credentials)
 
         if (connectorNames.length === 0) {
@@ -321,7 +375,7 @@ export const ConnectorsLogoutCommand = cmd({
           return
         }
 
-        await ConnectorAuth.remove(connectorName)
+        await connectorAuthRemove(connectorName)
         prompts.log.success(`Removed credentials for ${connectorName}`)
         prompts.outro("Done")
       },
@@ -448,7 +502,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (tokenResult && tokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateToken(name, tokenResult.trim())
+              await connectorAuthUpdateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break
@@ -465,7 +519,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (botTokenResult && botTokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              await connectorAuthUpdateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break
@@ -482,7 +536,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (tokenResult && tokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateToken(name, tokenResult.trim())
+              await connectorAuthUpdateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break
@@ -499,7 +553,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (tokenResult && tokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateToken(name, tokenResult.trim())
+              await connectorAuthUpdateToken(name, tokenResult.trim())
               hasCredentials = true
             }
             break
@@ -516,7 +570,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (botTokenResult && botTokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              await connectorAuthUpdateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break
@@ -533,7 +587,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (botTokenResult && botTokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              await connectorAuthUpdateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break
@@ -550,7 +604,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (botTokenResult && botTokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              await connectorAuthUpdateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break
@@ -567,7 +621,7 @@ export const ConnectorsAddCommand = cmd({
             }
             if (botTokenResult && botTokenResult.trim()) {
               await addConnectorToConfig(name, connectorConfig, configPath)
-              await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+              await connectorAuthUpdateBotToken(name, botTokenResult.trim())
               hasCredentials = true
             }
             break

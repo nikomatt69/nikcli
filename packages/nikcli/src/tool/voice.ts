@@ -6,9 +6,27 @@ import { Config } from "@/config/config"
 import { Auth } from "@/auth"
 import { Log } from "@/util/log"
 import DESCRIPTION from "./voice.txt"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const OPENROUTER_STT_URL = "https://openrouter.ai/api/v1/audio/transcriptions"
 const log = Log.create({ service: "tool.voice" })
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
 
 const parameters = z.object({
   action: z
@@ -34,8 +52,13 @@ export const Voice = Tool.define("voice", async () => {
   }
 
   async function getApiKey(): Promise<string> {
-    const config = await Config.get()
-    const auth = await Auth.get("openrouter")
+    const config = await configGet()
+    const auth = await runAuth(
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        return yield* auth.get("openrouter")
+      }),
+    )
     const fromProviderOptions = config.provider?.openrouter?.options?.apiKey
 
     const apiKey =

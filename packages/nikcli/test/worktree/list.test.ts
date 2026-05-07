@@ -3,6 +3,8 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { Instance } from "../../src/project/instance"
+import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
+import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-worktree-test-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -22,6 +24,10 @@ async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T
   })
 }
 
+function runWorktree<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+}
+
 afterEach(async () => {
   await Instance.disposeAll().catch(() => undefined)
 })
@@ -35,8 +41,13 @@ afterAll(async () => {
 describe("Worktree.list", () => {
   it("returns empty array for non-git project", async () => {
     await withProject(async () => {
-      // Simulate non-git project by mocking
-      expect(Worktree.create).toBeDefined()
+      const error = await runWorktree(
+        Effect.gen(function* () {
+          const worktree = yield* Worktree.Service
+          return yield* worktree.list()
+        }),
+      ).catch((err) => err)
+      expect(String(error)).toContain("WorktreeNotGitError")
     })
   })
 })

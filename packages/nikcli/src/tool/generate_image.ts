@@ -11,6 +11,8 @@ import { Installation } from "@/installation"
 import os from "os"
 import { Instance } from "@/project/instance"
 import { Flag } from "@/flag/flag"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const GPT_IMAGE_LATEST = {
   provider: "openrouter",
@@ -21,6 +23,22 @@ const NANOBANANA_LATEST = {
   provider: "openrouter",
   model: "google/nano-banana-pro-2.5",
 } as const
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
 
 function extFromMime(mime: string): string {
   switch (mime) {
@@ -91,7 +109,7 @@ export const GenerateImageTool = Tool.define("generate_image", {
   description: DESCRIPTION,
   parameters,
   async execute(params, ctx) {
-    const config = await Config.get()
+    const config = await configGet()
 
     const preset = params.generator === "nanobanana" ? NANOBANANA_LATEST : GPT_IMAGE_LATEST
     const configured = params.generator ? undefined : config.image
@@ -115,8 +133,14 @@ export const GenerateImageTool = Tool.define("generate_image", {
       },
     })
 
-    const model = await Provider.getModel(providerID, modelID)
-    const imageModel = await Provider.getImageModel(model)
+    const { model, imageModel } = await runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        const model = yield* provider.getModel(providerID, modelID)
+        const imageModel = yield* provider.getImageModel(model)
+        return { model, imageModel }
+      }),
+    )
 
     const providerOptions = params.providerOptions
       ? ProviderTransform.providerOptions(model, params.providerOptions)

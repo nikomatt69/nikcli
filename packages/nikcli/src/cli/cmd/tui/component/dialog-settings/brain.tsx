@@ -5,8 +5,22 @@ import { useDialog } from "@tui/ui/dialog"
 import { Config } from "@/config/config"
 import { useSync } from "../../context/sync"
 import { Instance } from "@/project/instance"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled"
+
+function configUpdate(config: Config.Info) {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const service = yield* Config.Service
+        yield* service.update(config)
+      }),
+    ),
+  )
+}
 
 export function DialogSettingsBrain() {
   const toast = useToast()
@@ -72,7 +86,7 @@ export function DialogSettingsBrain() {
       await Instance.provide({
         directory: instanceDirectory(),
         fn: () =>
-          Config.update({
+          configUpdate({
             experimental: patch as any,
           }),
       })

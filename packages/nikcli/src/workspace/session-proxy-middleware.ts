@@ -5,8 +5,14 @@ import { Workspace } from "."
 import { WorkspaceContext } from "./workspace-context"
 import { ServerProxy } from "../server/proxy"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "workspace.proxy" })
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 export async function proxyWorkspaceRequest(input: {
   workspaceID: string
@@ -66,7 +72,12 @@ async function resolveWorkspaceID(req: Request) {
   const sessionMatch = url.pathname.match(/\/session\/(ses_[^/]+)/)
   if (sessionMatch) {
     try {
-      const session = await Session.getAnyProject(sessionMatch[1])
+      const session = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.getAnyProject(sessionMatch[1])
+        }),
+      )
       if (session?.workspaceID) {
         log.debug("resolveWorkspaceID: from session", { sessionID: sessionMatch[1], workspaceID: session.workspaceID })
         return session.workspaceID

@@ -53,6 +53,8 @@ import { DialogWebPreview } from "../dialog-web-preview"
 import os from "os"
 import path from "path"
 import { Auth } from "@/auth"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
 import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
 import { getBackgroundDismissed } from "../../util/background"
 import { friendlyErrorMessage } from "../../util/error-message"
@@ -66,6 +68,10 @@ export type PromptProps = {
   ref?: (ref: PromptRef) => void
   hint?: JSX.Element
   showPlaceholder?: boolean
+}
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
 }
 
 export type PromptRef = {
@@ -384,7 +390,12 @@ export function Prompt(props: PromptProps) {
   }
 
   async function resolveOpenRouterConfig(): Promise<{ apiKey: string; baseURL: string }> {
-    const auth = await Auth.get("openrouter").catch(() => undefined)
+    const auth = await runAuth(
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        return yield* auth.get("openrouter")
+      }),
+    ).catch(() => undefined)
     const providerOptions = (sync.data.config as any)?.provider?.openrouter?.options ?? {}
     const optionApiKey = typeof providerOptions.apiKey === "string" ? providerOptions.apiKey : undefined
 

@@ -1,5 +1,7 @@
 import type { Argv, InferredOptionTypes } from "yargs"
 import { Config } from "../config/config"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
 
 const options = {
   port: {
@@ -31,8 +33,17 @@ export function withNetworkOptions<T>(yargs: Argv<T>) {
   return yargs.options(options)
 }
 
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, effect)
+}
+
 export async function resolveNetworkOptions(args: NetworkOptions) {
-  const config = await Config.global()
+  const config = await runConfig(
+    Effect.gen(function* () {
+      const service = yield* Config.Service
+      return yield* service.getGlobal()
+    }),
+  )
   const portExplicitlySet = process.argv.includes("--port")
   const hostnameExplicitlySet = process.argv.includes("--hostname")
   const mdnsExplicitlySet = process.argv.includes("--mdns")

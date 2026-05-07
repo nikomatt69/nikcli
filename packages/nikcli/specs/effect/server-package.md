@@ -642,8 +642,8 @@ Avoid by:
 
 ## Checklist
 
-- [x] create `packages/server`
-- [x] add package-level exports for contract and OpenAPI
+- [ ] create `packages/server`
+- [ ] add package-level exports for contract and OpenAPI
 - [ ] extract `question` contract into `packages/server`
 - [ ] extract `question` handler factory into `packages/server`
 - [ ] mount `question` from `packages/nikcli`

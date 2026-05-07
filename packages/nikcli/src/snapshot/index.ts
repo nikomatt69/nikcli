@@ -5,10 +5,11 @@ import { formatPatch, structuredPatch } from "diff"
 import { Config } from "../config/config"
 import { Git } from "@/git"
 import { Global } from "../global"
-import { Instance } from "../project/instance"
 import { Scheduler } from "../scheduler"
 import { Lock } from "@/util/lock"
 import { Log } from "../util/log"
+import { InstanceState, type InstanceContext, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Snapshot {
   const log = Log.create({ service: "snapshot" })
@@ -17,30 +18,83 @@ export namespace Snapshot {
   const sizeLimit = 2 * 1024 * 1024
   const encoder = new TextEncoder()
 
-  export function init() {
-    Scheduler.register({
-      id: "snapshot.cleanup",
-      interval: hour,
-      run: cleanup,
-      scope: "instance",
-      skipInitialRun: true,
-    })
+  export interface Interface {
+    init(): Effect.Effect<void>
+    cleanup(): Effect.Effect<void, unknown>
+    track(): Effect.Effect<string | undefined, unknown>
+    patch(hash: string): Effect.Effect<Patch, unknown>
+    restore(snapshot: string): Effect.Effect<void, unknown>
+    revert(patches: Patch[]): Effect.Effect<void, unknown>
+    diff(hash: string): Effect.Effect<string, unknown>
+    diffFull(from: string, to: string): Effect.Effect<FileDiff[], unknown>
   }
 
-  function gitdir() {
-    return path.join(Global.Path.data, "snapshot", Instance.project.id)
+  export class Service extends Context.Tag("Snapshot.Service")<Service, Interface>() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      init: () =>
+        Effect.sync(() => {
+          Scheduler.register({
+            id: "snapshot.cleanup",
+            interval: hour,
+            run: () =>
+              runPromiseWithLayer(
+                defaultLayer,
+                withCurrentInstance(
+                  Effect.gen(function* () {
+                    const snapshot = yield* Service
+                    yield* snapshot.cleanup()
+                  }),
+                ),
+              ),
+            scope: "instance",
+            skipInitialRun: true,
+          })
+        }),
+      cleanup: () =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => cleanupImpl(ctx)))),
+      track: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => trackImpl(ctx)))),
+      patch: (hash) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => patchImpl(ctx, hash)))),
+      restore: (snapshot) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => restoreImpl(ctx, snapshot)))),
+      revert: (patches) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => revertImpl(ctx, patches)))),
+      diff: (hash) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => diffImpl(ctx, hash)))),
+      diffFull: (from, to) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => diffFullImpl(ctx, from, to)))),
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  function gitdir(ctx: InstanceContext) {
+    return path.join(Global.Path.data, "snapshot", ctx.project.id)
   }
 
-  function lockKey() {
-    return `snapshot:${gitdir()}`
+  function lockKey(ctx: InstanceContext) {
+    return `snapshot:${gitdir(ctx)}`
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
   }
 
   function splitNuls(text: string) {
     return text.split("\0").filter(Boolean)
   }
 
-  function snapshotArgs(git: string, args: string[]) {
-    return ["--git-dir", git, "--work-tree", Instance.worktree, ...args]
+  function snapshotArgs(ctx: InstanceContext, git: string, args: string[]) {
+    return ["--git-dir", git, "--work-tree", ctx.worktree, ...args]
   }
 
   function nulBuffer(items: string[]) {
@@ -54,46 +108,46 @@ export namespace Snapshot {
       .catch(() => false)
   }
 
-  async function withLock<T>(fn: () => Promise<T>) {
-    using _ = await Lock.write(lockKey())
+  async function withLock<T>(ctx: InstanceContext, fn: () => Promise<T>) {
+    using _ = await Lock.write(lockKey(ctx))
     return fn()
   }
 
-  async function sourceGitDir() {
+  async function sourceGitDir(ctx: InstanceContext) {
     const result = await Git.run(["rev-parse", "--path-format=absolute", "--git-dir"], {
-      cwd: Instance.worktree,
+      cwd: ctx.worktree,
     })
     if (result.exitCode !== 0) return undefined
     const value = result.text().trim()
     return value || undefined
   }
 
-  async function ensureInitialized(git: string) {
+  async function ensureInitialized(ctx: InstanceContext, git: string) {
     const initialized = await exists(path.join(git, "HEAD"))
     await fs.mkdir(git, { recursive: true })
     if (initialized) return
 
     await Git.run(["init"], {
-      cwd: Instance.worktree,
+      cwd: ctx.worktree,
       env: {
         GIT_DIR: git,
-        GIT_WORK_TREE: Instance.worktree,
+        GIT_WORK_TREE: ctx.worktree,
       },
     })
-    await Git.run(["--git-dir", git, "config", "core.autocrlf", "false"], { cwd: Instance.worktree })
-    await Git.run(["--git-dir", git, "config", "core.longpaths", "true"], { cwd: Instance.worktree })
-    await Git.run(["--git-dir", git, "config", "core.symlinks", "true"], { cwd: Instance.worktree })
-    await Git.run(["--git-dir", git, "config", "core.fsmonitor", "false"], { cwd: Instance.worktree })
+    await Git.run(["--git-dir", git, "config", "core.autocrlf", "false"], { cwd: ctx.worktree })
+    await Git.run(["--git-dir", git, "config", "core.longpaths", "true"], { cwd: ctx.worktree })
+    await Git.run(["--git-dir", git, "config", "core.symlinks", "true"], { cwd: ctx.worktree })
+    await Git.run(["--git-dir", git, "config", "core.fsmonitor", "false"], { cwd: ctx.worktree })
     log.info("initialized", { git })
   }
 
-  async function candidateFiles(git: string) {
+  async function candidateFiles(ctx: InstanceContext, git: string) {
     const [tracked, untracked] = await Promise.all([
-      Git.run(snapshotArgs(git, ["diff-files", "--name-only", "-z", "--", "."]), {
-        cwd: Instance.worktree,
+      Git.run(snapshotArgs(ctx, git, ["diff-files", "--name-only", "-z", "--", "."]), {
+        cwd: ctx.worktree,
       }),
-      Git.run(snapshotArgs(git, ["ls-files", "--others", "--exclude-standard", "-z", "--", "."]), {
-        cwd: Instance.worktree,
+      Git.run(snapshotArgs(ctx, git, ["ls-files", "--others", "--exclude-standard", "-z", "--", "."]), {
+        cwd: ctx.worktree,
       }),
     ])
 
@@ -120,15 +174,15 @@ export namespace Snapshot {
     }
   }
 
-  async function ignoredFiles(files: string[]) {
+  async function ignoredFiles(ctx: InstanceContext, files: string[]) {
     if (files.length === 0) return new Set<string>()
-    const source = await sourceGitDir()
+    const source = await sourceGitDir(ctx)
     if (!source) return new Set<string>()
 
     const result = await Git.run(
-      ["--git-dir", source, "--work-tree", Instance.worktree, "check-ignore", "--no-index", "--stdin", "-z"],
+      ["--git-dir", source, "--work-tree", ctx.worktree, "check-ignore", "--no-index", "--stdin", "-z"],
       {
-        cwd: Instance.worktree,
+        cwd: ctx.worktree,
         stdin: nulBuffer(files),
       },
     )
@@ -144,12 +198,12 @@ export namespace Snapshot {
     return new Set(splitNuls(result.text()))
   }
 
-  async function largeFiles(files: string[]) {
+  async function largeFiles(ctx: InstanceContext, files: string[]) {
     const large = new Set<string>()
 
     await Promise.all(
       files.map(async (file) => {
-        const stat = await fs.stat(path.join(Instance.worktree, file)).catch(() => undefined)
+        const stat = await fs.stat(path.join(ctx.worktree, file)).catch(() => undefined)
         if (stat?.isFile() && stat.size > sizeLimit) {
           large.add(file)
         }
@@ -159,13 +213,13 @@ export namespace Snapshot {
     return large
   }
 
-  async function dropFromIndex(git: string, files: string[]) {
+  async function dropFromIndex(ctx: InstanceContext, git: string, files: string[]) {
     if (files.length === 0) return
 
     const result = await Git.run(
-      snapshotArgs(git, ["rm", "--cached", "-f", "--ignore-unmatch", "--pathspec-from-file=-", "--pathspec-file-nul"]),
+      snapshotArgs(ctx, git, ["rm", "--cached", "-f", "--ignore-unmatch", "--pathspec-from-file=-", "--pathspec-file-nul"]),
       {
-        cwd: Instance.worktree,
+        cwd: ctx.worktree,
         stdin: nulBuffer(files),
       },
     )
@@ -178,11 +232,11 @@ export namespace Snapshot {
     }
   }
 
-  async function stageFiles(git: string, files: string[]) {
+  async function stageFiles(ctx: InstanceContext, git: string, files: string[]) {
     if (files.length === 0) return
 
-    const result = await Git.run(snapshotArgs(git, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"]), {
-      cwd: Instance.worktree,
+    const result = await Git.run(snapshotArgs(ctx, git, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"]), {
+      cwd: ctx.worktree,
       stdin: nulBuffer(files),
     })
 
@@ -194,10 +248,10 @@ export namespace Snapshot {
     }
   }
 
-  async function stageSnapshot(git: string) {
-    await ensureInitialized(git)
+  async function stageSnapshot(ctx: InstanceContext, git: string) {
+    await ensureInitialized(ctx, git)
 
-    const candidates = await candidateFiles(git)
+    const candidates = await candidateFiles(ctx, git)
     if (candidates.all.length === 0) {
       return {
         excluded: new Set<string>(),
@@ -205,16 +259,16 @@ export namespace Snapshot {
       }
     }
 
-    const ignored = await ignoredFiles(candidates.all)
-    const large = await largeFiles(candidates.all.filter((file) => !ignored.has(file)))
+    const ignored = await ignoredFiles(ctx, candidates.all)
+    const large = await largeFiles(ctx, candidates.all.filter((file) => !ignored.has(file)))
     const excluded = new Set([...ignored, ...large])
 
     if (excluded.size > 0) {
-      await dropFromIndex(git, Array.from(excluded))
+      await dropFromIndex(ctx, git, Array.from(excluded))
     }
 
     const allowed = candidates.all.filter((file) => !excluded.has(file))
-    await stageFiles(git, allowed)
+    await stageFiles(ctx, git, allowed)
 
     return {
       excluded,
@@ -222,27 +276,27 @@ export namespace Snapshot {
     }
   }
 
-  async function showFromSnapshot(git: string, hash: string, file: string) {
-    const result = await Git.run(snapshotArgs(git, ["show", `${hash}:${file}`]), {
-      cwd: Instance.worktree,
+  async function showFromSnapshot(ctx: InstanceContext, git: string, hash: string, file: string) {
+    const result = await Git.run(snapshotArgs(ctx, git, ["show", `${hash}:${file}`]), {
+      cwd: ctx.worktree,
     })
 
     if (result.exitCode !== 0 || result.stdout.includes(0)) return ""
     return result.text()
   }
 
-  async function revertOne(git: string, hash: string, file: string) {
+  async function revertOne(ctx: InstanceContext, git: string, hash: string, file: string) {
     log.info("reverting", { file, hash })
 
-    const relative = path.relative(Instance.worktree, file).replaceAll("\\", "/")
-    const result = await Git.run(snapshotArgs(git, ["checkout", hash, "--", relative]), {
-      cwd: Instance.worktree,
+    const relative = path.relative(ctx.worktree, file).replaceAll("\\", "/")
+    const result = await Git.run(snapshotArgs(ctx, git, ["checkout", hash, "--", relative]), {
+      cwd: ctx.worktree,
     })
 
     if (result.exitCode === 0) return
 
-    const tree = await Git.run(snapshotArgs(git, ["ls-tree", hash, "--", relative]), {
-      cwd: Instance.worktree,
+    const tree = await Git.run(snapshotArgs(ctx, git, ["ls-tree", hash, "--", relative]), {
+      cwd: ctx.worktree,
     })
     if (tree.exitCode === 0 && tree.text().trim()) {
       log.info("file existed in snapshot but checkout failed, keeping", { file, hash })
@@ -253,17 +307,17 @@ export namespace Snapshot {
     await fs.unlink(file).catch(() => undefined)
   }
 
-  export async function cleanup() {
-    if (Instance.project.vcs !== "git") return
-    const cfg = await Config.get()
+  async function cleanupImpl(ctx: InstanceContext) {
+    if (ctx.project.vcs !== "git") return
+    const cfg = await configGet()
     if (cfg.snapshot === false) return
 
-    await withLock(async () => {
-      const git = gitdir()
+    await withLock(ctx, async () => {
+      const git = gitdir(ctx)
       if (!(await exists(path.join(git, "HEAD")))) return
 
-      const result = await Git.run(snapshotArgs(git, ["gc", `--prune=${prune}`]), {
-        cwd: Instance.worktree,
+      const result = await Git.run(snapshotArgs(ctx, git, ["gc", `--prune=${prune}`]), {
+        cwd: ctx.worktree,
       })
       if (result.exitCode !== 0) {
         log.warn("cleanup failed", {
@@ -278,21 +332,21 @@ export namespace Snapshot {
     })
   }
 
-  export async function track() {
-    if (Instance.project.vcs !== "git") return undefined
-    const cfg = await Config.get()
+  async function trackImpl(ctx: InstanceContext) {
+    if (ctx.project.vcs !== "git") return undefined
+    const cfg = await configGet()
     if (cfg.snapshot === false) return undefined
 
-    return withLock(async () => {
-      const git = gitdir()
-      await stageSnapshot(git)
+    return withLock(ctx, async () => {
+      const git = gitdir(ctx)
+      await stageSnapshot(ctx, git)
 
-      const result = await Git.run(snapshotArgs(git, ["write-tree"]), {
-        cwd: Instance.worktree,
+      const result = await Git.run(snapshotArgs(ctx, git, ["write-tree"]), {
+        cwd: ctx.worktree,
       })
 
       const hash = result.text().trim()
-      log.info("tracking", { hash, cwd: Instance.worktree, git })
+      log.info("tracking", { hash, cwd: ctx.worktree, git })
       return hash || undefined
     })
   }
@@ -303,15 +357,15 @@ export namespace Snapshot {
   })
   export type Patch = z.infer<typeof Patch>
 
-  export async function patch(hash: string): Promise<Patch> {
-    return withLock(async () => {
-      const git = gitdir()
-      const { excluded } = await stageSnapshot(git)
+  async function patchImpl(ctx: InstanceContext, hash: string): Promise<Patch> {
+    return withLock(ctx, async () => {
+      const git = gitdir(ctx)
+      const { excluded } = await stageSnapshot(ctx, git)
 
       const result = await Git.run(
-        snapshotArgs(git, ["diff", "--cached", "--no-ext-diff", "--name-only", "-z", hash, "--", "."]),
+        snapshotArgs(ctx, git, ["diff", "--cached", "--no-ext-diff", "--name-only", "-z", hash, "--", "."]),
         {
-          cwd: Instance.worktree,
+          cwd: ctx.worktree,
         },
       )
 
@@ -324,18 +378,18 @@ export namespace Snapshot {
         hash,
         files: splitNuls(result.text())
           .filter((file) => !excluded.has(file))
-          .map((file) => path.join(Instance.worktree, file)),
+          .map((file) => path.join(ctx.worktree, file)),
       }
     })
   }
 
-  export async function restore(snapshot: string) {
-    await withLock(async () => {
+  async function restoreImpl(ctx: InstanceContext, snapshot: string) {
+    await withLock(ctx, async () => {
       log.info("restore", { commit: snapshot })
-      const git = gitdir()
+      const git = gitdir(ctx)
 
-      const readTree = await Git.run(snapshotArgs(git, ["read-tree", snapshot]), {
-        cwd: Instance.worktree,
+      const readTree = await Git.run(snapshotArgs(ctx, git, ["read-tree", snapshot]), {
+        cwd: ctx.worktree,
       })
       if (readTree.exitCode !== 0) {
         log.error("failed to restore snapshot", {
@@ -347,8 +401,8 @@ export namespace Snapshot {
         return
       }
 
-      const checkout = await Git.run(snapshotArgs(git, ["checkout-index", "-a", "-f"]), {
-        cwd: Instance.worktree,
+      const checkout = await Git.run(snapshotArgs(ctx, git, ["checkout-index", "-a", "-f"]), {
+        cwd: ctx.worktree,
       })
       if (checkout.exitCode !== 0) {
         log.error("failed to restore snapshot", {
@@ -361,9 +415,9 @@ export namespace Snapshot {
     })
   }
 
-  export async function revert(patches: Patch[]) {
-    await withLock(async () => {
-      const git = gitdir()
+  async function revertImpl(ctx: InstanceContext, patches: Patch[]) {
+    await withLock(ctx, async () => {
+      const git = gitdir(ctx)
       const files = new Map<string, string>()
 
       for (const item of patches) {
@@ -380,14 +434,14 @@ export namespace Snapshot {
       }
 
       for (const [hash, group] of byHash) {
-        const relatives = group.map((file) => path.relative(Instance.worktree, file).replaceAll("\\", "/"))
-        const tree = await Git.run(snapshotArgs(git, ["ls-tree", "--name-only", hash, "--", ...relatives]), {
-          cwd: Instance.worktree,
+        const relatives = group.map((file) => path.relative(ctx.worktree, file).replaceAll("\\", "/"))
+        const tree = await Git.run(snapshotArgs(ctx, git, ["ls-tree", "--name-only", hash, "--", ...relatives]), {
+          cwd: ctx.worktree,
         })
 
         if (tree.exitCode !== 0) {
           for (const file of group) {
-            await revertOne(git, hash, file)
+            await revertOne(ctx, git, hash, file)
           }
           continue
         }
@@ -401,31 +455,31 @@ export namespace Snapshot {
         )
 
         const checkoutFiles = group.filter((file) =>
-          existing.has(path.relative(Instance.worktree, file).replaceAll("\\", "/")),
+          existing.has(path.relative(ctx.worktree, file).replaceAll("\\", "/")),
         )
         if (checkoutFiles.length > 0) {
           const checkout = await Git.run(
-            snapshotArgs(git, [
+            snapshotArgs(ctx, git, [
               "checkout",
               hash,
               "--",
-              ...checkoutFiles.map((file) => path.relative(Instance.worktree, file).replaceAll("\\", "/")),
+              ...checkoutFiles.map((file) => path.relative(ctx.worktree, file).replaceAll("\\", "/")),
             ]),
             {
-              cwd: Instance.worktree,
+              cwd: ctx.worktree,
             },
           )
 
           if (checkout.exitCode !== 0) {
             for (const file of group) {
-              await revertOne(git, hash, file)
+                await revertOne(ctx, git, hash, file)
             }
             continue
           }
         }
 
         for (const file of group) {
-          const relative = path.relative(Instance.worktree, file).replaceAll("\\", "/")
+          const relative = path.relative(ctx.worktree, file).replaceAll("\\", "/")
           if (existing.has(relative)) continue
           log.info("file did not exist in snapshot, deleting", { file, hash })
           await fs.unlink(file).catch(() => undefined)
@@ -434,13 +488,13 @@ export namespace Snapshot {
     })
   }
 
-  export async function diff(hash: string) {
-    return withLock(async () => {
-      const git = gitdir()
-      await stageSnapshot(git)
+  async function diffImpl(ctx: InstanceContext, hash: string) {
+    return withLock(ctx, async () => {
+      const git = gitdir(ctx)
+      await stageSnapshot(ctx, git)
 
-      const result = await Git.run(snapshotArgs(git, ["diff", "--cached", "--no-ext-diff", hash, "--", "."]), {
-        cwd: Instance.worktree,
+      const result = await Git.run(snapshotArgs(ctx, git, ["diff", "--cached", "--no-ext-diff", hash, "--", "."]), {
+        cwd: ctx.worktree,
       })
 
       if (result.exitCode !== 0) {
@@ -472,19 +526,19 @@ export namespace Snapshot {
     })
   export type FileDiff = z.infer<typeof FileDiff>
 
-  export async function diffFull(from: string, to: string): Promise<FileDiff[]> {
-    return withLock(async () => {
-      const git = gitdir()
+  async function diffFullImpl(ctx: InstanceContext, from: string, to: string): Promise<FileDiff[]> {
+    return withLock(ctx, async () => {
+      const git = gitdir(ctx)
       const statuses = await Git.run(
-        snapshotArgs(git, ["diff", "--no-ext-diff", "--name-status", "--no-renames", "-z", from, to, "--", "."]),
+        snapshotArgs(ctx, git, ["diff", "--no-ext-diff", "--name-status", "--no-renames", "-z", from, to, "--", "."]),
         {
-          cwd: Instance.worktree,
+          cwd: ctx.worktree,
         },
       )
       const stats = await Git.run(
-        snapshotArgs(git, ["diff", "--no-ext-diff", "--no-renames", "--numstat", "-z", from, to, "--", "."]),
+        snapshotArgs(ctx, git, ["diff", "--no-ext-diff", "--no-renames", "--numstat", "-z", from, to, "--", "."]),
         {
-          cwd: Instance.worktree,
+          cwd: ctx.worktree,
         },
       )
 
@@ -524,8 +578,8 @@ export namespace Snapshot {
         const additions = binary ? 0 : Number.parseInt(additionsRaw || "0", 10)
         const deletions = binary ? 0 : Number.parseInt(deletionsRaw || "0", 10)
 
-        const before = binary || status === "added" ? "" : await showFromSnapshot(git, from, file)
-        const after = binary || status === "deleted" ? "" : await showFromSnapshot(git, to, file)
+        const before = binary || status === "added" ? "" : await showFromSnapshot(ctx, git, from, file)
+        const after = binary || status === "deleted" ? "" : await showFromSnapshot(ctx, git, to, file)
         const patch = binary
           ? ""
           : formatPatch(structuredPatch(file, file, before, after, "", "", { context: Number.MAX_SAFE_INTEGER }))

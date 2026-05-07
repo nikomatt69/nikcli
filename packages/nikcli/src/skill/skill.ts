@@ -2,7 +2,6 @@ import z from "zod"
 import path from "path"
 import { createHash } from "crypto"
 import { Config } from "../config/config"
-import { Instance } from "../project/instance"
 import { NamedError } from "@nikcli-ai/util/error"
 import { ConfigMarkdown } from "../config/markdown"
 import { Log } from "../util/log"
@@ -12,6 +11,8 @@ import { Flag } from "@/flag/flag"
 import { Bus } from "@/bus"
 import { Session } from "@/session"
 import fs from "fs/promises"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Skill {
   const log = Log.create({ service: "skill" })
@@ -83,152 +84,33 @@ export namespace Skill {
     return name.startsWith(COMMAND_PREFIX)
   }
 
-  export const state = Instance.state(async () => {
-    const skills: Record<string, Info> = {}
+  type State = Record<string, Info>
 
-    const addSkill = async (match: string) => {
-      const md = await ConfigMarkdown.parse(match).catch((err) => {
-        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
-          ? err.data.message
-          : `Failed to parse skill ${match}`
-        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
-        log.error("failed to load skill", { skill: match, err })
-        return undefined
-      })
+  export interface Interface {
+    readonly get: (name: string) => Effect.Effect<Info | undefined, unknown>
+    readonly all: () => Effect.Effect<Info[], unknown>
+    readonly resolve: (
+      name: string,
+      candidates?: Info[],
+    ) => Effect.Effect<{ skill: Info | undefined; suggestions: string[] }, unknown>
+    readonly load: (name: string) => Effect.Effect<Loaded | undefined, unknown>
+    readonly create: (input: CreateInput) => Effect.Effect<Info, unknown>
+    readonly remove: (name: string) => Effect.Effect<boolean, unknown>
+  }
 
-      if (!md) return
+  export class Service extends Context.Tag("@nikcli/Skill")<Service, Interface>() {}
 
-      const parsed = Metadata.safeParse(md.data)
-      if (!parsed.success) return
-
-      if (skills[parsed.data.name]) {
-        log.warn("duplicate skill name", {
-          name: parsed.data.name,
-          existing: skills[parsed.data.name].location,
-          duplicate: match,
-        })
-      }
-
-      skills[parsed.data.name] = {
-        name: parsed.data.name,
-        description: parsed.data.description,
-        location: match,
-        category: parsed.data.category,
-        tags: parsed.data.tags,
-        version: parsed.data.version,
-      }
-    }
-
-    const scanExternal = async (root: string, scope: "global" | "project") => {
-      return Array.fromAsync(
-        EXTERNAL_SKILL_GLOB.scan({
-          cwd: root,
-          absolute: true,
-          onlyFiles: true,
-          followSymlinks: true,
-          dot: true,
+  function configDirectories(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.directories()
         }),
-      )
-        .then((matches) => Promise.all(matches.map(addSkill)))
-        .catch((error) => {
-          log.error(`failed to scan ${scope} skills`, { dir: root, error })
-        })
-    }
-
-    // Scan external skill directories (.claude/skills/, .agents/skills/, etc.)
-    // Load global (home) first, then project-level (so project-level overwrites)
-    if (!Flag.NIKCLI_DISABLE_EXTERNAL_SKILLS) {
-      for (const dir of EXTERNAL_DIRS) {
-        const root = path.join(Global.Path.home, dir)
-        if (!(await Filesystem.isDir(root))) continue
-        await scanExternal(root, "global")
-      }
-
-      for await (const root of Filesystem.up({
-        targets: EXTERNAL_DIRS,
-        start: Instance.directory,
-        stop: Instance.worktree,
-      })) {
-        await scanExternal(root, "project")
-      }
-    }
-
-    for (const dir of await Config.directories()) {
-      for await (const match of NIKCLI_SKILL_GLOB.scan({
-        cwd: dir,
-        absolute: true,
-        onlyFiles: true,
-        followSymlinks: true,
-      })) {
-        await addSkill(match)
-      }
-    }
-
-    return skills
-  })
-
-  export async function get(name: string) {
-    return state().then((x) => x[name])
-  }
-
-  export async function all() {
-    return state().then((x) => Object.values(x))
-  }
-
-  export async function resolve(name: string, candidates?: Info[]) {
-    const query = name.trim()
-    if (!query) return { skill: undefined, suggestions: [] as string[] }
-
-    const list = candidates ?? (await all())
-    const lower = query.toLowerCase()
-    const normalized = normalizeName(query)
-
-    const exact =
-      list.find((skill) => skill.name === query) ??
-      list.find((skill) => skill.name.toLowerCase() === lower) ??
-      (() => {
-        const matches = list.filter((skill) => normalizeName(skill.name) === normalized)
-        return matches.length === 1 ? matches[0] : undefined
-      })()
-
-    if (exact) {
-      return { skill: exact, suggestions: [exact.name] }
-    }
-
-    const partial = list.filter((skill) => {
-      const skillName = skill.name.toLowerCase()
-      const normalizedName = normalizeName(skill.name)
-      return skillName.includes(lower) || normalizedName.includes(normalized)
-    })
-
-    if (partial.length === 1) {
-      return { skill: partial[0], suggestions: partial.map((skill) => skill.name) }
-    }
-
-    const related = partial.length
-      ? partial
-      : list.filter((skill) =>
-          [skill.description, skill.category ?? "", ...(skill.tags ?? [])].some((value) =>
-            value.toLowerCase().includes(lower),
-          ),
-        )
-
-    return {
-      skill: undefined,
-      suggestions: related.slice(0, 5).map((skill) => skill.name),
-    }
-  }
-
-  export async function load(name: string): Promise<Loaded | undefined> {
-    const skill = await get(name)
-    if (!skill) return
-
-    const parsed = await ConfigMarkdown.parse(skill.location)
-    return {
-      ...skill,
-      dir: path.dirname(skill.location),
-      content: parsed.content.trim(),
-    }
+      ),
+    )
   }
 
   const CreateInput = z.object({
@@ -243,51 +125,222 @@ export namespace Skill {
   export type CreateInput = z.input<typeof CreateInput>
   export type CreateParsedInput = z.output<typeof CreateInput>
 
-  export async function create(input: CreateInput): Promise<Info> {
-    const parsed = CreateInput.parse(input)
-    const skills = await state()
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<State>((ctx) =>
+        Effect.promise(async () => {
+          const skills: State = {}
 
-    if (skills[parsed.name]) {
-      throw new Error(`Skill "${parsed.name}" already exists at ${skills[parsed.name].location}`)
-    }
+          const addSkill = async (match: string) => {
+            const md = await ConfigMarkdown.parse(match).catch((err) => {
+              const message = ConfigMarkdown.FrontmatterError.isInstance(err)
+                ? err.data.message
+                : `Failed to parse skill ${match}`
+              Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+              log.error("failed to load skill", { skill: match, err })
+              return undefined
+            })
 
-    const skillDir =
-      parsed.scope === "global"
-        ? path.join(Global.Path.config, "skills", slug(parsed.name))
-        : path.join(Instance.directory, ".nikcli", "skill", slug(parsed.name))
+            if (!md) return
 
-    await fs.mkdir(skillDir, { recursive: true })
-    const skillFile = path.join(skillDir, "SKILL.md")
+            const parsed = Metadata.safeParse(md.data)
+            if (!parsed.success) return
 
-    const frontmatter: string[] = ["---", `name: |`, `  ${parsed.name}`, `description: |`, `  ${parsed.description}`]
-    if (parsed.category) frontmatter.push(`category: |`, `  ${parsed.category}`)
-    if (parsed.tags?.length) frontmatter.push(`tags:`, ...parsed.tags.map((t) => `  - ${t}`))
-    frontmatter.push("---", "")
+            if (skills[parsed.data.name]) {
+              log.warn("duplicate skill name", {
+                name: parsed.data.name,
+                existing: skills[parsed.data.name].location,
+                duplicate: match,
+              })
+            }
 
-    const body = parsed.content ?? `# ${parsed.name}\n\n${parsed.description}\n`
-    await Bun.write(skillFile, frontmatter.join("\n") + body)
+            skills[parsed.data.name] = {
+              name: parsed.data.name,
+              description: parsed.data.description,
+              location: match,
+              category: parsed.data.category,
+              tags: parsed.data.tags,
+              version: parsed.data.version,
+            }
+          }
 
-    const info: Info = {
-      name: parsed.name,
-      description: parsed.description,
-      location: skillFile,
-      category: parsed.category,
-      tags: parsed.tags,
-    }
-    skills[parsed.name] = info
+          const scanExternal = async (root: string, scope: "global" | "project") => {
+            return Array.fromAsync(
+              EXTERNAL_SKILL_GLOB.scan({
+                cwd: root,
+                absolute: true,
+                onlyFiles: true,
+                followSymlinks: true,
+                dot: true,
+              }),
+            )
+              .then((matches) => Promise.all(matches.map(addSkill)))
+              .catch((error) => {
+                log.error(`failed to scan ${scope} skills`, { dir: root, error })
+              })
+          }
 
-    return info
-  }
+          if (!Flag.NIKCLI_DISABLE_EXTERNAL_SKILLS) {
+            for (const dir of EXTERNAL_DIRS) {
+              const root = path.join(Global.Path.home, dir)
+              if (!(await Filesystem.isDir(root))) continue
+              await scanExternal(root, "global")
+            }
 
-  export async function remove(name: string): Promise<boolean> {
-    const skills = await state()
-    const skill = skills[name]
-    if (!skill) {
-      throw new Error(`Skill "${name}" not found`)
-    }
+            for await (const root of Filesystem.up({
+              targets: EXTERNAL_DIRS,
+              start: ctx.directory,
+              stop: ctx.worktree,
+            })) {
+              await scanExternal(root, "project")
+            }
+          }
 
-    await fs.rm(path.dirname(skill.location), { recursive: true, force: true })
-    delete skills[name]
-    return true
-  }
+          for (const dir of await configDirectories(ctx)) {
+            for await (const match of NIKCLI_SKILL_GLOB.scan({
+              cwd: dir,
+              absolute: true,
+              onlyFiles: true,
+              followSymlinks: true,
+            })) {
+              await addSkill(match)
+            }
+          }
+
+          return skills
+        }),
+      )
+
+      const get: Interface["get"] = Effect.fn("Skill.get")(function* (name: string) {
+        return yield* InstanceState.get(state).pipe(Effect.map((skills) => skills[name]))
+      })
+
+      const all: Interface["all"] = Effect.fn("Skill.all")(function* () {
+        return yield* InstanceState.get(state).pipe(Effect.map((skills) => Object.values(skills)))
+      })
+
+      const resolve: Interface["resolve"] = Effect.fn("Skill.resolve")(function* (name: string, candidates?: Info[]) {
+        const query = name.trim()
+        if (!query) return { skill: undefined, suggestions: [] as string[] }
+
+        const list = candidates ?? (yield* all())
+        const lower = query.toLowerCase()
+        const normalized = normalizeName(query)
+
+        const exact =
+          list.find((skill) => skill.name === query) ??
+          list.find((skill) => skill.name.toLowerCase() === lower) ??
+          (() => {
+            const matches = list.filter((skill) => normalizeName(skill.name) === normalized)
+            return matches.length === 1 ? matches[0] : undefined
+          })()
+
+        if (exact) {
+          return { skill: exact, suggestions: [exact.name] }
+        }
+
+        const partial = list.filter((skill) => {
+          const skillName = skill.name.toLowerCase()
+          const normalizedName = normalizeName(skill.name)
+          return skillName.includes(lower) || normalizedName.includes(normalized)
+        })
+
+        if (partial.length === 1) {
+          return { skill: partial[0], suggestions: partial.map((skill) => skill.name) }
+        }
+
+        const related = partial.length
+          ? partial
+          : list.filter((skill) =>
+              [skill.description, skill.category ?? "", ...(skill.tags ?? [])].some((value) =>
+                value.toLowerCase().includes(lower),
+              ),
+            )
+
+        return {
+          skill: undefined,
+          suggestions: related.slice(0, 5).map((skill) => skill.name),
+        }
+      })
+
+      const load: Interface["load"] = Effect.fn("Skill.load")(function* (name: string) {
+        const skill = yield* get(name)
+        if (!skill) return undefined
+
+        const parsed = yield* Effect.promise(() => ConfigMarkdown.parse(skill.location))
+        return {
+          ...skill,
+          dir: path.dirname(skill.location),
+          content: parsed.content.trim(),
+        }
+      })
+
+      const create: Interface["create"] = Effect.fn("Skill.create")(function* (input: CreateInput) {
+        const parsed = CreateInput.parse(input)
+        const skills = yield* InstanceState.get(state)
+
+        if (skills[parsed.name]) {
+          throw new Error(`Skill "${parsed.name}" already exists at ${skills[parsed.name].location}`)
+        }
+
+        const directory = yield* InstanceState.directory
+        const skillDir =
+          parsed.scope === "global"
+            ? path.join(Global.Path.config, "skills", slug(parsed.name))
+            : path.join(directory, ".nikcli", "skill", slug(parsed.name))
+
+        yield* Effect.promise(() => fs.mkdir(skillDir, { recursive: true }))
+        const skillFile = path.join(skillDir, "SKILL.md")
+
+        const frontmatter: string[] = [
+          "---",
+          `name: |`,
+          `  ${parsed.name}`,
+          `description: |`,
+          `  ${parsed.description}`,
+        ]
+        if (parsed.category) frontmatter.push(`category: |`, `  ${parsed.category}`)
+        if (parsed.tags?.length) frontmatter.push(`tags:`, ...parsed.tags.map((t) => `  - ${t}`))
+        frontmatter.push("---", "")
+
+        const body = parsed.content ?? `# ${parsed.name}\n\n${parsed.description}\n`
+        yield* Effect.promise(() => Bun.write(skillFile, frontmatter.join("\n") + body))
+
+        const info: Info = {
+          name: parsed.name,
+          description: parsed.description,
+          location: skillFile,
+          category: parsed.category,
+          tags: parsed.tags,
+        }
+        skills[parsed.name] = info
+
+        return info
+      })
+
+      const remove: Interface["remove"] = Effect.fn("Skill.remove")(function* (name: string) {
+        const skills = yield* InstanceState.get(state)
+        const skill = skills[name]
+        if (!skill) {
+          throw new Error(`Skill "${name}" not found`)
+        }
+
+        yield* Effect.promise(() => fs.rm(path.dirname(skill.location), { recursive: true, force: true }))
+        delete skills[name]
+        return true
+      })
+
+      return Service.of({
+        get,
+        all,
+        resolve,
+        load,
+        create,
+        remove,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

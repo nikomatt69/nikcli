@@ -13,7 +13,6 @@ import { NamedError } from "@nikcli-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
-import { Instance } from "../project/instance"
 import { LSPServer } from "../lsp/server"
 import { BunProc } from "@/bun"
 import { Installation } from "@/installation"
@@ -22,9 +21,16 @@ import { existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { Event } from "../server/event"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, runPromiseWithLayer } from "@/effect"
+import type { InstanceContext } from "@/effect"
 
 export namespace Config {
   const log = Log.create({ service: "config" })
+
+  function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+    return runPromiseWithLayer(Auth.defaultLayer, effect)
+  }
 
   // Custom merge function that concatenates array fields instead of replacing them
   function mergeConfigConcatArrays(target: Info, source: Info): Info {
@@ -38,8 +44,28 @@ export namespace Config {
     return merged
   }
 
-  export const state = Instance.state(async () => {
-    const auth = await Auth.all()
+  type State = {
+    config: Info
+    directories: string[]
+  }
+
+  export interface Interface {
+    get(): Effect.Effect<Info, unknown>
+    getGlobal(): Effect.Effect<Info, unknown>
+    update(config: Info): Effect.Effect<void, unknown>
+    updateGlobal(config: Info): Effect.Effect<void, unknown>
+    directories(): Effect.Effect<string[], unknown>
+  }
+
+  export class Service extends Context.Tag("Config.Service")<Service, Interface>() {}
+
+  async function loadState(ctx: InstanceContext): Promise<State> {
+    const auth = await runAuth(
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        return yield* auth.all()
+      }),
+    )
 
     // Load remote/well-known config first as the base layer (lowest precedence)
     // This allows organizations to provide default configs that users can override
@@ -51,7 +77,12 @@ export namespace Config {
           continue
         }
         log.warn("fetching remote config from well-known endpoint", { url: `${key}/.well-known/nikcli` })
-        const response = await Auth.fetchWellKnown(key)
+        const response = await runAuth(
+          Effect.gen(function* () {
+            const auth = yield* Auth.Service
+            return yield* auth.fetchWellKnown(key)
+          }),
+        )
         if (!response.ok) {
           throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
         }
@@ -84,7 +115,7 @@ export namespace Config {
 
     // Project config has highest precedence (overrides global and remote)
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      const found = await Filesystem.findUp("nikcli.json", Instance.directory, Instance.worktree)
+      const found = await Filesystem.findUp("nikcli.json", ctx.directory, ctx.worktree)
       for (const resolved of found.toReversed()) {
         result = mergeConfigConcatArrays(result, await loadFile(resolved))
       }
@@ -107,8 +138,8 @@ export namespace Config {
         ? await Array.fromAsync(
             Filesystem.up({
               targets: [".nikcli"],
-              start: Instance.directory,
-              stop: Instance.worktree,
+              start: ctx.directory,
+              stop: ctx.worktree,
             }),
           )
         : []),
@@ -198,7 +229,9 @@ export namespace Config {
       config: result,
       directories,
     }
-  })
+  }
+
+  const scopedStateEffect = InstanceState.make<State>((ctx) => Effect.promise(() => loadState(ctx)))
 
   export async function installDependencies(dir: string) {
     const pkg = path.join(dir, "package.json")
@@ -1518,9 +1551,9 @@ export namespace Config {
 
   export type Info = z.output<typeof Info>
 
-  export const global = lazyAsync(async () => {
+  async function global() {
     return await loadFile(path.join(Global.Path.config, "nikcli.json"))
-  })
+  }
 
   async function loadFile(filepath: string, env: Record<string, string> = {}): Promise<Info> {
     log.info("loading", { path: filepath })
@@ -1679,19 +1712,10 @@ export namespace Config {
     }),
   )
 
-  export async function get() {
-    return state().then((x) => x.config)
-  }
-
-  export async function getGlobal() {
-    return global()
-  }
-
-  export async function update(config: Info) {
-    const filepath = path.join(Instance.directory, "nikcli.json")
+  async function updateImpl(ctx: InstanceContext, config: Info) {
+    const filepath = path.join(ctx.directory, "nikcli.json")
     const existing = await loadFile(filepath)
     await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
-    await Instance.dispose()
   }
 
   function globalConfigFile() {
@@ -1732,7 +1756,7 @@ export namespace Config {
     })
   }
 
-  export async function updateGlobal(config: Info) {
+  async function updateGlobalImpl(config: Info) {
     const filepath = globalConfigFile()
     const before = await Bun.file(filepath)
       .text()
@@ -1744,8 +1768,6 @@ export namespace Config {
     const existing = before.trim() ? parseConfig(before, filepath) : ({} as Info)
     await Bun.write(filepath, JSON.stringify(mergeDeep(existing, config), null, 2))
 
-    global.reset()
-    await Instance.disposeAll()
     GlobalBus.emit("event", {
       directory: "global",
       payload: {
@@ -1755,7 +1777,43 @@ export namespace Config {
     })
   }
 
-  export async function directories() {
-    return state().then((x) => x.directories)
-  }
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const scopedState = yield* scopedStateEffect
+
+      const get: Interface["get"] = Effect.fn("Config.get")(function* () {
+        return (yield* InstanceState.get(scopedState)).config
+      })
+
+      const getGlobal: Interface["getGlobal"] = Effect.fn("Config.getGlobal")(function* () {
+        return yield* Effect.promise(() => Promise.resolve(global()))
+      })
+
+      const update: Interface["update"] = Effect.fn("Config.update")(function* (config) {
+        const ctx = yield* InstanceState.context
+        yield* Effect.promise(() => updateImpl(ctx, config))
+        yield* scopedState.invalidate(ctx.directory)
+      })
+
+      const updateGlobal: Interface["updateGlobal"] = Effect.fn("Config.updateGlobal")(function* (config) {
+        yield* Effect.promise(() => updateGlobalImpl(config))
+        yield* scopedState.invalidateAll
+      })
+
+      const directories: Interface["directories"] = Effect.fn("Config.directories")(function* () {
+        return (yield* InstanceState.get(scopedState)).directories
+      })
+
+      return Service.of({
+        directories,
+        get,
+        getGlobal,
+        update,
+        updateGlobal,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

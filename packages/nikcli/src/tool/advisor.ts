@@ -4,6 +4,8 @@ import { Provider } from "@/provider/provider"
 import { generateText } from "ai"
 import DESCRIPTION from "./advisor.txt"
 import { Delegation } from "@/delegation/manager"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const parameters = z.object({
   context: z
@@ -18,12 +20,22 @@ type AdvisorMetadata = {
   delegationId?: string
 }
 
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
+
 export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>("advisor", async (initCtx) => {
   const advisor = initCtx?.agent?.advisor
   if (!advisor) throw new Error("No advisor configured for this agent")
 
-  const advisorFullModel = await Provider.getModel(advisor.model.providerID, advisor.model.modelID)
-  const advisorLanguage = await Provider.getLanguage(advisorFullModel)
+  const { advisorFullModel, advisorLanguage } = await runProvider(
+    Effect.gen(function* () {
+      const provider = yield* Provider.Service
+      const advisorFullModel = yield* provider.getModel(advisor.model.providerID, advisor.model.modelID)
+      const advisorLanguage = yield* provider.getLanguage(advisorFullModel)
+      return { advisorFullModel, advisorLanguage }
+    }),
+  )
   const maxUses = advisor.maxUses ?? 3
   let usesLeft = maxUses
 

@@ -3,6 +3,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { ConfigPaths } from "@/config/paths"
+import { Effect } from "effect"
 
 describe("ConfigPaths", () => {
   describe("fileInDirectory", () => {
@@ -32,6 +33,17 @@ describe("ConfigPaths", () => {
       const cfg = path.join(testDir, "c.jsonc")
       const data = await ConfigPaths.parseText(`{\n  "a": 1,\n}`, cfg)
       expect(data).toEqual({ a: 1 })
+    })
+
+    it("parses through the Effect service", async () => {
+      const cfg = path.join(testDir, "service.jsonc")
+      const data = await Effect.runPromise(
+        Effect.gen(function* () {
+          const paths = yield* ConfigPaths.Service
+          return yield* paths.parseText(`{ "service": true }`, cfg)
+        }).pipe(Effect.provide(ConfigPaths.defaultLayer)),
+      )
+      expect(data).toEqual({ service: true })
     })
 
     it("substitutes {env:NAME} from process.env", async () => {

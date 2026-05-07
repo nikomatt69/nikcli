@@ -10,6 +10,24 @@ import { zodToJsonSchema } from "zod-to-json-schema"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { WorkspaceRoutes } from "./workspace"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runToolRegistry<A, E>(effect: Effect.Effect<A, E, ToolRegistry.Service>) {
+  return runPromiseWithLayer(ToolRegistry.defaultLayer, withCurrentInstance(effect))
+}
+
+function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+}
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
+
+function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
+  return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ExperimentalRoutes = lazy(() =>
   new Hono()
@@ -33,7 +51,13 @@ export const ExperimentalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await ToolRegistry.ids())
+        const ids = await runToolRegistry(
+          Effect.gen(function* () {
+            const registry = yield* ToolRegistry.Service
+            return yield* registry.ids()
+          }),
+        )
+        return c.json(ids)
       },
     )
     .get(
@@ -76,7 +100,12 @@ export const ExperimentalRoutes = lazy(() =>
       ),
       async (c) => {
         const { provider, model } = c.req.valid("query")
-        const tools = await ToolRegistry.tools({ providerID: provider, modelID: model })
+        const tools = await runToolRegistry(
+          Effect.gen(function* () {
+            const registry = yield* ToolRegistry.Service
+            return yield* registry.tools({ providerID: provider, modelID: model })
+          }),
+        )
         return c.json(
           tools.map((t) => ({
             id: t.id,
@@ -105,10 +134,15 @@ export const ExperimentalRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("json", Worktree.create.schema),
+      validator("json", Worktree.CreateInput.optional()),
       async (c) => {
         const body = c.req.valid("json")
-        const worktree = await Worktree.create(body)
+        const worktree = await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            return yield* service.create(body)
+          }),
+        )
         return c.json(worktree)
       },
     )
@@ -131,7 +165,12 @@ export const ExperimentalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const sandboxes = await Project.sandboxes(Instance.project.id)
+        const sandboxes = await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            return yield* project.sandboxes(Instance.project.id)
+          }),
+        )
         return c.json(sandboxes)
       },
     )
@@ -153,11 +192,21 @@ export const ExperimentalRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("json", Worktree.remove.schema),
+      validator("json", Worktree.RemoveInput),
       async (c) => {
         const body = c.req.valid("json")
-        await Worktree.remove(body)
-        await Project.removeSandbox(Instance.project.id, body.directory)
+        await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            yield* service.remove(body)
+          }),
+        )
+        await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            yield* project.removeSandbox(Instance.project.id, body.directory)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -179,10 +228,15 @@ export const ExperimentalRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("json", Worktree.reset.schema),
+      validator("json", Worktree.ResetInput),
       async (c) => {
         const body = c.req.valid("json")
-        await Worktree.reset(body)
+        await runWorktree(
+          Effect.gen(function* () {
+            const service = yield* Worktree.Service
+            yield* service.reset(body)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -204,7 +258,13 @@ export const ExperimentalRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await MCP.resources())
+        const resources = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.resources()
+          }),
+        )
+        return c.json(resources)
       },
     ),
 )

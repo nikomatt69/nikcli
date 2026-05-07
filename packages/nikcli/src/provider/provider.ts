@@ -10,9 +10,10 @@ import { ModelsDev } from "./models"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Auth } from "../auth"
 import { Env } from "../env"
-import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 // Direct imports for bundled providers
 import { createAmazonBedrock, type AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
@@ -38,6 +39,53 @@ import { createVercel } from "@ai-sdk/vercel"
 import { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
 
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx?: InstanceContext) {
+  return runPromiseWithLayer(Plugin.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
+}
+
+function authGet(providerID: string) {
+  return runAuth(
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      return yield* auth.get(providerID)
+    }),
+  )
+}
+
+function authAll() {
+  return runAuth(
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      return yield* auth.all()
+    }),
+  )
+}
+
+function pluginList(ctx?: InstanceContext) {
+  return runPlugin(
+    Effect.gen(function* () {
+      const plugin = yield* Plugin.Service
+      return yield* plugin.list()
+    }),
+    ctx,
+  )
+}
+
+function configGet(ctx?: InstanceContext) {
+  const effect = Effect.gen(function* () {
+    const config = yield* Config.Service
+    return yield* config.get()
+  })
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
+  )
+}
+
 export namespace Provider {
   const log = Log.create({ service: "provider" })
 
@@ -60,7 +108,7 @@ export namespace Provider {
     return false
   }
 
-  async function loadOllamaProvider(config: Awaited<ReturnType<typeof Config.get>>): Promise<Info | undefined> {
+  async function loadOllamaProvider(config: Config.Info): Promise<Info | undefined> {
     const configured = (config.provider as any)?.ollama
     const configuredBaseURL =
       (configured?.options?.baseURL as string | undefined) ?? (Env.get("OLLAMA_BASE_URL") as string | undefined)
@@ -186,12 +234,15 @@ export namespace Provider {
     "@ai-sdk/perplexity": createPerplexity,
     "@ai-sdk/vercel": createVercel,
     "@gitlab/gitlab-ai-provider": createGitLab,
-    // @ts-ignore (TODO: kill this code so we dont have to maintain it)
+    // @ts-ignore provider package exposes a compatibility factory not covered by current typings
     "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
   }
 
   type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
-  type CustomLoader = (provider: Info) => Promise<{
+  type CustomLoader = (
+    provider: Info,
+    ctx: InstanceContext,
+  ) => Promise<{
     autoload: boolean
     getModel?: CustomModelLoader
     options?: Record<string, any>
@@ -209,12 +260,12 @@ export namespace Provider {
         },
       }
     },
-    async nikcli(input) {
+    async nikcli(input, ctx) {
       const hasKey = await (async () => {
         const env = Env.all()
         if (input.env.some((item) => env[item])) return true
-        if (await Auth.get(input.id)) return true
-        const config = await Config.get()
+        if (await authGet(input.id)) return true
+        const config = await configGet(ctx)
         if (config.provider?.["nikcli"]?.options?.apiKey) return true
         return false
       })()
@@ -287,11 +338,11 @@ export namespace Provider {
         },
       }
     },
-    "amazon-bedrock": async () => {
-      const config = await Config.get()
+    "amazon-bedrock": async (_input, ctx) => {
+      const config = await configGet(ctx)
       const providerConfig = config.provider?.["amazon-bedrock"]
 
-      const auth = await Auth.get("amazon-bedrock")
+      const auth = await authGet("amazon-bedrock")
 
       // Region precedence: 1) config file, 2) env var, 3) default
       const configRegion = providerConfig?.options?.region
@@ -488,7 +539,7 @@ export namespace Provider {
       }
     },
     "sap-ai-core": async () => {
-      const auth = await Auth.get("sap-ai-core")
+      const auth = await authGet("sap-ai-core")
       const envServiceKey = iife(() => {
         const envAICoreServiceKey = Env.get("AICORE_SERVICE_KEY")
         if (envAICoreServiceKey) return envAICoreServiceKey
@@ -520,17 +571,17 @@ export namespace Provider {
         },
       }
     },
-    gitlab: async (input) => {
+    gitlab: async (input, ctx) => {
       const instanceUrl = Env.get("GITLAB_INSTANCE_URL") || "https://gitlab.com"
 
-      const auth = await Auth.get(input.id)
+      const auth = await authGet(input.id)
       const apiKey = await (async () => {
         if (auth?.type === "oauth") return auth.access
         if (auth?.type === "api") return auth.key
         return Env.get("GITLAB_TOKEN")
       })()
 
-      const config = await Config.get()
+      const config = await configGet(ctx)
       const providerConfig = config.provider?.["gitlab"]
 
       return {
@@ -565,7 +616,7 @@ export namespace Provider {
       const apiToken = await (async () => {
         const envToken = Env.get("CLOUDFLARE_API_TOKEN")
         if (envToken) return envToken
-        const auth = await Auth.get(input.id)
+        const auth = await authGet(input.id)
         if (auth?.type === "api") return auth.key
         return undefined
       })()
@@ -788,9 +839,30 @@ export namespace Provider {
     }
   }
 
-  const state = Instance.state(async () => {
+  type State = {
+    models: Map<string, LanguageModelV2>
+    images: Map<string, ReturnType<SDK["imageModel"]>>
+    providers: { [providerID: string]: Info }
+    sdk: Map<number, SDK>
+    modelLoaders: { [providerID: string]: CustomModelLoader }
+  }
+
+  export interface Interface {
+    list(): Effect.Effect<Record<string, Info>, unknown>
+    getProvider(providerID: string): Effect.Effect<Info | undefined, unknown>
+    getModel(providerID: string, modelID: string): Effect.Effect<Model, unknown>
+    getLanguage(model: Model): Effect.Effect<LanguageModelV2, unknown>
+    getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, unknown>
+    closest(providerID: string, query: string[]): Effect.Effect<{ providerID: string; modelID: string } | undefined, unknown>
+    getSmallModel(providerID: string): Effect.Effect<Model | undefined, unknown>
+    defaultModel(): Effect.Effect<{ providerID: string; modelID: string }, unknown>
+  }
+
+  export class Service extends Context.Tag("Provider.Service")<Service, Interface>() {}
+
+  async function buildState(ctx: InstanceContext): Promise<State> {
     using _ = log.time("state")
-    const config = await Config.get()
+    const config = await configGet(ctx)
     const modelsDev = await ModelsDev.get()
     const database = mapValues(modelsDev, fromModelsDevProvider)
 
@@ -944,7 +1016,7 @@ export namespace Provider {
     }
 
     // load apikeys
-    for (const [providerID, provider] of Object.entries(await Auth.all())) {
+    for (const [providerID, provider] of Object.entries(await authAll())) {
       if (disabled.has(providerID)) continue
       if (provider.type === "api") {
         mergeProvider(providerID, {
@@ -954,19 +1026,19 @@ export namespace Provider {
       }
     }
 
-    for (const plugin of await Plugin.list()) {
+    for (const plugin of await pluginList(ctx)) {
       if (!plugin.auth) continue
       const providerID = plugin.auth.provider
       if (disabled.has(providerID)) continue
 
       // For github-copilot plugin, check if auth exists for either github-copilot or github-copilot-enterprise
       let hasAuth = false
-      const auth = await Auth.get(providerID)
+      const auth = await authGet(providerID)
       if (auth) hasAuth = true
 
       // Special handling for github-copilot: also check for enterprise auth
       if (providerID === "github-copilot" && !hasAuth) {
-        const enterpriseAuth = await Auth.get("github-copilot-enterprise")
+        const enterpriseAuth = await authGet("github-copilot-enterprise")
         if (enterpriseAuth) hasAuth = true
       }
 
@@ -975,7 +1047,7 @@ export namespace Provider {
 
       // Load for the main provider if auth exists
       if (auth) {
-        const options = await plugin.auth.loader(() => Auth.get(providerID) as any, database[plugin.auth.provider])
+        const options = await plugin.auth.loader(() => authGet(providerID) as any, database[plugin.auth.provider])
         mergeProvider(plugin.auth.provider, {
           source: "custom",
           options: options,
@@ -986,10 +1058,10 @@ export namespace Provider {
       if (providerID === "github-copilot") {
         const enterpriseProviderID = "github-copilot-enterprise"
         if (!disabled.has(enterpriseProviderID)) {
-          const enterpriseAuth = await Auth.get(enterpriseProviderID)
+          const enterpriseAuth = await authGet(enterpriseProviderID)
           if (enterpriseAuth) {
             const enterpriseOptions = await plugin.auth.loader(
-              () => Auth.get(enterpriseProviderID) as any,
+              () => authGet(enterpriseProviderID) as any,
               database[enterpriseProviderID],
             )
             mergeProvider(enterpriseProviderID, {
@@ -1008,7 +1080,7 @@ export namespace Provider {
         log.error("Provider does not exist in model list " + providerID)
         continue
       }
-      const result = await fn(data)
+      const result = await fn(data, ctx)
       if (result && (result.autoload || providers[providerID])) {
         if (result.getModel) modelLoaders[providerID] = result.getModel
         mergeProvider(providerID, {
@@ -1027,13 +1099,13 @@ export namespace Provider {
       mergeProvider(providerID, partial)
     }
 
-    for (const hook of await Plugin.list()) {
+    for (const hook of await pluginList(ctx)) {
       const p = hook.provider
       if (!p?.models) continue
       if (disabled.has(p.id)) continue
       const provider = providers[p.id]
       if (!provider) continue
-      const pluginAuth = await Auth.get(p.id)
+      const pluginAuth = await authGet(p.id)
       provider.models = await p
         .models(provider, { auth: pluginAuth ?? undefined })
         .then((next) =>
@@ -1091,11 +1163,9 @@ export namespace Provider {
       sdk,
       modelLoaders,
     }
-  })
-
-  export async function list() {
-    return state().then((state) => state.providers)
   }
+
+  const stateEffect = InstanceState.make<State>((ctx) => Effect.promise(() => buildState(ctx)))
 
   const sdkCacheFnIds = new WeakMap<Function, number>()
   let sdkCacheFnSeq = 1
@@ -1194,12 +1264,11 @@ export namespace Provider {
     )
   }
 
-  async function getSDK(model: Model) {
+  async function getSDK(s: State, model: Model) {
     try {
       using _ = log.time("getSDK", {
         providerID: model.providerID,
       })
-      const s = await state()
       const provider = s.providers[model.providerID]
       const options = { ...provider.options }
 
@@ -1327,12 +1396,7 @@ export namespace Provider {
     }
   }
 
-  export async function getProvider(providerID: string) {
-    return state().then((s) => s.providers[providerID])
-  }
-
-  export async function getModel(providerID: string, modelID: string) {
-    const s = await state()
+  function modelFromState(s: State, providerID: string, modelID: string) {
     const provider = s.providers[providerID]
     if (!provider) {
       const availableProviders = Object.keys(s.providers)
@@ -1351,136 +1415,199 @@ export namespace Provider {
     return info
   }
 
-  export async function getLanguage(model: Model): Promise<LanguageModelV2> {
-    const s = await state()
-    const key = `${model.providerID}/${model.id}`
-    if (s.models.has(key)) return s.models.get(key)!
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* stateEffect
+      const getState = () => InstanceState.get(state)
 
-    const provider = s.providers[model.providerID]
-    const sdk = await getSDK(model)
-
-    try {
-      const language = s.modelLoaders[model.providerID]
-        ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
-        : sdk.languageModel(model.api.id)
-      s.models.set(key, language)
-      return language
-    } catch (e) {
-      if (e instanceof NoSuchModelError)
-        throw new ModelNotFoundError(
-          {
-            modelID: model.id,
-            providerID: model.providerID,
-          },
-          { cause: e },
-        )
-      throw e
-    }
-  }
-
-  export async function getImageModel(model: Model) {
-    const s = await state()
-    const key = `${model.providerID}/${model.id}`
-    if (s.images.has(key)) return s.images.get(key)!
-
-    const providerID = model.providerID ?? ""
-    const apiNpm = model.api?.npm ?? ""
-
-    // OpenRouter or openai-compatible: use OpenAI SDK with the provider's endpoint
-    if (providerID.includes("openrouter") || apiNpm.includes("openrouter") || apiNpm.includes("openai-compatible")) {
-      const { createOpenAI } = await import("@ai-sdk/openai")
-      const s2 = await state()
-      const provider = s2.providers[providerID] || s2.providers["openrouter"]
-
-      const OPENROUTER_API = "https://openrouter.ai/api/v1"
-      const baseURL = model.api?.url || (providerID.includes("openrouter") ? OPENROUTER_API : undefined)
-
-      const openaiSDK = createOpenAI({
-        name: providerID,
-        baseURL,
-        apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
+      const getModelEffect: Interface["getModel"] = Effect.fn("Provider.getModel")(function* (providerID, modelID) {
+        const s = yield* getState()
+        return modelFromState(s, providerID, modelID)
       })
 
-      const image = openaiSDK.imageModel(model.api.id)
-      s.images.set(key, image)
-      return image
-    }
+      const getLanguage: Interface["getLanguage"] = Effect.fn("Provider.getLanguage")(function* (model) {
+        const s = yield* getState()
+        const key = `${model.providerID}/${model.id}`
+        if (s.models.has(key)) return s.models.get(key)!
 
-    const sdk = await getSDK(model)
+        const provider = s.providers[model.providerID]
+        const sdk = yield* Effect.tryPromise(() => getSDK(s, model))
 
-    try {
-      const image = sdk.imageModel(model.api.id)
-      s.images.set(key, image)
-      return image
-    } catch (e) {
-      if (e instanceof NoSuchModelError)
-        throw new ModelNotFoundError(
-          {
-            modelID: model.id,
-            providerID: model.providerID,
-          },
-          { cause: e },
-        )
-      throw e
-    }
-  }
-
-  export async function closest(providerID: string, query: string[]) {
-    const s = await state()
-    const provider = s.providers[providerID]
-    if (!provider) return undefined
-    for (const item of query) {
-      for (const modelID of Object.keys(provider.models)) {
-        if (modelID.includes(item))
-          return {
-            providerID,
-            modelID,
+        return yield* Effect.tryPromise(async () => {
+          try {
+            const language = s.modelLoaders[model.providerID]
+              ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
+              : sdk.languageModel(model.api.id)
+            s.models.set(key, language)
+            return language
+          } catch (e) {
+            if (e instanceof NoSuchModelError) {
+              throw new ModelNotFoundError(
+                {
+                  modelID: model.id,
+                  providerID: model.providerID,
+                },
+                { cause: e },
+              )
+            }
+            throw e
           }
-      }
-    }
-  }
+        })
+      })
 
-  export async function getSmallModel(providerID: string) {
-    const cfg = await Config.get()
+      const getImageModel: Interface["getImageModel"] = Effect.fn("Provider.getImageModel")(function* (model) {
+        const s = yield* getState()
+        const key = `${model.providerID}/${model.id}`
+        if (s.images.has(key)) return s.images.get(key)!
 
-    if (cfg.small_model) {
-      const parsed = parseModel(cfg.small_model)
-      return getModel(parsed.providerID, parsed.modelID)
-    }
+        return yield* Effect.tryPromise(async () => {
+          const providerID = model.providerID ?? ""
+          const apiNpm = model.api?.npm ?? ""
 
-    const provider = await state().then((state) => state.providers[providerID])
-    if (provider) {
-      let priority = [
-        "claude-haiku-4-5",
-        "claude-haiku-4.5",
-        "3-5-haiku",
-        "3.5-haiku",
-        "gemini-3-flash",
-        "gemini-2.5-flash",
-        "gpt-5-nano",
-      ]
-      if (providerID.startsWith("nikcli")) {
-        priority = ["gpt-5.4-mini"]
-      }
-      if (providerID.startsWith("github-copilot")) {
-        // prioritize free models for github copilot
-        priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
-      }
-      for (const item of priority) {
-        for (const model of Object.keys(provider.models)) {
-          if (model.includes(item)) return getModel(providerID, model)
+          if (
+            providerID.includes("openrouter") ||
+            apiNpm.includes("openrouter") ||
+            apiNpm.includes("openai-compatible")
+          ) {
+            const { createOpenAI } = await import("@ai-sdk/openai")
+            const provider = s.providers[providerID] || s.providers["openrouter"]
+            const openrouterApi = "https://openrouter.ai/api/v1"
+            const baseURL = model.api?.url || (providerID.includes("openrouter") ? openrouterApi : undefined)
+
+            const openaiSDK = createOpenAI({
+              name: providerID,
+              baseURL,
+              apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
+            })
+
+            const image = openaiSDK.imageModel(model.api.id)
+            s.images.set(key, image)
+            return image
+          }
+
+          const sdk = await getSDK(s, model)
+          try {
+            const image = sdk.imageModel(model.api.id)
+            s.images.set(key, image)
+            return image
+          } catch (e) {
+            if (e instanceof NoSuchModelError) {
+              throw new ModelNotFoundError(
+                {
+                  modelID: model.id,
+                  providerID: model.providerID,
+                },
+                { cause: e },
+              )
+            }
+            throw e
+          }
+        })
+      })
+
+      const closest: Interface["closest"] = Effect.fn("Provider.closest")(function* (providerID, query) {
+        const s = yield* getState()
+        const provider = s.providers[providerID]
+        if (!provider) return undefined
+        for (const item of query) {
+          for (const modelID of Object.keys(provider.models)) {
+            if (modelID.includes(item)) return { providerID, modelID }
+          }
         }
-      }
-    }
+      })
 
-    // Check if nikcli provider is available before using it
-    const nikcliProvider = await state().then((state) => state.providers["nikcli"])
-    if (nikcliProvider && nikcliProvider.models["gpt-5-nano"]) {
-      return getModel("nikcli", "gpt-5-nano")
-    }
+      const getSmallModel: Interface["getSmallModel"] = Effect.fn("Provider.getSmallModel")(function* (providerID) {
+        const ctx = yield* InstanceState.context
+        const cfg = yield* Effect.promise(() => configGet(ctx))
+        if (cfg.small_model) {
+          const parsed = parseModel(cfg.small_model)
+          return yield* getModelEffect(parsed.providerID, parsed.modelID)
+        }
 
-    return undefined
-  }
+        const s = yield* getState()
+        const provider = s.providers[providerID]
+        if (provider) {
+          let priority = [
+            "claude-haiku-4-5",
+            "claude-haiku-4.5",
+            "3-5-haiku",
+            "3.5-haiku",
+            "gemini-3-flash",
+            "gemini-2.5-flash",
+            "gpt-5-nano",
+          ]
+          if (providerID.startsWith("nikcli")) priority = ["gpt-5.4-mini"]
+          if (providerID.startsWith("github-copilot")) priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
+          for (const item of priority) {
+            for (const model of Object.keys(provider.models)) {
+              if (model.includes(item)) return yield* getModelEffect(providerID, model)
+            }
+          }
+        }
+
+        const nikcliProvider = s.providers["nikcli"]
+        if (nikcliProvider && nikcliProvider.models["gpt-5-nano"]) {
+          return yield* getModelEffect("nikcli", "gpt-5-nano")
+        }
+
+        return undefined
+      })
+
+      const defaultModel: Interface["defaultModel"] = Effect.fn("Provider.defaultModel")(function* () {
+        const ctx = yield* InstanceState.context
+        const cfg = yield* Effect.promise(() => configGet(ctx))
+        const s = yield* getState()
+
+        function isAvailable(providerID: string, modelID: string) {
+          return !!s.providers[providerID]?.models[modelID]
+        }
+
+        function bestAvailable() {
+          const allModels: Model[] = []
+          for (const [pid, provider] of Object.entries(s.providers)) {
+            for (const mid of Object.keys(provider.models)) {
+              const m = provider.models[mid]
+              if (m) allModels.push({ ...m, providerID: pid } as Model)
+            }
+          }
+          const sorted = sort(allModels)
+          if (sorted.length > 0) {
+            const best = sorted[0]
+            return { providerID: (best as any).providerID as string, modelID: best.id }
+          }
+          return undefined
+        }
+
+        if (cfg.model) {
+          const parsed = parseModel(cfg.model)
+          if (isAvailable(parsed.providerID, parsed.modelID)) return parsed
+          return bestAvailable() ?? parsed
+        }
+
+        const { providerID, modelID } = parseModel(DEFAULT_MODEL)
+        if (isAvailable(providerID, modelID)) return { providerID, modelID }
+        return bestAvailable() ?? { providerID, modelID }
+      })
+
+      return Service.of({
+        list: Effect.fn("Provider.list")(function* () {
+          return (yield* getState()).providers
+        }),
+        getProvider: Effect.fn("Provider.getProvider")(function* (providerID) {
+          return (yield* getState()).providers[providerID]
+        }),
+        getModel: getModelEffect,
+        getLanguage,
+        getImageModel,
+        closest,
+        getSmallModel,
+        defaultModel,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 
   const priority = ["gpt-5", "claude-sonnet-4", "big-pickle", "gemini-3-pro"]
   export function sort(models: Model[]) {
@@ -1494,43 +1621,6 @@ export namespace Provider {
 
   // Hardcoded default model — used when config.model is not set
   const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M2.7"
-
-  export async function defaultModel() {
-    const cfg = await Config.get()
-    const s = await state()
-
-    function isAvailable(providerID: string, modelID: string) {
-      return !!s.providers[providerID]?.models[modelID]
-    }
-
-    function bestAvailable() {
-      const allModels: Model[] = []
-      for (const [pid, provider] of Object.entries(s.providers)) {
-        for (const mid of Object.keys(provider.models)) {
-          const m = provider.models[mid]
-          if (m) allModels.push({ ...m, providerID: pid } as Model)
-        }
-      }
-      const sorted = sort(allModels)
-      if (sorted.length > 0) {
-        const best = sorted[0]
-        return { providerID: (best as any).providerID as string, modelID: best.id }
-      }
-      return undefined
-    }
-
-    if (cfg.model) {
-      const parsed = parseModel(cfg.model)
-      // If the configured model's provider is connected, use it as-is
-      if (isAvailable(parsed.providerID, parsed.modelID)) return parsed
-      // Provider not connected — fall back to best available
-      return bestAvailable() ?? parsed
-    }
-
-    const { providerID, modelID } = parseModel(DEFAULT_MODEL)
-    if (isAvailable(providerID, modelID)) return { providerID, modelID }
-    return bestAvailable() ?? { providerID, modelID }
-  }
 
   export function parseModel(model: string) {
     const [providerID, ...rest] = model.split("/")

@@ -6,6 +6,7 @@ import { NamedError } from "@nikcli-ai/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
+import { Context, Effect, Layer } from "effect"
 
 declare global {
   const NIKCLI_VERSION: string
@@ -15,7 +16,7 @@ declare global {
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
-  export type Method = Awaited<ReturnType<typeof method>>
+  export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
 
   export const Event = {
     Updated: BusEvent.define(
@@ -42,10 +43,32 @@ export namespace Installation {
     })
   export type Info = z.infer<typeof Info>
 
-  export async function info() {
+  export class Service extends Context.Tag("Installation.Service")<
+    Service,
+    {
+      info(): Effect.Effect<Info, unknown>
+      method(): Effect.Effect<Method, unknown>
+      latest(installMethod?: Method): Effect.Effect<string, unknown>
+      upgrade(method: Method, target: string): Effect.Effect<void, unknown>
+    }
+  >() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      info: () => Effect.tryPromise(() => infoImpl()),
+      method: () => Effect.tryPromise(() => methodImpl()),
+      latest: (installMethod) => Effect.tryPromise(() => latestImpl(installMethod)),
+      upgrade: (method, target) => Effect.tryPromise(() => upgradeImpl(method, target)),
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  async function infoImpl() {
     return {
       version: VERSION,
-      latest: await latest(),
+      latest: await latestImpl(),
     }
   }
 
@@ -57,7 +80,7 @@ export namespace Installation {
     return CHANNEL === "local"
   }
 
-  export async function method() {
+  async function methodImpl(): Promise<Method> {
     if (process.execPath.includes(path.join(".nikcli", "bin"))) return "curl"
     if (process.execPath.includes(path.join(".local", "bin"))) return "curl"
     const exec = process.execPath.toLowerCase()
@@ -128,7 +151,7 @@ export namespace Installation {
     return "nikcli"
   }
 
-  export async function upgrade(method: Method, target: string) {
+  async function upgradeImpl(method: Method, target: string) {
     let cmd
     switch (method) {
       case "curl":
@@ -183,8 +206,8 @@ export namespace Installation {
   export const CHANNEL = typeof NIKCLI_CHANNEL === "string" ? NIKCLI_CHANNEL : "local"
   export const USER_AGENT = `nikcli/${CHANNEL}/${VERSION}/${Flag.NIKCLI_CLIENT}`
 
-  export async function latest(installMethod?: Method) {
-    const detectedMethod = installMethod || (await method())
+  async function latestImpl(installMethod?: Method) {
+    const detectedMethod = installMethod || (await methodImpl())
 
     if (detectedMethod === "brew") {
       const formula = await getBrewFormula()

@@ -5,6 +5,21 @@ import { bootstrap } from "../bootstrap"
 import { Storage } from "../../storage/storage"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
 
 const SHARE_ID = /^[a-zA-Z0-9_-]+$/
 
@@ -184,13 +199,13 @@ export const ImportCommand = cmd({
         return
       }
 
-      await Storage.write(["session", Instance.project.id, exportData.info.id], exportData.info)
+      await storageWrite(["session", Instance.project.id, exportData.info.id], exportData.info)
 
       for (const msg of exportData.messages) {
-        await Storage.write(["message", exportData.info.id, msg.info.id], msg.info)
+        await storageWrite(["message", exportData.info.id, msg.info.id], msg.info)
 
         for (const part of msg.parts) {
-          await Storage.write(["part", msg.info.id, part.id], part)
+          await storageWrite(["part", msg.info.id, part.id], part)
         }
       }
 

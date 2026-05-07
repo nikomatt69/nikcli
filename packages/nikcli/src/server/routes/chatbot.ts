@@ -2,8 +2,14 @@ import { Hono, type Context } from "hono"
 import { Log } from "../../util/log"
 import { Config } from "../../config/config"
 import { lazy } from "../../util/lazy"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const log = Log.create({ service: "chatbot-routes" })
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
 
 async function getBotHandlers() {
   const mod = await import("../../chatbot/handlers")
@@ -26,7 +32,12 @@ interface BotInfo {
 }
 
 async function getConnectorConfig(platform: string, name: string) {
-  const config = await Config.get()
+  const config = await runConfig(
+    Effect.gen(function* () {
+      const service = yield* Config.Service
+      return yield* service.get()
+    }),
+  )
   const connector = config.connectors?.[name]
   if (!connector || typeof connector !== "object") return null
   if ("type" in connector && connector.type !== platform) return null

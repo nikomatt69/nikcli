@@ -3,6 +3,8 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import type { Tool } from "../src/tool/tool"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-delegation-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -19,6 +21,19 @@ const [{ Instance }, { Delegation }, { BackgroundRun }, { DelegationTool }, { De
   ])
 
 const projectDirs: string[] = []
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.update(key, fn)
+    }),
+  )
+}
 
 async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T> {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-delegation-project-"))
@@ -225,7 +240,7 @@ describe("delegation flow", () => {
         source: "task",
       })
 
-      await Storage.update(["background_run", Instance.project.id, record.id], (draft: typeof record) => {
+      await storageUpdate(["background_run", Instance.project.id, record.id], (draft: typeof record) => {
         draft.ownerID = "stale-owner"
         draft.heartbeatAt = Date.now() - BackgroundRun.LEASE_TIMEOUT_MS - 1_000
         draft.updatedAt = Date.now() - BackgroundRun.LEASE_TIMEOUT_MS - 1_000

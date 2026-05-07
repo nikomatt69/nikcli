@@ -4,14 +4,25 @@ import { Worktree } from "@/worktree"
 import type { Config } from "../config"
 import type { Adaptor } from "./types"
 import { Log } from "@/util/log"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const log = Log.create({ service: "worktree.adaptor" })
 
 type WorktreeConfig = Extract<Config, { type: "worktree" }>
 
+function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
+  return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+}
+
 export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
   async create(_from: WorktreeConfig, branch: string | null | undefined, _workspaceID?: string) {
-    const next = await Worktree.create(branch ? { branch } : undefined)
+    const next = await runWorktree(
+      Effect.gen(function* () {
+        const worktree = yield* Worktree.Service
+        return yield* worktree.create(branch ? { branch } : undefined)
+      }),
+    )
     return {
       config: {
         type: "worktree",
@@ -22,7 +33,12 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
     }
   },
   async remove(config: WorktreeConfig) {
-    await Worktree.remove({ directory: config.directory })
+    await runWorktree(
+      Effect.gen(function* () {
+        const worktree = yield* Worktree.Service
+        return yield* worktree.remove({ directory: config.directory })
+      }),
+    )
   },
   target(config: WorktreeConfig) {
     return { type: "local" as const, directory: config.directory }

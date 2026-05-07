@@ -8,6 +8,78 @@ import { SessionPrompt } from "@/session/prompt"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Provider } from "@/provider/provider"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+  return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function defaultProviderModel() {
+  return runProvider(
+    Effect.gen(function* () {
+      const provider = yield* Provider.Service
+      return yield* provider.defaultModel()
+    }),
+  )
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
+
+function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.update(key, fn)
+    }),
+  )
+}
+
+function storageRemove(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.remove(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 export namespace Routine {
   const log = Log.create({ service: "routine" })
@@ -177,13 +249,13 @@ export namespace Routine {
   // ── CRUD ───────────────────────────────────────────────────────────────────
 
   export async function list(): Promise<Record[]> {
-    const keys = await Storage.list(["routine", Instance.project.id])
-    const records = await Promise.all(keys.map((k) => Storage.read<Record>(k).catch(() => null)))
+    const keys = await storageList(["routine", Instance.project.id])
+    const records = await Promise.all(keys.map((k) => storageRead<Record>(k).catch(() => null)))
     return records.filter((r): r is Record => r !== null).sort((a, b) => b.createdAt - a.createdAt)
   }
 
   export async function get(id: string): Promise<Record> {
-    return Storage.read<Record>(key(id))
+    return storageRead<Record>(key(id))
   }
 
   export async function getByToken(token: string): Promise<Record | null> {
@@ -209,7 +281,7 @@ export namespace Routine {
     // Capture the default model if not explicitly provided
     let model: Record["model"] = input.model
     if (!model) {
-      model = await Provider.defaultModel()
+      model = await defaultProviderModel()
     }
 
     const record: Record = {
@@ -225,7 +297,7 @@ export namespace Routine {
       updatedAt: now,
     }
 
-    await Storage.write(key(id), record)
+    await storageWrite(key(id), record)
     log.info("created", { id, name: record.name })
     registerScheduler(record)
     return record
@@ -233,7 +305,7 @@ export namespace Routine {
 
   export async function update(id: string, input: UpdateInput): Promise<Record> {
     if (input.triggers) validateTriggers(input.triggers)
-    const record = await Storage.update<Record>(key(id), (draft) => {
+    const record = await storageUpdate<Record>(key(id), (draft) => {
       if (input.name !== undefined) draft.name = input.name
       if (input.prompt !== undefined) draft.prompt = input.prompt
       if (input.triggers !== undefined) draft.triggers = input.triggers
@@ -247,7 +319,7 @@ export namespace Routine {
 
   export async function remove(id: string): Promise<void> {
     unregisterScheduler(id)
-    await Storage.remove(key(id))
+    await storageRemove(key(id))
     log.info("removed", { id })
   }
 
@@ -268,21 +340,31 @@ export namespace Routine {
     const routine = await get(id)
     log.info("running", { id, name: routine.name, model: input?.model ?? routine.model })
 
-    const session = await Session.create({ title: `Routine: ${routine.name}` })
+    const session = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        return yield* sessionService.create({ title: `Routine: ${routine.name}` })
+      }),
+    )
     const text = input?.text?.trim()
     const prompt = text ? `${routine.prompt}\n\nRun context:\n${text}` : routine.prompt
 
     // Resolve the model to use: input > routine record > global default
-    const modelToUse = input?.model ?? routine.model ?? (await Provider.defaultModel())
+    const modelToUse = input?.model ?? routine.model ?? (await defaultProviderModel())
 
     // Fire-and-forget the prompt — the route caller can track via the session ID
-    void SessionPrompt.prompt({
-      sessionID: session.id,
-      parts: [{ type: "text", text: prompt }],
-      model: modelToUse,
-    })
+    void runSessionPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        return yield* sessionPrompt.prompt({
+          sessionID: session.id,
+          parts: [{ type: "text", text: prompt }],
+          model: modelToUse,
+        })
+      }),
+    )
 
-    await Storage.update<Record>(key(id), (draft) => {
+    await storageUpdate<Record>(key(id), (draft) => {
       draft.lastRunAt = Date.now()
       draft.lastSessionID = session.id
       draft.updatedAt = Date.now()

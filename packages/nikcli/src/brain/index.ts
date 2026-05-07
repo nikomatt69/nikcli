@@ -5,10 +5,58 @@ import { Log } from "@/util/log"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
+import type { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { SessionPrompt } from "@/session/prompt"
 import { Provider } from "@/provider/provider"
 import { Flock } from "@/util/flock"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function defaultProviderModel() {
+  return runPromiseWithLayer(
+    Provider.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.defaultModel()
+      }),
+    ),
+  )
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
 
 export type BrainConfig = {
   minHours: number
@@ -74,7 +122,7 @@ async function listProjectSessions(filter: (session: Session.Info) => boolean): 
       if (!file.endsWith(".json")) continue
       const sessionID = file.replace(".json", "")
       try {
-        const session = await Storage.read<Session.Info>(["session", Instance.project.id, sessionID])
+        const session = await storageRead<Session.Info>(["session", Instance.project.id, sessionID])
         if (filter(session)) {
           sessions.push({ id: sessionID, updated: session.time.updated })
         }
@@ -115,7 +163,7 @@ export async function updateMemory(content: string): Promise<void> {
 }
 
 export async function getBrainConfig(): Promise<BrainConfig> {
-  const config = await Config.get()
+  const config = await configGet()
   const experimental = config.experimental ?? {}
   return {
     minHours: typeof experimental.brainMinHours === "number" ? experimental.brainMinHours : DEFAULTS.minHours,
@@ -273,36 +321,56 @@ export namespace Brain {
       log.info("brain prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
 
       try {
-        const session = await Session.create({
-          title: BRAIN_SESSION_TITLE,
-          permission: [
-            { permission: "*", pattern: "*", action: "deny" },
-            { permission: "read", pattern: "*", action: "allow" },
-            { permission: "edit", pattern: "*", action: "allow" },
-            { permission: "glob", pattern: "*", action: "allow" },
-            { permission: "grep", pattern: "*", action: "allow" },
-            { permission: "list", pattern: "*", action: "allow" },
-            { permission: "tree", pattern: "*", action: "allow" },
-            { permission: "todowrite", pattern: "*", action: "deny" },
-            { permission: "todoread", pattern: "*", action: "deny" },
-            { permission: "task", pattern: "*", action: "deny" },
-          ],
-        })
+        const session = await runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* sessionService.create({
+              title: BRAIN_SESSION_TITLE,
+              permission: [
+                { permission: "*", pattern: "*", action: "deny" },
+                { permission: "read", pattern: "*", action: "allow" },
+                { permission: "edit", pattern: "*", action: "allow" },
+                { permission: "glob", pattern: "*", action: "allow" },
+                { permission: "grep", pattern: "*", action: "allow" },
+                { permission: "list", pattern: "*", action: "allow" },
+                { permission: "tree", pattern: "*", action: "allow" },
+                { permission: "todowrite", pattern: "*", action: "deny" },
+                { permission: "todoread", pattern: "*", action: "deny" },
+                { permission: "task", pattern: "*", action: "deny" },
+              ],
+            })
+          }),
+        )
         log.info("brain session created", { sessionID: session.id })
-        const model = await Provider.defaultModel()
-        const parts = await SessionPrompt.resolvePromptParts(prompt)
+        const model = await defaultProviderModel()
+        const parts = await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.resolvePromptParts(prompt)
+          }),
+        )
 
         const timeout = setTimeout(() => {
           log.warn("brain session timed out, cancelling", { sessionID: session.id })
-          SessionPrompt.cancel(session.id)
+          void runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              yield* sessionPrompt.cancel(session.id)
+            }),
+          )
         }, BRAIN_SESSION_TIMEOUT_MS)
 
         try {
-          await SessionPrompt.prompt({
-            sessionID: session.id,
-            model,
-            parts,
-          })
+          await runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              return yield* sessionPrompt.prompt({
+                sessionID: session.id,
+                model,
+                parts,
+              })
+            }),
+          )
         } finally {
           clearTimeout(timeout)
         }
@@ -374,7 +442,7 @@ function truncate(text: string, max: number) {
   return text.slice(0, max - 1).trimEnd() + "..."
 }
 
-type SessionReviewMessage = Awaited<ReturnType<typeof Session.messages>>[number]
+type SessionReviewMessage = MessageV2.WithParts
 
 function formatReviewPart(part: SessionReviewMessage["parts"][number]) {
   switch (part.type) {
@@ -409,10 +477,15 @@ async function buildSessionReviews(sessionIds: string[]) {
   const reviews = await Promise.all(
     selected.map(async (sessionID) => {
       try {
-        const [session, messages] = await Promise.all([
-          Session.get(sessionID),
-          Session.messages({ sessionID, limit: 40 }),
-        ])
+        const [session, messages] = await runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* Effect.all([
+              sessionService.get(sessionID),
+              sessionService.messages({ sessionID, limit: 40 }),
+            ])
+          }),
+        )
         const sections = messages.map(formatReviewMessage).filter(Boolean)
         const review = [
           `## ${session.title}`,

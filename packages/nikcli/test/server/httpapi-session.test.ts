@@ -1,0 +1,223 @@
+import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import fs from "fs/promises"
+import os from "os"
+import path from "path"
+
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-session-home-"))
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+process.env.XDG_DATA_HOME = path.join(testHome, "data")
+process.env.XDG_CACHE_HOME = path.join(testHome, "cache")
+process.env.XDG_CONFIG_HOME = path.join(testHome, "config")
+process.env.XDG_STATE_HOME = path.join(testHome, "state")
+
+const { Instance } = await import("@/project/instance")
+const { HttpApiBridge } = await import("@/server/httpapi/bridge")
+const { Server } = await import("@/server/server")
+const { Storage } = await import("@/storage/storage")
+const { runPromiseWithLayer } = await import("@/effect")
+const { Effect } = await import("effect")
+
+const projectDirs: string[] = []
+
+async function makeProjectDir() {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-session-project-"))
+  const resolved = await fs.realpath(dir)
+  projectDirs.push(resolved)
+  return resolved
+}
+
+async function request(pathname: string, directory: string, params: Record<string, string> = {}) {
+  process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+  const url = new URL(pathname, "http://nikcli.local")
+  url.searchParams.set("directory", directory)
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value)
+  }
+  const response = await Server.App().fetch(new Request(url))
+  if (response.status !== 200) {
+    throw new Error(`Expected ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
+  }
+  return response.json()
+}
+
+async function post(pathname: string, directory: string, body: unknown) {
+  return jsonRequest("POST", pathname, directory, body)
+}
+
+async function patch(pathname: string, directory: string, body: unknown) {
+  return jsonRequest("PATCH", pathname, directory, body)
+}
+
+async function remove(pathname: string, directory: string) {
+  return jsonRequest("DELETE", pathname, directory)
+}
+
+async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown) {
+  process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+  const url = new URL(pathname, "http://nikcli.local")
+  url.searchParams.set("directory", directory)
+  const headers = new Headers()
+  if (body !== undefined) headers.set("content-type", "application/json")
+  const response = await Server.App().fetch(
+    new Request(url, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }),
+  )
+  if (response.status !== 200) {
+    throw new Error(`Expected ${method} ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
+  }
+  return response.json()
+}
+
+async function writeStorage(key: string[], value: unknown) {
+  await runPromiseWithLayer(
+    Storage.defaultLayer,
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, value)
+    }),
+  )
+}
+
+describe("Session HttpApi bridge", () => {
+  it("serves session list and status routes", async () => {
+    const directory = await makeProjectDir()
+    const created = (await post("/session", directory, { title: "Bridge session" })) as { id: string; title: string }
+    const deleted = (await post("/session", directory, { title: "Delete me" })) as { id: string; title: string }
+
+    expect(HttpApiBridge.supports("/session", "POST")).toBe(true)
+    expect(HttpApiBridge.supports("/session", "GET")).toBe(true)
+    expect(HttpApiBridge.supports("/session/status", "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}`, "PATCH")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${deleted.id}`, "DELETE")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/children`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/fork`, "POST")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/abort`, "POST")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/revert`, "POST")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/unrevert`, "POST")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/diff`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/message`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi`, "GET")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi`, "DELETE")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi/part/prt_httpapi`, "DELETE")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/message/msg_httpapi/part/prt_httpapi`, "PATCH")).toBe(true)
+    expect(HttpApiBridge.supports(`/session/${created.id}/todo`, "GET")).toBe(true)
+
+    const sessions = (await request("/session", directory, { roots: "true", limit: "10" })) as unknown[]
+    expect(sessions).toContainEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
+
+    const statuses = (await request("/session/status", directory)) as Record<string, unknown>
+    expect(statuses).toEqual({})
+
+    const session = (await request(`/session/${created.id}`, directory)) as { id: string; title: string }
+    expect(session).toEqual(expect.objectContaining({ id: created.id, title: "Bridge session" }))
+
+    const updated = (await patch(`/session/${created.id}`, directory, { title: "Updated bridge session" })) as {
+      id: string
+      title: string
+    }
+    expect(updated).toEqual(expect.objectContaining({ id: created.id, title: "Updated bridge session" }))
+
+    const removed = (await remove(`/session/${deleted.id}`, directory)) as boolean
+    expect(removed).toBe(true)
+
+    const children = (await request(`/session/${created.id}/children`, directory)) as unknown[]
+    expect(children).toEqual([])
+
+    const forked = (await post(`/session/${created.id}/fork`, directory, {})) as {
+      id: string
+      parentID: string
+      title: string
+    }
+    expect(forked).toEqual(expect.objectContaining({ parentID: created.id }))
+
+    const forkedChildren = (await request(`/session/${created.id}/children`, directory)) as unknown[]
+    expect(forkedChildren).toContainEqual(expect.objectContaining({ id: forked.id, parentID: created.id }))
+
+    const aborted = (await post(`/session/${created.id}/abort`, directory, {})) as boolean
+    expect(aborted).toBe(true)
+
+    const diff = (await request(`/session/${created.id}/diff`, directory)) as unknown[]
+    expect(diff).toEqual([])
+
+    const messages = (await request(`/session/${created.id}/message`, directory, { limit: "10" })) as unknown[]
+    expect(messages).toEqual([])
+
+    const messageID = "msg_httpapi"
+    const partID = "prt_httpapi"
+    const message = {
+      id: messageID,
+      sessionID: created.id,
+      role: "user",
+      time: { created: Date.now() },
+      agent: "general",
+      model: { providerID: "openai", modelID: "gpt-5" },
+    }
+    const part = {
+      id: partID,
+      sessionID: created.id,
+      messageID,
+      type: "text",
+      text: "hello",
+    }
+    await writeStorage(["message", created.id, messageID], message)
+    await writeStorage(["part", messageID, partID], part)
+
+    const single = (await request(`/session/${created.id}/message/${messageID}`, directory)) as {
+      info: { id: string }
+      parts: Array<{ id: string; text?: string }>
+    }
+    expect(single.info.id).toBe(messageID)
+    expect(single.parts).toContainEqual(expect.objectContaining({ id: partID, text: "hello" }))
+
+    const updatedPart = (await patch(`/session/${created.id}/message/${messageID}/part/${partID}`, directory, {
+      ...part,
+      text: "updated",
+    })) as { id: string; text: string }
+    expect(updatedPart).toEqual(expect.objectContaining({ id: partID, text: "updated" }))
+
+    const reverted = (await post(`/session/${created.id}/revert`, directory, { messageID })) as {
+      id: string
+      revert?: { messageID: string }
+    }
+    expect(reverted).toEqual(
+      expect.objectContaining({
+        id: created.id,
+        revert: expect.objectContaining({ messageID }),
+      }),
+    )
+
+    const unreverted = (await post(`/session/${created.id}/unrevert`, directory, {})) as {
+      id: string
+      revert?: unknown
+    }
+    expect(unreverted).toEqual(expect.objectContaining({ id: created.id }))
+    expect(unreverted.revert).toBeUndefined()
+
+    const removedPart = (await remove(`/session/${created.id}/message/${messageID}/part/${partID}`, directory)) as boolean
+    expect(removedPart).toBe(true)
+
+    await writeStorage(["part", messageID, partID], part)
+    const removedMessage = (await remove(`/session/${created.id}/message/${messageID}`, directory)) as boolean
+    expect(removedMessage).toBe(true)
+
+    const todos = (await request(`/session/${created.id}/todo`, directory)) as unknown[]
+    expect(todos).toEqual([])
+  })
+})
+
+afterEach(async () => {
+  await Instance.disposeAll().catch(() => undefined)
+})
+
+afterAll(async () => {
+  delete process.env.NIKCLI_EXPERIMENTAL_HTTPAPI
+  await Instance.disposeAll().catch(() => undefined)
+  await Promise.all(projectDirs.map((dir) => fs.rm(dir, { recursive: true, force: true })))
+  await fs.rm(testHome, { recursive: true, force: true })
+})

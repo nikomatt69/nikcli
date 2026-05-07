@@ -15,6 +15,8 @@ import fs from "fs/promises"
 import path from "path"
 import { ulid } from "ulid"
 import z from "zod"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const OUTPUT_EVENT_MAX_BYTES = 32 * 1024
 const OUTPUT_TAIL_MAX_BYTES = 64 * 1024
@@ -26,6 +28,36 @@ const PREVIEW_MAX_LINES = 3
 const DEFAULT_LOG_LINES = 200
 
 const log = Log.create({ service: "monitor" })
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
 
 export namespace Monitor {
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled"])
@@ -182,7 +214,7 @@ export namespace Monitor {
   }
 
   async function persist(record: Record) {
-    await Storage.write(recordKey(record.sessionID, record.id), record)
+    await storageWrite(recordKey(record.sessionID, record.id), record)
   }
 
   async function resolveToolPart(record: Record): Promise<MessageV2.ToolPart | undefined> {
@@ -236,14 +268,20 @@ export namespace Monitor {
       ...toolMetadata(record),
     }
     if (Bun.deepEquals(currentMetadata, nextMetadata)) return
-
-    await Session.updatePart({
+    const nextPart: MessageV2.ToolPart = {
       ...part,
       state: {
         ...part.state,
         metadata: nextMetadata,
       },
-    })
+    }
+
+    await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        yield* session.updatePart(nextPart)
+      }),
+    )
   }
 
   async function publishUpdated(record: Record) {
@@ -401,15 +439,20 @@ export namespace Monitor {
       }
       lines.push("Continue from this event without polling. Read the full log only if you need more detail.")
 
-      await SessionPrompt.prompt({
-        sessionID: record.sessionID,
-        parts: [
-          {
-            type: "text",
-            text: lines.join("\n\n"),
-          },
-        ],
-      })
+      await runSessionPrompt(
+        Effect.gen(function* () {
+          const sessionPrompt = yield* SessionPrompt.Service
+          return yield* sessionPrompt.prompt({
+            sessionID: record.sessionID,
+            parts: [
+              {
+                type: "text",
+                text: lines.join("\n\n"),
+              },
+            ],
+          })
+        }),
+      )
     } catch (error) {
       log.error("failed to wake monitor session", { error: String(error), monitorID: record.id })
     }
@@ -441,7 +484,7 @@ export namespace Monitor {
   async function load(sessionID: string, monitorID: string): Promise<Record> {
     const active = state().get(key(monitorID))
     if (active && active.record.sessionID === sessionID) return active.record
-    return Storage.read<Record>(recordKey(sessionID, monitorID))
+    return storageRead<Record>(recordKey(sessionID, monitorID))
   }
 
   export async function start(input: {

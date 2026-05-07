@@ -158,30 +158,30 @@ A file is considered "done" when:
 Files that meet this bar but still carry a compat bridge are checked off
 with an inline note describing the bridge and what unblocks its removal.
 
-- [x] skills, formatter, console-state, mcp, lsp, permission (leaves), model-id, command, plugin, provider
-- [x] server, layout
-- [x] keybinds
-- [x] permission#Info
-- [x] agent
-- [x] config.ts root
+- [ ] skills, formatter, console-state, mcp, lsp, permission (leaves), model-id, command, plugin, provider
+- [ ] server, layout
+- [ ] keybinds
+- [ ] permission#Info
+- [ ] agent
+- [ ] config.ts root
 
 ### `src/*/schema.ts` leaf modules
 
 These are the highest-priority next targets. Each is a small, self-contained
 schema module with a clear domain.
 
-- [x] `src/account/schema.ts`
-- [x] `src/control-plane/schema.ts`
-- [x] `src/permission/schema.ts`
-- [x] `src/project/schema.ts`
-- [x] `src/provider/schema.ts`
-- [x] `src/pty/schema.ts`
-- [x] `src/question/schema.ts`
-- [x] `src/session/schema.ts`
-- [x] `src/storage/schema.ts`
-- [x] `src/sync/schema.ts`
-- [x] `src/tool/schema.ts`
-- [x] `src/util/schema.ts`
+- [ ] `src/account/schema.ts`
+- [ ] `src/control-plane/schema.ts`
+- [ ] `src/permission/schema.ts`
+- [ ] `src/project/schema.ts`
+- [ ] `src/provider/schema.ts`
+- [ ] `src/pty/schema.ts`
+- [ ] `src/question/schema.ts`
+- [ ] `src/session/schema.ts`
+- [ ] `src/storage/schema.ts`
+- [ ] `src/sync/schema.ts`
+- [ ] `src/tool/schema.ts`
+- [ ] `src/util/schema.ts`
 
 ### Session domain
 
@@ -262,21 +262,21 @@ Possible later tightening after the Schema-first migration is stable:
 - promote repeated opaque strings and timestamp numbers into branded/newtype
   leaf schemas where that adds domain value without changing the wire format
 
-- [x] `src/session/compaction.ts`
-- [x] `src/session/message-v2.ts`
-- [x] `src/session/message.ts`
-- [x] `src/session/prompt.ts`
-- [x] `src/session/revert.ts`
-- [x] `src/session/session.ts`
-- [x] `src/session/status.ts`
-- [x] `src/session/summary.ts`
-- [x] `src/session/todo.ts`
+- [ ] `src/session/compaction.ts`
+- [ ] `src/session/message-v2.ts`
+- [ ] `src/session/message.ts`
+- [ ] `src/session/prompt.ts`
+- [ ] `src/session/revert.ts`
+- [ ] `src/session/session.ts`
+- [ ] `src/session/status.ts`
+- [ ] `src/session/summary.ts`
+- [ ] `src/session/todo.ts`
 
 ### Provider domain
 
-- [x] `src/provider/auth.ts`
-- [x] `src/provider/models.ts`
-- [x] `src/provider/provider.ts`
+- [ ] `src/provider/auth.ts`
+- [ ] `src/provider/models.ts`
+- [ ] `src/provider/provider.ts`
 
 ### Tool schemas
 
@@ -284,24 +284,24 @@ Each tool declares its parameters via a zod schema. Tools are consumed by
 both the in-process runtime and the AI SDK's tool-calling layer, so the
 emitted JSON Schema must stay byte-identical.
 
-- [x] `src/tool/apply_patch.ts`
-- [x] `src/tool/bash.ts`
-- [x] `src/tool/edit.ts`
-- [x] `src/tool/glob.ts`
-- [x] `src/tool/grep.ts`
-- [x] `src/tool/invalid.ts`
-- [x] `src/tool/lsp.ts`
-- [x] `src/tool/plan.ts`
-- [x] `src/tool/question.ts`
-- [x] `src/tool/read.ts`
-- [x] `src/tool/registry.ts`
-- [x] `src/tool/skill.ts`
-- [x] `src/tool/task.ts`
-- [x] `src/tool/todo.ts`
-- [x] `src/tool/tool.ts`
-- [x] `src/tool/webfetch.ts`
-- [x] `src/tool/websearch.ts`
-- [x] `src/tool/write.ts`
+- [ ] `src/tool/apply_patch.ts`
+- [ ] `src/tool/bash.ts`
+- [ ] `src/tool/edit.ts`
+- [ ] `src/tool/glob.ts`
+- [ ] `src/tool/grep.ts`
+- [ ] `src/tool/invalid.ts`
+- [ ] `src/tool/lsp.ts`
+- [ ] `src/tool/plan.ts`
+- [ ] `src/tool/question.ts`
+- [ ] `src/tool/read.ts`
+- [ ] `src/tool/registry.ts`
+- [ ] `src/tool/skill.ts`
+- [ ] `src/tool/task.ts`
+- [ ] `src/tool/todo.ts`
+- [ ] `src/tool/tool.ts`
+- [ ] `src/tool/webfetch.ts`
+- [ ] `src/tool/websearch.ts`
+- [ ] `src/tool/write.ts`
 
 ### HTTP route boundaries
 
@@ -312,8 +312,8 @@ which means touching them is largely mechanical once the domain side is
 done.
 
 - [ ] `src/server/error.ts`
-- [x] `src/server/event.ts`
-- [x] `src/server/projectors.ts`
+- [ ] `src/server/event.ts`
+- [ ] `src/server/projectors.ts`
 - [ ] `src/server/routes/control/index.ts`
 - [ ] `src/server/routes/control/workspace.ts`
 - [ ] `src/server/routes/global.ts`
@@ -345,7 +345,7 @@ piecewise.
 
 - [ ] `src/acp/agent.ts`
 - [ ] `src/agent/agent.ts`
-- [x] `src/bus/bus-event.ts`
+- [ ] `src/bus/bus-event.ts`
 - [ ] `src/bus/index.ts`
 - [ ] `src/cli/cmd/tui/config/tui-migrate.ts`
 - [ ] `src/cli/cmd/tui/config/tui-schema.ts`
@@ -353,9 +353,9 @@ piecewise.
 - [ ] `src/cli/cmd/tui/event.ts`
 - [ ] `src/cli/ui.ts`
 - [ ] `src/command/index.ts`
-- [x] `src/control-plane/adapters/worktree.ts`
-- [x] `src/control-plane/types.ts`
-- [x] `src/control-plane/workspace.ts`
+- [ ] `src/control-plane/adapters/worktree.ts`
+- [ ] `src/control-plane/types.ts`
+- [ ] `src/control-plane/workspace.ts`
 - [ ] `src/file/index.ts`
 - [ ] `src/file/ripgrep.ts`
 - [ ] `src/file/watcher.ts`
@@ -375,7 +375,7 @@ piecewise.
 - [ ] `src/snapshot/index.ts`
 - [ ] `src/storage/db.ts`
 - [ ] `src/storage/storage.ts`
-- [x] `src/sync/index.ts` — public API (`SyncEvent.define`) is Schema-first; `payloads()` still derives zod for the remaining HTTP/OpenAPI boundary
+- [ ] `src/sync/index.ts` — public API (`SyncEvent.define`) is Schema-first; `payloads()` still derives zod for the remaining HTTP/OpenAPI boundary
 - [ ] `src/util/fn.ts`
 - [ ] `src/util/log.ts`
 - [ ] `src/util/update-schema.ts`

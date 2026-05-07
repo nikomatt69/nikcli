@@ -7,6 +7,12 @@ import { TuiEvent } from "@/cli/cmd/tui/event"
 import { AsyncQueue } from "../../util/queue"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 const TuiRequest = z.object({
   path: z.string(),
@@ -370,7 +376,12 @@ export const TuiRoutes = lazy(() =>
       validator("json", TuiEvent.SessionSelect.properties),
       async (c) => {
         const { sessionID } = c.req.valid("json")
-        const session = await Session.get(sessionID)
+        const session = await runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* sessionService.get(sessionID)
+          }),
+        )
         if (!session) {
           return c.json({ error: "Session not found" }, 404)
         }

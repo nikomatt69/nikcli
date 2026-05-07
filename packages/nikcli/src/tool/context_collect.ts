@@ -8,6 +8,8 @@ import { SearchBackend } from "@/file/searchBackend"
 import { assertExternalDirectory } from "./external-directory"
 import { FileIgnore } from "@/file/ignore"
 import { LSP } from "@/lsp"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const parameters = z.object({
   paths: z.array(z.string()).optional().describe("Files or directories to include"),
@@ -17,6 +19,10 @@ const parameters = z.object({
   includeSymbols: z.boolean().optional().describe("Include LSP symbols for files"),
   includeDiagnostics: z.boolean().optional().describe("Include LSP diagnostics for files"),
 })
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ContextCollectTool = Tool.define<typeof parameters, { count: number; truncated: boolean }>(
   "context_collect",
@@ -53,7 +59,14 @@ export const ContextCollectTool = Tool.define<typeof parameters, { count: number
       }
 
       const files = await collectFiles(resolved, limitFiles)
-      const diagnostics = includeDiagnostics ? await LSP.diagnostics() : undefined
+      const diagnostics = includeDiagnostics
+        ? await runLSP(
+            Effect.gen(function* () {
+              const lsp = yield* LSP.Service
+              return yield* lsp.diagnostics()
+            }),
+          )
+        : undefined
       const lines: string[] = []
 
       if (files.length === 0) {
@@ -147,6 +160,11 @@ async function readSnippet(filePath: string, limit: number, regex?: RegExp) {
 
 async function collectSymbols(filePath: string) {
   const uri = pathToFileURL(filePath).href
-  const symbols = await LSP.documentSymbol(uri).catch(() => [])
+  const symbols = await runLSP(
+    Effect.gen(function* () {
+      const lsp = yield* LSP.Service
+      return yield* lsp.documentSymbol(uri)
+    }),
+  ).catch(() => [])
   return symbols.map((item) => item.name).slice(0, 20)
 }

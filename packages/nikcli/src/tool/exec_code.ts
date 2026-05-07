@@ -24,7 +24,15 @@ const EXCLUDED = new Set([
 export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
   // Use ids() instead of tools() — tools() would call init() on every tool recursively
   const { ToolRegistry } = await import("./registry")
-  const allIds = await ToolRegistry.ids()
+  const { runPromiseWithLayer } = await import("@/effect")
+  const { Effect } = await import("effect")
+  const allIds = await runPromiseWithLayer(
+    ToolRegistry.defaultLayer,
+    Effect.gen(function* () {
+      const registry = yield* ToolRegistry.Service
+      return yield* registry.ids()
+    }),
+  )
   const bridgeableIds = allIds.filter((id) => !EXCLUDED.has(id))
   const availableNames = bridgeableIds.join(", ")
 
@@ -47,7 +55,13 @@ export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
 
       // Safe to call tools() here: ExecCodeTool.init now uses ids(), breaking the recursion
       const { ToolRegistry: TR } = await import("./registry")
-      const availableTools = await TR.tools({ providerID: "", modelID: "" }, initCtx?.agent)
+      const availableTools = await runPromiseWithLayer(
+        TR.defaultLayer,
+        Effect.gen(function* () {
+          const registry = yield* TR.Service
+          return yield* registry.tools({ providerID: "", modelID: "" }, initCtx?.agent)
+        }),
+      )
       const bridgeable = availableTools.filter((t) => !EXCLUDED.has(t.id))
 
       const bridge: NativeExecutor.ToolBridge = {}

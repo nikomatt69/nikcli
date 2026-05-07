@@ -3,7 +3,6 @@ import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
-import { Instance } from "../project/instance"
 import path from "path"
 import os from "os"
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
@@ -15,12 +14,14 @@ import PROMPT_CODEX from "./prompt/codex_header.txt"
 import type { Provider } from "@/provider/provider"
 import { Flag } from "@/flag/flag"
 import { Skill } from "@/skill"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "system-prompt" })
 
-async function resolveRelativeInstruction(instruction: string): Promise<string[]> {
+async function resolveRelativeInstruction(ctx: InstanceContext, instruction: string): Promise<string[]> {
   if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-    return Filesystem.globUp(instruction, Instance.directory, Instance.worktree).catch(() => [])
+    return Filesystem.globUp(instruction, ctx.directory, ctx.worktree).catch(() => [])
   }
   if (!Flag.NIKCLI_CONFIG_DIR) {
     log.warn(
@@ -32,6 +33,14 @@ async function resolveRelativeInstruction(instruction: string): Promise<string[]
 }
 
 export namespace SystemPrompt {
+  export interface Interface {
+    environment(): Effect.Effect<string[], unknown>
+    custom(): Effect.Effect<string[], unknown>
+    skills(names?: string[]): Effect.Effect<string[], unknown>
+  }
+
+  export class Service extends Context.Tag("SystemPrompt.Service")<Service, Interface>() {}
+
   export function header(providerID: string) {
     if (providerID.includes("anthropic")) return [PROMPT_ANTHROPIC_SPOOF.trim()]
     return []
@@ -50,32 +59,7 @@ export namespace SystemPrompt {
     return [PROMPT_ANTHROPIC_WITHOUT_TODO]
   }
 
-  export async function environment() {
-    const project = Instance.project
-    return [
-      [
-        `Here is some useful information about the environment you are running in:`,
-        `<env>`,
-        `  Working directory: ${Instance.directory}`,
-        `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
-        `  Platform: ${process.platform}`,
-        `  Today's date: ${new Date().toDateString()}`,
-        `</env>`,
-        `<files>`,
-        `  ${
-          project.vcs === "git" && false
-            ? await SearchBackend.tree({
-                cwd: Instance.directory,
-                limit: 200,
-              })
-            : ""
-        }`,
-        `</files>`,
-      ].join("\n"),
-    ]
-  }
-
-  const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md" , ".github/instructions/memory.instruction.md"]
+  const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md", ".github/instructions/memory.instruction.md"]
   const GLOBAL_RULE_FILES = [path.join(Global.Path.config, "AGENTS.md")]
   if (!Flag.NIKCLI_DISABLE_CLAUDE_CODE_PROMPT) {
     GLOBAL_RULE_FILES.push(path.join(os.homedir(), ".claude", "CLAUDE.md"))
@@ -85,13 +69,37 @@ export namespace SystemPrompt {
     GLOBAL_RULE_FILES.push(path.join(Flag.NIKCLI_CONFIG_DIR, "AGENTS.md"))
   }
 
-  export async function custom() {
-    const config = await Config.get()
+  async function environmentImpl(ctx: InstanceContext) {
+    const project = ctx.project
+    return [
+      [
+        `Here is some useful information about the environment you are running in:`,
+        `<env>`,
+        `  Working directory: ${ctx.directory}`,
+        `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
+        `  Platform: ${process.platform}`,
+        `  Today's date: ${new Date().toDateString()}`,
+        `</env>`,
+        `<files>`,
+        `  ${
+          project.vcs === "git" && false
+            ? await SearchBackend.tree({
+                cwd: ctx.directory,
+                limit: 200,
+              })
+            : ""
+        }`,
+        `</files>`,
+      ].join("\n"),
+    ]
+  }
+
+  async function customImpl(ctx: InstanceContext, config: Config.Info) {
     const paths = new Set<string>()
 
     if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
       for (const localRuleFile of LOCAL_RULE_FILES) {
-        const matches = await Filesystem.findUp(localRuleFile, Instance.directory, Instance.worktree)
+        const matches = await Filesystem.findUp(localRuleFile, ctx.directory, ctx.worktree)
         if (matches.length > 0) {
           matches.forEach((path) => paths.add(path))
           break
@@ -126,7 +134,7 @@ export namespace SystemPrompt {
             }),
           ).catch(() => [])
         } else {
-          matches = await resolveRelativeInstruction(instruction)
+          matches = await resolveRelativeInstruction(ctx, instruction)
         }
         matches.forEach((path) => paths.add(path))
       }
@@ -147,15 +155,13 @@ export namespace SystemPrompt {
     return Promise.all([...foundFiles, ...foundUrls]).then((result) => result.filter(Boolean))
   }
 
-  
-
-  export async function skills(names: string[] = []) {
+  async function skillsImpl(skill: Skill.Interface, names: string[] = []) {
     const uniqueNames = [...new Set(names)]
     if (uniqueNames.length === 0) return []
 
-    const loaded = (await Promise.all(uniqueNames.map((name) => Skill.load(name).catch(() => undefined)))).filter(
-      (skill): skill is NonNullable<Awaited<ReturnType<typeof Skill.load>>> => !!skill,
-    )
+    const loaded = (
+      await Promise.all(uniqueNames.map((name) => Effect.runPromise(skill.load(name)).catch(() => undefined)))
+    ).filter((skill): skill is Skill.Loaded => !!skill)
 
     if (loaded.length === 0) return []
 
@@ -183,4 +189,37 @@ export namespace SystemPrompt {
       ].join("\n\n"),
     ]
   }
+
+  const layer = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const skill = yield* Skill.Service
+      function configGet(ctx: InstanceContext) {
+        return runPromiseWithLayer(
+          Config.defaultLayer,
+          locallyInstance(
+            ctx,
+            Effect.gen(function* () {
+              const config = yield* Config.Service
+              return yield* config.get()
+            }),
+          ),
+        )
+      }
+
+      return Service.of({
+        environment: () =>
+          InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => environmentImpl(ctx)))),
+        custom: () =>
+          Effect.gen(function* () {
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            return yield* Effect.tryPromise(() => customImpl(ctx, cfg))
+          }),
+        skills: (names = []) => Effect.tryPromise(() => skillsImpl(skill, names)),
+      })
+    }),
+  )
+
+  export const defaultLayer = Layer.unwrapEffect(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
 }

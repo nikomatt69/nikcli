@@ -13,12 +13,22 @@ const seed = async () => {
   const { Session } = await import("../src/session")
   const { Identifier } = await import("../src/id/id")
   const { Project } = await import("../src/project/project")
+  const { Effect } = await import("effect")
+  const { runPromiseWithLayer, withCurrentInstance } = await import("../src/effect")
 
   await Instance.provide({
     directory: dir,
     init: InstanceBootstrap,
     fn: async () => {
-      const session = await Session.create({ title })
+      const session = await runPromiseWithLayer(
+        Session.defaultLayer,
+        withCurrentInstance(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.create({ title })
+          }),
+        ),
+      )
       const messageID = Identifier.descending("message")
       const partID = Identifier.descending("part")
       const message = {
@@ -40,9 +50,23 @@ const seed = async () => {
         text,
         time: { start: now },
       }
-      await Session.updateMessage(message)
-      await Session.updatePart(part)
-      await Project.update({ projectID: Instance.project.id, name: "E2E Project" })
+      await runPromiseWithLayer(
+        Session.defaultLayer,
+        withCurrentInstance(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.updateMessage(message)
+            yield* service.updatePart(part)
+          }),
+        ),
+      )
+      await runPromiseWithLayer(
+        Project.defaultLayer,
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          yield* project.update({ projectID: Instance.project.id, name: "E2E Project" })
+        }),
+      )
     },
   })
 }

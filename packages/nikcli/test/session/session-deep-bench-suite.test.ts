@@ -10,6 +10,8 @@ import { SessionRetry } from "@/session/retry"
 import { SessionStatus } from "@/session/status"
 import { SystemPrompt } from "@/session/system"
 import { flushBenchmarkRun, recordBenchmark, recordVisualArtifact } from "../benchmarks/runner"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-deep-bench-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -24,6 +26,37 @@ async function withProject<T>(fn: () => Promise<T> | T): Promise<T> {
     directory: projectDir,
     fn,
   })
+}
+
+function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
+  return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function getStatus(sessionID: string) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.get(sessionID)
+    }),
+  )
+}
+
+function setStatus(sessionID: string, input: SessionStatus.Info) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.set(sessionID, input)
+    }),
+  )
+}
+
+function listStatus() {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.list()
+    }),
+  )
 }
 
 function createApiError(message: string, responseHeaders?: Record<string, string>, responseBody?: string, isRetryable = true) {
@@ -193,7 +226,7 @@ describe("Session status subsystem", () => {
 
   it("defaults to idle for unknown session", async () => {
     await withProject(async () => {
-      const status = SessionStatus.get(idleID)
+      const status = await getStatus(idleID)
       expect(status.type).toBe("idle")
     })
   })
@@ -211,36 +244,36 @@ describe("Session status subsystem", () => {
 
   it.each(statusCases)("status lifecycle $sessionID", async ({ sessionID, status }) => {
     await withProject(async () => {
-      SessionStatus.set(sessionID, status)
-      const observed = SessionStatus.get(sessionID)
+      await setStatus(sessionID, status)
+      const observed = await getStatus(sessionID)
       expect(observed).toEqual(status)
-      SessionStatus.set(sessionID, { type: "idle" })
+      await setStatus(sessionID, { type: "idle" })
     })
   })
 
   it("aggregates status map values", async () => {
     await withProject(async () => {
       for (let i = 0; i < 12; i += 1) {
-        SessionStatus.set(`aggregate-${i}`, {
+        await setStatus(`aggregate-${i}`, {
           type: i % 3 === 0 ? "idle" : i % 3 === 1 ? "busy" : "retry",
           attempt: 1,
           message: `msg-${i}`,
           next: 1,
         })
       }
-      const snapshot = SessionStatus.list()
+      const snapshot = await listStatus()
       const busy = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-") && snapshot[id]?.type === "busy").length
       const retry = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-") && snapshot[id]?.type === "retry").length
       const known = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-")).length
 
-      expect(known).toBe(12)
+      expect(known).toBe(8)
       expect(busy + retry).toBe(8)
       expect(snapshot["aggregate-0"]).toBeUndefined()
       expect(snapshot["aggregate-3"]).toBeUndefined()
       expect(snapshot["aggregate-6"]).toBeUndefined()
 
       for (let i = 0; i < 12; i += 1) {
-        SessionStatus.set(`aggregate-${i}`, { type: "idle" })
+        await setStatus(`aggregate-${i}`, { type: "idle" })
       }
     })
   })
@@ -253,10 +286,10 @@ describe("Session status subsystem", () => {
 
       for (let i = 0; i < iterations; i += 1) {
         const sessionID = `bench-status-${i}`
-        SessionStatus.set(sessionID, { type: "retry", attempt: i % 4, message: `attempt-${i}`, next: i * 10 })
-        last = SessionStatus.get(sessionID)
+        await setStatus(sessionID, { type: "retry", attempt: i % 4, message: `attempt-${i}`, next: i * 10 })
+        last = await getStatus(sessionID)
         expect(last?.type).toBe("retry")
-        if (i % 2 === 0) SessionStatus.set(sessionID, { type: "idle" })
+        if (i % 2 === 0) await setStatus(sessionID, { type: "idle" })
       }
 
       const elapsed = performance.now() - start
@@ -1271,4 +1304,3 @@ afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })
   flushBenchmarkRun()
 })
-

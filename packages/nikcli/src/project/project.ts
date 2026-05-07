@@ -8,15 +8,65 @@ import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
 import type { Session } from "../session"
 import { work } from "../util/queue"
-import { fn } from "@nikcli-ai/util/fn"
 import { BusEvent } from "@/bus/bus-event"
 import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
 import { existsSync } from "fs"
 import { Git } from "@/git"
+import { Context, Effect, Layer } from "effect"
+import { runPromiseWithLayer } from "@/effect"
 
 export namespace Project {
   const log = Log.create({ service: "project" })
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function storageRead<T>(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.read<T>(key)
+      }),
+    )
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.update(key, fn)
+      }),
+    )
+  }
+
+  function storageRemove(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.remove(key)
+      }),
+    )
+  }
+
+  function storageList(prefix: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.list(prefix)
+      }),
+    )
+  }
 
   async function readCachedID(gitDir?: string) {
     if (!gitDir) return undefined
@@ -76,7 +126,26 @@ export namespace Project {
     Updated: BusEvent.define("project.updated", Info),
   }
 
-  export async function fromDirectory(directory: string) {
+  export const UpdateInput = z.object({
+    projectID: z.string(),
+    name: z.string().optional(),
+    icon: Info.shape.icon.optional(),
+  })
+  export type UpdateInput = z.infer<typeof UpdateInput>
+
+  export interface Interface {
+    fromDirectory(directory: string): Effect.Effect<{ project: Info; sandbox: string }, unknown>
+    discover(input: Info): Effect.Effect<void, unknown>
+    setInitialized(projectID: string): Effect.Effect<void, unknown>
+    list(): Effect.Effect<Info[], unknown>
+    update(input: UpdateInput): Effect.Effect<Info, unknown>
+    sandboxes(projectID: string): Effect.Effect<string[], unknown>
+    removeSandbox(projectID: string, directory: string): Effect.Effect<Info, unknown>
+  }
+
+  export class Service extends Context.Tag("Project.Service")<Service, Interface>() {}
+
+  async function fromDirectoryImpl(directory: string) {
     log.info("fromDirectory", { directory })
 
     const { id, sandbox, worktree, vcs } = await iife(async () => {
@@ -238,7 +307,7 @@ export namespace Project {
       }
     })
 
-    let existing = await Storage.read<Info>(["project", id]).catch(() => undefined)
+    let existing = await storageRead<Info>(["project", id]).catch(() => undefined)
     if (!existing) {
       existing = {
         id,
@@ -258,7 +327,7 @@ export namespace Project {
     if (!existing.sandboxes) existing.sandboxes = []
 
     if (Flag.NIKCLI_EXPERIMENTAL_ICON_DISCOVERY) {
-      void discover(existing).catch((error) => {
+      void discoverImpl(existing).catch((error) => {
         log.warn("icon discovery failed", { directory, error })
       })
     }
@@ -274,7 +343,7 @@ export namespace Project {
     }
     if (sandbox !== result.worktree && !result.sandboxes.includes(sandbox)) result.sandboxes.push(sandbox)
     result.sandboxes = result.sandboxes.filter((x) => existsSync(x))
-    await Storage.write<Info>(["project", id], result)
+    await storageWrite<Info>(["project", id], result)
     GlobalBus.emit("event", {
       payload: {
         type: Event.Updated.type,
@@ -284,7 +353,7 @@ export namespace Project {
     return { project: result, sandbox }
   }
 
-  export async function discover(input: Info) {
+  async function discoverImpl(input: Info) {
     if (input.vcs !== "git") return
     if (input.icon?.override) return
     if (input.icon?.url) return
@@ -305,7 +374,7 @@ export namespace Project {
     const base64 = Buffer.from(buffer).toString("base64")
     const mime = file.type || "image/png"
     const url = `data:${mime};base64,${base64}`
-    await update({
+    await updateImpl({
       projectID: input.id,
       icon: {
         url,
@@ -315,75 +384,68 @@ export namespace Project {
   }
 
   async function migrateFromGlobal(newProjectID: string, worktree: string) {
-    const globalProject = await Storage.read<Info>(["project", "global"]).catch(() => undefined)
+    const globalProject = await storageRead<Info>(["project", "global"]).catch(() => undefined)
     if (!globalProject) return
 
-    const globalSessions = await Storage.list(["session", "global"]).catch(() => [])
+    const globalSessions = await storageList(["session", "global"]).catch(() => [])
     if (globalSessions.length === 0) return
 
     log.info("migrating sessions from global", { newProjectID, worktree, count: globalSessions.length })
 
     await work(10, globalSessions, async (key) => {
       const sessionID = key[key.length - 1]
-      const session = await Storage.read<Session.Info>(key).catch(() => undefined)
+      const session = await storageRead<Session.Info>(key).catch(() => undefined)
       if (!session) return
       if (session.directory && session.directory !== worktree) return
 
       session.projectID = newProjectID
       log.info("migrating session", { sessionID, from: "global", to: newProjectID })
-      await Storage.write(["session", newProjectID, sessionID], session)
-      await Storage.remove(key)
+      await storageWrite(["session", newProjectID, sessionID], session)
+      await storageRemove(key)
     }).catch((error) => {
       log.error("failed to migrate sessions from global to project", { error, projectId: newProjectID })
     })
   }
 
-  export async function setInitialized(projectID: string) {
-    await Storage.update<Info>(["project", projectID], (draft) => {
+  async function setInitializedImpl(projectID: string) {
+    await storageUpdate<Info>(["project", projectID], (draft) => {
       draft.time.initialized = Date.now()
     })
   }
 
-  export async function list() {
-    const keys = await Storage.list(["project"])
-    const projects = await Promise.all(keys.map((x) => Storage.read<Info>(x)))
+  async function listImpl() {
+    const keys = await storageList(["project"])
+    const projects = await Promise.all(keys.map((x) => storageRead<Info>(x)))
     return projects.map((project) => ({
       ...project,
       sandboxes: project.sandboxes?.filter((x) => existsSync(x)),
     }))
   }
 
-  export const update = fn(
-    z.object({
-      projectID: z.string(),
-      name: z.string().optional(),
-      icon: Info.shape.icon.optional(),
-    }),
-    async (input) => {
-      const result = await Storage.update<Info>(["project", input.projectID], (draft) => {
-        if (input.name !== undefined) draft.name = input.name
-        if (input.icon !== undefined) {
-          draft.icon = {
-            ...draft.icon,
-          }
-          if (input.icon.url !== undefined) draft.icon.url = input.icon.url
-          if (input.icon.override !== undefined) draft.icon.override = input.icon.override || undefined
-          if (input.icon.color !== undefined) draft.icon.color = input.icon.color
+  async function updateImpl(input: UpdateInput) {
+    const result = await storageUpdate<Info>(["project", input.projectID], (draft) => {
+      if (input.name !== undefined) draft.name = input.name
+      if (input.icon !== undefined) {
+        draft.icon = {
+          ...draft.icon,
         }
-        draft.time.updated = Date.now()
-      })
-      GlobalBus.emit("event", {
-        payload: {
-          type: Event.Updated.type,
-          properties: result,
-        },
-      })
-      return result
-    },
-  )
+        if (input.icon.url !== undefined) draft.icon.url = input.icon.url
+        if (input.icon.override !== undefined) draft.icon.override = input.icon.override || undefined
+        if (input.icon.color !== undefined) draft.icon.color = input.icon.color
+      }
+      draft.time.updated = Date.now()
+    })
+    GlobalBus.emit("event", {
+      payload: {
+        type: Event.Updated.type,
+        properties: result,
+      },
+    })
+    return result
+  }
 
-  export async function sandboxes(projectID: string) {
-    const project = await Storage.read<Info>(["project", projectID]).catch(() => undefined)
+  async function sandboxesImpl(projectID: string) {
+    const project = await storageRead<Info>(["project", projectID]).catch(() => undefined)
     if (!project?.sandboxes) return []
     const valid: string[] = []
     for (const dir of project.sandboxes) {
@@ -393,8 +455,8 @@ export namespace Project {
     return valid
   }
 
-  export async function removeSandbox(projectID: string, directory: string) {
-    const result = await Storage.update<Info>(["project", projectID], (draft) => {
+  async function removeSandboxImpl(projectID: string, directory: string) {
+    const result = await storageUpdate<Info>(["project", projectID], (draft) => {
       const sandboxes = draft.sandboxes ?? []
       draft.sandboxes = sandboxes.filter((sandbox) => sandbox !== directory)
       draft.time.updated = Date.now()
@@ -407,4 +469,19 @@ export namespace Project {
     })
     return result
   }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      fromDirectory: (directory) => Effect.tryPromise(() => fromDirectoryImpl(directory)),
+      discover: (input) => Effect.tryPromise(() => discoverImpl(input)),
+      setInitialized: (projectID) => Effect.tryPromise(() => setInitializedImpl(projectID)),
+      list: () => Effect.tryPromise(() => listImpl()),
+      update: (input) => Effect.tryPromise(() => updateImpl(input)),
+      sandboxes: (projectID) => Effect.tryPromise(() => sandboxesImpl(projectID)),
+      removeSandbox: (projectID, directory) => Effect.tryPromise(() => removeSandboxImpl(projectID, directory)),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

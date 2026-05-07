@@ -3,9 +3,24 @@ import { Tool } from "./tool"
 import { Skill } from "../skill"
 import { PermissionNext } from "../permission/next"
 import { Session } from "../session"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
+  return runPromiseWithLayer(Skill.defaultLayer, effect)
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 export const SkillTool = Tool.define("skill", async (ctx) => {
-  const allSkills = await Skill.all()
+  const allSkills = await runSkill(
+    Effect.gen(function* () {
+      const skill = yield* Skill.Service
+      return yield* skill.all()
+    }),
+  )
 
   const agent = ctx?.agent
   const accessibleSkills = agent
@@ -86,32 +101,48 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
       }
 
       if (params.name) {
-        const resolved = await Skill.resolve(params.name, accessibleSkills)
+        const resolved = await runSkill(
+          Effect.gen(function* () {
+            const skill = yield* Skill.Service
+            return yield* skill.resolve(params.name!, accessibleSkills)
+          }),
+        )
         if (!resolved.skill) {
           const suggestions = resolved.suggestions.join(", ")
           const available = accessibleSkills.map((skill) => skill.name).join(", ")
           const hint = suggestions ? ` Did you mean: ${suggestions}?` : ""
           throw new Error(`Skill "${params.name}" not found.${hint} Available skills: ${available || "none"}`)
         }
+        const resolvedSkill = resolved.skill
 
         await ctx.ask({
           permission: "skill",
-          patterns: [resolved.skill.name],
-          always: [resolved.skill.name],
+          patterns: [resolvedSkill.name],
+          always: [resolvedSkill.name],
           metadata: {},
         })
 
-        const loaded = await Skill.load(resolved.skill.name)
+        const loaded = await runSkill(
+          Effect.gen(function* () {
+            const skill = yield* Skill.Service
+            return yield* skill.load(resolvedSkill.name)
+          }),
+        )
         if (!loaded) {
           throw new Error(`Skill "${resolved.skill.name}" could not be loaded.`)
         }
 
         if (ctx.sessionID) {
-          await Session.update(ctx.sessionID, (draft) => {
-            const next = new Set(draft.skills ?? [])
-            next.add(loaded.name)
-            draft.skills = [...next]
-          })
+          await runSession(
+            Effect.gen(function* () {
+              const session = yield* Session.Service
+              yield* session.update(ctx.sessionID!, (draft) => {
+                const next = new Set(draft.skills ?? [])
+                next.add(loaded.name)
+                draft.skills = [...next]
+              })
+            }),
+          )
         }
 
         const dir = loaded.dir

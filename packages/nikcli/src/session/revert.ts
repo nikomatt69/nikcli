@@ -8,9 +8,49 @@ import { Storage } from "../storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
+import { Context, Effect, Layer } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
+
+  function runSnapshot<A, E>(effect: Effect.Effect<A, E, Snapshot.Service>) {
+    return runPromiseWithLayer(Snapshot.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+    return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  function storageRemove(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.remove(key)
+      }),
+    )
+  }
 
   export const RevertInput = z.object({
     sessionID: Identifier.schema("session"),
@@ -19,11 +59,30 @@ export namespace SessionRevert {
   })
   export type RevertInput = z.infer<typeof RevertInput>
 
-  export async function revert(input: RevertInput) {
-    SessionPrompt.assertNotBusy(input.sessionID)
-    const all = await Session.messages({ sessionID: input.sessionID })
+  export interface Interface {
+    revert(input: RevertInput): Effect.Effect<Session.Info, unknown>
+    unrevert(input: { sessionID: string }): Effect.Effect<Session.Info, unknown>
+    cleanup(session: Session.Info): Effect.Effect<void, unknown>
+  }
+
+  export class Service extends Context.Tag("SessionRevert.Service")<Service, Interface>() {}
+
+  async function revertImpl(input: RevertInput) {
+    await runSessionPrompt(
+      Effect.gen(function* () {
+        const prompt = yield* SessionPrompt.Service
+        yield* prompt.assertNotBusy(input.sessionID)
+      }),
+    )
+    const { all, session } = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        const all = yield* sessionService.messages({ sessionID: input.sessionID })
+        const session = yield* sessionService.get(input.sessionID)
+        return { all, session }
+      }),
+    )
     let lastUser: MessageV2.User | undefined
-    const session = await Session.get(input.sessionID)
 
     let revert: Session.Info["revert"]
     const patches: Snapshot.Patch[] = []
@@ -52,57 +111,128 @@ export namespace SessionRevert {
     }
 
     if (revert) {
-      const session = await Session.get(input.sessionID)
-      revert.snapshot = session.revert?.snapshot ?? (await Snapshot.track())
-      await Snapshot.revert(patches)
-      if (revert.snapshot) revert.diff = await Snapshot.diff(revert.snapshot)
+      const current = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.get(input.sessionID)
+        }),
+      )
+      revert.snapshot =
+        current.revert?.snapshot ??
+        (await runSnapshot(
+          Effect.gen(function* () {
+            const snapshot = yield* Snapshot.Service
+            return yield* snapshot.track()
+          }),
+        ))
+      await runSnapshot(
+        Effect.gen(function* () {
+          const snapshot = yield* Snapshot.Service
+          yield* snapshot.revert(patches)
+        }),
+      )
+      if (revert.snapshot) {
+        revert.diff = await runSnapshot(
+          Effect.gen(function* () {
+            const snapshot = yield* Snapshot.Service
+            return yield* snapshot.diff(revert.snapshot!)
+          }),
+        )
+      }
       const rangeMessages = all.filter((msg) => msg.info.id >= revert!.messageID)
-      const diffs = await SessionSummary.computeDiff({ messages: rangeMessages })
-      await Storage.write(["session_diff", input.sessionID], diffs)
+      const diffs = await runSummary(
+        Effect.gen(function* () {
+          const summary = yield* SessionSummary.Service
+          return yield* summary.computeDiff({ messages: rangeMessages })
+        }),
+      )
+      await storageWrite(["session_diff", input.sessionID], diffs)
       Bus.publish(Session.Event.Diff, {
         sessionID: input.sessionID,
         diff: diffs,
       })
-      return Session.update(input.sessionID, (draft) => {
-        draft.revert = revert
-        draft.summary = {
-          additions: diffs.reduce((sum, x) => sum + x.additions, 0),
-          deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
-          files: diffs.length,
-        }
-      })
+      return runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.update(input.sessionID, (draft) => {
+            draft.revert = revert
+            draft.summary = {
+              additions: diffs.reduce((sum, x) => sum + x.additions, 0),
+              deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
+              files: diffs.length,
+            }
+          })
+        }),
+      )
     }
     return session
   }
 
-  export async function unrevert(input: { sessionID: string }) {
+  async function unrevertImpl(input: { sessionID: string }) {
     log.info("unreverting", input)
-    SessionPrompt.assertNotBusy(input.sessionID)
-    const session = await Session.get(input.sessionID)
+    await runSessionPrompt(
+      Effect.gen(function* () {
+        const prompt = yield* SessionPrompt.Service
+        yield* prompt.assertNotBusy(input.sessionID)
+      }),
+    )
+    const session = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        return yield* sessionService.get(input.sessionID)
+      }),
+    )
     if (!session.revert) return session
-    if (session.revert.snapshot) await Snapshot.restore(session.revert.snapshot)
-    const next = await Session.update(input.sessionID, (draft) => {
-      draft.revert = undefined
-    })
+    if (session.revert.snapshot) {
+      await runSnapshot(
+        Effect.gen(function* () {
+          const snapshot = yield* Snapshot.Service
+          yield* snapshot.restore(session.revert!.snapshot!)
+        }),
+      )
+    }
+    const next = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        return yield* sessionService.update(input.sessionID, (draft) => {
+          draft.revert = undefined
+        })
+      }),
+    )
     return next
   }
 
-  export async function cleanup(session: Session.Info) {
+  async function cleanupImpl(session: Session.Info) {
     if (!session.revert) return
     const sessionID = session.id
     const messageID = session.revert.messageID
-    const msgs = await Session.messages({ sessionID })
+    const msgs = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        return yield* sessionService.messages({ sessionID })
+      }),
+    )
     const targetIndex = msgs.findIndex((x) => x.info.id === messageID)
     if (targetIndex === -1) {
-      await Session.update(sessionID, (draft) => {
-        draft.revert = undefined
-      })
+      await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.update(sessionID, (draft) => {
+            draft.revert = undefined
+          })
+        }),
+      )
       return
     }
 
     const removeStart = session.revert.partID ? targetIndex + 1 : targetIndex
     for (const msg of msgs.slice(removeStart)) {
-      await Session.removeMessage({ sessionID, messageID: msg.info.id })
+      await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.removeMessage({ sessionID, messageID: msg.info.id })
+        }),
+      )
     }
 
     const target = msgs[targetIndex]
@@ -111,7 +241,7 @@ export namespace SessionRevert {
       const partIndex = target.parts.findIndex((x) => x.id === partID)
       const removeParts = partIndex === -1 ? [] : target.parts.slice(partIndex)
       for (const part of removeParts) {
-        await Storage.remove(["part", target.info.id, part.id])
+        await storageRemove(["part", target.info.id, part.id])
         await Bus.publish(MessageV2.Event.PartRemoved, {
           sessionID: sessionID,
           messageID: target.info.id,
@@ -119,8 +249,24 @@ export namespace SessionRevert {
         })
       }
     }
-    await Session.update(sessionID, (draft) => {
-      draft.revert = undefined
-    })
+    await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        yield* sessionService.update(sessionID, (draft) => {
+          draft.revert = undefined
+        })
+      }),
+    )
   }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      revert: (input) => Effect.tryPromise(() => revertImpl(input)),
+      unrevert: (input) => Effect.tryPromise(() => unrevertImpl(input)),
+      cleanup: (session) => Effect.tryPromise(() => cleanupImpl(session)),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

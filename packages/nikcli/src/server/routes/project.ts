@@ -6,6 +6,12 @@ import { Project } from "../../project/project"
 import z from "zod"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
 
 export const ProjectRoutes = lazy(() =>
   new Hono()
@@ -27,7 +33,12 @@ export const ProjectRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const projects = await Project.list()
+        const projects = await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            return yield* project.list()
+          }),
+        )
         return c.json(projects)
       },
     )
@@ -71,11 +82,16 @@ export const ProjectRoutes = lazy(() =>
         },
       }),
       validator("param", z.object({ projectID: z.string() })),
-      validator("json", Project.update.schema.omit({ projectID: true })),
+      validator("json", Project.UpdateInput.omit({ projectID: true })),
       async (c) => {
         const projectID = c.req.valid("param").projectID
         const body = c.req.valid("json")
-        const project = await Project.update({ ...body, projectID })
+        const project = await runProject(
+          Effect.gen(function* () {
+            const service = yield* Project.Service
+            return yield* service.update({ ...body, projectID })
+          }),
+        )
         return c.json(project)
       },
     ),

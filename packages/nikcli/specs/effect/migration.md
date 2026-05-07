@@ -2,13 +2,35 @@
 
 Practical reference for new and migrated Effect code in `packages/nikcli`.
 
+## Current baseline on this branch
+
+Reality check as of this migration pass:
+
+- [x] `effect@3.21.2` is a direct `packages/nikcli` dependency (`packages/nikcli/package.json`, `bun.lock`).
+- [x] `src/effect/*` provides the first real Effect foundation (`bun run typecheck` passes):
+  - `InstanceRef` / `WorkspaceRef` tags and fiber refs
+  - a shared `AppRuntime` / `makeRuntime(...)` boundary helper
+  - `InstanceState` helpers that can read Effect-provided instance context and temporarily fall back to the legacy `Instance` bridge
+- [x] `src/effect/instance-scope.ts` exposes `InstanceScope.with(...)`, covered by `bun test test/effect/instance-scope.test.ts`.
+- [x] `src/config/paths.ts` exposes `ConfigPaths.Service` with Effect-native `projectFiles`, `directories`, `readFile`, and `parseText` operations.
+- The legacy async `ConfigPaths.*` functions remain only as compatibility boundaries for existing callers; direct service consumers should use `yield* ConfigPaths.Service`.
+- [x] `src/question/index.ts` exposes `Question.Service` backed by `InstanceState`, with shared runtime/layer behavior covered by `bun test test/question/effect-service.test.ts`.
+- [x] `src/permission/next.ts` exposes `PermissionNext.Service` backed by `InstanceState`, with pending ask/reply and reject-with-feedback behavior covered by `bun test test/permission/effect-service.test.ts`.
+- [x] `bun run typecheck` and the current slice tests pass:
+  - `bun test test/config/paths.test.ts`
+  - `bun test test/effect/instance-scope.test.ts`
+  - `bun test test/question/effect-service.test.ts`
+  - `bun test test/permission/effect-service.test.ts`
+
+Do not treat the older checked items below as proof that the entire repo is already migrated. The safe migration rule for this branch is: a module counts as migrated only when current code contains the Effect service shape and current tests or typecheck cover that path.
+
 ## Choose scope
 
 Use `InstanceState` (from `src/effect/instance-state.ts`) for services that need per-directory state, per-instance cleanup, or project-bound background work. InstanceState uses a `ScopedCache` keyed by directory, so each open project gets its own copy of the state that is automatically cleaned up on disposal.
 
-Use `makeRuntime` (from `src/effect/run-service.ts`) to create a per-service `ManagedRuntime` that lazily initializes and shares layers via a global `memoMap`. Returns `{ runPromise, runFork, runCallback }`.
+Use the shared runtime helpers from `src/effect/runtime.ts` at compatibility boundaries. `runtimeFor(...)` and `runPromiseExitWithLayer(...)` share `ManagedRuntime` instances per layer through the global Effect `memoMap`, so compatibility exports do not create a fresh service state on every call.
 
-- Global services (no per-directory state): Account, Auth, AppFileSystem, Installation, Truncate, Worktree
+- Global services (no per-directory state): Account, Auth, ConnectorAuth, AppFileSystem, Installation, Truncate, Worktree
 - Instance-scoped (per-directory state via InstanceState): Agent, Bus, Command, Config, File, FileWatcher, Format, LSP, MCP, Permission, Plugin, ProviderAuth, Pty, Question, SessionStatus, Skill, Snapshot, ToolRegistry, Vcs
 
 Rule of thumb: if two open directories should not share one copy of the service, it needs `InstanceState`.
@@ -176,47 +198,49 @@ Service-shape migrated (single namespace, traced methods, `InstanceState` where 
 
 This checklist is only about the service shape migration. Many of these services still keep `makeRuntime(...)` plus async facade exports; that facade-removal phase is tracked separately in `facades.md`.
 
-- [x] `Account` — `account/index.ts`
-- [x] `Agent` — `agent/agent.ts`
-- [x] `AppFileSystem` — `filesystem/index.ts`
-- [x] `Auth` — `auth/index.ts` (uses `zod()` helper for Schema→Zod interop)
-- [x] `Bus` — `bus/index.ts`
-- [x] `Command` — `command/index.ts`
-- [x] `Config` — `config/config.ts`
-- [x] `Discovery` — `skill/discovery.ts` (dependency-only layer, no standalone runtime)
-- [x] `File` — `file/index.ts`
-- [x] `FileWatcher` — `file/watcher.ts`
-- [x] `Format` — `format/index.ts`
-- [x] `Installation` — `installation/index.ts`
-- [x] `LSP` — `lsp/index.ts`
-- [x] `MCP` — `mcp/index.ts`
-- [x] `McpAuth` — `mcp/auth.ts`
-- [x] `Permission` — `permission/index.ts`
-- [x] `Plugin` — `plugin/index.ts`
-- [x] `Project` — `project/project.ts`
-- [x] `ProviderAuth` — `provider/auth.ts`
-- [x] `Pty` — `pty/index.ts`
-- [x] `Question` — `question/index.ts`
-- [x] `SessionStatus` — `session/status.ts`
-- [x] `Skill` — `skill/index.ts`
-- [x] `Snapshot` — `snapshot/index.ts`
-- [x] `ToolRegistry` — `tool/registry.ts`
-- [x] `Truncate` — `tool/truncate.ts`
-- [x] `Vcs` — `project/vcs.ts`
-- [x] `Worktree` — `worktree/index.ts`
+- [x] `Account` — `account/index.ts` (Effect service API exists, has no instance state, has no async/sync compatibility exports for account operations, CLI account callers enter `Account.Service` through Effect boundaries, and is covered by `bun test test/account/effect-service.test.ts`)
+- [x] `Agent` — `agent/agent.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for `get/list/defaultAgent/generate`, callers enter `Agent.Service` through Effect boundaries, and is covered by `bun test test/agent/effect-service.test.ts`)
+- [x] `AppFileSystem` — stale checklist path resolved for this branch; `src/filesystem/index.ts` is absent. Current filesystem helper is `src/util/filesystem.ts`, and the broader consolidation remains tracked below.
+- [x] `Auth` — `auth/index.ts` (Effect service API exists, has no instance state, has no async compatibility exports for credential operations, callers enter `Auth.Service` through Effect boundaries, and is covered by `bun test test/auth/effect-service.test.ts test/provider/auth-effect-service.test.ts`)
+- [x] `Bus` — `bus/index.ts` (Effect service API exists for `publish/subscribe/once/subscribeAll`, uses `InstanceState`, has no direct `Instance.*` reads or `Instance.state`, keeps compatibility exports because bus is core event plumbing excluded from normal facade removal, and is covered by `bun test test/bus/effect-service.test.ts test/session/session-module-audit-suite.test.ts`)
+- [x] `Command` — `command/index.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for `get/list`, and is covered by `bun test test/command/effect-service.test.ts`)
+- [x] `Config` — `config/config.ts` (Effect service API exists for `get/getGlobal/update/updateGlobal/directories`, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for config operations, callers enter `Config.Service` through Effect boundaries, and is covered by `bun test test/config/effect-service.test.ts test/cli/network.test.ts test/cli/_network-precise.test.ts test/mcp/effect-service.test.ts test/session/session-module-audit-suite.test.ts`)
+- [x] `ConnectorAuth` — `connectors/auth.ts` (Effect service API exists, has no instance state, has no async compatibility exports for connector credential operations, callers enter `ConnectorAuth.Service` through Effect boundaries, and is covered by `bun test test/connectors/auth-effect-service.test.ts`)
+- [x] `Discovery` — stale checklist item resolved for this branch; `src/skill/discovery.ts` is absent and `rg -n "skill/discovery|Discovery\\.Service|from [\"']@/skill/discovery|from [\"']\\.\\/discovery" packages/nikcli/src packages/nikcli/test` returns no matches.
+- [x] `File` — `file/index.ts` (Effect service API exists for `init/status/read/list/search`, uses Effect-provided instance context through `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for file operations, callers enter `File.Service` through Effect boundaries, and is covered by `bun test test/file/effect-service.test.ts test/file/watcher-effect-service.test.ts`)
+- [x] `FileWatcher` — `file/watcher.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports, and is covered by `bun test test/file/watcher-effect-service.test.ts`)
+- [x] `Format` — `format/index.ts` / `format/formatter.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports, and is covered by `bun test test/format/effect-service.test.ts`)
+- [x] `Installation` — `installation/index.ts` (Effect service API exists for `info/method/latest/upgrade`, has no instance state, keeps only pure constants/helpers outside the service, has no async compatibility exports, and is covered by `bun test test/installation/effect-service.test.ts`)
+- [x] `LSP` — `lsp/index.ts` (Effect service API exists for `init/status/hasClients/touchFile/diagnostics/hover/workspaceSymbol/documentSymbol/definition/references/implementation/prepareCallHierarchy/incomingCalls/outgoingCalls`, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for LSP operations, callers enter `LSP.Service` through Effect boundaries, and is covered by `bun test test/lsp/effect-service.test.ts`)
+- [x] `MCP` — `mcp/index.ts` (Effect service API exists for `add/status/clients/connect/disconnect/tools/prompts/resources/getPrompt/readResource/startAuth/authenticate/finishAuth/removeAuth/supportsOAuth/hasStoredTokens/getAuthStatus`, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for MCP operations, callers enter `MCP.Service` through Effect boundaries, and is covered by `bun test test/mcp/effect-service.test.ts test/mcp/auth-effect-service.test.ts test/command/effect-service.test.ts test/session/session-module-audit-suite.test.ts`)
+- [x] `McpAuth` — `mcp/auth.ts` (Effect service API exists, has no instance state, has no async compatibility exports for credential operations, and is covered by `bun test test/mcp/auth-effect-service.test.ts`)
+- [x] `Permission` — `permission/index.ts` removed as unused legacy surface; evidence: `rg -n 'from ["'\\''"]@/permission["'\\''"]|Permission\\.(ask|respond|list|pending)\\(' packages/nikcli/src packages/nikcli/test` returns no matches.
+- [x] `PermissionNext` — `permission/next.ts` (Effect service API exists, uses `InstanceState`, has no async compatibility exports, and is covered by `bun test test/permission/effect-service.test.ts` for accept and reject flows)
+- [x] `Plugin` — `plugin/index.ts` (Effect service API exists for `trigger/list/init`, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for plugin operations, callers enter `Plugin.Service` through Effect boundaries, and is covered by `bun test test/plugin/effect-service.test.ts test/provider/auth-effect-service.test.ts test/tool/registry-effect-service.test.ts`)
+- [x] `Project` — `project/project.ts` (Effect service API exists for `fromDirectory/discover/setInitialized/list/update/sandboxes/removeSandbox`, `UpdateInput` is exported separately for route validation, has no async compatibility exports for project operations, callers enter `Project.Service` through Effect boundaries, and is covered by `bun test test/project/effect-service.test.ts`)
+- [x] `ProviderAuth` — `provider/auth.ts` (Effect service API exists, uses `InstanceState`, has no async compatibility exports, and is covered by `bun test test/provider/auth-effect-service.test.ts` plus the `ProviderAuth contracts` slice in `test/provider/core.test.ts`)
+- [x] `Pty` — `pty/index.ts` (Effect service API exists, uses `InstanceState` with scoped session cleanup, has no direct `Instance.*` reads, has no async compatibility exports, and is covered by `bun test test/pty/effect-service.test.ts`)
+- [x] `Question` — `question/index.ts` (Effect service API exists, uses `InstanceState`, has no async compatibility exports, and is covered by `bun test test/question/effect-service.test.ts`, including shared layer runtime state sharing)
+- [x] `SessionStatus` — `session/status.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for `get/list/set/hydrate`, and is covered by `bun test test/session/status.test.ts test/session/status-precise.test.ts test/session/status.benchmark.test.ts`)
+- [x] `Skill` — `skill/skill.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for stateful operations, and is covered by `bun test test/skill/effect-service.test.ts`)
+- [x] `Snapshot` — `snapshot/index.ts` (Effect service API exists, uses Effect-provided instance context through `InstanceState.context`, has no direct `Instance.*` reads, has no async compatibility exports for `init/cleanup/track/patch/restore/revert/diff/diffFull`, and is covered by `bun test test/snapshot/effect-service.test.ts`)
+- [x] `ToolRegistry` — `tool/registry.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports, and is covered by `bun test test/tool/registry-effect-service.test.ts`)
+- [x] `Truncate` — `tool/truncation.ts` (Effect service API exists, has no async compatibility exports, and is covered by `bun test test/tool/truncation-effect-service.test.ts`)
+- [x] `Vcs` — `project/vcs.ts` (Effect service API exists, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports, and is covered by `bun test test/project/vcs-effect-service.test.ts`)
+- [x] `Worktree` — `worktree/index.ts` (Effect service API exists, has no direct `Instance.*` reads, has no async compatibility exports for `create/remove/reset/list`, callers are migrated in the workspace adaptor and current worktree route batches, and is covered by `bun test test/worktree/list.test.ts`)
 
-- [x] `Session` — `session/index.ts`
-- [x] `SessionProcessor` — `session/processor.ts`
-- [x] `SessionPrompt` — `session/prompt.ts`
-- [x] `SessionCompaction` — `session/compaction.ts`
-- [x] `SessionSummary` — `session/summary.ts`
-- [x] `SessionRevert` — `session/revert.ts`
-- [x] `Instruction` — `session/instruction.ts`
-- [x] `SystemPrompt` — `session/system.ts`
-- [x] `Provider` — `provider/provider.ts`
-- [x] `Storage` — `storage/storage.ts`
-- [x] `ShareNext` — `share/share-next.ts`
-- [x] `SessionTodo` — `session/todo.ts`
+- [x] `Session` — `session/index.ts` (Effect service API exists for create/fork/touch/createNext/plan/get/getAnyProject/getShare/share/unshare/update/diff/messages/list/children/remove/message mutation/initialize operations, uses `InstanceState.context`, has no direct `Instance.*` reads, has no async compatibility exports for session operations, callers enter `Session.Service` through Effect boundaries, and is covered by `bun test test/session/effect-service.test.ts test/session/session.test.ts` plus the current session slice)
+- [x] `SessionProcessor` — `session/processor.ts` (Effect service API exists for `create`, has no direct `Instance.*` reads, keeps the existing synchronous factory as a compatibility boundary for streaming callers, and is covered by `bun test test/session/processor-effect-service.test.ts`)
+- [x] `SessionPrompt` — `session/prompt.ts` (Effect service API exists for `assertNotBusy/prompt/resolvePromptParts/cancel/loop/shell/command`, uses `InstanceState` for prompt busy/cancel state, has no direct `Instance.*` reads, has no async/sync compatibility exports for prompt operations, callers enter `SessionPrompt.Service` through Effect boundaries, and is covered by `bun test test/session/prompt-effect-service.test.ts` plus `bun run typecheck`)
+- [x] `SessionCompaction` — `session/compaction.ts` (Effect service API exists for `isOverflow/editContext/prune/process/create`, uses Effect-provided instance context through `InstanceState.context`, has no direct `Instance.*` reads, has no async compatibility exports, callers enter `SessionCompaction.Service` through Effect boundaries, and is covered by `bun test test/session/session-module-audit-suite.test.ts`)
+- [x] `SessionSummary` — `session/summary.ts` (Effect service API exists for `summarize/diff/computeDiff`, route schemas are exported separately as `SummarizeInput` / `DiffInput`, has no direct `Instance.*` reads, has no async compatibility exports, callers enter `SessionSummary.Service` through Effect boundaries, and is covered by `bun test test/session/summary-effect-service.test.ts`)
+- [x] `SessionRevert` — `session/revert.ts` (Effect service API exists for `revert/unrevert/cleanup`, route schemas remain pure exports, has no async compatibility exports, callers enter `SessionRevert.Service` through Effect boundaries, and is covered by `bun test test/session/session-lifecycle.test.ts`)
+- [x] `Instruction` — stale checklist item resolved for this branch; `src/session/instruction.ts` is absent.
+- [x] `SystemPrompt` — `session/system.ts` (Effect service API exists for `environment/custom/skills`, pure `header/instructions/provider` helpers remain outside the service, has no direct `Instance.*` reads, has no async compatibility exports for `environment/custom/skills`, and is covered by `bun test test/session/system.test.ts test/session/system-effect-service.test.ts`)
+- [x] `Provider` — `provider/provider.ts` (Effect service API exists for `list/getProvider/getModel/getLanguage/getImageModel/closest/getSmallModel/defaultModel`, uses `InstanceState`, has no direct `Instance.*` reads, has no async compatibility exports for provider operations, callers enter `Provider.Service` through Effect boundaries, and is covered by `bun test test/provider/effect-service.test.ts` plus `bun run typecheck`)
+- [x] `Storage` — `storage/storage.ts` (Effect service API exists for `read/write/update/remove/list`, has no async compatibility exports for those operations, callers enter `Storage.Service` through Effect boundaries, and is covered by `bun test test/storage/effect-service.test.ts test/session/session-lifecycle.test.ts test/session/session-module-audit-suite.test.ts test/share/effect-service.test.ts test/project/effect-service.test.ts test/permission/effect-service.test.ts`)
+- [x] `ShareNext` — `share/share-next.ts` (Effect service API exists for `url/init/create/remove/publicData`, has no async compatibility exports, callers enter `ShareNext.Service` through Effect boundaries, and is covered by `bun test test/share/effect-service.test.ts`)
+- [x] `SessionTodo` — `session/todo.ts` (Effect service API exists for `get/update/init`, schemas and events remain pure exports, has no async compatibility exports for todo operations, callers enter `Todo.Service` through Effect boundaries, and is covered by `bun test test/session/todo.test.ts test/session/session-module-audit-suite.test.ts`)
 
 Still open at the service-shape level:
 
@@ -233,12 +257,12 @@ Some already-effectified areas still use raw `Filesystem.*` or `Process.spawn` i
 
 ### `Filesystem.*` → `AppFileSystem.Service` (yield in layer)
 
-- [x] `config/config.ts` — `installDependencies()` now uses `AppFileSystem`
-- [x] `provider/provider.ts` — recent model state now reads via `AppFileSystem.Service`
+- [ ] `config/config.ts` — `installDependencies()` now uses `AppFileSystem`
+- [ ] `provider/provider.ts` — recent model state now reads via `AppFileSystem.Service`
 
 ### `Process.spawn` → `ChildProcessSpawner` (yield in layer)
 
-- [x] `format/formatter.ts` — direct `Process.spawn()` checks removed (`air`, `uv`)
+- [ ] `format/formatter.ts` — direct `Process.spawn()` checks removed (`air`, `uv`)
 - [ ] `lsp/server.ts` — multiple `Process.spawn()` installs/download helpers
 
 ## Filesystem consolidation
@@ -251,7 +275,7 @@ Tool-specific filesystem cleanup notes live in `tools.md`.
 
 - [ ] `util/lock.ts` — reader-writer lock → Effect Semaphore/Permit
 - [ ] `util/flock.ts` — file-based distributed lock with heartbeat → Effect.repeat + addFinalizer
-- [ ] `util/process.ts` — child process spawn wrapper → return Effect instead of Promise
+- [x] `util/process.ts` — stale checklist item resolved on this branch; the file only exports `Process.RunFailedError` and no child-process spawn wrapper. Evidence: `rg -n "Process\\.RunFailedError|from [\"']@/util/process|from [\"'].*util/process" packages/nikcli/src packages/nikcli/test`.
 - [ ] `util/lazy.ts` — replace uses in Effect code with Effect.cached; keep for sync-only code
 
 ## Destroying the facades
@@ -283,13 +307,16 @@ For each service, the migration is roughly:
 
 ### Migration log
 
-- `SessionStatus` — migrated 2026-04-11. Replaced the last route and retry-policy callers with `AppRuntime.runPromise(SessionStatus.Service.use(...))` and removed the `makeRuntime(...)` facade.
-- `ShareNext` — migrated 2026-04-11. Swapped remaining async callers to `AppRuntime.runPromise(ShareNext.Service.use(...))`, removed the `makeRuntime(...)` facade, and kept instance bootstrap on the shared app runtime.
-- `SessionTodo` — migrated 2026-04-10. Already matched the target service shape in `session/todo.ts`: single namespace, traced Effect methods, and no `makeRuntime(...)` facade remained; checklist updated to reflect the completed migration.
-- `Storage` — migrated 2026-04-10. One production caller (`Session.diff`) and all storage.test.ts tests converted to effectful style. Facades and `makeRuntime` removed.
-- `SessionRunState` — migrated 2026-04-11. Single caller in `server/routes/instance/session.ts` converted; facade removed.
-- `Account` — migrated 2026-04-11. Callers in `server/routes/instance/experimental.ts` and `cli/cmd/account.ts` converted; facade removed.
-- `Instruction` — migrated 2026-04-11. Test-only callers converted; facade removed.
+- `SessionStatus` — migrated 2026-05-06. Replaced route, workspace mirror, prompt, processor, and tests with `SessionStatus.Service` through Effect boundaries; removed the sync `get/list/set/hydrate` facade.
+- `ShareNext` — migrated 2026-05-06. `share/share-next.ts` now exposes `ShareNext.Service`; session share/unshare, bootstrap, public share routes, and CLI share import callers enter the service through Effect boundaries.
+- `SessionTodo` — migrated 2026-05-06. `session/todo.ts` now exposes `Todo.Service` for `get/update/init`; todo tool, session route, bootstrap, and audit tests enter the service through Effect boundaries.
+- `Storage` — migrated 2026-05-06. `storage/storage.ts` now exposes `Storage.Service` for `read/write/update/remove/list`; production/test callers enter the service through Effect boundaries, and the async operation facades were removed.
+- `File` — migrated 2026-05-06. `file/index.ts` now exposes `File.Service` for `init/status/read/list/search`; project bootstrap, file routes, and debug CLI enter the service through Effect boundaries, and direct `Instance.*` reads were removed from the module.
+- `LSP` — migrated 2026-05-06. `lsp/index.ts` now exposes `LSP.Service` for client lifecycle, diagnostics, symbols, and navigation operations; bootstrap, status route, debug CLI, prompt assembly, and tools enter the service through Effect boundaries.
+- `MCP` — migrated 2026-05-06. `mcp/index.ts` now exposes `MCP.Service` for server lifecycle, tool/prompt/resource access, and OAuth status/flows; MCP routes, experimental resources, CLI auth/list/debug/logout, command prompt loading, and session resource/tool assembly enter the service through Effect boundaries.
+- `SessionRunState` — historical note from an older branch; no current checklist credit is inferred from it.
+- `Account` — migrated 2026-05-06. CLI account callers now enter `Account.Service` through Effect boundaries; async/sync account operation facades removed.
+- `Instruction` — historical note from an older branch; `session/instruction.ts` is not present on this branch and remains unchecked above.
 - `FileWatcher` — migrated 2026-04-11. Callers in `project/bootstrap.ts` and test converted; facade removed.
 - `Question` — migrated 2026-04-11. Callers in `server/routes/instance/question.ts` and test converted; facade removed.
 - `Truncate` — migrated 2026-04-11. Caller in `tool/tool.ts` and test converted; facade removed.

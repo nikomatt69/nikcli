@@ -9,12 +9,34 @@ import { Plugin } from "../plugin"
 import { clone } from "remeda"
 import { Instance } from "../project/instance"
 import { ProviderTransform } from "../provider/transform"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "chatbot-handlers" })
 
 export namespace BotHandlers {
   const DEFAULT_PROMPT = `You are nikcli, an AI coding assistant. You help users with software engineering tasks including writing code, debugging, answering questions, and more. Be concise and helpful.`
   const registeredBots = new WeakSet<Chat>()
+
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
 
   export async function handleMention(
     thread: Thread,
@@ -65,10 +87,15 @@ export namespace BotHandlers {
     customPrompt?: string,
     customTools?: Record<string, any>,
   ): Promise<string> {
-    const modelInfo = await Provider.defaultModel()
-    const model = await Provider.getModel(modelInfo.providerID, modelInfo.modelID)
-
-    const language = await Provider.getLanguage(model)
+    const { model, language } = await runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        const modelInfo = yield* provider.defaultModel()
+        const model = yield* provider.getModel(modelInfo.providerID, modelInfo.modelID)
+        const language = yield* provider.getLanguage(model)
+        return { model, language }
+      }),
+    )
 
     const sessionID = `chatbot-${Date.now()}`
 
@@ -76,7 +103,12 @@ export namespace BotHandlers {
     const systemParts = [...SystemPrompt.header(model.providerID), customPrompt || DEFAULT_PROMPT].filter(Boolean)
 
     const original = clone(systemParts)
-    await Plugin.trigger("experimental.chat.system.transform", { sessionID }, { system: systemParts })
+    await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        yield* plugin.trigger("experimental.chat.system.transform", { sessionID }, { system: systemParts })
+      }),
+    )
     if (systemParts.length === 0) {
       systemParts.push(...original)
     }
@@ -151,7 +183,7 @@ export namespace BotHandlers {
   }
 
   export async function initializeAllBots(): Promise<void> {
-    const config = await Config.get()
+    const config = await configGet()
     const connectors = config.connectors ?? {}
 
     for (const [name, connector] of Object.entries(connectors)) {

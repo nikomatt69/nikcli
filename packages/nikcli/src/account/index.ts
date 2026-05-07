@@ -17,6 +17,7 @@ import {
   type RefreshToken,
   type UserCode,
 } from "./schema"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Account {
   const log = Log.create({ service: "account" })
@@ -85,11 +86,51 @@ export namespace Account {
     expiresIn: number
   }
 
+  export interface Interface {
+    login(options?: LoginOptions): Effect.Effect<LoginStartResult, unknown>
+    poll(
+      deviceCode: DeviceCode,
+      options?: { serverUrl?: string; onPending?: () => void },
+    ): Effect.Effect<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }, unknown>
+    loginFull(
+      options?: LoginOptions & { onPending?: (userCode: UserCode) => void },
+    ): Effect.Effect<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }, unknown>
+    token(accountID: AccountID): Effect.Effect<string, unknown>
+    orgs(accountID: AccountID): Effect.Effect<Org[], unknown>
+    active(): Effect.Effect<Info | undefined>
+    get(accountID: AccountID): Effect.Effect<Info | undefined>
+    list(): Effect.Effect<Info[]>
+    use(accountID: AccountID | null, orgID?: OrgID | null): Effect.Effect<void>
+    remove(accountID: AccountID): Effect.Effect<boolean>
+    config(): Effect.Effect<{ serverUrl: string }>
+  }
+
+  export class Service extends Context.Tag("Account.Service")<Service, Interface>() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      login: (options) => Effect.tryPromise(() => loginImpl(options)),
+      poll: (deviceCode, options) => Effect.tryPromise(() => pollImpl(deviceCode, options)),
+      loginFull: (options) => Effect.tryPromise(() => loginFullImpl(options)),
+      token: (accountID) => Effect.tryPromise(() => tokenImpl(accountID)),
+      orgs: (accountID) => Effect.tryPromise(() => orgsImpl(accountID)),
+      active: () => Effect.sync(() => activeImpl()),
+      get: (accountID) => Effect.sync(() => getImpl(accountID)),
+      list: () => Effect.sync(() => listImpl()),
+      use: (accountID, orgID) => Effect.sync(() => useImpl(accountID, orgID)),
+      remove: (accountID) => Effect.sync(() => removeImpl(accountID)),
+      config: () => Effect.sync(() => configImpl()),
+    }),
+  )
+
+  export const defaultLayer = layer
+
   /**
    * Start the device code login flow.
    * Returns the device code info needed for polling.
    */
-  export async function login(options: LoginOptions = {}): Promise<LoginStartResult> {
+  async function loginImpl(options: LoginOptions = {}): Promise<LoginStartResult> {
     const serverUrl = normalizeServerUrl(options.serverUrl ?? DEFAULT_ACCOUNT_URL)
     log.info("starting device code login", { serverUrl })
 
@@ -128,7 +169,7 @@ export namespace Account {
    * Poll for token completion of the device code flow.
    * Returns when the user has authenticated or throws on failure.
    */
-  export async function poll(
+  async function pollImpl(
     deviceCode: DeviceCode,
     options: { serverUrl?: string; onPending?: () => void } = {},
   ): Promise<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }> {
@@ -217,13 +258,13 @@ export namespace Account {
    * Full login flow: start + poll.
    * Convenience function that handles the entire device code flow.
    */
-  export async function loginFull(
+  async function loginFullImpl(
     options: LoginOptions & { onPending?: (userCode: UserCode) => void } = {},
   ): Promise<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }> {
-    const start = await login(options)
+    const start = await loginImpl(options)
     options.onPending?.(start.userCode)
 
-    return poll(start.deviceCode, {
+    return pollImpl(start.deviceCode, {
       serverUrl: options.serverUrl,
       onPending: () => options.onPending?.(start.userCode),
     })
@@ -238,7 +279,7 @@ export namespace Account {
    * Automatically refreshes if expired (within threshold).
    * Uses Lock.write to serialize concurrent refresh attempts.
    */
-  export async function token(accountID: AccountID): Promise<string> {
+  async function tokenImpl(accountID: AccountID): Promise<string> {
     // Check in-memory cache first
     const cached = tokenCache.get(accountID)
     if (cached && cached.expiresAt > Date.now() + 60_000) {
@@ -325,8 +366,8 @@ export namespace Account {
    * List organizations for an account.
    * Uses the cached account row from token() to avoid double-reads.
    */
-  export async function orgs(accountID: AccountID): Promise<Org[]> {
-    const accessToken = await token(accountID)
+  async function orgsImpl(accountID: AccountID): Promise<Org[]> {
+    const accessToken = await tokenImpl(accountID)
     // Reuse the cached account row instead of reading from DB again
     const account = getAccountRowCached(accountID)
     if (!account) {
@@ -358,21 +399,21 @@ export namespace Account {
   /**
    * Get the active account info
    */
-  export function active(): Info | undefined {
+  function activeImpl(): Info | undefined {
     return AccountRepo.active()
   }
 
   /**
    * Get account info by ID
    */
-  export function get(accountID: AccountID): Info | undefined {
+  function getImpl(accountID: AccountID): Info | undefined {
     return AccountRepo.get(accountID)
   }
 
   /**
    * List all accounts
    */
-  export function list(): Info[] {
+  function listImpl(): Info[] {
     return AccountRepo.list()
   }
 
@@ -380,7 +421,7 @@ export namespace Account {
    * Switch to a different account and optionally org.
    * Clears token cache for both the outgoing and incoming accounts.
    */
-  export function use(accountID: AccountID | null, orgID?: OrgID | null): void {
+  function useImpl(accountID: AccountID | null, orgID?: OrgID | null): void {
     // Clear the outgoing account's cache too
     const config = AccountDB.getConfig()
     const previousActiveId = config.active_account_id
@@ -399,7 +440,7 @@ export namespace Account {
   /**
    * Remove an account
    */
-  export function remove(accountID: AccountID): boolean {
+  function removeImpl(accountID: AccountID): boolean {
     tokenCache.delete(accountID)
     accountRowCache.delete(accountID)
     return AccountRepo.remove(accountID)
@@ -408,7 +449,7 @@ export namespace Account {
   /**
    * Get the current server URL
    */
-  export function config(): { serverUrl: string } {
+  function configImpl(): { serverUrl: string } {
     return {
       serverUrl: DEFAULT_ACCOUNT_URL,
     }

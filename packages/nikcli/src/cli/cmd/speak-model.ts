@@ -8,12 +8,26 @@ import { Instance } from "../../project/instance"
 import { ttsRegistry } from "@/tool/speak/provider"
 import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "@/tool/speak/elevenlabs"
 import { OPENROUTER_VOICES_LIST, openRouterProvider } from "@/tool/speak/openrouter"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const DEFAULT_SPEAK_PROVIDER = "elevenlabs"
 const DEFAULT_SPEAK_MODEL = "YOq2y2Up4RgXP2HyXjE5"
 const DEFAULT_OPENROUTER_VOICE = "alloy"
 const DEFAULT_OPENROUTER_MODEL_ID = "openai/gpt-audio-mini"
 const OPENROUTER_VOICE_IDS = new Set(OPENROUTER_VOICES_LIST.map((voice) => voice.id))
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
 
 // Register providers
 ttsRegistry.register(elevenLabsProvider)
@@ -75,8 +89,7 @@ export const SpeakModelCommand = cmd({
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
-        const configState = await Config.state()
-        const config = configState.config
+        const config = await configGet()
 
         if (args.reset) {
           delete config.speak

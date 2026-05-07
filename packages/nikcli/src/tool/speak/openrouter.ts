@@ -1,4 +1,6 @@
 import type { TTSProvider, TTSProviderConfig, TTSRequest, TTSResponse, TTSVoice } from "./provider"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const OPENROUTER_VOICES: TTSVoice[] = [
   { id: "alloy", name: "Alloy" },
@@ -73,8 +75,30 @@ export class OpenRouterProvider implements TTSProvider {
     const { Config } = await import("@/config/config")
     const { Auth } = await import("@/auth")
 
-    const auth = await Auth.get("openrouter")
-    const config = await Config.get().catch(() => Config.getGlobal().catch(() => ({}) as any))
+    const auth = await runPromiseWithLayer(
+      Auth.defaultLayer,
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        return yield* auth.get("openrouter")
+      }),
+    )
+    const config = await runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    ).catch(() =>
+      runPromiseWithLayer(
+        Config.defaultLayer,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.getGlobal()
+        }),
+      ).catch(() => ({}) as any),
+    )
 
     const providerOptions = config?.provider?.openrouter?.options ?? {}
     const fromProviderOptions = typeof providerOptions.apiKey === "string" ? providerOptions.apiKey : undefined

@@ -17,13 +17,115 @@ import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
 import { Storage } from "@/storage/storage"
+import { Context, Effect, Layer } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace SessionProcessor {
   const DOOM_LOOP_THRESHOLD = 3
   const log = Log.create({ service: "session.processor" })
 
-  export type Info = Awaited<ReturnType<typeof create>>
+  export type CreateInput = {
+    assistantMessage: MessageV2.Assistant
+    sessionID: string
+    model: Provider.Model
+    abort: AbortSignal
+  }
+
+  export interface Interface {
+    create(input: CreateInput): Effect.Effect<Info>
+  }
+
+  export class Service extends Context.Tag("SessionProcessor.Service")<Service, Interface>() {}
+
+  export type Info = ReturnType<typeof createImpl>
   export type Result = Awaited<ReturnType<Info["process"]>>
+
+  function askPermission(input: PermissionNext.AskInput) {
+    return runPromiseWithLayer(
+      PermissionNext.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const permission = yield* PermissionNext.Service
+          return yield* permission.ask(input)
+        }),
+      ),
+    )
+  }
+
+  function setStatus(sessionID: string, status: SessionStatus.Info) {
+    return runPromiseWithLayer(
+      SessionStatus.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const sessionStatus = yield* SessionStatus.Service
+          return yield* sessionStatus.set(sessionID, status)
+        }),
+      ),
+    )
+  }
+
+  function runSnapshot<A, E>(effect: Effect.Effect<A, E, Snapshot.Service>) {
+    return runPromiseWithLayer(Snapshot.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
+    return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  function agentGet(name: string) {
+    return runPromiseWithLayer(
+      Agent.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const agent = yield* Agent.Service
+          return yield* agent.get(name)
+        }),
+      ),
+    )
+  }
+
+  async function agentRequired(name: string) {
+    const agent = await agentGet(name)
+    if (!agent) throw new Error(`Agent not found: ${name}`)
+    return agent
+  }
 
   // Doom-loop detection: returns PermissionNext.ask call if pattern detected
   function detectDoomLoop(
@@ -42,7 +144,7 @@ export namespace SessionProcessor {
     if (buffer.length === DOOM_LOOP_THRESHOLD) {
       const lastThree = buffer.slice(-DOOM_LOOP_THRESHOLD)
       if (lastThree.every((p) => p.tool === toolName && Bun.deepEquals(p.input, toolInput))) {
-        return PermissionNext.ask({
+        return askPermission({
           permission: "doom_loop",
           patterns: [toolName],
           sessionID,
@@ -57,12 +159,7 @@ export namespace SessionProcessor {
     }
   }
 
-  export function create(input: {
-    assistantMessage: MessageV2.Assistant
-    sessionID: string
-    model: Provider.Model
-    abort: AbortSignal
-  }) {
+  function createImpl(input: CreateInput) {
     const toolcalls: Record<string, MessageV2.ToolPart> = {}
     let snapshot: string | undefined
     let blocked = false
@@ -76,20 +173,52 @@ export namespace SessionProcessor {
     // down to ~10-20 coalesced flushes.
     const coalescer = DeltaCoalescer
 
+    const updateMessage = (msg: MessageV2.Info) =>
+      runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.updateMessage(msg)
+        }),
+      )
+
+    const updatePart = (part: MessageV2.Part) =>
+      runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.updatePart(part)
+        }),
+      )
+
+    const removePart = (input: { sessionID: string; messageID: string; partID: string }) =>
+      runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.removePart(input)
+        }),
+      )
+
+    const getUsage = (input: Parameters<typeof Session.getUsage>[0]) =>
+      runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.getUsage(input)
+        }),
+      )
+
     // For streaming deltas: publish Bus event immediately but coalesce the disk write.
     // This avoids ~500 Storage.write calls per response while keeping the UI responsive.
     async function updatePartCoalesced(part: MessageV2.TextPart | MessageV2.ReasoningPart, delta: string) {
       Bus.publish(MessageV2.Event.PartUpdated, { part, delta })
       const key = ["part", part.messageID, part.id]
       coalescer.schedule(key, part, async (k, content) => {
-        await Storage.write(k, content)
+        await storageWrite(k, content)
       })
     }
 
     // Hoisted: cleanup function used across retry iterations
     const cleanupRetryAttempt = async (attemptPartIDs: Set<string>) => {
       for (const partID of attemptPartIDs) {
-        await Session.removePart({
+        await removePart({
           sessionID: input.sessionID,
           messageID: input.assistantMessage.id,
           partID,
@@ -111,7 +240,7 @@ export namespace SessionProcessor {
       async process(streamInput: LLM.StreamInput) {
         log.info("process")
         needsCompaction = false
-        const shouldBreak = (await Config.get()).experimental?.continue_loop_on_deny !== true
+        const shouldBreak = (await configGet()).experimental?.continue_loop_on_deny !== true
         while (true) {
           const attemptPartIDs = new Set<string>()
           const trackPart = <T extends { id: string }>(part: T) => {
@@ -127,7 +256,7 @@ export namespace SessionProcessor {
               input.abort.throwIfAborted()
               switch (value.type) {
                 case "start":
-                  SessionStatus.set(input.sessionID, { type: "busy" })
+                  await setStatus(input.sessionID, { type: "busy" })
                   break
 
                 case "reasoning-start":
@@ -173,7 +302,7 @@ export namespace SessionProcessor {
                   break
 
                 case "tool-input-start": {
-                  const part = await Session.updatePart(
+                  const part = await updatePart(
                     trackPart({
                       id: toolcalls[value.id]?.id ?? Identifier.ascending("part"),
                       messageID: input.assistantMessage.id,
@@ -201,7 +330,7 @@ export namespace SessionProcessor {
                 case "tool-call": {
                   const match = toolcalls[value.toolCallId]
                   if (match) {
-                    const part = await Session.updatePart({
+                    const part = await updatePart({
                       ...match,
                       tool: value.toolName,
                       state: {
@@ -216,7 +345,7 @@ export namespace SessionProcessor {
                     toolcalls[value.toolCallId] = part as MessageV2.ToolPart
 
                     // Use helper for doom-loop detection
-                    const agent = await Agent.get(input.assistantMessage.agent)
+                    const agent = await agentRequired(input.assistantMessage.agent)
                     await detectDoomLoop(
                       doomLoopBuffer,
                       value.toolName,
@@ -230,7 +359,7 @@ export namespace SessionProcessor {
                 case "tool-result": {
                   const match = toolcalls[value.toolCallId]
                   if (match && match.state.status === "running") {
-                    await Session.updatePart({
+                    await updatePart({
                       ...match,
                       state: {
                         status: "completed",
@@ -254,7 +383,7 @@ export namespace SessionProcessor {
                 case "tool-error": {
                   const match = toolcalls[value.toolCallId]
                   if (match && match.state.status === "running") {
-                    await Session.updatePart({
+                    await updatePart({
                       ...match,
                       state: {
                         status: "error",
@@ -281,8 +410,13 @@ export namespace SessionProcessor {
                   throw value.error
 
                 case "start-step":
-                  snapshot = await Snapshot.track()
-                  await Session.updatePart(
+                  snapshot = await runSnapshot(
+                    Effect.gen(function* () {
+                      const snapshot = yield* Snapshot.Service
+                      return yield* snapshot.track()
+                    }),
+                  )
+                  await updatePart(
                     trackPart({
                       id: Identifier.ascending("part"),
                       messageID: input.assistantMessage.id,
@@ -294,7 +428,7 @@ export namespace SessionProcessor {
                   break
 
                 case "finish-step": {
-                  const usage = Session.getUsage({
+                  const usage = await getUsage({
                     model: input.model,
                     usage: value.usage,
                     metadata: value.providerMetadata,
@@ -302,11 +436,16 @@ export namespace SessionProcessor {
                   input.assistantMessage.finish = value.finishReason
                   input.assistantMessage.cost += usage.cost
                   input.assistantMessage.tokens = usage.tokens
-                  await Session.updatePart(
+                  await updatePart(
                     trackPart({
                       id: Identifier.ascending("part"),
                       reason: value.finishReason,
-                      snapshot: await Snapshot.track(),
+                      snapshot: await runSnapshot(
+                        Effect.gen(function* () {
+                          const snapshot = yield* Snapshot.Service
+                          return yield* snapshot.track()
+                        }),
+                      ),
                       messageID: input.assistantMessage.id,
                       sessionID: input.assistantMessage.sessionID,
                       type: "step-finish" as const,
@@ -314,11 +453,17 @@ export namespace SessionProcessor {
                       cost: usage.cost,
                     }),
                   )
-                  await Session.updateMessage(input.assistantMessage)
+                  await updateMessage(input.assistantMessage)
                   if (snapshot) {
-                    const patch = await Snapshot.patch(snapshot)
+                    const snapshotHash = snapshot
+                    const patch = await runSnapshot(
+                      Effect.gen(function* () {
+                        const snapshotService = yield* Snapshot.Service
+                        return yield* snapshotService.patch(snapshotHash)
+                      }),
+                    )
                     if (patch.files.length) {
-                      await Session.updatePart(
+                      await updatePart(
                         trackPart({
                           id: Identifier.ascending("part"),
                           messageID: input.assistantMessage.id,
@@ -331,11 +476,23 @@ export namespace SessionProcessor {
                     }
                     snapshot = undefined
                   }
-                  SessionSummary.summarize({
-                    sessionID: input.sessionID,
-                    messageID: input.assistantMessage.parentID,
-                  })
-                  if (await SessionCompaction.isOverflow({ tokens: usage.tokens, model: input.model })) {
+                  void runSummary(
+                    Effect.gen(function* () {
+                      const summary = yield* SessionSummary.Service
+                      yield* summary.summarize({
+                        sessionID: input.sessionID,
+                        messageID: input.assistantMessage.parentID,
+                      })
+                    }),
+                  )
+                  if (
+                    await runCompaction(
+                      Effect.gen(function* () {
+                        const compaction = yield* SessionCompaction.Service
+                        return yield* compaction.isOverflow({ tokens: usage.tokens, model: input.model })
+                      }),
+                    )
+                  ) {
                     needsCompaction = true
                   }
                   break
@@ -365,24 +522,30 @@ export namespace SessionProcessor {
 
                 case "text-end":
                   if (currentText) {
-                    currentText.text = currentText.text.trimEnd()
-                    const textOutput = await Plugin.trigger(
-                      "experimental.text.complete",
-                      {
-                        sessionID: input.sessionID,
-                        messageID: input.assistantMessage.id,
-                        partID: currentText.id,
-                      },
-                      { text: currentText.text },
+                    const textPart = currentText
+                    textPart.text = textPart.text.trimEnd()
+                    const textOutput = await runPlugin(
+                      Effect.gen(function* () {
+                        const plugin = yield* Plugin.Service
+                        return yield* plugin.trigger(
+                          "experimental.text.complete",
+                          {
+                            sessionID: input.sessionID,
+                            messageID: input.assistantMessage.id,
+                            partID: textPart.id,
+                          },
+                          { text: textPart.text },
+                        )
+                      }),
                     )
-                    currentText.text = textOutput.text
-                    currentText.time = {
-                      start: currentText.time?.start ?? Date.now(),
+                    textPart.text = textOutput.text
+                    textPart.time = {
+                      start: textPart.time?.start ?? Date.now(),
                       end: Date.now(),
                     }
-                    if (value.providerMetadata) currentText.metadata = value.providerMetadata
+                    if (value.providerMetadata) textPart.metadata = value.providerMetadata
                     // flushNow persists the part - no need for Session.updatePart (avoids double-write)
-                    await coalescer.flushNow(["part", currentText.messageID, currentText.id]).catch(() => {})
+                    await coalescer.flushNow(["part", textPart.messageID, textPart.id]).catch(() => {})
                   }
                   currentText = undefined
                   break
@@ -404,7 +567,7 @@ export namespace SessionProcessor {
               stack: JSON.stringify(e.stack),
             })
             const error = MessageV2.fromError(e, { providerID: input.model.providerID })
-            // TODO: Handle context overflow error
+            // Context overflow is handled through retryable provider error classification below.
             const retry = SessionRetry.retryable(error)
             if (retry !== undefined) {
               const nextAttempt = attempt + 1
@@ -412,7 +575,7 @@ export namespace SessionProcessor {
                 attempt = nextAttempt
                 const delay = SessionRetry.delay(attempt, error.name === "APIError" ? error : undefined)
                 await cleanupRetryAttempt(attemptPartIDs)
-                SessionStatus.set(input.sessionID, {
+                await setStatus(input.sessionID, {
                   type: "retry",
                   attempt,
                   message: retry,
@@ -437,9 +600,15 @@ export namespace SessionProcessor {
             })
           }
           if (snapshot) {
-            const patch = await Snapshot.patch(snapshot)
+            const snapshotHash = snapshot
+            const patch = await runSnapshot(
+              Effect.gen(function* () {
+                const snapshotService = yield* Snapshot.Service
+                return yield* snapshotService.patch(snapshotHash)
+              }),
+            )
             if (patch.files.length) {
-              await Session.updatePart(
+              await updatePart(
                 trackPart({
                   id: Identifier.ascending("part"),
                   messageID: input.assistantMessage.id,
@@ -455,7 +624,7 @@ export namespace SessionProcessor {
           const p = await MessageV2.parts(input.assistantMessage.id)
           for (const part of p) {
             if (part.type === "tool" && part.state.status !== "completed" && part.state.status !== "error") {
-              await Session.updatePart({
+              await updatePart({
                 ...part,
                 state: {
                   ...part.state,
@@ -470,7 +639,7 @@ export namespace SessionProcessor {
             }
           }
           input.assistantMessage.time.completed = Date.now()
-          await Session.updateMessage(input.assistantMessage)
+          await updateMessage(input.assistantMessage)
           // Flush any remaining coalesced delta writes before returning
           try {
             await coalescer.flushAll()
@@ -486,5 +655,18 @@ export namespace SessionProcessor {
       },
     }
     return result
+  }
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      create: (input) => Effect.sync(() => createImpl(input)),
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  export function create(input: CreateInput) {
+    return createImpl(input)
   }
 }

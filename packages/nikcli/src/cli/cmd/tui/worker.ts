@@ -134,7 +134,6 @@ export const rpc = {
     })
   },
   async reload() {
-    Config.global.reset()
     await Instance.disposeAll()
   },
   async subscribe(input: { directory: string | undefined }) {

@@ -4,6 +4,21 @@ import DESCRIPTION from "./memory_search.txt"
 import { Storage } from "@/storage/storage"
 import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 const parameters = z.object({
   query: z.string().describe("Search query"),
@@ -135,7 +150,7 @@ function makeSnippet(text: string, terms: string[]) {
 async function collectSessions(sessionId: string | undefined, max: number) {
   if (sessionId) return [sessionId]
   const project = Instance.project
-  const items = await Storage.list(["session", project.id])
+  const items = await storageList(["session", project.id])
   const ids = items.map((item) => item[item.length - 1]).filter(Boolean)
   return ids.slice(0, max)
 }

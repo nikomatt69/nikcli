@@ -7,6 +7,8 @@ import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import type * as SDK from "@nikcli-ai/sdk/v2"
+import { Context, Effect, Layer } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace ShareNext {
   const log = Log.create({ service: "share-next" })
@@ -48,13 +50,82 @@ export namespace ShareNext {
 
   const LOCAL_SHARE_PREFIX = ["local_share"]
 
-  export async function url() {
-    return Config.get().then((x) => x.enterprise?.url ?? "https://s.nikcli.store")
+  export interface Interface {
+    url(): Effect.Effect<string, unknown>
+    init(): Effect.Effect<void, unknown>
+    create(sessionID: string, input?: { baseUrl?: string }): Effect.Effect<StoredShare, unknown>
+    remove(sessionID: string): Effect.Effect<void, unknown>
+    publicData(shareID: string): Effect.Effect<Data[] | undefined, unknown>
+  }
+
+  export class Service extends Context.Tag("ShareNext.Service")<Service, Interface>() {}
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  function storageRead<T>(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.read<T>(key)
+      }),
+    )
+  }
+
+  function storageRemove(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.remove(key)
+      }),
+    )
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
+
+  function providerGetModel(providerID: string, modelID: string) {
+    return runPromiseWithLayer(
+      Provider.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const provider = yield* Provider.Service
+          return yield* provider.getModel(providerID, modelID)
+        }),
+      ),
+    )
+  }
+
+  async function urlImpl() {
+    return configGet().then((x) => x.enterprise?.url ?? "https://s.nikcli.store")
   }
 
   const disabled = process.env["NIKCLI_DISABLE_SHARE"] === "true" || process.env["NIKCLI_DISABLE_SHARE"] === "1"
 
-  export async function init() {
+  async function initImpl() {
     if (disabled) return
     Bus.subscribe(Session.Event.Updated, async (evt) => {
       await sync(evt.properties.info.id, [
@@ -75,11 +146,7 @@ export namespace ShareNext {
         await sync(evt.properties.info.sessionID, [
           {
             type: "model",
-            data: [
-              await Provider.getModel(evt.properties.info.model.providerID, evt.properties.info.model.modelID).then(
-                (m) => m,
-              ),
-            ],
+            data: [await providerGetModel(evt.properties.info.model.providerID, evt.properties.info.model.modelID)],
           },
         ])
       }
@@ -189,16 +256,22 @@ export namespace ShareNext {
   }
 
   async function get(sessionID: string) {
-    return Storage.read<StoredShare>(["session_share", sessionID])
+    return storageRead<StoredShare>(["session_share", sessionID])
   }
 
   async function getLocal(shareID: string) {
-    return Storage.read<LocalShare>([...LOCAL_SHARE_PREFIX, shareID])
+    return storageRead<LocalShare>([...LOCAL_SHARE_PREFIX, shareID])
   }
 
   async function payload(sessionID: string): Promise<Data[]> {
-    const session = await Session.get(sessionID)
-    const diffs = await Session.diff(sessionID).catch(() => [])
+    const { session, diffs } = await runSession(
+      Effect.gen(function* () {
+        const sessionService = yield* Session.Service
+        const session = yield* sessionService.get(sessionID)
+        const diffs = yield* sessionService.diff(sessionID).pipe(Effect.catchAll(() => Effect.succeed([])))
+        return { session, diffs }
+      }),
+    )
     const messages = await Array.fromAsync(MessageV2.stream(sessionID))
     const modelMap = new Map<string, SDK.Model>()
 
@@ -207,7 +280,7 @@ export namespace ShareNext {
       const model = (message.info as SDK.UserMessage).model
       const id = `${model.providerID}:${model.modelID}`
       if (modelMap.has(id)) continue
-      const resolved = await Provider.getModel(model.providerID, model.modelID).catch(() => undefined)
+      const resolved = await providerGetModel(model.providerID, model.modelID).catch(() => undefined)
       if (!resolved) continue
       modelMap.set(id, resolved)
     }
@@ -239,7 +312,7 @@ export namespace ShareNext {
 
     const existing = await getLocal(shareID).catch(() => undefined)
 
-    await Storage.write([...LOCAL_SHARE_PREFIX, shareID], {
+    await storageWrite([...LOCAL_SHARE_PREFIX, shareID], {
       id: shareID,
       sessionID: existing?.sessionID ?? sessionID,
       url: share.url,
@@ -259,7 +332,7 @@ export namespace ShareNext {
       throw new Error("Stored share is missing id or secret")
     }
 
-    await requestText(`${await url()}/api/share/${share.id}/sync`, {
+    await requestText(`${await urlImpl()}/api/share/${share.id}/sync`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -291,8 +364,8 @@ export namespace ShareNext {
       url: `${normalizeBaseURL(baseUrl)}/share/${encodeURIComponent(id)}`,
     }
     const data = await payload(sessionID)
-    await Storage.write(["session_share", sessionID], share)
-    await Storage.write([...LOCAL_SHARE_PREFIX, id], {
+    await storageWrite(["session_share", sessionID], share)
+    await storageWrite([...LOCAL_SHARE_PREFIX, id], {
       id,
       sessionID,
       url: share.url,
@@ -305,7 +378,7 @@ export namespace ShareNext {
     return share
   }
 
-  export async function create(sessionID: string, input?: { baseUrl?: string }) {
+  async function createImpl(sessionID: string, input?: { baseUrl?: string }) {
     if (disabled) {
       throw new Error("Sharing is disabled by NIKCLI_DISABLE_SHARE")
     }
@@ -313,7 +386,7 @@ export namespace ShareNext {
     log.info("creating share", { sessionID })
 
     try {
-      const result = await requestJSON<{ id: string; url: string; secret: string }>(`${await url()}/api/share`, {
+      const result = await requestJSON<{ id: string; url: string; secret: string }>(`${await urlImpl()}/api/share`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -328,7 +401,7 @@ export namespace ShareNext {
         url: result.url,
       }
 
-      await Storage.write(["session_share", sessionID], share)
+      await storageWrite(["session_share", sessionID], share)
       await fullSync(sessionID)
       return share
     } catch (error) {
@@ -374,7 +447,7 @@ export namespace ShareNext {
     queue.set(sessionID, { timeout, data: dataMap })
   }
 
-  export async function remove(sessionID: string) {
+  async function removeImpl(sessionID: string) {
     if (disabled) return
 
     log.info("removing share", { sessionID })
@@ -390,14 +463,14 @@ export namespace ShareNext {
 
     if (share.mode === "local") {
       if (share.id) {
-        await Storage.remove([...LOCAL_SHARE_PREFIX, share.id]).catch(() => undefined)
+        await storageRemove([...LOCAL_SHARE_PREFIX, share.id]).catch(() => undefined)
       }
-      await Storage.remove(["session_share", sessionID]).catch(() => undefined)
+      await storageRemove(["session_share", sessionID]).catch(() => undefined)
       return
     }
 
     if (share.id && share.secret) {
-      await requestText(`${await url()}/api/share/${share.id}`, {
+      await requestText(`${await urlImpl()}/api/share/${share.id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -412,7 +485,7 @@ export namespace ShareNext {
       })
     }
 
-    await Storage.remove(["session_share", sessionID]).catch(() => undefined)
+    await storageRemove(["session_share", sessionID]).catch(() => undefined)
   }
 
   async function fullSync(sessionID: string) {
@@ -420,9 +493,22 @@ export namespace ShareNext {
     await syncNow(sessionID, await payload(sessionID))
   }
 
-  export async function publicData(shareID: string) {
+  async function publicDataImpl(shareID: string) {
     const share = await getLocal(shareID).catch(() => undefined)
     if (!share) return
     return Object.values(share.items)
   }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      url: () => Effect.tryPromise(() => urlImpl()),
+      init: () => Effect.tryPromise(() => initImpl()),
+      create: (sessionID, input) => Effect.tryPromise(() => createImpl(sessionID, input)),
+      remove: (sessionID) => Effect.tryPromise(() => removeImpl(sessionID)),
+      publicData: (shareID) => Effect.tryPromise(() => publicDataImpl(shareID)),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

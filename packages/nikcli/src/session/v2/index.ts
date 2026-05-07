@@ -5,9 +5,15 @@ import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
 import { Stepper } from "./stepper"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
 
   // ============================================================================
   // Types
@@ -77,12 +83,17 @@ export namespace SessionV2 {
    * Delegates to Session v1 for storage, manages v2 state separately
    */
   export async function create(input: CreateInput = {}): Promise<Session.Info> {
-    const info = await Session.createNext({
-      id: input.sessionID,
-      parentID: input.parentID,
-      directory: "",
-      title: input.title,
-    })
+    const info = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.createNext({
+          id: input.sessionID,
+          parentID: input.parentID,
+          directory: "",
+          title: input.title,
+        })
+      }),
+    )
 
     // Initialize v2 state
     sessions.set(info.id, { entries: [], pending: [] })
@@ -97,7 +108,12 @@ export namespace SessionV2 {
    */
   export async function fromID(sessionID: string): Promise<Session.Info | undefined> {
     try {
-      return await Session.get(sessionID)
+      return await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.get(sessionID)
+        }),
+      )
     } catch {
       return undefined
     }
@@ -115,7 +131,12 @@ export namespace SessionV2 {
     }
 
     // Fall back to reading from v1 storage
-    const messages = await Session.messages({ sessionID })
+    const messages = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID })
+      }),
+    )
     return toEntries(messages, sessionID)
   }
 

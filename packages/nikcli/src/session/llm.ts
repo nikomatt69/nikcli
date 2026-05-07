@@ -24,10 +24,36 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
   export const OUTPUT_TOKEN_MAX = ProviderTransform.OUTPUT_TOKEN_MAX
+
+  function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+    return runPromiseWithLayer(Auth.defaultLayer, effect)
+  }
+
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
 
   // Build request headers based on provider and model configuration
   function buildRequestHeaders(
@@ -92,12 +118,26 @@ export namespace LLM {
       modelID: input.model.id,
       providerID: input.model.providerID,
     })
-    const [language, cfg, provider, auth] = await Promise.all([
-      Provider.getLanguage(input.model),
-      Config.get(),
-      Provider.getProvider(input.model.providerID),
-      Auth.get(input.model.providerID),
+    const [{ language, provider }, cfg, auth] = await Promise.all([
+      runProvider(
+        Effect.gen(function* () {
+          const service = yield* Provider.Service
+          const language = yield* service.getLanguage(input.model)
+          const provider = yield* service.getProvider(input.model.providerID)
+          return { language, provider }
+        }),
+      ),
+      configGet(),
+      runAuth(
+        Effect.gen(function* () {
+          const auth = yield* Auth.Service
+          return yield* auth.get(input.model.providerID)
+        }),
+      ),
     ])
+    if (!provider) {
+      throw new Provider.ModelNotFoundError({ providerID: input.model.providerID, modelID: input.model.id })
+    }
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
 
     const system = SystemPrompt.header(input.model.providerID)
@@ -117,7 +157,12 @@ export namespace LLM {
 
     const header = system[0]
     const original = clone(system)
-    await Plugin.trigger("experimental.chat.system.transform", { sessionID: input.sessionID }, { system })
+    await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        yield* plugin.trigger("experimental.chat.system.transform", { sessionID: input.sessionID }, { system })
+      }),
+    )
     if (system.length === 0) {
       system.push(...original)
     }
@@ -147,23 +192,28 @@ export namespace LLM {
       options.instructions = SystemPrompt.instructions()
     }
 
-    const params = await Plugin.trigger(
-      "chat.params",
-      {
-        sessionID: input.sessionID,
-        agent: input.agent,
-        model: input.model,
-        provider,
-        message: input.user,
-      },
-      {
-        temperature: input.model.capabilities.temperature
-          ? (input.agent.temperature ?? ProviderTransform.temperature(input.model))
-          : undefined,
-        topP: input.agent.topP ?? ProviderTransform.topP(input.model),
-        topK: ProviderTransform.topK(input.model),
-        options,
-      },
+    const params = await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        return yield* plugin.trigger(
+          "chat.params",
+          {
+            sessionID: input.sessionID,
+            agent: input.agent,
+            model: input.model,
+            provider,
+            message: input.user,
+          },
+          {
+            temperature: input.model.capabilities.temperature
+              ? (input.agent.temperature ?? ProviderTransform.temperature(input.model))
+              : undefined,
+            topP: input.agent.topP ?? ProviderTransform.topP(input.model),
+            topK: ProviderTransform.topK(input.model),
+            options,
+          },
+        )
+      }),
     )
 
     const maxOutputTokens =

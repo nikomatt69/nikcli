@@ -10,7 +10,6 @@ import { BunProc } from "../bun"
 import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Flag } from "../flag/flag"
-import { Instance } from "../project/instance"
 import { Session } from "../session"
 import { Log } from "../util/log"
 import { AsyncQueue } from "../util/queue"
@@ -21,6 +20,8 @@ import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -64,8 +65,20 @@ type NotifyConfig = NonNullable<NonNullable<Config.Info["notifications"]>["notif
 type RateState = { window: number; count: number }
 type BreakerState = { fails: number; openUntil: number }
 type ConnectorEntry = NonNullable<Config.Info["connectors"]>[string]
+type NotifyState = {
+  queue: AsyncQueue<NotifyJob>
+  started: boolean
+  rate: Map<NotifyChannel, RateState>
+  breaker: Map<NotifyChannel, BreakerState>
+  busy: Map<string, number>
+  config: Config.Info | undefined
+}
 
 const notifyLog = Log.create({ service: "notify" })
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 const DEFAULT_RATE_WINDOW_MS = 60_000
 const DEFAULT_RATE_MAX = 20
@@ -79,14 +92,41 @@ const DEFAULT_BREAKER_COOLDOWN_MS = 120_000
 const DEFAULT_IDLE_MIN_MS = 30_000
 const DEFAULT_QUIET_SUPPRESS: NotifyChannel[] = ["macos"]
 
-const notifyState = Instance.state(() => ({
-  queue: new AsyncQueue<NotifyJob>(),
-  started: false,
-  rate: new Map<NotifyChannel, RateState>(),
-  breaker: new Map<NotifyChannel, BreakerState>(),
-  busy: new Map<string, number>(),
-  config: undefined as Config.Info | undefined,
-}))
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function configGetFor(ctx: InstanceContext) {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    locallyInstance(
+      ctx,
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function makeNotifyState(): NotifyState {
+  return {
+    queue: new AsyncQueue<NotifyJob>(),
+    started: false,
+    rate: new Map<NotifyChannel, RateState>(),
+    breaker: new Map<NotifyChannel, BreakerState>(),
+    busy: new Map<string, number>(),
+    config: undefined,
+  }
+}
 
 function isConnector(entry: ConnectorEntry | undefined): entry is Config.Connector {
   return typeof entry === "object" && entry !== null && "type" in entry
@@ -268,7 +308,7 @@ function route(priority: NotifyPriority, list: NotifyChannel[]) {
 }
 
 function rateAllow(
-  data: ReturnType<typeof notifyState>,
+  data: NotifyState,
   config: NotifyConfig | undefined,
   channel: NotifyChannel,
   priority: NotifyPriority,
@@ -291,7 +331,7 @@ function rateAllow(
   return true
 }
 
-function breakerOpen(data: ReturnType<typeof notifyState>, channel: NotifyChannel, now: number) {
+function breakerOpen(data: NotifyState, channel: NotifyChannel, now: number) {
   const entry = data.breaker.get(channel)
   if (!entry) return false
   if (entry.openUntil === 0) return false
@@ -302,12 +342,12 @@ function breakerOpen(data: ReturnType<typeof notifyState>, channel: NotifyChanne
   return true
 }
 
-function breakerReset(data: ReturnType<typeof notifyState>, channel: NotifyChannel) {
+function breakerReset(data: NotifyState, channel: NotifyChannel) {
   data.breaker.delete(channel)
 }
 
 function breakerFail(
-  data: ReturnType<typeof notifyState>,
+  data: NotifyState,
   config: NotifyConfig | undefined,
   channel: NotifyChannel,
   now: number,
@@ -319,24 +359,24 @@ function breakerFail(
   data.breaker.set(channel, { fails, openUntil })
 }
 
-function startQueue(data: ReturnType<typeof notifyState>) {
+function startQueue(data: NotifyState) {
   if (data.started) return
   data.started = true
   void runQueue(data)
 }
 
-function enqueue(data: ReturnType<typeof notifyState>, job: NotifyJob) {
+function enqueue(data: NotifyState, job: NotifyJob) {
   data.queue.push(job)
 }
 
-async function loadConfig(data: ReturnType<typeof notifyState>) {
+async function loadConfig(data: NotifyState) {
   if (data.config) return data.config
-  const config = await Config.get()
+  const config = await configGet()
   data.config = config
   return config
 }
 
-async function runQueue(data: ReturnType<typeof notifyState>) {
+async function runQueue(data: NotifyState) {
   for await (const job of data.queue) {
     await processJob(data, job).catch((error) => {
       const text = error instanceof Error ? error.message : String(error)
@@ -345,7 +385,7 @@ async function runQueue(data: ReturnType<typeof notifyState>) {
   }
 }
 
-async function processJob(data: ReturnType<typeof notifyState>, job: NotifyJob) {
+async function processJob(data: NotifyState, job: NotifyJob) {
   const config = await loadConfig(data)
   const cfg = settings(config)
   if (!flag(cfg.enabled, true)) return
@@ -485,7 +525,7 @@ async function discord(config: Config.Info, cfg: NotifyConfig, job: NotifyJob) {
   return true
 }
 
-async function handleEvent(data: ReturnType<typeof notifyState>, event: { type: string; properties: unknown }) {
+async function handleEvent(data: NotifyState, event: { type: string; properties: unknown }) {
   // Session status events are frequent and can arrive back-to-back (busy -> idle).
   // Track busy timing before any async work so we don't miss idle notifications.
   if (event.type === "session.status") {
@@ -507,7 +547,12 @@ async function handleEvent(data: ReturnType<typeof notifyState>, event: { type: 
     if (!eventOn(cfg, "sessionIdle", true)) return
     const elapsed = Date.now() - start
     if (elapsed < idleMin(cfg)) return
-    const infoSession = await Session.get(info.sessionID).catch(() => undefined)
+    const infoSession = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.get(info.sessionID)
+      }),
+    ).catch(() => undefined)
     const title =
       infoSession && !Session.isDefaultTitle(infoSession.title)
         ? `Session ready: ${infoSession.title}`
@@ -570,16 +615,17 @@ async function handleEvent(data: ReturnType<typeof notifyState>, event: { type: 
   }
 }
 
-export async function NotifyPlugin(_input: PluginInput): Promise<Hooks> {
-  const data = notifyState()
-  startQueue(data)
-  return {
-    async config(cfg) {
-      data.config = cfg as Config.Info
-    },
-    async event(input) {
-      await handleEvent(data, input.event)
-    },
+function createNotifyPlugin(data: NotifyState): PluginInstance {
+  return async function NotifyPlugin(_input: PluginInput): Promise<Hooks> {
+    startQueue(data)
+    return {
+      async config(cfg) {
+        data.config = cfg as Config.Info
+      },
+      async event(input) {
+        await handleEvent(data, input.event)
+      },
+    }
   }
 }
 
@@ -588,28 +634,57 @@ export namespace Plugin {
 
   const BUILTIN: string[] = []
 
-  // Built-in plugins that are directly imported (not installed from npm)
-  const INTERNAL_PLUGINS: PluginInstance[] = [CodexAuthPlugin, CopilotAuthPlugin, CursorAuthPlugin, CloudflareWorkersAuthPlugin, CloudflareAIGatewayAuthPlugin, NotifyPlugin]
+  export interface Interface {
+    trigger<
+      Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
+      Input = Parameters<Required<Hooks>[Name]>[0],
+      Output = Parameters<Required<Hooks>[Name]>[1],
+    >(
+      name: Name,
+      input: Input,
+      output: Output,
+    ): Effect.Effect<Output, unknown>
+    list(): Effect.Effect<Hooks[], unknown>
+    init(): Effect.Effect<void, unknown>
+  }
 
-  const state = Instance.state(async () => {
+  export class Service extends Context.Tag("Plugin.Service")<Service, Interface>() {}
+
+  type State = {
+    hooks: Hooks[]
+    input: PluginInput
+    subscribed: boolean
+  }
+
+  async function buildState(ctx: InstanceContext): Promise<State> {
     const { Server } = await import("../server/server")
     const client = createNikcliClient({
       baseUrl: "http://localhost:4096",
       // @ts-ignore - fetch type incompatibility
       fetch: async (...args) => Server.App().fetch(...args),
     })
-    const config = await Config.get()
+    const config = await configGetFor(ctx)
     const hooks: Hooks[] = []
     const input: PluginInput = {
       client,
-      project: Instance.project,
-      worktree: Instance.worktree,
-      directory: Instance.directory,
+      project: ctx.project,
+      worktree: ctx.worktree,
+      directory: ctx.directory,
       serverUrl: Server.url(),
       $: Bun.$,
     }
 
-    for (const plugin of INTERNAL_PLUGINS) {
+    // Built-in plugins that are directly imported (not installed from npm)
+    const internalPlugins: PluginInstance[] = [
+      CodexAuthPlugin,
+      CopilotAuthPlugin,
+      CursorAuthPlugin,
+      CloudflareWorkersAuthPlugin,
+      CloudflareAIGatewayAuthPlugin,
+      createNotifyPlugin(makeNotifyState()),
+    ]
+
+    for (const plugin of internalPlugins) {
       log.info("loading internal plugin", { name: plugin.name })
       const init = await plugin(input)
       hooks.push(init)
@@ -673,16 +748,17 @@ export namespace Plugin {
     return {
       hooks,
       input,
+      subscribed: false,
     }
-  })
+  }
 
-  export async function trigger<
+  async function triggerImpl<
     Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
     Input = Parameters<Required<Hooks>[Name]>[0],
     Output = Parameters<Required<Hooks>[Name]>[1],
-  >(name: Name, input: Input, output: Output): Promise<Output> {
+  >(state: State, name: Name, input: Input, output: Output): Promise<Output> {
     if (!name) return output
-    for (const hook of await state().then((x) => x.hooks)) {
+    for (const hook of state.hooks) {
       const fn = hook[name as keyof Hooks]
       if (!fn) continue
       // @ts-expect-error if you feel adventurous, please fix the typing, make sure to bump the try-counter if you
@@ -693,24 +769,40 @@ export namespace Plugin {
     return output
   }
 
-  export async function list() {
-    return state().then((x) => x.hooks)
-  }
-
-  export async function init() {
-    const hooks = await state().then((x) => x.hooks)
-    const config = await Config.get()
+  async function initImpl(state: State) {
+    const hooks = state.hooks
+    const config = await configGet()
     for (const hook of hooks) {
       // @ts-expect-error this is because we haven't moved plugin to sdk v2
       await hook.config?.(config)
     }
+    if (state.subscribed) return
+    state.subscribed = true
     Bus.subscribeAll(async (input) => {
-      const hooks = await state().then((x) => x.hooks)
-      for (const hook of hooks) {
+      for (const hook of state.hooks) {
         hook["event"]?.({
           event: input,
         })
       }
     })
   }
+
+  const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<State>((ctx) =>
+        Effect.tryPromise(() => buildState(ctx)).pipe(Effect.orDie),
+      )
+      const getState = () => InstanceState.get(state)
+
+      return Service.of({
+        trigger: (name, input, output) =>
+          getState().pipe(Effect.flatMap((state) => Effect.tryPromise(() => triggerImpl(state, name, input, output)))),
+        list: () => getState().pipe(Effect.map((state) => state.hooks)),
+        init: () => getState().pipe(Effect.flatMap((state) => Effect.tryPromise(() => initImpl(state)))),
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

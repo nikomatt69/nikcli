@@ -12,7 +12,7 @@ This eliminates multiple `runPromise` round-trips and lets handlers compose natu
 // Before - one facade call per service
 ;async (c) => {
   await SessionRunState.assertNotBusy(id)
-  await Session.removeMessage({ sessionID: id, messageID })
+  await LegacySession.removeMessage({ sessionID: id, messageID })
   return c.json(true)
 }
 
@@ -39,24 +39,25 @@ This eliminates multiple `runPromise` round-trips and lets handlers compose natu
 
 ## Current route files
 
-Current instance route files live under `src/server/routes/instance`.
+Current branch audit, 2026-05-06:
 
-Files that are already mostly on the intended service-yielding shape:
+- `src/server/routes/instance/*` does not exist on this branch.
+- Current route files live under `src/server/routes/*.ts` plus top-level route handlers in `src/server/server.ts`.
+- The old `server/routes/instance/*` checklist below is replaced by the current branch checklist. Do not mark a route file complete until the current file wraps service-heavy handlers in one composed Effect boundary and tests or typecheck cover that path.
 
-- [x] `server/routes/instance/question.ts` — handlers yield `Question.Service`
-- [x] `server/routes/instance/provider.ts` — handlers yield `Provider.Service`, `ProviderAuth.Service`, and `Config.Service`
-- [x] `server/routes/instance/permission.ts` — handlers yield `Permission.Service`
-- [x] `server/routes/instance/mcp.ts` — handlers mostly yield `MCP.Service`
-- [x] `server/routes/instance/pty.ts` — handlers yield `Pty.Service`
+Current branch checklist:
 
-Files still worth tracking here:
-
-- [ ] `server/routes/instance/session.ts` — still the heaviest mixed file; many handlers are composed, but the file still mixes patterns and has direct `Bus.publish(...)` / `Session.list(...)` usage
-- [ ] `server/routes/instance/index.ts` — mostly converted, but still has direct `Instance.dispose()` / `Instance.*` reads for `/instance/dispose` and `/path`
-- [ ] `server/routes/instance/file.ts` — most handlers yield services, but `/find` still passes `Instance.directory` directly into ripgrep and `/find/symbol` is still stubbed
-- [ ] `server/routes/instance/experimental.ts` — mixed state; many handlers are composed, but some still rely on `runRequest(...)` or direct `Instance.project` reads
-- [ ] `server/routes/instance/middleware.ts` — still enters the instance via `Instance.provide(...)`
-- [ ] `server/routes/global.ts` — still uses `Instance.disposeAll()` and remains partly outside the fully-composed style
+- [x] `server/routes/question.ts` — Hono handlers now enter `Question.Service` through one Effect boundary per handler; covered by `bun run typecheck` and `bun test test/question/effect-service.test.ts`.
+- [ ] `server/routes/provider.ts` — ProviderAuth handlers now use `ProviderAuth.Service`, and credential removal now uses `Auth.Service`, through Effect boundaries; the route file is not complete yet because `GET /provider` and instance disposal still need service-boundary audit.
+- [x] `server/routes/permission.ts` — Hono handlers now enter `PermissionNext.Service` through one Effect boundary per handler; covered by `bun run typecheck` and `bun test test/permission/effect-service.test.ts`.
+- [ ] `server/routes/mcp.ts` — audit and convert service-heavy handlers to one Effect boundary
+- [x] `server/routes/pty.ts` — HTTP handlers and websocket callbacks now enter `Pty.Service` through Effect boundaries; covered by `bun run typecheck` and `bun test test/pty/effect-service.test.ts`.
+- [ ] `server/routes/session.ts` — session CRUD/message/share handlers now enter `Session.Service`, and status/todo/prompt/summary/revert/compaction handlers enter their Effect services; the route file remains open because it is still a Hono implementation and the broader HttpApi replacement is tracked in `http-api.md`.
+- [ ] `server/routes/file.ts` — audit direct filesystem/search bridges and service boundaries
+- [ ] `server/routes/experimental.ts` — `/tool/ids` and `/tool` now enter `ToolRegistry.Service`, and worktree create/remove/reset handlers now enter `Worktree.Service`, through Effect boundaries; the route file is not complete yet because other handlers still need direct `Instance.*` and service-boundary audit.
+- [ ] `server/routes/global.ts` — still uses global lifecycle and streaming paths
+- [ ] `server/server.ts` — command, skill, VCS, Format, and auth set/remove endpoints now enter Effect services through Effect boundaries; the file remains open because other top-level handlers still need direct `Instance.*` and service-boundary audit.
+- [ ] `server/routes/mobile.ts` — mobile session create/detail/message/publish/cleanup/rename flows now enter `Session.Service`, plus command/status/worktree flows use Effect service boundaries; the route file remains open because it still has legacy boundary code such as `Instance.provide(...)`.
 
 ## Notes
 

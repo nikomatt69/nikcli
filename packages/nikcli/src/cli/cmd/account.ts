@@ -2,6 +2,12 @@ import { Account } from "../../account"
 import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runAccount<A, E>(effect: Effect.Effect<A, E, Account.Service>) {
+  return runPromiseWithLayer(Account.defaultLayer, effect)
+}
 
 export const AccountCommand = cmd({
   command: "account",
@@ -34,7 +40,12 @@ export const AccountLoginCommand = cmd({
 
     try {
       // Start device code flow
-      const loginResult = await Account.login({ serverUrl: args.server })
+      const loginResult = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return yield* account.login({ serverUrl: args.server })
+        }),
+      )
 
       prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
       prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
@@ -42,12 +53,17 @@ export const AccountLoginCommand = cmd({
       // Poll for completion
       spinner.start("Waiting for authorization...")
 
-      const result = await Account.poll(loginResult.deviceCode, {
-        serverUrl: args.server,
-        onPending() {
-          spinner.message("Waiting for authorization... (press Ctrl+C to cancel)")
-        },
-      })
+      const result = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return yield* account.poll(loginResult.deviceCode, {
+            serverUrl: args.server,
+            onPending() {
+              spinner.message("Waiting for authorization... (press Ctrl+C to cancel)")
+            },
+          })
+        }),
+      )
 
       spinner.stop("Login successful")
 
@@ -55,9 +71,14 @@ export const AccountLoginCommand = cmd({
 
       // Fetch and display user info if available
       try {
-        const account = Account.get(result.accountID)
-        if (account?.email) {
-          prompts.log.info(`Email: ${account.email}`)
+        const accountInfo = await runAccount(
+          Effect.gen(function* () {
+            const account = yield* Account.Service
+            return yield* account.get(result.accountID)
+          }),
+        )
+        if (accountInfo?.email) {
+          prompts.log.info(`Email: ${accountInfo.email}`)
         }
       } catch {
         // Ignore
@@ -90,7 +111,12 @@ export const AccountLogoutCommand = cmd({
     UI.empty()
     prompts.intro("Account logout")
 
-    const accounts = Account.list()
+    const accounts = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return yield* account.list()
+      }),
+    )
 
     if (accounts.length === 0) {
       prompts.log.error("No accounts found")
@@ -123,7 +149,12 @@ export const AccountLogoutCommand = cmd({
     if (prompts.isCancel(confirmed)) throw new UI.CancelledError()
 
     if (confirmed) {
-      Account.remove(accountId)
+      await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          yield* account.remove(accountId)
+        }),
+      )
       prompts.log.success("Account removed")
     }
 
@@ -139,8 +170,15 @@ export const AccountListCommand = cmd({
     UI.empty()
     prompts.intro("Accounts")
 
-    const accounts = Account.list()
-    const active = Account.active()
+    const { accounts, active } = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return {
+          accounts: yield* account.list(),
+          active: yield* account.active(),
+        }
+      }),
+    )
 
     if (accounts.length === 0) {
       prompts.log.warn("No accounts found")
@@ -172,7 +210,12 @@ export const AccountSwitchCommand = cmd({
     UI.empty()
     prompts.intro("Switch account")
 
-    const accounts = Account.list()
+    const accounts = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return yield* account.list()
+      }),
+    )
 
     if (accounts.length === 0) {
       prompts.log.error("No accounts found")
@@ -197,7 +240,12 @@ export const AccountSwitchCommand = cmd({
       accountId = selected
     }
 
-    Account.use(accountId)
+    await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        yield* account.use(accountId)
+      }),
+    )
     prompts.log.success(`Switched to ${accountId}`)
 
     prompts.outro("Done")
@@ -216,7 +264,12 @@ export const AccountOrgsCommand = cmd({
     UI.empty()
     prompts.intro("Organizations")
 
-    const activeAccount = args.accountId ? Account.get(args.accountId) : Account.active()
+    const activeAccount = await runAccount(
+      Effect.gen(function* () {
+        const account = yield* Account.Service
+        return args.accountId ? yield* account.get(args.accountId) : yield* account.active()
+      }),
+    )
 
     if (!activeAccount) {
       prompts.log.error("No account found")
@@ -228,7 +281,12 @@ export const AccountOrgsCommand = cmd({
     spinner.start("Fetching organizations...")
 
     try {
-      const orgs = await Account.orgs(activeAccount.id)
+      const orgs = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return yield* account.orgs(activeAccount.id)
+        }),
+      )
       spinner.stop()
 
       if (orgs.length === 0) {

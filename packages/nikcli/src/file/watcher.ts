@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import z from "zod"
-import { Instance } from "../project/instance"
 import { Log } from "../util/log"
 import { FileIgnore } from "./ignore"
 import { Config } from "../config/config"
@@ -14,6 +13,8 @@ import type ParcelWatcher from "@parcel/watcher"
 import { $ } from "bun"
 import { Flag } from "@/flag/flag"
 import { readdir } from "fs/promises"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000
 
@@ -44,84 +45,121 @@ export namespace FileWatcher {
     }
   })
 
-  const state = Instance.state(
-    async () => {
-      if (Instance.project.vcs !== "git") return {}
-      log.info("init")
-      const cfg = await Config.get()
-      const backend = (() => {
-        if (process.platform === "win32") return "windows"
-        if (process.platform === "darwin") return "fs-events"
-        if (process.platform === "linux") return "inotify"
-      })()
-      if (!backend) {
-        log.error("watcher backend not supported", { platform: process.platform })
-        return {}
-      }
-      log.info("watcher backend", { platform: process.platform, backend })
+  type State = {
+    subs: ParcelWatcher.AsyncSubscription[]
+  }
 
-      const w = watcher()
-      if (!w) return {}
+  export interface Interface {
+    readonly init: () => Effect.Effect<void>
+  }
 
-      const subscribe: ParcelWatcher.SubscribeCallback = (err, evts) => {
-        if (err) return
-        for (const evt of evts) {
-          if (evt.type === "create") Bus.publish(Event.Updated, { file: evt.path, event: "add" })
-          if (evt.type === "update") Bus.publish(Event.Updated, { file: evt.path, event: "change" })
-          if (evt.type === "delete") Bus.publish(Event.Updated, { file: evt.path, event: "unlink" })
-        }
-      }
+  export class Service extends Context.Tag("@nikcli/FileWatcher")<Service, Interface>() {}
 
-      const subs: ParcelWatcher.AsyncSubscription[] = []
-      const cfgIgnores = cfg.watcher?.ignore ?? []
+  function configGet(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
 
-      if (Flag.NIKCLI_EXPERIMENTAL_FILEWATCHER) {
-        const pending = w.subscribe(Instance.directory, subscribe, {
-          ignore: [...FileIgnore.PATTERNS, ...cfgIgnores],
-          backend,
-        })
-        const sub = await withTimeout(pending, SUBSCRIBE_TIMEOUT_MS).catch((err) => {
-          log.error("failed to subscribe to Instance.directory", { error: err })
-          pending.then((s) => s.unsubscribe()).catch(() => { })
-          return undefined
-        })
-        if (sub) subs.push(sub)
-      }
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<State>(
+        Effect.fn("FileWatcher.state")(function* () {
+          const ctx = yield* InstanceState.context
+          if (ctx.project.vcs !== "git") return { subs: [] }
 
-      const vcsDir = await $`git rev-parse --git-dir`
-        .quiet()
-        .nothrow()
-        .cwd(Instance.worktree)
-        .text()
-        .then((x) => path.resolve(Instance.worktree, x.trim()))
-        .catch(() => undefined)
-      if (vcsDir && !cfgIgnores.includes(".git") && !cfgIgnores.includes(vcsDir)) {
-        const gitDirContents = await readdir(vcsDir).catch(() => [])
-        const ignoreList = gitDirContents.filter((entry) => entry !== "HEAD")
-        const pending = w.subscribe(vcsDir, subscribe, {
-          ignore: ignoreList,
-          backend,
-        })
-        const sub = await withTimeout(pending, SUBSCRIBE_TIMEOUT_MS).catch((err) => {
-          log.error("failed to subscribe to vcsDir", { error: err })
-          pending.then((s) => s.unsubscribe()).catch(() => { })
-          return undefined
-        })
-        if (sub) subs.push(sub)
-      }
+          log.info("init")
+          const cfg = yield* Effect.promise(() => configGet(ctx))
 
-      return { subs }
-    },
-    async (state) => {
-      if (!state.subs) return
-      await Promise.all(state.subs.map((sub) => sub?.unsubscribe()))
-    },
+          const backend = (() => {
+            if (process.platform === "win32") return "windows"
+            if (process.platform === "darwin") return "fs-events"
+            if (process.platform === "linux") return "inotify"
+          })()
+          if (!backend) {
+            log.error("watcher backend not supported", { platform: process.platform })
+            return { subs: [] }
+          }
+          log.info("watcher backend", { platform: process.platform, backend })
+
+          const w = watcher()
+          if (!w) return { subs: [] }
+
+          const subscribe: ParcelWatcher.SubscribeCallback = (err, evts) => {
+            if (err) return
+            for (const evt of evts) {
+              if (evt.type === "create") Bus.publish(Event.Updated, { file: evt.path, event: "add" })
+              if (evt.type === "update") Bus.publish(Event.Updated, { file: evt.path, event: "change" })
+              if (evt.type === "delete") Bus.publish(Event.Updated, { file: evt.path, event: "unlink" })
+            }
+          }
+
+          const subs: ParcelWatcher.AsyncSubscription[] = []
+          const cfgIgnores = cfg.watcher?.ignore ?? []
+
+          if (Flag.NIKCLI_EXPERIMENTAL_FILEWATCHER) {
+            const pending = w.subscribe(ctx.directory, subscribe, {
+              ignore: [...FileIgnore.PATTERNS, ...cfgIgnores],
+              backend,
+            })
+            const sub = yield* Effect.promise(() =>
+              withTimeout(pending, SUBSCRIBE_TIMEOUT_MS).catch((err) => {
+                log.error("failed to subscribe to directory", { error: err })
+                pending.then((s) => s.unsubscribe()).catch(() => {})
+                return undefined
+              }),
+            )
+            if (sub) subs.push(sub)
+          }
+
+          const vcsDir = yield* Effect.promise(() =>
+            $`git rev-parse --git-dir`
+              .quiet()
+              .nothrow()
+              .cwd(ctx.worktree)
+              .text()
+              .then((x) => path.resolve(ctx.worktree, x.trim()))
+              .catch(() => undefined),
+          )
+          if (vcsDir && !cfgIgnores.includes(".git") && !cfgIgnores.includes(vcsDir)) {
+            const gitDirContents = yield* Effect.promise(() => readdir(vcsDir).catch(() => []))
+            const ignoreList = gitDirContents.filter((entry) => entry !== "HEAD")
+            const pending = w.subscribe(vcsDir, subscribe, {
+              ignore: ignoreList,
+              backend,
+            })
+            const sub = yield* Effect.promise(() =>
+              withTimeout(pending, SUBSCRIBE_TIMEOUT_MS).catch((err) => {
+                log.error("failed to subscribe to vcsDir", { error: err })
+                pending.then((s) => s.unsubscribe()).catch(() => {})
+                return undefined
+              }),
+            )
+            if (sub) subs.push(sub)
+          }
+
+          yield* Effect.addFinalizer(() => Effect.promise(() => Promise.all(subs.map((sub) => sub.unsubscribe()))))
+
+          return { subs }
+        }),
+      )
+
+      const init = Effect.fn("FileWatcher.init")(function* () {
+        if (Flag.NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER) return
+        yield* InstanceState.get(state)
+      })
+
+      return Service.of({ init })
+    }),
   )
 
-  export function init() {
-    if (Flag.NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER) {
-      return
-    }
-    state()
-  }
+  export const defaultLayer = layer
 }

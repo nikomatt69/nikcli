@@ -15,7 +15,6 @@ import { Installation } from "../installation"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { MessageV2 } from "./message-v2"
-import { Instance } from "../project/instance"
 import { SessionPrompt } from "./prompt"
 import { fn } from "@/util/fn"
 import { Command } from "../command"
@@ -25,6 +24,88 @@ import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import { WorkspaceContext } from "../workspace/workspace-context"
+import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function configGet(ctx?: InstanceContext) {
+  const effect = Effect.gen(function* () {
+    const config = yield* Config.Service
+    return yield* config.get()
+  })
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
+  )
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>, ctx?: InstanceContext) {
+  return runPromiseWithLayer(
+    SessionPrompt.defaultLayer,
+    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
+  )
+}
+
+function publishBus(ctx: InstanceContext, def: any, properties: any) {
+  return runPromiseWithLayer(
+    Bus.defaultLayer,
+    locallyInstance(
+      ctx,
+      Effect.gen(function* () {
+        const bus = yield* Bus.Service
+        yield* bus.publish(def, properties)
+      }),
+    ),
+  )
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
+
+function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.update(key, fn)
+    }),
+  )
+}
+
+function storageRemove(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.remove(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -159,6 +240,72 @@ export namespace Session {
     })
   export type ShareInfo = z.output<typeof ShareInfo>
 
+  export const ID = Identifier.schema("session")
+
+  export const CreateInput = z
+    .object({
+      parentID: ID.optional(),
+      title: z.string().optional(),
+      permission: Info.shape.permission,
+      skills: z.array(z.string()).optional(),
+      github: GithubInfo.optional(),
+      workspaceID: Info.shape.workspaceID,
+    })
+    .optional()
+  export type CreateInput = z.infer<typeof CreateInput>
+
+  export const ForkInput = z.object({
+    sessionID: ID,
+    messageID: Identifier.schema("message").optional(),
+  })
+  export type ForkInput = z.infer<typeof ForkInput>
+
+  export const MessagesInput = z.object({
+    sessionID: ID,
+    limit: z.number().optional(),
+  })
+  export type MessagesInput = z.infer<typeof MessagesInput>
+
+  export const RemoveMessageInput = z.object({
+    sessionID: ID,
+    messageID: Identifier.schema("message"),
+  })
+  export type RemoveMessageInput = z.infer<typeof RemoveMessageInput>
+
+  export const RemovePartInput = z.object({
+    sessionID: ID,
+    messageID: Identifier.schema("message"),
+    partID: Identifier.schema("part"),
+  })
+  export type RemovePartInput = z.infer<typeof RemovePartInput>
+
+  export const UpdatePartInput = z.union([
+    MessageV2.Part,
+    z.object({
+      part: MessageV2.TextPart,
+      delta: z.string(),
+    }),
+    z.object({
+      part: MessageV2.ReasoningPart,
+      delta: z.string(),
+    }),
+  ])
+
+  const UsageInput = z.object({
+    model: z.custom<Provider.Model>(),
+    usage: z.custom<LanguageModelV2Usage>(),
+    metadata: z.custom<ProviderMetadata>().optional(),
+  })
+  type UsageInput = z.infer<typeof UsageInput>
+
+  export const InitializeInput = z.object({
+    sessionID: ID,
+    modelID: z.string(),
+    providerID: z.string(),
+    messageID: Identifier.schema("message"),
+  })
+  export type InitializeInput = z.infer<typeof InitializeInput>
+
   export const Event = {
     Created: BusEvent.define(
       "session.created",
@@ -194,79 +341,7 @@ export namespace Session {
     ),
   }
 
-  export const create = fn(
-    z
-      .object({
-        parentID: Identifier.schema("session").optional(),
-        title: z.string().optional(),
-        permission: Info.shape.permission,
-        skills: z.array(z.string()).optional(),
-        github: GithubInfo.optional(),
-        workspaceID: Info.shape.workspaceID,
-      })
-      .optional(),
-    async (input) => {
-      return createNext({
-        parentID: input?.parentID,
-        directory: Instance.directory,
-        title: input?.title,
-        permission: input?.permission,
-        skills: input?.skills,
-        github: input?.github,
-        workspaceID: input?.workspaceID,
-      })
-    },
-  )
-
-  export const fork = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      messageID: Identifier.schema("message").optional(),
-    }),
-    async (input) => {
-      const original = await get(input.sessionID)
-      const session = await createNext({
-        parentID: original.id,
-        directory: original.directory,
-        workspaceID: original.workspaceID,
-        skills: original.skills,
-      })
-      const msgs = await messages({ sessionID: input.sessionID })
-      const idMap = new Map<string, string>()
-
-      for (const msg of msgs) {
-        if (input.messageID && msg.info.id >= input.messageID) break
-        const newID = Identifier.ascending("message")
-        idMap.set(msg.info.id, newID)
-
-        const parentID = msg.info.role === "assistant" && msg.info.parentID ? idMap.get(msg.info.parentID) : undefined
-        const cloned = await updateMessage({
-          ...msg.info,
-          sessionID: session.id,
-          id: newID,
-          ...(parentID && { parentID }),
-        })
-
-        for (const part of msg.parts) {
-          await updatePart({
-            ...part,
-            id: Identifier.ascending("part"),
-            messageID: cloned.id,
-            sessionID: session.id,
-          })
-        }
-      }
-      return session
-    },
-  )
-
-  export const touch = fn(Identifier.schema("session"), async (sessionID) => {
-    await update(sessionID, (draft) => {
-      draft.time.updated = Date.now()
-    })
-  })
-
-  export async function createNext(input: {
+  export type CreateNextInput = {
     id?: string
     title?: string
     parentID?: string
@@ -276,14 +351,125 @@ export namespace Session {
     skills?: string[]
     github?: z.infer<typeof GithubInfo>
     mobile?: MobileInfo
-  }) {
+  }
+
+  async function getImpl(ctx: InstanceContext, id: string) {
+    const read = await storageRead<Info>(["session", ctx.project.id, id])
+    return read as Info
+  }
+
+  function planImpl(ctx: InstanceContext, input: { slug: string; time: { created: number } }) {
+    const base = ctx.project.vcs ? path.join(ctx.worktree, ".nikcli", "plans") : path.join(Global.Path.data, "plans")
+    return path.join(base, [input.time.created, input.slug].join("-") + ".md")
+  }
+
+  async function updateImpl(
+    ctx: InstanceContext,
+    id: string,
+    editor: (session: Info) => void,
+    options?: { touch?: boolean },
+  ) {
+    const result = await storageUpdate<Info>(["session", ctx.project.id, id], (draft) => {
+      editor(draft)
+      if (options?.touch !== false) {
+        draft.time.updated = Date.now()
+      }
+    })
+    await publishBus(ctx, Event.Updated, {
+      info: result,
+    })
+    return result
+  }
+
+  async function shareImpl(ctx: InstanceContext, id: string) {
+    const cfg = await configGet(ctx)
+    if (cfg.share === "disabled") {
+      throw new Error("Sharing is disabled in configuration")
+    }
+    const { ShareNext } = await import("@/share/share-next")
+    const share = await runPromiseWithLayer(
+      ShareNext.defaultLayer,
+      Effect.gen(function* () {
+        const shareNext = yield* ShareNext.Service
+        return yield* shareNext.create(id)
+      }),
+    )
+    await updateImpl(
+      ctx,
+      id,
+      (draft) => {
+        draft.share = {
+          url: share.url,
+        }
+      },
+      { touch: false },
+    )
+    return share
+  }
+
+  async function unshareImpl(ctx: InstanceContext, id: string) {
+    const { ShareNext } = await import("@/share/share-next")
+    await runPromiseWithLayer(
+      ShareNext.defaultLayer,
+      Effect.gen(function* () {
+        const shareNext = yield* ShareNext.Service
+        yield* shareNext.remove(id)
+      }),
+    )
+    await updateImpl(
+      ctx,
+      id,
+      (draft) => {
+        draft.share = undefined
+      },
+      { touch: false },
+    )
+  }
+
+  async function forkImpl(ctx: InstanceContext, input: ForkInput) {
+    const original = await getImpl(ctx, input.sessionID)
+    const session = await createNextImpl(ctx, {
+      parentID: original.id,
+      directory: original.directory,
+      workspaceID: original.workspaceID,
+      skills: original.skills,
+    })
+    const msgs = await messagesImpl(ctx, { sessionID: input.sessionID })
+    const idMap = new Map<string, string>()
+
+    for (const msg of msgs) {
+      if (input.messageID && msg.info.id >= input.messageID) break
+      const newID = Identifier.ascending("message")
+      idMap.set(msg.info.id, newID)
+
+      const parentID = msg.info.role === "assistant" && msg.info.parentID ? idMap.get(msg.info.parentID) : undefined
+      const cloned = await updateMessageImpl(ctx, {
+        ...msg.info,
+        sessionID: session.id,
+        id: newID,
+        ...(parentID && { parentID }),
+      })
+
+      for (const part of msg.parts) {
+        await updatePartImpl(ctx, {
+          ...part,
+          id: Identifier.ascending("part"),
+          messageID: cloned.id,
+          sessionID: session.id,
+        })
+      }
+    }
+    return session
+  }
+
+  async function createNextImpl(ctx: InstanceContext, input: CreateNextInput) {
     const inheritedSkills =
-      !input.skills && input.parentID ? (await get(input.parentID).catch(() => undefined))?.skills : undefined
+      !input.skills && input.parentID ? (await getImpl(ctx, input.parentID).catch(() => undefined))?.skills : undefined
     const result: Info = {
       id: Identifier.descending("session", input.id),
       slug: Slug.create(),
       version: Installation.VERSION,
-      projectID: Instance.project.id,
+      projectID: ctx.project.id,
       directory: input.directory,
       parentID: input.parentID,
       workspaceID: input.workspaceID ?? WorkspaceContext.workspaceID,
@@ -298,256 +484,156 @@ export namespace Session {
       },
     }
     log.info("created", result)
-    await Storage.write(["session", Instance.project.id, result.id], result)
-    Bus.publish(Event.Created, {
+    await storageWrite(["session", ctx.project.id, result.id], result)
+    await publishBus(ctx, Event.Created, {
       info: result,
     })
-    const cfg = await Config.get()
+    const cfg = await configGet(ctx)
     if (!result.parentID && (Flag.NIKCLI_AUTO_SHARE || cfg.share === "auto"))
-      share(result.id)
+      shareImpl(ctx, result.id)
         .then((share) => {
-          return update(result.id, (draft) => {
+          return updateImpl(ctx, result.id, (draft) => {
             draft.share = share
           })
         })
         .catch(() => {
           // Silently ignore sharing errors during session creation
         })
-    Bus.publish(Event.Updated, {
+    await publishBus(ctx, Event.Updated, {
       info: result,
     })
     return result
   }
 
-  export function plan(input: { slug: string; time: { created: number } }) {
-    const base = Instance.project.vcs
-      ? path.join(Instance.worktree, ".nikcli", "plans")
-      : path.join(Global.Path.data, "plans")
-    return path.join(base, [input.time.created, input.slug].join("-") + ".md")
-  }
-
-  export const get = fn(Identifier.schema("session"), async (id) => {
-    const read = await Storage.read<Info>(["session", Instance.project.id, id])
-    return read as Info
-  })
-
-  export const getAnyProject = fn(Identifier.schema("session"), async (id) => {
+  async function getAnyProjectImpl(ctx: InstanceContext, id: string) {
     try {
-      return await get(id)
+      return await getImpl(ctx, id)
     } catch (error) {
       if (!(error instanceof Storage.NotFoundError)) throw error
     }
 
-    for (const key of await Storage.list(["session"])) {
+    for (const key of await storageList(["session"])) {
       if (key.length !== 3 || key[2] !== id) continue
       try {
-        return await Storage.read<Info>(key)
+        return await storageRead<Info>(key)
       } catch {
         continue
       }
     }
 
     throw new Storage.NotFoundError({ message: `Session not found: ${id}` })
-  })
+  }
 
-  export const getShare = fn(Identifier.schema("session"), async (id) => {
-    return Storage.read<ShareInfo>(["session_share", id])
-  })
+  async function diffImpl(sessionID: string) {
+    const diffs = await storageRead<Snapshot.FileDiff[]>(["session_diff", sessionID])
+    return diffs ?? []
+  }
 
-  export const share = fn(Identifier.schema("session"), async (id) => {
-    const cfg = await Config.get()
-    if (cfg.share === "disabled") {
-      throw new Error("Sharing is disabled in configuration")
+  async function messagesImpl(ctx: InstanceContext, input: MessagesInput) {
+    await getImpl(ctx, input.sessionID)
+    if (input.limit) {
+      const page = await MessageV2.page({
+        sessionID: input.sessionID,
+        limit: input.limit,
+      })
+      return page.items.toReversed()
     }
-    const { ShareNext } = await import("@/share/share-next")
-    const share = await ShareNext.create(id)
-    await update(
-      id,
-      (draft) => {
-        draft.share = {
-          url: share.url,
-        }
-      },
-      { touch: false },
-    )
-    return share
-  })
 
-  export const unshare = fn(Identifier.schema("session"), async (id) => {
-    // Use ShareNext to remove the share (same as share function uses ShareNext to create)
-    const { ShareNext } = await import("@/share/share-next")
-    await ShareNext.remove(id)
-    await update(
-      id,
-      (draft) => {
-        draft.share = undefined
-      },
-      { touch: false },
-    )
-  })
-
-  export async function update(id: string, editor: (session: Info) => void, options?: { touch?: boolean }) {
-    const project = Instance.project
-    const result = await Storage.update<Info>(["session", project.id, id], (draft) => {
-      editor(draft)
-      if (options?.touch !== false) {
-        draft.time.updated = Date.now()
-      }
-    })
-    Bus.publish(Event.Updated, {
-      info: result,
-    })
+    const result = [] as MessageV2.WithParts[]
+    for await (const msg of MessageV2.stream(input.sessionID)) {
+      result.push(msg)
+    }
+    result.reverse()
     return result
   }
 
-  export const diff = fn(Identifier.schema("session"), async (sessionID) => {
-    const diffs = await Storage.read<Snapshot.FileDiff[]>(["session_diff", sessionID])
-    return diffs ?? []
-  })
-
-  export const messages = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      limit: z.number().optional(),
-    }),
-    async (input) => {
-      await get(input.sessionID)
-      if (input.limit) {
-        const page = await MessageV2.page({
-          sessionID: input.sessionID,
-          limit: input.limit,
-        })
-        return page.items.toReversed()
-      }
-
-      const result = [] as MessageV2.WithParts[]
-      for await (const msg of MessageV2.stream(input.sessionID)) {
-        result.push(msg)
-      }
-      result.reverse()
-      return result
-    },
-  )
-
-  export async function* list() {
-    const project = Instance.project
+  async function* listImpl(ctx: InstanceContext) {
     const activeWorkspaceID = WorkspaceContext.workspaceID
-    for (const item of await Storage.list(["session", project.id])) {
-      const session = await Storage.read<Info>(item)
+    for (const item of await storageList(["session", ctx.project.id])) {
+      const session = await storageRead<Info>(item)
       if (activeWorkspaceID && session.workspaceID !== activeWorkspaceID) continue
       yield session
     }
   }
 
-  export const children = fn(Identifier.schema("session"), async (parentID) => {
-    const project = Instance.project
+  async function childrenImpl(ctx: InstanceContext, parentID: string) {
     const result = [] as Session.Info[]
-    for (const item of await Storage.list(["session", project.id])) {
-      const session = await Storage.read<Info>(item)
+    for (const item of await storageList(["session", ctx.project.id])) {
+      const session = await storageRead<Info>(item)
       if (session.parentID !== parentID) continue
       result.push(session)
     }
     return result
-  })
+  }
 
-  export const remove = fn(Identifier.schema("session"), async (sessionID) => {
-    const project = Instance.project
+  async function removeImpl(ctx: InstanceContext, sessionID: string) {
     try {
-      const session = await get(sessionID)
-      for (const child of await children(sessionID)) {
-        await remove(child.id)
+      const session = await getImpl(ctx, sessionID)
+      for (const child of await childrenImpl(ctx, sessionID)) {
+        await removeImpl(ctx, child.id)
       }
-      await unshare(sessionID).catch(() => {})
-      for (const msg of await Storage.list(["message", sessionID])) {
-        await removeMessageWithParts(sessionID, msg.at(-1)!)
+      await unshareImpl(ctx, sessionID).catch(() => {})
+      for (const msg of await storageList(["message", sessionID])) {
+        await removeMessageWithPartsImpl(sessionID, msg.at(-1)!)
       }
-      await Storage.remove(["session_diff", sessionID]).catch(() => {})
-      await Storage.remove(["session", project.id, sessionID])
-      Bus.publish(Event.Deleted, {
+      await storageRemove(["session_diff", sessionID]).catch(() => {})
+      await storageRemove(["session", ctx.project.id, sessionID])
+      await publishBus(ctx, Event.Deleted, {
         info: session,
       })
     } catch (e) {
       log.error(e)
     }
-  })
-
-  export async function removeMessageWithParts(sessionID: string, messageID: string) {
-    for (const part of await Storage.list(["part", messageID])) {
-      await Storage.remove(part)
-    }
-    await Storage.remove(["message", sessionID, messageID])
   }
 
-  export const updateMessage = fn(MessageV2.Info, async (msg) => {
-    await Storage.write(["message", msg.sessionID, msg.id], msg)
-    Bus.publish(MessageV2.Event.Updated, {
+  async function removeMessageWithPartsImpl(sessionID: string, messageID: string) {
+    for (const part of await storageList(["part", messageID])) {
+      await storageRemove(part)
+    }
+    await storageRemove(["message", sessionID, messageID])
+  }
+
+  async function updateMessageImpl(ctx: InstanceContext, msg: MessageV2.Info) {
+    await storageWrite(["message", msg.sessionID, msg.id], msg)
+    await publishBus(ctx, MessageV2.Event.Updated, {
       info: msg,
     })
     return msg
-  })
+  }
 
-  export const removeMessage = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      messageID: Identifier.schema("message"),
-    }),
-    async (input) => {
-      await removeMessageWithParts(input.sessionID, input.messageID)
-      Bus.publish(MessageV2.Event.Removed, {
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-      })
-      return input.messageID
-    },
-  )
+  async function removeMessageImpl(ctx: InstanceContext, input: RemoveMessageInput) {
+    await removeMessageWithPartsImpl(input.sessionID, input.messageID)
+    await publishBus(ctx, MessageV2.Event.Removed, {
+      sessionID: input.sessionID,
+      messageID: input.messageID,
+    })
+    return input.messageID
+  }
 
-  export const removePart = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      messageID: Identifier.schema("message"),
-      partID: Identifier.schema("part"),
-    }),
-    async (input) => {
-      await MessageV2.get({ sessionID: input.sessionID, messageID: input.messageID })
-      await Storage.remove(["part", input.messageID, input.partID])
-      Bus.publish(MessageV2.Event.PartRemoved, {
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-        partID: input.partID,
-      })
-      return input.partID
-    },
-  )
+  async function removePartImpl(ctx: InstanceContext, input: RemovePartInput) {
+    await MessageV2.get({ sessionID: input.sessionID, messageID: input.messageID })
+    await storageRemove(["part", input.messageID, input.partID])
+    await publishBus(ctx, MessageV2.Event.PartRemoved, {
+      sessionID: input.sessionID,
+      messageID: input.messageID,
+      partID: input.partID,
+    })
+    return input.partID
+  }
 
-  const UpdatePartInput = z.union([
-    MessageV2.Part,
-    z.object({
-      part: MessageV2.TextPart,
-      delta: z.string(),
-    }),
-    z.object({
-      part: MessageV2.ReasoningPart,
-      delta: z.string(),
-    }),
-  ])
-
-  export const updatePart = fn(UpdatePartInput, async (input) => {
+  async function updatePartImpl(ctx: InstanceContext, input: z.input<typeof UpdatePartInput>) {
     const part = "delta" in input ? input.part : input
     const delta = "delta" in input ? input.delta : undefined
-    await Storage.write(["part", part.messageID, part.id], part)
-    Bus.publish(MessageV2.Event.PartUpdated, {
+    await storageWrite(["part", part.messageID, part.id], part)
+    await publishBus(ctx, MessageV2.Event.PartUpdated, {
       part,
       delta,
     })
     return part
-  })
+  }
 
   export const getUsage = fn(
-    z.object({
-      model: z.custom<Provider.Model>(),
-      usage: z.custom<LanguageModelV2Usage>(),
-      metadata: z.custom<ProviderMetadata>().optional(),
-    }),
+    UsageInput,
     (input) => {
       const safe = (value: number) => {
         if (!Number.isFinite(value)) return 0
@@ -605,8 +691,7 @@ export namespace Session {
             .add(new Decimal(tokens.output).mul(costInfo?.output ?? 0).div(1_000_000))
             .add(new Decimal(tokens.cache.read).mul(costInfo?.cache?.read ?? 0).div(1_000_000))
             .add(new Decimal(tokens.cache.write).mul(costInfo?.cache?.write ?? 0).div(1_000_000))
-            // TODO: update models.dev to have better pricing model, for now:
-            // charge reasoning tokens at the same rate as output tokens
+            // models.dev does not expose separate reasoning pricing yet; use output pricing for reasoning tokens.
             .add(new Decimal(tokens.reasoning).mul(costInfo?.output ?? 0).div(1_000_000))
             .toNumber(),
         ),
@@ -621,21 +706,121 @@ export namespace Session {
     }
   }
 
-  export const initialize = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      modelID: z.string(),
-      providerID: z.string(),
-      messageID: Identifier.schema("message"),
+  async function initializeImpl(ctx: InstanceContext, input: InitializeInput) {
+    await runSessionPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        yield* sessionPrompt.command({
+          sessionID: input.sessionID,
+          messageID: input.messageID,
+          model: input.providerID + "/" + input.modelID,
+          command: Command.Default.INIT,
+          arguments: "",
+        })
+      }),
+      ctx,
+    )
+  }
+
+  export interface Interface {
+    create(input?: CreateInput): Effect.Effect<Info, unknown>
+    fork(input: ForkInput): Effect.Effect<Info, unknown>
+    touch(sessionID: string): Effect.Effect<void, unknown>
+    createNext(input: CreateNextInput): Effect.Effect<Info, unknown>
+    plan(input: { slug: string; time: { created: number } }): Effect.Effect<string>
+    get(id: string): Effect.Effect<Info, unknown>
+    getAnyProject(id: string): Effect.Effect<Info, unknown>
+    getShare(id: string): Effect.Effect<ShareInfo, unknown>
+    share(id: string): Effect.Effect<ShareInfo, unknown>
+    unshare(id: string): Effect.Effect<void, unknown>
+    update(
+      id: string,
+      editor: (session: Info) => void,
+      options?: { touch?: boolean },
+    ): Effect.Effect<Info, unknown>
+    diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], unknown>
+    messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], unknown>
+    list(): Effect.Effect<AsyncIterable<Info>>
+    children(parentID: string): Effect.Effect<Info[], unknown>
+    remove(sessionID: string): Effect.Effect<void, unknown>
+    removeMessageWithParts(sessionID: string, messageID: string): Effect.Effect<void, unknown>
+    updateMessage(msg: MessageV2.Info): Effect.Effect<MessageV2.Info, unknown>
+    removeMessage(input: RemoveMessageInput): Effect.Effect<string, unknown>
+    removePart(input: RemovePartInput): Effect.Effect<string, unknown>
+    updatePart(input: z.input<typeof UpdatePartInput>): Effect.Effect<MessageV2.Part, unknown>
+    getUsage(input: UsageInput): Effect.Effect<ReturnType<typeof getUsage>, unknown>
+    initialize(input: InitializeInput): Effect.Effect<void, unknown>
+  }
+
+  export class Service extends Context.Tag("Session.Service")<Service, Interface>() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      create: (input) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise(() =>
+              createNextImpl(ctx, {
+                parentID: input?.parentID,
+                directory: ctx.directory,
+                title: input?.title,
+                permission: input?.permission,
+                skills: input?.skills,
+                github: input?.github,
+                workspaceID: input?.workspaceID,
+              }),
+            ),
+          ),
+        ),
+      fork: (input) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => forkImpl(ctx, input)))),
+      touch: (sessionID) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise(() =>
+              updateImpl(ctx, sessionID, (draft) => {
+                draft.time.updated = Date.now()
+              }),
+            ).pipe(Effect.asVoid),
+          ),
+        ),
+      createNext: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => createNextImpl(ctx, input)))),
+      plan: (input) => InstanceState.context.pipe(Effect.map((ctx) => planImpl(ctx, input))),
+      get: (id) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => getImpl(ctx, id)))),
+      getAnyProject: (id) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => getAnyProjectImpl(ctx, id)))),
+      getShare: (id) => Effect.tryPromise(() => storageRead<ShareInfo>(["session_share", id])),
+      share: (id) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => shareImpl(ctx, id)))),
+      unshare: (id) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => unshareImpl(ctx, id)))),
+      update: (id, editor, options) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) => Effect.tryPromise(() => updateImpl(ctx, id, editor, options))),
+        ),
+      diff: (sessionID) => Effect.tryPromise(() => diffImpl(sessionID)),
+      messages: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => messagesImpl(ctx, input)))),
+      list: () => InstanceState.context.pipe(Effect.map((ctx) => listImpl(ctx))),
+      children: (parentID) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => childrenImpl(ctx, parentID)))),
+      remove: (sessionID) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removeImpl(ctx, sessionID)))),
+      removeMessageWithParts: (sessionID, messageID) =>
+        Effect.tryPromise(() => removeMessageWithPartsImpl(sessionID, messageID)),
+      updateMessage: (msg) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => updateMessageImpl(ctx, msg)))),
+      removeMessage: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removeMessageImpl(ctx, input)))),
+      removePart: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removePartImpl(ctx, input)))),
+      updatePart: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => updatePartImpl(ctx, input)))),
+      getUsage: (input) => Effect.sync(() => getUsage(input)),
+      initialize: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => initializeImpl(ctx, input)))),
     }),
-    async (input) => {
-      await SessionPrompt.command({
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-        model: input.providerID + "/" + input.modelID,
-        command: Command.Default.INIT,
-        arguments: "",
-      })
-    },
   )
+
+  export const defaultLayer = layer
 }

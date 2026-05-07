@@ -11,9 +11,15 @@ import { Filesystem } from "../util/filesystem"
 import { Instance } from "../project/instance"
 import { trimDiff } from "./edit"
 import { assertExternalDirectory } from "./external-directory"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const MAX_PROJECT_DIAGNOSTICS_FILES = 5
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 export const WriteTool = Tool.define("write", {
   description: DESCRIPTION,
@@ -48,8 +54,13 @@ export const WriteTool = Tool.define("write", {
     FileTime.read(ctx.sessionID, filepath)
 
     let output = "Wrote file successfully."
-    await LSP.touchFile(filepath, true)
-    const diagnostics = await LSP.diagnostics()
+    const diagnostics = await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        yield* lsp.touchFile(filepath, true)
+        return yield* lsp.diagnostics()
+      }),
+    )
     const normalizedFilepath = Filesystem.normalizePath(filepath)
     let projectDiagnosticsCount = 0
     for (const [file, issues] of Object.entries(diagnostics)) {

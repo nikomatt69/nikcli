@@ -7,9 +7,35 @@ import path from "path"
 import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const DEFAULT_IMAGE_PROVIDER = "openrouter"
 const DEFAULT_IMAGE_MODEL = "openai/gpt-5-image"
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function providerList() {
+  return runPromiseWithLayer(
+    Provider.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.list()
+      }),
+    ),
+  )
+}
 
 export const ImageModelCommand = cmd({
   command: "image-model [provider] [model]",
@@ -49,8 +75,7 @@ export const ImageModelCommand = cmd({
           UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Models cache refreshed" + UI.Style.TEXT_NORMAL)
         }
 
-        const configState = await Config.state()
-        const config = configState.config
+        const config = await configGet()
 
         if (args.reset) {
           delete config.image
@@ -71,7 +96,7 @@ export const ImageModelCommand = cmd({
           return
         }
 
-        const providers = await Provider.list()
+        const providers = await providerList()
         const current = config.image
 
         UI.println("Current image config:")

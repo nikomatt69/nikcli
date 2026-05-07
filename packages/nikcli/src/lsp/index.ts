@@ -8,8 +8,10 @@ import { LSPServer } from "./server"
 import z from "zod"
 import { Config } from "../config/config"
 import { spawn } from "child_process"
-import { Instance } from "../project/instance"
 import { Flag } from "@/flag/flag"
+import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
+import type { InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace LSP {
   const log = Log.create({ service: "lsp" })
@@ -74,20 +76,63 @@ export namespace LSP {
     }
   }
 
-  const state = Instance.state(
-    async () => {
+  type State = {
+    broken: Set<string>
+    servers: Record<string, LSPServer.Info>
+    clients: LSPClient.Info[]
+    spawning: Map<string, Promise<LSPClient.Info | undefined>>
+    context: InstanceContext
+  }
+
+  export interface Interface {
+    init(): Effect.Effect<void, unknown>
+    status(): Effect.Effect<Status[], unknown>
+    hasClients(file: string): Effect.Effect<boolean, unknown>
+    touchFile(input: string, waitForDiagnostics?: boolean): Effect.Effect<void, unknown>
+    diagnostics(): Effect.Effect<Record<string, LSPClient.Diagnostic[]>, unknown>
+    hover(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    workspaceSymbol(query: string): Effect.Effect<Symbol[], unknown>
+    documentSymbol(uri: string): Effect.Effect<(DocumentSymbol | Symbol)[], unknown>
+    definition(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    references(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    implementation(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    prepareCallHierarchy(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    incomingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    outgoingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+  }
+
+  export class Service extends Context.Tag("LSP.Service")<Service, Interface>() {}
+
+  function configGet(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
+
+  const state = InstanceState.make<State>((ctx) =>
+    Effect.gen(function* () {
       const clients: LSPClient.Info[] = []
       const servers: Record<string, LSPServer.Info> = {}
-      const cfg = await Config.get()
+      const cfg = yield* Effect.promise(() => configGet(ctx))
 
       if (cfg.lsp === false) {
         log.info("all LSPs are disabled")
-        return {
+        const disabledState = {
           broken: new Set<string>(),
           servers,
           clients,
           spawning: new Map<string, Promise<LSPClient.Info | undefined>>(),
+          context: ctx,
         }
+        yield* Effect.addFinalizer(() => Effect.promise(() => shutdown(disabledState)))
+        return disabledState
       }
 
       for (const server of Object.values(LSPServer)) {
@@ -106,7 +151,7 @@ export namespace LSP {
         servers[name] = {
           ...existing,
           id: name,
-          root: existing?.root ?? (async () => Instance.directory),
+          root: existing?.root ?? (async () => ctx.directory),
           extensions: item.extensions ?? existing?.extensions ?? [],
           spawn: async (root) => {
             return {
@@ -129,20 +174,20 @@ export namespace LSP {
           .join(", "),
       })
 
-      return {
+      const initializedState = {
         broken: new Set<string>(),
         servers,
         clients,
         spawning: new Map<string, Promise<LSPClient.Info | undefined>>(),
+        context: ctx,
       }
-    },
-    async (state) => {
-      await Promise.all(state.clients.map((client) => client.shutdown()))
-    },
+      yield* Effect.addFinalizer(() => Effect.promise(() => shutdown(initializedState)))
+      return initializedState
+    }),
   )
 
-  export async function init() {
-    return state()
+  async function shutdown(state: Pick<State, "clients">) {
+    await Promise.all(state.clients.map((client) => client.shutdown()))
   }
 
   export const Status = z
@@ -157,23 +202,20 @@ export namespace LSP {
     })
   export type Status = z.infer<typeof Status>
 
-  export async function status() {
-    return state().then((x) => {
-      const result: Status[] = []
-      for (const client of x.clients) {
-        result.push({
-          id: client.serverID,
-          name: x.servers[client.serverID].id,
-          root: path.relative(Instance.directory, client.root),
-          status: "connected",
-        })
-      }
-      return result
-    })
+  async function statusImpl(s: State) {
+    const result: Status[] = []
+    for (const client of s.clients) {
+      result.push({
+        id: client.serverID,
+        name: s.servers[client.serverID].id,
+        root: path.relative(s.context.directory, client.root),
+        status: "connected",
+      })
+    }
+    return result
   }
 
-  async function getClients(file: string) {
-    const s = await state()
+  async function getClients(s: State, file: string) {
     const extension = path.parse(file).ext || file
     const result: LSPClient.Info[] = []
 
@@ -259,8 +301,7 @@ export namespace LSP {
     return result
   }
 
-  export async function hasClients(file: string) {
-    const s = await state()
+  async function hasClientsImpl(s: State, file: string) {
     const extension = path.parse(file).ext || file
     for (const server of Object.values(s.servers)) {
       if (server.extensions.length && !server.extensions.includes(extension)) continue
@@ -272,9 +313,9 @@ export namespace LSP {
     return false
   }
 
-  export async function touchFile(input: string, waitForDiagnostics?: boolean) {
+  async function touchFileImpl(s: State, input: string, waitForDiagnostics?: boolean) {
     log.info("touching file", { file: input })
-    const clients = await getClients(input)
+    const clients = await getClients(s, input)
     await Promise.all(
       clients.map(async (client) => {
         const wait = waitForDiagnostics ? client.waitForDiagnostics({ path: input }) : Promise.resolve()
@@ -286,9 +327,9 @@ export namespace LSP {
     })
   }
 
-  export async function diagnostics() {
+  async function diagnosticsImpl(s: State) {
     const results: Record<string, LSPClient.Diagnostic[]> = {}
-    for (const result of await runAll(async (client) => client.diagnostics)) {
+    for (const result of await runAll(s, async (client) => client.diagnostics)) {
       for (const [path, diagnostics] of result.entries()) {
         const arr = results[path] || []
         arr.push(...diagnostics)
@@ -298,8 +339,8 @@ export namespace LSP {
     return results
   }
 
-  export async function hover(input: { file: string; line: number; character: number }) {
-    return run(input.file, (client) => {
+  async function hoverImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, (client) => {
       return client.connection
         .sendRequest("textDocument/hover", {
           textDocument: {
@@ -354,8 +395,8 @@ export namespace LSP {
     SymbolKind.Enum,
   ]
 
-  export async function workspaceSymbol(query: string) {
-    return runAll((client) =>
+  async function workspaceSymbolImpl(s: State, query: string) {
+    return runAll(s, (client) =>
       client.connection
         .sendRequest("workspace/symbol", {
           query,
@@ -366,9 +407,9 @@ export namespace LSP {
     ).then((result) => result.flat() as LSP.Symbol[])
   }
 
-  export async function documentSymbol(uri: string) {
+  async function documentSymbolImpl(s: State, uri: string) {
     const file = new URL(uri).pathname
-    return run(file, (client) =>
+    return run(s, file, (client) =>
       client.connection
         .sendRequest("textDocument/documentSymbol", {
           textDocument: {
@@ -381,8 +422,8 @@ export namespace LSP {
       .then((result) => result.filter(Boolean))
   }
 
-  export async function definition(input: { file: string; line: number; character: number }) {
-    return run(input.file, (client) =>
+  async function definitionImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, (client) =>
       client.connection
         .sendRequest("textDocument/definition", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -392,8 +433,8 @@ export namespace LSP {
     ).then((result) => result.flat().filter(Boolean))
   }
 
-  export async function references(input: { file: string; line: number; character: number }) {
-    return run(input.file, (client) =>
+  async function referencesImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, (client) =>
       client.connection
         .sendRequest("textDocument/references", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -404,8 +445,8 @@ export namespace LSP {
     ).then((result) => result.flat().filter(Boolean))
   }
 
-  export async function implementation(input: { file: string; line: number; character: number }) {
-    return run(input.file, (client) =>
+  async function implementationImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, (client) =>
       client.connection
         .sendRequest("textDocument/implementation", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -415,8 +456,8 @@ export namespace LSP {
     ).then((result) => result.flat().filter(Boolean))
   }
 
-  export async function prepareCallHierarchy(input: { file: string; line: number; character: number }) {
-    return run(input.file, (client) =>
+  async function prepareCallHierarchyImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, (client) =>
       client.connection
         .sendRequest("textDocument/prepareCallHierarchy", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -426,8 +467,8 @@ export namespace LSP {
     ).then((result) => result.flat().filter(Boolean))
   }
 
-  export async function incomingCalls(input: { file: string; line: number; character: number }) {
-    return run(input.file, async (client) => {
+  async function incomingCallsImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, async (client) => {
       const items = (await client.connection
         .sendRequest("textDocument/prepareCallHierarchy", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -439,8 +480,8 @@ export namespace LSP {
     }).then((result) => result.flat().filter(Boolean))
   }
 
-  export async function outgoingCalls(input: { file: string; line: number; character: number }) {
-    return run(input.file, async (client) => {
+  async function outgoingCallsImpl(s: State, input: { file: string; line: number; character: number }) {
+    return run(s, input.file, async (client) => {
       const items = (await client.connection
         .sendRequest("textDocument/prepareCallHierarchy", {
           textDocument: { uri: pathToFileURL(input.file).href },
@@ -452,17 +493,136 @@ export namespace LSP {
     }).then((result) => result.flat().filter(Boolean))
   }
 
-  async function runAll<T>(input: (client: LSPClient.Info) => Promise<T>): Promise<T[]> {
-    const clients = await state().then((x) => x.clients)
+  async function runAll<T>(s: State, input: (client: LSPClient.Info) => Promise<T>): Promise<T[]> {
+    const tasks = s.clients.map((x) => input(x))
+    return Promise.all(tasks)
+  }
+
+  async function run<T>(s: State, file: string, input: (client: LSPClient.Info) => Promise<T>): Promise<T[]> {
+    const clients = await getClients(s, file)
     const tasks = clients.map((x) => input(x))
     return Promise.all(tasks)
   }
 
-  async function run<T>(file: string, input: (client: LSPClient.Info) => Promise<T>): Promise<T[]> {
-    const clients = await getClients(file)
-    const tasks = clients.map((x) => input(x))
-    return Promise.all(tasks)
-  }
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const scopedState = yield* state
+      const getState = InstanceState.get(scopedState)
+
+      const init = Effect.fn("LSP.init")(function* () {
+        yield* getState
+      })
+
+      const status = Effect.fn("LSP.status")(function* () {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => statusImpl(s))
+      })
+
+      const hasClients = Effect.fn("LSP.hasClients")(function* (file: string) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => hasClientsImpl(s, file))
+      })
+
+      const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, waitForDiagnostics?: boolean) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => touchFileImpl(s, input, waitForDiagnostics))
+      })
+
+      const diagnostics = Effect.fn("LSP.diagnostics")(function* () {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => diagnosticsImpl(s))
+      })
+
+      const hover = Effect.fn("LSP.hover")(function* (input: { file: string; line: number; character: number }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => hoverImpl(s, input))
+      })
+
+      const workspaceSymbol = Effect.fn("LSP.workspaceSymbol")(function* (query: string) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => workspaceSymbolImpl(s, query))
+      })
+
+      const documentSymbol = Effect.fn("LSP.documentSymbol")(function* (uri: string) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => documentSymbolImpl(s, uri))
+      })
+
+      const definition = Effect.fn("LSP.definition")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => definitionImpl(s, input))
+      })
+
+      const references = Effect.fn("LSP.references")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => referencesImpl(s, input))
+      })
+
+      const implementation = Effect.fn("LSP.implementation")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => implementationImpl(s, input))
+      })
+
+      const prepareCallHierarchy = Effect.fn("LSP.prepareCallHierarchy")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => prepareCallHierarchyImpl(s, input))
+      })
+
+      const incomingCalls = Effect.fn("LSP.incomingCalls")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => incomingCallsImpl(s, input))
+      })
+
+      const outgoingCalls = Effect.fn("LSP.outgoingCalls")(function* (input: {
+        file: string
+        line: number
+        character: number
+      }) {
+        const s = yield* getState
+        return yield* Effect.tryPromise(() => outgoingCallsImpl(s, input))
+      })
+
+      return Service.of({
+        init,
+        status,
+        hasClients,
+        touchFile,
+        diagnostics,
+        hover,
+        workspaceSymbol,
+        documentSymbol,
+        definition,
+        references,
+        implementation,
+        prepareCallHierarchy,
+        incomingCalls,
+        outgoingCalls,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 
   export namespace Diagnostic {
     export function pretty(diagnostic: LSPClient.Diagnostic) {

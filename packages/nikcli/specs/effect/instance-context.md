@@ -21,10 +21,40 @@ Today `src/project/instance.ts` still owns two separate concerns:
 At the same time, the Effect side already exists:
 
 - `src/effect/instance-ref.ts` provides `InstanceRef` and `WorkspaceRef`
-- `src/effect/run-service.ts` already attaches those refs when a runtime starts inside an active instance ALS context
+- `src/effect/runtime.ts` provides the shared runtime boundary helper
 - `src/effect/instance-state.ts` already prefers `InstanceRef` and only falls back to ALS when needed
+- `src/effect/instance-scope.ts` provides the first `InstanceScope.with(...)` boundary
 
 That means the migration is not "invent instance context in Effect". The migration is "stop relying on the legacy helper as the primary source of truth".
+
+## Verified Checklist
+
+- [x] Add `InstanceRef` / `WorkspaceRef` tags and fiber refs in `src/effect/instance-ref.ts`.
+- [x] Add `InstanceState.context` / `directory` / `worktree` / `project` helpers in `src/effect/instance-state.ts`.
+- [x] Add `InstanceScope.with({ directory, workspaceID }, effect)` in `src/effect/instance-scope.ts`.
+- [x] Test that `InstanceScope.with(...)` provides `InstanceRef` and `InstanceState.context` with a real temp project instance: `bun test test/effect/instance-scope.test.ts`.
+- [x] Test that `InstanceScope.with(...)` provides `WorkspaceRef` when `workspaceID` is present: `bun test test/effect/instance-scope.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.worktree` reads from `src/project/vcs.ts` by moving `Vcs` state to `InstanceState`; covered by `bun test test/project/vcs-effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` / `Instance.worktree` reads from `src/format/index.ts` and `src/format/formatter.ts` by moving `Format` state to `InstanceState`; covered by `bun test test/format/effect-service.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.directory` / `Instance.worktree` / `Instance.containsPath` reads from `src/file/index.ts` by moving file state and operations to `File.Service` backed by `InstanceState`; covered by `bun test test/file/effect-service.test.ts test/file/watcher-effect-service.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.directory` / `Instance.worktree` reads from `src/file/watcher.ts` by moving `FileWatcher` state to `InstanceState`; covered by `bun test test/file/watcher-effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` reads from `src/lsp/index.ts` by moving LSP client state to `LSP.Service` backed by `InstanceState`; covered by `bun test test/lsp/effect-service.test.ts`.
+- [x] Remove direct `Instance.*` reads from `src/tool/registry.ts` by moving `ToolRegistry` state to `InstanceState`; covered by `bun test test/tool/registry-effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` / `Instance.worktree` reads from `src/skill/skill.ts` by moving `Skill` state to `InstanceState`; covered by `bun test test/skill/effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` and `Instance.state` reads from `src/pty/index.ts` by moving PTY sessions to `InstanceState` with scoped finalizer cleanup; covered by `bun test test/pty/effect-service.test.ts`.
+- [x] Remove direct `Instance.worktree` and `Instance.state` reads from `src/command/index.ts` by moving command metadata to `InstanceState`; covered by `bun test test/command/effect-service.test.ts`.
+- [x] Remove direct `Instance.state` reads from `src/session/status.ts` by moving session status state to `InstanceState`; covered by `bun test test/session/status.test.ts test/session/status-precise.test.ts test/session/status.benchmark.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.worktree` reads from `src/worktree/index.ts` by moving worktree operations to `Worktree.Service` and reading instance context through `InstanceState.context`; covered by `bun test test/worktree/list.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.worktree` reads from `src/snapshot/index.ts` by moving snapshot operations to `Snapshot.Service` and reading instance context through `InstanceState.context`; covered by `bun test test/snapshot/effect-service.test.ts`.
+- [x] Remove direct `Instance.state` / `Instance.worktree` reads from `src/agent/agent.ts` by moving agent metadata to `Agent.Service` backed by `InstanceState`; covered by `bun test test/agent/effect-service.test.ts`.
+- [x] Remove direct `Instance.project` / `Instance.directory` / `Instance.worktree` reads from `src/session/system.ts` by moving ambient prompt assembly to `SystemPrompt.Service`; covered by `bun test test/session/system.test.ts test/session/system-effect-service.test.ts`.
+- [x] Remove direct `Instance.worktree` reads from `src/session/summary.ts` by moving summary and diff operations to `SessionSummary.Service`; covered by `bun test test/session/summary-effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` / `Instance.worktree` reads from `src/session/compaction.ts` by moving compaction processing to `SessionCompaction.Service` and reading instance context through `InstanceState.context`; covered by `bun test test/session/session-module-audit-suite.test.ts`.
+- [x] Remove direct `Instance.state` / `Instance.project` / `Instance.directory` / `Instance.worktree` reads from `src/plugin/index.ts` by moving plugin hook state to `Plugin.Service` backed by `InstanceState`; covered by `bun test test/plugin/effect-service.test.ts test/provider/auth-effect-service.test.ts test/tool/registry-effect-service.test.ts`.
+- [x] Remove direct `Instance.directory` and `Instance.state` reads from `src/mcp/index.ts` by moving MCP client/status state to `MCP.Service` backed by `InstanceState`; covered by `bun test test/mcp/effect-service.test.ts test/mcp/auth-effect-service.test.ts test/command/effect-service.test.ts test/session/session-module-audit-suite.test.ts`.
+- [x] Remove direct `Instance.state` / `Instance.directory` / `Instance.worktree` reads from `src/config/config.ts` by moving resolved config state and config directory discovery to `Config.Service` backed by `InstanceState`; covered by `bun test test/config/effect-service.test.ts test/cli/network.test.ts test/cli/_network-precise.test.ts test/mcp/effect-service.test.ts test/session/session-module-audit-suite.test.ts`.
+- [x] Remove direct `Instance.state` / `Instance.directory` / `Instance.worktree` reads from `src/session/prompt.ts` by moving prompt busy/cancel state to `InstanceState` and reading paths through `InstanceState.context`; covered by `bun test test/session/prompt-effect-service.test.ts` plus `bun run typecheck`.
+- [x] Remove direct `Instance.project` / `Instance.directory` / `Instance.worktree` reads from `src/session/index.ts` by moving session storage/path operations to `Session.Service` helpers backed by `InstanceState.context`; covered by `bun test test/session/effect-service.test.ts` plus `bun run typecheck`.
 
 ## End state shape
 
@@ -76,7 +106,6 @@ Primary batch, highest payoff:
 - `src/file/watcher.ts`
 - `src/format/formatter.ts`
 - `src/session/index.ts`
-- `src/project/vcs.ts`
 
 Mechanical replacement rule:
 
@@ -157,7 +186,7 @@ Direct legacy usage means any source file that still calls one of:
 - `Instance.reload(...)`
 - `Instance.dispose()` / `Instance.disposeAll()`
 
-Current total: `56` files in `packages/nikcli/src`.
+Current total from `rg -l "Instance\\.(current|directory|worktree|project|provide|bind|restore|reload|dispose|disposeAll)" packages/nikcli/src | wc -l`: `69` files in `packages/nikcli/src`.
 
 ### Core bridge and plumbing
 
@@ -167,7 +196,6 @@ These files define or adapt the current bridge. They should change last, after c
 - `src/effect/run-service.ts`
 - `src/effect/instance-state.ts`
 - `src/project/bootstrap.ts`
-- `src/config/config.ts`
 
 Migration rule:
 
@@ -240,14 +268,10 @@ These modules are already the best near-term migration targets because they are 
 - `src/agent/agent.ts`
 - `src/cli/cmd/tui/config/tui-migrate.ts`
 - `src/file/index.ts`
-- `src/file/watcher.ts`
-- `src/format/formatter.ts`
 - `src/lsp/client.ts`
 - `src/lsp/index.ts`
 - `src/lsp/server.ts`
 - `src/mcp/index.ts`
-- `src/project/vcs.ts`
-- `src/provider/provider.ts`
 - `src/pty/index.ts`
 - `src/session/session.ts`
 - `src/session/instruction.ts`
@@ -268,9 +292,7 @@ Current highest direct-usage counts by file:
 - `src/file/index.ts` - `18`
 - `src/lsp/server.ts` - `14`
 - `src/worktree/index.ts` - `12`
-- `src/file/watcher.ts` - `9`
 - `src/cli/cmd/mcp.ts` - `8`
-- `src/format/formatter.ts` - `8`
 - `src/tool/apply_patch.ts` - `8`
 - `src/cli/cmd/github.ts` - `7`
 

@@ -3,7 +3,6 @@ import z from "zod"
 import { Provider } from "../provider/provider"
 import { generateObject, streamObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
-import { Instance } from "../project/instance"
 import { Truncate } from "../tool/truncation"
 import { Auth } from "../auth"
 import { ProviderTransform } from "../provider/transform"
@@ -19,6 +18,16 @@ import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
 import PROMPT_DELEGATOR from "./prompt/delegator.txt"
 import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
+  return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
+}
 
 const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 
@@ -103,9 +112,23 @@ export namespace Agent {
     refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch"],
   }
 
-  const state = Instance.state(async () => {
-    const cfg = await Config.get()
+  export interface Interface {
+    get(agent: string): Effect.Effect<Info | undefined>
+    list(): Effect.Effect<Info[], unknown>
+    defaultAgent(): Effect.Effect<string, unknown>
+    generate(input: { description: string; model?: { providerID: string; modelID: string } }): Effect.Effect<
+      {
+        identifier: string
+        whenToUse: string
+        systemPrompt: string
+      },
+      unknown
+    >
+  }
 
+  export class Service extends Context.Tag("Agent.Service")<Service, Interface>() {}
+
+  async function buildState(worktree: string, cfg: Config.Info) {
     const defaults = PermissionNext.fromConfig({
       "*": "allow",
       doom_loop: "ask",
@@ -182,7 +205,7 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
             edit: {
               "*": "deny",
               [path.join(".nikcli", "plans", "*.md")]: "allow",
-              [path.relative(Instance.worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
+              [path.relative(worktree, path.join(Global.Path.data, path.join("plans", "*.md")))]: "allow",
             },
           }),
           user,
@@ -622,92 +645,147 @@ Apply small, safe refactors and verify results.`,
     }
 
     return result
-  })
-
-  export async function get(agent: string) {
-    return state().then((x) => x[agent])
   }
 
-  export async function list() {
-    const cfg = await Config.get()
-    return pipe(
-      await state(),
-      values(),
-      sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
-    )
-  }
-
-  export async function defaultAgent() {
-    const cfg = await Config.get()
-    const agents = await state()
-
-    if (cfg.default_agent) {
-      const agent = agents[cfg.default_agent]
-      if (!agent) throw new Error(`default agent "${cfg.default_agent}" not found`)
-      if (agent.mode === "subagent") throw new Error(`default agent "${cfg.default_agent}" is a subagent`)
-      if (agent.hidden === true) throw new Error(`default agent "${cfg.default_agent}" is hidden`)
-      return agent.name
-    }
-
-    const primaryVisible = (await list()).find((a) => a.mode !== "subagent" && a.hidden !== true)
-    if (!primaryVisible) throw new Error("no primary visible agent found")
-    return primaryVisible.name
-  }
-
-  export async function generate(input: { description: string; model?: { providerID: string; modelID: string } }) {
-    const cfg = await Config.get()
-    const defaultModel = input.model ?? (await Provider.defaultModel())
-    const model = await Provider.getModel(defaultModel.providerID, defaultModel.modelID)
-    const language = await Provider.getLanguage(model)
-
-    const system = SystemPrompt.header(defaultModel.providerID)
-    system.push(PROMPT_GENERATE)
-    const existing = await list()
-
-    const params = {
-      experimental_telemetry: {
-        isEnabled: cfg.experimental?.openTelemetry,
-        metadata: {
-          userId: cfg.username ?? "unknown",
-        },
-      },
-      temperature: 0.3,
-      messages: [
-        ...system.map(
-          (item): ModelMessage => ({
-            role: "system",
-            content: item,
-          }),
-        ),
-        {
-          role: "user",
-          content: `Create an agent configuration based on this request: \"${input.description}\".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
-        },
-      ],
-      model: language,
-      schema: z.object({
-        identifier: z.string(),
-        whenToUse: z.string(),
-        systemPrompt: z.string(),
-      }),
-    } satisfies Parameters<typeof generateObject>[0]
-
-    if (defaultModel.providerID === "openai" && (await Auth.get(defaultModel.providerID))?.type === "oauth") {
-      const result = streamObject({
-        ...params,
-        providerOptions: ProviderTransform.providerOptions(model, {
-          instructions: SystemPrompt.instructions(),
-          store: false,
-        }),
-        onError: () => {},
-      })
-      for await (const part of result.fullStream) {
-        if (part.type === "error") throw part.error
+  const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      function configGet(ctx: InstanceContext) {
+        return runPromiseWithLayer(
+          Config.defaultLayer,
+          locallyInstance(
+            ctx,
+            Effect.gen(function* () {
+              const config = yield* Config.Service
+              return yield* config.get()
+            }),
+          ),
+        )
       }
-      return result.object
-    }
 
-    const result = await generateObject(params)
-    return result.object
-  }
+      const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>
+        Effect.gen(function* () {
+          const cfg = yield* Effect.promise(() => configGet(ctx))
+          return yield* Effect.tryPromise(() => buildState(ctx.worktree, cfg)).pipe(Effect.orDie)
+        }),
+      )
+      const getState = () => InstanceState.get(state)
+
+      function list() {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          const cfg = yield* Effect.promise(() => configGet(ctx))
+          return pipe(
+            yield* getState(),
+            values(),
+            sortBy([(x) => (cfg.default_agent ? x.name === cfg.default_agent : x.name === "build"), "desc"]),
+          )
+        })
+      }
+
+      return Service.of({
+        get: (agent) => getState().pipe(Effect.map((state) => state[agent])),
+        list,
+        defaultAgent: () =>
+          Effect.gen(function* () {
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            const agents = yield* getState()
+
+            if (cfg.default_agent) {
+              const agent = agents[cfg.default_agent]
+              if (!agent) return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" not found`))
+              if (agent.mode === "subagent")
+                return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" is a subagent`))
+              if (agent.hidden === true)
+                return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" is hidden`))
+              return agent.name
+            }
+
+            const primaryVisible = (yield* list()).find((a) => a.mode !== "subagent" && a.hidden !== true)
+            if (!primaryVisible) return yield* Effect.fail(new Error("no primary visible agent found"))
+            return primaryVisible.name
+          }),
+        generate: (input) =>
+          Effect.gen(function* () {
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            const { defaultModel, model, language } = yield* Effect.promise(() =>
+              runProvider(
+                Effect.gen(function* () {
+                  const provider = yield* Provider.Service
+                  const defaultModel = input.model ?? (yield* provider.defaultModel())
+                  const model = yield* provider.getModel(defaultModel.providerID, defaultModel.modelID)
+                  const language = yield* provider.getLanguage(model)
+                  return { defaultModel, model, language }
+                }),
+                ctx,
+              ),
+            )
+
+            const system = SystemPrompt.header(defaultModel.providerID)
+            system.push(PROMPT_GENERATE)
+            const existing = yield* list()
+
+            const params = {
+              experimental_telemetry: {
+                isEnabled: cfg.experimental?.openTelemetry,
+                metadata: {
+                  userId: cfg.username ?? "unknown",
+                },
+              },
+              temperature: 0.3,
+              messages: [
+                ...system.map(
+                  (item): ModelMessage => ({
+                    role: "system",
+                    content: item,
+                  }),
+                ),
+                {
+                  role: "user",
+                  content: `Create an agent configuration based on this request: \"${input.description}\".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
+                },
+              ],
+              model: language,
+              schema: z.object({
+                identifier: z.string(),
+                whenToUse: z.string(),
+                systemPrompt: z.string(),
+              }),
+            } satisfies Parameters<typeof generateObject>[0]
+
+            const auth = yield* Effect.promise(() =>
+              runAuth(
+                Effect.gen(function* () {
+                  const auth = yield* Auth.Service
+                  return yield* auth.get(defaultModel.providerID)
+                }),
+              ),
+            )
+            if (defaultModel.providerID === "openai" && auth?.type === "oauth") {
+              return yield* Effect.promise(async () => {
+                const result = streamObject({
+                  ...params,
+                  providerOptions: ProviderTransform.providerOptions(model, {
+                    instructions: SystemPrompt.instructions(),
+                    store: false,
+                  }),
+                  onError: () => {},
+                })
+                for await (const part of result.fullStream) {
+                  if (part.type === "error") throw part.error
+                }
+                return result.object
+              })
+            }
+
+            const result = yield* Effect.promise(() => generateObject(params))
+            return result.object
+          }),
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

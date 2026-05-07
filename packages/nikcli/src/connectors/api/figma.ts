@@ -1,4 +1,16 @@
 import { ConnectorAuth } from "../auth"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function connectorAuthGet(name: string) {
+  return runPromiseWithLayer(
+    ConnectorAuth.defaultLayer,
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.get(name)
+    }),
+  )
+}
 
 const FIGMA_API_BASE = "https://api.figma.com/v1"
 
@@ -98,6 +110,6 @@ export namespace FigmaApi {
 }
 
 export async function getToken(name: string): Promise<string | null> {
-  const auth = await ConnectorAuth.get(name)
+  const auth = await connectorAuthGet(name)
   return auth?.token ?? null
 }

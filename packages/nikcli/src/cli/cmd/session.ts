@@ -7,6 +7,12 @@ import { Locale } from "../../util/locale"
 import { Flag } from "../../flag/flag"
 import { EOL } from "os"
 import path from "path"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 function pagerCmd(): string[] {
   const lessOptions = ["-R", "-S"]
@@ -59,12 +65,14 @@ export const SessionListCommand = cmd({
   },
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
-      const sessions = []
-      for await (const session of Session.list()) {
-        if (!session.parentID) {
-          sessions.push(session)
-        }
-      }
+      const sessions = await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          const iterable = yield* session.list()
+          const all = yield* Effect.promise(() => Array.fromAsync(iterable))
+          return all.filter((item) => !item.parentID)
+        }),
+      )
 
       sessions.sort((a, b) => b.time.updated - a.time.updated)
 

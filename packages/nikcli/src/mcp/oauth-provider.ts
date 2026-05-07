@@ -7,6 +7,8 @@ import type {
 } from "@modelcontextprotocol/sdk/shared/auth.js"
 import { McpAuth } from "./auth"
 import { Log } from "../util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
 
 const log = Log.create({ service: "mcp.oauth" })
 
@@ -31,6 +33,10 @@ export class McpOAuthProvider implements OAuthClientProvider {
     private callbacks: McpOAuthCallbacks,
   ) {}
 
+  private runAuth<A, E>(effect: Effect.Effect<A, E, McpAuth.Service>) {
+    return runPromiseWithLayer(McpAuth.defaultLayer, effect)
+  }
+
   get redirectUrl(): string {
     return `http://127.0.0.1:${OAUTH_CALLBACK_PORT}${OAUTH_CALLBACK_PATH}`
   }
@@ -54,7 +60,14 @@ export class McpOAuthProvider implements OAuthClientProvider {
       }
     }
 
-    const entry = await McpAuth.getForUrl(this.mcpName, this.serverUrl)
+    const mcpName = this.mcpName
+    const serverUrl = this.serverUrl
+    const entry = await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        return yield* auth.getForUrl(mcpName, serverUrl)
+      }),
+    )
     if (entry?.clientInfo) {
       if (entry.clientInfo.clientSecretExpiresAt && entry.clientInfo.clientSecretExpiresAt < Date.now() / 1000) {
         log.info("client secret expired, need to re-register", { mcpName: this.mcpName })
@@ -70,15 +83,22 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveClientInformation(info: OAuthClientInformationFull): Promise<void> {
-    await McpAuth.updateClientInfo(
-      this.mcpName,
-      {
-        clientId: info.client_id,
-        clientSecret: info.client_secret,
-        clientIdIssuedAt: info.client_id_issued_at,
-        clientSecretExpiresAt: info.client_secret_expires_at,
-      },
-      this.serverUrl,
+    const mcpName = this.mcpName
+    const serverUrl = this.serverUrl
+    await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        yield* auth.updateClientInfo(
+          mcpName,
+          {
+            clientId: info.client_id,
+            clientSecret: info.client_secret,
+            clientIdIssuedAt: info.client_id_issued_at,
+            clientSecretExpiresAt: info.client_secret_expires_at,
+          },
+          serverUrl,
+        )
+      }),
     )
     log.info("saved dynamically registered client", {
       mcpName: this.mcpName,
@@ -87,7 +107,14 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async tokens(): Promise<OAuthTokens | undefined> {
-    const entry = await McpAuth.getForUrl(this.mcpName, this.serverUrl)
+    const mcpName = this.mcpName
+    const serverUrl = this.serverUrl
+    const entry = await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        return yield* auth.getForUrl(mcpName, serverUrl)
+      }),
+    )
     if (!entry?.tokens) return undefined
 
     return {
@@ -102,15 +129,22 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveTokens(tokens: OAuthTokens): Promise<void> {
-    await McpAuth.updateTokens(
-      this.mcpName,
-      {
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token,
-        expiresAt: tokens.expires_in ? Date.now() / 1000 + tokens.expires_in : undefined,
-        scope: tokens.scope,
-      },
-      this.serverUrl,
+    const mcpName = this.mcpName
+    const serverUrl = this.serverUrl
+    await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        yield* auth.updateTokens(
+          mcpName,
+          {
+            accessToken: tokens.access_token,
+            refreshToken: tokens.refresh_token,
+            expiresAt: tokens.expires_in ? Date.now() / 1000 + tokens.expires_in : undefined,
+            scope: tokens.scope,
+          },
+          serverUrl,
+        )
+      }),
     )
     log.info("saved oauth tokens", { mcpName: this.mcpName })
   }
@@ -121,11 +155,23 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveCodeVerifier(codeVerifier: string): Promise<void> {
-    await McpAuth.updateCodeVerifier(this.mcpName, codeVerifier)
+    const mcpName = this.mcpName
+    await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        yield* auth.updateCodeVerifier(mcpName, codeVerifier)
+      }),
+    )
   }
 
   async codeVerifier(): Promise<string> {
-    const entry = await McpAuth.get(this.mcpName)
+    const mcpName = this.mcpName
+    const entry = await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        return yield* auth.get(mcpName)
+      }),
+    )
     if (!entry?.codeVerifier) {
       throw new Error(`No code verifier saved for MCP server: ${this.mcpName}`)
     }
@@ -133,11 +179,23 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   async saveState(state: string): Promise<void> {
-    await McpAuth.updateOAuthState(this.mcpName, state)
+    const mcpName = this.mcpName
+    await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        yield* auth.updateOAuthState(mcpName, state)
+      }),
+    )
   }
 
   async state(): Promise<string> {
-    const entry = await McpAuth.get(this.mcpName)
+    const mcpName = this.mcpName
+    const entry = await this.runAuth(
+      Effect.gen(function* () {
+        const auth = yield* McpAuth.Service
+        return yield* auth.get(mcpName)
+      }),
+    )
     if (!entry?.oauthState) {
       throw new Error(`No OAuth state saved for MCP server: ${this.mcpName}`)
     }

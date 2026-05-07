@@ -14,8 +14,57 @@ import type { Hooks } from "@nikcli-ai/plugin"
 import { cmd } from "@/cli/cmd/cmd"
 import { UI } from "@/cli/ui"
 import z from "zod"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 type PluginAuth = NonNullable<Hooks["auth"]>
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+  return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function authSet(key: string, info: Auth.Info) {
+  return runAuth(
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      yield* auth.set(key, info)
+    }),
+  )
+}
+
+function authAll() {
+  return runAuth(
+    Effect.gen(function* () {
+      const auth = yield* Auth.Service
+      return yield* auth.all()
+    }),
+  )
+}
+
+function pluginList() {
+  return runPlugin(
+    Effect.gen(function* () {
+      const plugin = yield* Plugin.Service
+      return yield* plugin.list()
+    }),
+  )
+}
 
 /**
  * Handle plugin-based authentication flow.
@@ -86,7 +135,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
         const saveProvider = result.provider ?? provider
         if ("refresh" in result) {
           const { type: _, provider: __, refresh, access, expires, ...extraFields } = result
-          await Auth.set(saveProvider, {
+          await authSet(saveProvider, {
             type: "oauth",
             refresh,
             access,
@@ -95,7 +144,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           })
         }
         if ("key" in result) {
-          await Auth.set(saveProvider, {
+          await authSet(saveProvider, {
             type: "api",
             key: result.key,
           })
@@ -118,7 +167,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
         const saveProvider = result.provider ?? provider
         if ("refresh" in result) {
           const { type: _, provider: __, refresh, access, expires, ...extraFields } = result
-          await Auth.set(saveProvider, {
+          await authSet(saveProvider, {
             type: "oauth",
             refresh,
             access,
@@ -127,7 +176,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           })
         }
         if ("key" in result) {
-          await Auth.set(saveProvider, {
+          await authSet(saveProvider, {
             type: "api",
             key: result.key,
           })
@@ -148,7 +197,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
       }
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
-        await Auth.set(saveProvider, {
+        await authSet(saveProvider, {
           type: "api",
           key: result.key,
         })
@@ -180,7 +229,7 @@ export const AuthListCommand = cmd({
     const homedir = os.homedir()
     const displayPath = authPath.startsWith(homedir) ? authPath.replace(homedir, "~") : authPath
     prompts.intro(`Credentials ${UI.Style.TEXT_DIM}${displayPath}`)
-    const results = Object.entries(await Auth.all())
+    const results = Object.entries(await authAll())
     const database = await ModelsDev.get()
 
     for (const [providerID, result] of results) {
@@ -232,7 +281,13 @@ export const AuthLoginCommand = cmd({
         UI.empty()
         prompts.intro("Add credential")
         if (args.url) {
-          const wellknownResponse = await Auth.fetchWellKnown(args.url)
+          const url = args.url
+          const wellknownResponse = await runAuth(
+            Effect.gen(function* () {
+              const auth = yield* Auth.Service
+              return yield* auth.fetchWellKnown(url)
+            }),
+          )
             .then((x) => (x.ok ? x.json() : null))
             .catch(() => null)
           const wellknown = Auth.WellKnownAuthResponse.safeParse(wellknownResponse)
@@ -245,25 +300,30 @@ export const AuthLoginCommand = cmd({
 
           let token: string
           try {
-            token = await Auth.fetchWellKnownToken(args.url, wellknown.data.auth.command)
+            token = await runAuth(
+              Effect.gen(function* () {
+                const auth = yield* Auth.Service
+                return yield* auth.fetchWellKnownToken(url, wellknown.data.auth.command)
+              }),
+            )
           } catch (error) {
             prompts.log.error(error instanceof Error ? error.message : "Failed")
             prompts.outro("Done")
             return
           }
 
-          await Auth.set(args.url, {
+          await authSet(url, {
             type: "wellknown",
             key: wellknown.data.auth.env,
             token: token.trim(),
           })
-          prompts.log.success("Logged into " + args.url)
+          prompts.log.success("Logged into " + url)
           prompts.outro("Done")
           return
         }
         await ModelsDev.refresh().catch(() => {})
 
-        const config = await Config.get()
+        const config = await configGet()
 
         const disabled = new Set(config.disabled_providers ?? [])
         const enabled = config.enabled_providers ? new Set(config.enabled_providers) : undefined
@@ -317,7 +377,7 @@ export const AuthLoginCommand = cmd({
 
         if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
-        const plugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
+        const plugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
         if (plugin && plugin.auth) {
           const handled = await handlePluginAuth({ auth: plugin.auth }, provider)
           if (handled) return
@@ -333,7 +393,7 @@ export const AuthLoginCommand = cmd({
           if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
           // Check if a plugin provides auth for this custom provider
-          const customPlugin = await Plugin.list().then((x) => x.find((x) => x.auth?.provider === provider))
+          const customPlugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
           if (customPlugin && customPlugin.auth) {
             const handled = await handlePluginAuth({ auth: customPlugin.auth }, provider)
             if (handled) return
@@ -373,7 +433,7 @@ export const AuthLoginCommand = cmd({
           validate: (x) => (x && x.length > 0 ? undefined : "Required"),
         })
         if (prompts.isCancel(key)) throw new UI.CancelledError()
-        await Auth.set(provider, {
+        await authSet(provider, {
           type: "api",
           key,
         })
@@ -389,7 +449,7 @@ export const AuthLogoutCommand = cmd({
   describe: "log out from a configured provider",
   async handler() {
     UI.empty()
-    const credentials = await Auth.all().then((x) => Object.entries(x))
+    const credentials = await authAll().then((x) => Object.entries(x))
     prompts.intro("Remove credential")
     if (credentials.length === 0) {
       prompts.log.error("No credentials found")
@@ -404,7 +464,12 @@ export const AuthLogoutCommand = cmd({
       })),
     })
     if (prompts.isCancel(providerID)) throw new UI.CancelledError()
-    await Auth.remove(providerID)
+    await runAuth(
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        yield* auth.remove(providerID)
+      }),
+    )
     prompts.outro("Logout successful")
   },
 })

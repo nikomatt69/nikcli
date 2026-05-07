@@ -4,11 +4,11 @@ import path from "path"
 import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Global } from "../global"
-import { Instance } from "../project/instance"
-import { fn } from "../util/fn"
 import { Git } from "@/git"
 import { Log } from "@/util/log"
 import { Lock } from "@/util/lock"
+import { InstanceState, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Worktree {
   export const Info = z
@@ -198,6 +198,10 @@ export namespace Worktree {
       .catch(() => false)
   }
 
+  async function canonicalPath(target: string) {
+    return fs.realpath(target).catch(() => path.resolve(target))
+  }
+
   function outputText(input: Uint8Array | undefined) {
     if (!input?.length) return ""
     return new TextDecoder().decode(input).trim()
@@ -212,58 +216,114 @@ export namespace Worktree {
   export type WorktreeEntry = { path?: string; branch?: string }
   type RegistryRecord = Info & { createdAt: number; updatedAt: number }
 
-  function rootDirectory() {
-    return path.join(Global.Path.data, "worktree", Instance.project.id)
+  export class Service extends Context.Tag("Worktree.Service")<
+    Service,
+    {
+      create(input?: CreateInput): Effect.Effect<Info, unknown>
+      remove(input: RemoveInput): Effect.Effect<boolean, unknown>
+      reset(input: ResetInput): Effect.Effect<boolean, unknown>
+      list(): Effect.Effect<Info[], unknown>
+    }
+  >() {}
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      create(input) {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          return yield* Effect.tryPromise(() => createImpl(ctx, CreateInput.optional().parse(input)))
+        })
+      },
+      remove(input) {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          return yield* Effect.tryPromise(() => removeImpl(ctx, RemoveInput.parse(input)))
+        })
+      },
+      reset(input) {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          return yield* Effect.tryPromise(() => resetImpl(ctx, ResetInput.parse(input)))
+        })
+      },
+      list() {
+        return Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          return yield* Effect.tryPromise(() => listImpl(ctx))
+        })
+      },
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  function rootDirectory(ctx: InstanceContext) {
+    return path.join(Global.Path.data, "worktree", ctx.project.id)
   }
 
-  function registryFile(root = rootDirectory()) {
+  function registryFile(root: string) {
     return path.join(root, "registry.json")
   }
 
-  export function isManagedDirectory(directory: string, root = rootDirectory()) {
+  export function isManagedDirectory(directory: string, root: string) {
     const relative = path.relative(path.resolve(root), path.resolve(directory))
     return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative)
   }
 
-  async function readRegistry(root = rootDirectory()): Promise<RegistryRecord[]> {
+  async function readRegistry(root: string): Promise<RegistryRecord[]> {
     const file = registryFile(root)
     if (!(await Bun.file(file).exists())) return []
     return z.array(Info.extend({ createdAt: z.number(), updatedAt: z.number() })).parse(await Bun.file(file).json())
   }
 
-  async function writeRegistry(records: RegistryRecord[], root = rootDirectory()) {
+  async function writeRegistry(records: RegistryRecord[], root: string) {
     await fs.mkdir(root, { recursive: true })
     await Bun.write(registryFile(root), JSON.stringify(records, null, 2))
   }
 
-  async function remember(info: Info, root = rootDirectory()) {
+  async function remember(info: Info, root: string) {
     using _ = await Lock.write(`worktree-registry:${root}`)
     const now = Date.now()
-    const directory = path.resolve(info.directory)
-    const records = (await readRegistry(root)).filter((item) => path.resolve(item.directory) !== directory)
+    const directory = await canonicalPath(info.directory)
+    const records = []
+    for (const item of await readRegistry(root)) {
+      if ((await canonicalPath(item.directory)) !== directory) records.push(item)
+    }
     records.push({ ...info, directory, createdAt: now, updatedAt: now })
     await writeRegistry(records, root)
   }
 
-  async function forget(directory: string, root = rootDirectory()) {
+  async function forget(directory: string, root: string) {
     using _ = await Lock.write(`worktree-registry:${root}`)
-    const resolved = path.resolve(directory)
-    const records = (await readRegistry(root)).filter((item) => path.resolve(item.directory) !== resolved)
+    const resolved = await canonicalPath(directory)
+    const records = []
+    for (const item of await readRegistry(root)) {
+      if ((await canonicalPath(item.directory)) !== resolved) records.push(item)
+    }
     await writeRegistry(records, root)
   }
 
-  async function assertManagedMutation(directory: string, error: typeof RemoveFailedError | typeof ResetFailedError) {
-    if (path.resolve(directory) === path.resolve(Instance.worktree)) {
+  async function assertManagedMutation(
+    ctx: InstanceContext,
+    directory: string,
+    error: typeof RemoveFailedError | typeof ResetFailedError,
+  ) {
+    if ((await canonicalPath(directory)) === (await canonicalPath(ctx.worktree))) {
       throw new error({ message: "Cannot mutate the primary workspace" })
     }
-    if (isManagedDirectory(directory)) return
-    const records = await readRegistry()
-    if (records.some((item) => path.resolve(item.directory) === path.resolve(directory))) return
+    const root = rootDirectory(ctx)
+    if (isManagedDirectory(directory, root)) return
+    const records = await readRegistry(root)
+    const resolved = await canonicalPath(directory)
+    for (const item of records) {
+      if ((await canonicalPath(item.directory)) === resolved) return
+    }
     throw new error({ message: "Refusing to mutate a worktree outside nikcli's managed worktree directory" })
   }
 
-  async function listWorktrees(cwd?: string): Promise<WorktreeEntry[]> {
-    const worktreeCwd = cwd ?? Instance.worktree
+  async function listWorktrees(ctx: InstanceContext, cwd?: string): Promise<WorktreeEntry[]> {
+    const worktreeCwd = cwd ?? ctx.worktree
     const list = await Git.run(["worktree", "list", "--porcelain"], { cwd: worktreeCwd })
     if (list.exitCode !== 0) {
       throw new RemoveFailedError({ message: list.text().trim() || "Failed to read git worktrees" })
@@ -290,10 +350,10 @@ export namespace Worktree {
 
   /**
    * Parse git worktree list --porcelain output into Worktree.Info objects.
-   * Used internally and exposed via Worktree.list().
+   * Used internally by the Effect service list method.
    */
-  async function parseWorktrees(cwd?: string): Promise<Info[]> {
-    const entries = await listWorktrees(cwd)
+  async function parseWorktrees(ctx: InstanceContext, cwd?: string): Promise<Info[]> {
+    const entries = await listWorktrees(ctx, cwd)
     return entries
       .filter((e) => e.path)
       .map((entry) => {
@@ -303,13 +363,17 @@ export namespace Worktree {
       })
   }
 
-  async function findWorktreeEntry(directory: string, cwd?: string): Promise<WorktreeEntry | undefined> {
-    const entries = await listWorktrees(cwd)
-    return entries.find((item) => item.path && path.resolve(item.path) === path.resolve(directory))
+  async function findWorktreeEntry(ctx: InstanceContext, directory: string, cwd?: string): Promise<WorktreeEntry | undefined> {
+    const entries = await listWorktrees(ctx, cwd)
+    const resolved = await canonicalPath(directory)
+    for (const item of entries) {
+      if (item.path && (await canonicalPath(item.path)) === resolved) return item
+    }
+    return undefined
   }
 
-  async function remotes() {
-    const remoteList = await Git.run(["remote"], { cwd: Instance.worktree })
+  async function remotes(ctx: InstanceContext) {
+    const remoteList = await Git.run(["remote"], { cwd: ctx.worktree })
     if (remoteList.exitCode !== 0) return [] as string[]
     return remoteList
       .text()
@@ -318,8 +382,8 @@ export namespace Worktree {
       .filter(Boolean)
   }
 
-  async function detectRemote(preferred?: string) {
-    const values = await remotes()
+  async function detectRemote(ctx: InstanceContext, preferred?: string) {
+    const values = await remotes(ctx)
     if (preferred && values.includes(preferred)) return preferred
     if (values.includes("origin")) return "origin"
     if (values.length === 1) return values[0]
@@ -327,7 +391,7 @@ export namespace Worktree {
     return ""
   }
 
-  async function candidate(root: string, input?: { name?: string; branch?: string; branchPrefix?: string }) {
+  async function candidate(ctx: InstanceContext, root: string, input?: { name?: string; branch?: string; branchPrefix?: string }) {
     for (const attempt of Array.from({ length: 26 }, (_, i) => i)) {
       const base = input?.name
       const name = base ? (attempt === 0 ? base : `${base}-${randomName()}`) : randomName()
@@ -341,7 +405,7 @@ export namespace Worktree {
       if (await exists(directory)) continue
 
       const ref = `refs/heads/${branch}`
-      const branchCheck = await Git.run(["show-ref", "--verify", "--quiet", ref], { cwd: Instance.worktree })
+      const branchCheck = await Git.run(["show-ref", "--verify", "--quiet", ref], { cwd: ctx.worktree })
       if (branchCheck.exitCode === 0) continue
 
       return Info.parse({ name, branch, directory })
@@ -357,12 +421,12 @@ export namespace Worktree {
     return $`bash -lc ${cmd}`.nothrow().cwd(directory)
   }
 
-  export const create = fn(CreateInput.optional(), async (input) => {
-    if (Instance.project.vcs !== "git") {
+  async function createImpl(ctx: InstanceContext, input?: CreateInput) {
+    if (ctx.project.vcs !== "git") {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
     }
 
-    const root = rootDirectory()
+    const root = rootDirectory(ctx)
     await fs.mkdir(root, { recursive: true })
 
     const base = input?.name ? slug(input.name) : ""
@@ -372,13 +436,13 @@ export namespace Worktree {
       .map((part) => slug(part))
       .filter(Boolean)
       .join("/")
-    const info = await candidate(root, {
+    const info = await candidate(ctx, root, {
       name: base || undefined,
       branch: explicitBranch || undefined,
       branchPrefix: branchPrefix || undefined,
     })
 
-    const remote = await detectRemote(input?.remote)
+    const remote = await detectRemote(ctx, input?.remote)
     const baseBranch = input?.baseBranch?.trim()
     const target = baseBranch ? (remote ? `${remote}/${baseBranch}` : baseBranch) : undefined
 
@@ -386,21 +450,21 @@ export namespace Worktree {
       const remoteHead = `refs/heads/${baseBranch}`
       const remoteTracking = `refs/remotes/${remote}/${baseBranch}`
       const fetchRefspec = `+${remoteHead}:${remoteTracking}`
-      const fetch = await Git.run(["fetch", remote, fetchRefspec], { cwd: Instance.worktree })
+      const fetch = await Git.run(["fetch", remote, fetchRefspec], { cwd: ctx.worktree })
       if (fetch.exitCode !== 0) {
         throw new CreateFailedError({ message: fetch.text().trim() || `Failed to fetch ${target}` })
       }
     }
 
     const created = target
-      ? await Git.run(["worktree", "add", "-b", info.branch, info.directory, target], { cwd: Instance.worktree })
-      : await Git.run(["worktree", "add", "-b", info.branch, info.directory], { cwd: Instance.worktree })
+      ? await Git.run(["worktree", "add", "-b", info.branch, info.directory, target], { cwd: ctx.worktree })
+      : await Git.run(["worktree", "add", "-b", info.branch, info.directory], { cwd: ctx.worktree })
     if (created.exitCode !== 0) {
       throw new CreateFailedError({ message: created.text().trim() || "Failed to create git worktree" })
     }
 
     // Symlink node_modules from the main worktree so workspace packages (e.g. @nikcli-ai/plugin) resolve correctly
-    const mainNodeModules = path.join(Instance.worktree, "node_modules")
+    const mainNodeModules = path.join(ctx.worktree, "node_modules")
     const worktreeNodeModules = path.join(info.directory, "node_modules")
     if ((await exists(mainNodeModules)) && !(await exists(worktreeNodeModules))) {
       const symlinkResult = await fs.symlink(mainNodeModules, worktreeNodeModules).catch((err) => {
@@ -425,7 +489,7 @@ export namespace Worktree {
       // Cleanup worktree on post-creation failure
       log.warn("post-creation failed, cleaning up worktree", { directory: info.directory, error: String(err) })
       try {
-        const removed = await Git.run(["worktree", "remove", "--force", info.directory], { cwd: Instance.worktree })
+        const removed = await Git.run(["worktree", "remove", "--force", info.directory], { cwd: ctx.worktree })
         if (removed.exitCode === 0) {
           await forget(info.directory, root)
         } else {
@@ -438,54 +502,54 @@ export namespace Worktree {
     }
 
     return info
-  })
+  }
 
-  export const remove = fn(RemoveInput, async (input) => {
-    if (Instance.project.vcs !== "git") {
+  async function removeImpl(ctx: InstanceContext, input: RemoveInput) {
+    if (ctx.project.vcs !== "git") {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
     }
 
     const directory = path.resolve(input.directory)
-    await assertManagedMutation(directory, RemoveFailedError)
-    const entry = await findWorktreeEntry(directory)
+    await assertManagedMutation(ctx, directory, RemoveFailedError)
+    const entry = await findWorktreeEntry(ctx, directory)
     if (!entry?.path) {
       throw new RemoveFailedError({ message: "Worktree not found" })
     }
 
-    const removed = await Git.run(["worktree", "remove", "--force", entry.path], { cwd: Instance.worktree })
+    const removed = await Git.run(["worktree", "remove", "--force", entry.path], { cwd: ctx.worktree })
     if (removed.exitCode !== 0) {
       throw new RemoveFailedError({ message: removed.text().trim() || "Failed to remove git worktree" })
     }
 
-    await forget(entry.path)
+    await forget(entry.path, rootDirectory(ctx))
 
     const branch = entry.branch?.replace(/^refs\/heads\//, "")
     if (branch) {
-      const deleted = await Git.run(["branch", "-D", branch], { cwd: Instance.worktree })
+      const deleted = await Git.run(["branch", "-D", branch], { cwd: ctx.worktree })
       if (deleted.exitCode !== 0) {
         throw new RemoveFailedError({ message: deleted.text().trim() || "Failed to delete worktree branch" })
       }
     }
 
     return true
-  })
+  }
 
-  export const reset = fn(ResetInput, async (input) => {
-    if (Instance.project.vcs !== "git") {
+  async function resetImpl(ctx: InstanceContext, input: ResetInput) {
+    if (ctx.project.vcs !== "git") {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
     }
 
     const directory = path.resolve(input.directory)
-    await assertManagedMutation(directory, ResetFailedError)
+    await assertManagedMutation(ctx, directory, ResetFailedError)
 
-    const entry = await findWorktreeEntry(directory)
+    const entry = await findWorktreeEntry(ctx, directory)
     if (!entry?.path) {
       throw new ResetFailedError({ message: "Worktree not found" })
     }
 
     const worktreePath = entry.path
 
-    const base = await Git.defaultBranch(Instance.worktree)
+    const base = await Git.defaultBranch(ctx.worktree)
     if (!base) {
       throw new ResetFailedError({ message: "Default branch not found" })
     }
@@ -495,7 +559,7 @@ export namespace Worktree {
     const remoteBranch = remote && target.startsWith(`${remote}/`) ? base.name : ""
 
     if (remote && remoteBranch) {
-      const fetch = await Git.run(["fetch", remote, remoteBranch], { cwd: Instance.worktree })
+      const fetch = await Git.run(["fetch", remote, remoteBranch], { cwd: ctx.worktree })
       if (fetch.exitCode !== 0) {
         throw new ResetFailedError({ message: fetch.text().trim() || `Failed to fetch ${target}` })
       }
@@ -545,16 +609,16 @@ export namespace Worktree {
     if (!dirty) return true
 
     throw new ResetFailedError({ message: `Worktree reset left local changes:\n${dirty}` })
-  })
+  }
 
   /**
    * List all worktrees in the current project.
    * Returns both the main worktree and any additional worktrees.
    */
-  export const list = fn(z.object({}), async () => {
-    if (Instance.project.vcs !== "git") {
+  async function listImpl(ctx: InstanceContext) {
+    if (ctx.project.vcs !== "git") {
       throw new NotGitError({ message: "Worktrees are only supported for git projects" })
     }
-    return parseWorktrees()
-  })
+    return parseWorktrees(ctx)
+  }
 }

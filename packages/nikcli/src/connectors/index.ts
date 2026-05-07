@@ -12,6 +12,33 @@ import {
   invalidateToolsCache,
   invalidateStatusCache,
 } from "./cache"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
+  return runPromiseWithLayer(ConnectorAuth.defaultLayer, effect)
+}
+
+function connectorAuthGet(name: string) {
+  return runConnectorAuth(
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      return yield* auth.get(name)
+    }),
+  )
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
 
 export namespace Connectors {
   const log = Log.create({ service: "connectors" })
@@ -69,7 +96,7 @@ export namespace Connectors {
   }
 
   async function resolveStatuses(): Promise<Record<string, Status>> {
-    const cfg = await Config.get()
+    const cfg = await configGet()
     const config = cfg.connectors ?? {}
     const statuses: Record<string, Status> = {}
 
@@ -96,7 +123,7 @@ export namespace Connectors {
   }
 
   export async function status(): Promise<Record<string, Status>> {
-    const cfg = await Config.get()
+    const cfg = await configGet()
     const cacheKey = "connectors_status"
 
     return getCachedStatus(cacheKey, resolveStatuses, cfg)
@@ -115,7 +142,7 @@ export namespace Connectors {
   }
 
   export async function hasStoredCredentials(name: string, type?: string): Promise<boolean> {
-    const auth = await ConnectorAuth.get(name)
+    const auth = await connectorAuthGet(name)
     if (!auth) return false
     if (!type) {
       return !!auth.token || !!auth.botToken || !!auth.apiKey
@@ -136,7 +163,7 @@ export namespace Connectors {
   }
 
   export async function tools(): Promise<Record<string, Tool>> {
-    const cfg = await Config.get()
+    const cfg = await configGet()
     const cacheKey = "connectors_tools"
 
     const compute = async (): Promise<Record<string, Tool>> => {
@@ -171,7 +198,7 @@ export namespace Connectors {
   }
 
   export async function prompts(): Promise<Record<string, ConnectorPrompt & { client: string }>> {
-    const cfg = await Config.get()
+    const cfg = await configGet()
     const config = cfg.connectors ?? {}
     const connectorStatuses = await status()
 

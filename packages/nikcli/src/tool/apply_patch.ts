@@ -13,7 +13,12 @@ import { LSP } from "../lsp"
 import { Filesystem } from "../util/filesystem"
 import DESCRIPTION from "./apply_patch.txt"
 import { File } from "../file"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 const PatchParams = z.object({
   patchText: z.string().describe("The full patch text that describes all changes to be made"),
@@ -216,12 +221,17 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
     }
 
     // Notify LSP of file changes and collect diagnostics
-    for (const change of fileChanges) {
-      if (change.type === "delete") continue
-      const target = change.movePath ?? change.filePath
-      await LSP.touchFile(target, true)
-    }
-    const diagnostics = await LSP.diagnostics()
+    const diagnostics = await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        for (const change of fileChanges) {
+          if (change.type === "delete") continue
+          const target = change.movePath ?? change.filePath
+          yield* lsp.touchFile(target, true)
+        }
+        return yield* lsp.diagnostics()
+      }),
+    )
 
     // Generate output summary
     const summaryLines = fileChanges.map((change) => {
@@ -266,7 +276,7 @@ export const ApplyPatchTool = Tool.define("apply_patch", {
           after: change.newContent,
           additions: change.additions,
           deletions: change.deletions,
-          movePath: change.movePath
+          movePath: change.movePath,
         }
       }),
     )

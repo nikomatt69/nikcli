@@ -5,6 +5,12 @@ import { bootstrap } from "../bootstrap"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { EOL } from "os"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ExportCommand = cmd({
   command: "export [sessionID]",
@@ -26,10 +32,13 @@ export const ExportCommand = cmd({
           output: process.stderr,
         })
 
-        const sessions = []
-        for await (const session of Session.list()) {
-          sessions.push(session)
-        }
+        const sessions = await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            const iterable = yield* session.list()
+            return yield* Effect.promise(() => Array.fromAsync(iterable))
+          }),
+        )
 
         if (sessions.length === 0) {
           prompts.log.error("No sessions found", {
@@ -66,8 +75,14 @@ export const ExportCommand = cmd({
       }
 
       try {
-        const sessionInfo = await Session.get(sessionID!)
-        const messages = await Session.messages({ sessionID: sessionID! })
+        const { sessionInfo, messages } = await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            const sessionInfo = yield* session.get(sessionID!)
+            const messages = yield* session.messages({ sessionID: sessionID! })
+            return { sessionInfo, messages }
+          }),
+        )
 
         const exportData = {
           info: sessionInfo,

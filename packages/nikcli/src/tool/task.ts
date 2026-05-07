@@ -14,6 +14,8 @@ import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
 import { Instance } from "../project/instance"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -23,6 +25,26 @@ const parameters = z.object({
   session_id: z.string().describe("Existing Task session to continue").optional(),
   command: z.string().describe("The command that triggered this task").optional(),
 })
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 export type TaskParams = z.infer<typeof parameters>
 
@@ -45,6 +67,8 @@ type TaskMetadata = {
   followUpRounds?: number
   reused?: boolean
 }
+
+type PrimaryToolsConfig = NonNullable<Config.Info["experimental"]>["primary_tools"]
 
 type BackgroundTaskResult = {
   jobId: string
@@ -71,6 +95,30 @@ type ResearchRunMetadata = {
 
 const RESEARCH_AGENT = "researcher"
 const log = Log.create({ service: "task" })
+
+function agentGet(name: string) {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.get(name)
+      }),
+    ),
+  )
+}
+
+function agentList() {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.list()
+      }),
+    ),
+  )
+}
 
 function extractQuestion(prompt: string) {
   const explicit = prompt.match(/^Question:\s*(.+)$/im)?.[1]?.trim()
@@ -138,7 +186,12 @@ function extractErrorMessage(error: unknown): string | undefined {
 }
 
 async function summarizeSubtaskSession(sessionID: string, result?: MessageV2.WithParts) {
-  const messages = await Session.messages({ sessionID })
+  const messages = await runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.messages({ sessionID })
+    }),
+  )
   const summary = messages
     .filter((x) => x.info.role === "assistant")
     .flatMap((msg) => msg.parts.filter((x): x is MessageV2.ToolPart => x.type === "tool"))
@@ -188,7 +241,12 @@ async function validateReusableSession({
   sessionID,
   agentName,
 }: ReusableSessionValidation) {
-  const found = await Session.get(sessionID).catch(() => undefined)
+  const found = await runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.get(sessionID)
+    }),
+  ).catch(() => undefined)
   if (!found) return undefined
   if (found.parentID !== parentSessionID) {
     throw new Error(`Task session \"${sessionID}\" does not belong to the current parent session.`)
@@ -197,7 +255,12 @@ async function validateReusableSession({
     throw new Error(`Task session \"${sessionID}\" belongs to a different workspace.`)
   }
 
-  const messages = await Session.messages({ sessionID: found.id })
+  const messages = await runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.messages({ sessionID: found.id })
+    }),
+  )
   const mismatchedAgent = messages.find(
     (item) => item.info.role === "assistant" && item.info.agent && item.info.agent !== agentName,
   )
@@ -212,7 +275,7 @@ async function validateReusableSession({
 
 function buildSubtaskPermission(
   hasTaskPermission: boolean,
-  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined,
+  primaryTools: PrimaryToolsConfig | undefined,
 ) {
   return [
     {
@@ -251,9 +314,14 @@ async function createPromptInput(params: {
     modelID: string
     providerID: string
   }
-  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+  primaryTools: PrimaryToolsConfig | undefined
 }) {
-  const promptParts = await SessionPrompt.resolvePromptParts(params.prompt)
+  const promptParts = await runSessionPrompt(
+    Effect.gen(function* () {
+      const sessionPrompt = yield* SessionPrompt.Service
+      return yield* sessionPrompt.resolvePromptParts(params.prompt)
+    }),
+  )
   return {
     messageID: Identifier.ascending("message"),
     sessionID: params.sessionID,
@@ -303,7 +371,7 @@ async function runBackgroundDelegation(params: {
     providerID: string
   }
   hasTaskPermission: boolean
-  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+  primaryTools: PrimaryToolsConfig | undefined
   delegationID: string
 }) {
   const promptInput = await createPromptInput({
@@ -318,7 +386,12 @@ async function runBackgroundDelegation(params: {
   Instance.registerDisposer(unsubProgress)
 
   try {
-    const result = await SessionPrompt.prompt(promptInput)
+    const result = await runSessionPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        return yield* sessionPrompt.prompt(promptInput)
+      }),
+    )
     const summary = await summarizeSubtaskSession(params.session.id, result)
     const error = summary.assistant?.error
     const status = error ? (MessageV2.AbortedError.isInstance(error) ? "cancelled" : "error") : "complete"
@@ -371,14 +444,19 @@ async function launchBackgroundSubtask(params: {
     providerID: string
   }
   hasTaskPermission: boolean
-  primaryTools: NonNullable<Awaited<ReturnType<typeof Config.get>>["experimental"]>["primary_tools"] | undefined
+  primaryTools: PrimaryToolsConfig | undefined
   metadata?: Record<string, unknown>
 }): Promise<BackgroundTaskResult> {
-  const delegatorSession = await Session.create({
-    parentID: params.parentSessionID,
-    title: `delegator: ${params.description} (@delegator)`,
-    permission: buildSubtaskPermission(false, params.primaryTools),
-  })
+  const delegatorSession = await runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.create({
+        parentID: params.parentSessionID,
+        title: `delegator: ${params.description} (@delegator)`,
+        permission: buildSubtaskPermission(false, params.primaryTools),
+      })
+    }),
+  )
 
   const delegation = await Delegation.create({
     parentSessionID: params.parentSessionID,
@@ -469,18 +547,23 @@ async function launchBackgroundSubtask(params: {
           "- agent: <agent type>",
         ].join("\n")
 
-        const delegatorResult = await SessionPrompt.prompt({
-          messageID: Identifier.ascending("message"),
-          sessionID: delegatorSession.id,
-          model: params.model,
-          agent: "delegator",
-          tools: {
-            todowrite: false,
-            todoread: false,
-            task: false,
-          },
-          parts: [{ type: "text" as const, text: wakeText }],
-        })
+        const delegatorResult = await runSessionPrompt(
+          Effect.gen(function* () {
+            const sessionPrompt = yield* SessionPrompt.Service
+            return yield* sessionPrompt.prompt({
+              messageID: Identifier.ascending("message"),
+              sessionID: delegatorSession.id,
+              model: params.model,
+              agent: "delegator",
+              tools: {
+                todowrite: false,
+                todoread: false,
+                task: false,
+              },
+              parts: [{ type: "text" as const, text: wakeText }],
+            })
+          }),
+        )
 
         const delegatorSummary = await summarizeSubtaskSession(delegatorSession.id, delegatorResult)
         lastDelegatorSummary = delegatorSummary
@@ -490,19 +573,25 @@ async function launchBackgroundSubtask(params: {
 
         if (decision.action === "finalize" || isLastRound || !decision.spawn) break
 
-        const followupAgent = await Agent.get(decision.spawn.agent)
+        const spawn = decision.spawn
+        const followupAgent = await agentGet(spawn.agent)
         if (!followupAgent) break
 
         const followupHasTaskPermission = followupAgent.permission.some((rule) => rule.permission === "task")
-        const followupSession = await Session.create({
-          parentID: params.parentSessionID,
-          title: `${decision.spawn.description} (@${followupAgent.name} follow-up)`,
-          permission: buildSubtaskPermission(followupHasTaskPermission, params.primaryTools),
-        })
+        const followupSession = await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            return yield* session.create({
+              parentID: params.parentSessionID,
+              title: `${spawn.description} (@${followupAgent.name} follow-up)`,
+              permission: buildSubtaskPermission(followupHasTaskPermission, params.primaryTools),
+            })
+          }),
+        )
         const followupDelegation = await Delegation.create({
           parentSessionID: params.parentSessionID,
           agent: followupAgent.name,
-          prompt: decision.spawn.prompt,
+          prompt: spawn.prompt,
           session: followupSession,
           source: "delegator-followup",
           jobID: delegation.jobID,
@@ -514,7 +603,7 @@ async function launchBackgroundSubtask(params: {
         Delegation.setSessionID(followupDelegation.id, followupSession.id)
         const followupRun = await runBackgroundDelegation({
           session: followupSession,
-          prompt: decision.spawn.prompt,
+          prompt: spawn.prompt,
           agentName: followupAgent.name,
           model: params.model,
           hasTaskPermission: followupHasTaskPermission,
@@ -568,7 +657,7 @@ async function launchBackgroundSubtask(params: {
 }
 
 export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetadata>) {
-  const config = await Config.get()
+  const config = await configGet()
   // SECURITY: bypassAgentCheck should only be true when set by internal system code
   // (e.g., when processing SubtaskPart from model). It should NEVER be derived from
   // user-controllable data like message parts. See session/prompt.ts for proper usage.
@@ -586,11 +675,16 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
     })
   }
 
-  const agent = await Agent.get(params.subagent_type)
+  const agent = await agentGet(params.subagent_type)
   if (!agent) throw new Error(`Unknown agent type: ${params.subagent_type} is not a valid agent type`)
 
   const hasTaskPermission = agent.permission.some((rule) => rule.permission === "task")
-  const parentSession = await Session.get(ctx.sessionID)
+  const parentSession = await runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.get(ctx.sessionID)
+    }),
+  )
   const researchMetadata = buildResearchMetadata(agent.name, params.prompt)
 
   if (params.background && agent.name === RESEARCH_AGENT) {
@@ -632,11 +726,16 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       if (found) return found
     }
 
-    return await Session.create({
-      parentID: ctx.sessionID,
-      title: params.description + ` (@${agent.name} subagent)`,
-      permission: buildSubtaskPermission(hasTaskPermission, config.experimental?.primary_tools),
-    })
+    return await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.create({
+          parentID: ctx.sessionID,
+          title: params.description + ` (@${agent.name} subagent)`,
+          permission: buildSubtaskPermission(hasTaskPermission, config.experimental?.primary_tools),
+        })
+      }),
+    )
   })
 
   const msg = await MessageV2.get({ sessionID: ctx.sessionID, messageID: ctx.messageID })
@@ -718,7 +817,12 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
   }
 
   function cancel() {
-    SessionPrompt.cancel(session.id)
+    void runSessionPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        yield* sessionPrompt.cancel(session.id)
+      }),
+    )
   }
   ctx.abort.addEventListener("abort", cancel)
   using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
@@ -769,7 +873,12 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       },
       primaryTools: config.experimental?.primary_tools,
     })
-    const result = await SessionPrompt.prompt(promptInput)
+    const result = await runSessionPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        return yield* sessionPrompt.prompt(promptInput)
+      }),
+    )
     const summary = await summarizeSubtaskSession(session.id, result)
 
     return {
@@ -791,7 +900,7 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
 }
 
 export const TaskTool = Tool.define<typeof parameters, TaskMetadata>("task", async (ctx) => {
-  const agents = await Agent.list().then((x) => x.filter((a) => a.mode !== "primary"))
+  const agents = await agentList().then((x) => x.filter((a) => a.mode !== "primary"))
 
   const caller = ctx?.agent
   const accessibleAgents = caller

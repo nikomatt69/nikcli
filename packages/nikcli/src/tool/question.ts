@@ -2,6 +2,8 @@ import z from "zod"
 import { Tool } from "./tool"
 import { Question } from "../question"
 import DESCRIPTION from "./question.txt"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export const QuestionTool = Tool.define("question", {
   description: DESCRIPTION,
@@ -9,11 +11,19 @@ export const QuestionTool = Tool.define("question", {
     questions: z.array(Question.Info.omit({ custom: true })).describe("Questions to ask"),
   }),
   async execute(params, ctx) {
-    const answers = await Question.ask({
-      sessionID: ctx.sessionID,
-      questions: params.questions,
-      tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
-    })
+    const answers = await runPromiseWithLayer(
+      Question.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const question = yield* Question.Service
+          return yield* question.ask({
+            sessionID: ctx.sessionID,
+            questions: params.questions,
+            tool: ctx.callID ? { messageID: ctx.messageID, callID: ctx.callID } : undefined,
+          })
+        }),
+      ),
+    )
 
     function format(answer: Question.Answer | undefined) {
       if (!answer?.length) return "Unanswered"

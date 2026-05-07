@@ -37,8 +37,26 @@ export const BatchTool = Tool.define("batch", async () => {
       const discardedCalls = params.tool_calls.slice(25)
 
       const { ToolRegistry } = await import("./registry")
-      const availableTools = await ToolRegistry.tools({ modelID: "", providerID: "" })
+      const { runPromiseWithLayer, withCurrentInstance } = await import("@/effect")
+      const { Effect } = await import("effect")
+      const availableTools = await runPromiseWithLayer(
+        ToolRegistry.defaultLayer,
+        Effect.gen(function* () {
+          const registry = yield* ToolRegistry.Service
+          return yield* registry.tools({ modelID: "", providerID: "" })
+        }),
+      )
       const toolMap = new Map(availableTools.map((t) => [t.id, t]))
+      const updatePart = (part: import("../session/message-v2").MessageV2.Part) =>
+        runPromiseWithLayer(
+          Session.defaultLayer,
+          withCurrentInstance(
+            Effect.gen(function* () {
+              const session = yield* Session.Service
+              return yield* session.updatePart(part)
+            }),
+          ),
+        )
 
       const executeCall = async (call: (typeof toolCalls)[0]) => {
         const callStartTime = Date.now()
@@ -60,7 +78,7 @@ export const BatchTool = Tool.define("batch", async () => {
           }
           const validatedParams = tool.parameters.parse(call.parameters)
 
-          await Session.updatePart({
+          await updatePart({
             id: partID,
             messageID: ctx.messageID,
             sessionID: ctx.sessionID,
@@ -78,7 +96,7 @@ export const BatchTool = Tool.define("batch", async () => {
 
           const result = await tool.execute(validatedParams, { ...ctx, callID: partID })
 
-          await Session.updatePart({
+          await updatePart({
             id: partID,
             messageID: ctx.messageID,
             sessionID: ctx.sessionID,
@@ -101,7 +119,7 @@ export const BatchTool = Tool.define("batch", async () => {
 
           return { success: true as const, tool: call.tool, result }
         } catch (error) {
-          await Session.updatePart({
+          await updatePart({
             id: partID,
             messageID: ctx.messageID,
             sessionID: ctx.sessionID,
@@ -129,7 +147,7 @@ export const BatchTool = Tool.define("batch", async () => {
       const now = Date.now()
       for (const call of discardedCalls) {
         const partID = Identifier.ascending("part")
-        await Session.updatePart({
+        await updatePart({
           id: partID,
           messageID: ctx.messageID,
           sessionID: ctx.sessionID,

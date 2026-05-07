@@ -1,12 +1,37 @@
 import { Database } from "bun:sqlite"
 import { drizzle } from "drizzle-orm/bun-sqlite"
 import { eq } from "drizzle-orm"
+import fs from "fs"
 import path from "path"
 import { Global } from "@/global"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { workspace } from "./workspace.sql"
 import type { Config } from "./config"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 /** Drizzle's .run() returns void in types but actually returns {changes, lastInsertRowid} at runtime */
 type RunResult = { changes: number; lastInsertRowid: number | bigint }
@@ -52,6 +77,7 @@ export namespace WorkspaceDB {
    */
   function rawDb(): Database {
     if (!_rawDb) {
+      fs.mkdirSync(Global.Path.data, { recursive: true })
       const p = path.join(Global.Path.data, "workspaces.db")
       _rawDb = new Database(p, { create: true })
       _rawDb.exec("PRAGMA journal_mode=WAL;")
@@ -228,7 +254,7 @@ export namespace WorkspaceDB {
   }
 
   /**
-   * Migrate any pre-existing JSON workspace records (Storage.write(["workspace", ...]))
+   * Migrate any pre-existing JSON workspace records (storage key ["workspace", ...])
    * into SQLite. Idempotent: existing rows are preserved (INSERT OR IGNORE).
    * Safe to call on every bootstrap; no-op once all JSON rows have landed in the table.
    */
@@ -238,9 +264,9 @@ export namespace WorkspaceDB {
 
     let imported = 0
     try {
-      const keys = await Storage.list(["workspace"])
+      const keys = await storageList(["workspace"])
       for (const key of keys) {
-        const row = await Storage.read<Info>(key).catch(() => undefined)
+        const row = await storageRead<Info>(key).catch(() => undefined)
         if (!row || !row.id || !row.projectID || !row.config) continue
         // Check if already migrated using Drizzle
         const existing = db().select({ id: workspace.id }).from(workspace).where(eq(workspace.id, row.id)).get()

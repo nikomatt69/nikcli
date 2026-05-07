@@ -11,7 +11,6 @@ import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
 import { type Tool as AITool, tool, jsonSchema, type ToolCallOptions } from "ai"
 import { SessionCompaction } from "./compaction"
-import { Instance } from "../project/instance"
 import { Bus } from "../bus"
 import { ProviderTransform } from "../provider/transform"
 import { SystemPrompt } from "./system"
@@ -45,6 +44,8 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
+import { Context, Effect, Layer, ScopedCache } from "effect"
+import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -60,37 +61,303 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
+  type PromptState = Record<
+    string,
+    {
+      abort: AbortController
+      cancelling?: boolean
+      callbacks: {
+        resolve(input: MessageV2.WithParts): void
+        reject(error?: Error): void
+      }[]
+    }
+  >
 
-  const _state = Instance.state(
-    () => {
-      const data: Record<
-        string,
-        {
-          abort: AbortController
-          cancelling?: boolean
-          callbacks: {
-            resolve(input: MessageV2.WithParts): void
-            reject(error?: Error): void
-          }[]
-        }
-      > = {}
-      return data
-    },
-    async (current) => {
-      for (const item of Object.values(current)) {
-        item.abort.abort()
-        for (const callback of item.callbacks) {
-          callback.reject()
-        }
-      }
-    },
-  )
-
-  export function state(): ReturnType<typeof _state> {
-    return _state()
+  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
+    return runPromiseWithLayer(
+      Truncate.defaultLayer,
+      Effect.gen(function* () {
+        const truncate = yield* Truncate.Service
+        return yield* truncate.output(text, options, agent)
+      }),
+    )
   }
 
-  export function assertNotBusy(sessionID: string) {
+  function toolRegistryTools(
+    model: { providerID: string; modelID: string },
+    agent?: Agent.Info,
+    options?: { slim?: boolean },
+  ) {
+    return runPromiseWithLayer(
+      ToolRegistry.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const registry = yield* ToolRegistry.Service
+          return yield* registry.tools(model, agent, options)
+        }),
+      ),
+    )
+  }
+
+  function askPermission(input: PermissionNext.AskInput) {
+    return runPromiseWithLayer(
+      PermissionNext.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const permission = yield* PermissionNext.Service
+          return yield* permission.ask(input)
+        }),
+      ),
+    )
+  }
+
+  function commandGet(name: string) {
+    return runPromiseWithLayer(
+      Command.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const command = yield* Command.Service
+          return yield* command.get(name)
+        }),
+      ),
+    )
+  }
+
+  function agentGet(name: string) {
+    return runPromiseWithLayer(
+      Agent.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const agent = yield* Agent.Service
+          return yield* agent.get(name)
+        }),
+      ),
+    )
+  }
+
+  async function agentRequired(name: string) {
+    const agent = await agentGet(name)
+    if (!agent) throw new Error(`Agent not found: ${name}`)
+    return agent
+  }
+
+  function agentList() {
+    return runPromiseWithLayer(
+      Agent.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const agent = yield* Agent.Service
+          return yield* agent.list()
+        }),
+      ),
+    )
+  }
+
+  function defaultAgent() {
+    return runPromiseWithLayer(
+      Agent.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const agent = yield* Agent.Service
+          return yield* agent.defaultAgent()
+        }),
+      ),
+    )
+  }
+
+  function systemPromptParts(skills: string[] = []) {
+    return runPromiseWithLayer(
+      SystemPrompt.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const systemPrompt = yield* SystemPrompt.Service
+          const [activeSkillMessages, environment, custom] = yield* Effect.all(
+            [systemPrompt.skills(skills), systemPrompt.environment(), systemPrompt.custom()],
+            { concurrency: "unbounded" },
+          )
+          return {
+            activeSkillMessages,
+            system: [...environment, ...custom],
+          }
+        }),
+      ),
+    )
+  }
+
+  function runSummary<A, E>(effect: Effect.Effect<A, E, SessionSummary.Service>) {
+    return runPromiseWithLayer(SessionSummary.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runRevert<A, E>(effect: Effect.Effect<A, E, SessionRevert.Service>) {
+    return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Service>) {
+    return runPromiseWithLayer(SessionCompaction.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function sessionGet(sessionID: string) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.get(sessionID)
+      }),
+    )
+  }
+
+  function sessionTouch(sessionID: string) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.touch(sessionID)
+      }),
+    )
+  }
+
+  function sessionUpdate(
+    sessionID: string,
+    editor: (session: Session.Info) => void,
+    options?: { touch?: boolean },
+  ) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.update(sessionID, editor, options)
+      }),
+    )
+  }
+
+  function sessionUpdateMessage(message: MessageV2.Info) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.updateMessage(message)
+      }),
+    )
+  }
+
+  function sessionUpdatePart(part: MessageV2.Part) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.updatePart(part)
+      }),
+    )
+  }
+
+  function sessionPlan(info: Session.Info) {
+    return runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.plan(info)
+      }),
+    )
+  }
+
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
+    return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function providerGetModel(providerID: string, modelID: string) {
+    return runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.getModel(providerID, modelID)
+      }),
+    )
+  }
+
+  function providerGetSmallModel(providerID: string) {
+    return runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.getSmallModel(providerID)
+      }),
+    )
+  }
+
+  function providerDefaultModel() {
+    return runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.defaultModel()
+      }),
+    )
+  }
+
+  function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+    return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
+    return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function setStatus(sessionID: string, status: SessionStatus.Info) {
+    return runPromiseWithLayer(
+      SessionStatus.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const sessionStatus = yield* SessionStatus.Service
+          return yield* sessionStatus.set(sessionID, status)
+        }),
+      ),
+    )
+  }
+
+  function currentContext(): Promise<InstanceContext> {
+    return Effect.runPromise(withCurrentInstance(InstanceState.context))
+  }
+
+  class StateCache extends Context.Tag("SessionPrompt.StateCache")<
+    StateCache,
+    ScopedCache.ScopedCache<string, PromptState>
+  >() {}
+
+  const stateLayer = Layer.scoped(
+    StateCache,
+    InstanceState.make<PromptState>(() =>
+      Effect.gen(function* () {
+        const data: PromptState = {}
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => {
+            for (const item of Object.values(data)) {
+              item.abort.abort()
+              for (const callback of item.callbacks) {
+                callback.reject()
+              }
+            }
+          }),
+        )
+        return data
+      }),
+    ),
+  )
+
+  function getStateEffect() {
+    return Effect.gen(function* () {
+      const cache = yield* StateCache
+      return yield* InstanceState.get(cache)
+    })
+  }
+
+  function getServiceStateEffect() {
+    return getStateEffect().pipe(Effect.provide(stateLayer))
+  }
+
+  function state(): PromptState {
+    return runtimeFor(stateLayer).runSync(withCurrentInstance(getStateEffect()))
+  }
+
+  function assertNotBusy(sessionID: string) {
     const match = state()[sessionID]
     if (match) throw new Session.BusyError(sessionID)
   }
@@ -162,12 +429,29 @@ export namespace SessionPrompt {
   })
   export type PromptInput = z.infer<typeof PromptInput>
 
-  export const prompt = fn(PromptInput, async (input) => {
-    const session = await Session.get(input.sessionID)
-    await SessionRevert.cleanup(session)
+  export interface Interface {
+    assertNotBusy(sessionID: string): Effect.Effect<void>
+    prompt(input: PromptInput): Effect.Effect<Awaited<ReturnType<typeof prompt>>, unknown>
+    resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], unknown>
+    cancel(sessionID: string): Effect.Effect<void>
+    loop(sessionID: string): Effect.Effect<Awaited<ReturnType<typeof loop>>, unknown>
+    shell(input: ShellInput): Effect.Effect<Awaited<ReturnType<typeof shell>>, unknown>
+    command(input: CommandInput): Effect.Effect<Awaited<ReturnType<typeof command>>, unknown>
+  }
+
+  export class Service extends Context.Tag("SessionPrompt.Service")<Service, Interface>() {}
+
+  const prompt = fn(PromptInput, async (input) => {
+    const session = await sessionGet(input.sessionID)
+    await runRevert(
+      Effect.gen(function* () {
+        const revert = yield* SessionRevert.Service
+        yield* revert.cleanup(session)
+      }),
+    )
 
     const message = await createUserMessage(input)
-    await Session.touch(input.sessionID)
+    await sessionTouch(input.sessionID)
 
     const permissions: PermissionNext.Ruleset = []
     for (const [tool, enabled] of Object.entries(input.tools ?? {})) {
@@ -179,7 +463,7 @@ export namespace SessionPrompt {
     }
     if (permissions.length > 0) {
       session.permission = permissions
-      await Session.update(session.id, (draft) => {
+      await sessionUpdate(session.id, (draft) => {
         draft.permission = permissions
       })
     }
@@ -191,7 +475,7 @@ export namespace SessionPrompt {
     return loop(input.sessionID)
   })
 
-  export async function resolvePromptParts(template: string): Promise<PromptInput["parts"]> {
+  async function resolvePromptPartsImpl(ctx: InstanceContext, template: string): Promise<PromptInput["parts"]> {
     const parts: PromptInput["parts"] = [
       {
         type: "text",
@@ -207,11 +491,11 @@ export namespace SessionPrompt {
         seen.add(name)
         const filepath = name.startsWith("~/")
           ? path.join(os.homedir(), name.slice(2))
-          : path.resolve(Instance.worktree, name)
+          : path.resolve(ctx.worktree, name)
 
         const stats = await fs.stat(filepath).catch(() => undefined)
         if (!stats) {
-          const agent = await Agent.get(name)
+          const agent = await agentGet(name)
           if (agent) {
             parts.push({
               type: "agent",
@@ -242,6 +526,10 @@ export namespace SessionPrompt {
     return parts
   }
 
+  async function resolvePromptParts(template: string): Promise<PromptInput["parts"]> {
+    return resolvePromptPartsImpl(await currentContext(), template)
+  }
+
   function start(sessionID: string) {
     const s = state()
     if (s[sessionID]) return
@@ -253,7 +541,7 @@ export namespace SessionPrompt {
     return controller
   }
 
-  function finish(sessionID: string, controller: AbortController) {
+  async function finish(sessionID: string, controller: AbortController) {
     const s = state()
     const match = s[sessionID]
     if (!match || match.abort !== controller) return
@@ -261,10 +549,10 @@ export namespace SessionPrompt {
       item.reject()
     }
     delete s[sessionID]
-    SessionStatus.set(sessionID, { type: "idle" })
+    await setStatus(sessionID, { type: "idle" })
   }
 
-  export const cancel = (() => {
+  const cancel = (() => {
     const log = Log.create({ service: "session.prompt" })
     return function cancel(sessionID: string) {
       log.info("cancel", { sessionID })
@@ -281,7 +569,7 @@ export namespace SessionPrompt {
     }
   })()
 
-  export const loop = fn(Identifier.schema("session"), async (sessionID) => {
+  const loop = fn(Identifier.schema("session"), async (sessionID) => {
     const controller = start(sessionID)
     if (!controller) {
       return new Promise<MessageV2.WithParts>((resolve, reject) => {
@@ -291,7 +579,8 @@ export namespace SessionPrompt {
     }
     const abort = controller.signal
 
-    using _ = defer(() => finish(sessionID, controller))
+    await using _ = defer(() => finish(sessionID, controller))
+    const ctx = await currentContext()
 
     // Structured output state
     // Note: On session resumption, state is reset but format is preserved
@@ -302,10 +591,10 @@ export namespace SessionPrompt {
 
     let step = 0
     while (true) {
-      SessionStatus.set(sessionID, { type: "busy" })
+      await setStatus(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
       if (abort.aborted) break
-      const session = await Session.get(sessionID)
+      const session = await sessionGet(sessionID)
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
       let lastUser: MessageV2.User | undefined
@@ -366,13 +655,13 @@ export namespace SessionPrompt {
           history: msgs,
         })
 
-      const model = await Provider.getModel(lastUser.model.providerID, lastUser.model.modelID)
+      const model = await providerGetModel(lastUser.model.providerID, lastUser.model.modelID)
       const task = tasks.pop()
 
       if (task?.type === "subtask") {
         const taskTool = await TaskTool.init()
-        const taskModel = task.model ? await Provider.getModel(task.model.providerID, task.model.modelID) : model
-        const assistantMessage = (await Session.updateMessage({
+        const taskModel = task.model ? await providerGetModel(task.model.providerID, task.model.modelID) : model
+        const assistantMessage = (await sessionUpdateMessage({
           id: Identifier.ascending("message"),
           role: "assistant",
           parentID: lastUser.id,
@@ -380,8 +669,8 @@ export namespace SessionPrompt {
           mode: task.agent,
           agent: task.agent,
           path: {
-            cwd: Instance.directory,
-            root: Instance.worktree,
+            cwd: ctx.directory,
+            root: ctx.worktree,
           },
           cost: 0,
           tokens: {
@@ -396,7 +685,7 @@ export namespace SessionPrompt {
             created: Date.now(),
           },
         })) as MessageV2.Assistant
-        const part = (await Session.updatePart({
+        const part = (await sessionUpdatePart({
           id: Identifier.ascending("part"),
           messageID: assistantMessage.id,
           sessionID: assistantMessage.sessionID,
@@ -425,17 +714,22 @@ export namespace SessionPrompt {
           command: task.command,
           background: task.background,
         }
-        await Plugin.trigger(
-          "tool.execute.before",
-          {
-            tool: "task",
-            sessionID,
-            callID: part.id,
-          },
-          { args: taskArgs },
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.before",
+              {
+                tool: "task",
+                sessionID,
+                callID: part.id,
+              },
+              { args: taskArgs },
+            )
+          }),
         )
         let executionError: Error | undefined
-        const taskAgent = await Agent.get(task.agent)
+        const taskAgent = await agentRequired(task.agent)
         const taskCtx: Tool.Context = {
           agent: task.agent,
           messageID: assistantMessage.id,
@@ -447,7 +741,7 @@ export namespace SessionPrompt {
             backgroundSource: task.background === true ? "model-subtask" : undefined,
           },
           async metadata(input) {
-            await Session.updatePart({
+            await sessionUpdatePart({
               ...part,
               type: "tool",
               state: {
@@ -457,7 +751,7 @@ export namespace SessionPrompt {
             } satisfies MessageV2.ToolPart)
           },
           async ask(req) {
-            await PermissionNext.ask({
+            await askPermission({
               ...req,
               sessionID: sessionID,
               ruleset: PermissionNext.merge(taskAgent.permission, session.permission ?? []),
@@ -469,20 +763,25 @@ export namespace SessionPrompt {
           log.error("subtask execution failed", { error, agent: task.agent, description: task.description })
           return undefined
         })
-        await Plugin.trigger(
-          "tool.execute.after",
-          {
-            tool: "task",
-            sessionID,
-            callID: part.id,
-          },
-          result,
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.after",
+              {
+                tool: "task",
+                sessionID,
+                callID: part.id,
+              },
+              result,
+            )
+          }),
         )
         assistantMessage.finish = "tool-calls"
         assistantMessage.time.completed = Date.now()
-        await Session.updateMessage(assistantMessage)
+        await sessionUpdateMessage(assistantMessage)
         if (result && part.state.status === "running") {
-          await Session.updatePart({
+          await sessionUpdatePart({
             ...part,
             state: {
               status: "completed",
@@ -499,7 +798,7 @@ export namespace SessionPrompt {
           } satisfies MessageV2.ToolPart)
         }
         if (!result) {
-          await Session.updatePart({
+          await sessionUpdatePart({
             ...part,
             state: {
               status: "error",
@@ -525,8 +824,8 @@ export namespace SessionPrompt {
             agent: lastUser.agent,
             model: lastUser.model,
           }
-          await Session.updateMessage(summaryUserMsg)
-          await Session.updatePart({
+          await sessionUpdateMessage(summaryUserMsg)
+          await sessionUpdatePart({
             id: Identifier.ascending("part"),
             messageID: summaryUserMsg.id,
             sessionID,
@@ -540,13 +839,18 @@ export namespace SessionPrompt {
       }
 
       if (task?.type === "compaction") {
-        const result = await SessionCompaction.process({
-          messages: msgs,
-          parentID: lastUser.id,
-          abort,
-          sessionID,
-          auto: task.auto,
-        })
+        const result = await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            return yield* compaction.process({
+              messages: msgs,
+              parentID: lastUser.id,
+              abort,
+              sessionID,
+              auto: task.auto,
+            })
+          }),
+        )
         if (result === "stop") break
         continue
       }
@@ -554,18 +858,28 @@ export namespace SessionPrompt {
       if (
         lastFinished &&
         lastFinished.summary !== true &&
-        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
+        (await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            return yield* compaction.isOverflow({ tokens: lastFinished.tokens, model })
+          }),
+        ))
       ) {
-        await SessionCompaction.create({
-          sessionID,
-          agent: lastUser.agent,
-          model: lastUser.model,
-          auto: true,
-        })
+        await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            yield* compaction.create({
+              sessionID,
+              agent: lastUser.agent,
+              model: lastUser.model,
+              auto: true,
+            })
+          }),
+        )
         continue
       }
 
-      const agent = await Agent.get(lastUser.agent)
+      const agent = await agentRequired(lastUser.agent)
       const maxSteps = agent.steps ?? Infinity
       const isLastStep = step >= maxSteps
       msgs = await insertReminders({
@@ -575,15 +889,15 @@ export namespace SessionPrompt {
       })
 
       const processor = SessionProcessor.create({
-        assistantMessage: (await Session.updateMessage({
+        assistantMessage: (await sessionUpdateMessage({
           id: Identifier.ascending("message"),
           parentID: lastUser.id,
           role: "assistant",
           mode: agent.name,
           agent: agent.name,
           path: {
-            cwd: Instance.directory,
-            root: Instance.worktree,
+            cwd: ctx.directory,
+            root: ctx.worktree,
           },
           cost: 0,
           tokens: {
@@ -627,10 +941,15 @@ export namespace SessionPrompt {
       }
 
       if (step === 1) {
-        SessionSummary.summarize({
-          sessionID: sessionID,
-          messageID: lastUser.id,
-        })
+        void runSummary(
+          Effect.gen(function* () {
+            const summary = yield* SessionSummary.Service
+            yield* summary.summarize({
+              sessionID: sessionID,
+              messageID: lastUser.id,
+            })
+          }),
+        )
       }
 
       const sessionMessages = clone(msgs)
@@ -653,15 +972,17 @@ export namespace SessionPrompt {
         }
       }
 
-      await Plugin.trigger("experimental.chat.messages.transform", {}, { messages: sessionMessages })
+      await runPlugin(
+        Effect.gen(function* () {
+          const plugin = yield* Plugin.Service
+          yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: sessionMessages })
+        }),
+      )
 
-      const activeSkillMessages = await SystemPrompt.skills(session.skills ?? [])
+      const systemPrompt = await systemPromptParts(session.skills ?? [])
 
       // Build system prompt, adding structured output instructions if needed
-      const system = [
-        ...(await SystemPrompt.environment()),
-        ...(await SystemPrompt.custom()),
-      ]
+      const system = [...systemPrompt.system]
       const format: MessageV2.OutputFormat = lastUser.format ?? { type: "text" }
       if (format.type === "json_schema") {
         system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
@@ -674,7 +995,7 @@ export namespace SessionPrompt {
         sessionID,
         system,
         messages: [
-          ...activeSkillMessages.map((content) => ({ role: "user" as const, content })),
+          ...systemPrompt.activeSkillMessages.map((content) => ({ role: "user" as const, content })),
           ...MessageV2.toModelMessages(sessionMessages, model),
           ...(isLastStep
             ? [
@@ -695,7 +1016,7 @@ export namespace SessionPrompt {
       if (structuredOutput !== undefined) {
         processor.message.structured = structuredOutput
         processor.message.finish = processor.message.finish ?? "stop"
-        await Session.updateMessage(processor.message)
+        await sessionUpdateMessage(processor.message)
         break
       }
 
@@ -704,7 +1025,7 @@ export namespace SessionPrompt {
       if (modelFinished && !processor.message.error && format.type === "json_schema") {
         if (structuredOutputRetries < format.retryCount) {
           structuredOutputRetries++
-          const retryMsg = await Session.updateMessage({
+          const retryMsg = await sessionUpdateMessage({
             id: Identifier.ascending("message"),
             role: "user",
             sessionID,
@@ -718,7 +1039,7 @@ export namespace SessionPrompt {
             format: lastUser.format,
             variant: lastUser.variant,
           })
-          await Session.updatePart({
+          await sessionUpdatePart({
             id: Identifier.ascending("part"),
             messageID: retryMsg.id,
             sessionID,
@@ -738,22 +1059,32 @@ export namespace SessionPrompt {
           message: "Model did not produce structured output",
           retries: structuredOutputRetries,
         }).toObject()
-        await Session.updateMessage(processor.message)
+        await sessionUpdateMessage(processor.message)
         break
       }
 
       if (result === "stop") break
       if (result === "compact") {
-        await SessionCompaction.create({
-          sessionID,
-          agent: lastUser.agent,
-          model: lastUser.model,
-          auto: true,
-        })
+        await runCompaction(
+          Effect.gen(function* () {
+            const compaction = yield* SessionCompaction.Service
+            yield* compaction.create({
+              sessionID,
+              agent: lastUser.agent,
+              model: lastUser.model,
+              auto: true,
+            })
+          }),
+        )
       }
       continue
     }
-    SessionCompaction.prune({ sessionID })
+    void runCompaction(
+      Effect.gen(function* () {
+        const compaction = yield* SessionCompaction.Service
+        yield* compaction.prune({ sessionID })
+      }),
+    )
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user") continue
       const queued = state()[sessionID]?.callbacks ?? []
@@ -769,7 +1100,7 @@ export namespace SessionPrompt {
     for await (const item of MessageV2.stream(sessionID)) {
       if (item.info.role === "user" && item.info.model) return item.info.model
     }
-    return Provider.defaultModel()
+    return providerDefaultModel()
   }
 
   /** @internal Exported for testing */
@@ -794,7 +1125,7 @@ export namespace SessionPrompt {
       metadata: async (val: { title?: string; metadata?: any }) => {
         const match = input.processor.partFromToolCall(options.toolCallId)
         if (match && match.state.status === "running") {
-          await Session.updatePart({
+          await sessionUpdatePart({
             ...match,
             state: {
               title: val.title,
@@ -809,7 +1140,7 @@ export namespace SessionPrompt {
         }
       },
       async ask(req) {
-        await PermissionNext.ask({
+        await askPermission({
           ...req,
           sessionID: input.session.id,
           tool: { messageID: input.processor.message.id, callID: options.toolCallId },
@@ -818,7 +1149,7 @@ export namespace SessionPrompt {
       },
     })
 
-    for (const item of await ToolRegistry.tools(
+    for (const item of await toolRegistryTools(
       { modelID: input.model.api.id, providerID: input.model.providerID },
       input.agent,
     )) {
@@ -829,26 +1160,36 @@ export namespace SessionPrompt {
         inputSchema: jsonSchema(schema as any),
         async execute(args, options) {
           const ctx = context(args, options)
-          await Plugin.trigger(
-            "tool.execute.before",
-            {
-              tool: item.id,
-              sessionID: ctx.sessionID,
-              callID: ctx.callID,
-            },
-            {
-              args,
-            },
+          await runPlugin(
+            Effect.gen(function* () {
+              const plugin = yield* Plugin.Service
+              yield* plugin.trigger(
+                "tool.execute.before",
+                {
+                  tool: item.id,
+                  sessionID: ctx.sessionID,
+                  callID: ctx.callID,
+                },
+                {
+                  args,
+                },
+              )
+            }),
           )
           const result = await item.execute(args, ctx)
-          await Plugin.trigger(
-            "tool.execute.after",
-            {
-              tool: item.id,
-              sessionID: ctx.sessionID,
-              callID: ctx.callID,
-            },
-            result,
+          await runPlugin(
+            Effect.gen(function* () {
+              const plugin = yield* Plugin.Service
+              yield* plugin.trigger(
+                "tool.execute.after",
+                {
+                  tool: item.id,
+                  sessionID: ctx.sessionID,
+                  callID: ctx.callID,
+                },
+                result,
+              )
+            }),
           )
           return result
         },
@@ -861,23 +1202,34 @@ export namespace SessionPrompt {
       })
     }
 
-    for (const [key, item] of Object.entries(await MCP.tools())) {
+    const mcpTools = await runMCP(
+      Effect.gen(function* () {
+        const mcp = yield* MCP.Service
+        return yield* mcp.tools()
+      }),
+    )
+    for (const [key, item] of Object.entries(mcpTools)) {
       const execute = item.execute
       if (!execute) continue
 
       item.execute = async (args, opts) => {
         const ctx = context(args, opts)
 
-        await Plugin.trigger(
-          "tool.execute.before",
-          {
-            tool: key,
-            sessionID: ctx.sessionID,
-            callID: opts.toolCallId,
-          },
-          {
-            args,
-          },
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.before",
+              {
+                tool: key,
+                sessionID: ctx.sessionID,
+                callID: opts.toolCallId,
+              },
+              {
+                args,
+              },
+            )
+          }),
         )
 
         await ctx.ask({
@@ -889,14 +1241,19 @@ export namespace SessionPrompt {
 
         const result = await execute(args, opts)
 
-        await Plugin.trigger(
-          "tool.execute.after",
-          {
-            tool: key,
-            sessionID: ctx.sessionID,
-            callID: opts.toolCallId,
-          },
-          result,
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.after",
+              {
+                tool: key,
+                sessionID: ctx.sessionID,
+                callID: opts.toolCallId,
+              },
+              result,
+            )
+          }),
         )
 
         const textParts: string[] = []
@@ -933,7 +1290,7 @@ export namespace SessionPrompt {
           }
         }
 
-        const truncated = await Truncate.output(textParts.join("\n\n"), {}, input.agent)
+        const truncated = await truncateOutput(textParts.join("\n\n"), {}, input.agent)
         const metadata = {
           ...(result.metadata ?? {}),
           truncated: truncated.truncated,
@@ -965,16 +1322,21 @@ export namespace SessionPrompt {
       item.execute = async (args, opts) => {
         const ctx = context(args, opts)
 
-        await Plugin.trigger(
-          "tool.execute.before",
-          {
-            tool: key,
-            sessionID: ctx.sessionID,
-            callID: opts.toolCallId,
-          },
-          {
-            args,
-          },
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.before",
+              {
+                tool: key,
+                sessionID: ctx.sessionID,
+                callID: opts.toolCallId,
+              },
+              {
+                args,
+              },
+            )
+          }),
         )
 
         await ctx.ask({
@@ -986,18 +1348,23 @@ export namespace SessionPrompt {
 
         const result = await execute(args, opts)
 
-        await Plugin.trigger(
-          "tool.execute.after",
-          {
-            tool: key,
-            sessionID: ctx.sessionID,
-            callID: opts.toolCallId,
-          },
-          result,
+        await runPlugin(
+          Effect.gen(function* () {
+            const plugin = yield* Plugin.Service
+            yield* plugin.trigger(
+              "tool.execute.after",
+              {
+                tool: key,
+                sessionID: ctx.sessionID,
+                callID: opts.toolCallId,
+              },
+              result,
+            )
+          }),
         )
 
         const textOutput = typeof result === "string" ? result : JSON.stringify(result, null, 2)
-        const truncated = await Truncate.output(textOutput, {}, input.agent)
+        const truncated = await truncateOutput(textOutput, {}, input.agent)
 
         return {
           title: "",
@@ -1049,12 +1416,12 @@ export namespace SessionPrompt {
   }
 
   async function createUserMessage(input: PromptInput) {
-    const agent = await Agent.get(input.agent ?? (await Agent.defaultAgent()))
+    const agent = await agentRequired(input.agent ?? (await defaultAgent()))
 
     const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
     const full =
       !input.variant && agent.variant
-        ? await Provider.getModel(model.providerID, model.modelID).catch(() => undefined)
+        ? await providerGetModel(model.providerID, model.modelID).catch(() => undefined)
         : undefined
     const variant = input.variant ?? (agent.variant && full?.variants?.[agent.variant] ? agent.variant : undefined)
 
@@ -1092,7 +1459,12 @@ export namespace SessionPrompt {
             ]
 
             try {
-              const resourceContent = await MCP.readResource(clientName, uri)
+              const resourceContent = await runMCP(
+                Effect.gen(function* () {
+                  const mcp = yield* MCP.Service
+                  return yield* mcp.readResource(clientName, uri)
+                }),
+              )
               if (!resourceContent) {
                 throw new Error(`Resource not found: ${clientName}/${uri}`)
               }
@@ -1200,7 +1572,12 @@ export namespace SessionPrompt {
                   let start = parseInt(range.start)
                   let end = range.end ? parseInt(range.end) : undefined
                   if (start === end) {
-                    const symbols = await LSP.documentSymbol(filePathURI)
+                    const symbols = await runLSP(
+                      Effect.gen(function* () {
+                        const lsp = yield* LSP.Service
+                        return yield* lsp.documentSymbol(filePathURI)
+                      }),
+                    )
                     for (const symbol of symbols) {
                       let range: LSP.Range | undefined
                       if ("range" in symbol) {
@@ -1235,7 +1612,7 @@ export namespace SessionPrompt {
 
                 try {
                   const tool = await ReadTool.init()
-                  const model = await Provider.getModel(info.model.providerID, info.model.modelID)
+                  const model = await providerGetModel(info.model.providerID, info.model.modelID)
                   const readCtx: Tool.Context = {
                     sessionID: input.sessionID,
                     abort: new AbortController().signal,
@@ -1392,24 +1769,29 @@ export namespace SessionPrompt {
       }),
     ).then((x) => x.flat())
 
-    await Plugin.trigger(
-      "chat.message",
-      {
-        sessionID: input.sessionID,
-        agent: input.agent,
-        model: input.model,
-        messageID: input.messageID,
-        variant: input.variant,
-      },
-      {
-        message: info,
-        parts,
-      },
+    await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        yield* plugin.trigger(
+          "chat.message",
+          {
+            sessionID: input.sessionID,
+            agent: input.agent,
+            model: input.model,
+            messageID: input.messageID,
+            variant: input.variant,
+          },
+          {
+            message: info,
+            parts,
+          },
+        )
+      }),
     )
 
-    await Session.updateMessage(info)
+    await sessionUpdateMessage(info)
     for (const part of parts) {
-      await Session.updatePart(part)
+      await sessionUpdatePart(part)
     }
 
     return {
@@ -1450,10 +1832,10 @@ export namespace SessionPrompt {
     const assistantMessage = input.messages.findLast((msg) => msg.info.role === "assistant")
 
     if (input.agent.name !== "plan" && assistantMessage?.info.agent === "plan") {
-      const plan = Session.plan(input.session)
+      const plan = await sessionPlan(input.session)
       const exists = await Bun.file(plan).exists()
       if (exists) {
-        const part = await Session.updatePart({
+        const part = await sessionUpdatePart({
           id: Identifier.ascending("part"),
           messageID: userMessage.info.id,
           sessionID: userMessage.info.sessionID,
@@ -1468,10 +1850,10 @@ export namespace SessionPrompt {
     }
 
     if (input.agent.name === "plan" && assistantMessage?.info.agent !== "plan") {
-      const plan = Session.plan(input.session)
+      const plan = await sessionPlan(input.session)
       const exists = await Bun.file(plan).exists()
       if (!exists) await fs.mkdir(path.dirname(plan), { recursive: true })
-      const part = await Session.updatePart({
+      const part = await sessionUpdatePart({
         id: Identifier.ascending("part"),
         messageID: userMessage.info.id,
         sessionID: userMessage.info.sessionID,
@@ -1566,19 +1948,25 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     command: z.string(),
   })
   export type ShellInput = z.infer<typeof ShellInput>
-  export async function shell(input: ShellInput) {
+  async function shell(input: ShellInput) {
     const controller = start(input.sessionID)
     if (!controller) {
       throw new Session.BusyError(input.sessionID)
     }
     const abort = controller.signal
-    using _ = defer(() => finish(input.sessionID, controller))
+    await using _ = defer(() => finish(input.sessionID, controller))
+    const ctx = await currentContext()
 
-    const session = await Session.get(input.sessionID)
+    const session = await sessionGet(input.sessionID)
     if (session.revert) {
-      SessionRevert.cleanup(session)
+      void runRevert(
+        Effect.gen(function* () {
+          const revert = yield* SessionRevert.Service
+          yield* revert.cleanup(session)
+        }),
+      )
     }
-    const agent = await Agent.get(input.agent)
+    const agent = await agentRequired(input.agent)
     const model = input.model ?? agent.model ?? (await lastModel(input.sessionID))
     const userMsg: MessageV2.User = {
       id: Identifier.ascending("message"),
@@ -1593,7 +1981,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         modelID: model.modelID,
       },
     }
-    await Session.updateMessage(userMsg)
+    await sessionUpdateMessage(userMsg)
     const userPart: MessageV2.Part = {
       type: "text",
       id: Identifier.ascending("part"),
@@ -1602,7 +1990,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       text: "The following tool was executed by the user",
       synthetic: true,
     }
-    await Session.updatePart(userPart)
+    await sessionUpdatePart(userPart)
 
     const msg: MessageV2.Assistant = {
       id: Identifier.ascending("message"),
@@ -1612,8 +2000,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       agent: input.agent,
       cost: 0,
       path: {
-        cwd: Instance.directory,
-        root: Instance.worktree,
+        cwd: ctx.directory,
+        root: ctx.worktree,
       },
       time: {
         created: Date.now(),
@@ -1628,7 +2016,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       modelID: model.modelID,
       providerID: model.providerID,
     }
-    await Session.updateMessage(msg)
+    await sessionUpdateMessage(msg)
     const part: MessageV2.Part = {
       type: "tool",
       id: Identifier.ascending("part"),
@@ -1646,7 +2034,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
       },
     }
-    await Session.updatePart(part)
+    await sessionUpdatePart(part)
     const shell = Shell.preferred()
     const shellName = (
       process.platform === "win32" ? path.win32.basename(shell, ".exe") : path.basename(shell)
@@ -1699,7 +2087,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const args = matchingInvocation?.args
 
     const proc = spawn(shell, args, {
-      cwd: Instance.directory,
+      cwd: ctx.directory,
       detached: process.platform !== "win32",
       stdio: ["ignore", "pipe", "pipe"],
       env: {
@@ -1717,7 +2105,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           output: output,
           description: "",
         }
-        Session.updatePart(part)
+        void sessionUpdatePart(part)
       }
     })
 
@@ -1728,7 +2116,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           output: output,
           description: "",
         }
-        Session.updatePart(part)
+        void sessionUpdatePart(part)
       }
     })
 
@@ -1761,7 +2149,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       output += "\n\n" + ["<metadata>", "User aborted the command", "</metadata>"].join("\n")
     }
     msg.time.completed = Date.now()
-    await Session.updateMessage(msg)
+    await sessionUpdateMessage(msg)
     if (part.state.status === "running") {
       part.state = {
         status: "completed",
@@ -1777,7 +2165,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         },
         output,
       }
-      await Session.updatePart(part)
+      await sessionUpdatePart(part)
     }
     return { info: msg, parts: [part] }
   }
@@ -1809,10 +2197,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
   const placeholderRegex = /\$(\d+)/g
   const quoteTrimRegex = /^["']|["']$/g
 
-  export async function command(input: CommandInput) {
+  async function command(input: CommandInput) {
     log.info("command", input)
-    const command = await Command.get(input.command)
-    const agentName = command.agent ?? input.agent ?? (await Agent.defaultAgent())
+    const command = await commandGet(input.command)
+    if (!command) throw new Error(`Command "${input.command}" not found`)
+    const agentName = command.agent ?? input.agent ?? (await defaultAgent())
 
     const raw = input.arguments.match(argsRegex) ?? []
     const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
@@ -1861,7 +2250,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         return Provider.parseModel(command.model)
       }
       if (command.agent) {
-        const cmdAgent = await Agent.get(command.agent)
+        const cmdAgent = await agentGet(command.agent)
         if (cmdAgent?.model) {
           return cmdAgent.model
         }
@@ -1871,7 +2260,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     })()
 
     try {
-      await Provider.getModel(taskModel.providerID, taskModel.modelID)
+      await providerGetModel(taskModel.providerID, taskModel.modelID)
     } catch (e) {
       if (Provider.ModelNotFoundError.isInstance(e)) {
         const { providerID, modelID, suggestions } = e.data
@@ -1883,9 +2272,9 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       }
       throw e
     }
-    const agent = await Agent.get(agentName)
+    const agent = await agentGet(agentName)
     if (!agent) {
-      const available = await Agent.list().then((agents) => agents.filter((a) => !a.hidden).map((a) => a.name))
+      const available = await agentList().then((agents) => agents.filter((a) => !a.hidden).map((a) => a.name))
       const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
       const error = new NamedError.Unknown({ message: `Agent not found: "${agentName}".${hint}` })
       Bus.publish(Session.Event.Error, {
@@ -1913,21 +2302,26 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         ]
       : [...templateParts, ...(input.parts ?? [])]
 
-    const userAgent = isSubtask ? (input.agent ?? (await Agent.defaultAgent())) : agentName
+    const userAgent = isSubtask ? (input.agent ?? (await defaultAgent())) : agentName
     const userModel = isSubtask
       ? input.model
         ? Provider.parseModel(input.model)
         : await lastModel(input.sessionID)
       : taskModel
 
-    await Plugin.trigger(
-      "command.execute.before",
-      {
-        command: input.command,
-        sessionID: input.sessionID,
-        arguments: input.arguments,
-      },
-      { parts },
+    await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        yield* plugin.trigger(
+          "command.execute.before",
+          {
+            command: input.command,
+            sessionID: input.sessionID,
+            arguments: input.arguments,
+          },
+          { parts },
+        )
+      }),
     )
 
     const result = (await prompt({
@@ -1974,12 +2368,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const subtaskParts = firstRealUser.parts.filter((p) => p.type === "subtask") as MessageV2.SubtaskPart[]
     const hasOnlySubtaskParts = subtaskParts.length > 0 && firstRealUser.parts.every((p) => p.type === "subtask")
 
-    const agent = await Agent.get("title")
+    const agent = await agentGet("title")
     if (!agent) return
     const model = await iife(async () => {
-      if (agent.model) return await Provider.getModel(agent.model.providerID, agent.model.modelID)
+      if (agent.model) return await providerGetModel(agent.model.providerID, agent.model.modelID)
       return (
-        (await Provider.getSmallModel(input.providerID)) ?? (await Provider.getModel(input.providerID, input.modelID))
+        (await providerGetSmallModel(input.providerID)) ?? (await providerGetModel(input.providerID, input.modelID))
       )
     })
     const result = await LLM.stream({
@@ -2004,7 +2398,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     })
     const text = await result.text.catch((err) => log.error("failed to generate title", { error: err }))
     if (text)
-      return Session.update(
+      return sessionUpdate(
         input.session.id,
         (draft) => {
           const cleaned = text
@@ -2053,4 +2447,26 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     return bytes.toString()
   }
+
+  export const layer = Layer.succeed(
+    Service,
+    Service.of({
+      assertNotBusy: (sessionID) =>
+        Effect.gen(function* () {
+          const match = (yield* getServiceStateEffect())[sessionID]
+          if (match) throw new Session.BusyError(sessionID)
+        }),
+      prompt: (input) => Effect.tryPromise(() => prompt(input)),
+      resolvePromptParts: (template) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
+        ),
+      cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
+      loop: (sessionID) => Effect.tryPromise(() => loop(sessionID)),
+      shell: (input) => Effect.tryPromise(() => shell(input)),
+      command: (input) => Effect.tryPromise(() => command(input)),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

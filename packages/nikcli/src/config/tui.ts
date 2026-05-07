@@ -11,6 +11,9 @@ import { Log } from "@/util/log"
 import { isRecord } from "@/util/record"
 import { Global } from "@/global"
 import { parsePluginSpecifier } from "@/plugin/shared"
+import { Effect } from "effect"
+import { InstanceState, type InstanceContext } from "@/effect"
+import { Filesystem } from "@/util/filesystem"
 
 export namespace TuiConfig {
   const log = Log.create({ service: "tui.config" })
@@ -36,8 +39,9 @@ export namespace TuiConfig {
     plugin_meta?: Record<string, PluginMeta>
   }
 
-  function pluginScope(file: string): PluginMeta["scope"] {
-    if (Instance.containsPath(file)) return "local"
+  function pluginScope(ctx: InstanceContext, file: string): PluginMeta["scope"] {
+    if (Filesystem.containsCanonical(ctx.directory, file)) return "local"
+    if (ctx.worktree !== "/" && Filesystem.containsCanonical(ctx.worktree, file)) return "local"
     return "global"
   }
 
@@ -83,12 +87,17 @@ export namespace TuiConfig {
     return Config.installDependencies(dir)
   }
 
-  async function mergeFile(acc: Acc, file: string) {
-    const data = await loadFile(file)
+  const mergeFile = Effect.fn("TuiConfig.mergeFile")(function* (
+    ctx: InstanceContext,
+    paths: ConfigPaths.Interface,
+    acc: Acc,
+    file: string,
+  ) {
+    const data = yield* loadFile(paths, file)
     acc.result = mergeInfo(acc.result, data)
     if (!data.plugin?.length) return
 
-    const scope = pluginScope(file)
+    const scope = pluginScope(ctx, file)
     for (const item of data.plugin) {
       acc.entries.push({
         item,
@@ -98,20 +107,22 @@ export namespace TuiConfig {
         },
       })
     }
-  }
+  })
 
-  const state = Instance.state(async () => {
+  const loadState = Effect.fn("TuiConfig.loadState")(function* () {
+    const ctx = yield* InstanceState.context
+    const paths = yield* ConfigPaths.Service
     let projectFiles = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
       ? []
-      : await ConfigPaths.projectFiles("tui", Instance.directory, Instance.worktree)
-    const directories = await ConfigPaths.directories(Instance.directory, Instance.worktree)
+      : yield* paths.projectFiles("tui", ctx.directory, ctx.worktree)
+    const directories = yield* paths.directories(ctx.directory, ctx.worktree)
     const custom = customPath()
     const managed = Config.managedConfigDir()
-    await migrateTuiConfig({ directories, custom, managed })
+    yield* Effect.promise(() => migrateTuiConfig({ directories, custom, managed }))
     // Re-compute after migration since migrateTuiConfig may have created new tui.json files
     projectFiles = Flag.NIKCLI_DISABLE_PROJECT_CONFIG
       ? []
-      : await ConfigPaths.projectFiles("tui", Instance.directory, Instance.worktree)
+      : yield* paths.projectFiles("tui", ctx.directory, ctx.worktree)
 
     const acc: Acc = {
       result: {},
@@ -119,28 +130,28 @@ export namespace TuiConfig {
     }
 
     for (const file of ConfigPaths.fileInDirectory(Global.Path.config, "tui")) {
-      await mergeFile(acc, file)
+      yield* mergeFile(ctx, paths, acc, file)
     }
 
     if (custom) {
-      await mergeFile(acc, custom)
+      yield* mergeFile(ctx, paths, acc, custom)
       log.debug("loaded custom tui config", { path: custom })
     }
 
     for (const file of projectFiles) {
-      await mergeFile(acc, file)
+      yield* mergeFile(ctx, paths, acc, file)
     }
 
     for (const dir of unique(directories)) {
       if (!dir.endsWith(".nikcli") && dir !== Flag.NIKCLI_CONFIG_DIR) continue
       for (const file of ConfigPaths.fileInDirectory(dir, "tui")) {
-        await mergeFile(acc, file)
+        yield* mergeFile(ctx, paths, acc, file)
       }
     }
 
     if (existsSync(managed)) {
       for (const file of ConfigPaths.fileInDirectory(managed, "tui")) {
-        await mergeFile(acc, file)
+        yield* mergeFile(ctx, paths, acc, file)
       }
     }
 
@@ -165,6 +176,10 @@ export namespace TuiConfig {
     }
   })
 
+  const state = Instance.state(async () => {
+    return Effect.runPromise(loadState().pipe(Effect.provide(ConfigPaths.defaultLayer)))
+  })
+
   export async function get() {
     return state().then((x) => x.config)
   }
@@ -174,17 +189,21 @@ export namespace TuiConfig {
     await Promise.all(deps)
   }
 
-  async function loadFile(filepath: string): Promise<Info> {
-    const text = await ConfigPaths.readFile(filepath)
+  const loadFile = Effect.fn("TuiConfig.loadFile")(function* (paths: ConfigPaths.Interface, filepath: string) {
+    const text = yield* paths.readFile(filepath)
     if (!text) return {}
-    return load(text, filepath).catch((error) => {
-      log.warn("failed to load tui config", { path: filepath, error })
-      return {}
-    })
-  }
+    return yield* load(paths, text, filepath).pipe(
+      Effect.catchAll((error) =>
+        Effect.sync(() => {
+          log.warn("failed to load tui config", { path: filepath, error })
+          return {}
+        }),
+      ),
+    )
+  })
 
-  async function load(text: string, configFilepath: string): Promise<Info> {
-    const raw = await ConfigPaths.parseText(text, configFilepath, "empty")
+  const load = Effect.fn("TuiConfig.load")(function* (paths: ConfigPaths.Interface, text: string, configFilepath: string) {
+    const raw = yield* paths.parseText(text, configFilepath, "empty")
     if (!isRecord(raw)) return {}
 
     // Flatten a nested "tui" key so users who wrote `{ "tui": { ... } }` inside tui.json
@@ -198,12 +217,16 @@ export namespace TuiConfig {
     }
 
     const data = parsed.data
-    if (data.plugin) {
-      for (let i = 0; i < data.plugin.length; i++) {
-        data.plugin[i] = await Config.resolvePluginSpec(data.plugin[i], configFilepath)
+    const plugins = data.plugin
+    if (plugins) {
+      for (let i = 0; i < plugins.length; i++) {
+        plugins[i] = yield* Effect.tryPromise({
+          try: () => Config.resolvePluginSpec(plugins[i], configFilepath),
+          catch: (error) => error as Error,
+        })
       }
     }
 
     return data
-  }
+  })
 }

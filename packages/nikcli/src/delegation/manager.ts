@@ -10,6 +10,8 @@ import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const DelegationCompletedEvent = BusEvent.define(
   "delegation.completed",
@@ -23,6 +25,14 @@ const DelegationCompletedEvent = BusEvent.define(
 
 export namespace Delegation {
   const log = Log.create({ service: "delegation" })
+
+  function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+    return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+  }
 
   export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export type Status = z.infer<typeof Status>
@@ -311,7 +321,12 @@ export namespace Delegation {
         const record = entry.activeDelegations.get(delegationID)
         requestFinalization(delegationID, "timeout", "Timed out")
         if (record?.sessionID) {
-          SessionPrompt.cancel(record.sessionID)
+          void runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              yield* sessionPrompt.cancel(record.sessionID!)
+            }),
+          )
         }
         scheduleForcedFinalize(delegationID, "timeout", "Timed out")
       } catch (err) {
@@ -384,8 +399,13 @@ export namespace Delegation {
       entry.sessionToDelegation.set(sessionID, delegationID)
     }
 
-    void Session.get(sessionID)
-      .then((session) => BackgroundRun.updateSession(delegationID, session))
+    void runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.get(sessionID)
+      }),
+    )
+      .then((info) => BackgroundRun.updateSession(delegationID, info))
       .catch(() => {
         log.warn("Failed to attach session to background run", {
           delegationID,
@@ -599,7 +619,12 @@ export namespace Delegation {
 
     requestFinalization(delegationID, "cancelled", "Cancelled")
     if (persisted.sessionID) {
-      SessionPrompt.cancel(persisted.sessionID)
+      await runSessionPrompt(
+        Effect.gen(function* () {
+          const sessionPrompt = yield* SessionPrompt.Service
+          yield* sessionPrompt.cancel(persisted.sessionID!)
+        }),
+      )
       await Monitor.cancelAll(persisted.sessionID)
     }
 

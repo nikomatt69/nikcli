@@ -3,6 +3,8 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import type { MessageV2 as MessageV2Types } from "../../src/session/message-v2"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "../../src/effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -19,6 +21,36 @@ const [{ Identifier }, { Instance }, { MessageV2 }, { Session }, { SessionRevert
 
 const projectDirs: string[] = []
 
+function runRevert<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseWithLayer(SessionRevert.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, any>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
+
 async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T> {
   const projectDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-project-"))
   projectDirs.push(projectDir)
@@ -29,10 +61,15 @@ async function withProject<T>(fn: (projectDir: string) => Promise<T>): Promise<T
 }
 
 async function createSession() {
-  return Session.createNext({
-    directory: Instance.directory,
-    title: "session lifecycle test",
-  })
+  return runSession(
+    Effect.gen(function* () {
+      const session = yield* Session.Service
+      return yield* session.createNext({
+        directory: Instance.directory,
+        title: "session lifecycle test",
+      })
+    }),
+  )
 }
 
 function userMessage(sessionID: string): MessageV2Types.User {
@@ -90,10 +127,20 @@ describe("session lifecycle", () => {
       const msg = userMessage(session.id)
       const part = textPart(session.id, msg.id, "hello")
 
-      await Session.updateMessage(msg)
-      await Session.updatePart(part)
+      await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.updateMessage(msg)
+          yield* sessionService.updatePart(part)
+        }),
+      )
 
-      await Session.removeMessage({ sessionID: session.id, messageID: msg.id })
+      await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.removeMessage({ sessionID: session.id, messageID: msg.id })
+        }),
+      )
 
       expect(await MessageV2.parts(msg.id)).toEqual([])
       await expect(MessageV2.get({ sessionID: session.id, messageID: msg.id })).rejects.toThrow()
@@ -109,16 +156,26 @@ describe("session lifecycle", () => {
       const assistant = assistantMessage(session.id, user.id)
       const assistantPart = textPart(session.id, assistant.id, "assistant")
 
-      await Session.updateMessage(user)
-      await Session.updatePart(keep)
-      await Session.updatePart(remove)
-      await Session.updateMessage(assistant)
-      await Session.updatePart(assistantPart)
-      const reverted = await Session.update(session.id, (draft) => {
-        draft.revert = { messageID: user.id, partID: remove.id }
-      })
+      const reverted = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.updateMessage(user)
+          yield* sessionService.updatePart(keep)
+          yield* sessionService.updatePart(remove)
+          yield* sessionService.updateMessage(assistant)
+          yield* sessionService.updatePart(assistantPart)
+          return yield* sessionService.update(session.id, (draft) => {
+            draft.revert = { messageID: user.id, partID: remove.id }
+          })
+        }),
+      )
 
-      await SessionRevert.cleanup(reverted)
+      await runRevert(
+        Effect.gen(function* () {
+          const revert = yield* SessionRevert.Service
+          yield* revert.cleanup(reverted)
+        }),
+      )
 
       const after = await MessageV2.get({ sessionID: session.id, messageID: user.id })
       expect(after.parts.map((part) => part.id)).toEqual([keep.id])
@@ -130,11 +187,16 @@ describe("session lifecycle", () => {
   it("removes stored session diffs when deleting a session", async () => {
     await withProject(async () => {
       const session = await createSession()
-      await Storage.write(["session_diff", session.id], [])
+      await storageWrite(["session_diff", session.id], [])
 
-      await Session.remove(session.id)
+      await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.remove(session.id)
+        }),
+      )
 
-      await expect(Storage.read(["session_diff", session.id])).rejects.toThrow()
+      await expect(storageRead(["session_diff", session.id])).rejects.toThrow()
     })
   })
 
@@ -143,13 +205,18 @@ describe("session lifecycle", () => {
       const session = await createSession()
       const user = userMessage(session.id)
       const assistant = assistantMessage(session.id, user.id)
-      await Session.updateMessage(user)
-      await Session.updatePart(textPart(session.id, user.id, "hello"))
-      await Session.updateMessage(assistant)
-      await Session.updatePart(textPart(session.id, assistant.id, "hi"))
-
-      const fork = await Session.fork({ sessionID: session.id })
-      const forkMessages = await Session.messages({ sessionID: fork.id })
+      const { fork, forkMessages } = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          yield* sessionService.updateMessage(user)
+          yield* sessionService.updatePart(textPart(session.id, user.id, "hello"))
+          yield* sessionService.updateMessage(assistant)
+          yield* sessionService.updatePart(textPart(session.id, assistant.id, "hi"))
+          const fork = yield* sessionService.fork({ sessionID: session.id })
+          const forkMessages = yield* sessionService.messages({ sessionID: fork.id })
+          return { fork, forkMessages }
+        }),
+      )
 
       expect(fork.parentID).toBe(session.id)
       expect(forkMessages).toHaveLength(2)
@@ -164,7 +231,7 @@ describe("session lifecycle", () => {
     await withProject(async () => {
       const foreignSessionID = Identifier.descending("session")
       const msg = userMessage(foreignSessionID)
-      await Storage.write(["session", "other-project", foreignSessionID], {
+      await storageWrite(["session", "other-project", foreignSessionID], {
         id: foreignSessionID,
         slug: "foreign",
         projectID: "other-project",
@@ -173,10 +240,17 @@ describe("session lifecycle", () => {
         version: "test",
         time: { created: Date.now(), updated: Date.now() },
       })
-      await Storage.write(["message", foreignSessionID, msg.id], msg)
-      await Storage.write(["part", msg.id, Identifier.ascending("part")], textPart(foreignSessionID, msg.id, "private"))
+      await storageWrite(["message", foreignSessionID, msg.id], msg)
+      await storageWrite(["part", msg.id, Identifier.ascending("part")], textPart(foreignSessionID, msg.id, "private"))
 
-      await expect(Session.messages({ sessionID: foreignSessionID })).rejects.toThrow()
+      await expect(
+        runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* sessionService.messages({ sessionID: foreignSessionID })
+          }),
+        ),
+      ).rejects.toThrow()
     })
   })
 
@@ -186,16 +260,26 @@ describe("session lifecycle", () => {
       const now = Date.now()
 
       // Archive the session
-      const archived = await Session.update(session.id, (draft) => {
-        draft.time.archived = now
-      })
+      const archived = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.update(session.id, (draft) => {
+            draft.time.archived = now
+          })
+        }),
+      )
 
       expect(archived.time.archived).toBe(now)
 
       // Unarchive by removing the archived timestamp
-      const unarchived = await Session.update(session.id, (draft) => {
-        draft.time.archived = undefined
-      })
+      const unarchived = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.update(session.id, (draft) => {
+            draft.time.archived = undefined
+          })
+        }),
+      )
 
       expect(unarchived.time.archived).toBeUndefined()
     })

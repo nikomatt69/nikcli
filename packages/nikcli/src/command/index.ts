@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { Config } from "../config/config"
-import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
@@ -9,6 +8,8 @@ import PROMPT_ULTRAREVIEW from "./template/ultrareview.txt"
 import { MCP } from "../mcp"
 import { Connectors } from "../connectors"
 import { Skill } from "../skill"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace Command {
   export const Event = {
@@ -68,118 +69,186 @@ export namespace Command {
     ].join("\n")
   }
 
-  const state = Instance.state(async () => {
-    const cfg = await Config.get()
+  export interface Interface {
+    readonly get: (name: string) => Effect.Effect<Info | undefined, unknown>
+    readonly list: () => Effect.Effect<Info[], unknown>
+  }
 
-    const result: Record<string, Info> = {
-      [Default.INIT]: {
-        name: Default.INIT,
-        description: "create/update AGENTS.md",
-        get template() {
-          return PROMPT_INITIALIZE.replace("${path}", Instance.worktree)
-        },
-        hints: hints(PROMPT_INITIALIZE),
-      },
-      [Default.REVIEW]: {
-        name: Default.REVIEW,
-        description: "review changes [commit|branch|pr], defaults to uncommitted",
-        get template() {
-          return PROMPT_REVIEW.replace("${path}", Instance.worktree)
-        },
-        subtask: true,
-        hints: hints(PROMPT_REVIEW),
-      },
-      [Default.ULTRAREVIEW]: {
-        name: Default.ULTRAREVIEW,
-        description: "deep multi-agent review via parallel monitor jobs [commit|branch|pr]",
-        get template() {
-          return PROMPT_ULTRAREVIEW.replace("${path}", Instance.worktree)
-        },
-        subtask: true,
-        hints: hints(PROMPT_ULTRAREVIEW),
-      },
-    }
+  export class Service extends Context.Tag("@nikcli/Command")<Service, Interface>() {}
 
-    for (const [name, command] of Object.entries(cfg.command ?? {})) {
-      result[name] = {
-        name,
-        agent: command.agent,
-        model: command.model,
-        description: command.description,
-        get template() {
-          return command.template
-        },
-        subtask: command.subtask,
-        hints: hints(command.template),
-      }
-    }
-    for (const [name, prompt] of Object.entries(await MCP.prompts())) {
-      result[name] = {
-        name,
-        mcp: true,
-        description: prompt.description,
-        get template() {
-          return new Promise<string>(async (resolve, reject) => {
-            const template = await MCP.getPrompt(
-              prompt.client,
-              prompt.name,
-              prompt.arguments
-                ? Object.fromEntries(prompt.arguments?.map((argument, i) => [argument.name, `$${i + 1}`]))
-                : {},
-            ).catch(reject)
-            resolve(
-              template?.messages
-                .map((message) => (message.content.type === "text" ? message.content.text : ""))
-                .join("\n") || "",
-            )
-          })
-        },
-        hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
-      }
-    }
+  function configGet(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
 
-    for (const [name, prompt] of Object.entries(await Connectors.prompts())) {
-      const operationName = `${prompt.type}_${name.split("_").slice(2).join("_")}`
-      result[name] = {
-        name,
-        description: prompt.description,
-        get template() {
-          const argsEntries = prompt.arguments ? prompt.arguments.map((arg, i) => `${arg.name}: \$${i + 1}`) : []
-          const argsExample = prompt.arguments
-            ? JSON.stringify(Object.fromEntries(prompt.arguments.map((arg, i) => [arg.name, `$${i + 1}`])), null, 2)
-            : "{}"
-          return `Use the use_connector tool:
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>
+        Effect.gen(function* () {
+          const cfg = yield* Effect.promise(() => configGet(ctx))
+          const skills = yield* Effect.promise(() =>
+            runPromiseWithLayer(
+              Skill.defaultLayer,
+              locallyInstance(
+                ctx,
+                Effect.gen(function* () {
+                  const skill = yield* Skill.Service
+                  return yield* skill.all()
+                }),
+              ),
+            ),
+          )
+
+          const result: Record<string, Info> = {
+            [Default.INIT]: {
+              name: Default.INIT,
+              description: "create/update AGENTS.md",
+              get template() {
+                return PROMPT_INITIALIZE.replace("${path}", ctx.worktree)
+              },
+              hints: hints(PROMPT_INITIALIZE),
+            },
+            [Default.REVIEW]: {
+              name: Default.REVIEW,
+              description: "review changes [commit|branch|pr], defaults to uncommitted",
+              get template() {
+                return PROMPT_REVIEW.replace("${path}", ctx.worktree)
+              },
+              subtask: true,
+              hints: hints(PROMPT_REVIEW),
+            },
+            [Default.ULTRAREVIEW]: {
+              name: Default.ULTRAREVIEW,
+              description: "deep multi-agent review via parallel monitor jobs [commit|branch|pr]",
+              get template() {
+                return PROMPT_ULTRAREVIEW.replace("${path}", ctx.worktree)
+              },
+              subtask: true,
+              hints: hints(PROMPT_ULTRAREVIEW),
+            },
+          }
+
+          for (const [name, command] of Object.entries(cfg.command ?? {})) {
+            result[name] = {
+              name,
+              agent: command.agent,
+              model: command.model,
+              description: command.description,
+              get template() {
+                return command.template
+              },
+              subtask: command.subtask,
+              hints: hints(command.template),
+            }
+          }
+          const mcpPrompts = yield* Effect.promise(() =>
+            runPromiseWithLayer(
+              MCP.defaultLayer,
+              locallyInstance(
+                ctx,
+                Effect.gen(function* () {
+                  const mcp = yield* MCP.Service
+                  return yield* mcp.prompts()
+                }),
+              ),
+            ),
+          )
+          for (const [name, prompt] of Object.entries(mcpPrompts)) {
+            result[name] = {
+              name,
+              mcp: true,
+              description: prompt.description,
+              get template() {
+                return new Promise<string>(async (resolve, reject) => {
+                  const args = prompt.arguments
+                    ? Object.fromEntries(prompt.arguments?.map((argument, i) => [argument.name, `$${i + 1}`]))
+                    : {}
+                  const template = await runPromiseWithLayer(
+                    MCP.defaultLayer,
+                    locallyInstance(
+                      ctx,
+                      Effect.gen(function* () {
+                        const mcp = yield* MCP.Service
+                        return yield* mcp.getPrompt(prompt.client, prompt.name, args)
+                      }),
+                    ),
+                  ).catch(reject)
+                  resolve(
+                    template?.messages
+                      .map((message) => (message.content.type === "text" ? message.content.text : ""))
+                      .join("\n") || "",
+                  )
+                })
+              },
+              hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+            }
+          }
+
+          for (const [name, prompt] of Object.entries(yield* Effect.promise(() => Connectors.prompts()))) {
+            const operationName = `${prompt.type}_${name.split("_").slice(2).join("_")}`
+            result[name] = {
+              name,
+              description: prompt.description,
+              get template() {
+                const argsEntries = prompt.arguments ? prompt.arguments.map((arg, i) => `${arg.name}: \$${i + 1}`) : []
+                const argsExample = prompt.arguments
+                  ? JSON.stringify(
+                      Object.fromEntries(prompt.arguments.map((arg, i) => [arg.name, `$${i + 1}`])),
+                      null,
+                      2,
+                    )
+                  : "{}"
+                return `Use the use_connector tool:
 - connector: ${prompt.client}
 - operation: ${operationName}
 - args: ${argsExample}${argsEntries.length > 0 ? `\n\nReplace the placeholder values ($$) with actual values:\n${argsEntries.join("\n")}` : ""}`
-        },
-        hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
-      }
-    }
+              },
+              hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+            }
+          }
 
-    for (const skill of await Skill.all()) {
-      const name = Skill.commandName(skill.name)
-      if (result[name]) continue
-      const template = skillTemplate(skill)
-      result[name] = {
-        name,
-        description: skill.description,
-        skill: true,
-        get template() {
-          return template
-        },
-        hints: hints(template),
-      }
-    }
+          for (const skill of skills) {
+            const name = Skill.commandName(skill.name)
+            if (result[name]) continue
+            const template = skillTemplate(skill)
+            result[name] = {
+              name,
+              description: skill.description,
+              skill: true,
+              get template() {
+                return template
+              },
+              hints: hints(template),
+            }
+          }
 
-    return result
-  })
+          return result
+        }).pipe(Effect.orDie),
+      )
 
-  export async function get(name: string) {
-    return state().then((x) => x[name])
-  }
+      const get: Interface["get"] = Effect.fn("Command.get")(function* (name: string) {
+        return (yield* InstanceState.get(state))[name]
+      })
 
-  export async function list() {
-    return state().then((x) => Object.values(x))
-  }
+      const list: Interface["list"] = Effect.fn("Command.list")(function* () {
+        return Object.values(yield* InstanceState.get(state))
+      })
+
+      return Service.of({
+        get,
+        list,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer.pipe(Layer.provide(Layer.suspend(() => Skill.defaultLayer)))
 }

@@ -5,6 +5,16 @@ import { MCP } from "../../mcp"
 import { Config } from "../../config/config"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
+  return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
+}
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
 
 export const McpRoutes = lazy(() =>
   new Hono()
@@ -26,7 +36,13 @@ export const McpRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(await MCP.status())
+        const status = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.status()
+          }),
+        )
+        return c.json(status)
       },
     )
     .post(
@@ -56,7 +72,12 @@ export const McpRoutes = lazy(() =>
       ),
       async (c) => {
         const { name, config } = c.req.valid("json")
-        const result = await MCP.add(name, config)
+        const result = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.add(name, config)
+          }),
+        )
         return c.json(result.status)
       },
     )
@@ -84,11 +105,21 @@ export const McpRoutes = lazy(() =>
       }),
       async (c) => {
         const name = c.req.param("name")
-        const supportsOAuth = await MCP.supportsOAuth(name)
+        const supportsOAuth = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.supportsOAuth(name)
+          }),
+        )
         if (!supportsOAuth) {
           return c.json({ error: `MCP server ${name} does not support OAuth` }, 400)
         }
-        const result = await MCP.startAuth(name)
+        const result = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.startAuth(name)
+          }),
+        )
         return c.json(result)
       },
     )
@@ -120,7 +151,12 @@ export const McpRoutes = lazy(() =>
       async (c) => {
         const name = c.req.param("name")
         const { code } = c.req.valid("json")
-        const status = await MCP.finishAuth(name, code)
+        const status = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.finishAuth(name, code)
+          }),
+        )
         return c.json(status)
       },
     )
@@ -144,11 +180,21 @@ export const McpRoutes = lazy(() =>
       }),
       async (c) => {
         const name = c.req.param("name")
-        const supportsOAuth = await MCP.supportsOAuth(name)
+        const supportsOAuth = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.supportsOAuth(name)
+          }),
+        )
         if (!supportsOAuth) {
           return c.json({ error: `MCP server ${name} does not support OAuth` }, 400)
         }
-        const status = await MCP.authenticate(name)
+        const status = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.authenticate(name)
+          }),
+        )
         return c.json(status)
       },
     )
@@ -172,7 +218,12 @@ export const McpRoutes = lazy(() =>
       }),
       async (c) => {
         const name = c.req.param("name")
-        await MCP.removeAuth(name)
+        await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            yield* mcp.removeAuth(name)
+          }),
+        )
         return c.json({ success: true as const })
       },
     )
@@ -195,7 +246,12 @@ export const McpRoutes = lazy(() =>
       validator("param", z.object({ name: z.string() })),
       async (c) => {
         const { name } = c.req.valid("param")
-        await MCP.connect(name)
+        await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            yield* mcp.connect(name)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -218,7 +274,12 @@ export const McpRoutes = lazy(() =>
       validator("param", z.object({ name: z.string() })),
       async (c) => {
         const { name } = c.req.valid("param")
-        await MCP.disconnect(name)
+        await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            yield* mcp.disconnect(name)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -249,11 +310,27 @@ export const McpRoutes = lazy(() =>
       async (c) => {
         const { name } = c.req.valid("param")
         const { enabled } = c.req.valid("json")
-        await Config.update({ mcp: { [name]: { enabled } } })
+        await runConfig(
+          Effect.gen(function* () {
+            const config = yield* Config.Service
+            yield* config.update({ mcp: { [name]: { enabled } } })
+          }),
+        )
         if (!enabled) {
-          await MCP.disconnect(name)
+          await runMCP(
+            Effect.gen(function* () {
+              const mcp = yield* MCP.Service
+              yield* mcp.disconnect(name)
+            }),
+          )
         }
-        return c.json(await MCP.status())
+        const status = await runMCP(
+          Effect.gen(function* () {
+            const mcp = yield* MCP.Service
+            return yield* mcp.status()
+          }),
+        )
+        return c.json(status)
       },
     ),
 )

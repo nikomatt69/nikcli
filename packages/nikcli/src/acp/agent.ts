@@ -32,6 +32,21 @@ import { z } from "zod"
 import { LoadAPIKeyError } from "ai"
 import type { Event, NikcliClient, SessionMessageResponse } from "@nikcli-ai/sdk/v2"
 import { applyPatch } from "diff"
+import { Effect } from "effect"
+import { InstanceScope, runPromiseWithLayer } from "@/effect"
+
+function defaultAgentForDirectory(directory: string) {
+  return runPromiseWithLayer(
+    AgentModule.defaultLayer,
+    InstanceScope.with(
+      { directory },
+      Effect.gen(function* () {
+        const agent = yield* AgentModule.Service
+        return yield* agent.defaultAgent()
+      }),
+    ),
+  )
+}
 
 export namespace ACP {
   const log = Log.create({ service: "acp-agent" })
@@ -877,7 +892,7 @@ export namespace ACP {
           description: agent.description,
         }))
 
-      const defaultAgentName = await AgentModule.defaultAgent()
+      const defaultAgentName = await defaultAgentForDirectory(directory)
       const currentModeId = availableModes.find((m) => m.name === defaultAgentName)?.id ?? availableModes[0].id
 
       // Persist the default mode so prompt() uses it immediately
@@ -984,7 +999,7 @@ export namespace ACP {
       if (!current) {
         this.sessionManager.setModel(session.id, model)
       }
-      const agent = session.modeId ?? (await AgentModule.defaultAgent())
+      const agent = session.modeId ?? (await defaultAgentForDirectory(directory))
 
       const parts: Array<
         | { type: "text"; text: string; synthetic?: boolean; ignored?: boolean }

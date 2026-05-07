@@ -14,24 +14,114 @@ import { Snapshot } from "../snapshot"
 import { Truncate } from "../tool/truncation"
 import { Todo } from "../session/todo"
 import { Delegation } from "@/delegation/manager"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
+
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+  return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+}
+
+function runFile<A, E>(effect: Effect.Effect<A, E, File.Service>) {
+  return runPromiseWithLayer(File.defaultLayer, withCurrentInstance(effect))
+}
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 export async function InstanceBootstrap() {
   Log.Default.info("bootstrapping", { directory: Instance.directory })
-  await Plugin.init()
-  ShareNext.init()
-  Format.init()
-  await LSP.init()
-  FileWatcher.init()
-  File.init()
-  Vcs.init()
-  Snapshot.init()
-  Truncate.init()
-  Todo.init()
+  await runPlugin(
+    Effect.gen(function* () {
+      const plugin = yield* Plugin.Service
+      yield* plugin.init()
+    }),
+  )
+  void runPromiseWithLayer(
+    ShareNext.defaultLayer,
+    Effect.gen(function* () {
+      const shareNext = yield* ShareNext.Service
+      yield* shareNext.init()
+    }),
+  )
+  void runPromiseWithLayer(
+    Format.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const format = yield* Format.Service
+        yield* format.init()
+      }),
+    ),
+  )
+  await runLSP(
+    Effect.gen(function* () {
+      const lsp = yield* LSP.Service
+      yield* lsp.init()
+    }),
+  )
+  void runPromiseWithLayer(
+    FileWatcher.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const fileWatcher = yield* FileWatcher.Service
+        yield* fileWatcher.init()
+      }),
+    ),
+  )
+  void runFile(
+    Effect.gen(function* () {
+      const file = yield* File.Service
+      yield* file.init()
+    }),
+  )
+  void runPromiseWithLayer(
+    Vcs.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const vcs = yield* Vcs.Service
+        yield* vcs.init()
+      }),
+    ),
+  )
+  void runPromiseWithLayer(
+    Snapshot.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const snapshot = yield* Snapshot.Service
+        yield* snapshot.init()
+      }),
+    ),
+  )
+  void runPromiseWithLayer(
+    Truncate.defaultLayer,
+    Effect.gen(function* () {
+      const truncate = yield* Truncate.Service
+      yield* truncate.init()
+    }),
+  )
+  void runPromiseWithLayer(
+    Todo.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const todo = yield* Todo.Service
+        yield* todo.init()
+      }),
+    ),
+  )
   await Delegation.init()
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {
-      await Project.setInitialized(Instance.project.id)
+      await runProject(
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          yield* project.setInitialized(Instance.project.id)
+        }),
+      )
     }
   })
 }

@@ -1,6 +1,12 @@
 import { Snapshot } from "../../../snapshot"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runSnapshot<A, E>(effect: Effect.Effect<A, E, Snapshot.Service>) {
+  return runPromiseWithLayer(Snapshot.defaultLayer, withCurrentInstance(effect))
+}
 
 export const SnapshotCommand = cmd({
   command: "snapshot",
@@ -14,7 +20,14 @@ const TrackCommand = cmd({
   describe: "track current snapshot state",
   async handler() {
     await bootstrap(process.cwd(), async () => {
-      console.log(await Snapshot.track())
+      console.log(
+        await runSnapshot(
+          Effect.gen(function* () {
+            const snapshot = yield* Snapshot.Service
+            return yield* snapshot.track()
+          }),
+        ),
+      )
     })
   },
 })
@@ -30,7 +43,14 @@ const PatchCommand = cmd({
     }),
   async handler(args) {
     await bootstrap(process.cwd(), async () => {
-      console.log(await Snapshot.patch(args.hash))
+      console.log(
+        await runSnapshot(
+          Effect.gen(function* () {
+            const snapshot = yield* Snapshot.Service
+            return yield* snapshot.patch(args.hash)
+          }),
+        ),
+      )
     })
   },
 })
@@ -46,7 +66,14 @@ const DiffCommand = cmd({
     }),
   async handler(args) {
     await bootstrap(process.cwd(), async () => {
-      console.log(await Snapshot.diff(args.hash))
+      console.log(
+        await runSnapshot(
+          Effect.gen(function* () {
+            const snapshot = yield* Snapshot.Service
+            return yield* snapshot.diff(args.hash)
+          }),
+        ),
+      )
     })
   },
 })

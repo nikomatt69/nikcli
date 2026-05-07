@@ -6,6 +6,12 @@ import DESCRIPTION from "./lsp.txt"
 import { Instance } from "../project/instance"
 import { pathToFileURL } from "url"
 import { assertExternalDirectory } from "./external-directory"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 const operations = [
   "goToDefinition",
@@ -52,34 +58,49 @@ export const LspTool = Tool.define("lsp", {
       throw new Error(`File not found: ${file}`)
     }
 
-    const available = await LSP.hasClients(file)
+    const available = await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        return yield* lsp.hasClients(file)
+      }),
+    )
     if (!available) {
       throw new Error("No LSP server available for this file type.")
     }
 
-    await LSP.touchFile(file, true)
+    await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        yield* lsp.touchFile(file, true)
+      }),
+    )
 
     const result: unknown[] = await (async () => {
-      switch (args.operation) {
-        case "goToDefinition":
-          return LSP.definition(position)
-        case "findReferences":
-          return LSP.references(position)
-        case "hover":
-          return LSP.hover(position)
-        case "documentSymbol":
-          return LSP.documentSymbol(uri)
-        case "workspaceSymbol":
-          return LSP.workspaceSymbol("")
-        case "goToImplementation":
-          return LSP.implementation(position)
-        case "prepareCallHierarchy":
-          return LSP.prepareCallHierarchy(position)
-        case "incomingCalls":
-          return LSP.incomingCalls(position)
-        case "outgoingCalls":
-          return LSP.outgoingCalls(position)
-      }
+      return runLSP(
+        Effect.gen(function* () {
+          const lsp = yield* LSP.Service
+          switch (args.operation) {
+            case "goToDefinition":
+              return yield* lsp.definition(position)
+            case "findReferences":
+              return yield* lsp.references(position)
+            case "hover":
+              return yield* lsp.hover(position)
+            case "documentSymbol":
+              return yield* lsp.documentSymbol(uri)
+            case "workspaceSymbol":
+              return yield* lsp.workspaceSymbol("")
+            case "goToImplementation":
+              return yield* lsp.implementation(position)
+            case "prepareCallHierarchy":
+              return yield* lsp.prepareCallHierarchy(position)
+            case "incomingCalls":
+              return yield* lsp.incomingCalls(position)
+            case "outgoingCalls":
+              return yield* lsp.outgoingCalls(position)
+          }
+        }),
+      )
     })()
 
     const output = (() => {

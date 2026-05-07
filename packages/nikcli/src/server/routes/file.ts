@@ -7,6 +7,12 @@ import { SearchBackend } from "../../file/searchBackend"
 import { LSP } from "../../lsp"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runFile<A, E>(effect: Effect.Effect<A, E, File.Service>) {
+  return runPromiseWithLayer(File.defaultLayer, withCurrentInstance(effect))
+}
 
 export const FileRoutes = lazy(() =>
   new Hono()
@@ -74,12 +80,17 @@ export const FileRoutes = lazy(() =>
         const dirs = c.req.valid("query").dirs
         const type = c.req.valid("query").type
         const limit = c.req.valid("query").limit
-        const results = await File.search({
-          query,
-          limit: limit ?? 10,
-          dirs: dirs !== "false",
-          type,
-        })
+        const results = await runFile(
+          Effect.gen(function* () {
+            const file = yield* File.Service
+            return yield* file.search({
+              query,
+              limit: limit ?? 10,
+              dirs: dirs !== "false",
+              type,
+            })
+          }),
+        )
         return c.json(results)
       },
     )
@@ -109,7 +120,7 @@ export const FileRoutes = lazy(() =>
       async (c) => {
         /*
       const query = c.req.valid("query").query
-      const result = await LSP.workspaceSymbol(query)
+      const result = await lsp.workspaceSymbol(query)
       return c.json(result)
       */
         return c.json([])
@@ -144,7 +155,12 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
-        const content = await File.list(normalizedPath)
+        const content = await runFile(
+          Effect.gen(function* () {
+            const file = yield* File.Service
+            return yield* file.list(normalizedPath)
+          }),
+        )
         return c.json(content)
       },
     )
@@ -177,7 +193,12 @@ export const FileRoutes = lazy(() =>
           ? requestedPath
           : path.join(Instance.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
-        const content = await File.read(normalizedPath)
+        const content = await runFile(
+          Effect.gen(function* () {
+            const file = yield* File.Service
+            return yield* file.read(normalizedPath)
+          }),
+        )
         return c.json(content)
       },
     )
@@ -199,7 +220,12 @@ export const FileRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const content = await File.status()
+        const content = await runFile(
+          Effect.gen(function* () {
+            const file = yield* File.Service
+            return yield* file.status()
+          }),
+        )
         return c.json(content)
       },
     )

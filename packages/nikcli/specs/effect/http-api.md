@@ -12,16 +12,38 @@ Plan for replacing instance Hono route implementations with Effect `HttpApi` whi
 
 ## Current State
 
+Current branch audit, 2026-05-06:
+
+- `src/server/routes/instance/*` does not exist on this branch.
+- `src/server/httpapi/question.ts` contains a real Effect `HttpApi` route slice for question list/reply/reject, covered by `bun test test/server/httpapi-question.test.ts`.
+- `src/server/httpapi/permission.ts` contains a real Effect `HttpApi` route slice for permission list/reply, covered by `bun test test/server/httpapi-permission.test.ts`.
+- `src/server/httpapi/top-level.ts` contains a real Effect `HttpApi` route slice for `POST /instance/dispose` and top-level reads: `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter`.
+- `src/server/httpapi/config.ts` contains a real Effect `HttpApi` route slice for `GET /config`, `PATCH /config`, and `GET /config/providers`.
+- `src/server/httpapi/experimental.ts` contains a real Effect `HttpApi` route slice for experimental JSON routes: `GET /experimental/tool/ids`, `GET /experimental/tool`, `POST /experimental/worktree`, `GET /experimental/worktree`, `DELETE /experimental/worktree`, `POST /experimental/worktree/reset`, and `GET /experimental/resource`.
+- `src/server/httpapi/file.ts` contains a real Effect `HttpApi` route slice for `GET /find`, `GET /find/file`, `GET /find/symbol`, `GET /file`, `GET /file/content`, `PUT /file/content`, and `GET /file/status`.
+- `src/server/httpapi/mcp.ts` contains a real Effect `HttpApi` route slice for non-OAuth MCP management: `GET /mcp`, `POST /mcp`, `DELETE /mcp/:name/auth`, `POST /mcp/:name/connect`, `POST /mcp/:name/disconnect`, and `POST /mcp/:name/toggle`.
+- `src/server/httpapi/project.ts` contains a real Effect `HttpApi` route slice for `GET /project`, `GET /project/current`, and `PATCH /project/:projectID`.
+- `src/server/httpapi/provider.ts` contains a real Effect `HttpApi` route slice for `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth`.
+- `src/server/httpapi/session.ts` contains a real Effect `HttpApi` route slice for session create/update/delete/fork/abort/revert/unrevert, read-only session routes, and non-streaming message/part JSON routes: `POST /session`, `DELETE /session/:sessionID`, `PATCH /session/:sessionID`, `POST /session/:sessionID/fork`, `POST /session/:sessionID/abort`, `POST /session/:sessionID/revert`, `POST /session/:sessionID/unrevert`, `GET /session`, `GET /session/status`, `GET /session/:sessionID`, `GET /session/:sessionID/children`, `GET /session/:sessionID/todo`, `GET /session/:sessionID/diff`, `GET /session/:sessionID/message`, `GET /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID/part/:partID`, and `PATCH /session/:sessionID/message/:messageID/part/:partID`.
+- `src/server/httpapi/workspace.ts` contains a real Effect `HttpApi` route slice for workspace routes: `GET /experimental/workspace/adaptor`, `GET /experimental/workspace`, `POST /experimental/workspace/:id`, `DELETE /experimental/workspace/:id`, `POST /experimental/workspace/:id/restore`, and `POST /experimental/workspace/:id/session/:sessionID/restore`.
+- `src/server/httpapi/public.ts` composes the implemented slices into one `PublicHttpApi`, covered by `bun test test/server/httpapi-public.test.ts`.
+- `src/server/httpapi/bridge.ts` mounts the implemented top-level, config, experimental, file, MCP, project, provider, question, permission, session, and workspace slices through `HttpApiBuilder.toWebHandler` when `NIKCLI_EXPERIMENTAL_HTTPAPI=1`, and passes the active instance into the Effect context. The bridge matches exact method/path patterns so unported routes fall through to legacy Hono even while the flag is enabled. Coverage: `bun test test/server/httpapi-session.test.ts test/server/httpapi-workspace.test.ts test/server/httpapi-experimental.test.ts test/server/httpapi-mcp.test.ts test/server/httpapi-file.test.ts test/server/httpapi-provider.test.ts test/server/httpapi-config.test.ts test/server/httpapi-project.test.ts test/server/httpapi-top-level.test.ts test/server/httpapi-bridge.test.ts`.
+- The active server route files are still `src/server/routes/*.ts` and import Hono / `hono-openapi`.
+- The current mount is an in-Hono experimental bridge after the existing instance/workspace middleware. The full backend-fork-at-startup path is still open.
+- The route checklist below remains unchecked until the corresponding Effect `HttpApi` route is mounted through the experimental backend/bridge and covered by tests or SDK/OpenAPI verification.
+
+Historical target state to reintroduce intentionally:
+
 - `NIKCLI_EXPERIMENTAL_HTTPAPI` selects the backend at server startup. Default is still `hono`.
 - `server/backend.ts` picks one of `effect-httpapi` or `hono`; `server.ts` builds either a pure Effect `HttpApi` web handler or the legacy Hono app accordingly. The earlier in-Hono "bridge" model has been replaced by this fork-at-startup.
 - Legacy Hono routes remain mounted for the `hono` backend and remain the source for `hono-openapi` SDK generation.
 - An Effect `HttpApi` OpenAPI surface exists (`OpenApi.fromApi(PublicApi)` in `cli/cmd/generate.ts --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi` in `packages/sdk/js/script/build.ts`) but is opt-in. The default SDK generation is still Hono.
 - `httpapi/public.ts` carries the Hono-compat normalization for the Effect-generated OpenAPI surface (auth scheme strip, request-body required flag, optional `null` arms, `BadRequestError` / `NotFoundError` remap, `$ref` self-cycle fix, `auth_token` query injection). Today's Effect-generated SDK is not byte-identical to the Hono-generated SDK — see Phase 4.
-- Auth is centrally configured for the Effect backend via Effect `Config` (`refactor: use Effect config for HttpApi authorization`, `Fix HttpApi raw route authorization`) rather than re-attached in each route module.
+- Auth is centrally configured for the Effect backend via Effect `Config` rather than re-attached in each route module.
 - Auth supports Basic auth and the legacy `auth_token` query parameter through `HttpApiSecurity.apiKey`.
 - Instance context is provided by `httpapi/server.ts` using `directory`, `workspace`, and `x-nikcli-directory`.
 - `Observability.layer` is provided in the Effect route layer and deduplicated through the shared `memoMap`.
-- CORS middleware is wired into both backends (`feat(httpapi): add CORS middleware to instance routes`).
+- CORS middleware is wired into both backends.
 
 ## Migration Rules
 
@@ -124,7 +146,7 @@ Keep large or stateful groups for later:
 
 Hono routes cannot be deleted while `hono-openapi` is the source of SDK generation.
 
-Status: the Effect `HttpApi` OpenAPI surface is **implemented and opt-in** (`bun dev generate --httpapi`, `NIKCLI_SDK_OPENAPI=httpapi`). Default SDK generation still uses Hono. `httpapi/public.ts` applies the Hono-compat normalization layer to the Effect output. Diff against the Hono-generated spec still shows real gaps that must be closed before the SDK can flip:
+Status on this branch: the Effect `HttpApi` OpenAPI surface is not present in current code. Rebuild it as opt-in first, then make SDK generation compare Hono vs Effect before flipping the default. Historical diff risks to preserve when that path is restored:
 
 - Branded-type `pattern` constraints on ID schemas are not propagated to the Effect output (~169 missing).
 - Per-property `description` annotations are not propagated through `Schema.Struct` to the Effect output (~107 missing).
@@ -189,23 +211,23 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 
 ## Current Route Status
 
-| Area                      | Status            | Notes                                                                      |
-| ------------------------- | ----------------- | -------------------------------------------------------------------------- |
-| `question`                | `bridged`         | `GET /question`, reply, reject                                             |
-| `permission`              | `bridged`         | list and reply                                                             |
-| `provider`                | `bridged`         | list, auth, OAuth authorize/callback                                       |
-| `config`                  | `bridged`         | read, providers, update                                                    |
-| `project`                 | `bridged`         | list, current, git init, update                                            |
-| `file`                    | `bridged` partial | find text/file/symbol, list/content/status                                 |
-| `mcp`                     | `bridged`         | status, add, OAuth, connect/disconnect                                     |
-| `workspace`               | `bridged`         | adapter/list/status/create/remove/session-restore                          |
-| top-level instance routes | `bridged`         | path, vcs, command, agent, skill, lsp, formatter, dispose                  |
-| experimental JSON routes  | `bridged`         | console, tool, worktree list/mutations, global session list, resource list |
-| `session`                 | `bridged`         | read, lifecycle, prompt, message/part mutations, revert, permission reply  |
-| `sync`                    | `bridged`         | start/replay/history                                                       |
-| `event`                   | `bridged`         | SSE via raw Effect HTTP                                                    |
-| `pty`                     | `special`         | websocket                                                                  |
-| `tui`                     | `special`         | UI bridge                                                                  |
+| Area                      | Status       | Notes                                                                      |
+| ------------------------- | ------------ | -------------------------------------------------------------------------- |
+| `question`                | `bridged`     | `src/server/httpapi/question.ts` implements list/reply/reject; covered directly and through `test/server/httpapi-bridge.test.ts` |
+| `permission`              | `bridged`     | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts` |
+| `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open |
+| `config`                  | `bridged`     | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open |
+| `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch |
+| `file`                    | `bridged`     | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open |
+| `mcp`                     | `bridged` partial | non-OAuth management routes are bridged; OAuth start/callback/authenticate remain open |
+| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found |
+| top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch |
+| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open |
+| `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono |
+| `sync`                    | `not ported` | no current Effect `HttpApi` sync route exists                              |
+| `event`                   | `not ported` | current implementation uses Hono SSE                                       |
+| `pty`                     | `special`    | current implementation uses Hono websocket                                 |
+| `tui`                     | `special`    | current implementation is a Hono UI bridge                                 |
 
 ## Full Route Checklist
 
@@ -213,10 +235,10 @@ This checklist tracks bridge parity only. Checked routes are available through t
 
 ### Top-Level Instance Routes
 
-- [x] `POST /instance/dispose` - dispose active instance after response.
+- [x] `POST /instance/dispose` - dispose active instance. Current branch behavior disposes inline before returning JSON; post-response lifecycle remains a Hono deletion criterion.
 - [x] `GET /path` - current directory and worktree paths.
 - [x] `GET /vcs` - current VCS status.
-- [x] `GET /vcs/diff` - VCS diff summary.
+- [ ] `GET /vcs/diff` - VCS diff summary. Current branch audit: no matching Hono registration found in `src/server/server.ts`; keep unchecked until removed from inventory or reintroduced intentionally.
 - [x] `GET /command` - command catalog.
 - [x] `GET /agent` - agent catalog.
 - [x] `GET /skill` - skill catalog.
@@ -226,22 +248,24 @@ This checklist tracks bridge parity only. Checked routes are available through t
 ### Config Routes
 
 - [x] `GET /config` - read config.
-- [x] `PATCH /config` - update config and dispose active instance after response.
+- [x] `PATCH /config` - update config and dispose active instance. Current branch behavior disposes inline before returning JSON; post-response lifecycle remains a Hono deletion criterion.
 - [x] `GET /config/providers` - config provider summary.
 
 ### Project Routes
 
 - [x] `GET /project` - list projects.
 - [x] `GET /project/current` - current project.
-- [x] `POST /project/git/init` - initialize git and reload active instance after response.
+- [ ] `POST /project/git/init` - initialize git and reload active instance after response. Current branch audit: no matching Hono registration found in `src/server/routes/project.ts`; keep unchecked until removed from inventory or reintroduced intentionally.
 - [x] `PATCH /project/:projectID` - update project metadata.
 
 ### Provider Routes
 
 - [x] `GET /provider` - list providers.
 - [x] `GET /provider/auth` - list provider auth methods.
-- [x] `POST /provider/:providerID/oauth/authorize` - start provider OAuth.
-- [x] `POST /provider/:providerID/oauth/callback` - finish provider OAuth.
+- [x] `POST /provider/:providerID/api` - store provider API key and dispose active instance.
+- [x] `DELETE /provider/:providerID/auth` - remove provider credentials and dispose active instance.
+- [ ] `POST /provider/:providerID/oauth/authorize` - start provider OAuth.
+- [ ] `POST /provider/:providerID/oauth/callback` - finish provider OAuth.
 
 ### Question Routes
 
@@ -262,139 +286,144 @@ This checklist tracks bridge parity only. Checked routes are available through t
 - [x] `GET /file` - list directory entries.
 - [x] `GET /file/content` - read file content.
 - [x] `GET /file/status` - file status.
+- [x] `PUT /file/content` - write file content. Evidence: `src/server/httpapi/file.ts` and `bun test test/server/httpapi-file.test.ts`.
 
 ### MCP Routes
 
 - [x] `GET /mcp` - MCP status.
 - [x] `POST /mcp` - add MCP server at runtime.
-- [x] `POST /mcp/:name/auth` - start MCP OAuth.
-- [x] `POST /mcp/:name/auth/callback` - finish MCP OAuth callback.
-- [x] `POST /mcp/:name/auth/authenticate` - run MCP OAuth authenticate flow.
+- [ ] `POST /mcp/:name/auth` - start MCP OAuth.
+- [ ] `POST /mcp/:name/auth/callback` - finish MCP OAuth callback.
+- [ ] `POST /mcp/:name/auth/authenticate` - run MCP OAuth authenticate flow.
 - [x] `DELETE /mcp/:name/auth` - remove MCP OAuth credentials.
 - [x] `POST /mcp/:name/connect` - connect MCP server.
 - [x] `POST /mcp/:name/disconnect` - disconnect MCP server.
+- [x] `POST /mcp/:name/toggle` - enable or disable MCP server config.
 
 ### Experimental Routes
 
-- [x] `GET /experimental/console` - active Console provider metadata.
-- [x] `GET /experimental/console/orgs` - switchable Console orgs.
-- [x] `POST /experimental/console/switch` - switch active Console org.
+- [ ] `GET /experimental/console` - active Console provider metadata.
+- [ ] `GET /experimental/console/orgs` - switchable Console orgs.
+- [ ] `POST /experimental/console/switch` - switch active Console org.
 - [x] `GET /experimental/tool/ids` - tool IDs.
 - [x] `GET /experimental/tool` - tools for provider/model.
 - [x] `GET /experimental/worktree` - list worktrees.
-- [x] `POST /experimental/worktree` - create worktree.
-- [x] `DELETE /experimental/worktree` - remove worktree.
-- [x] `POST /experimental/worktree/reset` - reset worktree.
-- [x] `GET /experimental/session` - global session list.
+- [x] `POST /experimental/worktree` - create worktree. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
+- [x] `DELETE /experimental/worktree` - remove worktree. Evidence: `src/server/httpapi/experimental.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-experimental.test.ts`.
+- [x] `POST /experimental/worktree/reset` - reset worktree. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
+- [ ] `GET /experimental/session` - global session list.
 - [x] `GET /experimental/resource` - MCP resources.
 
 ### Workspace Routes
 
-- [x] `GET /experimental/workspace/adapter` - list workspace adapters.
-- [x] `POST /experimental/workspace` - create workspace.
+- [x] `GET /experimental/workspace/adaptor` - list workspace adaptors. Current branch route spelling is `adaptor`, matching `src/server/routes/workspace.ts`.
+- [x] `POST /experimental/workspace/:id` - create workspace. Current branch route includes a required workspace id path parameter. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 - [x] `GET /experimental/workspace` - list workspaces.
-- [x] `GET /experimental/workspace/status` - workspace status.
-- [x] `DELETE /experimental/workspace/:id` - remove workspace.
-- [x] `POST /experimental/workspace/:id/session-restore` - restore session into workspace.
+- [ ] `GET /experimental/workspace/status` - workspace status.
+- [x] `DELETE /experimental/workspace/:id` - remove workspace. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
+- [x] `POST /experimental/workspace/:id/restore` - restore workspace state. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
+- [x] `POST /experimental/workspace/:id/session/:sessionID/restore` - restore session into workspace. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 
 ### Sync Routes
 
-- [x] `POST /sync/start` - start workspace sync.
-- [x] `POST /sync/replay` - replay sync events.
-- [x] `POST /sync/history` - list sync event history.
+- [ ] `POST /sync/start` - start workspace sync.
+- [ ] `POST /sync/replay` - replay sync events.
+- [ ] `POST /sync/history` - list sync event history.
 
 ### Session Routes
 
-- [x] `GET /session` - list sessions.
-- [x] `GET /session/status` - session status map.
-- [x] `GET /session/:sessionID` - get session.
-- [x] `GET /session/:sessionID/children` - get child sessions.
-- [x] `GET /session/:sessionID/todo` - get session todos.
-- [x] `POST /session` - create session.
-- [x] `DELETE /session/:sessionID` - delete session.
-- [x] `PATCH /session/:sessionID` - update session metadata.
-- [x] `POST /session/:sessionID/init` - run project init command.
-- [x] `POST /session/:sessionID/fork` - fork session.
-- [x] `POST /session/:sessionID/abort` - abort session.
-- [x] `POST /session/:sessionID/share` - share session.
-- [x] `GET /session/:sessionID/diff` - session diff.
-- [x] `DELETE /session/:sessionID/share` - unshare session.
-- [x] `POST /session/:sessionID/summarize` - summarize session.
-- [x] `GET /session/:sessionID/message` - list session messages.
-- [x] `GET /session/:sessionID/message/:messageID` - get message.
-- [x] `DELETE /session/:sessionID/message/:messageID` - delete message.
-- [x] `DELETE /session/:sessionID/message/:messageID/part/:partID` - delete part.
-- [x] `PATCH /session/:sessionID/message/:messageID/part/:partID` - update part.
-- [x] `POST /session/:sessionID/message` - prompt with streaming response.
-- [x] `POST /session/:sessionID/prompt_async` - async prompt.
-- [x] `POST /session/:sessionID/command` - run command.
-- [x] `POST /session/:sessionID/shell` - run shell command.
-- [x] `POST /session/:sessionID/revert` - revert message.
-- [x] `POST /session/:sessionID/unrevert` - restore reverted messages.
-- [x] `POST /session/:sessionID/permissions/:permissionID` - deprecated permission response route.
+- [x] `GET /session` - list sessions. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/status` - session status map. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/:sessionID` - get session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/:sessionID/children` - get child sessions. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/:sessionID/todo` - get session todos. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/:sessionID/diff` - session diff. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `GET /session/:sessionID/message` - list session messages. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `POST /session` - create session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `DELETE /session/:sessionID` - delete session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `PATCH /session/:sessionID` - update session metadata. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [ ] `POST /session/:sessionID/init` - run project init command.
+- [x] `POST /session/:sessionID/fork` - fork session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `POST /session/:sessionID/abort` - abort session. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [ ] `POST /session/:sessionID/share` - share session.
+- [ ] `DELETE /session/:sessionID/share` - unshare session.
+- [ ] `POST /session/:sessionID/summarize` - summarize session.
+- [x] `GET /session/:sessionID/message/:messageID` - get message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `DELETE /session/:sessionID/message/:messageID` - delete message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `DELETE /session/:sessionID/message/:messageID/part/:partID` - delete part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `PATCH /session/:sessionID/message/:messageID/part/:partID` - update part. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [ ] `POST /session/:sessionID/message` - prompt with streaming response.
+- [ ] `POST /session/:sessionID/prompt_async` - async prompt.
+- [ ] `POST /session/:sessionID/command` - run command.
+- [ ] `POST /session/:sessionID/shell` - run shell command.
+- [x] `POST /session/:sessionID/revert` - revert message. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [x] `POST /session/:sessionID/unrevert` - restore reverted messages. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+- [ ] `POST /session/:sessionID/permissions/:permissionID` - deprecated permission response route.
 
 ### Event Routes
 
-- [x] `GET /event` - SSE event stream via raw Effect HTTP.
+- [ ] `GET /event` - SSE event stream via raw Effect HTTP.
 
 ### PTY Routes
 
-- [x] `GET /pty` - list PTY sessions.
-- [x] `POST /pty` - create PTY session.
-- [x] `GET /pty/:ptyID` - get PTY session.
-- [x] `PUT /pty/:ptyID` - update PTY session.
-- [x] `DELETE /pty/:ptyID` - remove PTY session.
-- [x] `GET /pty/:ptyID/connect` - PTY websocket; replace with raw Effect HTTP/websocket support.
+- [ ] `GET /pty` - list PTY sessions.
+- [ ] `POST /pty` - create PTY session.
+- [ ] `GET /pty/:ptyID` - get PTY session.
+- [ ] `PUT /pty/:ptyID` - update PTY session.
+- [ ] `DELETE /pty/:ptyID` - remove PTY session.
+- [ ] `GET /pty/:ptyID/connect` - PTY websocket; replace with raw Effect HTTP/websocket support.
 
 ### TUI Routes
 
-- [x] `POST /tui/append-prompt` - append prompt.
-- [x] `POST /tui/open-help` - open help.
-- [x] `POST /tui/open-sessions` - open sessions.
-- [x] `POST /tui/open-themes` - open themes.
-- [x] `POST /tui/open-models` - open models.
-- [x] `POST /tui/submit-prompt` - submit prompt.
-- [x] `POST /tui/clear-prompt` - clear prompt.
-- [x] `POST /tui/execute-command` - execute command.
-- [x] `POST /tui/show-toast` - show toast.
-- [x] `POST /tui/publish` - publish TUI event.
-- [x] `POST /tui/select-session` - select session.
-- [x] `GET /tui/control/next` - get next TUI request.
-- [x] `POST /tui/control/response` - submit TUI control response.
+- [ ] `POST /tui/append-prompt` - append prompt.
+- [ ] `POST /tui/open-help` - open help.
+- [ ] `POST /tui/open-sessions` - open sessions.
+- [ ] `POST /tui/open-themes` - open themes.
+- [ ] `POST /tui/open-models` - open models.
+- [ ] `POST /tui/submit-prompt` - submit prompt.
+- [ ] `POST /tui/clear-prompt` - clear prompt.
+- [ ] `POST /tui/execute-command` - execute command.
+- [ ] `POST /tui/show-toast` - show toast.
+- [ ] `POST /tui/publish` - publish TUI event.
+- [ ] `POST /tui/select-session` - select session.
+- [ ] `GET /tui/control/next` - get next TUI request.
+- [ ] `POST /tui/control/response` - submit TUI control response.
 
 ## Remaining PR Plan
 
 Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays reviewable.
 
-1. [x] Bridge `PATCH /project/:projectID`.
-2. [x] Bridge MCP add/connect/disconnect routes.
-3. [x] Bridge MCP OAuth routes: start, callback, authenticate, remove.
-4. [x] Bridge experimental console switch and tool list routes.
-5. [x] Bridge experimental global session list.
-6. [x] Bridge workspace create/remove/session-restore routes.
-7. [x] Bridge sync start/replay/history routes.
-8. [x] Bridge session read routes: list, status, get, children, todo, diff, messages.
-9. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, abort.
-10. [x] Bridge remaining session mutation and prompt routes.
-11. [ ] Replace event SSE with non-Hono Effect HTTP. The Effect backend has a raw Effect HTTP `httpapi/event.ts`; the Hono backend still uses `hono/streaming` `streamSSE`. Either port Hono `/event` to raw Effect HTTP for the fallback window, or skip and delete it together with Hono in step 15.
-12. [x] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
-13. [x] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
-14. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
-15. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
+1. [x] Bridge `PATCH /project/:projectID`. Evidence: `src/server/httpapi/project.ts` and `bun test test/server/httpapi-project.test.ts`.
+2. [x] Bridge MCP add/connect/disconnect routes. Evidence: `src/server/httpapi/mcp.ts` and `bun test test/server/httpapi-mcp.test.ts`.
+3. [ ] Bridge MCP OAuth routes: start, callback, authenticate.
+4. [ ] Bridge experimental console switch routes. Current branch audit: console routes are listed in the historical checklist but no matching Hono registration was found in `src/server/routes/experimental.ts`.
+5. [x] Bridge experimental tool/worktree/resource routes. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
+6. [ ] Bridge experimental global session list.
+7. [x] Bridge read-only workspace adaptor/list routes. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
+8. [x] Bridge workspace create/remove/session-restore routes. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
+9. [ ] Bridge sync start/replay/history routes.
+10. [x] Bridge session read routes: list, status, get, children, todo, diff, and messages are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
+12. [ ] Bridge remaining session mutation and prompt routes. Non-streaming message and part JSON routes plus revert/unrevert are bridged; init/share/summarize/prompt/prompt_async/command/shell/deprecated permission routes remain open.
+13. [ ] Replace event SSE with non-Hono Effect HTTP. The Effect backend has a raw Effect HTTP `httpapi/event.ts`; the Hono backend still uses `hono/streaming` `streamSSE`. Either port Hono `/event` to raw Effect HTTP for the fallback window, or skip and delete it together with Hono in step 15.
+14. [ ] Replace pty websocket/control routes with non-Hono Effect HTTP for the Effect backend. Hono `pty.ts` remains in the Hono backend.
+15. [ ] Replace tui bridge routes or explicitly isolate them behind a non-Hono compatibility layer for the Effect backend. Hono `tui.ts` remains in the Hono backend.
+16. [ ] Switch OpenAPI/SDK generation to Effect routes and compare SDK output. Effect path is implemented and opt-in via `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`. Close the schema-shape gaps in `public.ts` (branded `pattern`, per-property `description`, `Event.*` / `SyncEvent.*` naming, dedup collisions), then flip `packages/sdk/js/script/build.ts` default.
+17. [ ] Flip `backend.ts` default from `hono` to `effect-httpapi`, keep `NIKCLI_EXPERIMENTAL_HTTPAPI` (or its inverse) as a short fallback flag, then delete replaced Hono route files.
 
 ## Checklist
 
-- [x] Add first `HttpApi` JSON route slices.
-- [x] Bridge selected `HttpApi` routes behind `NIKCLI_EXPERIMENTAL_HTTPAPI`. (Now backend-fork-at-startup rather than in-Hono path mounting.)
-- [x] Reuse existing Effect services in handlers.
-- [x] Provide auth, instance lookup, and observability in the Effect route layer.
-- [x] Centralize auth via Effect `Config` for the Effect backend.
-- [x] Support `auth_token` as a query security scheme.
-- [x] Add bridge-level auth and instance tests.
-- [x] Complete exact Hono route inventory.
-- [x] Resolve implemented-but-unmounted route groups.
-- [x] Port remaining top-level JSON reads.
-- [x] Implement Effect `HttpApi` OpenAPI generation behind `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`.
+- [x] Add first `HttpApi` JSON route slices. Evidence: `src/server/httpapi/question.ts` plus `bun test test/server/httpapi-question.test.ts`.
+- [x] Bridge selected `HttpApi` routes behind `NIKCLI_EXPERIMENTAL_HTTPAPI`. Evidence: `src/server/httpapi/bridge.ts` and `bun test test/server/httpapi-bridge.test.ts`. This is an in-Hono experimental bridge; backend-fork-at-startup remains open.
+- [x] Reuse existing Effect services in implemented handlers. Evidence: `QuestionHttpApi` yields `Question.Service`, `PermissionHttpApi` yields `PermissionNext.Service`, and `bun test test/server/httpapi-question.test.ts test/server/httpapi-permission.test.ts test/server/httpapi-public.test.ts` passes.
+- [ ] Provide auth, instance lookup, and observability in the Effect route layer.
+- [ ] Centralize auth via Effect `Config` for the Effect backend.
+- [ ] Support `auth_token` as a query security scheme.
+- [ ] Add bridge-level auth and instance tests.
+- [ ] Complete exact Hono route inventory.
+- [x] Resolve implemented-but-unmounted route groups. Evidence: `rg --files src/server/httpapi` lists only active route slices plus `public` and `bridge`; current slices `top-level`, `config`, `experimental`, `file`, `mcp`, `project`, `provider`, `question`, `permission`, and `workspace` are bridged.
+- [x] Port current top-level JSON reads. Evidence: `src/server/httpapi/top-level.ts` and `bun test test/server/httpapi-top-level.test.ts`. `GET /vcs/diff` is not present in the current Hono route registration and remains an inventory cleanup item.
+- [ ] Implement Effect `HttpApi` OpenAPI generation behind `--httpapi` / `NIKCLI_SDK_OPENAPI=httpapi`.
 - [ ] Close Effect-vs-Hono OpenAPI schema-shape gaps and flip the SDK generator default.
 - [ ] Flip the runtime backend default from `hono` to `effect-httpapi`, with a short fallback flag.
 - [ ] Delete replaced Hono route implementations.

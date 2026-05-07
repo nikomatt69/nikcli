@@ -6,6 +6,12 @@ import { GlobalBus } from "@/bus/global"
 import { Filesystem } from "@/util/filesystem"
 import { realpathSync } from "fs"
 import path from "path"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
 
 interface Context {
   directory: string
@@ -58,7 +64,12 @@ export const Instance = {
     if (!existing) {
       Log.Default.info("creating instance", { directory })
       const promise = (async () => {
-        const { project, sandbox } = await Project.fromDirectory(directory)
+        const { project, sandbox } = await runProject(
+          Effect.gen(function* () {
+            const project = yield* Project.Service
+            return yield* project.fromDirectory(directory)
+          }),
+        )
         const ctx = {
           directory,
           worktree: sandbox,

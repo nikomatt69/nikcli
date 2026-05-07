@@ -7,6 +7,34 @@ import { Project } from "../project/project"
 import { Instance } from "../project/instance"
 import { bootstrap } from "@/cli/bootstrap"
 import { cmd } from "@/cli/cmd/cmd"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 interface SessionStats {
   totalSessions: number
@@ -87,14 +115,14 @@ async function getCurrentProject(): Promise<Project.Info> {
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
-  const projectKeys = await Storage.list(["project"])
-  const projects = await Promise.all(projectKeys.map((key) => Storage.read<Project.Info>(key)))
+  const projectKeys = await storageList(["project"])
+  const projects = await Promise.all(projectKeys.map((key) => storageRead<Project.Info>(key)))
 
   for (const project of projects) {
     if (!project) continue
 
-    const sessionKeys = await Storage.list(["session", project.id])
-    const projectSessions = await Promise.all(sessionKeys.map((key) => Storage.read<Session.Info>(key)))
+    const sessionKeys = await storageList(["session", project.id])
+    const projectSessions = await Promise.all(sessionKeys.map((key) => storageRead<Session.Info>(key)))
 
     for (const session of projectSessions) {
       if (session) {
@@ -181,7 +209,12 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
     const batch = filteredSessions.slice(i, i + BATCH_SIZE)
 
     const batchPromises = batch.map(async (session) => {
-      const messages = await Session.messages({ sessionID: session.id })
+      const messages = await runSession(
+        Effect.gen(function* () {
+          const sessionService = yield* Session.Service
+          return yield* sessionService.messages({ sessionID: session.id })
+        }),
+      )
 
       let sessionCost = 0
       let sessionTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }

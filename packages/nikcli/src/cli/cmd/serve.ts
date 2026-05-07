@@ -5,6 +5,12 @@ import { Flag } from "../../flag/flag"
 import { Workspace } from "../../workspace"
 import { Project } from "../../project/project"
 import { Installation } from "../../installation"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
 
 export const ServeCommand = cmd({
   command: "serve",
@@ -31,7 +37,13 @@ export const ServeCommand = cmd({
 
     let workspaceSync: Array<ReturnType<typeof Workspace.startSyncing>> = []
     if (Installation.isLocal()) {
-      workspaceSync = (await Project.list()).map((project) => Workspace.startSyncing(project))
+      const projects = await runProject(
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          return yield* project.list()
+        }),
+      )
+      workspaceSync = projects.map((project) => Workspace.startSyncing(project))
     }
 
     await new Promise(() => {})

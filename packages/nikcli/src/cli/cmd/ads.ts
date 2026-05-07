@@ -4,10 +4,16 @@ import { UI } from "../ui"
 import { Config } from "../../config/config"
 import { Instance } from "../../project/instance"
 import { Locale } from "../../util/locale"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
 import type { Argv } from "yargs"
 
 type AdsConfig = Config.Ads
 type AdsItem = Config.AdsItem
+
+function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+  return runPromiseWithLayer(Config.defaultLayer, effect)
+}
 
 function slug(input: string) {
   return input
@@ -40,12 +46,22 @@ function normalizeUrl(value: string) {
 }
 
 async function loadAds(): Promise<AdsConfig> {
-  const config = await Config.getGlobal()
+  const config = await runConfig(
+    Effect.gen(function* () {
+      const service = yield* Config.Service
+      return yield* service.getGlobal()
+    }),
+  )
   return config.ads ?? {}
 }
 
 async function saveAds(next: AdsConfig): Promise<void> {
-  await Config.updateGlobal({ ads: next })
+  await runConfig(
+    Effect.gen(function* () {
+      const service = yield* Config.Service
+      yield* service.updateGlobal({ ads: next })
+    }),
+  )
 }
 
 async function selectId(items: AdsItem[], value: string | undefined, message: string) {

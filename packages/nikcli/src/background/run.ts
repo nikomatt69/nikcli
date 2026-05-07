@@ -10,6 +10,52 @@ import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
+
+function storageUpdate<T>(key: string[], fn: (draft: T) => void) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.update(key, fn)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
 
 export namespace BackgroundRun {
   const log = Log.create({ service: "background.run" })
@@ -267,13 +313,13 @@ ${result}
       record.sandboxState = sandbox.state
     }
 
-    await Storage.write(key(id), record)
+    await storageWrite(key(id), record)
     return record
   }
 
   export async function updateSession(id: string, session: Pick<Session.Info, "id" | "directory" | "workspaceID">) {
     const sandbox = await SandboxRegistry.fromSession(session)
-    return Storage.update<Record>(key(id), (draft) => {
+    return storageUpdate<Record>(key(id), (draft) => {
       draft.sessionID = session.id
       draft.workspaceID = session.workspaceID
       draft.sandboxRef = sandbox.ref
@@ -287,7 +333,7 @@ ${result}
   }
 
   export async function touchLease(id: string) {
-    return Storage.update<Record>(key(id), (draft) => {
+    return storageUpdate<Record>(key(id), (draft) => {
       if (draft.status !== "running") return
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
@@ -297,7 +343,7 @@ ${result}
   }
 
   export async function updateProgress(id: string, progressSummary?: string) {
-    return Storage.update<Record>(key(id), (draft) => {
+    return storageUpdate<Record>(key(id), (draft) => {
       if (draft.status !== "running") return
       draft.progressSummary = progressSummary || undefined
       draft.lastActivityAt = Date.now()
@@ -309,21 +355,21 @@ ${result}
   }
 
   export async function setDelegatorID(id: string, delegatorID: string) {
-    return Storage.update<Record>(key(id), (draft) => {
+    return storageUpdate<Record>(key(id), (draft) => {
       draft.delegatorID = delegatorID
       draft.updatedAt = Date.now()
     })
   }
 
   export async function get(id: string) {
-    return Storage.read<Record>(key(id))
+    return storageRead<Record>(key(id))
   }
 
   async function listAll(): Promise<Record[]> {
     const result: Record[] = []
-    for (const item of await Storage.list(["background_run", Instance.project.id])) {
+    for (const item of await storageList(["background_run", Instance.project.id])) {
       try {
-        const record = await Storage.read<Record>(item)
+        const record = await storageRead<Record>(item)
         result.push(record)
       } catch {
         continue
@@ -355,7 +401,12 @@ ${result}
   }
 
   export async function summarizeSession(sessionID: string, result?: MessageV2.WithParts) {
-    const messages = await Session.messages({ sessionID })
+    const messages = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID })
+      }),
+    )
     const assistant =
       result?.info.role === "assistant" ? result : messages.findLast((item) => item.info.role === "assistant")
     const text = assistant?.parts.findLast((part): part is MessageV2.TextPart => part.type === "text")?.text ?? ""
@@ -368,7 +419,7 @@ ${result}
 
   export async function finalize(id: string, status: Status, result: string, error?: string, metadata?: Metadata) {
     let finalized = false
-    const record = await Storage.update<Record>(key(id), (draft) => {
+    const record = await storageUpdate<Record>(key(id), (draft) => {
       if (draft.status !== "running") return
       draft.status = status
       draft.updatedAt = Date.now()

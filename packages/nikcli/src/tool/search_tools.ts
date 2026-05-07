@@ -12,7 +12,15 @@ export const SearchToolsTool = Tool.define("search_tools", async (initCtx) => {
     }),
 
     async execute({ query }) {
-      const allIds = await ToolRegistry.ids()
+      const { runPromiseWithLayer } = await import("@/effect")
+      const { Effect } = await import("effect")
+      const allIds = await runPromiseWithLayer(
+        ToolRegistry.defaultLayer,
+        Effect.gen(function* () {
+          const registry = yield* ToolRegistry.Service
+          return yield* registry.ids()
+        }),
+      )
       const q = query.toLowerCase()
       const matches = allIds.filter((id) => id.toLowerCase().includes(q))
 

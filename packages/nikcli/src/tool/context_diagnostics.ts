@@ -5,11 +5,17 @@ import DESCRIPTION from "./context_diagnostics.txt"
 import { LSP } from "@/lsp"
 import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const parameters = z.object({
   filePath: z.string().optional().describe("Optional file path to filter diagnostics"),
   limit: z.number().int().min(1).max(200).optional().describe("Maximum diagnostics per file"),
 })
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: number }>("context_diagnostics", {
   description: DESCRIPTION,
@@ -32,9 +38,14 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
         ? params.filePath
         : path.resolve(Instance.directory, params.filePath)
       await assertExternalDirectory(ctx, target, { kind: "file" })
-      await LSP.touchFile(target, true)
 
-      const all = await LSP.diagnostics()
+      const all = await runLSP(
+        Effect.gen(function* () {
+          const lsp = yield* LSP.Service
+          yield* lsp.touchFile(target, true)
+          return yield* lsp.diagnostics()
+        }),
+      )
       const issues = all[target] ?? []
       if (issues.length === 0) {
         return {
@@ -55,7 +66,12 @@ export const ContextDiagnosticsTool = Tool.define<typeof parameters, { count: nu
       }
     }
 
-    const diagnostics = await LSP.diagnostics()
+    const diagnostics = await runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        return yield* lsp.diagnostics()
+      }),
+    )
     const entries = Object.entries(diagnostics).filter(([, issues]) => issues.length > 0)
     if (entries.length === 0) {
       return {

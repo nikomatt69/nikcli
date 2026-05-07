@@ -7,6 +7,12 @@ import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
+
+function runInstallation<A, E>(effect: Effect.Effect<A, E, Installation.Service>) {
+  return runPromiseWithLayer(Installation.defaultLayer, effect)
+}
 
 interface UninstallArgs {
   keepConfig: boolean
@@ -56,7 +62,12 @@ export const UninstallCommand = {
     UI.empty()
     prompts.intro("Uninstall Nikcli")
 
-    const method = await Installation.method()
+    const method = await runInstallation(
+      Effect.gen(function* () {
+        const installation = yield* Installation.Service
+        return yield* installation.method()
+      }),
+    )
     prompts.log.info(`Installation method: ${method}`)
 
     const targets = await collectRemovalTargets(args, method)

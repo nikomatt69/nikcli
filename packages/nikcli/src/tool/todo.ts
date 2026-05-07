@@ -2,6 +2,12 @@ import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION_WRITE from "./todowrite.txt"
 import { Todo } from "../session/todo"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
+  return runPromiseWithLayer(Todo.defaultLayer, withCurrentInstance(effect))
+}
 
 export const TodoWriteTool = Tool.define("todowrite", {
   description: DESCRIPTION_WRITE,
@@ -16,10 +22,15 @@ export const TodoWriteTool = Tool.define("todowrite", {
       metadata: {},
     })
 
-    await Todo.update({
-      sessionID: ctx.sessionID,
-      todos: params.todos,
-    })
+    await runTodo(
+      Effect.gen(function* () {
+        const todo = yield* Todo.Service
+        yield* todo.update({
+          sessionID: ctx.sessionID,
+          todos: params.todos,
+        })
+      }),
+    )
     return {
       title: `${params.todos.filter((x) => x.status !== "completed").length} todos`,
       output: JSON.stringify(params.todos, null, 2),
@@ -41,7 +52,12 @@ export const TodoReadTool = Tool.define("todoread", {
       metadata: {},
     })
 
-    const todos = await Todo.get(ctx.sessionID)
+    const todos = await runTodo(
+      Effect.gen(function* () {
+        const todo = yield* Todo.Service
+        return yield* todo.get(ctx.sessionID)
+      }),
+    )
     return {
       title: `${todos.filter((x) => x.status !== "completed").length} todos`,
       metadata: {

@@ -9,6 +9,8 @@ import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
+import { Context, Effect, Layer } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "todo-notifications" })
 
@@ -58,15 +60,49 @@ export namespace Todo {
     return { added, completed }
   }
 
-  export async function update(input: { sessionID: string; todos: Info[] }) {
-    const prev = await get(input.sessionID)
-    const change = diff(prev, input.todos)
-    await Storage.write(["todo", input.sessionID], input.todos)
-    Bus.publish(Event.Updated, { ...input, diff: change })
+  export interface Interface {
+    update(input: { sessionID: string; todos: Info[] }): Effect.Effect<void, unknown>
+    get(sessionID: string): Effect.Effect<Info[], unknown>
+    init(): Effect.Effect<void>
   }
 
-  export async function get(sessionID: string) {
-    return Storage.read<Info[]>(["todo", sessionID])
+  export class Service extends Context.Tag("Todo.Service")<Service, Interface>() {}
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
+    return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  function storageRead<T>(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.read<T>(key)
+      }),
+    )
+  }
+
+  async function updateImpl(input: { sessionID: string; todos: Info[] }) {
+    const prev = await getImpl(input.sessionID)
+    const change = diff(prev, input.todos)
+    await storageWrite(["todo", input.sessionID], input.todos)
+    await Bus.publish(Event.Updated, { ...input, diff: change })
+  }
+
+  async function getImpl(sessionID: string) {
+    return storageRead<Info[]>(["todo", sessionID])
       .then((todo) => todo || [])
       .catch(() => [])
   }
@@ -205,7 +241,12 @@ export namespace Todo {
   }
 
   async function notify(change: { added: Info[]; completed: Info[] }) {
-    const config = await Config.get()
+    const config = await runConfig(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    )
     const settings = config.notifications?.todo
     if (!settings) return
     if (settings.enabled === false) return
@@ -250,9 +291,20 @@ export namespace Todo {
     }
   }
 
-  export function init() {
+  function initImpl() {
     Bus.subscribe(Event.Updated, async (evt) => {
       await notify(evt.properties.diff)
     })
   }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      update: (input) => Effect.tryPromise(() => updateImpl(input)),
+      get: (sessionID) => Effect.tryPromise(() => getImpl(sessionID)),
+      init: () => Effect.sync(() => initImpl()),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

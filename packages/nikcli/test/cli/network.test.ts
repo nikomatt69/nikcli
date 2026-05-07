@@ -9,13 +9,14 @@ process.env.XDG_CONFIG_HOME = path.join(testHome, "xdg-config")
 await fs.mkdir(path.join(process.env.XDG_CONFIG_HOME, "nikcli"), { recursive: true })
 
 const { Config } = await import("@/config/config")
+const { Global } = await import("@/global")
 const { resolveNetworkOptions } = await import("@/cli/network")
 
-const globalConfigPath = path.join(process.env.XDG_CONFIG_HOME!, "nikcli", "nikcli.json")
+const globalConfigPath = path.join(Global.Path.config, "nikcli.json")
 
 async function writeGlobalConfig(content: Record<string, unknown>) {
+  await fs.mkdir(Global.Path.config, { recursive: true })
   await Bun.write(globalConfigPath, JSON.stringify(content, null, 2))
-  Config.global.reset()
 }
 
 afterAll(async () => {
@@ -34,7 +35,6 @@ describe("resolveNetworkOptions", () => {
   afterEach(() => {
     process.argv = savedArgv
     delete process.env.PORT
-    Config.global.reset()
   })
 
   it("uses yargs defaults when no config, flags, or PORT", async () => {

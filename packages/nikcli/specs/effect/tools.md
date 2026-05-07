@@ -38,27 +38,29 @@ This keeps tool tests aligned with the production service graph and makes follow
 
 These exported tool definitions currently use `Tool.define(...)` in `src/tool`:
 
-- [x] `apply_patch.ts`
-- [x] `bash.ts`
-- [x] `edit.ts`
-- [x] `glob.ts`
-- [x] `grep.ts`
-- [x] `invalid.ts`
-- [x] `lsp.ts`
-- [x] `plan.ts`
-- [x] `question.ts`
-- [x] `read.ts`
-- [x] `skill.ts`
-- [x] `task.ts`
-- [x] `todo.ts`
-- [x] `webfetch.ts`
-- [x] `websearch.ts`
-- [x] `write.ts`
+- [ ] `apply_patch.ts`
+- [ ] `bash.ts`
+- [ ] `edit.ts`
+- [ ] `glob.ts`
+- [ ] `grep.ts`
+- [ ] `invalid.ts`
+- [ ] `lsp.ts`
+- [ ] `plan.ts`
+- [ ] `question.ts`
+- [ ] `read.ts`
+- [ ] `skill.ts`
+- [ ] `task.ts`
+- [ ] `todo.ts`
+- [ ] `webfetch.ts`
+- [ ] `websearch.ts`
+- [ ] `write.ts`
 
 Notes:
 
 - There is no current `ls.ts` tool file on this branch.
 - `truncate.ts` is an Effect service used by tools, not a tool definition itself.
+- `registry.ts` is now an Effect service for resolving tool definitions; it is tracked in `migration.md` and `facades.md`, not in the exported tool-definition checklist below.
+- `skill/skill.ts` is now an Effect service for skill discovery and CRUD; `tool/skill.ts` enters it through Effect boundaries.
 - `mcp-exa.ts`, `external-directory.ts`, and `schema.ts` are support modules, not standalone tool definitions.
 
 ## Follow-up cleanup

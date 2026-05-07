@@ -125,23 +125,13 @@ describe("Session", () => {
     })
   })
 
-  describe("create function", () => {
-    it("create function is defined", () => {
-      expect(typeof Session.create).toBe("function")
+  describe("service contract schemas", () => {
+    it("CreateInput schema is defined", () => {
+      expect(Session.CreateInput).toBeDefined()
     })
 
-    it("create function has schema property", () => {
-      expect(Session.create.schema).toBeDefined()
-    })
-  })
-
-  describe("get function", () => {
-    it("get function is defined", () => {
-      expect(typeof Session.get).toBe("function")
-    })
-
-    it("get function has schema property", () => {
-      expect(Session.get.schema).toBeDefined()
+    it("ID schema is defined", () => {
+      expect(Session.ID).toBeDefined()
     })
   })
 })

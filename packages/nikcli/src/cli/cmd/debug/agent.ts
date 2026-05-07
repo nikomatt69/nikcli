@@ -11,6 +11,36 @@ import { PermissionNext } from "../../../permission/next"
 import { iife } from "../../../util/iife"
 import { bootstrap } from "../../bootstrap"
 import { cmd } from "../cmd"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function agentGet(name: string) {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.get(name)
+      }),
+    ),
+  )
+}
+
+function defaultProviderModel() {
+  return runPromiseWithLayer(
+    Provider.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.defaultModel()
+      }),
+    ),
+  )
+}
+
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
 
 export const AgentCommand = cmd({
   command: "agent <name>",
@@ -33,7 +63,7 @@ export const AgentCommand = cmd({
   async handler(args) {
     await bootstrap(process.cwd(), async () => {
       const agentName = args.name as string
-      const agent = await Agent.get(agentName)
+      const agent = await agentGet(agentName)
       if (!agent) {
         process.stderr.write(
           `Agent ${agentName} not found, run '${basename(process.execPath)} agent list' to get an agent list` + EOL,
@@ -70,8 +100,16 @@ export const AgentCommand = cmd({
 })
 
 async function getAvailableTools(agent: Agent.Info) {
-  const model = agent.model ?? (await Provider.defaultModel())
-  return ToolRegistry.tools(model, agent)
+  const model = agent.model ?? (await defaultProviderModel())
+  return runPromiseWithLayer(
+    ToolRegistry.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const registry = yield* ToolRegistry.Service
+        return yield* registry.tools(model, agent)
+      }),
+    ),
+  )
 }
 
 async function resolveTools(agent: Agent.Info, availableTools: Awaited<ReturnType<typeof getAvailableTools>>) {
@@ -105,9 +143,14 @@ function parseToolParams(input?: string) {
 }
 
 async function createToolContext(agent: Agent.Info) {
-  const session = await Session.create({ title: `Debug tool run (${agent.name})` })
+  const session = await runSession(
+    Effect.gen(function* () {
+      const sessionService = yield* Session.Service
+      return yield* sessionService.create({ title: `Debug tool run (${agent.name})` })
+    }),
+  )
   const messageID = Identifier.ascending("message")
-  const model = agent.model ?? (await Provider.defaultModel())
+  const model = agent.model ?? (await defaultProviderModel())
   const now = Date.now()
   const message: MessageV2.Assistant = {
     id: messageID,
@@ -136,7 +179,12 @@ async function createToolContext(agent: Agent.Info) {
       },
     },
   }
-  await Session.updateMessage(message)
+  await runSession(
+    Effect.gen(function* () {
+      const sessionService = yield* Session.Service
+      yield* sessionService.updateMessage(message)
+    }),
+  )
 
   const ruleset = PermissionNext.merge(agent.permission, session.permission ?? [])
 

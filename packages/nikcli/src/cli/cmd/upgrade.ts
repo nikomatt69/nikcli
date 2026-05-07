@@ -2,6 +2,12 @@ import type { Argv } from "yargs"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
+
+function runInstallation<A, E>(effect: Effect.Effect<A, E, Installation.Service>) {
+  return runPromiseWithLayer(Installation.defaultLayer, effect)
+}
 
 export const UpgradeCommand = {
   command: "upgrade [target]",
@@ -24,7 +30,12 @@ export const UpgradeCommand = {
     UI.println(UI.logo("  "))
     UI.empty()
     prompts.intro("Upgrade")
-    const detectedMethod = await Installation.method()
+    const detectedMethod = await runInstallation(
+      Effect.gen(function* () {
+        const installation = yield* Installation.Service
+        return yield* installation.method()
+      }),
+    )
     const method = (args.method as Installation.Method) ?? detectedMethod
     if (method === "unknown") {
       prompts.log.error(`nikcli is installed to ${process.execPath} and may be managed by a package manager`)
@@ -42,7 +53,14 @@ export const UpgradeCommand = {
       }
     }
     prompts.log.info("Using method: " + method)
-    const target = args.target ? args.target.replace(/^v/, "") : await Installation.latest()
+    const target = args.target
+      ? args.target.replace(/^v/, "")
+      : await runInstallation(
+          Effect.gen(function* () {
+            const installation = yield* Installation.Service
+            return yield* installation.latest()
+          }),
+        )
 
     if (Installation.VERSION === target) {
       prompts.log.warn(`nikcli upgrade skipped: ${target} is already installed`)
@@ -53,7 +71,12 @@ export const UpgradeCommand = {
     prompts.log.info(`From ${Installation.VERSION} → ${target}`)
     const spinner = prompts.spinner()
     spinner.start("Upgrading...")
-    const err = await Installation.upgrade(method, target).catch((err) => err)
+    const err = await runInstallation(
+      Effect.gen(function* () {
+        const installation = yield* Installation.Service
+        return yield* installation.upgrade(method, target)
+      }),
+    ).catch((err) => err)
     if (err) {
       spinner.stop("Upgrade failed", 1)
       if (err instanceof Installation.UpgradeFailedError) {

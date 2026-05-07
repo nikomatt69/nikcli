@@ -1,8 +1,9 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
+import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
-import { Instance } from "@/project/instance"
 import { Log } from "@/util/log"
+import { Context, Effect, Layer } from "effect"
 import z from "zod"
 
 export namespace Question {
@@ -79,93 +80,131 @@ export namespace Question {
     ),
   }
 
-  const state = Instance.state(async () => {
-    const pending: Record<
-      string,
-      {
-        info: Request
-        resolve: (answers: Answer[]) => void
-        reject: (e: any) => void
-      }
-    > = {}
+  type PendingEntry = {
+    info: Request
+    resolve: (answers: Answer[]) => void
+    reject: (e: RejectedError) => void
+  }
 
-    return {
-      pending,
-    }
-  })
+  type State = {
+    pending: Record<string, PendingEntry>
+  }
 
-  export async function ask(input: {
-    sessionID: string
-    questions: Info[]
-    tool?: { messageID: string; callID: string }
-  }): Promise<Answer[]> {
-    const s = await state()
-    const id = Identifier.ascending("question")
+  export interface Interface {
+    readonly ask: (input: {
+      sessionID: string
+      questions: Info[]
+      tool?: { messageID: string; callID: string }
+    }) => Effect.Effect<Answer[], RejectedError>
+    readonly reply: (input: { requestID: string; answers: Answer[] }) => Effect.Effect<void>
+    readonly reject: (requestID: string) => Effect.Effect<void>
+    readonly list: () => Effect.Effect<Request[]>
+  }
 
-    log.info("asking", { id, questions: input.questions.length })
+  export class Service extends Context.Tag("@nikcli/Question")<Service, Interface>() {}
 
-    return new Promise<Answer[]>((resolve, reject) => {
-      const info: Request = {
-        id,
-        sessionID: input.sessionID,
-        questions: input.questions,
-        tool: input.tool,
-      }
-      s.pending[id] = {
-        info,
-        resolve,
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<State>(() =>
+        Effect.succeed({
+          pending: {},
+        }),
+      )
+
+      const getState = () => InstanceState.get(state)
+
+      const ask = Effect.fn("Question.ask")(function* (input: {
+        sessionID: string
+        questions: Info[]
+        tool?: { messageID: string; callID: string }
+      }) {
+        const s = yield* getState()
+        const id = Identifier.ascending("question")
+
+        log.info("asking", { id, questions: input.questions.length })
+
+        return yield* Effect.async<Answer[], RejectedError>((resume) => {
+          const info: Request = {
+            id,
+            sessionID: input.sessionID,
+            questions: input.questions,
+            tool: input.tool,
+          }
+          s.pending[id] = {
+            info,
+            resolve: (answers) => resume(Effect.succeed(answers)),
+            reject: (error) => resume(Effect.fail(error)),
+          }
+          void Bus.publish(Event.Asked, info)
+          return Effect.sync(() => {
+            delete s.pending[id]
+          })
+        })
+      })
+
+      const reply = Effect.fn("Question.reply")(function* (input: { requestID: string; answers: Answer[] }) {
+        const s = yield* getState()
+        const existing = s.pending[input.requestID]
+        if (!existing) {
+          log.warn("reply for unknown request", { requestID: input.requestID })
+          return
+        }
+        delete s.pending[input.requestID]
+
+        log.info("replied", { requestID: input.requestID, answers: input.answers })
+
+        yield* Effect.promise(() =>
+          Bus.publish(Event.Replied, {
+            sessionID: existing.info.sessionID,
+            requestID: existing.info.id,
+            answers: input.answers,
+          }),
+        )
+
+        existing.resolve(input.answers)
+      })
+
+      const reject = Effect.fn("Question.reject")(function* (requestID: string) {
+        const s = yield* getState()
+        const existing = s.pending[requestID]
+        if (!existing) {
+          log.warn("reject for unknown request", { requestID })
+          return
+        }
+        delete s.pending[requestID]
+
+        log.info("rejected", { requestID })
+
+        yield* Effect.promise(() =>
+          Bus.publish(Event.Rejected, {
+            sessionID: existing.info.sessionID,
+            requestID: existing.info.id,
+          }),
+        )
+
+        existing.reject(new RejectedError())
+      })
+
+      const list = Effect.fn("Question.list")(function* () {
+        const s = yield* getState()
+        return Object.values(s.pending).map((x) => x.info)
+      })
+
+      return Service.of({
+        ask,
+        reply,
         reject,
-      }
-      Bus.publish(Event.Asked, info)
-    })
-  }
+        list,
+      })
+    }),
+  )
 
-  export async function reply(input: { requestID: string; answers: Answer[] }): Promise<void> {
-    const s = await state()
-    const existing = s.pending[input.requestID]
-    if (!existing) {
-      log.warn("reply for unknown request", { requestID: input.requestID })
-      return
-    }
-    delete s.pending[input.requestID]
-
-    log.info("replied", { requestID: input.requestID, answers: input.answers })
-
-    Bus.publish(Event.Replied, {
-      sessionID: existing.info.sessionID,
-      requestID: existing.info.id,
-      answers: input.answers,
-    })
-
-    existing.resolve(input.answers)
-  }
-
-  export async function reject(requestID: string): Promise<void> {
-    const s = await state()
-    const existing = s.pending[requestID]
-    if (!existing) {
-      log.warn("reject for unknown request", { requestID })
-      return
-    }
-    delete s.pending[requestID]
-
-    log.info("rejected", { requestID })
-
-    Bus.publish(Event.Rejected, {
-      sessionID: existing.info.sessionID,
-      requestID: existing.info.id,
-    })
-
-    existing.reject(new RejectedError())
-  }
+  export const defaultLayer = layer
 
   export class RejectedError extends Error {
     constructor() {
       super("The user dismissed this question")
     }
-  }
-
-  export async function list() {
-    return state().then((x) => Object.values(x.pending).map((x) => x.info))
   }
 }

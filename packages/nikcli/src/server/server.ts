@@ -38,6 +38,8 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { websocket } from "hono/bun"
 import { HTTPException } from "hono/http-exception"
 import { errors } from "./error"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 import { QuestionRoutes } from "./routes/question"
 import { PermissionRoutes } from "./routes/permission"
 import { GlobalRoutes } from "./routes/global"
@@ -52,6 +54,35 @@ import { Installation } from "@/installation"
 import { Project } from "@/project/project"
 import { Workspace } from "@/workspace"
 import { ServerProxy } from "./proxy"
+import { HttpApiBridge } from "./httpapi/bridge"
+
+function runSkill<A, E>(effect: Effect.Effect<A, E, Skill.Service>) {
+  return runPromiseWithLayer(Skill.defaultLayer, withCurrentInstance(effect))
+}
+
+function runCommand<A, E>(effect: Effect.Effect<A, E, Command.Service>) {
+  return runPromiseWithLayer(Command.defaultLayer, withCurrentInstance(effect))
+}
+
+function runAgent<A, E>(effect: Effect.Effect<A, E, Agent.Service>) {
+  return runPromiseWithLayer(Agent.defaultLayer, withCurrentInstance(effect))
+}
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
+
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+  return runPromiseWithLayer(Auth.defaultLayer, effect)
+}
+
+function runShareNext<A, E>(effect: Effect.Effect<A, E, ShareNext.Service>) {
+  return runPromiseWithLayer(ShareNext.defaultLayer, effect)
+}
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
 
 // @ts-ignore This global is needed to prevent ai-sdk from logging warnings to stdout https://github.com/vercel/ai/blob/2dc67e0ef538307f21368db32d5a12345d98831b/packages/ai/src/logger/log-warnings.ts#L85
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -123,19 +154,34 @@ export namespace Server {
         })
         .get("/share/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
           const { shareID } = c.req.valid("param")
-          const data = await ShareNext.publicData(shareID)
+          const data = await runShareNext(
+            Effect.gen(function* () {
+              const shareNext = yield* ShareNext.Service
+              return yield* shareNext.publicData(shareID)
+            }),
+          )
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
         .get("/api/share/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
           const { shareID } = c.req.valid("param")
-          const data = await ShareNext.publicData(shareID)
+          const data = await runShareNext(
+            Effect.gen(function* () {
+              const shareNext = yield* ShareNext.Service
+              return yield* shareNext.publicData(shareID)
+            }),
+          )
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
         .get("/api/share/:shareID/data", validator("param", z.object({ shareID: z.string() })), async (c) => {
           const { shareID } = c.req.valid("param")
-          const data = await ShareNext.publicData(shareID)
+          const data = await runShareNext(
+            Effect.gen(function* () {
+              const shareNext = yield* ShareNext.Service
+              return yield* shareNext.publicData(shareID)
+            }),
+          )
           if (!data) return c.text("Share not found", 404)
           return c.json(data)
         })
@@ -317,6 +363,12 @@ export namespace Server {
           }),
         )
         .use(validator("query", z.object({ directory: z.string().optional(), workspace: z.string().optional() })))
+        .use(async (c, next) => {
+          if (!Flag.NIKCLI_EXPERIMENTAL_HTTPAPI || !HttpApiBridge.supports(c.req.path, c.req.method)) {
+            return next()
+          }
+          return HttpApiBridge.handle(c.req.raw)
+        })
         .route("/project", ProjectRoutes())
         .route("/pty", PtyRoutes())
         .route("/config", ConfigRoutes())
@@ -413,7 +465,15 @@ export namespace Server {
             },
           }),
           async (c) => {
-            const branch = await Vcs.branch()
+            const branch = await runPromiseWithLayer(
+              Vcs.defaultLayer,
+              withCurrentInstance(
+                Effect.gen(function* () {
+                  const vcs = yield* Vcs.Service
+                  return yield* vcs.branch()
+                }),
+              ),
+            )
             return c.json({
               branch,
             })
@@ -437,7 +497,12 @@ export namespace Server {
             },
           }),
           async (c) => {
-            const commands = await Command.list()
+            const commands = await runCommand(
+              Effect.gen(function* () {
+                const command = yield* Command.Service
+                return yield* command.list()
+              }),
+            )
             return c.json(commands)
           },
         )
@@ -511,7 +576,12 @@ export namespace Server {
             },
           }),
           async (c) => {
-            const modes = await Agent.list()
+            const modes = await runAgent(
+              Effect.gen(function* () {
+                const agent = yield* Agent.Service
+                return yield* agent.list()
+              }),
+            )
             return c.json(modes)
           },
         )
@@ -533,7 +603,12 @@ export namespace Server {
             },
           }),
           async (c) => {
-            const skills = await Skill.all()
+            const skills = await runSkill(
+              Effect.gen(function* () {
+                const skill = yield* Skill.Service
+                return yield* skill.all()
+              }),
+            )
             return c.json(skills)
           },
         )
@@ -571,7 +646,12 @@ export namespace Server {
           ),
           async (c) => {
             const input = c.req.valid("json")
-            const skill = await Skill.create(input)
+            const skill = await runSkill(
+              Effect.gen(function* () {
+                const service = yield* Skill.Service
+                return yield* service.create(input)
+              }),
+            )
             return c.json(skill)
           },
         )
@@ -601,7 +681,12 @@ export namespace Server {
           ),
           async (c) => {
             const { name } = c.req.valid("param")
-            await Skill.remove(name)
+            await runSkill(
+              Effect.gen(function* () {
+                const skill = yield* Skill.Service
+                return yield* skill.remove(name)
+              }),
+            )
             return c.json(true)
           },
         )
@@ -623,7 +708,13 @@ export namespace Server {
             },
           }),
           async (c) => {
-            return c.json(await LSP.status())
+            const status = await runLSP(
+              Effect.gen(function* () {
+                const lsp = yield* LSP.Service
+                return yield* lsp.status()
+              }),
+            )
+            return c.json(status)
           },
         )
         .get(
@@ -644,7 +735,16 @@ export namespace Server {
             },
           }),
           async (c) => {
-            return c.json(await Format.status())
+            const status = await runPromiseWithLayer(
+              Format.defaultLayer,
+              withCurrentInstance(
+                Effect.gen(function* () {
+                  const format = yield* Format.Service
+                  return yield* format.status()
+                }),
+              ),
+            )
+            return c.json(status)
           },
         )
         .put(
@@ -675,7 +775,12 @@ export namespace Server {
           async (c) => {
             const providerID = c.req.valid("param").providerID
             const info = c.req.valid("json")
-            await Auth.set(providerID, info)
+            await runAuth(
+              Effect.gen(function* () {
+                const auth = yield* Auth.Service
+                yield* auth.set(providerID, info)
+              }),
+            )
             return c.json(true)
           },
         )
@@ -705,7 +810,12 @@ export namespace Server {
           ),
           async (c) => {
             const providerID = c.req.valid("param").providerID
-            await Auth.remove(providerID)
+            await runAuth(
+              Effect.gen(function* () {
+                const auth = yield* Auth.Service
+                yield* auth.remove(providerID)
+              }),
+            )
             return c.json(true)
           },
         )
@@ -844,7 +954,12 @@ export namespace Server {
     }
 
     if (Installation.isLocal()) {
-      void Project.list()
+      void runProject(
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          return yield* project.list()
+        }),
+      )
         .then((projects) => {
           projects.forEach((project) => Workspace.startSyncing(project))
         })

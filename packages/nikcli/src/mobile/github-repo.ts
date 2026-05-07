@@ -4,8 +4,14 @@ import z from "zod"
 import { Global } from "@/global"
 import { Project } from "@/project/project"
 import { Log } from "@/util/log"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
 
 const log = Log.create({ service: "mobile-github-repo" })
+
+function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
+  return runPromiseWithLayer(Project.defaultLayer, effect)
+}
 
 export namespace MobileGithubRepo {
   export const Owner = z
@@ -201,7 +207,12 @@ export namespace MobileGithubRepo {
   export async function importRepo(input: ImportRequest, token: string) {
     const request = ImportRequest.parse(input)
     const directory = await prepareManagedClone(request, token)
-    const { project } = await Project.fromDirectory(directory)
+    const { project } = await runProject(
+      Effect.gen(function* () {
+        const project = yield* Project.Service
+        return yield* project.fromDirectory(directory)
+      }),
+    )
     const now = Date.now()
     const existing = (await list()).find((item) => item.fullName === `${request.owner}/${request.repo}`)
     const entry = await save({

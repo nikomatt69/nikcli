@@ -24,6 +24,9 @@
 
 - **Session System** (`src/session/`) - Message storage, LLM processing, prompts, streaming
 - **Tool System** (`src/tool/`) - 50+ tools: bash, edit, read, write, grep, task, skill, etc.
+- **Background/Delegation** (`src/delegation/`, `src/background/`) - Background job management, durable run store
+- **Monitor** (`src/monitor/`) - Long-running process management
+- **Command System** (`src/command/`) - Slash commands, built-ins, MCP/connector prompts
 - **Mobile Development** (`src/mobile/`) - Expo, Simulator, React Native, Tophat integration
 - **Provider System** (`src/provider/`) - AI provider integrations via AI SDK (15+ providers)
 - **Server** (`src/server/`) - Hono-based HTTP routes, SSE events, WebSocket
@@ -31,6 +34,25 @@
 - **Plugins** (`src/plugin/`) - Hook-based plugin system with chat/tool/auth hooks
 - **Storage** (`src/storage/`) - JSON file storage with git snapshots
 - **Config** (`src/config/`) - 65KB Zod schema system
+
+### CLI Entry Points
+
+| File | Purpose |
+| ---- | ------- |
+| `bin/nikcli` | Node launcher shim: resolves platform-specific native binary or `NIKCLI_BIN_PATH`, forwards argv |
+| `src/index.ts` | Yargs router: initializes globals/logging, sets `AGENT=1`/`NIKCLI=1`, registers all commands, calls `cli.parse()` |
+| `src/cli/bootstrap.ts` | Wraps command work in `Instance.provide()` + disposes project instance after |
+
+### CLI Commands (`src/cli/cmd/`)
+
+| Command | File | Purpose |
+| ------- | ---- | ------- |
+| `nikcli run` | `run.ts` | Non-interactive: message/files/model/agent/session options, subscribes to events, prints text/tool events until `session.idle` |
+| `nikcli serve` | `serve.ts` | Headless HTTP server with network/auth options + local workspace sync |
+| `nikcli attach` | `attach.ts` | Open TUI against already-running server (`--dir`, `--session`) |
+| `nikcli mobile dev` | `mobile-dev.ts` | Expo, simulator, React Native commands |
+| `nikcli tui thread` | `tui/thread.ts` | Default TUI: resolves cwd, starts worker, RPC fetch + event streaming, renders TUI |
+| TUI plugin | `tui/plugin/` | Routes, slash commands, UI slots (app/sidebar/home areas) |
 
 ### Key Patterns
 
@@ -42,6 +64,12 @@
 - Reader-writer locks for concurrent storage safety
 - Permission rulesets: allow/deny/ask per tool + glob pattern
 - `devalue` for portable deep equality (replaces `Bun.deepEquals`)
+- `lazyAsync()` for async-safe singleton initialization (Promise-caching pattern)
+- `fn()` wrapper for validated async functions with `.parse()` and `.force()` methods
+- **Durable delegation**: `BackgroundRun` records persisted at `background_run` + markdown artifacts at `delegations/<parentSessionID>/<id>.md`
+- **Delta coalescer**: reduces ~500 Storage writes per message to ~10-20 via 150ms debouncing
+- **Job projection**: worker/delegator/followup records grouped by `jobID` → status `running`/`synthesizing`/terminal
+- **Supervisor synthesis**: hidden `delegator` agent waits for worker completion, then synthesizes results (up to 3 follow-up rounds)
 
 ## MCP Protocol (`src/mcp/index.ts`)
 
@@ -246,13 +274,43 @@ Every file-modifying tool calls `ctx.ask()` before execution:
 - **GrepTool** - FFF file search backend with Bun.Glob fallback
 - **TaskTool** - Subagent spawning (see below)
 
-### TaskTool (`task.ts`, ~800 lines)
+## Background Delegation System (`src/delegation/`, `src/background/`)
 
-The main subagent orchestration tool. Creates child sessions, runs prompts, handles:
-- **Foreground**: live progress tracking via event bus
-- **Background**: worker session + delegator session with up to 3 follow-up synthesis rounds
-- Research agents get special metadata extraction (question, confidence, source count)
-- Validates subagent_type against caller's `task` permission rules
+### Architecture
+
+```
+Parent Session
+  ├── Worker Session (role: worker)  ── runs subagent, streams PartUpdated → Delegation.updateProgress()
+  └── Delegator Session (role: delegator) ── synthesizes results, optionally spawns follow-up rounds (up to 3)
+```
+
+### Durable Run Store (`src/background/run.ts`)
+
+Sources: `task`, `model-subtask`, `advisor`, `research`, `ultrareview`, `delegator`, `delegator-followup`, `other`
+Roles: `worker`, `delegator`, `followup`, `advisor`, `other`
+Stores records under `background_run`, writes markdown artifacts under `delegations/<parentSessionID>/<id>.md`.
+Research-specific metadata: question, confidence, source count, follow-up rounds.
+
+### Delegation Manager (`src/delegation/manager.ts`)
+
+Runtime + durable manager. Creates `BackgroundRun` records, keeps active maps, session→delegation indexes, timers, heartbeats, forced finalization. Job projection groups worker/follow-up/delegator records by `jobID` → status `running`/`synthesizing`/terminal.
+Access scoped to parent session, worker session, or delegator session.
+
+### Tool-Facing Tools
+
+| Tool | File | Purpose |
+| ---- | ---- | ------- |
+| `delegation` | `tool/delegation.ts` | `list`/`count`/`read`/`cancel` background jobs, scoped to current session; `read`/`cancel` require `task` permission for target agent |
+| `delegator` | `tool/delegator.ts` | Lightweight monitor: `status`/`progress`/`summarize`; reads projected job state; formats research-specific summaries with confidence/source metadata |
+| `advisor` | `tool/advisor.ts` | Available only when `agent.advisor` is configured; dispatches background `generateText()` with no tools, creates `advisor` source delegation, returns `delegation_id` immediately; separate from delegator supervisor loop |
+
+### Monitor Tool (`tool/monitor.ts`)
+
+Reuses bash authorization, then starts a background monitored process through `Monitor.start()`. Returns monitor id, session id, log path, status, wake flag, recent output metadata. TUI listens for `monitor.output`, `monitor.updated`, `monitor.completed` via Bus, displays live output, shows completion toasts. Session abort cancels monitors via `/session/:sessionID/abort`.
+
+## Model Subtask Flow (`src/session/message-v2.ts`, `prompt.ts`)
+
+`SubtaskPart` schema: prompt, description, agent, model, command, background. Loop detects queued `subtask` parts → constructs synthetic assistant `task` tool call. Internal subtask execution sets `extra.bypassAgentCheck = true`. Background subtasks set `backgroundSource = "model-subtask"`. Slash/command execution turns subagent commands into `SubtaskPart` when target agent is `mode: "subagent"` or command forces `subtask`.
 
 ### SUBAGENT_TOOLSETS
 

@@ -2,21 +2,63 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Session } from "."
 import { Identifier } from "../id/id"
-import { Instance } from "../project/instance"
 import { Provider } from "../provider/provider"
 import { MessageV2 } from "./message-v2"
 import z from "zod"
 import { Token } from "../util/token"
 import { Log } from "../util/log"
 import { SessionProcessor } from "./processor"
-import { fn } from "@/util/fn"
 import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
+
+  function agentGet(name: string) {
+    return runPromiseWithLayer(
+      Agent.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const agent = yield* Agent.Service
+          return yield* agent.get(name)
+        }),
+      ),
+    )
+  }
+
+  async function agentRequired(name: string) {
+    const agent = await agentGet(name)
+    if (!agent) throw new Error(`Agent not found: ${name}`)
+    return agent
+  }
+
+  function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+    return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
+    return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>, ctx: InstanceContext) {
+    return runPromiseWithLayer(Session.defaultLayer, locallyInstance(ctx, effect))
+  }
+
+  function configGet() {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
 
   export const Event = {
     Compacted: BusEvent.define(
@@ -29,8 +71,41 @@ export namespace SessionCompaction {
 
   const COMPACTION_BUFFER = 20_000
 
-  export async function isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
-    const config = await Config.get()
+  export const CreateInput = z.object({
+    sessionID: Identifier.schema("session"),
+    agent: z.string(),
+    model: z.object({
+      providerID: z.string(),
+      modelID: z.string(),
+    }),
+    auto: z.boolean(),
+  })
+  export type CreateInput = z.infer<typeof CreateInput>
+
+  export interface ProcessInput {
+    parentID: string
+    messages: MessageV2.WithParts[]
+    sessionID: string
+    abort: AbortSignal
+    auto: boolean
+  }
+
+  export interface Interface {
+    isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }): Effect.Effect<boolean, unknown>
+    editContext(input: { sessionID: string; keepLastNTurns?: number }): Effect.Effect<void, unknown>
+    prune(input: { sessionID: string }): Effect.Effect<void, unknown>
+    process(input: ProcessInput): Effect.Effect<"continue" | "stop", unknown>
+    create(input: CreateInput): Effect.Effect<void, unknown>
+  }
+
+  export class Service extends Context.Tag("SessionCompaction.Service")<Service, Interface>() {}
+
+  async function isOverflowImpl(input: {
+    tokens: MessageV2.Assistant["tokens"]
+    model: Provider.Model
+    config: Config.Info
+  }) {
+    const config = input.config
     if (config.compaction?.auto === false) return false
     const context = input.model.limit.context
     if (context === 0) return false
@@ -52,12 +127,23 @@ export namespace SessionCompaction {
 
   // Removes tool results older than keepLastNTurns user turns regardless of size,
   // allowing the context window to stay clean for long sessions.
-  export async function editContext(input: { sessionID: string; keepLastNTurns?: number }): Promise<void> {
-    const config = await Config.get()
+  async function editContextImpl(input: {
+    sessionID: string
+    keepLastNTurns?: number
+    config: Config.Info
+    ctx: InstanceContext
+  }): Promise<void> {
+    const config = input.config
     if (config.compaction?.prune === false) return
 
     const keepTurns = input.keepLastNTurns ?? 10
-    const msgs = await Session.messages({ sessionID: input.sessionID })
+    const msgs = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID: input.sessionID })
+      }),
+      input.ctx,
+    )
     let turns = 0
     const toPrune: MessageV2.ToolPart[] = []
 
@@ -79,17 +165,29 @@ export namespace SessionCompaction {
     for (const part of toPrune) {
       if (part.state.status === "completed") {
         part.state.time.compacted = Date.now()
-        await Session.updatePart(part)
+        await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            yield* session.updatePart(part)
+          }),
+          input.ctx,
+        )
       }
     }
     log.info("editContext pruned", { count: toPrune.length })
   }
 
-  export async function prune(input: { sessionID: string }) {
-    const config = await Config.get()
+  async function pruneImpl(input: { sessionID: string; config: Config.Info; ctx: InstanceContext }) {
+    const config = input.config
     if (config.compaction?.prune === false) return
     log.info("pruning")
-    const msgs = await Session.messages({ sessionID: input.sessionID })
+    const msgs = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID: input.sessionID })
+      }),
+      input.ctx,
+    )
     let total = 0
     let pruned = 0
     const toPrune = []
@@ -121,20 +219,20 @@ export namespace SessionCompaction {
       for (const part of toPrune) {
         if (part.state.status === "completed") {
           part.state.time.compacted = Date.now()
-          await Session.updatePart(part)
+          await runSession(
+            Effect.gen(function* () {
+              const session = yield* Session.Service
+              yield* session.updatePart(part)
+            }),
+            input.ctx,
+          )
         }
       }
       log.info("pruned", { count: toPrune.length })
     }
   }
 
-  export async function process(input: {
-    parentID: string
-    messages: MessageV2.WithParts[]
-    sessionID: string
-    abort: AbortSignal
-    auto: boolean
-  }) {
+  async function processImpl(input: ProcessInput & { directory: string; worktree: string; ctx: InstanceContext }) {
     const userMessage = input.messages.findLast((m) => m.info.id === input.parentID)
     if (!userMessage) {
       log.error("parent message not found", { parentID: input.parentID })
@@ -145,45 +243,62 @@ export namespace SessionCompaction {
       log.error("parent message info not found", { parentID: input.parentID })
       throw new Error(`Parent message info not found: ${input.parentID}`)
     }
-    const agent = await Agent.get("compaction")
-    const model = agent.model
-      ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
-      : await Provider.getModel(userMessageInfo.model.providerID, userMessageInfo.model.modelID)
-    const msg = (await Session.updateMessage({
-      id: Identifier.ascending("message"),
-      role: "assistant",
-      parentID: input.parentID,
-      sessionID: input.sessionID,
-      mode: "compaction",
-      agent: "compaction",
-      summary: true,
-      path: {
-        cwd: Instance.directory,
-        root: Instance.worktree,
-      },
-      cost: 0,
-      tokens: {
-        output: 0,
-        input: 0,
-        reasoning: 0,
-        cache: { read: 0, write: 0 },
-      },
-      modelID: model.id,
-      providerID: model.providerID,
-      time: {
-        created: Date.now(),
-      },
-    })) as MessageV2.Assistant
+    const agent = await agentRequired("compaction")
+    const model = await runProvider(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return agent.model
+          ? yield* provider.getModel(agent.model.providerID, agent.model.modelID)
+          : yield* provider.getModel(userMessageInfo.model.providerID, userMessageInfo.model.modelID)
+      }),
+      input.ctx,
+    )
+    const msg = (await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.updateMessage({
+          id: Identifier.ascending("message"),
+          role: "assistant",
+          parentID: input.parentID,
+          sessionID: input.sessionID,
+          mode: "compaction",
+          agent: "compaction",
+          summary: true,
+          path: {
+            cwd: input.directory,
+            root: input.worktree,
+          },
+          cost: 0,
+          tokens: {
+            output: 0,
+            input: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+          modelID: model.id,
+          providerID: model.providerID,
+          time: {
+            created: Date.now(),
+          },
+        })
+      }),
+      input.ctx,
+    )) as MessageV2.Assistant
     const processor = SessionProcessor.create({
       assistantMessage: msg,
       sessionID: input.sessionID,
       model,
       abort: input.abort,
     })
-    const compacting = await Plugin.trigger(
-      "experimental.session.compacting",
-      { sessionID: input.sessionID },
-      { context: [], prompt: undefined },
+    const compacting = await runPlugin(
+      Effect.gen(function* () {
+        const plugin = yield* Plugin.Service
+        return yield* plugin.trigger(
+          "experimental.session.compacting",
+          { sessionID: input.sessionID },
+          { context: [], prompt: undefined },
+        )
+      }),
     )
     const defaultPrompt = `Provide a detailed prompt for continuing our conversation above.
 Focus on information that would be helpful for continuing the conversation, including what we did, what we're doing, which files we're working on, and what we're going to do next.
@@ -236,62 +351,98 @@ When constructing the summary, try to stick to this template:
     })
 
     if (result === "continue" && input.auto) {
-      const continueMsg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
-        role: "user",
-        sessionID: input.sessionID,
-        time: {
-          created: Date.now(),
-        },
-        agent: userMessageInfo.agent,
-        model: userMessageInfo.model,
-      })
-      await Session.updatePart({
-        id: Identifier.ascending("part"),
-        messageID: continueMsg.id,
-        sessionID: input.sessionID,
-        type: "text",
-        synthetic: true,
-        text: "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.",
-        time: {
-          start: Date.now(),
-          end: Date.now(),
-        },
-      })
+      await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          const continueMsg = yield* session.updateMessage({
+            id: Identifier.ascending("message"),
+            role: "user",
+            sessionID: input.sessionID,
+            time: {
+              created: Date.now(),
+            },
+            agent: userMessageInfo.agent,
+            model: userMessageInfo.model,
+          })
+          yield* session.updatePart({
+            id: Identifier.ascending("part"),
+            messageID: continueMsg.id,
+            sessionID: input.sessionID,
+            type: "text",
+            synthetic: true,
+            text: "Continue if you have next steps, or stop and ask for clarification if you are unsure how to proceed.",
+            time: {
+              start: Date.now(),
+              end: Date.now(),
+            },
+          })
+        }),
+        input.ctx,
+      )
     }
     if (processor.message.error) return "stop"
     Bus.publish(Event.Compacted, { sessionID: input.sessionID })
     return "continue"
   }
 
-  export const create = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      agent: z.string(),
-      model: z.object({
-        providerID: z.string(),
-        modelID: z.string(),
+  async function createImpl(input: CreateInput & { ctx: InstanceContext }) {
+    await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        const msg = yield* session.updateMessage({
+          id: Identifier.ascending("message"),
+          role: "user",
+          model: input.model,
+          sessionID: input.sessionID,
+          agent: input.agent,
+          time: {
+            created: Date.now(),
+          },
+        })
+        yield* session.updatePart({
+          id: Identifier.ascending("part"),
+          messageID: msg.id,
+          sessionID: msg.sessionID,
+          type: "compaction",
+          auto: input.auto,
+        })
       }),
-      auto: z.boolean(),
+      input.ctx,
+    )
+  }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      isOverflow: (input) =>
+        Effect.gen(function* () {
+          const config = yield* Effect.promise(() => configGet())
+          return yield* Effect.tryPromise(() => isOverflowImpl({ ...input, config }))
+        }),
+      editContext: (input) =>
+        Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          const config = yield* Effect.promise(() => configGet())
+          return yield* Effect.tryPromise(() => editContextImpl({ ...input, config, ctx }))
+        }),
+      prune: (input) =>
+        Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          const config = yield* Effect.promise(() => configGet())
+          return yield* Effect.tryPromise(() => pruneImpl({ ...input, config, ctx }))
+        }),
+      process: (input) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise(() => processImpl({ ...input, directory: ctx.directory, worktree: ctx.worktree, ctx })),
+          ),
+        ),
+      create: (input) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) => Effect.tryPromise(() => createImpl({ ...input, ctx }))),
+        ),
     }),
-    async (input) => {
-      const msg = await Session.updateMessage({
-        id: Identifier.ascending("message"),
-        role: "user",
-        model: input.model,
-        sessionID: input.sessionID,
-        agent: input.agent,
-        time: {
-          created: Date.now(),
-        },
-      })
-      await Session.updatePart({
-        id: Identifier.ascending("part"),
-        messageID: msg.id,
-        sessionID: msg.sessionID,
-        type: "compaction",
-        auto: input.auto,
-      })
-    },
   )
+
+  export const defaultLayer = layer
 }

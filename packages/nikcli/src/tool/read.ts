@@ -8,10 +8,16 @@ import DESCRIPTION from "./read.txt"
 import { Instance } from "../project/instance"
 import { Identifier } from "../id/id"
 import { assertExternalDirectory } from "./external-directory"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const DEFAULT_READ_LIMIT = 2000
 const MAX_LINE_LENGTH = 2000
 const MAX_BYTES = 50 * 1024
+
+function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
+  return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
+}
 
 export const ReadTool = Tool.define("read", {
   description: DESCRIPTION,
@@ -133,7 +139,12 @@ export const ReadTool = Tool.define("read", {
     }
     output += "\n</file>"
 
-    LSP.touchFile(filepath, false)
+    void runLSP(
+      Effect.gen(function* () {
+        const lsp = yield* LSP.Service
+        yield* lsp.touchFile(filepath, false)
+      }),
+    )
     FileTime.read(ctx.sessionID, filepath)
 
     return {

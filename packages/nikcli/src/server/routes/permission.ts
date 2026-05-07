@@ -4,6 +4,12 @@ import z from "zod"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
+  return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
+}
 
 export const PermissionRoutes = lazy(() =>
   new Hono()
@@ -35,11 +41,16 @@ export const PermissionRoutes = lazy(() =>
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")
-        await PermissionNext.reply({
-          requestID: params.requestID,
-          reply: json.reply,
-          message: json.message,
-        })
+        await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            yield* permission.reply({
+              requestID: params.requestID,
+              reply: json.reply,
+              message: json.message,
+            })
+          }),
+        )
         return c.json(true)
       },
     )
@@ -61,7 +72,12 @@ export const PermissionRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        const permissions = await PermissionNext.list()
+        const permissions = await runPermission(
+          Effect.gen(function* () {
+            const permission = yield* PermissionNext.Service
+            return yield* permission.list()
+          }),
+        )
         return c.json(permissions)
       },
     ),

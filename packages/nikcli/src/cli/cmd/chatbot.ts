@@ -9,8 +9,32 @@ import { modify, applyEdits } from "jsonc-parser"
 import { Global } from "../../global"
 import { Server } from "../../server/server"
 import path from "path"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 type ConnectorConfigured = Config.Connector
+
+function connectorAuthUpdateBotToken(name: string, botToken: string) {
+  return runPromiseWithLayer(
+    ConnectorAuth.defaultLayer,
+    Effect.gen(function* () {
+      const auth = yield* ConnectorAuth.Service
+      yield* auth.updateBotToken(name, botToken)
+    }),
+  )
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
 
 async function getChatBot() {
   const mod = await import("../../chatbot")
@@ -85,7 +109,7 @@ export const BotListCommand = cmd({
         UI.empty()
         prompts.intro("Chat Bots")
 
-        const config = await Config.get()
+        const config = await configGet()
         const connectors = config.connectors ?? {}
 
         const items = Object.entries(connectors).filter(
@@ -204,7 +228,7 @@ export const BotAddCommand = cmd({
 
         if (botTokenResult && botTokenResult.trim()) {
           await addConnectorToConfig(name, connectorConfig, configPath)
-          await ConnectorAuth.updateBotToken(name, botTokenResult.trim())
+          await connectorAuthUpdateBotToken(name, botTokenResult.trim())
           hasCredentials = true
         } else {
           await addConnectorToConfig(name, connectorConfig, configPath)
@@ -238,7 +262,7 @@ export const BotStartCommand = cmd({
         UI.empty()
         prompts.intro("Start Chat Bot")
 
-        const config = await Config.get()
+        const config = await configGet()
         const connectors = config.connectors ?? {}
 
         const chatBots = Object.entries(connectors).filter(
@@ -368,7 +392,7 @@ export const BotWebhookCommand = cmd({
         UI.empty()
         prompts.intro("Chat Bot Webhook")
 
-        const config = await Config.get()
+        const config = await configGet()
         const connectors = config.connectors ?? {}
 
         const chatBots = Object.entries(connectors).filter(

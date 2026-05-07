@@ -4,6 +4,8 @@ import path from "path"
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import { Instance } from "@/project/instance"
 import { SessionStatus } from "@/session/status"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-session-status-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -18,6 +20,37 @@ async function withProject<T>(fn: () => Promise<T> | T): Promise<T> {
     directory: projectDir,
     fn,
   })
+}
+
+function runStatus<A, E>(effect: Effect.Effect<A, E, SessionStatus.Service>) {
+  return runPromiseWithLayer(SessionStatus.defaultLayer, withCurrentInstance(effect))
+}
+
+function getStatus(sessionID: string) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.get(sessionID)
+    }),
+  )
+}
+
+function setStatus(sessionID: string, input: SessionStatus.Info) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.set(sessionID, input)
+    }),
+  )
+}
+
+function hydrateStatus(sessionID: string, input: SessionStatus.Info) {
+  return runStatus(
+    Effect.gen(function* () {
+      const status = yield* SessionStatus.Service
+      return yield* status.hydrate(sessionID, input)
+    }),
+  )
 }
 
 describe("SessionStatus", () => {
@@ -40,22 +73,22 @@ describe("SessionStatus", () => {
   it("set/get/hydrate roundtrip per instance", async () => {
     await withProject(async () => {
       const sid = "status-a"
-      SessionStatus.set(sid, { type: "busy" })
-      expect(SessionStatus.get(sid).type).toBe("busy")
-      SessionStatus.hydrate(sid, { type: "retry", attempt: 1, message: "m", next: 9 })
-      expect(SessionStatus.get(sid).type).toBe("retry")
-      SessionStatus.set(sid, { type: "idle" })
-      expect(SessionStatus.get(sid).type).toBe("idle")
+      await setStatus(sid, { type: "busy" })
+      expect((await getStatus(sid)).type).toBe("busy")
+      await hydrateStatus(sid, { type: "retry", attempt: 1, message: "m", next: 9 })
+      expect((await getStatus(sid)).type).toBe("retry")
+      await setStatus(sid, { type: "idle" })
+      expect((await getStatus(sid)).type).toBe("idle")
     })
   })
 
   it("isolates state between projects", async () => {
     await withProject(async () => {
-      SessionStatus.set("shared-key", { type: "busy" })
-      expect(SessionStatus.get("shared-key").type).toBe("busy")
+      await setStatus("shared-key", { type: "busy" })
+      expect((await getStatus("shared-key")).type).toBe("busy")
     })
     await withProject(async () => {
-      expect(SessionStatus.get("shared-key").type).toBe("idle")
+      expect((await getStatus("shared-key")).type).toBe("idle")
     })
   })
 })

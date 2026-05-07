@@ -15,7 +15,6 @@ import { InvalidTool } from "./invalid"
 import { SkillTool } from "./skill"
 import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
-import { Instance } from "../project/instance"
 import { Config } from "../config/config"
 import path from "path"
 import { type ToolDefinition } from "@nikcli-ai/plugin"
@@ -33,6 +32,8 @@ import { Flag } from "@/flag/flag"
 import { Log } from "@/util/log"
 import { LspTool } from "./lsp"
 import { Truncate } from "./truncation"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 import { PlanExitTool, PlanEnterTool } from "./plan"
 import { ApplyPatchTool } from "./apply_patch"
 import { SpeakTool } from "./speak"
@@ -61,34 +62,68 @@ plugin({
 export namespace ToolRegistry {
   const log = Log.create({ service: "tool.registry" })
 
-  export const state = Instance.state(async () => {
-    const custom = [] as Tool.Info[]
-    const glob = new Bun.Glob("{tool,tools}/*.{js,ts}")
+  type State = {
+    custom: Tool.Info[]
+  }
 
-    for (const dir of await Config.directories()) {
-      for await (const match of glob.scan({
-        cwd: dir,
-        absolute: true,
-        followSymlinks: true,
-        dot: true,
-      })) {
-        const namespace = path.basename(match, path.extname(match))
-        const mod = await import(match)
-        for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
-          custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
-        }
-      }
-    }
+  export type Resolved = {
+    id: string
+    description: string
+    parameters: z.ZodType
+    execute: Tool.Def["execute"]
+    formatValidationError: Tool.Def["formatValidationError"]
+  }
 
-    const plugins = await Plugin.list()
-    for (const plugin of plugins) {
-      for (const [id, def] of Object.entries(plugin.tool ?? {})) {
-        custom.push(fromPlugin(id, def))
-      }
-    }
+  export interface Interface {
+    readonly register: (tool: Tool.Info) => Effect.Effect<void, unknown>
+    readonly ids: () => Effect.Effect<string[], unknown>
+    readonly tools: (
+      model: {
+        providerID: string
+        modelID: string
+      },
+      agent?: Agent.Info,
+      options?: { slim?: boolean },
+    ) => Effect.Effect<Resolved[], unknown>
+  }
 
-    return { custom }
-  })
+  export class Service extends Context.Tag("@nikcli/ToolRegistry")<Service, Interface>() {}
+
+  function configGet(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.get()
+        }),
+      ),
+    )
+  }
+
+  function configDirectories(ctx: InstanceContext) {
+    return runPromiseWithLayer(
+      Config.defaultLayer,
+      locallyInstance(
+        ctx,
+        Effect.gen(function* () {
+          const config = yield* Config.Service
+          return yield* config.directories()
+        }),
+      ),
+    )
+  }
+
+  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
+    return runPromiseWithLayer(
+      Truncate.defaultLayer,
+      Effect.gen(function* () {
+        const truncate = yield* Truncate.Service
+        return yield* truncate.output(text, options, agent)
+      }),
+    )
+  }
 
   function fromPlugin(id: string, def: ToolDefinition): Tool.Info {
     return {
@@ -98,7 +133,7 @@ export namespace ToolRegistry {
         description: def.description,
         execute: async (args, ctx) => {
           const result = await def.execute(args as any, ctx)
-          const out = await Truncate.output(result, {}, initCtx?.agent)
+          const out = await truncateOutput(result, {}, initCtx?.agent)
           return {
             title: "",
             output: out.truncated ? out.content : result,
@@ -109,105 +144,165 @@ export namespace ToolRegistry {
     }
   }
 
-  export async function register(tool: Tool.Info) {
-    const { custom } = await state()
-    const idx = custom.findIndex((t) => t.id === tool.id)
-    if (idx >= 0) {
-      custom.splice(idx, 1, tool)
-      return
-    }
-    custom.push(tool)
-  }
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const state = yield* InstanceState.make<State>(
+        Effect.fn("ToolRegistry.state")(function* () {
+          const custom = [] as Tool.Info[]
+          const glob = new Bun.Glob("{tool,tools}/*.{js,ts}")
+          const ctx = yield* InstanceState.context
 
-  async function all(): Promise<Tool.Info[]> {
-    const custom = await state().then((x) => x.custom)
-    const config = await Config.get()
-
-    return [
-      InvalidTool,
-      ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
-      BashTool,
-      MonitorTool,
-      ReadTool,
-      TreeTool,
-      GlobTool,
-      GrepTool,
-      EditTool,
-      WriteTool,
-      TaskTool,
-      DelegationTool,
-      ContextCollectTool,
-      ContextRelatedTool,
-      ContextDiagnosticsTool,
-      MemorySearchTool,
-      GenerateImageTool,
-
-      WebFetchTool,
-      TodoWriteTool,
-      TodoReadTool,
-      WebSearchTool,
-      CodeSearchTool,
-      SkillTool,
-      ApplyPatchTool,
-      ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
-      ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
-      ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
-      SpeakTool,
-      OpenTUIVizTool,
-      AdvisorTool,
-      DelegatorTool,
-      SearchToolsTool,
-      ExecCodeTool,
-      ...custom,
-    ]
-  }
-
-  export async function ids() {
-    return all().then((x) => x.map((t) => t.id))
-  }
-
-  // Core tools loaded in slim mode — enough for most tasks + search_tools for discovery.
-  const SLIM_TOOLS = new Set(["bash", "read", "glob", "grep", "tree", "edit", "write", "task", "search_tools"])
-
-  export async function tools(
-    model: {
-      providerID: string
-      modelID: string
-    },
-    agent?: Agent.Info,
-    options?: { slim?: boolean },
-  ) {
-    const tools = await all()
-    const result = await Promise.all(
-      tools
-        .filter((t) => {
-          if (options?.slim) return SLIM_TOOLS.has(t.id)
-
-          if (t.id === "codesearch" || t.id === "websearch") {
-            return model.providerID === "nikcli" || Flag.NIKCLI_ENABLE_EXA
+          for (const dir of yield* Effect.promise(() => configDirectories(ctx))) {
+            const matches = yield* Effect.promise(() =>
+              Array.fromAsync(
+                glob.scan({
+                  cwd: dir,
+                  absolute: true,
+                  followSymlinks: true,
+                  dot: true,
+                }),
+              ),
+            )
+            for (const match of matches) {
+              const namespace = path.basename(match, path.extname(match))
+              const mod = yield* Effect.promise(() => import(match))
+              for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+                custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+              }
+            }
           }
 
-          const usePatch =
-            model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
-          if (t.id === "apply_patch") return usePatch
-          if (t.id === "edit" || t.id === "write") return !usePatch
-
-          if (t.id === "advisor") return !!agent?.advisor
-
-          return true
-        })
-        .map(async (t) => {
-          using _ = log.time(t.id)
-          const def = await t.init({ agent })
-          return {
-            id: t.id,
-            description: def.description,
-            parameters: def.parameters,
-            execute: def.execute,
-            formatValidationError: def.formatValidationError,
+          const plugins = yield* Effect.provide(
+            Effect.gen(function* () {
+              const plugin = yield* Plugin.Service
+              return yield* plugin.list()
+            }),
+            Plugin.defaultLayer,
+          ).pipe(Effect.orDie)
+          for (const plugin of plugins) {
+            for (const [id, def] of Object.entries(plugin.tool ?? {})) {
+              custom.push(fromPlugin(id, def))
+            }
           }
+
+          return { custom }
         }),
-    )
-    return result
-  }
+      )
+
+      const register: Interface["register"] = Effect.fn("ToolRegistry.register")(function* (tool: Tool.Info) {
+        const { custom } = yield* InstanceState.get(state)
+        const idx = custom.findIndex((t) => t.id === tool.id)
+        if (idx >= 0) {
+          custom.splice(idx, 1, tool)
+          return
+        }
+        custom.push(tool)
+      })
+
+      const all: () => Effect.Effect<Tool.Info[], unknown> = Effect.fn("ToolRegistry.all")(function* () {
+        const custom = yield* InstanceState.get(state).pipe(Effect.map((x) => x.custom))
+        const ctx = yield* InstanceState.context
+        const config = yield* Effect.promise(() => configGet(ctx))
+
+        return [
+          InvalidTool,
+          ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
+          BashTool,
+          MonitorTool,
+          ReadTool,
+          TreeTool,
+          GlobTool,
+          GrepTool,
+          EditTool,
+          WriteTool,
+          TaskTool,
+          DelegationTool,
+          ContextCollectTool,
+          ContextRelatedTool,
+          ContextDiagnosticsTool,
+          MemorySearchTool,
+          GenerateImageTool,
+
+          WebFetchTool,
+          TodoWriteTool,
+          TodoReadTool,
+          WebSearchTool,
+          CodeSearchTool,
+          SkillTool,
+          ApplyPatchTool,
+          ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),
+          ...(config.experimental?.batch_tool === true ? [BatchTool] : []),
+          ...(Flag.NIKCLI_EXPERIMENTAL_PLAN_MODE && Flag.NIKCLI_CLIENT === "cli" ? [PlanExitTool, PlanEnterTool] : []),
+          SpeakTool,
+          OpenTUIVizTool,
+          AdvisorTool,
+          DelegatorTool,
+          SearchToolsTool,
+          ExecCodeTool,
+          ...custom,
+        ]
+      })
+
+      const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {
+        const list = yield* all()
+        return list.map((t) => t.id)
+      })
+
+      // Core tools loaded in slim mode — enough for most tasks + search_tools for discovery.
+      const SLIM_TOOLS = new Set(["bash", "read", "glob", "grep", "tree", "edit", "write", "task", "search_tools"])
+
+      const tools: Interface["tools"] = Effect.fn("ToolRegistry.tools")(function* (
+        model: {
+          providerID: string
+          modelID: string
+        },
+        agent?: Agent.Info,
+        options?: { slim?: boolean },
+      ) {
+        const tools = yield* all()
+        const result = yield* Effect.promise(() =>
+          Promise.all(
+            tools
+              .filter((t) => {
+                if (options?.slim) return SLIM_TOOLS.has(t.id)
+
+                if (t.id === "codesearch" || t.id === "websearch") {
+                  return model.providerID === "nikcli" || Flag.NIKCLI_ENABLE_EXA
+                }
+
+                const usePatch =
+                  model.modelID.includes("gpt-") && !model.modelID.includes("oss") && !model.modelID.includes("gpt-4")
+                if (t.id === "apply_patch") return usePatch
+                if (t.id === "edit" || t.id === "write") return !usePatch
+
+                if (t.id === "advisor") return !!agent?.advisor
+
+                return true
+              })
+              .map(async (t) => {
+                using _ = log.time(t.id)
+                const def = await t.init({ agent })
+                return {
+                  id: t.id,
+                  description: def.description,
+                  parameters: def.parameters,
+                  execute: def.execute,
+                  formatValidationError: def.formatValidationError,
+                }
+              }),
+          ),
+        )
+        return result satisfies Resolved[]
+      })
+
+      return Service.of({
+        register,
+        ids,
+        tools,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

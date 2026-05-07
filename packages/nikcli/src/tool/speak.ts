@@ -11,6 +11,8 @@ import { ttsRegistry, type TTSProvider } from "./speak/provider"
 import { ELEVENLABS_VOICES_LIST, elevenLabsProvider } from "./speak/elevenlabs"
 import { OPENROUTER_VOICES_LIST, openRouterProvider } from "./speak/openrouter"
 import DESCRIPTION from "./speak.txt"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const log = Log.create({ service: "tool.speak" })
 
@@ -21,6 +23,18 @@ const OPENROUTER_DEFAULT_VOICE_ID = "alloy"
 const OPENROUTER_DEFAULT_MODEL_ID = "openai/gpt-audio-mini"
 const OPENROUTER_DEFAULT_OUTPUT_FORMAT = "mp3"
 const DEFAULT_PROVIDER = "openrouter"
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
 
 // Register built-in providers
 ttsRegistry.register(elevenLabsProvider)
@@ -253,7 +267,7 @@ export const SpeakTool = Tool.define("speak", {
       .describe(`Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})`),
   }),
   async execute(params, ctx) {
-    const config = await Config.get()
+    const config = await configGet()
     const speakConfig = config.speak ?? {}
 
     const player = detectPlayer()

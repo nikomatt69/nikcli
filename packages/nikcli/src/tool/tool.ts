@@ -3,8 +3,20 @@ import type { MessageV2 } from "../session/message-v2"
 import type { Agent } from "../agent/agent"
 import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
+import { runPromiseWithLayer } from "@/effect"
+import { Effect } from "effect"
 
 export namespace Tool {
+  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
+    return runPromiseWithLayer(
+      Truncate.defaultLayer,
+      Effect.gen(function* () {
+        const truncate = yield* Truncate.Service
+        return yield* truncate.output(text, options, agent)
+      }),
+    )
+  }
+
   export type Metadata = Record<string, unknown>
 
   export interface StrictMetadata extends z.ZodType<Record<string, unknown>> {}
@@ -89,7 +101,7 @@ export namespace Tool {
           if (result.metadata.truncated !== undefined) {
             return result
           }
-          const truncated = await Truncate.output(result.output, {}, initCtx?.agent)
+          const truncated = await truncateOutput(result.output, {}, initCtx?.agent)
           return {
             ...result,
             output: truncated.content,

@@ -9,18 +9,35 @@ const data = path.join(xdgData!, app)
 const cache = path.join(xdgCache!, app)
 const config = path.join(xdgConfig!, app)
 const state = path.join(xdgState!, app)
+
+function testPath(name: string, fallback: string) {
+  return process.env.NIKCLI_TEST_HOME ? path.join(process.env.NIKCLI_TEST_HOME, name) : fallback
+}
+
 export namespace Global {
   export const Path = {
     // Allow override via NIKCLI_TEST_HOME for test isolation
     get home() {
       return process.env.NIKCLI_TEST_HOME || os.homedir()
     },
-    data,
-    bin: path.join(data, "bin"),
-    log: path.join(data, "log"),
-    cache,
-    config,
-    state,
+    get data() {
+      return testPath("data", data)
+    },
+    get bin() {
+      return path.join(Global.Path.data, "bin")
+    },
+    get log() {
+      return path.join(Global.Path.data, "log")
+    },
+    get cache() {
+      return testPath("cache", cache)
+    },
+    get config() {
+      return testPath("config", config)
+    },
+    get state() {
+      return testPath("state", state)
+    },
     get modelsDevUrl() {
       return process.env.NIKCLI_MODELS_URL || "https://models.dev"
     },

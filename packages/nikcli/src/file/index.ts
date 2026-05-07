@@ -8,11 +8,13 @@ import fs from "fs"
 import ignore from "ignore"
 import { Log } from "../util/log"
 import { Filesystem } from "../util/filesystem"
-import { Instance } from "../project/instance"
 import { SearchBackend } from "./searchBackend"
 import fuzzysort from "fuzzysort"
 import { Global } from "../global"
 import { FFF } from "./fff"
+import { InstanceState } from "@/effect"
+import type { InstanceContext } from "@/effect"
+import { Context, Effect, Layer } from "effect"
 
 export namespace File {
   const log = Log.create({ service: "file" })
@@ -136,96 +138,160 @@ export namespace File {
     ),
   }
 
-  const state = Instance.state(async () => {
-    type Entry = { files: string[]; dirs: string[] }
-    let cache: Entry = { files: [], dirs: [] }
-    let fetching = false
-
-    const isGlobalHome = Instance.directory === Global.Path.home && Instance.project.id === "global"
-
-    const fn = async (result: Entry) => {
-      // Disable scanning if in root of file system
-      if (Instance.directory === path.parse(Instance.directory).root) return
-      fetching = true
-
-      if (isGlobalHome) {
-        const dirs = new Set<string>()
-        const ignore = new Set<string>()
-
-        if (process.platform === "darwin") ignore.add("Library")
-        if (process.platform === "win32") ignore.add("AppData")
-
-        const ignoreNested = new Set(["node_modules", "dist", "build", "target", "vendor"])
-        const shouldIgnore = (name: string) => name.startsWith(".") || ignore.has(name)
-        const shouldIgnoreNested = (name: string) => name.startsWith(".") || ignoreNested.has(name)
-
-        const top = await fs.promises
-          .readdir(Instance.directory, { withFileTypes: true })
-          .catch(() => [] as fs.Dirent[])
-
-        for (const entry of top) {
-          if (!entry.isDirectory()) continue
-          if (shouldIgnore(entry.name)) continue
-          dirs.add(entry.name + "/")
-
-          const base = path.join(Instance.directory, entry.name)
-          const children = await fs.promises.readdir(base, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
-          for (const child of children) {
-            if (!child.isDirectory()) continue
-            if (shouldIgnoreNested(child.name)) continue
-            dirs.add(entry.name + "/" + child.name + "/")
-          }
-        }
-
-        result.dirs = Array.from(dirs).toSorted()
-        cache = result
-        fetching = false
-        return
-      }
-
-      const set = new Set<string>()
-      for await (const file of SearchBackend.files({ cwd: Instance.directory })) {
-        result.files.push(file)
-        let current = file
-        while (true) {
-          const dir = path.dirname(current)
-          if (dir === ".") break
-          if (dir === current) break
-          current = dir
-          if (set.has(dir)) continue
-          set.add(dir)
-          result.dirs.push(dir + "/")
-        }
-      }
-      cache = result
-      fetching = false
-    }
-    fn(cache)
-
-    return {
-      async files() {
-        if (!fetching) {
-          fn({
-            files: [],
-            dirs: [],
-          })
-        }
-        return cache
-      },
-    }
-  })
-
-  export function init() {
-    state()
+  type Entry = { files: string[]; dirs: string[] }
+  type State = {
+    context: InstanceContext
+    files(): Promise<Entry>
   }
 
-  export async function status() {
-    const project = Instance.project
+  export interface Interface {
+    init(): Effect.Effect<void, unknown>
+    status(): Effect.Effect<Info[], unknown>
+    read(file: string): Effect.Effect<Content, unknown>
+    list(dir?: string): Effect.Effect<Node[], unknown>
+    search(input: {
+      query: string
+      limit?: number
+      dirs?: boolean
+      type?: "file" | "directory"
+    }): Effect.Effect<string[], unknown>
+  }
+
+  export class Service extends Context.Tag("File.Service")<Service, Interface>() {}
+
+  const state = InstanceState.make<State>((ctx) =>
+    Effect.gen(function* () {
+      let cache: Entry = { files: [], dirs: [] }
+      let fetching = false
+
+      const isGlobalHome = ctx.directory === Global.Path.home && ctx.project.id === "global"
+
+      const fn = async (result: Entry) => {
+        // Disable scanning if in root of file system
+        if (ctx.directory === path.parse(ctx.directory).root) return
+        fetching = true
+
+        if (isGlobalHome) {
+          const dirs = new Set<string>()
+          const ignore = new Set<string>()
+
+          if (process.platform === "darwin") ignore.add("Library")
+          if (process.platform === "win32") ignore.add("AppData")
+
+          const ignoreNested = new Set(["node_modules", "dist", "build", "target", "vendor"])
+          const shouldIgnore = (name: string) => name.startsWith(".") || ignore.has(name)
+          const shouldIgnoreNested = (name: string) => name.startsWith(".") || ignoreNested.has(name)
+
+          const top = await fs.promises.readdir(ctx.directory, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
+
+          for (const entry of top) {
+            if (!entry.isDirectory()) continue
+            if (shouldIgnore(entry.name)) continue
+            dirs.add(entry.name + "/")
+
+            const base = path.join(ctx.directory, entry.name)
+            const children = await fs.promises.readdir(base, { withFileTypes: true }).catch(() => [] as fs.Dirent[])
+            for (const child of children) {
+              if (!child.isDirectory()) continue
+              if (shouldIgnoreNested(child.name)) continue
+              dirs.add(entry.name + "/" + child.name + "/")
+            }
+          }
+
+          result.dirs = Array.from(dirs).toSorted()
+          cache = result
+          fetching = false
+          return
+        }
+
+        const set = new Set<string>()
+        for await (const file of SearchBackend.files({ cwd: ctx.directory })) {
+          result.files.push(file)
+          let current = file
+          while (true) {
+            const dir = path.dirname(current)
+            if (dir === ".") break
+            if (dir === current) break
+            current = dir
+            if (set.has(dir)) continue
+            set.add(dir)
+            result.dirs.push(dir + "/")
+          }
+        }
+        cache = result
+        fetching = false
+      }
+      const refresh = (result: Entry) => {
+        fn(result).catch((error) => {
+          fetching = false
+          log.warn("file cache refresh failed", { error })
+        })
+      }
+
+      refresh(cache)
+
+      return {
+        context: ctx,
+        async files() {
+          if (!fetching) {
+            refresh({
+              files: [],
+              dirs: [],
+            })
+          }
+          return cache
+        },
+      }
+    }),
+  )
+
+  function canonicalizePath(filepath: string) {
+    const absolute = path.isAbsolute(filepath) ? filepath : `${process.cwd()}${path.sep}${filepath}`
+    const { root } = path.parse(absolute)
+    const parts = absolute
+      .slice(root.length)
+      .split(/[\\/]+/)
+      .filter(Boolean)
+
+    let current = root
+    for (const part of parts) {
+      if (part === ".") continue
+      if (part === "..") {
+        current = path.dirname(current)
+        continue
+      }
+
+      const candidate = path.join(current, part)
+      try {
+        current = fs.realpathSync(candidate)
+      } catch {
+        current = candidate
+      }
+    }
+
+    return current
+  }
+
+  function containsPath(ctx: InstanceContext, filepath: string) {
+    try {
+      const canonicalInstance = fs.realpathSync(ctx.directory)
+      const canonicalWorktree = ctx.worktree === "/" ? "/" : fs.realpathSync(ctx.worktree)
+      const canonicalPath = canonicalizePath(filepath)
+      if (Filesystem.contains(canonicalInstance, canonicalPath)) return true
+      if (canonicalWorktree === "/") return false
+      return Filesystem.contains(canonicalWorktree, canonicalPath)
+    } catch {
+      return false
+    }
+  }
+
+  async function statusImpl(ctx: InstanceContext) {
+    const project = ctx.project
     if (project.vcs !== "git") return []
 
-    const diffOutput = await $`git diff --numstat --no-renames -z HEAD`.cwd(Instance.directory).quiet().nothrow().text()
+    const diffOutput = await $`git diff --numstat --no-renames -z HEAD`.cwd(ctx.directory).quiet().nothrow().text()
     const statusOutput = await $`git diff --name-status --no-renames -z HEAD`
-      .cwd(Instance.directory)
+      .cwd(ctx.directory)
       .quiet()
       .nothrow()
       .text()
@@ -259,7 +325,7 @@ export namespace File {
     }
 
     const untrackedOutput = await $`git ls-files -z --others --exclude-standard`
-      .cwd(Instance.directory)
+      .cwd(ctx.directory)
       .quiet()
       .nothrow()
       .text()
@@ -268,7 +334,7 @@ export namespace File {
       const untrackedFiles = untrackedOutput.split("\0").filter(Boolean)
       for (const filepath of untrackedFiles) {
         try {
-          const fullPath = path.join(Instance.directory, filepath)
+          const fullPath = path.join(ctx.directory, filepath)
           const stat = await fs.promises.lstat(fullPath)
           let lines = 0
 
@@ -277,7 +343,7 @@ export namespace File {
             lines = target.length === 0 ? 0 : target.split(/\r\n|\r|\n/).length
           } else {
             if (!stat.isFile()) continue
-            if (!Instance.containsPath(fullPath)) continue
+            if (!containsPath(ctx, fullPath)) continue
             lines = await countLines(fullPath)
           }
 
@@ -295,18 +361,18 @@ export namespace File {
 
     return changedFiles.map((x) => ({
       ...x,
-      path: path.isAbsolute(x.path) ? path.relative(Instance.directory, x.path) : x.path,
+      path: path.isAbsolute(x.path) ? path.relative(ctx.directory, x.path) : x.path,
     }))
   }
 
-  export async function read(file: string): Promise<Content> {
+  async function readImpl(ctx: InstanceContext, file: string): Promise<Content> {
     using _ = log.time("read", { file })
-    const project = Instance.project
-    const full = path.isAbsolute(file) ? path.normalize(file) : path.join(Instance.directory, file)
+    const project = ctx.project
+    const full = path.isAbsolute(file) ? path.normalize(file) : path.join(ctx.directory, file)
 
     // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
     // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!Instance.containsPath(full)) {
+    if (!containsPath(ctx, full)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
@@ -331,10 +397,10 @@ export namespace File {
       .then((x) => x.trim())
 
     if (project.vcs === "git") {
-      let diff = await $`git diff ${file}`.cwd(Instance.directory).quiet().nothrow().text()
-      if (!diff.trim()) diff = await $`git diff --staged ${file}`.cwd(Instance.directory).quiet().nothrow().text()
+      let diff = await $`git diff ${file}`.cwd(ctx.directory).quiet().nothrow().text()
+      if (!diff.trim()) diff = await $`git diff --staged ${file}`.cwd(ctx.directory).quiet().nothrow().text()
       if (diff.trim()) {
-        const original = await $`git show HEAD:${file}`.cwd(Instance.directory).quiet().nothrow().text()
+        const original = await $`git show HEAD:${file}`.cwd(ctx.directory).quiet().nothrow().text()
         const patch = structuredPatch(file, file, original, content, "old", "new", {
           context: Infinity,
           ignoreWhitespace: true,
@@ -346,31 +412,27 @@ export namespace File {
     return { type: "text", content }
   }
 
-  export async function list(dir?: string) {
+  async function listImpl(ctx: InstanceContext, dir?: string) {
     const exclude = [".git", ".DS_Store"]
-    const project = Instance.project
+    const project = ctx.project
     let ignored = (_: string) => false
     if (project.vcs === "git") {
       const ig = ignore()
-      const gitignore = Bun.file(path.join(Instance.worktree, ".gitignore"))
+      const gitignore = Bun.file(path.join(ctx.worktree, ".gitignore"))
       if (await gitignore.exists()) {
         ig.add(await gitignore.text())
       }
-      const ignoreFile = Bun.file(path.join(Instance.worktree, ".ignore"))
+      const ignoreFile = Bun.file(path.join(ctx.worktree, ".ignore"))
       if (await ignoreFile.exists()) {
         ig.add(await ignoreFile.text())
       }
       ignored = ig.ignores.bind(ig)
     }
-    const resolved = dir
-      ? path.isAbsolute(dir)
-        ? path.normalize(dir)
-        : path.join(Instance.directory, dir)
-      : Instance.directory
+    const resolved = dir ? (path.isAbsolute(dir) ? path.normalize(dir) : path.join(ctx.directory, dir)) : ctx.directory
 
     // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
     // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
-    if (!Instance.containsPath(resolved)) {
+    if (!containsPath(ctx, resolved)) {
       throw new Error(`Access denied: path escapes project directory`)
     }
 
@@ -382,7 +444,7 @@ export namespace File {
       .catch(() => [])) {
       if (exclude.includes(entry.name)) continue
       const fullPath = path.join(resolved, entry.name)
-      const relativePath = path.relative(Instance.directory, fullPath)
+      const relativePath = path.relative(ctx.directory, fullPath)
       const type = entry.isDirectory() ? "directory" : "file"
       nodes.push({
         name: entry.name,
@@ -400,7 +462,10 @@ export namespace File {
     })
   }
 
-  export async function search(input: { query: string; limit?: number; dirs?: boolean; type?: "file" | "directory" }) {
+  async function searchImpl(
+    s: State,
+    input: { query: string; limit?: number; dirs?: boolean; type?: "file" | "directory" },
+  ) {
     const query = input.query.trim()
     const limit = input.limit ?? 100
     const kind = input.type ?? (input.dirs === false ? "file" : "all")
@@ -446,7 +511,7 @@ export namespace File {
       return fffResult
     }
 
-    const result = await state().then((x) => x.files())
+    const result = await s.files()
 
     if (!query) {
       if (kind === "file") return result.files.slice(0, limit)
@@ -463,4 +528,50 @@ export namespace File {
     log.info("search", { query, kind, results: output.length, backend: "fuzzysort" })
     return output
   }
+
+  export const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const scopedState = yield* state
+
+      const init = Effect.fn("File.init")(function* () {
+        yield* InstanceState.get(scopedState)
+      })
+
+      const status = Effect.fn("File.status")(function* () {
+        const s = yield* InstanceState.get(scopedState)
+        return yield* Effect.tryPromise(() => statusImpl(s.context))
+      })
+
+      const read = Effect.fn("File.read")(function* (file: string) {
+        const s = yield* InstanceState.get(scopedState)
+        return yield* Effect.tryPromise(() => readImpl(s.context, file))
+      })
+
+      const list = Effect.fn("File.list")(function* (dir?: string) {
+        const s = yield* InstanceState.get(scopedState)
+        return yield* Effect.tryPromise(() => listImpl(s.context, dir))
+      })
+
+      const search = Effect.fn("File.search")(function* (input: {
+        query: string
+        limit?: number
+        dirs?: boolean
+        type?: "file" | "directory"
+      }) {
+        const s = yield* InstanceState.get(scopedState)
+        return yield* Effect.tryPromise(() => searchImpl(s, input))
+      })
+
+      return Service.of({
+        init,
+        status,
+        read,
+        list,
+        search,
+      })
+    }),
+  )
+
+  export const defaultLayer = layer
 }

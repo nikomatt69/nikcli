@@ -1,5 +1,4 @@
 import { Provider } from "@/provider/provider"
-import { fn } from "@/util/fn"
 import z from "zod"
 import { Session } from "."
 import { MessageV2 } from "./message-v2"
@@ -7,17 +6,74 @@ import { Identifier } from "@/id/id"
 import { Snapshot } from "@/snapshot"
 import { Log } from "@/util/log"
 import path from "path"
-import { Instance } from "@/project/instance"
 import { Storage } from "@/storage/storage"
 import { Bus } from "@/bus"
 import { LLM } from "./llm"
 import { Agent } from "@/agent/agent"
+import { Context, Effect, Layer } from "effect"
+import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 export namespace SessionSummary {
   const log = Log.create({ service: "session.summary" })
 
-  async function messagesForSummary(input: { sessionID: string; messageID: string }) {
-    const all = await Session.messages({ sessionID: input.sessionID })
+  export const SummarizeInput = z.object({
+    sessionID: z.string(),
+    messageID: z.string(),
+  })
+  export type SummarizeInput = z.infer<typeof SummarizeInput>
+
+  export const DiffInput = z.object({
+    sessionID: Identifier.schema("session"),
+    messageID: Identifier.schema("message").optional(),
+  })
+  export type DiffInput = z.infer<typeof DiffInput>
+
+  export interface Interface {
+    summarize(input: SummarizeInput): Effect.Effect<void, unknown>
+    diff(input: DiffInput): Effect.Effect<Snapshot.FileDiff[], unknown>
+    computeDiff(input: { messages: MessageV2.WithParts[] }): Effect.Effect<Snapshot.FileDiff[], unknown>
+  }
+
+  export class Service extends Context.Tag("SessionSummary.Service")<Service, Interface>() {}
+
+  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+    return runPromiseWithLayer(Storage.defaultLayer, effect)
+  }
+
+  function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>, ctx: InstanceContext) {
+    return runPromiseWithLayer(Provider.defaultLayer, locallyInstance(ctx, effect))
+  }
+
+  function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>, ctx: InstanceContext) {
+    return runPromiseWithLayer(Session.defaultLayer, locallyInstance(ctx, effect))
+  }
+
+  function storageRead<T>(key: string[]) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.read<T>(key)
+      }),
+    )
+  }
+
+  function storageWrite<T>(key: string[], content: T) {
+    return runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        yield* storage.write(key, content)
+      }),
+    )
+  }
+
+  async function messagesForSummary(ctx: InstanceContext, input: { sessionID: string; messageID: string }) {
+    const all = await runSession(
+      Effect.gen(function* () {
+        const session = yield* Session.Service
+        return yield* session.messages({ sessionID: input.sessionID })
+      }),
+      ctx,
+    )
     const anchor = all.find((message) => message.info.id === input.messageID)
     if (!anchor) {
       return {
@@ -38,151 +94,197 @@ export namespace SessionSummary {
     }
   }
 
-  export const summarize = fn(
-    z.object({
-      sessionID: z.string(),
-      messageID: z.string(),
-    }),
-    async (input) => {
-      const all = await Session.messages({ sessionID: input.sessionID })
-      await Promise.all([
-        summarizeSession({ sessionID: input.sessionID, messages: all }),
-        summarizeMessage({ messageID: input.messageID, messages: all }),
-      ])
-    },
-  )
+  const layer = Layer.effect(
+    Service,
+    Effect.gen(function* () {
+      const snapshot = yield* Snapshot.Service
+      const agentService = yield* Agent.Service
 
-  async function summarizeSession(input: { sessionID: string; messages: MessageV2.WithParts[] }) {
-    const files = new Set(
-      input.messages
-        .flatMap((x) => x.parts)
-        .filter((x) => x.type === "patch")
-        .flatMap((x) => x.files)
-        .map((x) => path.relative(Instance.worktree, x)),
-    )
-    const diffs = await computeDiff({ messages: input.messages }).then((x) =>
-      x.filter((x) => {
-        return files.has(x.file)
-      }),
-    )
-    await Session.update(input.sessionID, (draft) => {
-      draft.summary = {
-        additions: diffs.reduce((sum, x) => sum + x.additions, 0),
-        deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
-        files: diffs.length,
-      }
-    })
-    await Storage.write(["session_diff", input.sessionID], diffs)
-    Bus.publish(Session.Event.Diff, {
-      sessionID: input.sessionID,
-      diff: diffs,
-    })
-  }
+      const computeDiff = (input: { messages: MessageV2.WithParts[] }) =>
+        Effect.gen(function* () {
+          let from: string | undefined
+          let to: string | undefined
 
-  async function summarizeMessage(input: { messageID: string; messages: MessageV2.WithParts[] }) {
-    const anchor = input.messages.find((message) => message.info.id === input.messageID)
-    if (!anchor) return
-    const rootID = anchor.info.role === "assistant" ? anchor.info.parentID : anchor.info.id
-    const messages = input.messages.filter(
-      (message) =>
-        message.info.id === rootID || (message.info.role === "assistant" && message.info.parentID === rootID),
-    )
-    const msgWithParts = messages.find((message) => message.info.id === rootID)
-    if (!msgWithParts || msgWithParts.info.role !== "user") return
-    const userMsg = msgWithParts.info as MessageV2.User
-    const diffs = await computeDiff({ messages })
-    userMsg.summary = {
-      ...userMsg.summary,
-      diffs,
-    }
-    await Session.updateMessage(userMsg)
+          for (const item of input.messages) {
+            if (!from) {
+              for (const part of item.parts) {
+                if (part.type === "step-start" && part.snapshot) {
+                  from = part.snapshot
+                  break
+                }
+              }
+            }
 
-    const textPart = msgWithParts.parts.find((p) => p.type === "text" && !p.synthetic) as MessageV2.TextPart
-    if (textPart && userMsg.summary?.title === undefined) {
-      const agent = await Agent.get("title")
-      if (!agent) return
-      const stream = await LLM.stream({
-        agent,
-        user: userMsg,
-        tools: {},
-        model: agent.model
-          ? await Provider.getModel(agent.model.providerID, agent.model.modelID)
-          : ((await Provider.getSmallModel(userMsg.model.providerID)) ??
-            (await Provider.getModel(userMsg.model.providerID, userMsg.model.modelID))),
-        small: true,
-        messages: [
-          {
-            role: "user" as const,
-            content: `
-              The following is the text to summarize:
-              <text>
-              ${textPart?.text ?? ""}
-              </text>
-            `,
-          },
-        ],
-        abort: new AbortController().signal,
-        sessionID: userMsg.sessionID,
-        system: [],
-        retries: 3,
-      })
-      const result = await stream.text.catch((error) => {
-        log.error("failed to generate title", { error })
-        return undefined
-      })
-      if (!result?.trim()) return
-      log.info("title", { title: result })
-      userMsg.summary.title = result
-      await Session.updateMessage(userMsg)
-    }
-  }
-
-  export const diff = fn(
-    z.object({
-      sessionID: Identifier.schema("session"),
-      messageID: Identifier.schema("message").optional(),
-    }),
-    async (input) => {
-      if (!input.messageID) {
-        return Storage.read<Snapshot.FileDiff[]>(["session_diff", input.sessionID]).catch(() => [])
-      }
-
-      const { focus, rootID } = await messagesForSummary({
-        sessionID: input.sessionID,
-        messageID: input.messageID,
-      })
-      const root = focus.find((message) => message.info.id === rootID)
-      if (root?.info.role === "user" && root.info.summary?.diffs) {
-        return root.info.summary.diffs
-      }
-      if (!focus.length) return []
-      return computeDiff({ messages: focus })
-    },
-  )
-
-  export async function computeDiff(input: { messages: MessageV2.WithParts[] }) {
-    let from: string | undefined
-    let to: string | undefined
-
-    for (const item of input.messages) {
-      if (!from) {
-        for (const part of item.parts) {
-          if (part.type === "step-start" && part.snapshot) {
-            from = part.snapshot
-            break
+            for (const part of item.parts) {
+              if (part.type === "step-finish" && part.snapshot) {
+                to = part.snapshot
+                break
+              }
+            }
           }
+
+          if (from && to) {
+            return yield* snapshot.diffFull(from, to)
+          }
+          return []
+        })
+
+      async function summarizeSession(ctx: InstanceContext, input: { sessionID: string; messages: MessageV2.WithParts[] }) {
+        const files = new Set(
+          input.messages
+            .flatMap((x) => x.parts)
+            .filter((x) => x.type === "patch")
+            .flatMap((x) => x.files)
+            .map((x) => path.relative(ctx.worktree, x)),
+        )
+        const diffs = (await Effect.runPromise(computeDiff({ messages: input.messages }))).filter((x) => {
+          return files.has(x.file)
+        })
+        await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            yield* session.update(input.sessionID, (draft) => {
+              draft.summary = {
+                additions: diffs.reduce((sum, x) => sum + x.additions, 0),
+                deletions: diffs.reduce((sum, x) => sum + x.deletions, 0),
+                files: diffs.length,
+              }
+            })
+          }),
+          ctx,
+        )
+        await storageWrite(["session_diff", input.sessionID], diffs)
+        await Bus.publish(Session.Event.Diff, {
+          sessionID: input.sessionID,
+          diff: diffs,
+        })
+      }
+
+      async function summarizeMessage(ctx: InstanceContext, input: { messageID: string; messages: MessageV2.WithParts[] }) {
+        const anchor = input.messages.find((message) => message.info.id === input.messageID)
+        if (!anchor) return
+        const rootID = anchor.info.role === "assistant" ? anchor.info.parentID : anchor.info.id
+        const messages = input.messages.filter(
+          (message) =>
+            message.info.id === rootID || (message.info.role === "assistant" && message.info.parentID === rootID),
+        )
+        const msgWithParts = messages.find((message) => message.info.id === rootID)
+        if (!msgWithParts || msgWithParts.info.role !== "user") return
+        const userMsg = msgWithParts.info as MessageV2.User
+        const diffs = await Effect.runPromise(computeDiff({ messages }))
+        userMsg.summary = {
+          ...userMsg.summary,
+          diffs,
+        }
+        await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            yield* session.updateMessage(userMsg)
+          }),
+          ctx,
+        )
+
+        const textPart = msgWithParts.parts.find((p) => p.type === "text" && !p.synthetic) as MessageV2.TextPart
+        if (textPart && userMsg.summary?.title === undefined) {
+          const agent = await Effect.runPromise(agentService.get("title"))
+          if (!agent) return
+          const model = await runProvider(
+            Effect.gen(function* () {
+              const provider = yield* Provider.Service
+              if (agent.model) return yield* provider.getModel(agent.model.providerID, agent.model.modelID)
+              return (
+                (yield* provider.getSmallModel(userMsg.model.providerID)) ??
+                (yield* provider.getModel(userMsg.model.providerID, userMsg.model.modelID))
+              )
+            }),
+            ctx,
+          )
+          const stream = await LLM.stream({
+            agent,
+            user: userMsg,
+            tools: {},
+            model,
+            small: true,
+            messages: [
+              {
+                role: "user" as const,
+                content: `
+                  The following is the text to summarize:
+                  <text>
+                  ${textPart?.text ?? ""}
+                  </text>
+                `,
+              },
+            ],
+            abort: new AbortController().signal,
+            sessionID: userMsg.sessionID,
+            system: [],
+            retries: 3,
+          })
+          const result = await stream.text.catch((error) => {
+            log.error("failed to generate title", { error })
+            return undefined
+          })
+          if (!result?.trim()) return
+          log.info("title", { title: result })
+          userMsg.summary.title = result
+          await runSession(
+            Effect.gen(function* () {
+              const session = yield* Session.Service
+              yield* session.updateMessage(userMsg)
+            }),
+            ctx,
+          )
         }
       }
 
-      for (const part of item.parts) {
-        if (part.type === "step-finish" && part.snapshot) {
-          to = part.snapshot
-          break
-        }
-      }
-    }
+      return Service.of({
+        summarize: (input) =>
+          InstanceState.context.pipe(
+            Effect.flatMap((ctx) =>
+              Effect.tryPromise(async () => {
+                const all = await runSession(
+                  Effect.gen(function* () {
+                    const session = yield* Session.Service
+                    return yield* session.messages({ sessionID: input.sessionID })
+                  }),
+                  ctx,
+                )
+                await Promise.all([
+                  summarizeSession(ctx, { sessionID: input.sessionID, messages: all }),
+                  summarizeMessage(ctx, { messageID: input.messageID, messages: all }),
+                ])
+              }),
+            ),
+          ),
+        diff: (input) =>
+          Effect.gen(function* () {
+            if (!input.messageID) {
+              return yield* Effect.promise(() =>
+                storageRead<Snapshot.FileDiff[]>(["session_diff", input.sessionID]).catch(() => []),
+              )
+            }
 
-    if (from && to) return Snapshot.diffFull(from, to)
-    return []
-  }
+            const ctx = yield* InstanceState.context
+            const { focus, rootID } = yield* Effect.tryPromise(() =>
+              messagesForSummary(ctx, {
+                sessionID: input.sessionID,
+                messageID: input.messageID!,
+              }),
+            )
+            const root = focus.find((message) => message.info.id === rootID)
+            if (root?.info.role === "user" && root.info.summary?.diffs) {
+              return root.info.summary.diffs
+            }
+            if (!focus.length) return []
+            return yield* computeDiff({ messages: focus })
+          }),
+        computeDiff,
+      })
+    }),
+  )
+
+  export const defaultLayer = Layer.unwrapEffect(
+    Effect.sync(() => layer.pipe(Layer.provide(Layer.mergeAll(Snapshot.defaultLayer, Agent.defaultLayer)))),
+  )
 }

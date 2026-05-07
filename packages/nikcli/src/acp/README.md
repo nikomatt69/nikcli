@@ -153,7 +153,7 @@ This makes the codebase maintainable and testable.
 ACP sessions map cleanly to nikcli's internal session model:
 
 - ACP `session/new` → creates internal Session
-- ACP `session/prompt` → uses SessionPrompt.prompt()
+- ACP `session/prompt` → enters SessionPrompt.Service
 - Working directory context preserved per-session
 - Tool execution uses existing ToolRegistry
 

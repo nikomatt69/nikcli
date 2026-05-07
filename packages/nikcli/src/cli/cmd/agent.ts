@@ -10,8 +10,34 @@ import matter from "gray-matter"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
 import type { Argv } from "yargs"
+import { Effect } from "effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 type AgentMode = "all" | "primary" | "subagent"
+
+function agentGenerate(input: { description: string; model?: { providerID: string; modelID: string } }) {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.generate(input)
+      }),
+    ),
+  )
+}
+
+function agentList() {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.list()
+      }),
+    ),
+  )
+}
 
 const AVAILABLE_TOOLS = [
   "bash",
@@ -123,7 +149,7 @@ const AgentCreateCommand = cmd({
         const spinner = prompts.spinner()
         spinner.start("Generating agent configuration...")
         const model = args.model ? Provider.parseModel(args.model) : undefined
-        const generated = await Agent.generate({ description, model }).catch((error) => {
+        const generated = await agentGenerate({ description, model }).catch((error) => {
           spinner.stop(`LLM failed to generate agent: ${error.message}`, 1)
           if (isFullyNonInteractive) process.exit(1)
           throw new UI.CancelledError()
@@ -234,7 +260,7 @@ const AgentListCommand = cmd({
     await Instance.provide({
       directory: process.cwd(),
       async fn() {
-        const agents = await Agent.list()
+        const agents = await agentList()
         const sortedAgents = agents.sort((a, b) => {
           if (a.native !== b.native) {
             return a.native ? -1 : 1

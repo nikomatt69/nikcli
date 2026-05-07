@@ -13,6 +13,30 @@ import { iife } from "@/util/iife"
 import { type SystemError } from "bun"
 import type { Provider } from "@/provider/provider"
 import { workMap } from "@/util/queue"
+import { Effect } from "effect"
+import { runPromiseWithLayer } from "@/effect"
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
+    }),
+  )
+}
+
+function storageRead<T>(key: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.read<T>(key)
+    }),
+  )
+}
 
 export namespace MessageV2 {
   export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
@@ -716,7 +740,7 @@ export namespace MessageV2 {
   })
 
   export const stream = fn(Identifier.schema("session"), async function* (sessionID) {
-    const list = await Array.fromAsync(await Storage.list(["message", sessionID]))
+    const list = await Array.fromAsync(await storageList(["message", sessionID]))
     // Fetch messages in reverse order (newest first) with bounded concurrency
     const messages = await workMap(8, list.slice().reverse(), (item) =>
       get({ sessionID, messageID: item[2] }).catch(() => null as WithParts | null),
@@ -727,7 +751,7 @@ export namespace MessageV2 {
   })
 
   export const page = fn(PageInput, async (input) => {
-    const list = await Array.fromAsync(await Storage.list(["message", input.sessionID]))
+    const list = await Array.fromAsync(await storageList(["message", input.sessionID]))
     list.sort()
 
     let startIndex: number
@@ -750,8 +774,8 @@ export namespace MessageV2 {
     const results = await workMap(8, ids, (messageID) =>
       get({ sessionID: input.sessionID, messageID }).catch(() => null as WithParts | null),
     )
-    // Preserve the same ordering as sequential fetch (ids order). Session.messages(limit)
-    // applies toReversed() once for chronological UI — reversing here inverted it twice vs pre-workMap behavior.
+    // Preserve the same ordering as sequential fetch (ids order). Session message listing with a limit
+    // applies toReversed() once for chronological UI; reversing here inverted it twice vs pre-workMap behavior.
     const items = results.filter((r): r is WithParts => r !== null)
 
     const more = items.length === input.limit
@@ -762,8 +786,8 @@ export namespace MessageV2 {
   })
 
   export const parts = fn(Identifier.schema("message"), async (messageID) => {
-    const items = await Storage.list(["part", messageID])
-    const result = await workMap(8, items, (item) => Storage.read<MessageV2.Part>(item))
+    const items = await storageList(["part", messageID])
+    const result = await workMap(8, items, (item) => storageRead<MessageV2.Part>(item))
     result.sort((a, b) => (a.id > b.id ? 1 : -1))
     return result
   })
@@ -775,7 +799,7 @@ export namespace MessageV2 {
     }),
     async (input): Promise<WithParts> => {
       const [info, partsResult] = await Promise.all([
-        Storage.read<MessageV2.Info>(["message", input.sessionID, input.messageID]),
+        storageRead<MessageV2.Info>(["message", input.sessionID, input.messageID]),
         parts(input.messageID),
       ])
       return { info, parts: partsResult }

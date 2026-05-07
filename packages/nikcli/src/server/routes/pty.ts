@@ -6,6 +6,12 @@ import { Pty } from "@/pty"
 import { Storage } from "../../storage/storage"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
+
+function runPty<A, E>(effect: Effect.Effect<A, E, Pty.Service>) {
+  return runPromiseWithLayer(Pty.defaultLayer, withCurrentInstance(effect))
+}
 
 export const PtyRoutes = lazy(() =>
   new Hono()
@@ -27,7 +33,13 @@ export const PtyRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json(Pty.list())
+        const list = await runPty(
+          Effect.gen(function* () {
+            const pty = yield* Pty.Service
+            return yield* pty.list()
+          }),
+        )
+        return c.json(list)
       },
     )
     .post(
@@ -50,7 +62,13 @@ export const PtyRoutes = lazy(() =>
       }),
       validator("json", Pty.CreateInput),
       async (c) => {
-        const info = await Pty.create(c.req.valid("json"))
+        const input = c.req.valid("json")
+        const info = await runPty(
+          Effect.gen(function* () {
+            const pty = yield* Pty.Service
+            return yield* pty.create(input)
+          }),
+        )
         return c.json(info)
       },
     )
@@ -74,7 +92,13 @@ export const PtyRoutes = lazy(() =>
       }),
       validator("param", z.object({ ptyID: z.string() })),
       async (c) => {
-        const info = Pty.get(c.req.valid("param").ptyID)
+        const { ptyID } = c.req.valid("param")
+        const info = await runPty(
+          Effect.gen(function* () {
+            const pty = yield* Pty.Service
+            return yield* pty.get(ptyID)
+          }),
+        )
         if (!info) {
           throw new Storage.NotFoundError({ message: "Session not found" })
         }
@@ -102,7 +126,14 @@ export const PtyRoutes = lazy(() =>
       validator("param", z.object({ ptyID: z.string() })),
       validator("json", Pty.UpdateInput),
       async (c) => {
-        const info = await Pty.update(c.req.valid("param").ptyID, c.req.valid("json"))
+        const { ptyID } = c.req.valid("param")
+        const input = c.req.valid("json")
+        const info = await runPty(
+          Effect.gen(function* () {
+            const pty = yield* Pty.Service
+            return yield* pty.update(ptyID, input)
+          }),
+        )
         return c.json(info)
       },
     )
@@ -126,7 +157,13 @@ export const PtyRoutes = lazy(() =>
       }),
       validator("param", z.object({ ptyID: z.string() })),
       async (c) => {
-        await Pty.remove(c.req.valid("param").ptyID)
+        const { ptyID } = c.req.valid("param")
+        await runPty(
+          Effect.gen(function* () {
+            const pty = yield* Pty.Service
+            yield* pty.remove(ptyID)
+          }),
+        )
         return c.json(true)
       },
     )
@@ -151,17 +188,18 @@ export const PtyRoutes = lazy(() =>
       validator("param", z.object({ ptyID: z.string() })),
       upgradeWebSocket((c) => {
         const id = c.req.param("ptyID")
-        const ptyInfo = Pty.get(id)
-        if (!ptyInfo) {
-          throw new Error(`Session not found: ${id}`)
-        }
         // Log connection attempt for debugging
         console.log(`[PTY] WebSocket connection attempt for session: ${id}`)
-        let handler: ReturnType<typeof Pty.connect>
+        let handler: Pty.Connection | undefined
         return {
-          onOpen(_event, ws) {
+          async onOpen(_event, ws) {
             console.log(`[PTY] WebSocket opened for session: ${id}`)
-            handler = Pty.connect(id, ws)
+            handler = await runPty(
+              Effect.gen(function* () {
+                const pty = yield* Pty.Service
+                return yield* pty.connect(id, ws)
+              }),
+            )
           },
           onMessage(event) {
             const raw = event.data
@@ -171,7 +209,12 @@ export const PtyRoutes = lazy(() =>
               try {
                 const msg = JSON.parse(text) as Record<string, unknown>
                 if (msg.type === "resize" && typeof msg.cols === "number" && typeof msg.rows === "number") {
-                  Pty.resize(id, msg.cols, msg.rows)
+                  void runPty(
+                    Effect.gen(function* () {
+                      const pty = yield* Pty.Service
+                      yield* pty.resize(id, msg.cols as number, msg.rows as number)
+                    }),
+                  )
                   return
                 }
               } catch {}

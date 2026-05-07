@@ -7,6 +7,7 @@ import { Lock } from "../util/lock"
 import { $ } from "bun"
 import { NamedError } from "@nikcli-ai/util/error"
 import z from "zod"
+import { Context, Effect, Layer } from "effect"
 
 /** In-memory read-through cache with write-through invalidation. */
 namespace Cache {
@@ -52,6 +53,16 @@ export namespace Storage {
   const log = Log.create({ service: "storage" })
 
   type Migration = (dir: string) => Promise<void>
+
+  export interface Interface {
+    remove(key: string[]): Effect.Effect<void, unknown>
+    read<T>(key: string[]): Effect.Effect<T, unknown>
+    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, unknown>
+    write<T>(key: string[], content: T): Effect.Effect<void, unknown>
+    list(prefix: string[]): Effect.Effect<string[][], unknown>
+  }
+
+  export class Service extends Context.Tag("Storage.Service")<Service, Interface>() {}
 
   export const NotFoundError = NamedError.create(
     "NotFoundError",
@@ -202,7 +213,7 @@ export namespace Storage {
     }
   })
 
-  export async function remove(key: string[]) {
+  async function removeImpl(key: string[]) {
     const cacheKey = key.join("/")
     Cache.invalidate(cacheKey)
     const { dir } = await state()
@@ -217,7 +228,7 @@ export namespace Storage {
     })
   }
 
-  export async function read<T>(key: string[]) {
+  async function readImpl<T>(key: string[]) {
     const cacheKey = key.join("/")
     const cached = Cache.get<T>(cacheKey)
     if (cached !== undefined) return cached
@@ -232,7 +243,7 @@ export namespace Storage {
     })
   }
 
-  export async function update<T>(key: string[], fn: (draft: T) => void) {
+  async function updateImpl<T>(key: string[], fn: (draft: T) => void) {
     const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
@@ -245,7 +256,7 @@ export namespace Storage {
     })
   }
 
-  export async function write<T>(key: string[], content: T) {
+  async function writeImpl<T>(key: string[], content: T) {
     const { dir } = await state()
     const target = path.join(dir, ...key) + ".json"
     return withErrorHandling(async () => {
@@ -267,7 +278,7 @@ export namespace Storage {
   }
 
   const glob = new Bun.Glob("**/*")
-  export async function list(prefix: string[]) {
+  async function listImpl(prefix: string[]) {
     const { dir } = await state()
     try {
       const result = await Array.fromAsync(
@@ -283,4 +294,17 @@ export namespace Storage {
       return []
     }
   }
+
+  const layer = Layer.succeed(
+    Service,
+    Service.of({
+      remove: (key) => Effect.tryPromise(() => removeImpl(key)),
+      read: <T>(key: string[]) => Effect.tryPromise(() => readImpl<T>(key)),
+      update: <T>(key: string[], fn: (draft: T) => void) => Effect.tryPromise(() => updateImpl<T>(key, fn)),
+      write: (key, content) => Effect.tryPromise(() => writeImpl(key, content)),
+      list: (prefix) => Effect.tryPromise(() => listImpl(prefix)),
+    }),
+  )
+
+  export const defaultLayer = layer
 }

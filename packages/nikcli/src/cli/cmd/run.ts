@@ -15,6 +15,8 @@ import { Storage } from "../../storage/storage"
 import { Instance } from "../../project/instance"
 import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Effect } from "effect"
 
 const TOOL: Record<string, [string, string]> = {
   todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
@@ -30,6 +32,59 @@ const TOOL: Record<string, [string, string]> = {
 }
 
 const SHARE_ID = /^[0-9a-z]{26}$/i
+
+function commandGet(name: string) {
+  return runPromiseWithLayer(
+    Command.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const command = yield* Command.Service
+        return yield* command.get(name)
+      }),
+    ),
+  )
+}
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+  return runPromiseWithLayer(Storage.defaultLayer, effect)
+}
+
+function storageWrite<T>(key: string[], content: T) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      yield* storage.write(key, content)
+    }),
+  )
+}
+
+function runShareNext<A, E>(effect: Effect.Effect<A, E, ShareNext.Service>) {
+  return runPromiseWithLayer(ShareNext.defaultLayer, effect)
+}
+
+function configGet() {
+  return runPromiseWithLayer(
+    Config.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const config = yield* Config.Service
+        return yield* config.get()
+      }),
+    ),
+  )
+}
+
+function agentGet(name: string) {
+  return runPromiseWithLayer(
+    Agent.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const agent = yield* Agent.Service
+        return yield* agent.get(name)
+      }),
+    ),
+  )
+}
 
 function shareErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message
@@ -183,9 +238,14 @@ async function importShareReference(input: string) {
   const parsed = parseShareReference(input)
   if (!parsed) return
 
-  let payload = await ShareNext.publicData(parsed.shareID).catch(() => undefined)
+  let payload = await runShareNext(
+    Effect.gen(function* () {
+      const shareNext = yield* ShareNext.Service
+      return yield* shareNext.publicData(parsed.shareID)
+    }),
+  ).catch(() => undefined)
   if (!payload) {
-    const configOrigin = await Config.get()
+    const configOrigin = await configGet()
       .then((config) => config.enterprise?.url ?? "https://s.nikcli.store")
       .catch(() => "https://s.nikcli.store")
     payload = await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)
@@ -196,15 +256,15 @@ async function importShareReference(input: string) {
     throw new Error(`Share not found: ${parsed.shareID}`)
   }
 
-  await Storage.write(["session", Instance.project.id, normalized.info.id], normalized.info)
+  await storageWrite(["session", Instance.project.id, normalized.info.id], normalized.info)
   if (normalized.diff) {
-    await Storage.write(["session_diff", normalized.info.id], normalized.diff)
+    await storageWrite(["session_diff", normalized.info.id], normalized.diff)
   }
 
   for (const msg of normalized.messages) {
-    await Storage.write(["message", normalized.info.id, msg.info.id], msg.info)
+    await storageWrite(["message", normalized.info.id, msg.info.id], msg.info)
     for (const part of msg.parts) {
-      await Storage.write(["part", msg.info.id, part.id], part)
+      await storageWrite(["part", msg.info.id, part.id], part)
     }
   }
 
@@ -416,7 +476,7 @@ export const RunCommand = cmd({
 
       const resolvedAgent = await (async () => {
         if (!args.agent) return undefined
-        const agent = await Agent.get(args.agent)
+        const agent = await agentGet(args.agent)
         if (!agent) {
           UI.println(
             UI.Style.TEXT_WARNING_BOLD + "!",
@@ -537,7 +597,7 @@ export const RunCommand = cmd({
       const sdk = createNikcliClient({ baseUrl: "http://nikcli.local", fetch: fetchFn })
 
       if (args.command) {
-        const exists = await Command.get(args.command)
+        const exists = await commandGet(args.command)
         if (!exists) {
           UI.error(`Command "${args.command}" not found`)
           process.exit(1)
