@@ -1,18 +1,19 @@
 import path from "path"
 import fs from "fs/promises"
-import z from "zod"
 import { Global } from "../global"
-import { Context, Effect, Layer } from "effect"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ConnectorAuth {
-  export const Entry = z.object({
-    token: z.string().optional(),
-    botToken: z.string().optional(),
-    apiKey: z.string().optional(),
-    teamId: z.string().optional(),
-    expiresAt: z.number().optional(),
+  const EntrySchema = Schema.Struct({
+    token: Schema.optional(Schema.String),
+    botToken: Schema.optional(Schema.String),
+    apiKey: Schema.optional(Schema.String),
+    teamId: Schema.optional(Schema.String),
+    expiresAt: Schema.optional(Schema.Number),
   })
-  export type Entry = z.infer<typeof Entry>
+  export const Entry = zodObject(EntrySchema)
+  export type Entry = DeepMutable<Schema.Schema.Type<typeof EntrySchema>>
 
   export interface Interface {
     get(connectorName: string): Effect.Effect<Entry | undefined, unknown>

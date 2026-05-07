@@ -5,7 +5,8 @@ import { Log } from "@/util/log"
 import { FileWatcher } from "@/file/watcher"
 import { Git } from "@/git"
 import { InstanceState } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 const log = Log.create({ service: "vcs" })
 
@@ -19,14 +20,11 @@ export namespace Vcs {
     ),
   }
 
-  export const Info = z
-    .object({
-      branch: z.string(),
-    })
-    .meta({
-      ref: "VcsInfo",
-    })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    branch: Schema.String,
+  }).annotations({ identifier: "VcsInfo" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   type State = {
     branch: () => Promise<string | undefined>

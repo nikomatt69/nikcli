@@ -8,55 +8,40 @@ import { Git } from "@/git"
 import { Log } from "@/util/log"
 import { Lock } from "@/util/lock"
 import { InstanceState, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Worktree {
-  export const Info = z
-    .object({
-      name: z.string(),
-      branch: z.string(),
-      directory: z.string(),
-    })
-    .meta({
-      ref: "Worktree",
-    })
+  const InfoSchema = Schema.Struct({
+    name: Schema.String,
+    branch: Schema.String,
+    directory: Schema.String,
+  }).annotations({ identifier: "Worktree" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  export type Info = z.infer<typeof Info>
+  const CreateInputSchema = Schema.Struct({
+    name: Schema.optional(Schema.String),
+    branch: Schema.optional(Schema.String),
+    branchPrefix: Schema.optional(Schema.String),
+    baseBranch: Schema.optional(Schema.String),
+    remote: Schema.optional(Schema.String),
+    startCommand: Schema.optional(Schema.String),
+  }).annotations({ identifier: "WorktreeCreateInput" })
+  export const CreateInput = zodObject(CreateInputSchema)
+  export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
 
-  export const CreateInput = z
-    .object({
-      name: z.string().optional(),
-      branch: z.string().optional(),
-      branchPrefix: z.string().optional(),
-      baseBranch: z.string().optional(),
-      remote: z.string().optional(),
-      startCommand: z.string().optional(),
-    })
-    .meta({
-      ref: "WorktreeCreateInput",
-    })
+  const RemoveInputSchema = Schema.Struct({
+    directory: Schema.String,
+  }).annotations({ identifier: "WorktreeRemoveInput" })
+  export const RemoveInput = zodObject(RemoveInputSchema)
+  export type RemoveInput = Schema.Schema.Type<typeof RemoveInputSchema>
 
-  export type CreateInput = z.infer<typeof CreateInput>
-
-  export const RemoveInput = z
-    .object({
-      directory: z.string(),
-    })
-    .meta({
-      ref: "WorktreeRemoveInput",
-    })
-
-  export type RemoveInput = z.infer<typeof RemoveInput>
-
-  export const ResetInput = z
-    .object({
-      directory: z.string(),
-    })
-    .meta({
-      ref: "WorktreeResetInput",
-    })
-
-  export type ResetInput = z.infer<typeof ResetInput>
+  const ResetInputSchema = Schema.Struct({
+    directory: Schema.String,
+  }).annotations({ identifier: "WorktreeResetInput" })
+  export const ResetInput = zodObject(ResetInputSchema)
+  export type ResetInput = Schema.Schema.Type<typeof ResetInputSchema>
 
   export const NotGitError = NamedError.create(
     "WorktreeNotGitError",

@@ -13,7 +13,7 @@ import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
 import { existsSync } from "fs"
 import { Git } from "@/git"
-import { zodObject } from "@/util/effect-zod"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 
@@ -118,18 +118,10 @@ export namespace Project {
     sandboxes: Schema.mutable(Schema.Array(Schema.String)),
   }).annotations({ identifier: "Project" })
   export const Info = zodObject(InfoSchema)
-  type _ReadonlyInfo = Schema.Schema.Type<typeof InfoSchema>
-  // The Project service mutates `Info` records during merge/update flows. Strip readonly so
-  // those internal mutations type-check; the wire format is still emitted via `zodObject` /
-  // walker-derived JSON Schema.
-  type Mutable<T> = T extends ReadonlyArray<infer U>
-    ? Mutable<U>[]
-    : T extends Date | RegExp | Function
-      ? T
-      : T extends object
-        ? { -readonly [K in keyof T]: Mutable<T[K]> }
-        : T
-  export type Info = Mutable<_ReadonlyInfo>
+  // The Project service mutates `Info` records during merge/update flows. `DeepMutable` strips
+  // readonly so those internal mutations type-check; the wire format is still emitted via
+  // `zodObject` / walker-derived JSON Schema.
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const Event = {
     Updated: BusEvent.define("project.updated", Info),
