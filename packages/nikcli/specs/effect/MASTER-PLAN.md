@@ -6,6 +6,34 @@ The plan is deliberately progressive: every phase ships compilable, testable, be
 
 ## Execution log (2026-05-08)
 
+### 2026-05-08 pass 2: schema checklist completion
+
+Completed remaining schema migrations and updated progress tracker in `schema.md`:
+
+- `src/cli/ui.ts` — `UI.CancelledError` migrated from `z.void()` to `zod(Schema.Undefined)`.
+- `src/bus/bus-event.ts` — Added `Schema.Struct` overload to `BusEvent.define` that derives Zod via `zodObject()`, preserving field-level type inference for Effect Schema callers. Existing Zod-native callers are unchanged.
+- `src/cli/cmd/tui/event.ts` — Intentionally Zod-pinned. `TuiEvent` types feed directly into TUI component type inference (`ToastInput`, `ToastParsed`) and hono-openapi validators. The `BusEvent.Definition` generic needs precise Zod field types for `z.enum()` / `.default()` discrimination at call sites. Revisit once `zodObject` typed overload preserves field-level inference through `BusEvent.define`.
+- `src/command/index.ts` — Intentionally Zod-pinned. `Command.Info` uses `z.promise(z.string()).or(z.string())` which has no Effect Schema equivalent (Promise coercion is Zod-only). `Command.Event.Executed` is already Effect Schema.
+
+Schema.md checklist updates — these files were already Effect Schema-first on this branch but were not checked off:
+
+- `src/config/paths.ts` ✅
+- `src/config/markdown.ts` ✅
+- `src/ide/index.ts` ✅
+- `src/lsp/client.ts` ✅
+- `src/file/watcher.ts` ✅
+- `src/patch/index.ts` ✅
+- `src/storage/storage.ts` ✅
+- `src/server/event.ts` ✅
+- `src/bus/bus-event.ts` ✅
+- `src/bus/index.ts` ✅
+
+Validation gate:
+
+- `bun run typecheck` — 1 pre-existing error (`tree.ts` readonly string[] assignment), no new errors.
+- `bun test test/util/effect-zod.test.ts` — 24 pass, 0 fail.
+- `bun test test/bus/ test/permission/ test/storage/ test/ide/` — 10 pass, 0 fail.
+
 Phase P expansion landed on this branch in the 2026-05-08 pass. Full per-commit ledger (most recent first):
 
 - `5c04b69` — `SessionStatus.Info` (Schema.Union of `idle`/`retry`/`busy` tagged structs annotated with `zodObjectMode("strip")` so legacy unknown-field tolerance is preserved on session status payloads). Plus `SessionSummary.{SummarizeInput, DiffInput}`, `SessionRevert.RevertInput`, `SessionCompaction.CreateInput` — all derived via `zodObject(...)` from `Schema.Struct(...)` with `Schema.startsWith(...)` ID-prefix refinements.
@@ -88,9 +116,10 @@ Audit revealed 9 of 12 listed schema leaf files don't exist on this branch (the 
    - `AppRuntime.runPromise(Effect.gen(function* () { const ctx = yield* cache.get(directory); /* run init once if first time */; return yield* Effect.promise(() => contextProvide(ctx, fn)) }))`
 3. `Instance.dispose()` invalidates the key in the cache: `cache.invalidate(directory)`. Scope finalizer fires disposers automatically.
 4. `Instance.disposeAll()` becomes `cache.invalidateAll`.
-5. ALS-backed `Instance.directory/worktree/project` reads stay until Phase H. The cache replacement is *internal* — the Instance public API stays identical.
+5. ALS-backed `Instance.directory/worktree/project` reads stay until Phase H. The cache replacement is _internal_ — the Instance public API stays identical.
 
 Risks to validate before landing:
+
 - Concurrent `Instance.provide({directory: D, fn})` calls during boot must dedupe (ScopedCache handles this via fiber-join).
 - `Instance.dispose()` fired while boot is still in flight: verify ScopedCache.invalidate before lookup completes.
 - `init?` callback must run exactly once per directory across concurrent calls (ScopedCache's `lookup` runs once; `init` becomes part of it).
@@ -99,7 +128,7 @@ Implementation deferred to a dedicated PR with focused test coverage.
 
 ## Phase P status — large surface coverage in progress, walker shape inference landed for typed structs
 
-After the 2026-05-08 pass, ~40 namespace-level schemas have flipped from Zod-first to Effect Schema with the public API kept identical via `zodObject(...)` / `zod(...)`. The walker's typed overload preserves `.shape` / `.omit` / `.partial` / `.merge` / `.extend` for direct callers; the only deferred class is *nested-struct extension* (consumer extends a Schema-derived Zod object whose properties are themselves `Schema.Struct(...)`-derived) — that class is documented as the LSP.Range fix path in the 2026-05-08 log.
+After the 2026-05-08 pass, ~40 namespace-level schemas have flipped from Zod-first to Effect Schema with the public API kept identical via `zodObject(...)` / `zod(...)`. The walker's typed overload preserves `.shape` / `.omit` / `.partial` / `.merge` / `.extend` for direct callers; the only deferred class is _nested-struct extension_ (consumer extends a Schema-derived Zod object whose properties are themselves `Schema.Struct(...)`-derived) — that class is documented as the LSP.Range fix path in the 2026-05-08 log.
 
 Walker enhancement landed: `zodObject<Fields>(schema)` now returns `z.ZodObject<FieldsToShape<Fields>>` where `FieldsToShape` recursively maps each Effect Schema field to its Zod equivalent (`PropertySignature<"?:", A, ...>` → `z.ZodOptional<z.ZodType<A>>`, `Schema.Schema<A, ...>` → `z.ZodType<A>`). `.omit`, `.partial`, `.merge`, `.extend` now preserve typed shapes for downstream callers.
 
@@ -149,10 +178,14 @@ Knock-on tool migrations unblocked:
 Remaining Phase P scope (per `schema.md` large surfaces):
 
 - Provider domain — ✅ `provider/auth.ts`, `provider/provider.ts`, `provider/models.ts` all landed.
-- Session domain — ✅ `compaction`, `revert`, `summary`, `status`, `todo` landed; remaining: `message-v2`, `message`, `prompt`, `session` (large; needs to land alongside or after Phase D2 to avoid fighting in-flight handler refactors).
-- LSP / MCP — `lsp/index.ts`, `mcp/index.ts`, `mcp/auth.ts`, `lsp/client.ts` schemas. LSP.Range blocked on walker nested-struct shape inference (see 2026-05-08 log); MCP can land independently.
-- Server route DTO files — ~20 files. Independent of the route-handler refactor in Phase D; can land any time.
-- Bus events, command, plugin, agent, control-plane, ide, util, etc.
+- Session domain — ✅ `compaction`, `revert`, `summary`, `status`, `todo` landed; remaining: `message-v2`, `message`, `prompt`, `session` (large; needs to land alongside or after Phase D2), `v2/entry.ts`, `v2/event.ts`, `v2/index.ts`.
+- LSP / MCP — `lsp/index.ts` blocked on walker nested-struct shape inference; `lsp/client.ts` ✅ Effect Schema-first; `mcp/index.ts`, `mcp/auth.ts` ✅ landed.
+- Server route DTO files — ~14 files remain. Independent of the route-handler refactor in Phase D; can land any time.
+- Config root — `config/config.ts` and `config/tui-schema.ts` remain Zod-first (blocked on `Config.Info` JSON Schema surface).
+- Bus events — ✅ `bus/bus-event.ts` now has Effect Schema overload; `bus/index.ts` uses Effect Schema for `InstanceDisposed`. TUI events intentionally Zod-pinned.
+- CLI — ✅ `cli/ui.ts` migrated. `cli/cmd/tui/event.ts` intentionally Zod-pinned.
+- Command — `command/index.ts` intentionally Zod-pinned (`z.promise(z.string()).or(z.string())` has no Effect Schema equivalent).
+- Everything else (acp, util, etc.) — see `schema.md` for per-file status.
 
 Each is a self-contained migration following the `Question.Info` pattern: declare `Schema.Struct(...)`, expose `zodObject(...)`/`zod(...)` for compat, mirror downstream callers as needed. For records that get mutated post-construction, use `DeepMutable<typeof FooSchema>` from `@/util/effect-zod` instead of `Schema.mutable(Schema.Struct(...))` to keep typed-overload `.shape` access working.
 
@@ -181,42 +214,42 @@ Remaining:
 
 Each phase has its own validation matrix. The minimum gate that applies to every phase:
 
-| Gate | Command |
-| --- | --- |
-| Typecheck | `bun run typecheck` |
-| Touched-area tests | `bun test test/<area>/*.test.ts` |
+| Gate                                             | Command                                                                                   |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Typecheck                                        | `bun run typecheck`                                                                       |
+| Touched-area tests                               | `bun test test/<area>/*.test.ts`                                                          |
 | SDK byte-identity (when schemas / routes change) | `bun packages/sdk/js/script/build.ts` then diff `packages/sdk/js/src/v2/gen/types.gen.ts` |
 
 Phase-specific gates are listed inline.
 
 ## Phase summary
 
-| Phase | Title | Touches | Risk | Blocks |
-| --- | --- | --- | --- | --- |
-| A1 | `Filesystem.*` → `AppFileSystem` in already-migrated services | `config/config.ts`, `provider/provider.ts` | low | B1 |
-| A2 | `Process.spawn` → `ChildProcessSpawner` | `format/formatter.ts`, `lsp/server.ts` | medium | — |
-| A3 | `util/lazy.ts` → `Effect.cached` (Effect call sites only) | misc | low | — |
-| A4 | `util/lock.ts` → Effect `Semaphore` (Effect call sites) | misc | low | — |
-| A5 | `util/flock.ts` → `Effect.repeat` + `addFinalizer` (Effect call sites) | misc | medium | — |
-| B1 | `config/config.ts` internal load via `ConfigPaths.Service` | config | low | — |
-| B2 | `env/index.ts` → `Env.Service` | env, provider | medium | — |
-| B3 | TUI config callers → `TuiConfig.Service` | `cli/cmd/tui/*` | low | — |
-| B4 | `migrate-tui-config.ts` decision: leave plain or effectify | tui | low | — |
-| P | Schema large surfaces (session domain, provider, route DTOs, config root, remaining namespaces) | many | high | J, K, L |
-| C | Tool internals cleanup (`read`, `bash`, `webfetch`, `ripgrep`, `patch`) | `tool/*`, `file/ripgrep.ts`, `patch/index.ts` | medium | J |
-| D1 | Route effectification (lighter routes) | `server/routes/{provider,mcp,file,experimental}.ts` | medium | F |
-| D2 | Route effectification (heavy routes) | `server/routes/{session,mobile,global}.ts`, `server/server.ts` | high | F |
-| E | Schema leaves migration (12 `src/*/schema.ts`) | leaf schemas | low | P |
-| F | Instance-context Phase 3 (entry boundaries) | `server/middleware.ts`, `cli/cmd/*`, tool execution | high | G |
-| G | Instance-context Phase 4 (replace promise boot cache) | `project/instance.ts` | high | H |
-| H | Instance-context Phase 5–6 (ALS shrink + delete legacy API) | `project/instance.ts`, `effect/instance-state.ts` | high | — |
-| I | `SyncEvent` and `Workspace` service shapes | `sync/index.ts`, `control-plane/workspace.ts` | medium | K |
-| J | Tool params schemas (16 files) | `tool/*.ts` | medium | L |
-| K | HttpApi: complete remaining bridge slices | `server/httpapi/*` | medium | L |
-| L | HttpApi: backend fork + OpenAPI source flip / SDK byte-identity | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high | N |
-| M | Special routes (event SSE, pty WS, tui control) | `server/event.ts`, `server/routes/pty.ts`, `server/routes/tui.ts` | high | N |
-| N | Hono deletion (group by group) | `server/routes/*.ts`, `server/server.ts` | high | — |
-| O | `packages/server` extraction | new package | high | last |
+| Phase | Title                                                                                           | Touches                                                                                                   | Risk   | Blocks  |
+| ----- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ | ------- |
+| A1    | `Filesystem.*` → `AppFileSystem` in already-migrated services                                   | `config/config.ts`, `provider/provider.ts`                                                                | low    | B1      |
+| A2    | `Process.spawn` → `ChildProcessSpawner`                                                         | `format/formatter.ts`, `lsp/server.ts`                                                                    | medium | —       |
+| A3    | `util/lazy.ts` → `Effect.cached` (Effect call sites only)                                       | misc                                                                                                      | low    | —       |
+| A4    | `util/lock.ts` → Effect `Semaphore` (Effect call sites)                                         | misc                                                                                                      | low    | —       |
+| A5    | `util/flock.ts` → `Effect.repeat` + `addFinalizer` (Effect call sites)                          | misc                                                                                                      | medium | —       |
+| B1    | `config/config.ts` internal load via `ConfigPaths.Service`                                      | config                                                                                                    | low    | —       |
+| B2    | `env/index.ts` → `Env.Service`                                                                  | env, provider                                                                                             | medium | —       |
+| B3    | TUI config callers → `TuiConfig.Service`                                                        | `cli/cmd/tui/*`                                                                                           | low    | —       |
+| B4    | `migrate-tui-config.ts` decision: leave plain or effectify                                      | tui                                                                                                       | low    | —       |
+| P     | Schema large surfaces (session domain, provider, route DTOs, config root, remaining namespaces) | many                                                                                                      | high   | J, K, L |
+| C     | Tool internals cleanup (`read`, `bash`, `webfetch`, `ripgrep`, `patch`)                         | `tool/*`, `file/ripgrep.ts`, `patch/index.ts`                                                             | medium | J       |
+| D1    | Route effectification (lighter routes)                                                          | `server/routes/{provider,mcp,file,experimental}.ts`                                                       | medium | F       |
+| D2    | Route effectification (heavy routes)                                                            | `server/routes/{session,mobile,global}.ts`, `server/server.ts`                                            | high   | F       |
+| E     | Schema leaves migration (12 `src/*/schema.ts`)                                                  | leaf schemas                                                                                              | low    | P       |
+| F     | Instance-context Phase 3 (entry boundaries)                                                     | `server/middleware.ts`, `cli/cmd/*`, tool execution                                                       | high   | G       |
+| G     | Instance-context Phase 4 (replace promise boot cache)                                           | `project/instance.ts`                                                                                     | high   | H       |
+| H     | Instance-context Phase 5–6 (ALS shrink + delete legacy API)                                     | `project/instance.ts`, `effect/instance-state.ts`                                                         | high   | —       |
+| I     | `SyncEvent` and `Workspace` service shapes                                                      | `sync/index.ts`, `control-plane/workspace.ts`                                                             | medium | K       |
+| J     | Tool params schemas (16 files)                                                                  | `tool/*.ts`                                                                                               | medium | L       |
+| K     | HttpApi: complete remaining bridge slices                                                       | `server/httpapi/*`                                                                                        | medium | L       |
+| L     | HttpApi: backend fork + OpenAPI source flip / SDK byte-identity                                 | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high   | N       |
+| M     | Special routes (event SSE, pty WS, tui control)                                                 | `server/event.ts`, `server/routes/pty.ts`, `server/routes/tui.ts`                                         | high   | N       |
+| N     | Hono deletion (group by group)                                                                  | `server/routes/*.ts`, `server/server.ts`                                                                  | high   | —       |
+| O     | `packages/server` extraction                                                                    | new package                                                                                               | high   | last    |
 
 Current execution order from this point is **P → C → D2 → G → H → I → J → K → L → M → N → O**. Phase O is intentionally last; extracting `packages/server` before schemas, instance context, HttpApi parity, and SDK byte-identity are stable would create an extraction target that still churns. Phases can run in parallel only when their write sets do not overlap and the downstream SDK/OpenAPI contract stays byte-identical.
 
@@ -233,8 +266,8 @@ Mechanical replacement:
 const found = await Filesystem.findUp("nikcli.json", ctx.directory, ctx.worktree)
 
 // after
-const fs = yield* AppFileSystem.Service
-const found = yield* fs.findUp("nikcli.json", ctx.directory, ctx.worktree)
+const fs = yield * AppFileSystem.Service
+const found = yield * fs.findUp("nikcli.json", ctx.directory, ctx.worktree)
 ```
 
 Steps:

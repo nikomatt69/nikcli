@@ -5,6 +5,14 @@ import { remoteService } from "./remote"
 import { logo as cliLogo } from "./logo"
 
 export namespace UI {
+  // Intentionally Zod-pinned: NamedError.create forwards `z.input<Data>` as
+  // the constructor's `data` parameter. `z.void()` collapses to `void`, so
+  // call sites can throw `new UI.CancelledError()` with no args.
+  // `zod(Schema.Undefined)` maps to `z.undefined()` which requires an
+  // explicit `undefined` argument and breaks every existing call site.
+  // Revisit when Effect Schema gains a Void primitive matching z.void()'s
+  // no-arg ergonomics or when NamedError.create accepts a payload-optional
+  // schema kind.
   export const CancelledError = NamedError.create("UICancelledError", z.void())
 
   export const Style = {

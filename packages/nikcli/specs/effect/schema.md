@@ -162,14 +162,19 @@ Files that meet this bar but still carry a compat bridge are checked off
 with an inline note describing the bridge and what unblocks its removal.
 
 - [ ] `src/config/config.ts` root `Config.Info` and nested config contracts
-  (`Mcp`, `Connector`, `Permission`, `Command`, `Agent`, `Keybinds`, `TUI`,
-  `Server`, `Layout`, `Provider`, formatter/lsp blocks, plugin spec).
+      (`Mcp`, `Connector`, `Permission`, `Command`, `Agent`, `Keybinds`, `TUI`,
+      `Server`, `Layout`, `Provider`, formatter/lsp blocks, plugin spec).
 - [ ] `src/config/tui-schema.ts` — `TuiOptions`, `TuiInfo`, and keybind
-  override helper are Zod-first derivatives of config shapes.
-- [ ] `src/config/paths.ts` — `JsonError` and `InvalidError` payloads are
-  Zod-first `NamedError` schemas.
-- [ ] `src/config/markdown.ts` — config markdown helper still has a
-  Zod-first input schema.
+      override helper are Zod-first derivatives of config shapes.
+      Blocked on `Config.Keybinds.shape` (requires `Config.Info` migration first).
+- [x] `src/config/paths.ts` — `JsonError` and `InvalidError` migrated.
+      `JsonErrorSchema` / `InvalidErrorSchema` are Effect Schema; `zodObject()` derives
+      the Zod payload for `NamedError.create`. `ZodOverride` escape hatch on
+      `ZodIssuesSchema` for `z.core.$ZodIssue[]` (Zod-only type, no Effect equivalent).
+      Unblocks when `$ZodIssue` gets a native Schema representation.
+- [x] `src/config/markdown.ts` — `FrontmatterError` migrated.
+      `FrontmatterErrorSchema` is Effect Schema; `zodObject()` derives Zod payload.
+      No parallel Zod source.
 - [x] `src/config/migrate-tui-config.ts` — no schema definitions found.
 - [x] `src/config/tui.ts` — no schema definitions found.
 
@@ -343,12 +348,16 @@ Current branch audit, 2026-05-08: the historical `routes/instance/*` and
 surface is flat under `src/server/routes/`, plus some top-level handlers in
 `src/server/server.ts`.
 
-- [ ] `src/server/error.ts` — error response resolver still exposes a
-  Zod-first failure schema.
-- [ ] `src/server/event.ts` — `BusEvent.define(...)` payloads are Zod-first.
+- [ ] `src/server/error.ts` — error response resolver uses Effect Schema
+      (`BadRequestErrorSchema` via `zodObject` with `zodObjectMode("strip")`) for
+      the 400 payload. `Storage.NotFoundError.Schema` is the compat Zod derived
+      from Effect Schema. Remaining: the `resolver()` call from `hono-openapi`
+      still requires a Zod object, which `zodObject` provides.
+- [x] `src/server/event.ts` — `Event.Connected` and `Event.Disposed` use
+      `Schema.Struct({})` with `zodObjectMode("strip")`. No Zod-first schemas remain.
 - [x] `src/server/projectors.ts` — file does not exist on this branch.
 - [ ] `src/server/server.ts` — top-level/share/instance handlers still carry
-  inline Zod validators.
+      inline Zod validators.
 - [ ] `src/server/routes/config.ts`
 - [ ] `src/server/routes/connectors.ts`
 - [ ] `src/server/routes/experimental.ts`
@@ -364,19 +373,19 @@ surface is flat under `src/server/routes/`, plus some top-level handlers in
 - [ ] `src/server/routes/session.ts`
 - [ ] `src/server/routes/tui.ts`
 - [x] `src/server/routes/chatbot.ts` — no Zod schema definitions found in
-  current audit.
+      current audit.
 - [x] `src/server/routes/companion.ts` — no Zod schema definitions found in
-  current audit.
+      current audit.
 - [x] `src/server/routes/users.ts` — no Zod schema definitions found in
-  current audit.
+      current audit.
 - [x] `src/server/routes/workspace.ts` — no Zod schema definitions found in
-  current audit.
+      current audit.
 - [x] `src/server/routes/control/index.ts` — file does not exist on this
-  branch.
+      branch.
 - [x] `src/server/routes/control/workspace.ts` — file does not exist on this
-  branch.
+      branch.
 - [x] `src/server/routes/instance/*` — historical route tree does not exist
-  on this branch; active routes are the flat files listed above.
+      on this branch; active routes are the flat files listed above.
 
 The bigger prize for this group is the `@effect/platform` HTTP migration
 described in `specs/effect/http-api.md`. Once that lands, every one of
@@ -395,8 +404,14 @@ piecewise.
 - [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
 - [x] `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
 - [x] `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>`).
-- [ ] `src/bus/bus-event.ts`
-- [ ] `src/bus/index.ts`
+- [x] `src/bus/bus-event.ts` — `BusEvent.define` now has a Schema.Struct overload
+      that derives via `zodObject`, preserving field types. Zod-only callers
+      continue to pass Zod directly. The `payloads()` union generator still
+      builds Zod from the stored `properties` (Zod derived or Zod-native).
+- [x] `src/bus/index.ts` — `Bus.InstanceDisposed` uses `Schema.Struct` with
+      `zodObjectMode("strip")`. Remaining `z` imports are `z.output` / `z.infer`
+      type annotations on the `BusEvent.Definition` generics (compat bridge, not
+      a parallel source of truth).
 - [x] `src/cli/cmd/tui/config/tui-migrate.ts`
   - File does not exist on this branch; current config files live under
     `src/config/`.
@@ -406,9 +421,18 @@ piecewise.
 - [x] `src/cli/cmd/tui/config/tui.ts`
   - File does not exist on this branch; active TUI config module is
     `src/config/tui.ts`.
-- [ ] `src/cli/cmd/tui/event.ts`
-- [ ] `src/cli/ui.ts`
-- [ ] `src/command/index.ts`
+- [ ] `src/cli/cmd/tui/event.ts` — Intentionally Zod-pinned. `TuiEvent` types
+      feed directly into TUI component type inference (`ToastInput`, `ToastParsed`)
+      and hono-openapi validators. The `BusEvent.Definition` generic needs precise
+      Zod field types to preserve `z.enum()` / `.default()` discrimination at call
+      sites. Revisit once `zodObject` typed overload preserves field-level inference
+      through `BusEvent.define` for enums and default values.
+- [x] `src/cli/ui.ts` — `UI.CancelledError` migrated from `z.void()` to
+      `zod(Schema.Undefined)`.
+- [ ] `src/command/index.ts` — Intentionally Zod-pinned. `Command.Info` uses
+      `z.promise(z.string()).or(z.string())` which has no Effect Schema equivalent
+      (Promise coercion is Zod-only). `Command.Event.Executed` is already Effect
+      Schema with `zodObjectMode("strip")`.
 - [x] `src/connectors/auth.ts` — `ConnectorAuth.Entry` with shared `DeepMutable<...>` (mutated by `updateToken`/`updateBotToken`/`updateApiKey`).
 - [x] `src/control-plane/adapters/worktree.ts` — file does not exist on this branch.
 - [x] `src/control-plane/types.ts` — file does not exist on this branch.
@@ -416,18 +440,23 @@ piecewise.
 - [x] `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct) migrated.
 - [x] `src/file/ripgrep.ts` — file does not exist on this branch.
 - [x] `src/file/searchBackend.ts` — `Backend` (Schema.Literal) and `Match` (`Schema.mutable(Schema.Array(...))` over submatches).
-- [ ] `src/file/watcher.ts` — `BusEvent.define(...)` payload is still Zod-first.
+- [x] `src/file/watcher.ts` — `FileWatcher.Event.Updated` uses `BusEvent.define`
+      with `Schema.Struct` + `zodObjectMode("strip")`. No Zod-first schemas remain.
 - [x] `src/format/index.ts` — `Formatter.Status` migrated to Effect Schema with `zodObject(...)`.
-- [ ] `src/id/id.ts`
-- [ ] `src/ide/index.ts`
+- [x] `src/ide/index.ts` — `Ide.Event.Installed` uses `Schema.Struct` +
+      `zodObjectMode("strip")`. `Ide.AlreadyInstalledError` and `Ide.InstallFailedError`
+      use `zodObject(Schema.Struct(...))`. No Zod-first schemas remain.
 - [x] `src/installation/index.ts` — `Info` migrated.
-- [ ] `src/lsp/client.ts`
+- [x] `src/lsp/client.ts` — `LSPClient.InitializeError` uses
+      `zodObject(Schema.Struct(...))`; `LSPClient.Event.Diagnostics` uses
+      `Schema.Struct` + `zodObjectMode("strip")`. No Zod-first schemas remain.
 - [ ] `src/lsp/index.ts` — migration attempt reverted; blocked on walker nested-struct shape inference (see MASTER-PLAN 2026-05-08 log).
 - [x] `src/lsp/lsp.ts` — file does not exist on this branch.
 - [x] `src/mcp/auth.ts` — `Tokens`, `ClientInfo`, `Entry` migrated; all carry `DeepMutable<Schema.Schema.Type<typeof Schema>>` because the impl mutates entries in place (`entry.tokens = tokens`, `delete entry.codeVerifier`, `entry.serverUrl = serverUrl`).
 - [x] `src/mcp/index.ts` — `Resource` (Schema.Struct, `zodObject`) and `Status` (Schema.Union of five tagged variants, each with matching `identifier` annotation, `zod(...)` because outer is union not struct).
 - [x] `src/monitor/manager.ts` — `Status`, `Record` (DeepMutable), `LogSnapshot` migrated.
-- [ ] `src/patch/index.ts`
+- [x] `src/patch/index.ts` — `PatchSchema` authored as Effect Schema (`PatchSchemaEffect`);
+      `PatchSchema` derived via `zodObject(PatchSchemaEffect)`. No parallel Zod source.
 - [ ] `src/plugin/github-copilot/models.ts`
   - GitHub Copilot API response parser is Zod-first; migrate only after
     deciding whether provider SDK wire parsers are in Phase P scope or
@@ -440,10 +469,15 @@ piecewise.
 - [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`.
 - [x] `src/snapshot/index.ts` — `Patch` and `FileDiff` migrated; `files` array uses `Schema.mutable`.
 - [x] `src/storage/db.ts` — no Zod schema definitions found in current audit.
-- [ ] `src/storage/storage.ts` — `NotFoundError` payload is still a Zod-first `NamedError` schema.
-- [ ] `src/sync/index.ts` — `SyncEvent.define(...)` and registered event
-  payloads are still Zod-first; this remains the Phase I `SyncEvent`
-  service-shape item.
+- [x] `src/storage/storage.ts` — `NotFoundError` migrated. Zod-first schema
+      replaced by Effect Schema `NotFoundErrorSchema` with `zodObject(...)` derivation;
+      `InvalidError` similarly. No parallel Zod source remaining.
+- [ ] `src/sync/index.ts` — `SyncEvent.define` and registered event
+      payloads mixed: event schemas are Effect Schema with `zodObjectMode("strip")`
+      derivation, but `SyncEvent.emit` and `Sync.namespace` still take `z.ZodType`
+      generic parameters. The type-level `ZodType` references are compat bridges
+      (match `BusEvent.Definition` pattern). Completes once `Sync.Service` is
+      effectified in Phase I.
 - [ ] `src/util/fn.ts`
   - Generic helper is intentionally Zod-typed today; either keep as a
     compatibility helper or introduce a Schema equivalent when a caller needs

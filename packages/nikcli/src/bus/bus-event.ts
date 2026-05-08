@@ -2,7 +2,7 @@ import z from "zod"
 import type { ZodType } from "zod"
 import { Log } from "../util/log"
 import { Schema } from "effect"
-import { zod as zodFromSchema } from "@/util/effect-zod"
+import { zod as zodFromSchema, zodObject as zodObjectFromSchema } from "@/util/effect-zod"
 
 export namespace BusEvent {
   const log = Log.create({ service: "event" })
@@ -19,18 +19,15 @@ export namespace BusEvent {
     type: Type,
     properties: Properties,
   ): Definition<Type, Properties>
-  export function define<Type extends string, Source extends Schema.Schema<any, any, any>>(
+  export function define<Type extends string, Fields extends Schema.Struct.Fields>(
     type: Type,
-    schema: Source,
-  ): Definition<Type, z.ZodType<Schema.Schema.Type<Source>>>
-  export function define<Type extends string>(
-    type: Type,
-    properties: ZodType | Schema.Schema<any, any, any>,
-  ): Definition<Type> {
+    schema: Schema.Struct<Fields>,
+  ): Definition<Type, ReturnType<typeof zodObjectFromSchema<Fields>>>
+  export function define<Type extends string>(type: Type, properties: ZodType | Schema.Struct<any>): Definition<Type> {
     const isEffectSchema = "ast" in properties
     const result = {
       type,
-      properties: isEffectSchema ? zodFromSchema(properties as Schema.Schema<any, any, never>) : properties,
+      properties: isEffectSchema ? zodObjectFromSchema(properties as Schema.Struct<any>) : properties,
       ...(isEffectSchema ? { schema: properties } : {}),
     }
     registry.set(type, result)

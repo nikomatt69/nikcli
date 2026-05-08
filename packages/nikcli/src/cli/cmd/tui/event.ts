@@ -2,6 +2,15 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import z from "zod"
 
+// Intentionally Zod-pinned: TuiEvent types feed directly into TUI component
+// type inference (ToastInput, ToastParsed) and the hono-openapi validator in
+// server/routes/tui.ts. The BusEvent.Definition generics need precise Zod
+// field types to preserve variant/enum discrimination at the call sites.
+// Revisit once the zodObject typed overload preserves field-level inference
+// through BusEvent.define (see schema.md — "It is fine to keep a Zod-native
+// schema temporarily when... the validator depends on Zod-only transforms or
+// behavior not yet covered by zod()").
+
 export const TuiEvent = {
   PromptAppend: BusEvent.define("tui.prompt.append", z.object({ text: z.string() })),
   CommandExecute: BusEvent.define(
