@@ -14,7 +14,8 @@ import { Global } from "../global"
 import { FFF } from "./fff"
 import { InstanceState } from "@/effect"
 import type { InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace File {
   const log = Log.create({ service: "file" })
@@ -32,49 +33,43 @@ export namespace File {
 
   export type Info = z.infer<typeof Info>
 
-  export const Node = z
-    .object({
-      name: z.string(),
-      path: z.string(),
-      absolute: z.string(),
-      type: z.enum(["file", "directory"]),
-      ignored: z.boolean(),
-    })
-    .meta({
-      ref: "FileNode",
-    })
-  export type Node = z.infer<typeof Node>
+  const NodeSchema = Schema.Struct({
+    name: Schema.String,
+    path: Schema.String,
+    absolute: Schema.String,
+    type: Schema.Literal("file", "directory"),
+    ignored: Schema.Boolean,
+  }).annotations({ identifier: "FileNode" })
+  export const Node = zodObject(NodeSchema)
+  export type Node = Schema.Schema.Type<typeof NodeSchema>
 
-  export const Content = z
-    .object({
-      type: z.literal("text"),
-      content: z.string(),
-      diff: z.string().optional(),
-      patch: z
-        .object({
-          oldFileName: z.string(),
-          newFileName: z.string(),
-          oldHeader: z.string().optional(),
-          newHeader: z.string().optional(),
-          hunks: z.array(
-            z.object({
-              oldStart: z.number(),
-              oldLines: z.number(),
-              newStart: z.number(),
-              newLines: z.number(),
-              lines: z.array(z.string()),
-            }),
-          ),
-          index: z.string().optional(),
-        })
-        .optional(),
-      encoding: z.literal("base64").optional(),
-      mimeType: z.string().optional(),
-    })
-    .meta({
-      ref: "FileContent",
-    })
-  export type Content = z.infer<typeof Content>
+  const ContentSchema = Schema.Struct({
+    type: Schema.Literal("text"),
+    content: Schema.String,
+    diff: Schema.optional(Schema.String),
+    patch: Schema.optional(
+      Schema.Struct({
+        oldFileName: Schema.String,
+        newFileName: Schema.String,
+        oldHeader: Schema.optional(Schema.String),
+        newHeader: Schema.optional(Schema.String),
+        hunks: Schema.Array(
+          Schema.Struct({
+            oldStart: Schema.Number,
+            oldLines: Schema.Number,
+            newStart: Schema.Number,
+            newLines: Schema.Number,
+            lines: Schema.Array(Schema.String),
+          }),
+        ),
+        index: Schema.optional(Schema.String),
+      }),
+    ),
+    encoding: Schema.optional(Schema.Literal("base64")),
+    mimeType: Schema.optional(Schema.String),
+  }).annotations({ identifier: "FileContent" })
+  export const Content = zodObject(ContentSchema)
+  export type Content = Schema.Schema.Type<typeof ContentSchema>
 
   async function shouldEncode(file: BunFile): Promise<boolean> {
     const type = file.type?.toLowerCase()

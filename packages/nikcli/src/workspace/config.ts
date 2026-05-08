@@ -1,21 +1,23 @@
-import z from "zod"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 
-export const Config = z.discriminatedUnion("type", [
-  z.object({
-    directory: z.string(),
-    type: z.literal("worktree"),
-    eventLimit: z.number().int().positive().optional(),
-  }),
-  z.object({
-    directory: z.string(),
-    type: z.literal("container"),
-    runtime: z.enum(["docker", "podman"]),
-    image: z.string(),
-    containerName: z.string(),
-    port: z.number().int().positive(),
-    serverUrl: z.string().url(),
-    eventLimit: z.number().int().positive().optional(),
-  }),
-])
+const WorktreeConfig = Schema.Struct({
+  directory: Schema.String,
+  type: Schema.Literal("worktree"),
+  eventLimit: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+})
 
-export type Config = z.infer<typeof Config>
+const ContainerConfig = Schema.Struct({
+  directory: Schema.String,
+  type: Schema.Literal("container"),
+  runtime: Schema.Literal("docker", "podman"),
+  image: Schema.String,
+  containerName: Schema.String,
+  port: Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
+  serverUrl: Schema.String,
+  eventLimit: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+})
+
+export const ConfigSchema = Schema.Union(WorktreeConfig, ContainerConfig)
+export const Config = zod(ConfigSchema)
+export type Config = Schema.Schema.Type<typeof ConfigSchema>
