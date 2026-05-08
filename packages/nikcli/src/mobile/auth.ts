@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
 import path from "path"
 import z from "zod"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 import { Global } from "@/global"
 import { mobileTokens } from "./auth.sql"
 
@@ -14,20 +16,19 @@ function getChanges(result: void | RunResult): number {
 }
 
 export namespace MobileAuth {
-  export const Token = z
-    .object({
-      id: z.string(),
-      name: z.string(),
-      hash: z.string(),
-      createdAt: z.number(),
-      lastUsedAt: z.number().optional(),
-      expiresAt: z.number().optional(),
-    })
-    .meta({ ref: "MobileAuthToken" })
+  const TokenSchema = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    hash: Schema.String,
+    createdAt: Schema.Number,
+    lastUsedAt: Schema.optional(Schema.Number),
+    expiresAt: Schema.optional(Schema.Number),
+  }).annotations({ identifier: "MobileAuthToken" })
+  export const Token = zodObject(TokenSchema)
 
   export const PublicToken = Token.omit({ hash: true }).meta({ ref: "MobileAuthTokenPublic" })
 
-  export type Token = z.infer<typeof Token>
+  export type Token = Schema.Schema.Type<typeof TokenSchema>
   export type PublicToken = z.infer<typeof PublicToken>
 
   // ============================================================================

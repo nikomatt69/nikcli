@@ -1,7 +1,6 @@
 import { InstanceState } from "@/effect"
 import { Plugin } from "../plugin"
 import { map, filter, pipe, fromEntries, mapValues } from "remeda"
-import z from "zod"
 import type { AuthOuathResult, Hooks } from "@nikcli-ai/plugin"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Auth } from "@/auth"
@@ -171,18 +170,14 @@ export namespace ProviderAuth {
 
   export const defaultLayer = layer
 
-  export const OauthMissing = NamedError.create(
-    "ProviderAuthOauthMissing",
-    z.object({
-      providerID: z.string(),
-    }),
-  )
-  export const OauthCodeMissing = NamedError.create(
-    "ProviderAuthOauthCodeMissing",
-    z.object({
-      providerID: z.string(),
+  const ProviderIDPayload = zodObject(
+    Schema.Struct({
+      providerID: Schema.String,
     }),
   )
 
-  export const OauthCallbackFailed = NamedError.create("ProviderAuthOauthCallbackFailed", z.object({}))
+  export const OauthMissing = NamedError.create("ProviderAuthOauthMissing", ProviderIDPayload)
+  export const OauthCodeMissing = NamedError.create("ProviderAuthOauthCodeMissing", ProviderIDPayload)
+
+  export const OauthCallbackFailed = NamedError.create("ProviderAuthOauthCallbackFailed", zodObject(Schema.Struct({})))
 }

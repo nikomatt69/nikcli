@@ -1,6 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import z from "zod"
 import { Log } from "@/util/log"
 import { FileWatcher } from "@/file/watcher"
 import { Git } from "@/git"
@@ -14,8 +13,8 @@ export namespace Vcs {
   export const Event = {
     BranchUpdated: BusEvent.define(
       "vcs.branch.updated",
-      z.object({
-        branch: z.string().optional(),
+      Schema.Struct({
+        branch: Schema.optional(Schema.String),
       }),
     ),
   }

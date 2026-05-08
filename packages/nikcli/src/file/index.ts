@@ -1,5 +1,4 @@
 import { BusEvent } from "@/bus/bus-event"
-import z from "zod"
 import { $ } from "bun"
 import type { BunFile } from "bun"
 import { formatPatch, structuredPatch } from "diff"
@@ -20,18 +19,14 @@ import { Context, Effect, Layer, Schema } from "effect"
 export namespace File {
   const log = Log.create({ service: "file" })
 
-  export const Info = z
-    .object({
-      path: z.string(),
-      added: z.number().int(),
-      removed: z.number().int(),
-      status: z.enum(["added", "deleted", "modified"]),
-    })
-    .meta({
-      ref: "File",
-    })
-
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    path: Schema.String,
+    added: Schema.Number.pipe(Schema.int()),
+    removed: Schema.Number.pipe(Schema.int()),
+    status: Schema.Literal("added", "deleted", "modified"),
+  }).annotations({ identifier: "File" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   const NodeSchema = Schema.Struct({
     name: Schema.String,
@@ -127,8 +122,8 @@ export namespace File {
   export const Event = {
     Edited: BusEvent.define(
       "file.edited",
-      z.object({
-        file: z.string(),
+      Schema.Struct({
+        file: Schema.String,
       }),
     ),
   }

@@ -1,6 +1,5 @@
 import fs from "fs/promises"
 import path from "path"
-import z from "zod"
 import { formatPatch, structuredPatch } from "diff"
 import { Config } from "../config/config"
 import { Git } from "@/git"

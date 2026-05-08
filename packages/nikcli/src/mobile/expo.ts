@@ -1,22 +1,25 @@
-import z from "zod"
 import { Log } from "@/util/log"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 const log = Log.create({ service: "expo" })
 
 export namespace Expo {
-  export const StartOptions = z.object({
-    platform: z.enum(["ios", "android", "web"]).optional(),
-    clear: z.boolean().optional(),
-    port: z.number().optional(),
+  const StartOptionsSchema = Schema.Struct({
+    platform: Schema.optional(Schema.Literal("ios", "android", "web")),
+    clear: Schema.optional(Schema.Boolean),
+    port: Schema.optional(Schema.Number),
   })
-  export type StartOptions = z.infer<typeof StartOptions>
+  export const StartOptions = zodObject(StartOptionsSchema)
+  export type StartOptions = Schema.Schema.Type<typeof StartOptionsSchema>
 
-  export const BuildOptions = z.object({
-    platform: z.enum(["ios", "android", "all"]),
-    profile: z.string().optional(),
-    clearCache: z.boolean().optional(),
+  const BuildOptionsSchema = Schema.Struct({
+    platform: Schema.Literal("ios", "android", "all"),
+    profile: Schema.optional(Schema.String),
+    clearCache: Schema.optional(Schema.Boolean),
   })
-  export type BuildOptions = z.infer<typeof BuildOptions>
+  export const BuildOptions = zodObject(BuildOptionsSchema)
+  export type BuildOptions = Schema.Schema.Type<typeof BuildOptionsSchema>
 
   export async function available(): Promise<boolean> {
     return (await Bun.which("npx")) !== null

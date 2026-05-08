@@ -120,12 +120,13 @@ export namespace PermissionNext {
   })
   export type AskInput = z.infer<typeof AskInput>
 
-  export const ReplyInput = z.object({
-    requestID: Identifier.schema("permission"),
-    reply: Reply,
-    message: z.string().optional(),
+  const ReplyInputSchema = Schema.Struct({
+    requestID: Identifier.schemaEffect("permission"),
+    reply: ReplySchema,
+    message: Schema.optional(Schema.String),
   })
-  export type ReplyInput = z.infer<typeof ReplyInput>
+  export const ReplyInput = zodObject(ReplyInputSchema)
+  export type ReplyInput = Schema.Schema.Type<typeof ReplyInputSchema>
 
   export interface Interface {
     readonly ask: (input: AskInput) => Effect.Effect<void, DeniedError | RejectedError | CorrectedError>

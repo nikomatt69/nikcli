@@ -1,4 +1,3 @@
-import z from "zod"
 import { Identifier } from "../id/id"
 import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
