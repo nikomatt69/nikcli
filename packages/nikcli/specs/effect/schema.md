@@ -386,7 +386,8 @@ piecewise.
 - [ ] `src/lsp/client.ts`
 - [ ] `src/lsp/index.ts` — migration attempt reverted; blocked on walker nested-struct shape inference (see MASTER-PLAN 2026-05-08 log).
 - [ ] `src/lsp/lsp.ts`
-- [ ] `src/mcp/auth.ts`
+- [x] `src/mcp/auth.ts` — `Tokens`, `ClientInfo`, `Entry` migrated; all carry `DeepMutable<Schema.Schema.Type<typeof Schema>>` because the impl mutates entries in place (`entry.tokens = tokens`, `delete entry.codeVerifier`, `entry.serverUrl = serverUrl`).
+- [x] `src/mcp/index.ts` — `Resource` (Schema.Struct, `zodObject`) and `Status` (Schema.Union of five tagged variants, each with matching `identifier` annotation, `zod(...)` because outer is union not struct).
 - [x] `src/monitor/manager.ts` — `Status`, `Record` (DeepMutable), `LogSnapshot` migrated.
 - [ ] `src/patch/index.ts`
 - [ ] `src/plugin/github-copilot/models.ts`
