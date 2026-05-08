@@ -1,37 +1,42 @@
 import fs from "fs/promises"
 import path from "path"
 import { minimatch } from "minimatch"
-import z from "zod"
 import { FFF } from "./fff"
 import { Instance } from "../project/instance"
 import { Log } from "@/util/log"
+import { zod, zodObject } from "@/util/effect-zod"
+import { Schema } from "effect"
 
 export namespace SearchBackend {
   const log = Log.create({ service: "search.backend" })
 
-  export const Backend = z.enum(["fff", "bun"])
-  export type Backend = z.infer<typeof Backend>
+  const BackendSchema = Schema.Literal("fff", "bun")
+  export const Backend = zod(BackendSchema)
+  export type Backend = Schema.Schema.Type<typeof BackendSchema>
 
-  export const Match = z.object({
-    path: z.object({
-      text: z.string(),
+  const MatchSchema = Schema.Struct({
+    path: Schema.Struct({
+      text: Schema.String,
     }),
-    lines: z.object({
-      text: z.string(),
+    lines: Schema.Struct({
+      text: Schema.String,
     }),
-    line_number: z.number(),
-    absolute_offset: z.number(),
-    submatches: z.array(
-      z.object({
-        match: z.object({
-          text: z.string(),
+    line_number: Schema.Number,
+    absolute_offset: Schema.Number,
+    submatches: Schema.mutable(
+      Schema.Array(
+        Schema.Struct({
+          match: Schema.Struct({
+            text: Schema.String,
+          }),
+          start: Schema.Number,
+          end: Schema.Number,
         }),
-        start: z.number(),
-        end: z.number(),
-      }),
+      ),
     ),
   })
-  export type Match = z.infer<typeof Match>
+  export const Match = zodObject(MatchSchema)
+  export type Match = Schema.Schema.Type<typeof MatchSchema>
 
   export type FilesInput = {
     cwd: string

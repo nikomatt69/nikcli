@@ -4,6 +4,32 @@ This document is the single integrated execution plan for the `packages/nikcli` 
 
 The plan is deliberately progressive: every phase ships compilable, testable, behavior-preserving code. No phase introduces a placeholder, mock, or `TODO`. Earlier phases prepare the seams that later phases consume.
 
+## Execution log (2026-05-08)
+
+Phase P expansion landed on this branch in the 2026-05-08 pass. Full per-commit ledger (most recent first):
+
+- `5c04b69` — `SessionStatus.Info` (Schema.Union of `idle`/`retry`/`busy` tagged structs annotated with `zodObjectMode("strip")` so legacy unknown-field tolerance is preserved on session status payloads). Plus `SessionSummary.{SummarizeInput, DiffInput}`, `SessionRevert.RevertInput`, `SessionCompaction.CreateInput` — all derived via `zodObject(...)` from `Schema.Struct(...)` with `Schema.startsWith(...)` ID-prefix refinements.
+- `08d5d26` — `Workspace.{Info, Restore, SessionRestore, ConnectionStatus}` migrated to Effect Schema. `ConnectionStatus` is `Schema.Literal(...)`, the rest are `Schema.Struct(...)`. `Restore` and `SessionRestore` keep `tag` literals so the existing union discrimination at the consumer side still works.
+- `fcbab5e` — `File.Node`, `File.Content` (with nested patch sub-struct) and `Workspace.Config` (Schema.Union of `worktree | container`).
+- `908e9df` — `Sandbox.{Ref, State}` (each a `Schema.Union` over its tagged variants, exported as `RefSchema` / `StateSchema` for cross-namespace composition) and `BackgroundRun.Record` (`DeepMutable<...>` because the run record is mutated during streaming updates), plus `Status` / `Source` / `Role` literal enums.
+- `adc825f` — `Log.Level` literal-enum schema; spec consolidation pass over `specs/effect/*` to bring the secondary docs in line with this master plan's wording.
+- `b524bf4` — `ModelsDev.Model`, `ModelsDev.Provider`, `Monitor.Record`. All three use `DeepMutable<...>` because they are mutated extensively during fetch/merge cycles. `Monitor.Status` is the literal enum; `Monitor.LogSnapshot` is a plain `Schema.Struct(...)`. Shared `ModalityValueSchema` and `CostBlockSchema` extracted so `provider/provider.ts` and `provider/models.ts` reference one canonical Effect Schema instead of duplicating shapes.
+- `f423ef7` — `Provider.Model` and `Provider.Info` migrated. Model uses nested `Schema.Struct(...)` for capabilities + cost; both expose `DeepMutable<...>` types because the merge logic mutates fields. The internal fetch wrapper / spread sites that previously assumed mutable shapes now use single-property casts to satisfy readonly-on-paper Schema.Struct outputs without changing runtime behavior.
+- `e862f60` — `Connectors.Entry`, `Vcs.Info`, `Worktree.{Info, CreateInput, RemoveInput, ResetInput}`. `Connectors.Entry` carries `DeepMutable<...>` because `updateToken` / `updateBotToken` / `updateApiKey` write into the entry in place. `DeepMutable<T>` itself is now a shared utility exported from `@/util/effect-zod` rather than re-declared in each consumer.
+- `c5310ef` — Project + ProviderAuth + walker enhancements: `Project.{Info, UpdateInput}` (uses `DeepMutable<...>`, with an extracted `IconSchema` so `Info.shape.icon` access still works for downstream consumers); `ProviderAuth.Method` / `Authorization` / authorize+callback+api input contracts. Walker enhancements landed: `zodObject` now has 2 overloads (typed `Schema.Struct<Fields>` preserving `.shape`/`.omit` field types vs broad `Schema.Schema<A,I,R>` for `Schema.mutable(...)`-wrapped or non-Struct compositions); `zodObjectMode("strict" | "strip" | "passthrough")` annotation added so legacy strip-on-parse payloads stay forward-compatible without losing the default strictness elsewhere.
+- `104dfa2` / `d51e73a` — extended migration analysis docs and detailed plan deltas; not code-touching.
+- `f51037d` — `effect` package upgrade + ergonomic session management touch-ups that the walker depends on.
+
+Validation gate after this pass:
+
+- `bun run typecheck` — green (turbo cache hit, full graph).
+- All Phase P migrations preserve the public Zod-shaped exports via `zodObject(...)` / `zod(...)`, so downstream Zod-only consumers (server validators, AI-SDK tool params, `z.toJSONSchema(...)`) compile and run unchanged.
+
+Discoveries landed during this pass:
+
+- `lsp/index.ts` migration attempt reverted. Switching `LSP.Range` to `zodObject(...)` widened nested struct types to `unknown` when `MessageV2.SymbolSource` consumed it via `FilePartSourceBase.extend({...range: LSP.Range})`. Root cause: walker's typed overload returns `z.ZodObject<{start: z.ZodType<{line, character}>, ...}>`; `z.infer` widens through nested `z.ZodType<X>` when extended, because `.extend` reads the structural shape rather than the precise inner type. Fix path: deepen `FieldsToShape<Fields>` to recursively map nested `Schema.Struct` to `z.ZodObject<{...}>` (not `z.ZodType<X>`), and to map nested `Schema.Array` to `z.ZodArray<...>`. Until that lands, LSP.Range stays Zod-first because its consumers in `MessageV2.SymbolSource` (and other extended structs) need precise nested types preserved through `.extend`.
+- `searchBackend.ts` migrated in-place: `Backend` (Schema.Literal) and `Match` Effect Schema with `Schema.mutable(Schema.Array(...))` over the submatches array (the search loop pushes into it).
+
 ## Execution log (2026-05-07)
 
 Concrete progress landed on this branch in the first execution pass:
@@ -71,7 +97,9 @@ Risks to validate before landing:
 
 Implementation deferred to a dedicated PR with focused test coverage.
 
-## Phase P status — current priority, starter complete, walker shape inference landed
+## Phase P status — large surface coverage in progress, walker shape inference landed for typed structs
+
+After the 2026-05-08 pass, ~40 namespace-level schemas have flipped from Zod-first to Effect Schema with the public API kept identical via `zodObject(...)` / `zod(...)`. The walker's typed overload preserves `.shape` / `.omit` / `.partial` / `.merge` / `.extend` for direct callers; the only deferred class is *nested-struct extension* (consumer extends a Schema-derived Zod object whose properties are themselves `Schema.Struct(...)`-derived) — that class is documented as the LSP.Range fix path in the 2026-05-08 log.
 
 Walker enhancement landed: `zodObject<Fields>(schema)` now returns `z.ZodObject<FieldsToShape<Fields>>` where `FieldsToShape` recursively maps each Effect Schema field to its Zod equivalent (`PropertySignature<"?:", A, ...>` → `z.ZodOptional<z.ZodType<A>>`, `Schema.Schema<A, ...>` → `z.ZodType<A>`). `.omit`, `.partial`, `.merge`, `.extend` now preserve typed shapes for downstream callers.
 
@@ -95,6 +123,17 @@ Migrated namespace-level schemas:
 - ✅ `src/provider/models.ts` — `ModelsDev.Model`, `ModelsDev.Provider`. Both `DeepMutable`. Shared `ModalityValueSchema` and `CostBlockSchema`.
 - ✅ `src/monitor/manager.ts` — `Monitor.Status` (Schema.Literal), `Monitor.Record` (DeepMutable), `Monitor.LogSnapshot`.
 - ✅ `src/util/log.ts` — `Log.Level` Effect Schema.
+- ✅ `src/sandbox/types.ts` — `Ref` and `State` (each `Schema.Union` over tagged variants); `RefSchema` / `StateSchema` re-exported for cross-namespace composition.
+- ✅ `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>` because the run record is mutated during streaming updates).
+- ✅ `src/workspace/config.ts` — `Workspace.Config` as `Schema.Union` of `worktree | container`.
+- ✅ `src/workspace/index.ts` — `ConnectionStatus` (literal), `Info`, `Restore`, `SessionRestore`. `Restore` and `SessionRestore` keep their `tag` literal so existing union discrimination still works.
+- ✅ `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct).
+- ✅ `src/file/searchBackend.ts` — `Backend` (Schema.Literal) and `Match` (`Schema.mutable(Schema.Array(...))` over `submatches` because the search loop pushes into it).
+- ✅ `src/session/status.ts` — `SessionStatus.Info` as `Schema.Union` of `idle` / `retry` / `busy` tagged structs annotated with `zodObjectMode("strip")` so legacy unknown-field tolerance is preserved on session status payloads.
+- ✅ `src/session/summary.ts` — `SummarizeInput`, `DiffInput`. `Schema.startsWith("ses")` / `Schema.startsWith("msg")` ID-prefix refinements use the canonical `Identifier.prefixes` short keys.
+- ✅ `src/session/revert.ts` — `RevertInput`.
+- ✅ `src/session/compaction.ts` — `CreateInput`.
+- 🔁 `src/lsp/index.ts` — migration attempt reverted. `LSP.Range` consumers (`MessageV2.SymbolSource` via `FilePartSourceBase.extend({range: LSP.Range})`) widen nested struct types to `unknown` because `z.infer` reads the structural shape from `.extend(...)` rather than the precise inner `z.ZodType<X>`. Stays Zod-first until `FieldsToShape<Fields>` walks recursively into nested `Schema.Struct` (mapping to `z.ZodObject<{...}>` not `z.ZodType<X>`). See 2026-05-08 log for the fix path.
 - 🔁 Extension/tool schema unlocks — the walker now supports enough shape inference for the already-migrated tool parameter schemas tracked in `schema.md` Phase J; SDK byte-identity work is therefore unblocked by continuing Phase P before the generator flip.
 
 Walker enhancements landed during this Phase P iteration:
@@ -109,12 +148,13 @@ Knock-on tool migrations unblocked:
 
 Remaining Phase P scope (per `schema.md` large surfaces):
 
-- Provider domain (`provider/models.ts`, `provider/provider.ts`; `provider/auth.ts` landed)
-- Session domain (compaction, message-v2, message, prompt, revert, summary, status, todo, session)
-- Server route DTO files (~20 files)
+- Provider domain — ✅ `provider/auth.ts`, `provider/provider.ts`, `provider/models.ts` all landed.
+- Session domain — ✅ `compaction`, `revert`, `summary`, `status`, `todo` landed; remaining: `message-v2`, `message`, `prompt`, `session` (large; needs to land alongside or after Phase D2 to avoid fighting in-flight handler refactors).
+- LSP / MCP — `lsp/index.ts`, `mcp/index.ts`, `mcp/auth.ts`, `lsp/client.ts` schemas. LSP.Range blocked on walker nested-struct shape inference (see 2026-05-08 log); MCP can land independently.
+- Server route DTO files — ~20 files. Independent of the route-handler refactor in Phase D; can land any time.
 - Bus events, command, plugin, agent, control-plane, ide, util, etc.
 
-Each is a self-contained migration following the `Question.Info` pattern: declare `Schema.Struct(...)`, expose `zodObject(...)`/`zod(...)` for compat, mirror downstream callers as needed.
+Each is a self-contained migration following the `Question.Info` pattern: declare `Schema.Struct(...)`, expose `zodObject(...)`/`zod(...)` for compat, mirror downstream callers as needed. For records that get mutated post-construction, use `DeepMutable<typeof FooSchema>` from `@/util/effect-zod` instead of `Schema.mutable(Schema.Struct(...))` to keep typed-overload `.shape` access working.
 
 Migrated (21 files, ~50 call sites, all behind green typecheck):
 

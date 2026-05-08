@@ -261,21 +261,21 @@ Possible later tightening after the Schema-first migration is stable:
 - promote repeated opaque strings and timestamp numbers into branded/newtype
   leaf schemas where that adds domain value without changing the wire format
 
-- [ ] `src/session/compaction.ts`
-- [ ] `src/session/message-v2.ts`
+- [x] `src/session/compaction.ts` — `CreateInput` migrated.
+- [ ] `src/session/message-v2.ts` — blocked on walker nested-struct shape inference (LSP.Range and other extended structs widen to `unknown` through `.extend(...)`).
 - [ ] `src/session/message.ts`
 - [ ] `src/session/prompt.ts`
-- [ ] `src/session/revert.ts`
-- [ ] `src/session/session.ts`
-- [ ] `src/session/status.ts`
-- [ ] `src/session/summary.ts`
-- [ ] `src/session/todo.ts`
+- [x] `src/session/revert.ts` — `RevertInput` migrated.
+- [ ] `src/session/session.ts` — large; coordinates with Phase D2 session route effectification.
+- [x] `src/session/status.ts` — `Info` Schema.Union of tagged structs with `zodObjectMode("strip")` to preserve forward-compatible payload tolerance.
+- [x] `src/session/summary.ts` — `SummarizeInput`, `DiffInput` migrated.
+- [x] `src/session/todo.ts` — `Todo.Info` migrated.
 
 ### Provider domain
 
 - [x] `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are now Effect Schema-first with Zod derived via `zodObject(...)`. Evidence: `bun run typecheck`, `bun test test/provider/auth-effect-service.test.ts test/server/httpapi-provider.test.ts`, and `bun test test/provider/core.test.ts -t "ProviderAuth contracts"`.
-- [ ] `src/provider/models.ts`
-- [ ] `src/provider/provider.ts`
+- [x] `src/provider/models.ts` — `ModelsDev.Model` and `ModelsDev.Provider` migrated, both `DeepMutable<...>`. Shared `ModalityValueSchema` and `CostBlockSchema` extracted.
+- [x] `src/provider/provider.ts` — `Provider.Model` and `Provider.Info` migrated. Both `DeepMutable<...>`. Shared `CapabilitiesIOSchema` / `CostBlockSchema` extracted; internal fetch wrapper / spread sites use single-property casts to satisfy readonly-on-paper Schema.Struct outputs without changing runtime behavior.
 
 ### Tool schemas
 
@@ -360,7 +360,9 @@ Small / shared / control-plane / CLI. Mostly independent; can be done
 piecewise.
 
 - [ ] `src/acp/agent.ts`
-- [ ] `src/agent/agent.ts`
+- [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
+- [x] `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
+- [x] `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>`).
 - [ ] `src/bus/bus-event.ts`
 - [ ] `src/bus/index.ts`
 - [ ] `src/cli/cmd/tui/config/tui-migrate.ts`
@@ -369,33 +371,41 @@ piecewise.
 - [ ] `src/cli/cmd/tui/event.ts`
 - [ ] `src/cli/ui.ts`
 - [ ] `src/command/index.ts`
+- [x] `src/connectors/auth.ts` — `ConnectorAuth.Entry` with shared `DeepMutable<...>` (mutated by `updateToken`/`updateBotToken`/`updateApiKey`).
 - [ ] `src/control-plane/adapters/worktree.ts`
 - [ ] `src/control-plane/types.ts`
 - [ ] `src/control-plane/workspace.ts`
-- [ ] `src/file/index.ts`
+- [x] `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct) migrated.
 - [ ] `src/file/ripgrep.ts`
+- [x] `src/file/searchBackend.ts` — `Backend` (Schema.Literal) and `Match` (`Schema.mutable(Schema.Array(...))` over submatches).
 - [ ] `src/file/watcher.ts`
 - [ ] `src/format/index.ts`
 - [ ] `src/id/id.ts`
 - [ ] `src/ide/index.ts`
-- [ ] `src/installation/index.ts`
+- [x] `src/installation/index.ts` — `Info` migrated.
 - [ ] `src/lsp/client.ts`
+- [ ] `src/lsp/index.ts` — migration attempt reverted; blocked on walker nested-struct shape inference (see MASTER-PLAN 2026-05-08 log).
 - [ ] `src/lsp/lsp.ts`
 - [ ] `src/mcp/auth.ts`
+- [x] `src/monitor/manager.ts` — `Status`, `Record` (DeepMutable), `LogSnapshot` migrated.
 - [ ] `src/patch/index.ts`
 - [ ] `src/plugin/github-copilot/models.ts`
-- [ ] `src/project/project.ts`
-- [ ] `src/project/vcs.ts`
-- [ ] `src/pty/index.ts`
-- [ ] `src/skill/index.ts`
-- [ ] `src/snapshot/index.ts`
+- [x] `src/project/project.ts` — `Info`, `UpdateInput` migrated. `DeepMutable<...>`. Extracted `IconSchema` for `Info.shape.icon` access.
+- [x] `src/project/vcs.ts` — `Vcs.Info` migrated.
+- [x] `src/pty/index.ts` — `Pty.Info`, `CreateInput`, `UpdateInput` migrated. Status enum, env via `Schema.Record`, nested optional struct for size.
+- [x] `src/question/index.ts` — `Option`, `Info`, `Answer` migrated.
+- [x] `src/sandbox/types.ts` — `Ref` and `State` (Schema.Union over tagged variants); `RefSchema` / `StateSchema` re-exported.
+- [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`.
+- [x] `src/snapshot/index.ts` — `Patch` migrated; `files` array `Schema.mutable`.
 - [ ] `src/storage/db.ts`
 - [ ] `src/storage/storage.ts`
 - [ ] `src/sync/index.ts` — public API (`SyncEvent.define`) is Schema-first; `payloads()` still derives zod for the remaining HTTP/OpenAPI boundary
 - [ ] `src/util/fn.ts`
-- [ ] `src/util/log.ts`
+- [x] `src/util/log.ts` — `Log.Level` migrated.
 - [ ] `src/util/update-schema.ts`
-- [ ] `src/worktree/index.ts`
+- [x] `src/workspace/config.ts` — `Workspace.Config` (Schema.Union of `worktree | container`).
+- [x] `src/workspace/index.ts` — `ConnectionStatus`, `Info`, `Restore`, `SessionRestore` migrated.
+- [x] `src/worktree/index.ts` — `Info`, `CreateInput`, `RemoveInput`, `ResetInput` migrated.
 
 ### Do-not-migrate
 
@@ -405,7 +415,11 @@ piecewise.
 
 ## Notes
 
-- **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`), Suspend/lazy, Declaration surrogates, Enums. Validated by `bun test test/util/effect-zod.test.ts` (18 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
+- **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`, `zodObjectMode("strict" | "strip" | "passthrough")`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, optionalWith default, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`, `isMinItems`, `isMaxItems`), `NumberFromString` → `z.coerce.number()`, Suspend/lazy, Declaration surrogates, Enums. Validated by `bun test test/util/effect-zod.test.ts` (≥22 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
+- **`zodObject` overload set**: typed `Schema.Struct<Fields>` returns `z.ZodObject<FieldsToShape<Fields>>` (preserves `.shape` / `.omit` / `.partial` / `.merge` / `.extend` field types); broad `Schema.Schema<A,I,R>` returns `z.ZodObject<z.ZodRawShape>` for `Schema.mutable(...)`-wrapped or otherwise non-Struct compositions. Use `DeepMutable<typeof FooSchema>` from `@/util/effect-zod` instead of `Schema.mutable(Schema.Struct(...))` when you need both runtime mutability and typed `.shape` access — the latter falls through to the broad overload and loses the typed shape.
+- **`zodObjectMode` annotation**: schemas can opt out of the default `.strict()` behavior. Use `.annotations(zodObjectMode("strip"))` for forward-compatible payloads where unknown fields should be silently dropped (e.g. `SessionStatus.Info` variants), or `zodObjectMode("passthrough")` to keep them.
+- **Optional-key handling for JSON Schema safety**: `Schema.optional(X)` strips the `Schema.Undefined` arm from the inner union so `z.toJSONSchema(...)` does not throw on `z.undefined()` arms. Verified by `test/util/effect-zod.test.ts → "Schema.optional inside Struct produces JSON-Schema-safe Zod"`.
+- **Identifier / title / description filtering**: Effect's intrinsic annotations (`title="string"`, `description="a string"`, `identifier="NumberFromString"`, etc.) are filtered before being emitted as Zod metadata, so JSON Schema output stays clean.
 - Use `@/util/effect-zod` for all Schema → Zod conversion.
 - Prefer one canonical schema definition. Avoid maintaining parallel Zod and
   Effect definitions for the same domain type.
