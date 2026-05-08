@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import path from "path"
 import { $ } from "bun"
-import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
@@ -22,14 +21,14 @@ export namespace Installation {
   export const Event = {
     Updated: BusEvent.define(
       "installation.updated",
-      z.object({
-        version: z.string(),
+      Schema.Struct({
+        version: Schema.String,
       }),
     ),
     UpdateAvailable: BusEvent.define(
       "installation.update-available",
-      z.object({
-        version: z.string(),
+      Schema.Struct({
+        version: Schema.String,
       }),
     ),
   }
@@ -136,9 +135,11 @@ export namespace Installation {
 
   export const UpgradeFailedError = NamedError.create(
     "UpgradeFailedError",
-    z.object({
-      stderr: z.string(),
-    }),
+    zodObject(
+      Schema.Struct({
+        stderr: Schema.String,
+      }),
+    ),
   )
 
   async function getBrewFormula() {

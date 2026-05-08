@@ -1,5 +1,4 @@
 import { type Tool } from "ai"
-import z from "zod"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import { ConnectorAuth } from "./auth"
@@ -12,7 +11,8 @@ import {
   invalidateToolsCache,
   invalidateStatusCache,
 } from "./cache"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
@@ -43,32 +43,17 @@ function configGet() {
 export namespace Connectors {
   const log = Log.create({ service: "connectors" })
 
-  export const StatusSchema = z
-    .discriminatedUnion("status", [
-      z
-        .object({
-          status: z.literal("connected"),
-        })
-        .meta({ ref: "ConnectorStatusConnected" }),
-      z
-        .object({
-          status: z.literal("disabled"),
-        })
-        .meta({ ref: "ConnectorStatusDisabled" }),
-      z
-        .object({
-          status: z.literal("failed"),
-          error: z.string(),
-        })
-        .meta({ ref: "ConnectorStatusFailed" }),
-      z
-        .object({
-          status: z.literal("needs_auth"),
-        })
-        .meta({ ref: "ConnectorStatusNeedsAuth" }),
-    ])
-    .meta({ ref: "ConnectorStatus" })
-  export type Status = z.infer<typeof StatusSchema>
+  const StatusEffectSchema = Schema.Union(
+    Schema.Struct({ status: Schema.Literal("connected") }).annotations({ identifier: "ConnectorStatusConnected" }),
+    Schema.Struct({ status: Schema.Literal("disabled") }).annotations({ identifier: "ConnectorStatusDisabled" }),
+    Schema.Struct({
+      status: Schema.Literal("failed"),
+      error: Schema.String,
+    }).annotations({ identifier: "ConnectorStatusFailed" }),
+    Schema.Struct({ status: Schema.Literal("needs_auth") }).annotations({ identifier: "ConnectorStatusNeedsAuth" }),
+  ).annotations({ identifier: "ConnectorStatus" })
+  export const StatusSchema = zod(StatusEffectSchema)
+  export type Status = Schema.Schema.Type<typeof StatusEffectSchema>
 
   type ConnectorEntry = NonNullable<Config.Info["connectors"]>[string]
   export function isConnectorConfigured(entry: ConnectorEntry): entry is Config.Connector {
