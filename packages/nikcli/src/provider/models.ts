@@ -6,6 +6,8 @@ import { data } from "./models-macro" with { type: "macro" }
 import { Installation } from "../installation"
 import { Flag } from "../flag/flag"
 import { cursorModelsDevProvider } from "../plugin/cursor"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
+import { Schema } from "effect"
 
 export namespace ModelsDev {
   const log = Log.create({ service: "models.dev" })
@@ -106,71 +108,74 @@ export namespace ModelsDev {
     return database
   }
 
-  export const Model = z.object({
-    id: z.string(),
-    name: z.string(),
-    family: z.string().optional(),
-    release_date: z.string(),
-    attachment: z.boolean(),
-    reasoning: z.boolean(),
-    temperature: z.boolean(),
-    tool_call: z.boolean(),
-    interleaved: z
-      .union([
-        z.literal(true),
-        z
-          .object({
-            field: z.enum(["reasoning_content", "reasoning_details"]),
-          })
-          .strict(),
-      ])
-      .optional(),
-    cost: z
-      .object({
-        input: z.number(),
-        output: z.number(),
-        cache_read: z.number().optional(),
-        cache_write: z.number().optional(),
-        context_over_200k: z
-          .object({
-            input: z.number(),
-            output: z.number(),
-            cache_read: z.number().optional(),
-            cache_write: z.number().optional(),
-          })
-          .optional(),
-      })
-      .optional(),
-    limit: z.object({
-      context: z.number(),
-      input: z.number().optional(),
-      output: z.number(),
+  const ModalityValueSchema = Schema.Literal("text", "audio", "image", "video", "pdf")
+
+  const CostBlockSchema = Schema.Struct({
+    input: Schema.Number,
+    output: Schema.Number,
+    cache_read: Schema.optional(Schema.Number),
+    cache_write: Schema.optional(Schema.Number),
+  })
+
+  const ModelSchema = Schema.Struct({
+    id: Schema.String,
+    name: Schema.String,
+    family: Schema.optional(Schema.String),
+    release_date: Schema.String,
+    attachment: Schema.Boolean,
+    reasoning: Schema.Boolean,
+    temperature: Schema.Boolean,
+    tool_call: Schema.Boolean,
+    interleaved: Schema.optional(
+      Schema.Union(
+        Schema.Literal(true),
+        Schema.Struct({
+          field: Schema.Literal("reasoning_content", "reasoning_details"),
+        }),
+      ),
+    ),
+    cost: Schema.optional(
+      Schema.Struct({
+        input: Schema.Number,
+        output: Schema.Number,
+        cache_read: Schema.optional(Schema.Number),
+        cache_write: Schema.optional(Schema.Number),
+        context_over_200k: Schema.optional(CostBlockSchema),
+      }),
+    ),
+    limit: Schema.Struct({
+      context: Schema.Number,
+      input: Schema.optional(Schema.Number),
+      output: Schema.Number,
     }),
-    modalities: z
-      .object({
-        input: z.array(z.enum(["text", "audio", "image", "video", "pdf"])),
-        output: z.array(z.enum(["text", "audio", "image", "video", "pdf"])),
-      })
-      .optional(),
-    experimental: z.boolean().optional(),
-    status: z.enum(["alpha", "beta", "deprecated"]).optional(),
-    options: z.record(z.string(), z.any()),
-    headers: z.record(z.string(), z.string()).optional(),
-    provider: z.object({ npm: z.string(), api: z.string() }).optional(),
-    variants: z.record(z.string(), z.record(z.string(), z.any())).optional(),
+    modalities: Schema.optional(
+      Schema.Struct({
+        input: Schema.Array(ModalityValueSchema),
+        output: Schema.Array(ModalityValueSchema),
+      }),
+    ),
+    experimental: Schema.optional(Schema.Boolean),
+    status: Schema.optional(Schema.Literal("alpha", "beta", "deprecated")),
+    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+    provider: Schema.optional(Schema.Struct({ npm: Schema.String, api: Schema.String })),
+    variants: Schema.optional(
+      Schema.Record({ key: Schema.String, value: Schema.Record({ key: Schema.String, value: Schema.Unknown }) }),
+    ),
   })
-  export type Model = z.infer<typeof Model>
+  export const Model = zodObject(ModelSchema)
+  export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
 
-  export const Provider = z.object({
-    api: z.string().optional(),
-    name: z.string(),
-    env: z.array(z.string()),
-    id: z.string(),
-    npm: z.string().optional(),
-    models: z.record(z.string(), Model),
+  const ProviderSchema = Schema.Struct({
+    api: Schema.optional(Schema.String),
+    name: Schema.String,
+    env: Schema.mutable(Schema.Array(Schema.String)),
+    id: Schema.String,
+    npm: Schema.optional(Schema.String),
+    models: Schema.Record({ key: Schema.String, value: ModelSchema }),
   })
-
-  export type Provider = z.infer<typeof Provider>
+  export const Provider = zodObject(ProviderSchema)
+  export type Provider = DeepMutable<Schema.Schema.Type<typeof ProviderSchema>>
 
   export async function get() {
     if (!Flag.NIKCLI_DISABLE_MODELS_FETCH) {

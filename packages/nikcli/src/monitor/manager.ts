@@ -15,7 +15,8 @@ import fs from "fs/promises"
 import path from "path"
 import { ulid } from "ulid"
 import z from "zod"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { type DeepMutable, zod, zodObject } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const OUTPUT_EVENT_MAX_BYTES = 32 * 1024
@@ -60,45 +61,48 @@ function storageWrite<T>(key: string[], content: T) {
 }
 
 export namespace Monitor {
-  export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled"])
-  export type Status = z.infer<typeof Status>
+  const StatusSchema = Schema.Literal("running", "complete", "error", "timeout", "cancelled")
+  export const Status = zod(StatusSchema)
+  export type Status = Schema.Schema.Type<typeof StatusSchema>
 
-  export const Record = z.object({
-    id: z.string(),
-    sessionID: z.string(),
-    messageID: Identifier.schema("message"),
-    callID: z.string(),
-    partID: Identifier.schema("part").optional(),
-    title: z.string(),
-    command: z.string(),
-    cwd: z.string(),
-    agent: z.string(),
-    wake: z.boolean(),
-    timeoutMs: z.number().optional(),
-    status: Status,
-    pid: z.number().optional(),
-    exitCode: z.number().optional(),
-    signal: z.string().optional(),
-    logPath: z.string(),
-    commandPath: z.string(),
-    pidPath: z.string(),
-    exitCodePath: z.string(),
-    preview: z.string().default(""),
-    bytes: z.number().default(0),
-    time: z.object({
-      created: z.number(),
-      updated: z.number(),
-      completed: z.number().optional(),
+  const RecordSchema = Schema.Struct({
+    id: Schema.String,
+    sessionID: Schema.String,
+    messageID: Schema.String.pipe(Schema.startsWith("msg")),
+    callID: Schema.String,
+    partID: Schema.optional(Schema.String.pipe(Schema.startsWith("prt"))),
+    title: Schema.String,
+    command: Schema.String,
+    cwd: Schema.String,
+    agent: Schema.String,
+    wake: Schema.Boolean,
+    timeoutMs: Schema.optional(Schema.Number),
+    status: StatusSchema,
+    pid: Schema.optional(Schema.Number),
+    exitCode: Schema.optional(Schema.Number),
+    signal: Schema.optional(Schema.String),
+    logPath: Schema.String,
+    commandPath: Schema.String,
+    pidPath: Schema.String,
+    exitCodePath: Schema.String,
+    preview: Schema.optionalWith(Schema.String, { default: () => "" }),
+    bytes: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+    time: Schema.Struct({
+      created: Schema.Number,
+      updated: Schema.Number,
+      completed: Schema.optional(Schema.Number),
     }),
   })
-  export type Record = z.infer<typeof Record>
+  export const Record = zodObject(RecordSchema)
+  export type Record = DeepMutable<Schema.Schema.Type<typeof RecordSchema>>
 
-  export const LogSnapshot = z.object({
-    record: Record,
-    output: z.string(),
-    truncated: z.boolean(),
+  const LogSnapshotSchema = Schema.Struct({
+    record: RecordSchema,
+    output: Schema.String,
+    truncated: Schema.Boolean,
   })
-  export type LogSnapshot = z.infer<typeof LogSnapshot>
+  export const LogSnapshot = zodObject(LogSnapshotSchema)
+  export type LogSnapshot = Schema.Schema.Type<typeof LogSnapshotSchema>
 
   export const Event = {
     Created: BusEvent.define(
