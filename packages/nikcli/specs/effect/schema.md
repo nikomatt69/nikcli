@@ -289,8 +289,8 @@ Possible later tightening after the Schema-first migration is stable:
 
 ### Provider domain
 
-- [x] `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are now Effect Schema-first with Zod derived via `zodObject(...)`. Evidence: `bun run typecheck`, `bun test test/provider/auth-effect-service.test.ts test/server/httpapi-provider.test.ts`, and `bun test test/provider/core.test.ts -t "ProviderAuth contracts"`.
-- [x] `src/provider/models.ts` — `ModelsDev.Model` and `ModelsDev.Provider` migrated, both `DeepMutable<...>`. Shared `ModalityValueSchema` and `CostBlockSchema` extracted.
+- [x] `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are now Effect Schema-first with Zod derived via `zodObject(...)`. `OauthMissing` / `OauthCodeMissing` / `OauthCallbackFailed` payloads migrated to `zodObject(Schema.Struct(...))`; shared `ProviderIDPayload` extracted. Zod import removed. Evidence: `bun run typecheck`, `bun test test/provider/auth-effect-service.test.ts test/server/httpapi-provider.test.ts`, and `bun test test/provider/core.test.ts -t "ProviderAuth contracts"`.
+- [x] `src/provider/models.ts` — `ModelsDev.Model` and `ModelsDev.Provider` migrated, both `DeepMutable<...>`. Shared `ModalityValueSchema` and `CostBlockSchema` extracted. Zod import removed.
 - [x] `src/provider/provider.ts` — `Provider.Model` and `Provider.Info` migrated. Both `DeepMutable<...>`. Shared `CapabilitiesIOSchema` / `CostBlockSchema` extracted; internal fetch wrapper / spread sites use single-property casts to satisfy readonly-on-paper Schema.Struct outputs without changing runtime behavior.
 
 ### Tool schemas
@@ -401,7 +401,10 @@ piecewise.
 - [x] `src/acp/agent.ts`
   - Uses migrated `Todo.Info` for parsing; remaining Zod use is local
     compatibility parsing, not an exported schema.
-- [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
+- [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`. The inline `generateObject({schema: ...})` call site uses `zodObject(Schema.Struct({...}))`. Zod import removed.
+- [x] `src/permission/next.ts` — `Action`, `Rule`, `Ruleset` (mutable), `Request`, `Reply`, `Approval` migrated; `ReplyInput` migrated to `Schema.Struct(...)` reusing the existing `ReplySchema` literal and `Identifier.schemaEffect("permission")`. `AskInput` stays Zod-pinned because `Request.partial({id:true}).extend({ruleset})` uses Zod-only `.partial()`.
+- [x] `src/mobile/auth.ts` — `MobileAuth.Token` migrated to `Schema.Struct(...).annotations({identifier: "MobileAuthToken"})` + `zodObject(...)`. `PublicToken` keeps `.omit({hash:true}).meta({...})` chain Zod-side because the omit() result needs the existing Zod ref-meta annotation. Zod import preserved for that one call site.
+- [x] `src/mobile/expo.ts` — `Expo.StartOptions` and `BuildOptions` migrated to `Schema.Struct` + `zodObject`. Zod import removed.
 - [x] `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
 - [x] `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>`).
 - [x] `src/bun/index.ts` — `BunProc.InstallFailedError` payload migrated to `zodObject(Schema.Struct({...}))`. Zod import removed.
@@ -440,7 +443,7 @@ piecewise.
 - [x] `src/control-plane/adapters/worktree.ts` — file does not exist on this branch.
 - [x] `src/control-plane/types.ts` — file does not exist on this branch.
 - [x] `src/control-plane/workspace.ts` — file does not exist on this branch.
-- [x] `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct) migrated.
+- [x] `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct) migrated. `File.Info` migrated to `Schema.Struct(...)` with `Schema.int()` refinement and `Schema.Literal("added"|"deleted"|"modified")`. `Event.Edited` payload moved to `Schema.Struct` through Schema-aware `BusEvent.define` overload. Zod import removed.
 - [x] `src/file/ripgrep.ts` — file does not exist on this branch.
 - [x] `src/file/searchBackend.ts` — `Backend` (Schema.Literal) and `Match` (`Schema.mutable(Schema.Array(...))` over submatches).
 - [x] `src/file/watcher.ts` — `FileWatcher.Event.Updated` uses `BusEvent.define`
@@ -468,12 +471,13 @@ piecewise.
     deciding whether provider SDK wire parsers are in Phase P scope or
     intentionally external-protocol pinned.
 - [x] `src/project/project.ts` — `Info`, `UpdateInput` migrated. `DeepMutable<...>`. Extracted `IconSchema` for `Info.shape.icon` access.
-- [x] `src/project/vcs.ts` — `Vcs.Info` migrated.
+- [x] `src/project/vcs.ts` — `Vcs.Info` migrated. `Event.BranchUpdated` payload moved to `Schema.Struct(...)` through Schema-aware `BusEvent.define` overload. Zod import removed.
 - [x] `src/pty/index.ts` — `Pty.Info`, `CreateInput`, `UpdateInput` migrated. Status enum, env via `Schema.Record`, nested optional struct for size.
 - [x] `src/question/index.ts` — `Option`, `Info`, `Answer` migrated.
 - [x] `src/sandbox/types.ts` — `Ref` and `State` (Schema.Union over tagged variants); `RefSchema` / `StateSchema` re-exported.
 - [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`. `InvalidError` and `NameMismatchError` payloads moved to `zodObject(Schema.Struct({...}))`; `InvalidError.issues` uses the canonical `ZodOverride` for `z.core.$ZodIssue[]` (same pattern as `config/paths.ts`).
-- [x] `src/snapshot/index.ts` — `Patch` and `FileDiff` migrated; `files` array uses `Schema.mutable`.
+- [x] `src/sandbox/registry.ts` — `SandboxNotFoundError` payload migrated to `zodObject(Schema.Struct({workspaceID: Schema.String}))`. Zod import removed.
+- [x] `src/snapshot/index.ts` — `Patch` and `FileDiff` migrated; `files` array uses `Schema.mutable`. Zod import removed.
 - [x] `src/storage/db.ts` — no Zod schema definitions found in current audit.
 - [x] `src/storage/storage.ts` — `NotFoundError` migrated. Zod-first schema
       replaced by Effect Schema `NotFoundErrorSchema` with `zodObject(...)` derivation;
