@@ -1,34 +1,37 @@
 import path from "path"
 import fs from "fs/promises"
-import z from "zod"
 import { Global } from "../global"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObject, type DeepMutable } from "@/util/effect-zod"
 
 export namespace McpAuth {
-  export const Tokens = z.object({
-    accessToken: z.string(),
-    refreshToken: z.string().optional(),
-    expiresAt: z.number().optional(),
-    scope: z.string().optional(),
+  const TokensSchema = Schema.Struct({
+    accessToken: Schema.String,
+    refreshToken: Schema.optional(Schema.String),
+    expiresAt: Schema.optional(Schema.Number),
+    scope: Schema.optional(Schema.String),
   })
-  export type Tokens = z.infer<typeof Tokens>
+  export const Tokens = zodObject(TokensSchema)
+  export type Tokens = DeepMutable<Schema.Schema.Type<typeof TokensSchema>>
 
-  export const ClientInfo = z.object({
-    clientId: z.string(),
-    clientSecret: z.string().optional(),
-    clientIdIssuedAt: z.number().optional(),
-    clientSecretExpiresAt: z.number().optional(),
+  const ClientInfoSchema = Schema.Struct({
+    clientId: Schema.String,
+    clientSecret: Schema.optional(Schema.String),
+    clientIdIssuedAt: Schema.optional(Schema.Number),
+    clientSecretExpiresAt: Schema.optional(Schema.Number),
   })
-  export type ClientInfo = z.infer<typeof ClientInfo>
+  export const ClientInfo = zodObject(ClientInfoSchema)
+  export type ClientInfo = DeepMutable<Schema.Schema.Type<typeof ClientInfoSchema>>
 
-  export const Entry = z.object({
-    tokens: Tokens.optional(),
-    clientInfo: ClientInfo.optional(),
-    codeVerifier: z.string().optional(),
-    oauthState: z.string().optional(),
-    serverUrl: z.string().optional(),
+  const EntrySchema = Schema.Struct({
+    tokens: Schema.optional(TokensSchema),
+    clientInfo: Schema.optional(ClientInfoSchema),
+    codeVerifier: Schema.optional(Schema.String),
+    oauthState: Schema.optional(Schema.String),
+    serverUrl: Schema.optional(Schema.String),
   })
-  export type Entry = z.infer<typeof Entry>
+  export const Entry = zodObject(EntrySchema)
+  export type Entry = DeepMutable<Schema.Schema.Type<typeof EntrySchema>>
 
   export interface Interface {
     get(mcpName: string): Effect.Effect<Entry | undefined, unknown>
