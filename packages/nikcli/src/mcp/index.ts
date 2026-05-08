@@ -22,7 +22,8 @@ import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zod, zodObject } from "@/util/effect-zod"
 import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
 
@@ -48,16 +49,15 @@ export namespace MCP {
   const log = Log.create({ service: "mcp" })
   const DEFAULT_TIMEOUT = 30_000
 
-  export const Resource = z
-    .object({
-      name: z.string(),
-      uri: z.string(),
-      description: z.string().optional(),
-      mimeType: z.string().optional(),
-      client: z.string(),
-    })
-    .meta({ ref: "McpResource" })
-  export type Resource = z.infer<typeof Resource>
+  const ResourceSchema = Schema.Struct({
+    name: Schema.String,
+    uri: Schema.String,
+    description: Schema.optional(Schema.String),
+    mimeType: Schema.optional(Schema.String),
+    client: Schema.String,
+  }).annotations({ identifier: "McpResource" })
+  export const Resource = zodObject(ResourceSchema)
+  export type Resource = Schema.Schema.Type<typeof ResourceSchema>
 
   export const ToolsChanged = BusEvent.define(
     "mcp.tools.changed",
@@ -83,50 +83,21 @@ export namespace MCP {
 
   type MCPClient = Client
 
-  export const Status = z
-    .discriminatedUnion("status", [
-      z
-        .object({
-          status: z.literal("connected"),
-        })
-        .meta({
-          ref: "MCPStatusConnected",
-        }),
-      z
-        .object({
-          status: z.literal("disabled"),
-        })
-        .meta({
-          ref: "MCPStatusDisabled",
-        }),
-      z
-        .object({
-          status: z.literal("failed"),
-          error: z.string(),
-        })
-        .meta({
-          ref: "MCPStatusFailed",
-        }),
-      z
-        .object({
-          status: z.literal("needs_auth"),
-        })
-        .meta({
-          ref: "MCPStatusNeedsAuth",
-        }),
-      z
-        .object({
-          status: z.literal("needs_client_registration"),
-          error: z.string(),
-        })
-        .meta({
-          ref: "MCPStatusNeedsClientRegistration",
-        }),
-    ])
-    .meta({
-      ref: "MCPStatus",
-    })
-  export type Status = z.infer<typeof Status>
+  const StatusSchema = Schema.Union(
+    Schema.Struct({ status: Schema.Literal("connected") }).annotations({ identifier: "MCPStatusConnected" }),
+    Schema.Struct({ status: Schema.Literal("disabled") }).annotations({ identifier: "MCPStatusDisabled" }),
+    Schema.Struct({
+      status: Schema.Literal("failed"),
+      error: Schema.String,
+    }).annotations({ identifier: "MCPStatusFailed" }),
+    Schema.Struct({ status: Schema.Literal("needs_auth") }).annotations({ identifier: "MCPStatusNeedsAuth" }),
+    Schema.Struct({
+      status: Schema.Literal("needs_client_registration"),
+      error: Schema.String,
+    }).annotations({ identifier: "MCPStatusNeedsClientRegistration" }),
+  ).annotations({ identifier: "MCPStatus" })
+  export const Status = zod(StatusSchema)
+  export type Status = Schema.Schema.Type<typeof StatusSchema>
 
   function registerNotificationHandlers(client: MCPClient, serverName: string) {
     client.setNotificationHandler(ToolListChangedNotificationSchema, async () => {
