@@ -43,47 +43,23 @@ export namespace Worktree {
   export const ResetInput = zodObject(ResetInputSchema)
   export type ResetInput = Schema.Schema.Type<typeof ResetInputSchema>
 
-  export const NotGitError = NamedError.create(
-    "WorktreeNotGitError",
-    z.object({
-      message: z.string(),
+  const MessagePayload = zodObject(
+    Schema.Struct({
+      message: Schema.String,
     }),
   )
 
-  export const NameGenerationFailedError = NamedError.create(
-    "WorktreeNameGenerationFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export const NotGitError = NamedError.create("WorktreeNotGitError", MessagePayload)
 
-  export const CreateFailedError = NamedError.create(
-    "WorktreeCreateFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export const NameGenerationFailedError = NamedError.create("WorktreeNameGenerationFailedError", MessagePayload)
 
-  export const StartCommandFailedError = NamedError.create(
-    "WorktreeStartCommandFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export const CreateFailedError = NamedError.create("WorktreeCreateFailedError", MessagePayload)
 
-  export const RemoveFailedError = NamedError.create(
-    "WorktreeRemoveFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export const StartCommandFailedError = NamedError.create("WorktreeStartCommandFailedError", MessagePayload)
 
-  export const ResetFailedError = NamedError.create(
-    "WorktreeResetFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export const RemoveFailedError = NamedError.create("WorktreeRemoveFailedError", MessagePayload)
+
+  export const ResetFailedError = NamedError.create("WorktreeResetFailedError", MessagePayload)
 
   const ADJECTIVES = [
     "brave",

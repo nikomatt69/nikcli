@@ -12,7 +12,7 @@ import { Bus } from "@/bus"
 import { Session } from "@/session"
 import fs from "fs/promises"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, zodOverride } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Skill {
@@ -37,22 +37,28 @@ export namespace Skill {
     content: string
   }
 
+  const ZodIssuesSchema = Schema.Any.annotations(zodOverride(() => z.custom<z.core.$ZodIssue[]>()))
+
   export const InvalidError = NamedError.create(
     "SkillInvalidError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-    }),
+    zodObject(
+      Schema.Struct({
+        path: Schema.String,
+        message: Schema.optional(Schema.String),
+        issues: Schema.optional(ZodIssuesSchema),
+      }),
+    ),
   )
 
   export const NameMismatchError = NamedError.create(
     "SkillNameMismatchError",
-    z.object({
-      path: z.string(),
-      expected: z.string(),
-      actual: z.string(),
-    }),
+    zodObject(
+      Schema.Struct({
+        path: Schema.String,
+        expected: Schema.String,
+        actual: Schema.String,
+      }),
+    ),
   )
 
   // External skill directories to search for (project-level and global)
