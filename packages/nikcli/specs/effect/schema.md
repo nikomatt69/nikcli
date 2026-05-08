@@ -404,6 +404,9 @@ piecewise.
 - [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
 - [x] `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
 - [x] `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>`).
+- [x] `src/bun/index.ts` — `BunProc.InstallFailedError` payload migrated to `zodObject(Schema.Struct({...}))`. Zod import removed.
+- [x] `src/connectors/index.ts` — `Connectors.StatusSchema` (4-variant tagged union with per-variant `identifier` annotations; outer `ConnectorStatus` ref preserved) migrated to `Schema.Union(...)`, public `StatusSchema` derived via `zod(...)`.
+- [x] `src/delegation/manager.ts` — `Delegation.Status` migrated to `Schema.Literal(...)`; `DelegationCompletedEvent` payload migrated to `Schema.Struct(...)` through the Schema-aware `BusEvent.define` overload, sharing the literal with `Status`.
 - [x] `src/bus/bus-event.ts` — `BusEvent.define` now has a Schema.Struct overload
       that derives via `zodObject`, preserving field types. Zod-only callers
       continue to pass Zod directly. The `payloads()` union generator still
@@ -446,7 +449,10 @@ piecewise.
 - [x] `src/ide/index.ts` — `Ide.Event.Installed` uses `Schema.Struct` +
       `zodObjectMode("strip")`. `Ide.AlreadyInstalledError` and `Ide.InstallFailedError`
       use `zodObject(Schema.Struct(...))`. No Zod-first schemas remain.
-- [x] `src/installation/index.ts` — `Info` migrated.
+- [x] `src/installation/index.ts` — `Info` migrated; `Event.Updated` /
+      `Event.UpdateAvailable` payloads moved to `Schema.Struct(...)` through
+      the Schema-aware `BusEvent.define` overload; `UpgradeFailedError`
+      payload migrated to `zodObject(Schema.Struct(...))`. Zod import removed.
 - [x] `src/lsp/client.ts` — `LSPClient.InitializeError` uses
       `zodObject(Schema.Struct(...))`; `LSPClient.Event.Diagnostics` uses
       `Schema.Struct` + `zodObjectMode("strip")`. No Zod-first schemas remain.
@@ -466,7 +472,7 @@ piecewise.
 - [x] `src/pty/index.ts` — `Pty.Info`, `CreateInput`, `UpdateInput` migrated. Status enum, env via `Schema.Record`, nested optional struct for size.
 - [x] `src/question/index.ts` — `Option`, `Info`, `Answer` migrated.
 - [x] `src/sandbox/types.ts` — `Ref` and `State` (Schema.Union over tagged variants); `RefSchema` / `StateSchema` re-exported.
-- [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`.
+- [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`. `InvalidError` and `NameMismatchError` payloads moved to `zodObject(Schema.Struct({...}))`; `InvalidError.issues` uses the canonical `ZodOverride` for `z.core.$ZodIssue[]` (same pattern as `config/paths.ts`).
 - [x] `src/snapshot/index.ts` — `Patch` and `FileDiff` migrated; `files` array uses `Schema.mutable`.
 - [x] `src/storage/db.ts` — no Zod schema definitions found in current audit.
 - [x] `src/storage/storage.ts` — `NotFoundError` migrated. Zod-first schema
@@ -486,7 +492,7 @@ piecewise.
 - [x] `src/util/update-schema.ts` — file does not exist on this branch.
 - [x] `src/workspace/config.ts` — `Workspace.Config` (Schema.Union of `worktree | container`).
 - [x] `src/workspace/index.ts` — `ConnectionStatus`, `Info`, `Restore`, `SessionRestore` migrated.
-- [x] `src/worktree/index.ts` — `Info`, `CreateInput`, `RemoveInput`, `ResetInput` migrated.
+- [x] `src/worktree/index.ts` — `Info`, `CreateInput`, `RemoveInput`, `ResetInput` migrated. Six `WorktreeNotGitError` / `NameGenerationFailedError` / `CreateFailedError` / `StartCommandFailedError` / `RemoveFailedError` / `ResetFailedError` NamedError payloads collapsed into one shared `MessagePayload` derived from `Schema.Struct({message: Schema.String})`.
 
 ### Do-not-migrate
 
