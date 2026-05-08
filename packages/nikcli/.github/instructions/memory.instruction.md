@@ -324,6 +324,100 @@ Two fragments injected into all primary agent prompts:
 **Server:** `server/routes/mobile.ts`, `server/routes/session.ts`, `server/server.ts`
 **Other:** `acp/agent.ts`
 
+## File System Module (`src/file/`)
+
+### Core Architecture
+
+Provides unified file operations with VFS (virtual file system) layer on top of Node.js `fs` + Bun APIs. Supports file reads, writes, glob patterns, and directory operations.
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `index.ts` | Entry point with Effect-based API (`File.read`, `File.write`, `File.exists`, `File.remove`) |
+| `file.ts` | Low-level file operations: read, write, stat, mtime, atomic writes via temp file |
+| `directory.ts` | Directory traversal and listing |
+| `glob.ts` | Glob pattern matching using `Bun.Glob` |
+| `glob-next.ts` | Next-gen glob with multi-pattern support |
+
+### File Result Pattern
+
+All file tools return `File.Output` schema:
+```typescript
+{
+  path: string
+  content?: string
+  exists: boolean
+  mime?: string
+  size?: number
+  mtimeMs?: number
+}
+```
+
+### Virtual File System
+
+File operations go through VFS layer that supports:
+- In-memory overlays
+- Permission checks before access
+- Async streaming for large files
+- Binary detection (checks first 512 bytes)
+
+### Key Patterns
+
+- `FileInfo` type with `{ path, content, exists, mime, size, mtimeMs }`
+- Atomic writes via temp file (`Bun.write` to temp → `Bun.rename`)
+- Glob resolution with multi-pattern arrays
+- Directory listing with type filtering (file/directory/symlink)
+
+## Provider System (`src/provider/`)
+
+### Architecture
+
+AI provider abstraction via **Vercel AI SDK** as the core integration layer. All providers implement a unified interface; selection/fallback/routing handled by the provider manager.
+
+### Provider Registry
+
+`Provider.register(providerID, impl)` — static registration of provider implementations. Supported providers: `anthropic`, `openai`, `google`, `azure`, `bedrock`, `cohere`, `groq`, `mistral`, `perplexity`, `together`, `vercel`, `openrouter`, `ollama`, `lmstudio`, `generic`.
+
+### Key Modules
+
+| Module | Purpose |
+|--------|---------|
+| `provider.ts` | Main provider manager: selection, fallback, model resolution, context window |
+| `auth.ts` | API key resolution, OAuth flows, bearer token handling |
+| `transform.ts` | Message transformation layer (mergeDeep, system prompt injection, provider-specific transforms) |
+| `models.ts` | Model definitions with capabilities, context windows, pricing |
+| `models-macro.ts` | Model macros (alias groups like "claude-3-5-sonnet") |
+| `error.ts` | Provider-specific error types and retry conditions |
+
+### Auth Handling (`auth.ts`)
+
+- API key resolution order: env var → config → account store
+- OAuth 2.0 support for GitHub Connectors, Codex, Copilot
+- Bearer token injection for HTTP requests
+- Constant-time comparison via `crypto.timingSafeEqual()` for token verification
+
+### Transform Layer (`transform.ts`)
+
+`MessageTransform` service applies provider-specific transformations before sending to LLM:
+- Clones messages before mergeDeep to avoid mutable mutation (bug fix 2026-04-06)
+- System prompt injection
+- Provider-specific message formatting
+- Experimental transform hooks for plugins
+
+### Model Selection
+
+- `Provider.select(modelID)` — resolves provider for given model
+- Fallback chain: configured provider → default provider → first available
+- Context window + token counting per model
+- Model macros in `models-macro.ts` for alias groups
+
+### Provider-Specific Schemas
+
+- `ProviderConfig` — base provider configuration (id, apiKey, baseUrl, timeout)
+- `ConnectorGithub` — GitHub connector with token, oauthClientId, clientId
+- Provider-specific transforms injected via `provider.ts` initialization
+
 ## Tool System (`src/tool/`)
 
 ### Tool Framework (`tool.ts`)
@@ -1559,6 +1653,27 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - `createSignal` for simple reactive state
 - `createMemo` for derived computed state
 
+## Session Summary (2026-05-08)
+
+### Completed Work
+
+1. **5-agent deep-dive analysis** — Parallel exploration via 5 background agents:
+   - **Agent system** (`src/agent/`): 17 built-in agents with modes (primary/subagent/all), permission layering, tool allowlists, prompt templates
+   - **Session processing** (`src/session/`): MessageV2 part hierarchy, prompt.ts (largest file), LLM streaming integration, compaction triggering, doom-loop detection
+   - **Tool ecosystem** (`src/tool/`): 52+ tools, Tool.define pattern with Effect/Zod, registry with model-specific filtering, tool execution flow with permission checks
+   - **Provider layer** (`src/provider/`): AI SDK integration, 15+ providers, auth handling, transform layer, model selection with fallback
+   - **Server/routes** (`src/server/`): Hono framework, middleware stack, SSE/WebSocket, MCP routes, HTTP API endpoints
+
+2. **Memory consolidation** — Added Provider System documentation, File System module documentation
+
+### Key Insights
+
+- **Tool registry filtering**: `ToolRegistry.tools(model, agent)` filters tools based on model type — `codesearch`/`websearch` only for nikcli provider, `apply_patch` only for GPT models
+- **Session message hierarchy**: `MessageV2` with `Part` subtypes (text, reasoning, tool-call, tool-result, subtask, attachment) stored as individual JSON files under `storage/part/<messageID>/`
+- **Provider transform layer**: Uses `mergeDeep` for message transformation; requires cloning before merge to avoid mutable mutation
+- **Effect/Zod tool schema**: Tool parameters defined with `Schema.Struct` from Effect, converted to Zod via `zod()` utility
+- **Tool Context provides**: `sessionID`, `messageID`, `agent`, `abort`, `ask()`, `metadata()`, `messages` — all injected by the tool wrapper
+
 ## Session Summary (2026-05-07)
 
 ### Completed Work
@@ -1583,6 +1698,17 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - **Question module flow**: Ask → Bus.publish(Event.Asked) → TUI → User reply → Bus.publish(Event.Replied) → Agent resumes
 - **Testing utilities**: Project instance pattern via `Instance.provide()`, HTTP API via `Server.App().fetch()`
 - **Build command**: `bun run build` uses `@opentui/solid` plugin for SolidJS support, outputs cross-platform binaries
+
+### Parallel Exploration Pattern
+
+When analyzing complex subsystems, launch multiple `explore` subagents in parallel for maximum performance:
+```typescript
+task(description="explore component", prompt="...", subagent_type="explore", background=true)
+// Launch 5 agents, then use delegator to monitor progress
+delegation(action="count")  // Check running count
+delegator(delegationId, action="status")  // Get status updates
+delegation(action="read", delegationId)  // Retrieve results
+```
 
 ## Session Summary (2026-04-29 to 2026-05-02)
 

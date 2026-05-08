@@ -43,7 +43,7 @@ export const ExperimentalRoutes = lazy(() =>
             description: "Tool IDs",
             content: {
               "application/json": {
-                schema: resolver(z.array(z.string()).meta({ ref: "ToolIDs" })),
+                schema: resolver(z.object({ ids: z.array(z.string()) })),
               },
             },
           },
@@ -91,13 +91,7 @@ export const ExperimentalRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator(
-        "query",
-        z.object({
-          provider: z.string(),
-          model: z.string(),
-        }),
-      ),
+      validator("query", z.object({ provider: z.string(), model: z.string() })),
       async (c) => {
         const { provider, model } = c.req.valid("query")
         const tools = await runToolRegistry(
@@ -158,7 +152,7 @@ export const ExperimentalRoutes = lazy(() =>
             description: "List of worktree directories",
             content: {
               "application/json": {
-                schema: resolver(z.array(z.string())),
+                schema: resolver(z.object({ sandboxes: z.array(z.string()) })),
               },
             },
           },
@@ -185,7 +179,7 @@ export const ExperimentalRoutes = lazy(() =>
             description: "Worktree removed",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(z.literal(true)),
               },
             },
           },
@@ -221,7 +215,7 @@ export const ExperimentalRoutes = lazy(() =>
             description: "Worktree reset",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(z.literal(true)),
               },
             },
           },
@@ -251,7 +245,7 @@ export const ExperimentalRoutes = lazy(() =>
             description: "MCP resources",
             content: {
               "application/json": {
-                schema: resolver(z.record(z.string(), MCP.Resource)),
+                schema: resolver(z.record(z.string(), z.unknown())),
               },
             },
           },

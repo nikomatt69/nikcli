@@ -72,7 +72,7 @@ export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tr
         showHidden,
         showSize,
         showFullPath,
-        ignorePatterns: params.ignorePatterns ?? [],
+        ignorePatterns: [...(params.ignorePatterns ?? [])],
         onlyDirectories: params.onlyDirectories ?? false,
         sortBy: params.sortBy ?? "name",
       },

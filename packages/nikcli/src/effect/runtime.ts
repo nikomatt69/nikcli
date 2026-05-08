@@ -1,6 +1,7 @@
-import { Instance } from "@/project/instance"
-import { Effect, Layer, ManagedRuntime } from "effect"
+import { Effect, Layer, ManagedRuntime, Scope, Context } from "effect"
 import { locallyInstance, type InstanceContext } from "./instance-ref"
+import { Storage } from "@/storage/storage"
+import { Project } from "@/project/project"
 
 export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
@@ -20,21 +21,17 @@ export function runtimeFor<R, E>(layer: Layer.Layer<R, E, never>) {
   return runtime
 }
 
-export function runPromiseWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<R, LE, never>,
-  effect: Effect.Effect<A, E, R>,
-) {
+export function runPromiseWithLayer<A, E, R, LE>(layer: Layer.Layer<R, LE, never>, effect: Effect.Effect<A, E, R>) {
   return runtimeFor(layer).runPromise(effect)
 }
 
-export function runPromiseExitWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<R, LE, never>,
-  effect: Effect.Effect<A, E, R>,
-) {
+export function runPromiseExitWithLayer<A, E, R, LE>(layer: Layer.Layer<R, LE, never>, effect: Effect.Effect<A, E, R>) {
   return runtimeFor(layer).runPromiseExit(effect)
 }
 
 export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  // Inline lazy import to avoid circular dependency with instance.ts
+  const Instance = require("@/project/instance").Instance
   const ctx: InstanceContext = {
     directory: Instance.directory,
     worktree: Instance.worktree,

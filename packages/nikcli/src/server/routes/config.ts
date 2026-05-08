@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
-import z from "zod"
 import { Config } from "../../config/config"
 import { Provider } from "../../provider/provider"
 import { mapValues } from "remeda"
@@ -9,6 +8,8 @@ import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { ConfigHttpApi } from "../httpapi/config"
 
 const log = Log.create({ service: "server" })
 
@@ -90,12 +91,7 @@ export const ConfigRoutes = lazy(() =>
             description: "List of providers",
             content: {
               "application/json": {
-                schema: resolver(
-                  z.object({
-                    providers: Provider.Info.array(),
-                    default: z.record(z.string(), z.string()),
-                  }),
-                ),
+                schema: resolver(zodObject(ConfigHttpApi.ProviderSummary)),
               },
             },
           },

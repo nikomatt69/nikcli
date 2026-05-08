@@ -6,21 +6,16 @@ import { GlobalBus } from "@/bus/global"
 import { Filesystem } from "@/util/filesystem"
 import { realpathSync } from "fs"
 import path from "path"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
+import { Effect, Duration, ScopedCache, Scope } from "effect"
+import { AppRuntime, runtimeFor } from "@/effect/runtime"
 
-function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
-  return runPromiseWithLayer(Project.defaultLayer, effect)
-}
-
-interface Context {
+interface InstanceContext {
   directory: string
   worktree: string
   project: Project.Info
   disposers: Set<() => void | Promise<void>>
 }
-const context = Context.create<Context>("instance")
-const cache = new Map<string, Promise<Context>>()
+const context = Context.create<InstanceContext>("instance")
 
 function normalizeDirectory(directory: string) {
   try {
@@ -57,48 +52,106 @@ function canonicalizePath(filepath: string) {
   return current
 }
 
+const instanceCacheProjectRuntime = runtimeFor(Project.defaultLayer)
+
+// Phase G: ScopedCache-based instance cache
+// Replaces the legacy Map<string, Promise<Context>>
+namespace InstanceCache {
+  // Module-level cache state
+  let _cache: ScopedCache.ScopedCache<string, InstanceContext> | undefined
+  let _scope: Scope.CloseableScope | undefined
+
+  function ensureCache(): ScopedCache.ScopedCache<string, InstanceContext> {
+    if (_cache) return _cache
+
+    // ManagedRuntime with Project.Service (lookup uses fromDirectory)
+    const result = instanceCacheProjectRuntime.runSync(
+      Effect.gen(function* () {
+        const parentScope = yield* Scope.make()
+        // Assign to module-level variable (side effect)
+        _scope = parentScope
+        const cache = yield* Scope.extend(
+          ScopedCache.make<string, InstanceContext>({
+            capacity: Number.MAX_SAFE_INTEGER,
+            timeToLive: Duration.infinity,
+            lookup: (directory: string) => {
+              // Transform the effect so error type is never
+              // ScopedCache requires the lookup to never fail
+              const effect = Effect.gen(function* () {
+                const projectService = yield* Project.Service
+                const result = yield* projectService.fromDirectory(directory)
+                return {
+                  directory,
+                  worktree: result.sandbox,
+                  project: result.project,
+                  disposers: new Set<() => void | Promise<void>>(),
+                } satisfies InstanceContext
+              })
+              // Cast through unknown to satisfy ScopedCache's error=never requirement
+              return effect as unknown as Effect.Effect<InstanceContext, never, Scope.Scope>
+            },
+          }),
+          parentScope,
+        )
+        return cache
+      }),
+    )
+
+    _cache = result
+    return _cache
+  }
+
+  export function get(directory: string): Effect.Effect<InstanceContext, never, Scope.Scope> {
+    const cache = ensureCache()
+    return cache.get(directory)
+  }
+
+  /** Cache get bound to the module parent scope; runnable on `instanceCacheProjectRuntime` only. */
+  export function effectForProvide(directory: string): Effect.Effect<InstanceContext, never, never> {
+    const cache = ensureCache()
+    return Scope.extend(cache.get(directory), _scope!)
+  }
+
+  export function invalidate(directory: string): void {
+    if (_cache) {
+      // Run invalidation in background - fire and forget
+      AppRuntime.runPromise(_cache.invalidate(directory)).catch(() => {})
+    }
+  }
+
+  export function close(): void {
+    if (_scope) {
+      // Cast through unknown to access close() method that TypeScript isn't finding
+      const closable = _scope as unknown as { close: () => Effect.Effect<boolean> }
+      AppRuntime.runPromise(closable.close()).catch(() => {})
+      _cache = undefined
+      _scope = undefined
+    }
+  }
+}
+
 export const Instance = {
   async provide<R>(input: { directory: string; init?: () => Promise<any>; fn: () => R }): Promise<R> {
     const directory = normalizeDirectory(input.directory)
-    let existing = cache.get(directory)
-    if (!existing) {
-      Log.Default.info("creating instance", { directory })
-      const promise = (async () => {
-        const { project, sandbox } = await runProject(
-          Effect.gen(function* () {
-            const project = yield* Project.Service
-            return yield* project.fromDirectory(directory)
-          }),
-        )
-        const ctx = {
-          directory,
-          worktree: sandbox,
-          project,
-          disposers: new Set<() => void | Promise<void>>(),
-        }
-        await context.provide(ctx, async () => {
-          await input.init?.()
-        })
-        return ctx
-      })()
-      cache.set(directory, promise)
-      existing = promise
-    }
 
-    let ctx: Context
+    // Phase G: Use ScopedCache for instance provisioning
+    let ctx: InstanceContext
     try {
-      ctx = await existing
+      // Run the cache get effect with the runtime that has Project.Service
+      // The cache lookup needs Project.Service which is in InstanceCacheRuntime
+      ctx = await instanceCacheProjectRuntime.runPromise(InstanceCache.effectForProvide(directory))
     } catch (err) {
-      if (cache.get(directory) === existing) {
-        cache.delete(directory)
-      }
       Log.Default.warn("instance creation failed", { directory, error: err })
       throw err
     }
 
-    return context.provide(ctx, async () => {
-      return input.fn()
+    // Run init within the context
+    await context.provide(ctx, async () => {
+      await input.init?.()
     })
+
+    // Execute fn with context
+    return context.provide(ctx, () => input.fn())
   },
   get directory() {
     return context.use().directory
@@ -149,18 +202,14 @@ export const Instance = {
 
     await Promise.allSettled(tasks)
     ctx.disposers.clear()
-    cache.delete(ctx.directory)
+
+    // Phase G: Invalidate from ScopedCache
+    InstanceCache.invalidate(ctx.directory)
   },
   async disposeAll() {
     Log.Default.info("disposing all instances")
-    for (const [_key, value] of cache) {
-      const awaited = await value.catch(() => {})
-      if (awaited) {
-        await context.provide(await value, async () => {
-          await Instance.dispose()
-        })
-      }
-    }
-    cache.clear()
+
+    // Phase G: Close the ScopedCache (closes all entry scopes)
+    InstanceCache.close()
   },
 }
