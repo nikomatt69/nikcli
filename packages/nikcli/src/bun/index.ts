@@ -1,4 +1,3 @@
-import z from "zod"
 import { Global } from "../global"
 import { Log } from "../util/log"
 import path from "path"
@@ -8,6 +7,8 @@ import { readableStreamToText } from "bun"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
 import { proxied } from "../util/network"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 
 export namespace BunProc {
@@ -57,10 +58,12 @@ export namespace BunProc {
 
   export const InstallFailedError = NamedError.create(
     "BunInstallFailedError",
-    z.object({
-      pkg: z.string(),
-      version: z.string(),
-    }),
+    zodObject(
+      Schema.Struct({
+        pkg: Schema.String,
+        version: Schema.String,
+      }),
+    ),
   )
 
   export async function install(pkg: string, version = "latest") {

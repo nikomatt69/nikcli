@@ -1,6 +1,5 @@
 import fs from "fs/promises"
 import path from "path"
-import z from "zod"
 import { BackgroundRun } from "@/background/run"
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
@@ -10,16 +9,19 @@ import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Log } from "@/util/log"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+
+const StatusSchema = Schema.Literal("running", "complete", "error", "timeout", "cancelled", "orphaned")
 
 const DelegationCompletedEvent = BusEvent.define(
   "delegation.completed",
-  z.object({
-    delegationID: z.string(),
-    parentSessionID: z.string(),
-    status: z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
-    title: z.string(),
+  Schema.Struct({
+    delegationID: Schema.String,
+    parentSessionID: Schema.String,
+    status: StatusSchema,
+    title: Schema.String,
   }),
 )
 
@@ -34,8 +36,8 @@ export namespace Delegation {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
   }
 
-  export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
-  export type Status = z.infer<typeof Status>
+  export const Status = zod(StatusSchema)
+  export type Status = Schema.Schema.Type<typeof StatusSchema>
   export type Record = BackgroundRun.Record
   export const Event = {
     Completed: DelegationCompletedEvent,
