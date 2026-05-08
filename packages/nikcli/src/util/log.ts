@@ -1,11 +1,16 @@
 import path from "path"
 import fs from "fs/promises"
 import { Global } from "../global"
-import z from "zod"
+import { zod } from "@/util/effect-zod"
+import { Schema } from "effect"
 
 export namespace Log {
-  export const Level = z.enum(["DEBUG", "INFO", "WARN", "ERROR"]).meta({ ref: "LogLevel", description: "Log level" })
-  export type Level = z.infer<typeof Level>
+  const LevelSchema = Schema.Literal("DEBUG", "INFO", "WARN", "ERROR").annotations({
+    identifier: "LogLevel",
+    description: "Log level",
+  })
+  export const Level = zod(LevelSchema)
+  export type Level = Schema.Schema.Type<typeof LevelSchema>
 
   const levelPriority: Record<Level, number> = {
     DEBUG: 0,

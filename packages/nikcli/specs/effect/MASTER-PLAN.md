@@ -87,7 +87,14 @@ Migrated namespace-level schemas:
 - ✅ `src/agent/agent.ts` — `Info` declared as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
 - ✅ `src/snapshot/index.ts` — `Patch` migrated; `files` array marked `Schema.mutable`.
 - ✅ `src/provider/auth.ts` — `ProviderAuth.Method`, `Authorization`, and authorize/callback/api input contracts are Effect Schema-first with Zod derived via `zodObject(...)`.
-- ✅ `src/project/project.ts` — `Info`, `UpdateInput`. `Info` re-exported as `Mutable<Schema.Schema.Type<typeof InfoSchema>>` (local deep-strip readonly) because the project record is mutated extensively during merge/update flows. `IconSchema` extracted for reuse via `Info.shape.icon` access.
+- ✅ `src/project/project.ts` — `Info`, `UpdateInput`. `Info` uses shared `DeepMutable` from `@/util/effect-zod`. `IconSchema` extracted for `Info.shape.icon` access.
+- ✅ `src/project/vcs.ts` — `Vcs.Info`.
+- ✅ `src/connectors/auth.ts` — `ConnectorAuth.Entry` with shared `DeepMutable` (mutated by `updateToken`/`updateBotToken`/`updateApiKey`).
+- ✅ `src/worktree/index.ts` — `Worktree.Info`, `CreateInput`, `RemoveInput`, `ResetInput`.
+- ✅ `src/provider/provider.ts` — `Provider.Model` (nested Schema.Struct, shared `CapabilitiesIOSchema` and `CostBlockSchema`), `Provider.Info`. Both `DeepMutable`. Cast `Record<string, unknown>` at internal fetch wrapper / spread sites.
+- ✅ `src/provider/models.ts` — `ModelsDev.Model`, `ModelsDev.Provider`. Both `DeepMutable`. Shared `ModalityValueSchema` and `CostBlockSchema`.
+- ✅ `src/monitor/manager.ts` — `Monitor.Status` (Schema.Literal), `Monitor.Record` (DeepMutable), `Monitor.LogSnapshot`.
+- ✅ `src/util/log.ts` — `Log.Level` Effect Schema.
 - 🔁 Extension/tool schema unlocks — the walker now supports enough shape inference for the already-migrated tool parameter schemas tracked in `schema.md` Phase J; SDK byte-identity work is therefore unblocked by continuing Phase P before the generator flip.
 
 Walker enhancements landed during this Phase P iteration:
