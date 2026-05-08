@@ -1,35 +1,40 @@
-import z from "zod"
-import { Identifier } from "@/id/id"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 import type { Target } from "@/workspace/adaptors/types"
 
 export namespace Sandbox {
-  export const Ref = z.discriminatedUnion("type", [
-    z.object({
-      type: z.literal("local"),
-      directory: z.string(),
-    }),
-    z.object({
-      type: z.literal("workspace"),
-      workspaceID: Identifier.schema("workspace"),
-    }),
-  ])
-  export type Ref = z.infer<typeof Ref>
+  const RefLocal = Schema.Struct({
+    type: Schema.Literal("local"),
+    directory: Schema.String,
+  })
 
-  export const State = z.discriminatedUnion("kind", [
-    z.object({
-      kind: z.literal("local"),
-    }),
-    z.object({
-      kind: z.literal("worktree"),
-      workspaceID: Identifier.schema("workspace"),
-    }),
-    z.object({
-      kind: z.literal("container"),
-      workspaceID: Identifier.schema("workspace"),
-      serverURL: z.string().url(),
-    }),
-  ])
-  export type State = z.infer<typeof State>
+  const RefWorkspace = Schema.Struct({
+    type: Schema.Literal("workspace"),
+    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+  })
+
+  export const RefSchema = Schema.Union(RefLocal, RefWorkspace)
+  export const Ref = zod(RefSchema)
+  export type Ref = Schema.Schema.Type<typeof RefSchema>
+
+  const StateLocal = Schema.Struct({
+    kind: Schema.Literal("local"),
+  })
+
+  const StateWorktree = Schema.Struct({
+    kind: Schema.Literal("worktree"),
+    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+  })
+
+  const StateContainer = Schema.Struct({
+    kind: Schema.Literal("container"),
+    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    serverURL: Schema.String,
+  })
+
+  export const StateSchema = Schema.Union(StateLocal, StateWorktree, StateContainer)
+  export const State = zod(StateSchema)
+  export type State = Schema.Schema.Type<typeof StateSchema>
 
   export interface Handle {
     ref: Ref

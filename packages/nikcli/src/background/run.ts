@@ -10,7 +10,8 @@ import { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { type DeepMutable, zod, zodObject } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
@@ -63,9 +64,11 @@ export namespace BackgroundRun {
   export const LEASE_TIMEOUT_MS = 15_000
   type Metadata = { [key: string]: unknown }
 
-  export const Status = z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
-  export type Status = z.infer<typeof Status>
-  export const Source = z.enum([
+  const StatusSchema = Schema.Literal("running", "complete", "error", "timeout", "cancelled", "orphaned")
+  export const Status = zod(StatusSchema)
+  export type Status = Schema.Schema.Type<typeof StatusSchema>
+
+  const SourceSchema = Schema.Literal(
     "task",
     "model-subtask",
     "advisor",
@@ -74,46 +77,50 @@ export namespace BackgroundRun {
     "delegator",
     "delegator-followup",
     "other",
-  ])
-  export type Source = z.infer<typeof Source>
-  export const Role = z.enum(["worker", "delegator", "followup", "advisor", "other"])
-  export type Role = z.infer<typeof Role>
+  )
+  export const Source = zod(SourceSchema)
+  export type Source = Schema.Schema.Type<typeof SourceSchema>
 
-  export const Record = z.object({
-    id: z.string(),
-    sessionID: z.string().optional(),
-    parentSessionID: z.string(),
-    agent: z.string(),
-    prompt: z.string(),
-    status: Status,
-    createdAt: z.number(),
-    updatedAt: z.number(),
-    completedAt: z.number().optional(),
-    artifactPath: z.string(),
-    title: z.string(),
-    workspaceID: z.string().optional(),
-    sandboxRef: Sandbox.Ref.optional(),
-    sandboxState: Sandbox.State.optional(),
-    source: Source.optional(),
-    resultSummary: z.string().optional(),
-    progressSummary: z.string().optional(),
-    error: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    ownerID: z.string().optional(),
-    ownerPID: z.number().int().positive().optional(),
-    heartbeatAt: z.number().optional(),
-    lastActivityAt: z.number().optional(),
+  const RoleSchema = Schema.Literal("worker", "delegator", "followup", "advisor", "other")
+  export const Role = zod(RoleSchema)
+  export type Role = Schema.Schema.Type<typeof RoleSchema>
+
+  const RecordSchema = Schema.Struct({
+    id: Schema.String,
+    sessionID: Schema.optional(Schema.String),
+    parentSessionID: Schema.String,
+    agent: Schema.String,
+    prompt: Schema.String,
+    status: StatusSchema,
+    createdAt: Schema.Number,
+    updatedAt: Schema.Number,
+    completedAt: Schema.optional(Schema.Number),
+    artifactPath: Schema.String,
+    title: Schema.String,
+    workspaceID: Schema.optional(Schema.String),
+    sandboxRef: Schema.optional(Sandbox.RefSchema),
+    sandboxState: Schema.optional(Sandbox.StateSchema),
+    source: Schema.optional(SourceSchema),
+    resultSummary: Schema.optional(Schema.String),
+    progressSummary: Schema.optional(Schema.String),
+    error: Schema.optional(Schema.String),
+    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    ownerID: Schema.optional(Schema.String),
+    ownerPID: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+    heartbeatAt: Schema.optional(Schema.Number),
+    lastActivityAt: Schema.optional(Schema.Number),
     // Delegator fields
-    delegatorID: z.string().optional(),
-    delegatorSessionID: z.string().optional(),
-    delegatorEnabled: z.boolean().optional(),
+    delegatorID: Schema.optional(Schema.String),
+    delegatorSessionID: Schema.optional(Schema.String),
+    delegatorEnabled: Schema.optional(Schema.Boolean),
     // Job tree fields
-    jobID: z.string().optional(),
-    rootDelegationID: z.string().optional(),
-    parentDelegationID: z.string().optional(),
-    role: Role.optional(),
+    jobID: Schema.optional(Schema.String),
+    rootDelegationID: Schema.optional(Schema.String),
+    parentDelegationID: Schema.optional(Schema.String),
+    role: Schema.optional(RoleSchema),
   })
-  export type Record = z.infer<typeof Record>
+  export const Record = zodObject(RecordSchema)
+  export type Record = DeepMutable<Schema.Schema.Type<typeof RecordSchema>>
 
   function generateID(): string {
     return uniqueNamesGenerator({
