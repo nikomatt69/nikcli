@@ -12,7 +12,8 @@ import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 export namespace SessionCompaction {
@@ -71,16 +72,17 @@ export namespace SessionCompaction {
 
   const COMPACTION_BUFFER = 20_000
 
-  export const CreateInput = z.object({
-    sessionID: Identifier.schema("session"),
-    agent: z.string(),
-    model: z.object({
-      providerID: z.string(),
-      modelID: z.string(),
+  const CreateInputSchema = Schema.Struct({
+    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    agent: Schema.String,
+    model: Schema.Struct({
+      providerID: Schema.String,
+      modelID: Schema.String,
     }),
-    auto: z.boolean(),
+    auto: Schema.Boolean,
   })
-  export type CreateInput = z.infer<typeof CreateInput>
+  export const CreateInput = zodObject(CreateInputSchema)
+  export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
 
   export interface ProcessInput {
     parentID: string

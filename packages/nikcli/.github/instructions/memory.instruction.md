@@ -58,18 +58,103 @@
 
 - Zod schemas for all validation
 - `Tool.define()` for tool registration with lazy init
-- `Session.loop()` for main chat loop
+- `fn()` wrapper for validated async functions with `.parse()` and `.force()` methods
+- `lazyAsync()` for async-safe singleton initialization (Promise-caching pattern)
+- Session.loop() for main chat loop
 - Event bus (`Bus`) for state sync across instances
 - Part-based message storage (incremental updates)
 - Reader-writer locks for concurrent storage safety
 - Permission rulesets: allow/deny/ask per tool + glob pattern
 - `devalue` for portable deep equality (replaces `Bun.deepEquals`)
-- `lazyAsync()` for async-safe singleton initialization (Promise-caching pattern)
-- `fn()` wrapper for validated async functions with `.parse()` and `.force()` methods
 - **Durable delegation**: `BackgroundRun` records persisted at `background_run` + markdown artifacts at `delegations/<parentSessionID>/<id>.md`
 - **Delta coalescer**: reduces ~500 Storage writes per message to ~10-20 via 150ms debouncing
 - **Job projection**: worker/delegator/followup records grouped by `jobID` → status `running`/`synthesizing`/terminal
 - **Supervisor synthesis**: hidden `delegator` agent waits for worker completion, then synthesizes results (up to 3 follow-up rounds)
+
+## Testing Patterns (`test/`, `bun test`)
+
+### Framework & Setup
+
+- **Test runner**: Bun's built-in test (`bun:test`)
+- **Imports**: `describe`, `expect`, `it`, `beforeAll`, `beforeEach`, `afterAll`, `afterEach` from `bun:test`
+- **Config**: `bunfig.toml` with `preload="./test/preload.ts"`, 10s timeout, coverage enabled
+
+### Test Organization
+
+| Aspect | Details |
+|--------|---------|
+| **Location** | `packages/nikcli/test/` directory |
+| **File Naming** | `.test.ts` suffix for all test files |
+| **Subdirectories** | Mirrors `src/` structure (session/, tool/, provider/, server/, etc.) |
+| **Benchmark Files** | `.benchmark.test.ts` suffix |
+| **Helpers** | `test/helpers/` for shared utilities |
+| **Benchmark Data** | `test/benchmarks/runs/` for recorded benchmarks |
+
+### Common Test Patterns
+
+**1. Effect-based tests with temp directories:**
+```typescript
+import fs from "fs/promises"
+import os from "os"
+const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-test-"))
+process.env.NIKCLI_TEST_HOME = testHome
+process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
+```
+
+**2. Project instance tests:**
+```typescript
+async function withProject<T>(fn: () => Promise<T>): Promise<T> {
+  const projectDir = await fs.mkdtemp(...)
+  return Instance.provide({ directory: projectDir, fn })
+}
+```
+
+**3. Running effects with layers:**
+```typescript
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+await runService(Effect.gen(function* () {
+  const service = yield* Service.Service
+  return yield* service.someOperation()
+}))
+```
+
+**4. HTTP API tests:**
+```typescript
+process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
+async function request(pathname: string, directory: string, params = {}) {
+  const url = new URL(pathname, "http://nikcli.local")
+  return Server.App().fetch(new Request(url))
+}
+```
+
+**5. Benchmark tests:**
+```typescript
+import { recordBenchmark, flushBenchmarkRun } from "../benchmarks/runner"
+recordBenchmark({ suite: "module", module: "feature", scenario: "operation", iterations: 1000, value: ms, unit: "ms" })
+afterAll(() => flushBenchmarkRun())
+```
+
+### Running Tests
+
+```bash
+bun test                      # Run all tests
+bun test test/tool/tool.test.ts  # Run single file
+bun test --match "pattern"   # Run matching pattern
+bun run test:unit            # Non-benchmark tests only
+bun run test:bench           # Benchmark tests only
+NIKCLI_BENCHMARK_SAVE=1 NIKCLI_BENCHMARK_COMPARE=1 bun test  # Benchmark comparison
+```
+
+### Test Environment Variables
+
+```bash
+NIKCLI_TEST_HOME=...           # Test home directory
+NIKCLI_DISABLE_PROJECT_CONFIG=1 # Disable project config loading
+NIKCLI_EXPERIMENTAL_HTTPAPI=1   # Enable HTTP API
+NIKCLI_DISABLE_MODELS_FETCH=1  # Disable model fetching
+XDG_DATA_HOME=...              # Data directory
+XDG_CACHE_HOME=...             # Cache directory
+```
 
 ## MCP Protocol (`src/mcp/index.ts`)
 
@@ -273,6 +358,96 @@ Every file-modifying tool calls `ctx.ask()` before execution:
 - **WriteTool** - Atomic writes via temp file
 - **GrepTool** - FFF file search backend with Bun.Glob fallback
 - **TaskTool** - Subagent spawning (see below)
+
+### Tool Creation Pattern
+
+```typescript
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
+import { Tool } from "./tool"
+import DESCRIPTION from "./my-tool.txt"
+
+const Parameters = Schema.Struct({
+  input: Schema.String.annotations({ description: "..." }),
+  optional: Schema.optional(Schema.String).annotations({ ... })
+})
+
+export const MyTool = Tool.define("my-tool", {
+  description: DESCRIPTION,
+  parameters: zod(Parameters),
+  async execute(params, ctx) {
+    if (!params.input) throw new Error("input is required")
+    await ctx.ask({ permission: "my_tool", patterns: ["*"], always: ["*"], metadata: { input: params.input } })
+    const result = await doSomething(params.input)
+    return { title: "Tool Title", metadata: { count: result.length }, output: result.join("\n") }
+  }
+})
+```
+
+**Naming conventions:**
+- Files: kebab-case (e.g., `memory-search.ts`, `web-fetch.ts`)
+- Tool IDs: kebab-case (e.g., `"bash"`, `"memory_search"`)
+- Exports: PascalCase (e.g., `BashTool`, `MemorySearchTool`)
+- Metadata types: PascalCase with `Metadata` suffix (e.g., `TaskMetadata`)
+
+### Tool Result Patterns
+
+```typescript
+// Success
+return { title: "Success", metadata: { count: 5, truncated: false }, output: "Result text" }
+
+// With file attachments
+return { title, metadata: {}, output: "File read", attachments: [{ id, sessionID, messageID, type: "file", mime, url: "data:..." }] }
+
+// Error
+return { title: "Error", metadata: {}, output: `Failed: ${error.message}` }
+```
+
+## Question Module (`src/question/index.ts`)
+
+### Architecture
+
+Enables agents to ask users questions and receive answers interactively. Built on Effect dependency injection with scoped service layer.
+
+### Data Structures
+
+```typescript
+Question.Info: { question, header (max 30 chars), options: Option[], multiple?, custom? }
+Question.Request: { id, sessionID, questions: Info[], tool?: { messageID, callID } }
+Question.Answer: string[] (array of selected labels)
+Question.Reply: { answers: Answer[] } (one array per question)
+```
+
+### Flow
+
+```
+Agent calls Question.Service.ask()
+  → Generates unique question ID (ascending "question")
+  → Stores pending { info, resolve, reject }
+  → Bus.publish(Event.Asked)
+    → TUI SyncContext stores pending question
+    → Workspace remembers for restore
+    → Plugins receive notification
+TUI shows question with options
+User submits via POST /question/:id/reply
+  → Question.Service.reply() resolves Effect
+  → Bus.publish(Event.Replied)
+Agent resumes with formatted answers
+```
+
+### Events
+
+| Event | Properties | Purpose |
+|-------|-------------|---------|
+| `question.asked` | Request | Published when agent asks questions |
+| `question.replied` | `{ sessionID, requestID, answers }` | Published when user answers |
+| `question.rejected` | `{ sessionID, requestID }` | Published when user dismisses |
+
+### Error Handling
+
+- `Question.RejectedError` thrown when user dismisses → agent handles gracefully
+- Unknown requestIDs logged but don't throw
+- Timeout: `Effect.timeout(duration)` via `Question.Context`
 
 ## Background Delegation System (`src/delegation/`, `src/background/`)
 
@@ -485,10 +660,10 @@ nikcli mobile dev
 3. **Request/Response Queue** - External control via `/tui/control/*`
 4. **SDK Client** - Auto-generated from OpenAPI spec in `packages/sdk/js/src/`
 
-### SDK Client Pattern (`packages/sdk/js/src/client.ts`)
+### SDK Client Pattern (`packages/sdk/js/src/v2/client.ts`)
 
 ```typescript
-export function createNikcliClient(config?: Config & { directory?: string }) {
+export function createNikcliClient(config?: Config & { directory?: string; workspace?: string }) {
   const client = createClient(config)  // Generated from OpenAPI spec
   return new NikcliClient({ client })
 }
@@ -500,6 +675,23 @@ const sdk = createNikcliClient({
   fetch: customFetch,
 })
 ```
+
+### SDK Generation (`packages/sdk/js/script/build.ts`)
+
+```bash
+# Run the build script to regenerate SDK from OpenAPI spec
+./packages/sdk/js/script/build.ts
+```
+
+**Process:**
+1. Generate OpenAPI spec from server (`bun dev generate > openapi.json`)
+2. Generate SDK via `@hey-api/openapi-ts` → `src/v2/gen/` (types + client)
+3. Format and compile
+
+**Key files:**
+- `src/v2/gen/types.gen.ts` — All TypeScript types from schemas
+- `src/v2/gen/sdk.gen.ts` — SDK client with all API methods
+- `src/v2/gen/models.gen.ts` — Generated model interfaces
 
 ### TUI Worker Communication (`src/cli/cmd/tui/worker.ts`)
 
@@ -672,7 +864,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | Error safety for flushAll    | `processor.ts:475-481` | Wrapped `flushAll()` + `clear()` in try/finally |
 | Race condition in lazy init  | `util/lazy.ts`     | Added `lazyAsync()` for async-safe singleton init (uses Promise-caching pattern) |
 
-### Confirmed Issues (Updated 2026-05-04)
+### Confirmed Issues (Updated 2026-05-08)
 
 | #   | File                               | Issue                                                                   | Status          |
 | --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
@@ -689,7 +881,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 11  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
 | 12  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
 | 13  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
-| 14  | `session/processor.ts:159-173`    | Reasoning-end double-write (was same as text-end, removed updatePart)   | **Fixed**       |
+| 14  | `session/processor.ts:159-173`    | Reasoning-end double-write                                              | **Fixed**       |
 
 ## Mobile IDE Backend Issues
 
@@ -1366,6 +1558,31 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - `createStore` for complex centralized state (sync.tsx)
 - `createSignal` for simple reactive state
 - `createMemo` for derived computed state
+
+## Session Summary (2026-05-07)
+
+### Completed Work
+
+1. **10-agent codebase exploration** — Comprehensive analysis across:
+   - Testing patterns: Bun test framework, Effect-based utilities, project instance tests, HTTP API tests, benchmark pattern
+   - Session & storage: Session.Info/MessageV2/part hierarchy, Storage.read/write/update, Identifier schema, context propagation
+   - Tool system: Tool.define pattern, 52 tool files, parameter schemas, tool result patterns, naming conventions
+   - SDK patterns: packages/sdk structure, OpenAPI auto-generation, v2 client with directory/workspace headers
+   - UI/TUI components: SolidJS + OpenTUI, provider hierarchy, state management patterns, dialog system
+   - Plugin system: Server hooks (config, event, auth, tool, provider), TUI plugins (route, command, keybind, slots)
+   - Question module: Interactive user questioning, Effect-based service, pending queue, reply/reject flow
+   - Auth/credentials: OAuth flows, bearer tokens, credential resolution order
+   - Build tooling: Bun test/run/dev/build/typecheck/lint scripts, tsgo, oxlint, multi-platform build
+
+2. **Memory consolidation** — Added testing patterns, SDK generation documentation, tool creation pattern, question module architecture
+
+### Key Insights
+
+- **Tool metadata auto-injection**: `ctx.metadata()` wrapper automatically injects `truncated: false`
+- **SDK generation workflow**: Run `./packages/sdk/js/script/build.ts` to regenerate from OpenAPI spec
+- **Question module flow**: Ask → Bus.publish(Event.Asked) → TUI → User reply → Bus.publish(Event.Replied) → Agent resumes
+- **Testing utilities**: Project instance pattern via `Instance.provide()`, HTTP API via `Server.App().fetch()`
+- **Build command**: `bun run build` uses `@opentui/solid` plugin for SolidJS support, outputs cross-platform binaries
 
 ## Session Summary (2026-04-29 to 2026-05-02)
 

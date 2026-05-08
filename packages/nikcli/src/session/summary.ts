@@ -10,23 +10,26 @@ import { Storage } from "@/storage/storage"
 import { Bus } from "@/bus"
 import { LLM } from "./llm"
 import { Agent } from "@/agent/agent"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 export namespace SessionSummary {
   const log = Log.create({ service: "session.summary" })
 
-  export const SummarizeInput = z.object({
-    sessionID: z.string(),
-    messageID: z.string(),
+  const SummarizeInputSchema = Schema.Struct({
+    sessionID: Schema.String,
+    messageID: Schema.String,
   })
-  export type SummarizeInput = z.infer<typeof SummarizeInput>
+  export const SummarizeInput = zodObject(SummarizeInputSchema)
+  export type SummarizeInput = Schema.Schema.Type<typeof SummarizeInputSchema>
 
-  export const DiffInput = z.object({
-    sessionID: Identifier.schema("session"),
-    messageID: Identifier.schema("message").optional(),
+  const DiffInputSchema = Schema.Struct({
+    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    messageID: Schema.optional(Schema.String.pipe(Schema.startsWith("msg"))),
   })
-  export type DiffInput = z.infer<typeof DiffInput>
+  export const DiffInput = zodObject(DiffInputSchema)
+  export type DiffInput = Schema.Schema.Type<typeof DiffInputSchema>
 
   export interface Interface {
     summarize(input: SummarizeInput): Effect.Effect<void, unknown>

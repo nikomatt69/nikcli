@@ -8,7 +8,8 @@ import { Storage } from "../storage/storage"
 import { Bus } from "../bus"
 import { SessionPrompt } from "./prompt"
 import { SessionSummary } from "./summary"
-import { Context, Effect, Layer } from "effect"
+import { zodObject } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace SessionRevert {
@@ -52,12 +53,13 @@ export namespace SessionRevert {
     )
   }
 
-  export const RevertInput = z.object({
-    sessionID: Identifier.schema("session"),
-    messageID: Identifier.schema("message"),
-    partID: Identifier.schema("part").optional(),
+  const RevertInputSchema = Schema.Struct({
+    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    messageID: Schema.String.pipe(Schema.startsWith("msg")),
+    partID: Schema.optional(Schema.String.pipe(Schema.startsWith("prt"))),
   })
-  export type RevertInput = z.infer<typeof RevertInput>
+  export const RevertInput = zodObject(RevertInputSchema)
+  export type RevertInput = Schema.Schema.Type<typeof RevertInputSchema>
 
   export interface Interface {
     revert(input: RevertInput): Effect.Effect<Session.Info, unknown>

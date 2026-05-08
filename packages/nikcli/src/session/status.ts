@@ -1,29 +1,26 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { InstanceState } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { zod, zodObjectMode } from "@/util/effect-zod"
+import { Context, Effect, Layer, Schema } from "effect"
 import z from "zod"
 
 export namespace SessionStatus {
-  export const Info = z
-    .union([
-      z.object({
-        type: z.literal("idle"),
-      }),
-      z.object({
-        type: z.literal("retry"),
-        attempt: z.number(),
-        message: z.string(),
-        next: z.number(),
-      }),
-      z.object({
-        type: z.literal("busy"),
-      }),
-    ])
-    .meta({
-      ref: "SessionStatus",
-    })
-  export type Info = z.infer<typeof Info>
+  // Legacy callers depend on `parse({type:"idle", extra: 1})` stripping unknown keys; the
+  // walker defaults to `.strict()` which would throw, so opt each variant into "strip" mode.
+  const strip = zodObjectMode("strip")
+  const InfoSchema = Schema.Union(
+    Schema.Struct({ type: Schema.Literal("idle") }).annotations(strip),
+    Schema.Struct({
+      type: Schema.Literal("retry"),
+      attempt: Schema.Number,
+      message: Schema.String,
+      next: Schema.Number,
+    }).annotations(strip),
+    Schema.Struct({ type: Schema.Literal("busy") }).annotations(strip),
+  ).annotations({ identifier: "SessionStatus" })
+  export const Info = zod(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const Event = {
     Status: BusEvent.define(
