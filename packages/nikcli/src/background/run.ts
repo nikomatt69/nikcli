@@ -1,7 +1,6 @@
 import fs from "fs/promises"
 import path from "path"
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
-import z from "zod"
 import { Global } from "@/global"
 import { Instance } from "@/project/instance"
 import { SandboxRegistry } from "@/sandbox/registry"

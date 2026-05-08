@@ -14,7 +14,6 @@ import { createWriteStream, type WriteStream } from "fs"
 import fs from "fs/promises"
 import path from "path"
 import { ulid } from "ulid"
-import z from "zod"
 import { Effect, Schema } from "effect"
 import { type DeepMutable, zod, zodObject } from "@/util/effect-zod"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
@@ -107,39 +106,39 @@ export namespace Monitor {
   export const Event = {
     Created: BusEvent.define(
       "monitor.created",
-      z.object({
-        sessionID: z.string(),
-        record: Record,
+      Schema.Struct({
+        sessionID: Schema.String,
+        record: RecordSchema,
       }),
     ),
     Updated: BusEvent.define(
       "monitor.updated",
-      z.object({
-        sessionID: z.string(),
-        record: Record,
+      Schema.Struct({
+        sessionID: Schema.String,
+        record: RecordSchema,
       }),
     ),
     Output: BusEvent.define(
       "monitor.output",
-      z.object({
-        sessionID: z.string(),
-        monitorID: z.string(),
-        delta: z.string(),
-        preview: z.string(),
-        bytes: z.number(),
-        status: Status,
+      Schema.Struct({
+        sessionID: Schema.String,
+        monitorID: Schema.String,
+        delta: Schema.String,
+        preview: Schema.String,
+        bytes: Schema.Number,
+        status: StatusSchema,
       }),
     ),
     Completed: BusEvent.define(
       "monitor.completed",
-      z.object({
-        sessionID: z.string(),
-        monitorID: z.string(),
-        title: z.string(),
-        status: Status,
-        exitCode: z.number().nullable(),
-        logPath: z.string(),
-        wake: z.boolean(),
+      Schema.Struct({
+        sessionID: Schema.String,
+        monitorID: Schema.String,
+        title: Schema.String,
+        status: StatusSchema,
+        exitCode: Schema.NullOr(Schema.Number),
+        logPath: Schema.String,
+        wake: Schema.Boolean,
       }),
     ),
   }
