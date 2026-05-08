@@ -21,7 +21,7 @@ Current branch audit, 2026-05-06:
 - `src/server/httpapi/config.ts` contains a real Effect `HttpApi` route slice for `GET /config`, `PATCH /config`, and `GET /config/providers`.
 - `src/server/httpapi/experimental.ts` contains a real Effect `HttpApi` route slice for experimental JSON routes: `GET /experimental/tool/ids`, `GET /experimental/tool`, `POST /experimental/worktree`, `GET /experimental/worktree`, `DELETE /experimental/worktree`, `POST /experimental/worktree/reset`, and `GET /experimental/resource`.
 - `src/server/httpapi/file.ts` contains a real Effect `HttpApi` route slice for `GET /find`, `GET /find/file`, `GET /find/symbol`, `GET /file`, `GET /file/content`, `PUT /file/content`, and `GET /file/status`.
-- `src/server/httpapi/mcp.ts` contains a real Effect `HttpApi` route slice for non-OAuth MCP management: `GET /mcp`, `POST /mcp`, `DELETE /mcp/:name/auth`, `POST /mcp/:name/connect`, `POST /mcp/:name/disconnect`, and `POST /mcp/:name/toggle`.
+- `src/server/httpapi/mcp.ts` contains a real Effect `HttpApi` route slice for MCP management and OAuth JSON routes: `GET /mcp`, `POST /mcp`, `POST /mcp/:name/auth`, `POST /mcp/:name/auth/callback`, `POST /mcp/:name/auth/authenticate`, `DELETE /mcp/:name/auth`, `POST /mcp/:name/connect`, `POST /mcp/:name/disconnect`, and `POST /mcp/:name/toggle`.
 - `src/server/httpapi/project.ts` contains a real Effect `HttpApi` route slice for `GET /project`, `GET /project/current`, and `PATCH /project/:projectID`.
 - `src/server/httpapi/provider.ts` contains a real Effect `HttpApi` route slice for `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth`.
 - `src/server/httpapi/session.ts` contains a real Effect `HttpApi` route slice for session create/update/delete/fork/abort/revert/unrevert, read-only session routes, and non-streaming message/part JSON routes: `POST /session`, `DELETE /session/:sessionID`, `PATCH /session/:sessionID`, `POST /session/:sessionID/fork`, `POST /session/:sessionID/abort`, `POST /session/:sessionID/revert`, `POST /session/:sessionID/unrevert`, `GET /session`, `GET /session/status`, `GET /session/:sessionID`, `GET /session/:sessionID/children`, `GET /session/:sessionID/todo`, `GET /session/:sessionID/diff`, `GET /session/:sessionID/message`, `GET /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID`, `DELETE /session/:sessionID/message/:messageID/part/:partID`, and `PATCH /session/:sessionID/message/:messageID/part/:partID`.
@@ -220,9 +220,9 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 | `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch |
 | `file`                    | `bridged`     | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open |
 | `mcp`                     | `bridged`     | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle |
-| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found |
+| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` was resolved as absent from current Hono inventory |
 | top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch |
-| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open |
+| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; historical console routes and global session list were resolved as absent from current Hono inventory |
 | `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono |
 | `sync`                    | `not ported` | no current Effect `HttpApi` sync route exists                              |
 | `event`                   | `not ported` | current implementation uses Hono SSE                                       |
@@ -395,13 +395,13 @@ Prefer smaller PRs from here so route behavior and SDK/OpenAPI fallout stays rev
 
 1. [x] Bridge `PATCH /project/:projectID`. Evidence: `src/server/httpapi/project.ts` and `bun test test/server/httpapi-project.test.ts`.
 2. [x] Bridge MCP add/connect/disconnect routes. Evidence: `src/server/httpapi/mcp.ts` and `bun test test/server/httpapi-mcp.test.ts`.
-3. [ ] Bridge MCP OAuth routes: start, callback, authenticate.
-4. [ ] Bridge experimental console switch routes. Current branch audit: console routes are listed in the historical checklist but no matching Hono registration was found in `src/server/routes/experimental.ts`.
+3. [x] Bridge MCP OAuth routes: start, callback, authenticate. Evidence: `src/server/httpapi/mcp.ts`, `src/server/httpapi/bridge.ts`, and `src/server/httpapi/public.ts`.
+4. [x] Resolve experimental console switch routes. Current branch audit: console routes are listed in the historical checklist but no matching Hono registration was found in `src/server/routes/experimental.ts`.
 5. [x] Bridge experimental tool/worktree/resource routes. Evidence: `src/server/httpapi/experimental.ts` and `bun test test/server/httpapi-experimental.test.ts`.
-6. [ ] Bridge experimental global session list.
+6. [x] Resolve experimental global session list. Current branch audit: no matching Hono registration was found in `src/server/routes/experimental.ts` or `src/server/server.ts`.
 7. [x] Bridge read-only workspace adaptor/list routes. Evidence: `src/server/httpapi/workspace.ts` and `bun test test/server/httpapi-workspace.test.ts`.
 8. [x] Bridge workspace create/remove/session-restore routes. Evidence: `src/server/httpapi/workspace.ts`, `src/worktree/index.ts`, and `bun test test/server/httpapi-workspace.test.ts`.
-9. [ ] Bridge sync start/replay/history routes.
+9. [ ] Bridge sync start/replay/history routes. Blocked by Phase I (`Sync.Service` does not exist as an Effect service yet on this branch).
 10. [x] Bridge session read routes: list, status, get, children, todo, diff, and messages are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 11. [x] Bridge session lifecycle mutation routes: create, delete, update, fork, and abort are bridged. Evidence: `src/server/httpapi/session.ts` and `bun test test/server/httpapi-session.test.ts`.
 12. [ ] Bridge remaining session mutation and prompt routes. Non-streaming message and part JSON routes plus revert/unrevert are bridged; init/share/summarize/prompt/prompt_async/command/shell/deprecated permission routes remain open.

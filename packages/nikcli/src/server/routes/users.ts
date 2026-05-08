@@ -2,6 +2,43 @@ import { Hono } from "hono"
 import { validator } from "hono-openapi"
 import z from "zod"
 import { UserDB } from "@/db/users"
+import { Schema } from "effect"
+import { zodObject, zodObjectMode, zodOverride } from "@/util/effect-zod"
+
+const strip = zodObjectMode("strip")
+const EmailSchema = Schema.String.annotations(zodOverride(() => z.string().email()))
+const RegistrationPasswordSchema = Schema.String.annotations(
+  zodOverride(() =>
+    z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+      .regex(/[0-9]/, "Password must contain at least one number")
+      .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
+  ),
+)
+const UpdatePasswordSchema = Schema.String.annotations(zodOverride(() => z.string().min(8)))
+const RegisterInput = zodObject(
+  Schema.Struct({
+    username: Schema.String.pipe(Schema.minLength(2), Schema.maxLength(64)),
+    email: EmailSchema,
+    password: RegistrationPasswordSchema,
+    displayName: Schema.optional(Schema.String.pipe(Schema.maxLength(128))),
+  }).annotations(strip),
+)
+const LoginInput = zodObject(
+  Schema.Struct({
+    email: EmailSchema,
+    password: Schema.String,
+  }).annotations(strip),
+)
+const UpdateUserInput = zodObject(
+  Schema.Struct({
+    displayName: Schema.optional(Schema.String.pipe(Schema.maxLength(128))),
+    password: Schema.optional(UpdatePasswordSchema),
+    role: Schema.optional(Schema.Literal("admin", "user")),
+  }).annotations(strip),
+)
 
 declare module "hono" {
   interface ContextVariableMap {
@@ -50,17 +87,7 @@ export function UserRoutes() {
     "/register",
     validator(
       "json",
-      z.object({
-        username: z.string().min(2).max(64),
-        email: z.string().email(),
-        password: z
-          .string()
-          .min(8, "Password must be at least 8 characters")
-          .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
-          .regex(/[0-9]/, "Password must contain at least one number")
-          .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
-        displayName: z.string().max(128).optional(),
-      }),
+      RegisterInput,
     ),
     async (c) => {
       const body = c.req.valid("json")
@@ -104,10 +131,7 @@ export function UserRoutes() {
     "/login",
     validator(
       "json",
-      z.object({
-        email: z.string().email(),
-        password: z.string(),
-      }),
+      LoginInput,
     ),
     async (c) => {
       const { email, password } = c.req.valid("json")
@@ -155,11 +179,7 @@ export function UserRoutes() {
     "/:id",
     validator(
       "json",
-      z.object({
-        displayName: z.string().max(128).optional(),
-        password: z.string().min(8).optional(),
-        role: z.enum(["admin", "user"]).optional(),
-      }),
+      UpdateUserInput,
     ),
     async (c) => {
       const session = requireUser(c)

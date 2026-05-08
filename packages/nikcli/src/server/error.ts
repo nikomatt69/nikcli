@@ -1,23 +1,23 @@
 import { resolver } from "hono-openapi"
-import z from "zod"
 import { Storage } from "../storage/storage"
+import { Schema } from "effect"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
+
+const BadRequestErrorSchema = Schema.Struct({
+  data: Schema.Any,
+  errors: Schema.Array(Schema.Record({ key: Schema.String, value: Schema.Any })),
+  success: Schema.Literal(false),
+}).annotations({
+  identifier: "BadRequestError",
+  ...zodObjectMode("strip"),
+})
 
 export const ERRORS = {
   400: {
     description: "Bad request",
     content: {
       "application/json": {
-        schema: resolver(
-          z
-            .object({
-              data: z.any(),
-              errors: z.array(z.record(z.string(), z.any())),
-              success: z.literal(false),
-            })
-            .meta({
-              ref: "BadRequestError",
-            }),
-        ),
+        schema: resolver(zodObject(BadRequestErrorSchema)),
       },
     },
   },

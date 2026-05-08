@@ -1,9 +1,10 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { spawn } from "bun"
-import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Log } from "../util/log"
+import { Schema } from "effect"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 
 const SUPPORTED_IDES = [
   { name: "Windsurf" as const, cmd: "windsurf" },
@@ -19,19 +20,21 @@ export namespace Ide {
   export const Event = {
     Installed: BusEvent.define(
       "ide.installed",
-      z.object({
-        ide: z.string(),
-      }),
+      Schema.Struct({
+        ide: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 
-  export const AlreadyInstalledError = NamedError.create("AlreadyInstalledError", z.object({}))
+  export const AlreadyInstalledError = NamedError.create("AlreadyInstalledError", zodObject(Schema.Struct({})))
 
   export const InstallFailedError = NamedError.create(
     "InstallFailedError",
-    z.object({
-      stderr: z.string(),
-    }),
+    zodObject(
+      Schema.Struct({
+        stderr: Schema.String,
+      }).annotations({ identifier: "IdeInstallFailedError" }),
+    ),
   )
 
   export function ide() {

@@ -1,11 +1,24 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
-import z from "zod"
 import { PermissionNext } from "@/permission/next"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
+
+const BooleanResponse = zod(Schema.Boolean)
+const RequestIDParam = zodObject(
+  Schema.Struct({
+    requestID: Schema.String,
+  }).annotations(zodObjectMode("strip")),
+)
+const ReplyInput = zodObject(
+  Schema.Struct({
+    reply: PermissionNext.ReplySchema,
+    message: Schema.optional(Schema.String),
+  }).annotations(zodObjectMode("strip")),
+)
 
 function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
   return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
@@ -24,7 +37,7 @@ export const PermissionRoutes = lazy(() =>
             description: "Permission processed successfully",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(BooleanResponse),
               },
             },
           },
@@ -33,11 +46,9 @@ export const PermissionRoutes = lazy(() =>
       }),
       validator(
         "param",
-        z.object({
-          requestID: z.string(),
-        }),
+        RequestIDParam,
       ),
-      validator("json", z.object({ reply: PermissionNext.Reply, message: z.string().optional() })),
+      validator("json", ReplyInput),
       async (c) => {
         const params = c.req.valid("param")
         const json = c.req.valid("json")

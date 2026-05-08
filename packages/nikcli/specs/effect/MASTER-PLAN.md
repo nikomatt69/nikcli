@@ -453,10 +453,10 @@ Validation per tool: existing tool tests + AI-SDK JSON Schema diff.
 Open bridge work from `http-api.md`:
 
 - K1 — ✅ MCP OAuth: `POST /mcp/:name/auth`, `/auth/callback`, `/auth/authenticate` are bridged and tracked as complete in `http-api.md`.
-- K2 — experimental console: `GET /experimental/console`, `/console/orgs`, `POST /console/switch`. Confirm Hono registration first; if absent, remove from inventory.
-- K3 — experimental global session: `GET /experimental/session`.
+- K2 — ✅ experimental console inventory resolved: `GET /experimental/console`, `/console/orgs`, and `POST /console/switch` have no current Hono registration.
+- K3 — ✅ experimental global session inventory resolved: `GET /experimental/session` has no current Hono registration.
 - K4 — sync routes: `POST /sync/start`, `/sync/replay`, `/sync/history`. Depends on Phase I1.
-- K5 — workspace status: `GET /experimental/workspace/status`. Depends on Phase I2.
+- K5 — ✅ workspace status inventory resolved: `GET /experimental/workspace/status` has no current Hono registration.
 - K6 — session prompt/share/init/summarize/shell/command + deprecated permission. Depends on Phase D2 (session route effectification) so the bridge isn't fighting the legacy handler.
 - K7 — auth, observability layer wiring inside the Effect HttpApi route layer.
 - K8 — `auth_token` as a real `HttpApiSecurity.apiKey` query scheme (replace the public.ts hand-injection).
@@ -520,7 +520,7 @@ Follow `server-package.md`. PR plan:
 
 Migrate the remaining large schema surfaces now, before the SDK generator flip. Phase P is the current unlock for SDK byte-identity because the Effect OpenAPI path needs canonical Effect Schema names and stable derived Zod compatibility before it can replace the Hono/Zod source. Order:
 
-1. Provider domain (`provider/models.ts`, `provider/provider.ts`; `provider/auth.ts` is already landed).
+1. Provider domain is landed (`provider/auth.ts`, `provider/models.ts`, `provider/provider.ts`).
 2. Session domain (compaction, message-v2, message, prompt, revert, summary, status, todo, session).
 3. Config root and server route DTO files (one per route file).
 4. Everything else (acp, bus, cli, command, plugin, ide, util, etc.).

@@ -1,6 +1,5 @@
 import { Tool } from "./tool"
 import DESCRIPTION from "./task.txt"
-import z from "zod"
 import { Session } from "../session"
 import { Bus } from "../bus"
 import { MessageV2 } from "../session/message-v2"
@@ -14,17 +13,21 @@ import { PermissionNext } from "@/permission/next"
 import { Delegation } from "@/delegation/manager"
 import { Instance } from "../project/instance"
 import { Log } from "@/util/log"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { zodObject } from "@/util/effect-zod"
 
-const parameters = z.object({
-  description: z.string().describe("A short (3-5 words) description of the task"),
-  prompt: z.string().describe("The task for the agent to perform"),
-  subagent_type: z.string().describe("The type of specialized agent to use for this task"),
-  background: z.boolean().describe("Run the subagent in background and return immediately").optional(),
-  session_id: z.string().describe("Existing Task session to continue").optional(),
-  command: z.string().describe("The command that triggered this task").optional(),
+const ParametersSchema = Schema.Struct({
+  description: Schema.String.annotations({ description: "A short (3-5 words) description of the task" }),
+  prompt: Schema.String.annotations({ description: "The task for the agent to perform" }),
+  subagent_type: Schema.String.annotations({ description: "The type of specialized agent to use for this task" }),
+  background: Schema.optional(
+    Schema.Boolean.annotations({ description: "Run the subagent in background and return immediately" }),
+  ),
+  session_id: Schema.optional(Schema.String.annotations({ description: "Existing Task session to continue" })),
+  command: Schema.optional(Schema.String.annotations({ description: "The command that triggered this task" })),
 })
+const parameters = zodObject(ParametersSchema)
 
 function configGet() {
   return runPromiseWithLayer(
@@ -46,7 +49,7 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-export type TaskParams = z.infer<typeof parameters>
+export type TaskParams = Schema.Schema.Type<typeof ParametersSchema>
 
 type ToolSummaryItem = { id: string; tool: string; state: { status: string; title?: string } }
 
@@ -916,7 +919,7 @@ export const TaskTool = Tool.define<typeof parameters, TaskMetadata>("task", asy
   return {
     description,
     parameters,
-    async execute(params: z.infer<typeof parameters>, ctx) {
+    async execute(params: TaskParams, ctx) {
       return runSubtask(params, ctx)
     },
   }

@@ -1,7 +1,9 @@
 import { BusEvent } from "@/bus/bus-event"
-import z from "zod"
+import { Schema } from "effect"
+import { zodObjectMode } from "@/util/effect-zod"
 
+const strip = zodObjectMode("strip")
 export const Event = {
-  Connected: BusEvent.define("server.connected", z.object({})),
-  Disposed: BusEvent.define("global.disposed", z.object({})),
+  Connected: BusEvent.define("server.connected", Schema.Struct({}).annotations(strip)),
+  Disposed: BusEvent.define("global.disposed", Schema.Struct({}).annotations(strip)),
 }

@@ -1,18 +1,43 @@
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
-import z from "zod"
 import { Identifier } from "../../id/id"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
 import { Workspace } from "../../workspace"
+import { ConfigSchema as WorkspaceConfigSchema } from "../../workspace/config"
 import { errors } from "../error"
+import { Schema } from "effect"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
 
-const AdaptorInfo = z.object({
-  type: z.string(),
-  name: z.string(),
-  description: z.string(),
-  available: z.boolean().optional(),
-})
+const strip = zodObjectMode("strip")
+const AdaptorInfoSchema = Schema.Struct({
+  type: Schema.String,
+  name: Schema.String,
+  description: Schema.String,
+  available: Schema.optional(Schema.Boolean),
+}).annotations({ identifier: "WorkspaceAdaptorInfo", ...strip })
+const WorkspaceIDParam = zodObject(
+  Schema.Struct({
+    id: Identifier.schemaEffect("workspace"),
+  }).annotations(strip),
+)
+const RestoreParam = zodObject(
+  Schema.Struct({
+    id: Identifier.schemaEffect("workspace"),
+    sessionID: Identifier.schemaEffect("session"),
+  }).annotations(strip),
+)
+const TimeoutQuery = zodObject(
+  Schema.Struct({
+    timeoutMs: Schema.optional(Schema.NumberFromString.pipe(Schema.int(), Schema.greaterThan(0))),
+  }).annotations(strip),
+)
+const CreateWorkspaceInput = zodObject(
+  Schema.Struct({
+    branch: Schema.NullOr(Schema.String),
+    config: WorkspaceConfigSchema,
+  }).annotations(strip),
+)
 
 export const WorkspaceRoutes = lazy(() =>
   new Hono()
@@ -27,7 +52,7 @@ export const WorkspaceRoutes = lazy(() =>
             description: "Available adaptors",
             content: {
               "application/json": {
-                schema: resolver(z.array(AdaptorInfo)),
+                schema: resolver(zod(Schema.Array(AdaptorInfoSchema))),
               },
             },
           },
@@ -60,16 +85,11 @@ export const WorkspaceRoutes = lazy(() =>
       }),
       validator(
         "param",
-        z.object({
-          id: Workspace.Info.shape.id,
-        }),
+        WorkspaceIDParam,
       ),
       validator(
         "json",
-        z.object({
-          branch: Workspace.Info.shape.branch,
-          config: Workspace.Info.shape.config,
-        }),
+        CreateWorkspaceInput,
       ),
       async (c) => {
         const { id } = c.req.valid("param")
@@ -103,15 +123,11 @@ export const WorkspaceRoutes = lazy(() =>
       }),
       validator(
         "param",
-        z.object({
-          id: Workspace.Info.shape.id,
-        }),
+        WorkspaceIDParam,
       ),
       validator(
         "query",
-        z.object({
-          timeoutMs: z.coerce.number().int().positive().optional(),
-        }),
+        TimeoutQuery,
       ),
       async (c) => {
         const { id } = c.req.valid("param")
@@ -144,16 +160,11 @@ export const WorkspaceRoutes = lazy(() =>
       }),
       validator(
         "param",
-        z.object({
-          id: Workspace.Info.shape.id,
-          sessionID: Identifier.schema("session"),
-        }),
+        RestoreParam,
       ),
       validator(
         "query",
-        z.object({
-          timeoutMs: z.coerce.number().int().positive().optional(),
-        }),
+        TimeoutQuery,
       ),
       async (c) => {
         const { id, sessionID } = c.req.valid("param")
@@ -178,7 +189,7 @@ export const WorkspaceRoutes = lazy(() =>
             description: "Workspaces",
             content: {
               "application/json": {
-                schema: resolver(z.array(Workspace.Info)),
+                schema: resolver(Workspace.Info.array()),
               },
             },
           },
@@ -208,9 +219,7 @@ export const WorkspaceRoutes = lazy(() =>
       }),
       validator(
         "param",
-        z.object({
-          id: Workspace.Info.shape.id,
-        }),
+        WorkspaceIDParam,
       ),
       async (c) => {
         const { id } = c.req.valid("param")

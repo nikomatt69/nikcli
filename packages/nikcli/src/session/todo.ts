@@ -3,13 +3,12 @@ import { Bus } from "@/bus"
 import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"
-import z from "zod"
 import { Storage } from "../storage/storage"
 import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
@@ -35,14 +34,14 @@ export namespace Todo {
   export const Event = {
     Updated: BusEvent.define(
       "todo.updated",
-      z.object({
-        sessionID: z.string(),
-        todos: z.array(Info),
-        diff: z.object({
-          added: z.array(Info),
-          completed: z.array(Info),
+      Schema.Struct({
+        sessionID: Schema.String,
+        todos: Schema.mutable(Schema.Array(InfoSchema)),
+        diff: Schema.Struct({
+          added: Schema.mutable(Schema.Array(InfoSchema)),
+          completed: Schema.mutable(Schema.Array(InfoSchema)),
         }),
-      }),
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

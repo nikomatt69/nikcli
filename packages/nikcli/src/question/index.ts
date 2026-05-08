@@ -3,9 +3,8 @@ import { BusEvent } from "@/bus/bus-event"
 import { InstanceState } from "@/effect"
 import { Identifier } from "@/id/id"
 import { Log } from "@/util/log"
-import { zod, zodObject } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import z from "zod"
 
 export namespace Question {
   const log = Log.create({ service: "question" })
@@ -33,50 +32,48 @@ export namespace Question {
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  export const Request = z
-    .object({
-      id: Identifier.schema("question"),
-      sessionID: Identifier.schema("session"),
-      questions: z.array(Info).describe("Questions to ask"),
-      tool: z
-        .object({
-          messageID: z.string(),
-          callID: z.string(),
-        })
-        .optional(),
-    })
-    .meta({
-      ref: "QuestionRequest",
-    })
-  export type Request = z.infer<typeof Request>
+  const RequestSchema = Schema.Struct({
+    id: Identifier.schemaEffect("question"),
+    sessionID: Identifier.schemaEffect("session"),
+    questions: Schema.Array(InfoSchema).annotations({ description: "Questions to ask" }),
+    tool: Schema.optional(
+      Schema.Struct({
+        messageID: Schema.String,
+        callID: Schema.String,
+      }),
+    ),
+  }).annotations({ identifier: "QuestionRequest", ...zodObjectMode("strip") })
+  export const Request = zodObject(RequestSchema)
+  export type Request = Schema.Schema.Type<typeof RequestSchema>
 
   const AnswerSchema = Schema.Array(Schema.String).annotations({ identifier: "QuestionAnswer" })
   export const Answer = zod(AnswerSchema)
   export type Answer = Schema.Schema.Type<typeof AnswerSchema>
 
-  export const Reply = z.object({
-    answers: z
-      .array(Answer)
-      .describe("User answers in order of questions (each answer is an array of selected labels)"),
-  })
-  export type Reply = z.infer<typeof Reply>
+  const ReplySchema = Schema.Struct({
+    answers: Schema.mutable(Schema.Array(AnswerSchema)).annotations({
+      description: "User answers in order of questions (each answer is an array of selected labels)",
+    }),
+  }).annotations({ identifier: "QuestionReply", ...zodObjectMode("strip") })
+  export const Reply = zodObject(ReplySchema)
+  export type Reply = Schema.Schema.Type<typeof ReplySchema>
 
   export const Event = {
-    Asked: BusEvent.define("question.asked", Request),
+    Asked: BusEvent.define("question.asked", RequestSchema),
     Replied: BusEvent.define(
       "question.replied",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
-        answers: z.array(Answer),
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
+        answers: Schema.mutable(Schema.Array(AnswerSchema)),
+      }).annotations(zodObjectMode("strip")),
     ),
     Rejected: BusEvent.define(
       "question.rejected",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

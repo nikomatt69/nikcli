@@ -3,18 +3,21 @@ import { Monitor } from "@/monitor/manager"
 import { authorizeBashCommand } from "./bash"
 import DESCRIPTION from "./monitor.txt"
 import { Tool } from "./tool"
-import z from "zod"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
-const parameters = z.object({
-  command: z.string().describe("The shell command to run in the background"),
-  title: z.string().describe("Short title for the monitored job").optional(),
-  workdir: z
-    .string()
-    .describe("Working directory for the command. Defaults to the current project directory.")
-    .optional(),
-  timeout: z.number().describe("Optional timeout in milliseconds").optional(),
-  wake: z.boolean().describe("Wake the parent session when the command finishes").optional(),
+const ParametersSchema = Schema.Struct({
+  command: Schema.String.annotations({ description: "The shell command to run in the background" }),
+  title: Schema.optional(Schema.String.annotations({ description: "Short title for the monitored job" })),
+  workdir: Schema.optional(
+    Schema.String.annotations({
+      description: "Working directory for the command. Defaults to the current project directory.",
+    }),
+  ),
+  timeout: Schema.optional(Schema.Number.annotations({ description: "Optional timeout in milliseconds" })),
+  wake: Schema.optional(Schema.Boolean.annotations({ description: "Wake the parent session when the command finishes" })),
 })
+const parameters = zodObject(ParametersSchema)
 
 type MonitorMetadata = {
   monitorId: string

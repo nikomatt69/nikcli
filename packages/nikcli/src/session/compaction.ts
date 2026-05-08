@@ -4,7 +4,6 @@ import { Session } from "."
 import { Identifier } from "../id/id"
 import { Provider } from "../provider/provider"
 import { MessageV2 } from "./message-v2"
-import z from "zod"
 import { Token } from "../util/token"
 import { Log } from "../util/log"
 import { SessionProcessor } from "./processor"
@@ -12,7 +11,7 @@ import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
@@ -64,9 +63,9 @@ export namespace SessionCompaction {
   export const Event = {
     Compacted: BusEvent.define(
       "session.compacted",
-      z.object({
-        sessionID: z.string(),
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

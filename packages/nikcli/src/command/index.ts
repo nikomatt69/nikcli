@@ -1,7 +1,6 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { Config } from "../config/config"
-import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_ULTRAREVIEW from "./template/ultrareview.txt"
@@ -9,18 +8,19 @@ import { MCP } from "../mcp"
 import { Connectors } from "../connectors"
 import { Skill } from "../skill"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObjectMode } from "@/util/effect-zod"
 
 export namespace Command {
   export const Event = {
     Executed: BusEvent.define(
       "command.executed",
-      z.object({
-        name: z.string(),
-        sessionID: Identifier.schema("session"),
-        arguments: z.string(),
-        messageID: Identifier.schema("message"),
-      }),
+      Schema.Struct({
+        name: Schema.String,
+        sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+        arguments: Schema.String,
+        messageID: Schema.String.pipe(Schema.startsWith("msg")),
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

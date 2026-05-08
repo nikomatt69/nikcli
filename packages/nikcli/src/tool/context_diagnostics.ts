@@ -1,4 +1,3 @@
-import z from "zod"
 import path from "path"
 import { Tool } from "./tool"
 import DESCRIPTION from "./context_diagnostics.txt"
@@ -6,12 +5,18 @@ import { LSP } from "@/lsp"
 import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
-const parameters = z.object({
-  filePath: z.string().optional().describe("Optional file path to filter diagnostics"),
-  limit: z.number().int().min(1).max(200).optional().describe("Maximum diagnostics per file"),
+const ParametersSchema = Schema.Struct({
+  filePath: Schema.optional(Schema.String.annotations({ description: "Optional file path to filter diagnostics" })),
+  limit: Schema.optional(
+    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1), Schema.lessThanOrEqualTo(200)).annotations({
+      description: "Maximum diagnostics per file",
+    }),
+  ),
 })
+const parameters = zodObject(ParametersSchema)
 
 function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))

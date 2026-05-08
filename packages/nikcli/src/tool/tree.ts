@@ -1,4 +1,3 @@
-import z from "zod"
 import path from "path"
 import { readdir, stat } from "fs/promises"
 import { Tool } from "./tool"
@@ -6,6 +5,8 @@ import DESCRIPTION from "./tree.txt"
 import { Instance } from "@/project/instance"
 import { assertExternalDirectory } from "./external-directory"
 import { IGNORE_PATTERNS } from "./ls"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 type TreeNode = {
   name: string
@@ -30,16 +31,17 @@ const TREE_CHARS = {
   space: "    ",
 }
 
-const parameters = z.object({
-  path: z.string().optional(),
-  maxDepth: z.number().int().min(0).optional(),
-  showHidden: z.boolean().optional(),
-  showSize: z.boolean().optional(),
-  showFullPath: z.boolean().optional(),
-  ignorePatterns: z.array(z.string()).optional(),
-  onlyDirectories: z.boolean().optional(),
-  sortBy: z.enum(["name", "size", "type"]).optional(),
+const ParametersSchema = Schema.Struct({
+  path: Schema.optional(Schema.String),
+  maxDepth: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(0))),
+  showHidden: Schema.optional(Schema.Boolean),
+  showSize: Schema.optional(Schema.Boolean),
+  showFullPath: Schema.optional(Schema.Boolean),
+  ignorePatterns: Schema.optional(Schema.Array(Schema.String)),
+  onlyDirectories: Schema.optional(Schema.Boolean),
+  sortBy: Schema.optional(Schema.Literal("name", "size", "type")),
 })
+const parameters = zodObject(ParametersSchema)
 
 export const TreeTool = Tool.define<typeof parameters, { stats: TreeStats }>("tree", {
   description: DESCRIPTION,

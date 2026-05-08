@@ -1,17 +1,19 @@
-import z from "zod"
 import * as path from "path"
 import * as fs from "fs/promises"
 import { readFileSync } from "fs"
 import { Log } from "../util/log"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 export namespace Patch {
   const log = Log.create({ service: "patch" })
 
-  export const PatchSchema = z.object({
-    patchText: z.string().describe("The full patch text that describes all changes to be made"),
-  })
+  const PatchSchemaEffect = Schema.Struct({
+    patchText: Schema.String.annotations({ description: "The full patch text that describes all changes to be made" }),
+  }).annotations({ identifier: "ApplyPatchParams" })
+  export const PatchSchema = zodObject(PatchSchemaEffect)
 
-  export type PatchParams = z.infer<typeof PatchSchema>
+  export type PatchParams = Schema.Schema.Type<typeof PatchSchemaEffect>
 
   export interface ApplyPatchArgs {
     patch: string

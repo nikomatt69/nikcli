@@ -6,10 +6,16 @@ import { lazy, lazyAsync } from "@/util/lazy"
 import { Identifier } from "@/id/id"
 import z from "zod"
 import { Lock } from "@/util/lock"
+import { Schema } from "effect"
+import { zod as zodFromSchema, zodObjectMode } from "@/util/effect-zod"
 
 // Compaction settings
 const MAX_EVENTS_PER_AGGREGATE = 1000
 const COMPACTION_TRIM_TO = 500
+
+function isEffectSchema(input: z.ZodType | Schema.Schema<any, any, any>): input is Schema.Schema<any, any, any> {
+  return "ast" in input
+}
 
 export namespace SyncEvent {
   const log = Log.create({ service: "sync.event" })
@@ -17,6 +23,7 @@ export namespace SyncEvent {
   type EventDefinition<T extends z.ZodType> = {
     type: string
     schema: T
+    effectSchema?: Schema.Schema<any, any, any>
     version: number
     aggregate: string
   }
@@ -28,13 +35,34 @@ export namespace SyncEvent {
     version?: number
     aggregate: string
     schema: T
-  }): EventDefinition<T> {
-    const definition = {
+  }): EventDefinition<T>
+  export function define<S extends Schema.Schema<any, any, any>>(config: {
+    type: string
+    version?: number
+    aggregate: string
+    schema: S
+  }): EventDefinition<z.ZodType<Schema.Schema.Type<S>>>
+  export function define(config: {
+    type: string
+    version?: number
+    aggregate: string
+    schema: z.ZodType | Schema.Schema<any, any, any>
+  }): EventDefinition<z.ZodType> {
+    let schema: z.ZodType
+    let effectSchema: Schema.Schema<any, any, any> | undefined
+    if (isEffectSchema(config.schema)) {
+      effectSchema = config.schema
+      schema = zodFromSchema(config.schema as Schema.Schema<any, any, never>)
+    } else {
+      schema = config.schema
+    }
+    const definition: EventDefinition<z.ZodType> = {
       type: config.type,
-      schema: config.schema,
+      schema,
       version: config.version ?? 1,
       aggregate: config.aggregate,
     }
+    if (effectSchema) definition.effectSchema = effectSchema
     registry.set(config.type, definition)
     log.debug("event registered", { type: config.type, aggregate: config.aggregate })
     return definition
@@ -49,56 +77,58 @@ export namespace SyncEvent {
   }
 }
 
+const syncEventStrip = zodObjectMode("strip")
+
 // Register workspace event types (used in workspace event loop RESTORE_EVENT_TYPES)
 SyncEvent.define({
   type: "session.created",
   aggregate: "session",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "session.updated",
   aggregate: "session",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "session.deleted",
   aggregate: "session",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "session.status",
   aggregate: "session",
-  schema: z.object({ sessionID: z.string(), status: z.unknown() }),
+  schema: Schema.Struct({ sessionID: Schema.String, status: Schema.Unknown }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "session.idle",
   aggregate: "session",
-  schema: z.object({ sessionID: z.string() }),
+  schema: Schema.Struct({ sessionID: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "permission.asked",
   aggregate: "permission",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "permission.replied",
   aggregate: "permission",
-  schema: z.object({ requestID: z.string() }),
+  schema: Schema.Struct({ requestID: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "question.asked",
   aggregate: "question",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "question.replied",
   aggregate: "question",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 SyncEvent.define({
   type: "question.rejected",
   aggregate: "question",
-  schema: z.object({ id: z.string() }),
+  schema: Schema.Struct({ id: Schema.String }).annotations(syncEventStrip),
 })
 
 export interface SyncEventRecord {
@@ -330,6 +360,7 @@ export namespace Sync {
 type SyncEventDefinition<T extends z.ZodType> = {
   type: string
   schema: T
+  effectSchema?: Schema.Schema<any, any, any>
   version: number
   aggregate: string
 }

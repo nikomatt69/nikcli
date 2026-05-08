@@ -1,6 +1,8 @@
 import { NamedError } from "@nikcli-ai/util/error"
 import matter from "gray-matter"
-import { z } from "zod"
+import z from "zod"
+import { Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 export namespace ConfigMarkdown {
   export const FILE_REGEX = /(?<![\w`])@(\.?[^\s`,.]*(?:\.[^\s`,.]+)*)/g
@@ -78,11 +80,16 @@ export namespace ConfigMarkdown {
     }
   }
 
+  const FrontmatterErrorSchema = Schema.Struct({
+    path: Schema.String,
+    message: Schema.String,
+  })
+  const FrontmatterErrorPayload = zodObject(FrontmatterErrorSchema) as z.ZodObject<{
+    path: z.ZodString
+    message: z.ZodString
+  }>
   export const FrontmatterError = NamedError.create(
     "ConfigFrontmatterError",
-    z.object({
-      path: z.string(),
-      message: z.string(),
-    }),
+    FrontmatterErrorPayload,
   )
 }

@@ -1,17 +1,29 @@
 import { Hono } from "hono"
 import { describeRoute, resolver } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
-import z from "zod"
 import { BusEvent } from "@/bus/bus-event"
 import { GlobalBus } from "@/bus/global"
 import { Instance } from "../../project/instance"
 import { Installation } from "@/installation"
 import { Log } from "../../util/log"
 import { lazy } from "../../util/lazy"
+import { Schema } from "effect"
+import { zod, zodObject, zodObjectMode, zodOverride } from "@/util/effect-zod"
 
 const log = Log.create({ service: "server" })
+const strip = zodObjectMode("strip")
 
-export const GlobalDisposedEvent = BusEvent.define("global.disposed", z.object({}))
+export const GlobalDisposedEvent = BusEvent.define("global.disposed", Schema.Struct({}).annotations(strip))
+
+const HealthResponseSchema = Schema.Struct({
+  healthy: Schema.Literal(true),
+  version: Schema.String,
+}).annotations({ identifier: "GlobalHealth", ...strip })
+
+const GlobalEventSchema = Schema.Struct({
+  directory: Schema.String,
+  payload: Schema.Any.annotations(zodOverride(() => BusEvent.payloads())),
+}).annotations({ identifier: "GlobalEvent", ...strip })
 
 export const GlobalRoutes = lazy(() =>
   new Hono()
@@ -26,7 +38,7 @@ export const GlobalRoutes = lazy(() =>
             description: "Health information",
             content: {
               "application/json": {
-                schema: resolver(z.object({ healthy: z.literal(true), version: z.string() })),
+                schema: resolver(zodObject(HealthResponseSchema)),
               },
             },
           },
@@ -47,16 +59,7 @@ export const GlobalRoutes = lazy(() =>
             description: "Event stream",
             content: {
               "text/event-stream": {
-                schema: resolver(
-                  z
-                    .object({
-                      directory: z.string(),
-                      payload: BusEvent.payloads(),
-                    })
-                    .meta({
-                      ref: "GlobalEvent",
-                    }),
-                ),
+                schema: resolver(zodObject(GlobalEventSchema)),
               },
             },
           },
@@ -114,7 +117,7 @@ export const GlobalRoutes = lazy(() =>
             description: "Global disposed",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(zod(Schema.Boolean)),
               },
             },
           },

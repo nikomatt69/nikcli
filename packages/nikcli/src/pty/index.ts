@@ -1,13 +1,12 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { type IPty } from "bun-pty"
-import z from "zod"
 import { Identifier } from "../id/id"
 import { Log } from "../util/log"
 import type { WSContext } from "hono/ws"
 import { Shell } from "@/shell/shell"
 import { InstanceState } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Pty {
@@ -56,10 +55,19 @@ export namespace Pty {
   export type UpdateInput = Schema.Schema.Type<typeof UpdateInputSchema>
 
   export const Event = {
-    Created: BusEvent.define("pty.created", z.object({ info: Info })),
-    Updated: BusEvent.define("pty.updated", z.object({ info: Info })),
-    Exited: BusEvent.define("pty.exited", z.object({ id: Identifier.schema("pty"), exitCode: z.number() })),
-    Deleted: BusEvent.define("pty.deleted", z.object({ id: Identifier.schema("pty") })),
+    Created: BusEvent.define("pty.created", Schema.Struct({ info: InfoSchema }).annotations(zodObjectMode("strip"))),
+    Updated: BusEvent.define("pty.updated", Schema.Struct({ info: InfoSchema }).annotations(zodObjectMode("strip"))),
+    Exited: BusEvent.define(
+      "pty.exited",
+      Schema.Struct({
+        id: Schema.String.pipe(Schema.startsWith("pty")),
+        exitCode: Schema.Number,
+      }).annotations(zodObjectMode("strip")),
+    ),
+    Deleted: BusEvent.define(
+      "pty.deleted",
+      Schema.Struct({ id: Schema.String.pipe(Schema.startsWith("pty")) }).annotations(zodObjectMode("strip")),
+    ),
   }
 
   interface ActiveSession {

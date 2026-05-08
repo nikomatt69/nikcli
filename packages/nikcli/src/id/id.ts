@@ -1,5 +1,6 @@
-import z from "zod"
 import { randomBytes } from "crypto"
+import { Schema } from "effect"
+import { zod } from "@/util/effect-zod"
 
 export namespace Identifier {
   const prefixes = {
@@ -19,8 +20,12 @@ export namespace Identifier {
     org: "org",
   } as const
 
+  export function schemaEffect(prefix: keyof typeof prefixes) {
+    return Schema.String.pipe(Schema.startsWith(prefixes[prefix]))
+  }
+
   export function schema(prefix: keyof typeof prefixes) {
-    return z.string().startsWith(prefixes[prefix])
+    return zod(schemaEffect(prefix))
   }
 
   const LENGTH = 26

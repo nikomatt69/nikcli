@@ -3,7 +3,6 @@ import { Bus } from "@/bus"
 import { InstanceState } from "@/effect"
 import { zod, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import z from "zod"
 
 export namespace SessionStatus {
   // Legacy callers depend on `parse({type:"idle", extra: 1})` stripping unknown keys; the
@@ -25,17 +24,17 @@ export namespace SessionStatus {
   export const Event = {
     Status: BusEvent.define(
       "session.status",
-      z.object({
-        sessionID: z.string(),
-        status: Info,
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+        status: InfoSchema,
+      }).annotations(strip),
     ),
     // deprecated
     Idle: BusEvent.define(
       "session.idle",
-      z.object({
-        sessionID: z.string(),
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+      }).annotations(strip),
     ),
   }
 

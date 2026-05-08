@@ -5,8 +5,8 @@ import { Filesystem } from "../util/filesystem"
 import { Lock } from "../util/lock"
 import { $ } from "bun"
 import { NamedError } from "@nikcli-ai/util/error"
-import z from "zod"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 /** In-memory read-through cache with write-through invalidation. */
 namespace Cache {
@@ -63,12 +63,10 @@ export namespace Storage {
 
   export class Service extends Context.Tag("Storage.Service")<Service, Interface>() {}
 
-  export const NotFoundError = NamedError.create(
-    "NotFoundError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  const NotFoundErrorSchema = Schema.Struct({
+    message: Schema.String,
+  }).annotations({ identifier: "StorageNotFoundError" })
+  export const NotFoundError = NamedError.create("NotFoundError", zodObject(NotFoundErrorSchema))
 
   const MIGRATIONS: Migration[] = [
     async (dir) => {

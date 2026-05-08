@@ -6,12 +6,13 @@ import { createMessageConnection, StreamMessageReader, StreamMessageWriter } fro
 import type { Diagnostic as VSCodeDiagnostic } from "vscode-languageserver-types"
 import { Log } from "../util/log"
 import { LANGUAGE_EXTENSIONS } from "./language"
-import z from "zod"
 import type { LSPServer } from "./server"
 import { NamedError } from "@nikcli-ai/util/error"
 import { withTimeout } from "../util/timeout"
 import { Instance } from "../project/instance"
 import { Filesystem } from "../util/filesystem"
+import { Schema } from "effect"
+import { zodObject, zodObjectMode } from "@/util/effect-zod"
 
 const DIAGNOSTICS_DEBOUNCE_MS = 150
 
@@ -24,18 +25,20 @@ export namespace LSPClient {
 
   export const InitializeError = NamedError.create(
     "LSPInitializeError",
-    z.object({
-      serverID: z.string(),
-    }),
+    zodObject(
+      Schema.Struct({
+        serverID: Schema.String,
+      }).annotations({ identifier: "LSPInitializeError" }),
+    ),
   )
 
   export const Event = {
     Diagnostics: BusEvent.define(
       "lsp.client.diagnostics",
-      z.object({
-        serverID: z.string(),
-        path: z.string(),
-      }),
+      Schema.Struct({
+        serverID: Schema.String,
+        path: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

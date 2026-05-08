@@ -1,6 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
-import z from "zod"
 import { Log } from "../util/log"
 import { FileIgnore } from "./ignore"
 import { Config } from "../config/config"
@@ -14,7 +13,8 @@ import { $ } from "bun"
 import { Flag } from "@/flag/flag"
 import { readdir } from "fs/promises"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObjectMode } from "@/util/effect-zod"
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000
 
@@ -26,10 +26,10 @@ export namespace FileWatcher {
   export const Event = {
     Updated: BusEvent.define(
       "file.watcher.updated",
-      z.object({
-        file: z.string(),
-        event: z.union([z.literal("add"), z.literal("change"), z.literal("unlink")]),
-      }),
+      Schema.Struct({
+        file: Schema.String,
+        event: Schema.Literal("add", "change", "unlink"),
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

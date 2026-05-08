@@ -17,7 +17,7 @@ import { Config, ConfigSchema } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
-import { zod, zodObject } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
@@ -55,22 +55,22 @@ export namespace Workspace {
   export const Event = {
     Ready: BusEvent.define(
       "workspace.ready",
-      z.object({
-        name: z.string(),
-      }),
+      Schema.Struct({
+        name: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
     Failed: BusEvent.define(
       "workspace.failed",
-      z.object({
-        message: z.string(),
-      }),
+      Schema.Struct({
+        message: Schema.String,
+      }).annotations(zodObjectMode("strip")),
     ),
     Status: BusEvent.define(
       "workspace.status",
-      z.object({
-        workspaceID: Identifier.schema("workspace"),
-        status: ConnectionStatus,
-      }),
+      Schema.Struct({
+        workspaceID: Identifier.schemaEffect("workspace"),
+        status: ConnectionStatusSchema,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 
@@ -250,11 +250,11 @@ export namespace Workspace {
   }
 
   export const create = fn(
-    z.object({
-      id: Identifier.schema("workspace").optional(),
-      projectID: Info.shape.projectID,
-      branch: Info.shape.branch,
-      config: Info.shape.config,
+    Schema.Struct({
+      id: Schema.optional(Identifier.schemaEffect("workspace")),
+      projectID: Schema.String,
+      branch: Schema.NullOr(Schema.String),
+      config: ConfigSchema,
     }),
     async (input) => {
       const id = Identifier.ascending("workspace", input.id)
@@ -325,13 +325,13 @@ export namespace Workspace {
     return WorkspaceDB.list(project.id).map(fromRow)
   }
 
-  export const get = fn(Identifier.schema("workspace"), async (id) => {
+  export const get = fn(Identifier.schemaEffect("workspace"), async (id) => {
     await WorkspaceDB.migrateFromStorage()
     const row = WorkspaceDB.get(id)
     return row ? fromRow(row) : undefined
   })
 
-  export const sandbox = fn(Identifier.schema("workspace"), async (id) => {
+  export const sandbox = fn(Identifier.schemaEffect("workspace"), async (id) => {
     const info = await get(id)
     if (!info) return undefined
     return SandboxRegistry.resolve({
@@ -340,13 +340,13 @@ export namespace Workspace {
     })
   })
 
-  export const target = fn(Identifier.schema("workspace"), async (id) => {
+  export const target = fn(Identifier.schemaEffect("workspace"), async (id) => {
     const resolved = await sandbox(id)
     if (!resolved) return undefined
     return resolved.target()
   })
 
-  export const remove = fn(Identifier.schema("workspace"), async (id) => {
+  export const remove = fn(Identifier.schemaEffect("workspace"), async (id) => {
     const info = await get(id)
     if (info) {
       stopSpaceSync(id)
@@ -444,10 +444,12 @@ export namespace Workspace {
    * For local workspaces the promise resolves immediately.
    */
   export const restore = fn(
-    z.object({
-      workspaceID: Identifier.schema("workspace"),
-      timeoutMs: z.number().int().positive().default(30_000),
-      signal: z.any().optional(),
+    Schema.Struct({
+      workspaceID: Identifier.schemaEffect("workspace"),
+      timeoutMs: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)), {
+        default: () => 30_000,
+      }),
+      signal: Schema.optional(Schema.Any),
     }),
     async ({ workspaceID, timeoutMs, signal }) => {
       const info = await get(workspaceID)
@@ -477,11 +479,13 @@ export namespace Workspace {
   )
 
   export const sessionRestore = fn(
-    z.object({
-      workspaceID: Identifier.schema("workspace"),
-      sessionID: Identifier.schema("session"),
-      timeoutMs: z.number().int().positive().default(30_000),
-      signal: z.any().optional(),
+    Schema.Struct({
+      workspaceID: Identifier.schemaEffect("workspace"),
+      sessionID: Identifier.schemaEffect("session"),
+      timeoutMs: Schema.optionalWith(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)), {
+        default: () => 30_000,
+      }),
+      signal: Schema.optional(Schema.Any),
     }),
     async ({ workspaceID, sessionID, timeoutMs, signal }) => {
       await restore({ workspaceID, timeoutMs, signal })

@@ -1,13 +1,20 @@
 import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import { upgradeWebSocket } from "hono/bun"
-import z from "zod"
 import { Pty } from "@/pty"
 import { Storage } from "../../storage/storage"
 import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
+
+const PtyParam = zodObject(
+  Schema.Struct({
+    ptyID: Schema.String,
+  }).annotations(zodObjectMode("strip")),
+)
+const BooleanResponse = zod(Schema.Boolean)
 
 function runPty<A, E>(effect: Effect.Effect<A, E, Pty.Service>) {
   return runPromiseWithLayer(Pty.defaultLayer, withCurrentInstance(effect))
@@ -90,7 +97,7 @@ export const PtyRoutes = lazy(() =>
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", PtyParam),
       async (c) => {
         const { ptyID } = c.req.valid("param")
         const info = await runPty(
@@ -123,7 +130,7 @@ export const PtyRoutes = lazy(() =>
           ...errors(400),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", PtyParam),
       validator("json", Pty.UpdateInput),
       async (c) => {
         const { ptyID } = c.req.valid("param")
@@ -148,14 +155,14 @@ export const PtyRoutes = lazy(() =>
             description: "Session removed",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(BooleanResponse),
               },
             },
           },
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", PtyParam),
       async (c) => {
         const { ptyID } = c.req.valid("param")
         await runPty(
@@ -178,14 +185,14 @@ export const PtyRoutes = lazy(() =>
             description: "Connected session",
             content: {
               "application/json": {
-                schema: resolver(z.boolean()),
+                schema: resolver(BooleanResponse),
               },
             },
           },
           ...errors(404),
         },
       }),
-      validator("param", z.object({ ptyID: z.string() })),
+      validator("param", PtyParam),
       upgradeWebSocket((c) => {
         const id = c.req.param("ptyID")
         // Log connection attempt for debugging

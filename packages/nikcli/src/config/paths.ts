@@ -6,7 +6,8 @@ import { NamedError } from "@nikcli-ai/util/error"
 import { Filesystem } from "@/util/filesystem"
 import { Flag } from "@/flag/flag"
 import { Global } from "@/global"
-import { Cause, Context, Effect, Exit, Layer } from "effect"
+import { Cause, Context, Effect, Exit, Layer, Schema } from "effect"
+import { zodObject, zodOverride } from "@/util/effect-zod"
 
 export namespace ConfigPaths {
   type MissingMode = "error" | "empty"
@@ -67,21 +68,33 @@ export namespace ConfigPaths {
     return [path.join(dir, `${name}.jsonc`), path.join(dir, `${name}.json`)]
   }
 
+  const JsonErrorSchema = Schema.Struct({
+    path: Schema.String,
+    message: Schema.optional(Schema.String),
+  })
+  const JsonErrorPayload = zodObject(JsonErrorSchema) as z.ZodObject<{
+    path: z.ZodString
+    message: z.ZodOptional<z.ZodString>
+  }>
   export const JsonError = NamedError.create(
     "ConfigJsonError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-    }),
+    JsonErrorPayload,
   )
 
+  const ZodIssuesSchema = Schema.Any.annotations(zodOverride(() => z.custom<z.core.$ZodIssue[]>()))
+  const InvalidErrorSchema = Schema.Struct({
+    path: Schema.String,
+    issues: Schema.optional(ZodIssuesSchema),
+    message: Schema.optional(Schema.String),
+  })
+  const InvalidErrorPayload = zodObject(InvalidErrorSchema) as z.ZodObject<{
+    path: z.ZodString
+    issues: z.ZodOptional<z.ZodType<z.core.$ZodIssue[]>>
+    message: z.ZodOptional<z.ZodString>
+  }>
   export const InvalidError = NamedError.create(
     "ConfigInvalidError",
-    z.object({
-      path: z.string(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-      message: z.string().optional(),
-    }),
+    InvalidErrorPayload,
   )
 
   const readFileEffect = Effect.fn("ConfigPaths.readFile")(function* (filepath: string) {

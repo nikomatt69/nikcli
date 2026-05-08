@@ -9,7 +9,7 @@ import { Scheduler } from "../scheduler"
 import { Lock } from "@/util/lock"
 import { Log } from "../util/log"
 import { InstanceState, type InstanceContext, runPromiseWithLayer, withCurrentInstance } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Snapshot {
@@ -513,20 +513,17 @@ export namespace Snapshot {
     })
   }
 
-  export const FileDiff = z
-    .object({
-      file: z.string(),
-      patch: z.string(),
-      additions: z.number(),
-      deletions: z.number(),
-      status: z.enum(["added", "deleted", "modified"]).optional(),
-      before: z.string(),
-      after: z.string(),
-    })
-    .meta({
-      ref: "FileDiff",
-    })
-  export type FileDiff = z.infer<typeof FileDiff>
+  const FileDiffSchema = Schema.Struct({
+    file: Schema.String,
+    patch: Schema.String,
+    additions: Schema.Number,
+    deletions: Schema.Number,
+    status: Schema.optional(Schema.Literal("added", "deleted", "modified")),
+    before: Schema.String,
+    after: Schema.String,
+  }).annotations({ identifier: "FileDiff" })
+  export const FileDiff = zodObject(FileDiffSchema)
+  export type FileDiff = DeepMutable<Schema.Schema.Type<typeof FileDiffSchema>>
 
   async function diffFullImpl(ctx: InstanceContext, from: string, to: string): Promise<FileDiff[]> {
     return withLock(ctx, async () => {

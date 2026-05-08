@@ -140,12 +140,15 @@ mechanical.
 
 ## Progress tracker
 
-### `src/config/` ✅ complete
+### `src/config/`
 
-All of `packages/nikcli/src/config/` has been migrated. Files that still
-import `z` do so only for local `ZodOverride` bridges or for `z.ZodType`
-type annotations — the `export const <Info|Spec>` values are all Effect
-Schema at source.
+Current branch audit, 2026-05-08: this section is not complete yet. Several
+`packages/nikcli/src/config/` exports are still Zod-first because they are
+part of the user config JSON Schema surface (`Config.Info`,
+`Config.Mcp`, `Config.Connector`, `Config.Command`, `Config.TUI`,
+`Config.Provider`, `Config.Permission`, `Config.Keybinds`, etc.). Keep these
+open until each exported config contract is authored as Effect Schema and
+the JSON Schema output is proven byte-identical.
 
 A file is considered "done" when:
 
@@ -158,12 +161,17 @@ A file is considered "done" when:
 Files that meet this bar but still carry a compat bridge are checked off
 with an inline note describing the bridge and what unblocks its removal.
 
-- [ ] skills, formatter, console-state, mcp, lsp, permission (leaves), model-id, command, plugin, provider
-- [ ] server, layout
-- [ ] keybinds
-- [ ] permission#Info
-- [ ] agent
-- [ ] config.ts root
+- [ ] `src/config/config.ts` root `Config.Info` and nested config contracts
+  (`Mcp`, `Connector`, `Permission`, `Command`, `Agent`, `Keybinds`, `TUI`,
+  `Server`, `Layout`, `Provider`, formatter/lsp blocks, plugin spec).
+- [ ] `src/config/tui-schema.ts` — `TuiOptions`, `TuiInfo`, and keybind
+  override helper are Zod-first derivatives of config shapes.
+- [ ] `src/config/paths.ts` — `JsonError` and `InvalidError` payloads are
+  Zod-first `NamedError` schemas.
+- [ ] `src/config/markdown.ts` — config markdown helper still has a
+  Zod-first input schema.
+- [x] `src/config/migrate-tui-config.ts` — no schema definitions found.
+- [x] `src/config/tui.ts` — no schema definitions found.
 
 ### `src/*/schema.ts` leaf modules
 
@@ -267,6 +275,9 @@ Possible later tightening after the Schema-first migration is stable:
 - [ ] `src/session/prompt.ts`
 - [x] `src/session/revert.ts` — `RevertInput` migrated.
 - [ ] `src/session/session.ts` — large; coordinates with Phase D2 session route effectification.
+- [ ] `src/session/v2/entry.ts` — Zod-first experimental/v2 entry and part unions.
+- [ ] `src/session/v2/event.ts` — Zod-first v2 event/source payloads.
+- [ ] `src/session/v2/index.ts` — Zod-first v2 create/prompt inputs.
 - [x] `src/session/status.ts` — `Info` Schema.Union of tagged structs with `zodObjectMode("strip")` to preserve forward-compatible payload tolerance.
 - [x] `src/session/summary.ts` — `SummarizeInput`, `DiffInput` migrated.
 - [x] `src/session/todo.ts` — `Todo.Info` migrated.
@@ -327,26 +338,45 @@ will switch to `.zod` derived from the Schema-migrated domain types above,
 which means touching them is largely mechanical once the domain side is
 done.
 
-- [ ] `src/server/error.ts`
-- [ ] `src/server/event.ts`
-- [ ] `src/server/projectors.ts`
-- [ ] `src/server/routes/control/index.ts`
-- [ ] `src/server/routes/control/workspace.ts`
+Current branch audit, 2026-05-08: the historical `routes/instance/*` and
+`routes/control/*` paths do not exist on this branch. The active legacy Hono
+surface is flat under `src/server/routes/`, plus some top-level handlers in
+`src/server/server.ts`.
+
+- [ ] `src/server/error.ts` — error response resolver still exposes a
+  Zod-first failure schema.
+- [ ] `src/server/event.ts` — `BusEvent.define(...)` payloads are Zod-first.
+- [x] `src/server/projectors.ts` — file does not exist on this branch.
+- [ ] `src/server/server.ts` — top-level/share/instance handlers still carry
+  inline Zod validators.
+- [ ] `src/server/routes/config.ts`
+- [ ] `src/server/routes/connectors.ts`
+- [ ] `src/server/routes/experimental.ts`
+- [ ] `src/server/routes/file.ts`
 - [ ] `src/server/routes/global.ts`
-- [ ] `src/server/routes/instance/index.ts`
-- [ ] `src/server/routes/instance/config.ts`
-- [ ] `src/server/routes/instance/event.ts`
-- [ ] `src/server/routes/instance/experimental.ts`
-- [ ] `src/server/routes/instance/file.ts`
-- [ ] `src/server/routes/instance/mcp.ts`
-- [ ] `src/server/routes/instance/permission.ts`
-- [ ] `src/server/routes/instance/project.ts`
-- [ ] `src/server/routes/instance/provider.ts`
-- [ ] `src/server/routes/instance/pty.ts`
-- [ ] `src/server/routes/instance/question.ts`
-- [ ] `src/server/routes/instance/session.ts`
-- [ ] `src/server/routes/instance/sync.ts`
-- [ ] `src/server/routes/instance/tui.ts`
+- [ ] `src/server/routes/mcp.ts`
+- [ ] `src/server/routes/mobile.ts`
+- [ ] `src/server/routes/permission.ts`
+- [ ] `src/server/routes/project.ts`
+- [ ] `src/server/routes/provider.ts`
+- [ ] `src/server/routes/pty.ts`
+- [ ] `src/server/routes/question.ts`
+- [ ] `src/server/routes/session.ts`
+- [ ] `src/server/routes/tui.ts`
+- [x] `src/server/routes/chatbot.ts` — no Zod schema definitions found in
+  current audit.
+- [x] `src/server/routes/companion.ts` — no Zod schema definitions found in
+  current audit.
+- [x] `src/server/routes/users.ts` — no Zod schema definitions found in
+  current audit.
+- [x] `src/server/routes/workspace.ts` — no Zod schema definitions found in
+  current audit.
+- [x] `src/server/routes/control/index.ts` — file does not exist on this
+  branch.
+- [x] `src/server/routes/control/workspace.ts` — file does not exist on this
+  branch.
+- [x] `src/server/routes/instance/*` — historical route tree does not exist
+  on this branch; active routes are the flat files listed above.
 
 The bigger prize for this group is the `@effect/platform` HTTP migration
 described in `specs/effect/http-api.md`. Once that lands, every one of
@@ -359,51 +389,67 @@ sibling task.
 Small / shared / control-plane / CLI. Mostly independent; can be done
 piecewise.
 
-- [ ] `src/acp/agent.ts`
+- [x] `src/acp/agent.ts`
+  - Uses migrated `Todo.Info` for parsing; remaining Zod use is local
+    compatibility parsing, not an exported schema.
 - [x] `src/agent/agent.ts` — `Agent.Info` migrated as `Schema.mutable(Schema.Struct(...))` because the agent record is mutated extensively in config merge logic. Reuses `PermissionNext.RuleSchema`.
 - [x] `src/auth/index.ts` — `Oauth`, `Api`, `WellKnown`, `Info` (Schema.Union), `WellKnownAuthResponse`. `accountId` writes use spread to satisfy readonly `Auth.Info`.
 - [x] `src/background/run.ts` — `Status` / `Source` / `Role` literal enums + `Record` (`DeepMutable<...>`).
 - [ ] `src/bus/bus-event.ts`
 - [ ] `src/bus/index.ts`
-- [ ] `src/cli/cmd/tui/config/tui-migrate.ts`
-- [ ] `src/cli/cmd/tui/config/tui-schema.ts`
-- [ ] `src/cli/cmd/tui/config/tui.ts`
+- [x] `src/cli/cmd/tui/config/tui-migrate.ts`
+  - File does not exist on this branch; current config files live under
+    `src/config/`.
+- [x] `src/cli/cmd/tui/config/tui-schema.ts`
+  - File does not exist on this branch; active TUI config schema is
+    `src/config/tui-schema.ts`.
+- [x] `src/cli/cmd/tui/config/tui.ts`
+  - File does not exist on this branch; active TUI config module is
+    `src/config/tui.ts`.
 - [ ] `src/cli/cmd/tui/event.ts`
 - [ ] `src/cli/ui.ts`
 - [ ] `src/command/index.ts`
 - [x] `src/connectors/auth.ts` — `ConnectorAuth.Entry` with shared `DeepMutable<...>` (mutated by `updateToken`/`updateBotToken`/`updateApiKey`).
-- [ ] `src/control-plane/adapters/worktree.ts`
-- [ ] `src/control-plane/types.ts`
-- [ ] `src/control-plane/workspace.ts`
+- [x] `src/control-plane/adapters/worktree.ts` — file does not exist on this branch.
+- [x] `src/control-plane/types.ts` — file does not exist on this branch.
+- [x] `src/control-plane/workspace.ts` — file does not exist on this branch.
 - [x] `src/file/index.ts` — `Node` and `Content` (with nested patch sub-struct) migrated.
-- [ ] `src/file/ripgrep.ts`
+- [x] `src/file/ripgrep.ts` — file does not exist on this branch.
 - [x] `src/file/searchBackend.ts` — `Backend` (Schema.Literal) and `Match` (`Schema.mutable(Schema.Array(...))` over submatches).
-- [ ] `src/file/watcher.ts`
-- [ ] `src/format/index.ts`
+- [ ] `src/file/watcher.ts` — `BusEvent.define(...)` payload is still Zod-first.
+- [x] `src/format/index.ts` — `Formatter.Status` migrated to Effect Schema with `zodObject(...)`.
 - [ ] `src/id/id.ts`
 - [ ] `src/ide/index.ts`
 - [x] `src/installation/index.ts` — `Info` migrated.
 - [ ] `src/lsp/client.ts`
 - [ ] `src/lsp/index.ts` — migration attempt reverted; blocked on walker nested-struct shape inference (see MASTER-PLAN 2026-05-08 log).
-- [ ] `src/lsp/lsp.ts`
+- [x] `src/lsp/lsp.ts` — file does not exist on this branch.
 - [x] `src/mcp/auth.ts` — `Tokens`, `ClientInfo`, `Entry` migrated; all carry `DeepMutable<Schema.Schema.Type<typeof Schema>>` because the impl mutates entries in place (`entry.tokens = tokens`, `delete entry.codeVerifier`, `entry.serverUrl = serverUrl`).
 - [x] `src/mcp/index.ts` — `Resource` (Schema.Struct, `zodObject`) and `Status` (Schema.Union of five tagged variants, each with matching `identifier` annotation, `zod(...)` because outer is union not struct).
 - [x] `src/monitor/manager.ts` — `Status`, `Record` (DeepMutable), `LogSnapshot` migrated.
 - [ ] `src/patch/index.ts`
 - [ ] `src/plugin/github-copilot/models.ts`
+  - GitHub Copilot API response parser is Zod-first; migrate only after
+    deciding whether provider SDK wire parsers are in Phase P scope or
+    intentionally external-protocol pinned.
 - [x] `src/project/project.ts` — `Info`, `UpdateInput` migrated. `DeepMutable<...>`. Extracted `IconSchema` for `Info.shape.icon` access.
 - [x] `src/project/vcs.ts` — `Vcs.Info` migrated.
 - [x] `src/pty/index.ts` — `Pty.Info`, `CreateInput`, `UpdateInput` migrated. Status enum, env via `Schema.Record`, nested optional struct for size.
 - [x] `src/question/index.ts` — `Option`, `Info`, `Answer` migrated.
 - [x] `src/sandbox/types.ts` — `Ref` and `State` (Schema.Union over tagged variants); `RefSchema` / `StateSchema` re-exported.
 - [x] `src/skill/skill.ts` — `Info`, `CreateInput` migrated. `Schema.optionalWith(..., {default})` for `scope`.
-- [x] `src/snapshot/index.ts` — `Patch` migrated; `files` array `Schema.mutable`.
-- [ ] `src/storage/db.ts`
-- [ ] `src/storage/storage.ts`
-- [ ] `src/sync/index.ts` — public API (`SyncEvent.define`) is Schema-first; `payloads()` still derives zod for the remaining HTTP/OpenAPI boundary
+- [x] `src/snapshot/index.ts` — `Patch` and `FileDiff` migrated; `files` array uses `Schema.mutable`.
+- [x] `src/storage/db.ts` — no Zod schema definitions found in current audit.
+- [ ] `src/storage/storage.ts` — `NotFoundError` payload is still a Zod-first `NamedError` schema.
+- [ ] `src/sync/index.ts` — `SyncEvent.define(...)` and registered event
+  payloads are still Zod-first; this remains the Phase I `SyncEvent`
+  service-shape item.
 - [ ] `src/util/fn.ts`
+  - Generic helper is intentionally Zod-typed today; either keep as a
+    compatibility helper or introduce a Schema equivalent when a caller needs
+    it.
 - [x] `src/util/log.ts` — `Log.Level` migrated.
-- [ ] `src/util/update-schema.ts`
+- [x] `src/util/update-schema.ts` — file does not exist on this branch.
 - [x] `src/workspace/config.ts` — `Workspace.Config` (Schema.Union of `worktree | container`).
 - [x] `src/workspace/index.ts` — `ConnectionStatus`, `Info`, `Restore`, `SessionRestore` migrated.
 - [x] `src/worktree/index.ts` — `Info`, `CreateInput`, `RemoveInput`, `ResetInput` migrated.

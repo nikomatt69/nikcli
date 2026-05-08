@@ -6,7 +6,7 @@ import { Identifier } from "@/id/id"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Wildcard } from "@/util/wildcard"
-import { zod, zodObject } from "@/util/effect-zod"
+import { zod, zodObject, zodObjectMode } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import os from "os"
 import z from "zod"
@@ -81,7 +81,7 @@ export namespace PermissionNext {
   export const Request = zodObject(RequestSchema)
   export type Request = Schema.Schema.Type<typeof RequestSchema>
 
-  const ReplySchema = Schema.Literal("once", "always", "reject")
+  export const ReplySchema = Schema.Literal("once", "always", "reject")
   export const Reply = zod(ReplySchema)
   export type Reply = Schema.Schema.Type<typeof ReplySchema>
 
@@ -93,14 +93,14 @@ export namespace PermissionNext {
   )
 
   export const Event = {
-    Asked: BusEvent.define("permission.asked", Request),
+    Asked: BusEvent.define("permission.asked", RequestSchema),
     Replied: BusEvent.define(
       "permission.replied",
-      z.object({
-        sessionID: z.string(),
-        requestID: z.string(),
-        reply: Reply,
-      }),
+      Schema.Struct({
+        sessionID: Schema.String,
+        requestID: Schema.String,
+        reply: ReplySchema,
+      }).annotations(zodObjectMode("strip")),
     ),
   }
 

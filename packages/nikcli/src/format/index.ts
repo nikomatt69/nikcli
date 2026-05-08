@@ -2,28 +2,25 @@ import { Bus } from "../bus"
 import { File } from "../file"
 import { Log } from "../util/log"
 import path from "path"
-import z from "zod"
 
 import * as Formatter from "./formatter"
 import { Config } from "../config/config"
 import { mergeDeep } from "remeda"
 import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect/instance-ref"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 export namespace Format {
   const log = Log.create({ service: "format" })
 
-  export const Status = z
-    .object({
-      name: z.string(),
-      extensions: z.string().array(),
-      enabled: z.boolean(),
-    })
-    .meta({
-      ref: "FormatterStatus",
-    })
-  export type Status = z.infer<typeof Status>
+  const StatusSchema = Schema.Struct({
+    name: Schema.String,
+    extensions: Schema.Array(Schema.String),
+    enabled: Schema.Boolean,
+  }).annotations({ identifier: "FormatterStatus" })
+  export const Status = zodObject(StatusSchema)
+  export type Status = Schema.Schema.Type<typeof StatusSchema>
 
   type State = {
     enabled: Record<string, boolean>

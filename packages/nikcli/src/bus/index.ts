@@ -2,18 +2,20 @@ import z from "zod"
 import { Log } from "../util/log"
 import { BusEvent } from "./bus-event"
 import { GlobalBus } from "./global"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, runtimeFor, withCurrentInstance } from "@/effect"
+import { zodObjectMode } from "@/util/effect-zod"
 
 export namespace Bus {
   const log = Log.create({ service: "bus" })
+  const strip = zodObjectMode("strip")
   type Subscription = (event: any) => void | Promise<void>
 
   export const InstanceDisposed = BusEvent.define(
     "server.instance.disposed",
-    z.object({
-      directory: z.string(),
-    }),
+    Schema.Struct({
+      directory: Schema.String,
+    }).annotations(strip),
   )
 
   type State = {
