@@ -13,11 +13,12 @@ import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
 import { getAdaptor } from "./adaptors"
-import { Config } from "./config"
+import { Config, ConfigSchema } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { WorkspaceDB } from "./db"
-import { Effect } from "effect"
+import { zod, zodObject } from "@/util/effect-zod"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
@@ -47,8 +48,9 @@ function storageList(prefix: string[]) {
 }
 
 export namespace Workspace {
-  export const ConnectionStatus = z.enum(["connecting", "connected", "disconnected", "error"])
-  export type ConnectionStatus = z.infer<typeof ConnectionStatus>
+  const ConnectionStatusSchema = Schema.Literal("connecting", "connected", "disconnected", "error")
+  export const ConnectionStatus = zod(ConnectionStatusSchema)
+  export type ConnectionStatus = Schema.Schema.Type<typeof ConnectionStatusSchema>
 
   export const Event = {
     Ready: BusEvent.define(
@@ -72,17 +74,14 @@ export namespace Workspace {
     ),
   }
 
-  export const Info = z
-    .object({
-      id: Identifier.schema("workspace"),
-      branch: z.string().nullable(),
-      projectID: z.string(),
-      config: Config,
-    })
-    .meta({
-      ref: "Workspace",
-    })
-  export type Info = z.infer<typeof Info>
+  const InfoSchema = Schema.Struct({
+    id: Schema.String.pipe(Schema.startsWith("wrk")),
+    branch: Schema.NullOr(Schema.String),
+    projectID: Schema.String,
+    config: ConfigSchema,
+  }).annotations({ identifier: "Workspace" })
+  export const Info = zodObject(InfoSchema)
+  export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
     return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
@@ -100,19 +99,22 @@ export namespace Workspace {
     )
   }
 
-  export const Restore = z
-    .object({
-      workspaceID: Identifier.schema("workspace"),
-      sessions: z.array(z.string()).default([]),
-      events: z.array(z.unknown()).default([]),
-    })
-    .meta({ ref: "Workspace.Restore" })
-  export type Restore = z.infer<typeof Restore>
+  const RestoreSchema = Schema.Struct({
+    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    sessions: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] as ReadonlyArray<string> }),
+    events: Schema.optionalWith(Schema.Array(Schema.Unknown), { default: () => [] as ReadonlyArray<unknown> }),
+  }).annotations({ identifier: "Workspace.Restore" })
+  export const Restore = zodObject(RestoreSchema)
+  export type Restore = Schema.Schema.Type<typeof RestoreSchema>
 
-  export const SessionRestore = Restore.extend({
-    sessionID: Identifier.schema("session"),
-  }).meta({ ref: "Workspace.SessionRestore" })
-  export type SessionRestore = z.infer<typeof SessionRestore>
+  const SessionRestoreSchema = Schema.Struct({
+    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    sessions: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] as ReadonlyArray<string> }),
+    events: Schema.optionalWith(Schema.Array(Schema.Unknown), { default: () => [] as ReadonlyArray<unknown> }),
+    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+  }).annotations({ identifier: "Workspace.SessionRestore" })
+  export const SessionRestore = zodObject(SessionRestoreSchema)
+  export type SessionRestore = Schema.Schema.Type<typeof SessionRestoreSchema>
 
   function fromRow(row: WorkspaceDB.Info): Info {
     return Info.parse({
