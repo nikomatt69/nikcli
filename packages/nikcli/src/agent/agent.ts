@@ -1,5 +1,4 @@
 import { Config } from "../config/config"
-import z from "zod"
 import { Provider } from "../provider/provider"
 import { generateObject, streamObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
@@ -745,11 +744,13 @@ Apply small, safe refactors and verify results.`,
                 },
               ],
               model: language,
-              schema: z.object({
-                identifier: z.string(),
-                whenToUse: z.string(),
-                systemPrompt: z.string(),
-              }),
+              schema: zodObject(
+                Schema.Struct({
+                  identifier: Schema.String,
+                  whenToUse: Schema.String,
+                  systemPrompt: Schema.String,
+                }),
+              ),
             } satisfies Parameters<typeof generateObject>[0]
 
             const auth = yield* Effect.promise(() =>

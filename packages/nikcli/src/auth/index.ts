@@ -1,7 +1,6 @@
 import path from "path"
 import { Global } from "../global"
 import fs from "fs/promises"
-import z from "zod"
 import { Lock } from "../util/lock"
 import { Log } from "../util/log"
 import { zod, zodObject } from "@/util/effect-zod"
@@ -73,7 +72,7 @@ export namespace Auth {
     all(): Effect.Effect<Record<string, Info>, unknown>
     set(key: string, info: Info): Effect.Effect<void, unknown>
     remove(key: string): Effect.Effect<void, unknown>
-    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, unknown>
+    refresh(providerID: string): Effect.Effect<Schema.Schema.Type<typeof OauthSchema>, unknown>
     getValid(providerID: string): Effect.Effect<Info | undefined, unknown>
   }
 
@@ -288,7 +287,7 @@ export namespace Auth {
    * Returns the updated auth info.
    * Only works for providers with type "oauth".
    */
-  async function refreshImpl(providerID: string): Promise<z.infer<typeof Oauth>> {
+  async function refreshImpl(providerID: string): Promise<Schema.Schema.Type<typeof OauthSchema>> {
     const normalized = normalizeKey(providerID)
     const current = await getImpl(normalized)
 
@@ -300,7 +299,7 @@ export namespace Auth {
       throw new Error(`Provider ${providerID} is not an OAuth provider`)
     }
 
-    const oauth = current as z.infer<typeof Oauth>
+    const oauth = current as Schema.Schema.Type<typeof OauthSchema>
 
     // Build refresh request
     const tokenUrl = oauth.enterpriseUrl
@@ -333,7 +332,7 @@ export namespace Auth {
       expires_in: number
     }
 
-    const updated: z.infer<typeof Oauth> = {
+    const updated: Schema.Schema.Type<typeof OauthSchema> = {
       type: "oauth",
       access: result.access_token,
       refresh: result.refresh_token ?? oauth.refresh,
@@ -373,7 +372,7 @@ export namespace Auth {
       return current
     }
 
-    const oauth = current as z.infer<typeof Oauth>
+    const oauth = current as Schema.Schema.Type<typeof OauthSchema>
 
     // Check if token is still valid (with threshold)
     const now = Date.now()
@@ -391,7 +390,7 @@ export namespace Auth {
       return recheck
     }
 
-    const recheckOauth = recheck as z.infer<typeof Oauth>
+    const recheckOauth = recheck as Schema.Schema.Type<typeof OauthSchema>
     if (recheckOauth.expires > now + REFRESH_THRESHOLD_MS) {
       return recheckOauth
     }
