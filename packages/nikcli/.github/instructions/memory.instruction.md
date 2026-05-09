@@ -457,7 +457,10 @@ Agent resumes with formatted answers
 Parent Session
   ├── Worker Session (role: worker)  ── runs subagent, streams PartUpdated → Delegation.updateProgress()
   └── Delegator Session (role: delegator) ── synthesizes results, optionally spawns follow-up rounds (up to 3)
+      → wakeParentSession() — injects completion message via SessionPrompt.prompt()
 ```
+
+**Wake on completion (2026-05-08)**: When the delegator finishes synthesizing (success or error), `wakeParentSession()` reads the last ~80 lines of the worker session log and injects a completion message into the parent session via `SessionPrompt.prompt()`. This triggers the LLM loop so the agent is automatically notified — no polling needed.
 
 ### Durable Run Store (`src/background/run.ts`)
 
@@ -465,6 +468,8 @@ Sources: `task`, `model-subtask`, `advisor`, `research`, `ultrareview`, `delegat
 Roles: `worker`, `delegator`, `followup`, `advisor`, `other`
 Stores records under `background_run`, writes markdown artifacts under `delegations/<parentSessionID>/<id>.md`.
 Research-specific metadata: question, confidence, source count, follow-up rounds.
+
+**List caching (2026-05-08)**: `listAll()` has a 2-second TTL cache with a pending-promise reference so concurrent callers share a single in-flight load. Uses `Promise.all()` for parallel JSON reads (vs sequential `for` loop before). Cache invalidated after every mutation (create, finalize, update).
 
 ### Delegation Manager (`src/delegation/manager.ts`)
 
@@ -476,8 +481,10 @@ Access scoped to parent session, worker session, or delegator session.
 | Tool | File | Purpose |
 | ---- | ---- | ------- |
 | `delegation` | `tool/delegation.ts` | `list`/`count`/`read`/`cancel` background jobs, scoped to current session; `read`/`cancel` require `task` permission for target agent |
-| `delegator` | `tool/delegator.ts` | Lightweight monitor: `status`/`progress`/`summarize`; reads projected job state; formats research-specific summaries with confidence/source metadata |
+| `delegator` | `tool/delegator.ts` | Lightweight monitor: `status`/`progress`/`summarize`; reads projected job state; formats research-specific summaries with confidence/source metadata; `status` action includes Worker/Delegator session IDs for subagent navigation |
 | `advisor` | `tool/advisor.ts` | Available only when `agent.advisor` is configured; dispatches background `generateText()` with no tools, creates `advisor` source delegation, returns `delegation_id` immediately; separate from delegator supervisor loop |
+
+**Wake behavior**: Background tasks auto-inject a completion message into the parent session on finish. The agent does not need to poll — it will be woken automatically. `delegator` is for checking progress *before* the wake arrives.
 
 ### Monitor Tool (`tool/monitor.ts`)
 
@@ -720,12 +727,40 @@ Two-layer event system:
 - **`Bus`** (`bus/index.ts`): Per-instance, type-safe subscriptions via `Map<type, callback[]>` + wildcard `*` support. Local-only.
 - **`GlobalBus`** (`bus/global.ts`): Node.js `EventEmitter` singleton. Cross-process forwarding.
 
+### Event Definition (`BusEvent.define`)
+
+```typescript
+// In bus-event.ts
+export namespace BusEvent {
+  const registry = new Map<string, Definition>()
+  export function define<Type extends string, Properties extends ZodType>(type: Type, properties: Properties) {
+    const result = { type, properties }
+    registry.set(type, result)
+    return result
+  }
+  // payloads() generates a discriminated union schema from all registered events
+}
+```
+
+Every event is defined with a Zod schema for type-safe payloads. `payloads()` creates a union from all registered definitions for validation.
+
 ### Key Operations
 
-- `Bus.publish(def, props)` — fires local subscribers, then emits to `GlobalBus` for SSE/RPC propagation
-- `Bus.subscribe(def, callback)` — returns unsubscribe function; stores in `subscriptions` Map
-- `Bus.subscribeAll(callback)` — subscribes to all events (used by SSE endpoint at `server.ts:738`)
-- `Bus.once(def, callback)` — single-fire subscription helper
+- `Bus.publish(def, props)` — fires local subscribers (exact match + `*` wildcard), then emits to `GlobalBus` for SSE/RPC propagation. Waits for all handlers.
+- `Bus.subscribe(def, callback)` — returns unsubscribe function; stored in `subscriptions` Map per instance.
+- `Bus.subscribeAll(callback)` — subscribes to all events (used by SSE endpoint).
+- `Bus.once(def, callback)` — single-fire subscription helper.
+- `Bus.publish()` is Effect-based (`Effect.gen`), callable via `Bus.Service` from Effect context.
+
+### Services That Subscribe
+
+- **ShareNext** (`share/share-next.ts`): Subscribes to `Session.Event.Updated`, `MessageV2.Event.Updated`, `MessageV2.Event.PartUpdated`, `Session.Event.Diff`. Syncs data locally (`local_share/`) or remotely (`/api/share/{id}/sync`) with 1-second debounce.
+- **PermissionNext** (`permission/next.ts`): Publishes `permission.asked`/`permission.replied` events.
+- **TUI SyncContext**: Stores pending questions from `question.asked` events.
+
+### Effect Layer Integration
+
+`Bus.Service` uses `Context.Tag` for DI, `InstanceState.make` for per-instance subscription storage, and `Layer.scoped` for lifecycle. Subscribers stored in `InstanceState<{ subscriptions: Map<string, Subscription[]> }>`.
 
 ### TUI Event Propagation
 
@@ -758,6 +793,7 @@ Server: Bus.publish(PartUpdated, {part, delta})
 - `Cache.get()` returns `undefined` if missing or expired (auto-deletes expired entries)
 - `Cache.set()` with optional TTL; `Cache.invalidate(key)` / `Cache.invalidatePrefix(prefix)`
 - `Storage.read()` populates cache on disk read; `Storage.write/update()` update cache
+- **Write-through**: all write/update operations call `Cache.set()` after completing the file write
 
 ### Key Operations
 
@@ -765,6 +801,11 @@ Server: Bus.publish(PartUpdated, {part, delta})
 - `Storage.update()` — read-modify-write with exclusive lock
 - `Storage.NotFoundError` thrown for missing files (via `withErrorHandling`)
 - Key format: `["collection", "id1", "id2"]` → `storage/collection/id1/id2.json`
+
+**Why `structuredClone` over `JSON.parse(JSON.stringify())`?** `Storage.update()` uses `structuredClone` for the draft copy:
+- Handles circular references (JSON throws)
+- Preserves BigInt, Date objects, Typed arrays (JSON corrupts/strips)
+- Prevents accidental cache corruption from shared references in mutating `fn(content)`
 
 ### Locking Mechanism
 

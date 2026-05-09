@@ -218,11 +218,7 @@ export namespace SessionPrompt {
     )
   }
 
-  function sessionUpdate(
-    sessionID: string,
-    editor: (session: Session.Info) => void,
-    options?: { touch?: boolean },
-  ) {
+  function sessionUpdate(sessionID: string, editor: (session: Session.Info) => void, options?: { touch?: boolean }) {
     return runSession(
       Effect.gen(function* () {
         const session = yield* Session.Service
@@ -712,7 +708,7 @@ export namespace SessionPrompt {
           description: task.description,
           subagent_type: task.agent,
           command: task.command,
-          background: task.background,
+          background: task.background ?? true,
         }
         await runPlugin(
           Effect.gen(function* () {

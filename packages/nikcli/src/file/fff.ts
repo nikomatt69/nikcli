@@ -1,7 +1,18 @@
 import path from "path"
 import fs from "fs/promises"
 import crypto from "crypto"
-import { FileFinder, type GrepOptions, type GrepResult, type SearchOptions } from "@ff-labs/fff-bun"
+import {
+  FileFinder,
+  type FileItem,
+  type GrepMatch,
+  type GrepMode,
+  type GrepOptions,
+  type GrepResult,
+  type MixedItem,
+  type MixedSearchResult,
+  type SearchOptions,
+  type SearchResult,
+} from "@ff-labs/fff-bun"
 import { minimatch } from "minimatch"
 import { Instance } from "../project/instance"
 import { Global } from "../global"
@@ -27,6 +38,29 @@ export namespace FFF {
     return hash + "-" + path.basename(dir)
   }
 
+  // Detect LMDB corruption by common error patterns
+  function isLMDBError(error: string): boolean {
+    const lmdbPatterns = [
+      "MDB_INVALID",
+      "MDB_CORRUPTED",
+      "MDB_PANIC",
+      "checksum mismatch",
+      "failed to open",
+      "Environment map size",
+      "file is not a valid LMDB",
+    ]
+    return lmdbPatterns.some((p) => error.toLowerCase().includes(p.toLowerCase()))
+  }
+
+  async function resetCorruptedDB(dbDir: string): Promise<void> {
+    try {
+      await fs.rm(dbDir, { recursive: true, force: true })
+      log.info("lmdb corruption detected, cache reset", { dbDir })
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+
   const state = Instance.state(
     async (): Promise<Handle> => {
       const dir = Instance.directory
@@ -43,6 +77,26 @@ export namespace FFF {
 
         if (!created.ok) {
           log.warn("FileFinder.create failed", { error: created.error })
+          // Check if it's an LMDB corruption error - reset cache and retry once
+          if (isLMDBError(created.error)) {
+            log.warn("lmdb corruption detected, retrying with fresh cache")
+            await resetCorruptedDB(dbDir)
+            await fs.mkdir(dbDir, { recursive: true })
+            const retry = FileFinder.create({
+              basePath: dir,
+              frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+              historyDbPath: path.join(dbDir, "history.mdb"),
+              aiMode: true,
+            })
+            if (retry.ok) {
+              log.info("lmdb recovery succeeded", { dir, dbDir })
+              return { available: true, finder: retry.value }
+            }
+            if (retry.ok === false && isLMDBError(retry.error)) {
+              log.error("lmdb recovery failed twice, giving up", { error: retry.error })
+              return { available: false, error: retry.error }
+            }
+          }
           return { available: false, error: created.error }
         }
 
@@ -50,6 +104,12 @@ export namespace FFF {
         return { available: true, finder: created.value }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
+        // Check for LMDB corruption during init
+        if (isLMDBError(message)) {
+          log.warn("lmdb corruption during init, resetting cache")
+          const dbDir = path.join(Global.Path.cache, "fff", projectKey(Instance.directory))
+          await resetCorruptedDB(dbDir)
+        }
         log.warn("init threw", { error: message })
         return { available: false, error: message }
       }
@@ -134,7 +194,12 @@ export namespace FFF {
   }
 
   async function relativePrefix(cwd: string): Promise<string | undefined> {
-    const base = await fs.realpath(Instance.directory).catch(() => Instance.directory)
+    let base: string
+    try {
+      base = await fs.realpath(Instance.directory).catch(() => Instance.directory)
+    } catch {
+      return undefined
+    }
     const target = await fs.realpath(cwd).catch(() => path.resolve(cwd))
     const relative = path.relative(base, target).replaceAll(path.sep, "/")
     if (relative === "") return ""
@@ -232,4 +297,51 @@ export namespace FFF {
     if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
     return result.value
   }
+
+  /** Returns the raw SearchResult with scores for frecency-ranked file search. */
+  export async function filesRich(query: string, opts?: SearchOptions): Promise<SearchResult | undefined> {
+    const r = await ready()
+    if (!r) return undefined
+    const result = r.finder.fileSearch(query, opts)
+    if (!result.ok) {
+      log.warn("fileSearch (rich) failed", { query, error: result.error })
+      return undefined
+    }
+    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    return result.value
+  }
+
+  /** Returns MixedSearchResult (files + dirs interleaved by score) with git status. */
+  export async function mixed(query: string, opts?: SearchOptions): Promise<MixedSearchResult | undefined> {
+    const r = await ready()
+    if (!r) return undefined
+    const result = r.finder.mixedSearch(query, opts)
+    if (!result.ok) {
+      log.warn("mixedSearch (rich) failed", { query, error: result.error })
+      return undefined
+    }
+    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    return result.value
+  }
+
+  /**
+   * Utility: check whether a relative path passes hidden/glob filters.
+   * Mirrors the opencode Fff.allowed() helper used by tools.
+   */
+  export function allowed(input: { rel: string; file?: string; glob?: string[]; hidden?: boolean }): boolean {
+    const rel = input.rel.replaceAll("\\", "/")
+    const file = input.file ?? rel.split("/").at(-1) ?? rel
+    if (input.hidden === false) {
+      const isHidden = rel.split("/").some((part) => part.startsWith(".") && part.length > 1)
+      if (isHidden) return false
+    }
+    return matchesGlobs(rel, input.glob)
+  }
+
+  // Type aliases for convenient access from tools
+  export type FileSearchResult = SearchResult
+  export type MixedResult = MixedSearchResult
+  export type GrepHit = GrepMatch
+  export type SearchOpts = SearchOptions
+  export type GrepOpts = GrepOptions
 }

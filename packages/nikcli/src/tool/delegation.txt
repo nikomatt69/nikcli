@@ -12,3 +12,4 @@ Notes:
 - `parentSessionId` defaults to the current session and cannot be used to inspect another session
 - `delegationId` is required for `read` and `cancel`; passing any delegation from a job targets that logical background job
 - Prefer `task(background=true)` to start work, then use `delegation` to monitor or cancel it
+- Background tasks automatically wake the parent session on completion with a result summary — you only need `delegation(action="read")` when you want the full artifact, not to poll for completion

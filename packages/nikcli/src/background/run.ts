@@ -321,6 +321,7 @@ ${result}
     }
 
     await storageWrite(key(id), record)
+    invalidateListCache()
     return record
   }
 
@@ -336,7 +337,7 @@ ${result}
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
       draft.lastActivityAt = Date.now()
-    })
+    }).finally(() => invalidateListCache())
   }
 
   export async function touchLease(id: string) {
@@ -358,53 +359,83 @@ ${result}
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
-    })
+    }).finally(() => invalidateListCache())
   }
 
   export async function setDelegatorID(id: string, delegatorID: string) {
     return storageUpdate<Record>(key(id), (draft) => {
       draft.delegatorID = delegatorID
       draft.updatedAt = Date.now()
-    })
+    }).finally(() => invalidateListCache())
   }
 
   export async function get(id: string) {
     return storageRead<Record>(key(id))
   }
 
+  // Short-lived cache to avoid re-loading all records within a single logical operation.
+  // Multiple list* calls in the same call chain (e.g. listJobs -> listForParent, then
+  // projectJob -> listForJob) hit the cache instead of re-reading every JSON file.
+  // Uses a pending-promise reference so concurrent callers share a single in-flight load.
+  let listCache:
+    | { records: Record[]; expiresAt: number; promise: Promise<Record[]> }
+    | undefined
+  const LIST_CACHE_TTL_MS = 2_000
+
   async function listAll(): Promise<Record[]> {
-    const result: Record[] = []
-    for (const item of await storageList(["background_run", Instance.project.id])) {
-      try {
-        const record = await storageRead<Record>(item)
-        result.push(record)
-      } catch {
-        continue
-      }
+    const now = Date.now()
+    if (listCache && now < listCache.expiresAt) {
+      return listCache.promise
     }
-    return result.sort((a, b) => a.createdAt - b.createdAt)
+
+    const load = (async (): Promise<Record[]> => {
+      const paths = await storageList(["background_run", Instance.project.id])
+      const results = await Promise.all(
+        paths.map(async (item) => {
+          try {
+            return await storageRead<Record>(item)
+          } catch {
+            return undefined
+          }
+        }),
+      )
+      return (results.filter(Boolean) as Record[]).sort((a, b) => a.createdAt - b.createdAt)
+    })()
+
+    const records = await load
+    listCache = { records, expiresAt: now + LIST_CACHE_TTL_MS, promise: load }
+    return records
+  }
+
+  /** Invalidate the list cache after a mutation (create, finalize, update). */
+  function invalidateListCache() {
+    listCache = undefined
+  }
+
+  async function filtered(predicate: (record: Record) => boolean): Promise<Record[]> {
+    return (await listAll()).filter(predicate)
   }
 
   export async function listForParent(parentSessionID: string): Promise<Record[]> {
-    return (await listAll()).filter((r) => r.parentSessionID === parentSessionID)
+    return filtered((r) => r.parentSessionID === parentSessionID)
   }
 
   export async function listForJob(jobID: string): Promise<Record[]> {
-    return (await listAll()).filter((r) => getJobID(r) === jobID)
+    return filtered((r) => getJobID(r) === jobID)
   }
 
   export async function listForRelatedSession(sessionID: string): Promise<Record[]> {
-    return (await listAll()).filter(
+    return filtered(
       (r) => r.parentSessionID === sessionID || r.sessionID === sessionID || r.delegatorSessionID === sessionID,
     )
   }
 
   export async function listRunning(): Promise<Record[]> {
-    return (await listAll()).filter((r) => r.status === "running")
+    return filtered((r) => r.status === "running")
   }
 
   export async function countRunningForParent(parentSessionID: string) {
-    return (await listAll()).filter((r) => r.parentSessionID === parentSessionID && r.status === "running").length
+    return filtered((r) => r.parentSessionID === parentSessionID && r.status === "running").then((r) => r.length)
   }
 
   export async function summarizeSession(sessionID: string, result?: MessageV2.WithParts) {
@@ -439,6 +470,7 @@ ${result}
       draft.lastActivityAt = Date.now()
       finalized = true
     })
+    invalidateListCache()
     if (!finalized) return undefined
     await persistArtifact(record, result, error)
     return record

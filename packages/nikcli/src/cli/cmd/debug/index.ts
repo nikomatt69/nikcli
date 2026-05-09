@@ -8,6 +8,7 @@ import { ScrapCommand } from "./scrap"
 import { SkillCommand } from "./skill"
 import { SnapshotCommand } from "./snapshot"
 import { AgentCommand } from "./agent"
+import { SearchCommand } from "./search"
 
 export const DebugCommand = cmd({
   command: "debug",
@@ -16,6 +17,7 @@ export const DebugCommand = cmd({
     yargs
       .command(ConfigCommand)
       .command(LSPCommand)
+      .command(SearchCommand)
       .command(FileCommand)
       .command(ScrapCommand)
       .command(SkillCommand)

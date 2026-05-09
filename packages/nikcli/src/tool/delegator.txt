@@ -8,14 +8,18 @@ Available actions:
 - `summarize`: Generate a brief summary of a delegation's latest available results
 
 When to use the delegator:
-- After launching a background task with `task(background: true)`, use the delegator to check on its progress
+- After launching a background task with `task(background: true)`, use the delegator to check on its progress before it finishes
 - When you need a quick status update without reading the full result
 - To get a concise summary of completed background tasks
+
+Note: Background tasks automatically wake the parent session on completion with a result summary. You do not need to poll — a completion message will be injected when the task finishes. Use the delegator only when you want to check progress before the wake arrives.
+
+The `status` action includes Worker Session and Delegator Session IDs — useful for navigating to subagent sessions in the TUI.
 
 Example pattern:
 1. Launch a background task: `task(description="explore auth", prompt="...", subagent_type="explore", background=true)`
 2. Continue working on other tasks
-3. Check status: `delegator(delegationId="purple-fish-xyz", action="status")`
-4. Get summary when done: `delegator(delegationId="purple-fish-xyz", action="summarize")`
+3. Check status if needed: `delegator(delegationId="purple-fish-xyz", action="status")`
+4. When the task finishes, you'll be woken automatically with the result
 
 Note: The delegator reads structured delegation state and provides structured feedback. It does not execute the task itself or spawn additional agents.

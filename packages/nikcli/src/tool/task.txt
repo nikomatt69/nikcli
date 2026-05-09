@@ -7,13 +7,14 @@ When using the Task tool, you must specify a subagent_type parameter to select w
 
 When to use the Task tool:
 - When you are instructed to execute custom slash commands. Use the Task tool with the slash command invocation as the entire prompt. The slash command can take arguments. For example: Task(description="Check the file", prompt="/check-file path/to/file.py")
+- When the task involves multiple steps, files, or domains that benefit from a focused agent
+- When the user asks you to research, analyze, or explore something in depth
 
 When NOT to use the Task tool:
 - If you want to read a specific file path, use the Read or Glob tool instead of the Task tool, to find the match more quickly
 - If you are searching for a specific class definition like "class Foo", use the Glob tool instead, to find the match more quickly
 - If you are searching for code within a specific file or set of 2-3 files, use the Read tool instead, to find the match more quickly
 - Other tasks that are not related to the agent descriptions above
-
 
 Usage notes:
 1. Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use a single message with multiple tool uses
@@ -24,6 +25,7 @@ Usage notes:
 6. If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
 7. Set `background: true` when the task should keep running after you continue working elsewhere; this returns immediately with linked task metadata instead of waiting for the subagent to finish.
 8. Use the `delegation` tool to inspect, read, count, or cancel background tasks after launching them.
+9. Background tasks automatically wake the parent session when they finish — you do not need to poll. A completion message with the result summary will be injected into this session, triggering you to respond. Only use `delegation(action="read")` if you need the full artifact before the wake arrives.
 
 Background tasks automatically spawn a supervisor session that synthesizes the final result and can be inspected alongside the subagent session.
 

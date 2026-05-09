@@ -1,6 +1,7 @@
 import { Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
+import DESCRIPTION from "./search_tools.txt"
 
 const Parameters = Schema.Struct({
   query: Schema.String.annotations({
@@ -12,8 +13,7 @@ export const SearchToolsTool = Tool.define("search_tools", async (initCtx) => {
   const { ToolRegistry } = await import("./registry")
 
   return {
-    description:
-      "Search available tools by name or capability keyword. Use this when you are looking for a tool that may not be in the active toolset or want to discover what tools are available for a specific task.",
+    description: DESCRIPTION,
     parameters: zod(Parameters),
 
     async execute({ query }) {

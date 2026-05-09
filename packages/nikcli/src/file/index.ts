@@ -8,10 +8,9 @@ import fs from "fs"
 import ignore from "ignore"
 import { Log } from "../util/log"
 import { Filesystem } from "../util/filesystem"
-import { SearchBackend } from "./searchBackend"
+import { FFF } from "./fff"
 import fuzzysort from "fuzzysort"
 import { Global } from "../global"
-import { FFF } from "./fff"
 import { InstanceState } from "@/effect"
 import type { InstanceContext } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
@@ -200,7 +199,9 @@ export namespace File {
         }
 
         const set = new Set<string>()
-        for await (const file of SearchBackend.files({ cwd: ctx.directory })) {
+        const fffFiles = await FFF.files({ cwd: ctx.directory, hidden: true, limit: 100000 })
+        const files = fffFiles ?? []
+        for (const file of files) {
           result.files.push(file)
           let current = file
           while (true) {

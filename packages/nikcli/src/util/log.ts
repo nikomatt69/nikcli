@@ -21,6 +21,11 @@ export namespace Log {
 
   let level: Level = "INFO"
 
+  /** Exposes internal log level at runtime */
+  export function currentLevel(): Level {
+    return level
+  }
+
   function shouldLog(input: Level): boolean {
     return levelPriority[input] >= levelPriority[level]
   }

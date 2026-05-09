@@ -1,16 +1,15 @@
 import type {
   Event,
-  createNikcliClient,
-  Project,
-  Model,
+  NikcliClient,
   Provider,
-  Permission,
+  PermissionRequest,
   UserMessage,
   Message,
   Part,
   Auth,
+  Model,
   Config as SDKConfig,
-} from "@nikcli-ai/sdk"
+} from "@nikcli-ai/sdk/v2"
 
 import type { BunShell } from "./shell"
 import { type ToolDefinition } from "./tool"
@@ -30,8 +29,11 @@ export type ProviderContext = {
 }
 
 export type PluginInput = {
-  client: ReturnType<typeof createNikcliClient>
-  project: Project
+  client: NikcliClient
+  project: {
+    id: string
+    worktree: string
+  }
   directory: string
   worktree: string
   serverUrl: URL
@@ -166,10 +168,7 @@ export interface Hooks {
   auth?: AuthHook
   provider?: {
     id: string
-    models(
-      provider: import("@nikcli-ai/sdk/v2").Provider,
-      ctx: { auth?: import("@nikcli-ai/sdk/v2").Auth },
-    ): Promise<Record<string, import("@nikcli-ai/sdk/v2").Model>>
+    models(provider: Provider, ctx: { auth?: Auth }): Promise<Record<string, Model>>
   }
   /**
    * Called when a new message is received
@@ -191,7 +190,7 @@ export interface Hooks {
     input: { sessionID: string; agent: string; model: Model; provider: ProviderContext; message: UserMessage },
     output: { temperature: number; topP: number; topK: number; options: Record<string, any> },
   ) => Promise<void>
-  "permission.ask"?: (input: Permission, output: { status: "ask" | "deny" | "allow" }) => Promise<void>
+  "permission.ask"?: (input: PermissionRequest, output: { status: "ask" | "deny" | "allow" }) => Promise<void>
   "command.execute.before"?: (
     input: { command: string; sessionID: string; arguments: string },
     output: { parts: Part[] },

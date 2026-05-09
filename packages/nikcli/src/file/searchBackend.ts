@@ -115,7 +115,12 @@ export namespace SearchBackend {
   }
 
   async function relativePrefix(cwd: string): Promise<string | undefined> {
-    const base = await fs.realpath(Instance.directory).catch(() => Instance.directory)
+    let base: string
+    try {
+      base = await fs.realpath(Instance.directory).catch(() => Instance.directory)
+    } catch {
+      return undefined
+    }
     const target = await fs.realpath(cwd).catch(() => path.resolve(cwd))
     const relative = path.relative(base, target).replaceAll(path.sep, "/")
     if (relative === "") return ""

@@ -51,11 +51,7 @@ function isResearch(delegation: ResearchDelegationLike | undefined | null) {
   return delegation?.agent === "researcher" || metadataString(delegation?.metadata, "kind") === "research"
 }
 
-function formatResearchSummary(
-  summarySource: string,
-  delegationId: string,
-  delegation: ResearchDelegationLike,
-) {
+function formatResearchSummary(summarySource: string, delegationId: string, delegation: ResearchDelegationLike) {
   const questionText = question(delegation.metadata)
   const confidenceText = confidence(summarySource, delegation.metadata)
   const sources = sourceCount(summarySource, delegation.metadata)
@@ -106,7 +102,8 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
               `**Job ID:** ${delegation.jobID}`,
               `**Status:** ${delegation.status}`,
               `**Agent:** ${delegation.agent}`,
-              `**Session:** ${delegation.workerSessionID || delegation.delegatorSessionID || "N/A"}`,
+              delegation.workerSessionID ? `**Worker Session:** ${delegation.workerSessionID}` : "",
+              delegation.delegatorSessionID ? `**Delegator Session:** ${delegation.delegatorSessionID}` : "",
               `**Started:** ${new Date(delegation.createdAt).toISOString()}`,
               isRunning
                 ? `**Completed:** Still running...`
@@ -115,13 +112,13 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
               delegation.progressSummary ? `**Progress:** ${delegation.progressSummary}` : "",
               "",
               isRunning
-                ? 'The delegation is still running in the background. Use `delegation(action="read", delegationId="' +
-                  delegationId +
-                  '")` to see current progress.'
+                ? "The delegation is still running in the background. You will be woken automatically when it finishes."
                 : 'The delegation has completed. Use `delegation(action="read", delegationId="' +
                   delegationId +
                   '")` to see the full result.',
-            ].join("\n"),
+            ]
+              .filter(Boolean)
+              .join("\n"),
             metadata: {
               delegationId,
               action,
@@ -139,7 +136,14 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
           if (!progress) {
             return {
               title: "Delegator · Progress",
-              output: "The delegation is still running or no progress has been recorded yet. Check back shortly.",
+              output:
+                delegation.status === "running" || delegation.status === "synthesizing"
+                  ? `The delegation is still running${
+                      delegation.progressSummary
+                        ? ""
+                        : " and no progress has been recorded yet."
+                    } You will be woken automatically when it finishes — no polling needed.`
+                  : `The delegation ended with status: ${delegation.status}. No progress was recorded.`,
               metadata: {
                 delegationId,
                 action,
@@ -203,16 +207,6 @@ Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full r
             },
           }
         }
-
-        default:
-          return {
-            title: "Delegator (unknown action)",
-            output: `Unknown action: ${action}. Use status, summarize, or progress.`,
-            metadata: {
-              delegationId,
-              action,
-            },
-          }
       }
     },
   }

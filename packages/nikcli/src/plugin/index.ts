@@ -1,5 +1,5 @@
 import type { Hooks, PluginInput, Plugin as PluginInstance } from "@nikcli-ai/plugin"
-import { createNikcliClient } from "@nikcli-ai/sdk"
+import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -21,7 +21,13 @@ import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./sha
 import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
 import { Context, Effect, Layer } from "effect"
-import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import {
+  InstanceState,
+  locallyInstance,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  type InstanceContext,
+} from "@/effect"
 
 type NotifyChannel = "macos" | "slack" | "discord"
 type NotifyPriority = "low" | "normal" | "high" | "critical"
@@ -346,12 +352,7 @@ function breakerReset(data: NotifyState, channel: NotifyChannel) {
   data.breaker.delete(channel)
 }
 
-function breakerFail(
-  data: NotifyState,
-  config: NotifyConfig | undefined,
-  channel: NotifyChannel,
-  now: number,
-) {
+function breakerFail(data: NotifyState, config: NotifyConfig | undefined, channel: NotifyChannel, now: number) {
   const limit = breakerConfig(config)
   const current = data.breaker.get(channel) ?? { fails: 0, openUntil: 0 }
   const fails = current.fails + 1

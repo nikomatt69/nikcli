@@ -1159,6 +1159,11 @@ export class Workspace extends HeyApiClient {
         | {
             directory: string
             type: "worktree"
+            /**
+             * greaterThan(0)
+             *
+             * a positive number
+             */
             eventLimit?: number
           }
         | {
@@ -1167,8 +1172,18 @@ export class Workspace extends HeyApiClient {
             runtime: "docker" | "podman"
             image: string
             containerName: string
+            /**
+             * greaterThan(0)
+             *
+             * a positive number
+             */
             port: number
             serverUrl: string
+            /**
+             * greaterThan(0)
+             *
+             * a positive number
+             */
             eventLimit?: number
           }
     },

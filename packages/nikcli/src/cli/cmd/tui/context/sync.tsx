@@ -30,7 +30,7 @@ import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
-import type { Path } from "@nikcli-ai/sdk"
+import type { Path } from "@nikcli-ai/sdk/v2"
 import { readFileSync } from "fs"
 
 type BackgroundJob = {
@@ -106,7 +106,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       connectors: {},
       formatter: [],
       vcs: undefined,
-      path: { state: "", config: "", worktree: "", directory: "" },
+      path: { home: "", state: "", config: "", worktree: "", directory: "" },
       workspaceList: [],
     })
 

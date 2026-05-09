@@ -1,0 +1,12 @@
+Search available tools by name or capability keyword.
+
+Use this tool when you are looking for a tool that may not be in the active toolset or want to discover what tools are available for a specific task.
+
+When to use:
+- You need a tool for a specific capability but don't know its name (e.g., "read", "git", "task")
+- You want to verify a tool exists before attempting to use it
+- You're exploring what capabilities are available
+
+When NOT to use:
+- If you already know the tool name, just use it directly
+- For general codebase searches, use grep or glob instead

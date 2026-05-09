@@ -21,7 +21,7 @@ const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
   prompt: z.string().describe("The task for the agent to perform"),
   subagent_type: z.string().describe("The type of specialized agent to use for this task"),
-  background: z.boolean().describe("Run the subagent in background and return immediately").optional(),
+  background: z.boolean().describe("Run the subagent in background and return immediately").optional().default(true),
   session_id: z.string().describe("Existing Task session to continue").optional(),
   command: z.string().describe("The command that triggered this task").optional(),
 })
@@ -273,10 +273,7 @@ async function validateReusableSession({
   return found
 }
 
-function buildSubtaskPermission(
-  hasTaskPermission: boolean,
-  primaryTools: PrimaryToolsConfig | undefined,
-) {
+function buildSubtaskPermission(hasTaskPermission: boolean, primaryTools: PrimaryToolsConfig | undefined) {
   return [
     {
       permission: "todowrite",
@@ -430,6 +427,55 @@ function subscribeDelegationProgress(sessionID: string, delegationID: string) {
     lastSummary = nextSummary
     await Delegation.updateProgress(delegationID, nextSummary).catch(() => undefined)
   })
+}
+
+async function wakeParentSession(
+  parentSessionID: string,
+  result: {
+    jobId: string
+    delegationId: string
+    delegatorDelegationId: string
+    description: string
+    status: string
+    summary: string
+  },
+) {
+  try {
+    const summaryLines = result.summary.split("\n").slice(0, 30).join("\n")
+    const lines = [
+      `Background task "${result.description}" finished.`,
+      `Status: ${result.status}`,
+      `Job ID: ${result.jobId}`,
+      "",
+      "Result:",
+      summaryLines,
+      "",
+      `Use delegation(action="read", delegationId="${result.delegatorDelegationId}") for the full result.`,
+    ]
+
+    await runPromiseWithLayer(
+      SessionPrompt.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const sessionPrompt = yield* SessionPrompt.Service
+          return yield* sessionPrompt.prompt({
+            sessionID: parentSessionID,
+            parts: [
+              {
+                type: "text",
+                text: lines.join("\n"),
+              },
+            ],
+          })
+        }),
+      ),
+    )
+  } catch (error) {
+    log.error("failed to wake parent session for background task", {
+      error: String(error),
+      jobId: result.jobId,
+    })
+  }
 }
 
 async function launchBackgroundSubtask(params: {
@@ -638,10 +684,26 @@ async function launchBackgroundSubtask(params: {
         finalErr ? extractErrorMessage(finalErr) : undefined,
         delegatorMetadata,
       )
+      await wakeParentSession(params.parentSessionID, {
+        jobId: delegation.jobID!,
+        delegationId: delegation.id,
+        delegatorDelegationId: delegatorDelegation.id,
+        description: params.description,
+        status: finalStatus,
+        summary: finalSummary,
+      })
     })
     .catch(async (error) => {
       const errMsg = error instanceof Error ? error.message : String(error)
       await Delegation.finalize(delegatorDelegation.id, "error", "", `Subagent threw: ${errMsg}`)
+      await wakeParentSession(params.parentSessionID, {
+        jobId: delegation.jobID!,
+        delegationId: delegation.id,
+        delegatorDelegationId: delegatorDelegation.id,
+        description: params.description,
+        status: "error",
+        summary: `Subagent threw: ${errMsg}`,
+      })
     })
 
   return {
