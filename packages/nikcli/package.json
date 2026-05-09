@@ -92,6 +92,8 @@
     "@chat-adapter/state-redis": "4.14.0",
     "@chat-adapter/teams": "4.14.0",
     "@clack/prompts": "1.0.0-alpha.1",
+    "@effect/platform": "0.96.1",
+    "@effect/platform-bun": "0.89.0",
     "@ff-labs/fff-bun": "0.6.4",
     "@gitlab/gitlab-ai-provider": "3.1.3",
     "@hono/standard-validator": "0.1.5",
