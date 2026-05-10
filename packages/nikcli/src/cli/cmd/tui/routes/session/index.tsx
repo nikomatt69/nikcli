@@ -149,6 +149,19 @@ export function Session() {
       .filter((x) => x.parentID === parentID || x.id === parentID)
       .toSorted((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
   })
+  const backgroundWorkerChildren = createMemo(() => {
+    const parentID = session()?.parentID ?? session()?.id
+    if (!parentID) return []
+    const workerIDs = new Set(
+      sync.background
+        .list(parentID)
+        .map((job) => job.workerSessionID)
+        .filter((id): id is string => Boolean(id)),
+    )
+    return sync.data.session
+      .filter((x) => workerIDs.has(x.id))
+      .toSorted((a, b) => a.time.created - b.time.created)
+  })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const messageCreatedAt = createMemo(() =>
     Object.fromEntries(messages().map((message) => [message.id, message.time.created])),
@@ -369,15 +382,17 @@ export function Session() {
   const local = useLocal()
 
   function moveChild(direction: number) {
-    if (children().length === 1) return
-    let next = children().findIndex((x) => x.id === session()?.id) + direction
-    if (next >= children().length) next = 0
-    if (next < 0) next = children().length - 1
-    if (children()[next]) {
+    const targets = backgroundWorkerChildren()
+    if (targets.length === 0) return
+    if (targets.length === 1 && targets[0]?.id === session()?.id) return
+    let next = targets.findIndex((x) => x.id === session()?.id) + direction
+    if (next >= targets.length) next = 0
+    if (next < 0) next = targets.length - 1
+    if (targets[next]) {
       navigate({
         type: "session",
-        sessionID: children()[next].id,
-        workspaceID: children()[next].workspaceID,
+        sessionID: targets[next].id,
+        workspaceID: targets[next].workspaceID,
       })
     }
   }
@@ -2544,7 +2559,6 @@ function DialogMonitorLog(props: {
 
 function Task(props: ToolProps<typeof TaskTool>) {
   const { theme } = useTheme()
-  const keybind = useKeybind()
   const { navigate } = useRoute()
   const local = useLocal()
   const sync = useSync()
@@ -2616,79 +2630,59 @@ function Task(props: ToolProps<typeof TaskTool>) {
   const color = createMemo(() => local.agent.color(input.subagent_type ?? "unknown"))
 
   return (
-    <Switch>
-      <Match when={meta.summary?.length || displaySummary() || isBackground()}>
-        <BlockTool
-          title={"# " + Locale.titlecase(input.subagent_type ?? "unknown") + " Task"}
-          titleColor={color()}
-          accentColor={color()}
-          onClick={
-            sessionID()
-              ? () =>
-                  navigate({
-                    type: "session",
-                    sessionID: sessionID()!,
-                    workspaceID: sync.session.get(sessionID()!)?.workspaceID,
-                  })
-              : undefined
-          }
-          part={props.part}
-        >
-          <box>
-            <text style={{ fg: theme.textMuted }}>
-              {input.description}
-              <Show when={meta.summary?.length}> ({meta.summary?.length} toolcalls)</Show>
-            </text>
-            <Show when={kind() === "research" && question()}>
-              <text style={{ fg: theme.textMuted }}>└ {question()}</text>
-            </Show>
-            <Show when={current()}>
-              <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
-                └ {Locale.titlecase(current()!.tool)}{" "}
-                {current()!.state.status === "completed" ? current()!.state.title : ""}
-              </text>
-            </Show>
-            <Show when={displaySummary()}>
-              <text style={{ fg: theme.text }}>└ {displaySummary()}</text>
-            </Show>
-            <Show when={childStatusLabel()}>
-              <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
-            </Show>
-            <Show when={backgroundJob()?.progressSummary && backgroundJob()?.progressSummary !== displaySummary()}>
-              <text style={{ fg: theme.textMuted }}>└ {backgroundJob()!.progressSummary}</text>
-            </Show>
-            <Show when={rootDelegationID() && isBackground()}>
-              <text style={{ fg: theme.textMuted }}>└ job {rootDelegationID()}</text>
-            </Show>
-            <Show when={meta.reused && isBackground()}>
-              <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>
-            </Show>
-          </box>
-          <text fg={theme.text}>
-            <Show when={isBackground()} fallback={keybind.print("session_child_cycle")}>
-              open session
-            </Show>
-            <span style={{ fg: theme.textMuted }}>
-              <Show when={isBackground()} fallback={" view subagents"}>
-                {" follow background task"}
-              </Show>
-            </span>
+    <BlockTool
+      title={"# " + Locale.titlecase(input.subagent_type ?? "unknown") + " Task"}
+      titleColor={color()}
+      accentColor={color()}
+      onClick={
+        sessionID()
+          ? () =>
+              navigate({
+                type: "session",
+                sessionID: sessionID()!,
+                workspaceID: sync.session.get(sessionID()!)?.workspaceID,
+              })
+          : undefined
+      }
+      part={props.part}
+    >
+      <box>
+        <text style={{ fg: theme.textMuted }}>
+          {input.description}
+          <Show when={meta.summary?.length}> ({meta.summary?.length} toolcalls)</Show>
+        </text>
+        <Show when={kind() === "research" && question()}>
+          <text style={{ fg: theme.textMuted }}>└ {question()}</text>
+        </Show>
+        <Show when={current()}>
+          <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
+            └ {Locale.titlecase(current()!.tool)}{" "}
+            {current()!.state.status === "completed" ? current()!.state.title : ""}
           </text>
-        </BlockTool>
-      </Match>
-      <Match when={true}>
-        <InlineTool
-          icon="◉"
-          iconColor={color()}
-          pending="Delegating..."
-          complete={input.subagent_type ?? input.description}
-          part={props.part}
-        >
-          <span style={{ fg: theme.text }}>{Locale.titlecase(input.subagent_type ?? "unknown")}</span> Task "
-          {input.description}"
-        </InlineTool>
-      </Match>
-    </Switch>
+        </Show>
+        <Show when={displaySummary()}>
+          <text style={{ fg: theme.text }}>└ {displaySummary()}</text>
+        </Show>
+        <Show when={childStatusLabel()} fallback={<text style={{ fg: theme.textMuted }}>└ starting background task</text>}>
+          <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
+        </Show>
+        <Show when={backgroundJob()?.progressSummary && backgroundJob()?.progressSummary !== displaySummary()}>
+          <text style={{ fg: theme.textMuted }}>└ {backgroundJob()!.progressSummary}</text>
+        </Show>
+        <Show when={rootDelegationID() && isBackground()}>
+          <text style={{ fg: theme.textMuted }}>└ job {rootDelegationID()}</text>
+        </Show>
+        <Show when={meta.reused && isBackground()}>
+          <text style={{ fg: theme.textMuted }}>└ reused existing background research</text>
+        </Show>
+      </box>
+      <text fg={theme.text}>
+        <Show when={sessionID()} fallback={"waiting for background session"}>
+          open session
+        </Show>
+        <span style={{ fg: theme.textMuted }}>{" follow background task"}</span>
+      </text>
+    </BlockTool>
   )
 }
 

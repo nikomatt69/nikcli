@@ -56,7 +56,6 @@ import { Auth } from "@/auth"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
-import { getBackgroundDismissed } from "../../util/background"
 import { friendlyErrorMessage } from "../../util/error-message"
 
 export type PromptProps = {
@@ -764,11 +763,19 @@ export function Prompt(props: PromptProps) {
 
   const backgroundJobs = createMemo(() => {
     if (!props.sessionID) return [] as ReturnType<typeof sync.background.list>
-    const dismissed = getBackgroundDismissed(kv, props.sessionID)
-    return sync.background.list(props.sessionID).filter((job) => !dismissed.has(job.rootDelegationID))
+    return sync.background.list(props.sessionID)
   })
 
   const backgroundedSubtaskCount = createMemo(() => backgroundJobs().length)
+  const activeBackgroundedSubtaskCount = createMemo(
+    () => backgroundJobs().filter((job) => job.status === "running" || job.status === "synthesizing").length,
+  )
+  const backgroundJobsLabel = createMemo(() => {
+    const total = backgroundedSubtaskCount()
+    const active = activeBackgroundedSubtaskCount()
+    if (active > 0 && active !== total) return `${active}/${total}`
+    return String(total)
+  })
 
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
@@ -2026,7 +2033,7 @@ export function Prompt(props: PromptProps) {
                     flexShrink={0}
                   >
                     <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> jobs
+                      <span style={{ bold: true }}>{backgroundJobsLabel()}</span> jobs
                     </text>
                   </box>
                 </Show>
@@ -2129,7 +2136,7 @@ export function Prompt(props: PromptProps) {
                     flexShrink={0}
                   >
                     <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundedSubtaskCount()}</span> jobs
+                      <span style={{ bold: true }}>{backgroundJobsLabel()}</span> jobs
                     </text>
                   </box>
                 </Show>

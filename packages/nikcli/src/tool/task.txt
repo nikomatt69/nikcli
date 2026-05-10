@@ -25,7 +25,7 @@ Usage notes:
 6. If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
 7. Set `background: true` when the task should keep running after you continue working elsewhere; this returns immediately with linked task metadata instead of waiting for the subagent to finish.
 8. Use the `delegation` tool to inspect, read, count, or cancel background tasks after launching them.
-9. Background tasks automatically wake the parent session when they finish — you do not need to poll. A completion message with the result summary will be injected into this session, triggering you to respond. Only use `delegation(action="read")` if you need the full artifact before the wake arrives.
+9. Background tasks automatically wake the parent session when they finish using the same primary agent/mode that launched them — you do not need to poll. A completion message with the result summary will be injected into this session, triggering you to respond. Only use `delegation(action="read")` if you need the full artifact before the wake arrives.
 
 Background tasks automatically spawn a supervisor session that synthesizes the final result and can be inspected alongside the subagent session.
 

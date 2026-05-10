@@ -6,7 +6,7 @@ import { Global } from "@/global"
 import { Instance } from "@/project/instance"
 import { SandboxRegistry } from "@/sandbox/registry"
 import { Sandbox } from "@/sandbox/types"
-import { Session } from "@/session"
+import type { Session } from "@/session"
 import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
@@ -16,10 +16,6 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-  return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
 function storageRead<T>(key: string[]) {
@@ -90,6 +86,7 @@ export namespace BackgroundRun {
     sessionID: Schema.optional(Schema.String),
     parentSessionID: Schema.String,
     agent: Schema.String,
+    parentAgent: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
     prompt: Schema.String,
     status: StatusSchema,
     createdAt: Schema.Number,
@@ -228,6 +225,49 @@ export namespace BackgroundRun {
     return "worker"
   }
 
+  export function buildParentWakePromptInput(
+    parentSessionID: string,
+    result: {
+      jobId: string
+      delegationId: string
+      delegatorDelegationId: string
+      description: string
+      status: string
+      summary: string
+      parentAgent?: string
+      parentModel: {
+        modelID: string
+        providerID: string
+      }
+    },
+  ) {
+    const summaryLines = result.summary.split("\n").slice(0, 100).join("\n")
+    const truncated = result.summary.split("\n").length > 100
+    const lines = [
+      `Background task "${result.description}" finished.`,
+      `Status: ${result.status}`,
+      `Job ID: ${result.jobId}`,
+      "",
+      "Result:",
+      summaryLines,
+      truncated ? "\n...(truncated)" : "",
+      "",
+      `Use delegation(action="read", delegationId="${result.delegatorDelegationId}") for the full result.`,
+    ]
+
+    return {
+      sessionID: parentSessionID,
+      model: result.parentModel,
+      ...(result.parentAgent ? { agent: result.parentAgent } : {}),
+      parts: [
+        {
+          type: "text" as const,
+          text: lines.join("\n"),
+        },
+      ],
+    }
+  }
+
   async function ensureArtifactDirectory(parentSessionID: string) {
     const dir = directory(parentSessionID)
     await fs.mkdir(dir, { recursive: true })
@@ -245,6 +285,7 @@ ${record.prompt.slice(0, 200)}
 **Root Delegation:** ${getRootDelegationID(record)}
 **Role:** ${getRole(record)}
 **Agent:** ${record.agent}
+${record.parentAgent ? `**Parent Agent:** ${record.parentAgent}` : ""}
 **Status:** ${record.status}
 **Source:** ${record.source ?? "other"}
 **Session:** ${record.sessionID ?? "N/A"}
@@ -271,6 +312,7 @@ ${result}
   export async function create(params: {
     parentSessionID: string
     agent: string
+    parentAgent?: string
     prompt: string
     title?: string
     session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
@@ -292,6 +334,7 @@ ${result}
       sessionID: params.session?.id,
       parentSessionID: params.parentSessionID,
       agent: params.agent,
+      parentAgent: params.parentAgent,
       prompt: params.prompt,
       status: "running",
       createdAt: Date.now(),
@@ -439,11 +482,15 @@ ${result}
   }
 
   export async function summarizeSession(sessionID: string, result?: MessageV2.WithParts) {
-    const messages = await runSession(
-      Effect.gen(function* () {
-        const session = yield* Session.Service
-        return yield* session.messages({ sessionID })
-      }),
+    const { Session } = await import("@/session")
+    const messages = await runPromiseWithLayer(
+      Session.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.messages({ sessionID })
+        }),
+      ),
     )
     const assistant =
       result?.info.role === "assistant" ? result : messages.findLast((item) => item.info.role === "assistant")

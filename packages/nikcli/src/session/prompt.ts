@@ -695,7 +695,7 @@ export namespace SessionPrompt {
               description: task.description,
               subagent_type: task.agent,
               command: task.command,
-              background: task.background,
+              background: true,
             },
             time: {
               start: Date.now(),
@@ -708,7 +708,7 @@ export namespace SessionPrompt {
           description: task.description,
           subagent_type: task.agent,
           command: task.command,
-          background: task.background ?? true,
+          background: true,
         }
         await runPlugin(
           Effect.gen(function* () {
@@ -727,14 +727,15 @@ export namespace SessionPrompt {
         let executionError: Error | undefined
         const taskAgent = await agentRequired(task.agent)
         const taskCtx: Tool.Context = {
-          agent: task.agent,
+          agent: lastUser.agent ?? task.agent,
           messageID: assistantMessage.id,
           sessionID: sessionID,
           abort,
           callID: part.callID,
           extra: {
             bypassAgentCheck: true,
-            backgroundSource: task.background === true ? "model-subtask" : undefined,
+            backgroundSource: "model-subtask",
+            parentModel: lastUser.model,
           },
           async metadata(input) {
             await sessionUpdatePart({

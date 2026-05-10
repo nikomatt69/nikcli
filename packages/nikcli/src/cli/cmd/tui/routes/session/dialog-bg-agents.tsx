@@ -9,7 +9,7 @@ import { useTheme } from "@tui/context/theme"
 import { useLocal } from "@tui/context/local"
 import { Keybind } from "@/util/keybind"
 import { Spinner } from "../../component/spinner"
-import { dismissBackground, getBackgroundDismissed } from "../../util/background"
+import { dismissBackground, getBackgroundDismissed, undismissBackground } from "../../util/background"
 
 type MonitorOption = {
   kind: "monitor"
@@ -29,6 +29,10 @@ type JobOption = {
   status: string
   workerSessionID?: string
   delegatorSessionID?: string
+  progressSummary?: string
+  resultSummary?: string
+  error?: string
+  hidden?: boolean
 }
 
 type BgOption = MonitorOption | JobOption
@@ -63,6 +67,16 @@ function jobStatusLabel(status: string) {
   }
 }
 
+function isActiveStatus(status: string) {
+  return status === "running" || status === "synthesizing"
+}
+
+function jobDescription(job: JobOption) {
+  const detail = job.progressSummary ?? job.resultSummary ?? job.error
+  const suffix = detail ? ` - ${detail.slice(0, 80)}` : ""
+  return `${jobStatusLabel(job.status)}${job.hidden ? " - hidden" : ""}${suffix}`
+}
+
 export function DialogBgAgents(props: {
   sessionID: string
   onOpenMonitor: (monitorID: string, title: string, command: string, status: string, logPath?: string) => void
@@ -79,6 +93,10 @@ export function DialogBgAgents(props: {
 
   function dismissJob(delegationID: string) {
     dismissBackground(kv, props.sessionID, delegationID)
+  }
+
+  function showJob(delegationID: string) {
+    undismissBackground(kv, props.sessionID, delegationID)
   }
 
   const monitors = createMemo(() => {
@@ -115,25 +133,44 @@ export function DialogBgAgents(props: {
   const options = createMemo((): DialogSelectOption<BgOption>[] => {
     const out: DialogSelectOption<BgOption>[] = []
 
-    for (const job of sync.background.list(props.sessionID)) {
-      if (dismissed().has(job.rootDelegationID)) continue
-      const active = job.status === "running" || job.status === "synthesizing"
+    const jobs = [...sync.background.list(props.sessionID)].sort((a, b) => {
+      const activeA = isActiveStatus(a.status)
+      const activeB = isActiveStatus(b.status)
+      if (activeA !== activeB) return activeA ? -1 : 1
+      const hiddenA = dismissed().has(a.rootDelegationID)
+      const hiddenB = dismissed().has(b.rootDelegationID)
+      if (hiddenA !== hiddenB) return hiddenA ? 1 : -1
+      return b.updatedAt - a.updatedAt
+    })
+
+    for (const job of jobs) {
+      const hidden = dismissed().has(job.rootDelegationID)
+      const active = isActiveStatus(job.status)
       const color = local.agent.color(job.agent)
+      const value = {
+        kind: "job",
+        id: job.rootDelegationID,
+        title: job.title,
+        agent: job.agent,
+        status: job.status,
+        workerSessionID: job.workerSessionID,
+        delegatorSessionID: job.delegatorSessionID,
+        progressSummary: job.progressSummary,
+        resultSummary: job.resultSummary,
+        error: job.error,
+        hidden,
+      } satisfies BgOption
       out.push({
         title: job.title,
-        value: {
-          kind: "job",
-          id: job.rootDelegationID,
-          title: job.title,
-          agent: job.agent,
-          status: job.status,
-          workerSessionID: job.workerSessionID,
-          delegatorSessionID: job.delegatorSessionID,
-        } satisfies BgOption,
-        description: jobStatusLabel(job.status),
-        category: "Background Jobs",
-        footer: `@${job.agent}`,
-        gutter: active ? <Spinner /> : <text fg={color ?? theme.textMuted}>@{job.agent.slice(0, 8)}</text>,
+        value,
+        description: jobDescription(value),
+        category: active ? "Active Background Jobs" : hidden ? "Hidden Background Jobs" : "Background Jobs",
+        footer: `@${job.agent} ${job.rootDelegationID}`,
+        gutter: active ? (
+          <Spinner />
+        ) : (
+          <text fg={hidden ? theme.textMuted : color ?? theme.textMuted}>@{job.agent.slice(0, 8)}</text>
+        ),
       })
     }
 
@@ -179,19 +216,51 @@ export function DialogBgAgents(props: {
       keybind={[
         {
           keybind: Keybind.parse("x")[0],
-          title: "cancel / dismiss",
+          title: "Cancel / Hide",
           onTrigger: (opt) => {
             const value = opt.value
             if (value.kind === "job") {
-              dismissJob(value.id)
-              if (value.status === "running" || value.status === "synthesizing") {
+              if (isActiveStatus(value.status)) {
                 sdk.client.session.background2
                   .cancel({ sessionID: props.sessionID, delegationID: value.id })
-                  .catch(() => { })
+                  .catch(() => {})
+              } else {
+                dismissJob(value.id)
               }
             } else if (value.status === "running") {
-              sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => { })
+              sdk.client.session.monitorCancel({ sessionID: props.sessionID, monitorID: value.id }).catch(() => {})
             }
+          },
+        },
+        {
+          keybind: Keybind.parse("h")[0],
+          title: "Hide / Show",
+          onTrigger: (opt) => {
+            const value = opt.value
+            if (value.kind !== "job") return
+            if (value.hidden) showJob(value.id)
+            else dismissJob(value.id)
+          },
+        },
+        {
+          keybind: Keybind.parse("s")[0],
+          title: "Open synthesis",
+          onTrigger: (opt) => {
+            const value = opt.value
+            if (value.kind !== "job" || !value.delegatorSessionID) return
+            route.navigate({
+              type: "session",
+              sessionID: value.delegatorSessionID,
+              workspaceID: sync.session.get(value.delegatorSessionID)?.workspaceID,
+            })
+            dialog.clear()
+          },
+        },
+        {
+          keybind: Keybind.parse("r")[0],
+          title: "Refresh",
+          onTrigger: () => {
+            void sync.background.sync(props.sessionID)
           },
         },
       ]}

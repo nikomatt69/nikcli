@@ -23,12 +23,18 @@ export function SubagentFooter() {
 
     if (!s.parentID) return { label, index: 0, total: 0 }
 
+    const workerIDs = new Set(
+      sync.background
+        .list(s.parentID)
+        .map((job) => job.workerSessionID)
+        .filter((id): id is string => Boolean(id)),
+    )
     const siblings = sync.data.session
-      .filter((x) => x.parentID === s.parentID)
+      .filter((x) => workerIDs.has(x.id))
       .toSorted((a, b) => a.time.created - b.time.created)
     const index = siblings.findIndex((x) => x.id === s.id)
 
-    return { label, index: index + 1, total: siblings.length }
+    return { label, index: index >= 0 ? index + 1 : 0, total: siblings.length }
   })
 
   const usage = createMemo(() => {

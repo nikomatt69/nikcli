@@ -46,6 +46,7 @@ export namespace Delegation {
     status: Status
     title: string
     agent: string
+    parentAgent?: string
     description?: string
   }
 
@@ -54,6 +55,7 @@ export namespace Delegation {
     status: Status
     title: string
     agent: string
+    parentAgent?: string
     source?: BackgroundRun.Source
     prompt: string
     parentSessionID: string
@@ -76,11 +78,23 @@ export namespace Delegation {
   // Configuration constants
   const FORCE_FINALIZE_DELAY_MS = 1000
   const MIN_HEARTBEAT_INTERVAL_MS = 1000
+  const Source = z.enum([
+    "task",
+    "model-subtask",
+    "advisor",
+    "research",
+    "ultrareview",
+    "delegator",
+    "delegator-followup",
+    "other",
+  ])
+  const Role = z.enum(["worker", "delegator", "followup", "advisor", "other"])
 
   // Input validation schema
   const CreateParamsSchema = z.object({
     parentSessionID: z.string().min(1, "parentSessionID is required"),
     agent: z.string().min(1, "agent is required"),
+    parentAgent: z.string().min(1, "parentAgent is required").optional(),
     prompt: z.string().min(1, "prompt is required"),
     session: z
       .object({
@@ -89,7 +103,7 @@ export namespace Delegation {
         workspaceID: z.string(),
       })
       .optional(),
-    source: BackgroundRun.Source.optional(),
+    source: Source.optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
     delegatorID: z.string().optional(),
     delegatorSessionID: z.string().optional(),
@@ -97,7 +111,7 @@ export namespace Delegation {
     jobID: z.string().optional(),
     rootDelegationID: z.string().optional(),
     parentDelegationID: z.string().optional(),
-    role: BackgroundRun.Role.optional(),
+    role: Role.optional(),
   })
   type CreateParams = z.infer<typeof CreateParamsSchema>
 
@@ -118,11 +132,31 @@ export namespace Delegation {
     return source ? (TIMEOUTS[source] ?? TIMEOUTS.default) : TIMEOUTS.default
   }
 
+  export function buildParentWakePromptInput(
+    parentSessionID: string,
+    result: {
+      jobId: string
+      delegationId: string
+      delegatorDelegationId: string
+      description: string
+      status: string
+      summary: string
+      parentAgent?: string
+      parentModel: {
+        modelID: string
+        providerID: string
+      }
+    },
+  ) {
+    return BackgroundRun.buildParentWakePromptInput(parentSessionID, result)
+  }
+
   export interface SynthesisItem {
     id: string
     status: Status
     title: string
     agent: string
+    parentAgent?: string
     source?: BackgroundRun.Source
     resultSummary?: string
     progressSummary?: string
@@ -138,6 +172,7 @@ export namespace Delegation {
     parentSessionID: string
     title: string
     agent: string
+    parentAgent?: string
     status: JobStatus
     source?: BackgroundRun.Source
     workerSessionID?: string
@@ -209,6 +244,7 @@ export namespace Delegation {
       status: record.status,
       title: record.title,
       agent: record.agent,
+      parentAgent: record.parentAgent,
       source: record.source,
       prompt: record.prompt,
       parentSessionID: record.parentSessionID,
@@ -274,6 +310,7 @@ export namespace Delegation {
       parentSessionID: root.parentSessionID,
       title: worker.title,
       agent: worker.agent,
+      parentAgent: worker.parentAgent,
       status,
       source: worker.source,
       workerSessionID: worker.sessionID,
@@ -401,6 +438,7 @@ export namespace Delegation {
     const record = await BackgroundRun.create({
       parentSessionID: validated.parentSessionID,
       agent: validated.agent,
+      parentAgent: validated.parentAgent,
       prompt: validated.prompt,
       session: validated.session,
       source: validated.source,
@@ -621,6 +659,7 @@ export namespace Delegation {
       status: record.status,
       title: record.title,
       agent: record.agent,
+      parentAgent: record.parentAgent,
       description:
         typeof record.metadata?.question === "string"
           ? record.metadata.question
@@ -695,6 +734,7 @@ export namespace Delegation {
         status: record.status,
         title: record.title,
         agent: record.agent,
+        parentAgent: record.parentAgent,
         source: record.source,
         resultSummary: record.resultSummary,
         progressSummary: record.progressSummary,
@@ -713,6 +753,7 @@ export namespace Delegation {
         status: record.status,
         title: record.title,
         agent: record.agent,
+        parentAgent: record.parentAgent,
         source: record.source,
         resultSummary: record.resultSummary,
         progressSummary: record.progressSummary,

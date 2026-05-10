@@ -257,4 +257,60 @@ describe("delegation flow", () => {
       expect(artifact).toContain("Nikcli restarted before the background task completed.")
     })
   })
+
+  it("persists parent agent and accepts older background records without it", async () => {
+    await withProject(async () => {
+      const parentSessionID = uniqueSessionID("ses_parent_agent")
+      const withParent = await BackgroundRun.create({
+        parentSessionID,
+        agent: "explore",
+        parentAgent: "plan",
+        prompt: "Inspect wake mode",
+        source: "task",
+      })
+      const withoutParent = await BackgroundRun.create({
+        parentSessionID,
+        agent: "explore",
+        prompt: "Legacy delegation",
+        source: "task",
+      })
+
+      expect((await BackgroundRun.get(withParent.id)).parentAgent).toBe("plan")
+      expect((await BackgroundRun.get(withoutParent.id)).parentAgent).toBeUndefined()
+    })
+  })
+
+  it("builds parent wake prompt inputs with the launching agent and parent model", () => {
+    const base = {
+      jobId: "job_123",
+      delegationId: "del_worker",
+      delegatorDelegationId: "del_delegator",
+      description: "finish research",
+      status: "complete",
+      summary: "done",
+      parentModel: {
+        modelID: "gpt-parent",
+        providerID: "openai",
+      },
+    }
+
+    const planWake = Delegation.buildParentWakePromptInput("ses_parent_plan", {
+      ...base,
+      parentAgent: "plan",
+    })
+    expect(planWake.agent).toBe("plan")
+    expect(planWake.model).toEqual(base.parentModel)
+    expect(planWake.parts[0]?.type).toBe("text")
+    if (planWake.parts[0]?.type !== "text") throw new Error("Expected text wake prompt part")
+    expect(planWake.parts[0].text).toContain('Background task "finish research" finished.')
+
+    const buildWake = Delegation.buildParentWakePromptInput("ses_parent_build", {
+      ...base,
+      parentAgent: "build",
+    })
+    expect(buildWake.agent).toBe("build")
+
+    const legacyWake = Delegation.buildParentWakePromptInput("ses_parent_legacy", base)
+    expect(legacyWake.agent).toBeUndefined()
+  })
 })

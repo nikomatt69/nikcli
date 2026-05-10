@@ -86,20 +86,11 @@ export const { use: usePromptHistory, provider: PromptHistoryProvider } = create
       },
       append(item: PromptInfo) {
         const entry = clone(item)
-
-        // Skip duplicate consecutive entries
-        const last = store.history[0]
-        if (last && last.input === entry.input) return
-
-        // Skip entries containing sensitive patterns
-        const sensitivePattern = /password\s*=|token\s*=|--api-key\s*=|Bearer\s+/i
-        if (sensitivePattern.test(entry.input)) return
-
         setStore(
           produce((draft) => {
-            draft.history.unshift(entry)
+            draft.history.push(entry)
             if (draft.history.length > MAX_HISTORY_ENTRIES) {
-              draft.history = draft.history.slice(0, MAX_HISTORY_ENTRIES)
+              draft.history = draft.history.slice(-MAX_HISTORY_ENTRIES)
             }
             draft.index = 0
           }),
