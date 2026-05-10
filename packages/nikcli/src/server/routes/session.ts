@@ -325,7 +325,7 @@ export const SessionRoutes = lazy(() =>
           )
           return c.json(session)
         } catch (err) {
-          console.error("Session creation error:", err)
+          log.error("session creation failed", { error: err instanceof Error ? err.message : String(err) })
           return c.json({ error: err instanceof Error ? err.message : String(err) }, 400)
         }
       },

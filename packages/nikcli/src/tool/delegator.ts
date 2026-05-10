@@ -55,6 +55,9 @@ function formatResearchSummary(summarySource: string, delegationId: string, dele
   const questionText = question(delegation.metadata)
   const confidenceText = confidence(summarySource, delegation.metadata)
   const sources = sourceCount(summarySource, delegation.metadata)
+  const MAX_CHARS = 4000
+  const truncated = summarySource.length > MAX_CHARS
+  const truncatedSource = summarySource.slice(0, MAX_CHARS)
   return [
     `**Task:** ${delegation.title}`,
     `**Question:** ${questionText ?? delegation.title}`,
@@ -64,10 +67,10 @@ function formatResearchSummary(summarySource: string, delegationId: string, dele
     `**Sources:** ${sources}`,
     "",
     "**Research Summary:**",
-    `${summarySource.slice(0, 800)}${summarySource.length > 800 ? "\n\n...(truncated)" : ""}`,
+    truncatedSource + (truncated ? "\n\n...(truncated)" : ""),
     "",
     "---",
-    `Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full result.`,
+    `Use \`delegation(action="read", delegationId="${delegationId}")\` for full result.`,
   ]
     .filter(Boolean)
     .join("\n")
@@ -139,9 +142,7 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
               output:
                 delegation.status === "running" || delegation.status === "synthesizing"
                   ? `The delegation is still running${
-                      delegation.progressSummary
-                        ? ""
-                        : " and no progress has been recorded yet."
+                      delegation.progressSummary ? "" : " and no progress has been recorded yet."
                     } You will be woken automatically when it finishes — no polling needed.`
                   : `The delegation ended with status: ${delegation.status}. No progress was recorded.`,
               metadata: {
@@ -185,17 +186,18 @@ export const DelegatorTool = Tool.define<typeof parameters, DelegatorMetadata>("
             }
           }
 
+          const MAX_SUMMARY_CHARS = 4000
           const summary = isResearch(delegation)
-            ? formatResearchSummary(summarySource, delegationId, delegation)
+            ? formatResearchSummary(summarySource.slice(0, MAX_SUMMARY_CHARS), delegationId, delegation)
             : `**Task:** ${delegation.title}
 **Agent:** ${delegation.agent}
 **Status:** ${delegation.status}
 
 **Summary:**
-${summarySource.slice(0, 800)}${summarySource.length > 800 ? "\n\n...(truncated)" : ""}
+${summarySource.slice(0, MAX_SUMMARY_CHARS)}${summarySource.length > MAX_SUMMARY_CHARS ? "\n\n...(truncated)" : ""}
 
 ---
-Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full result.`
+Use \`delegation(action="read", delegationId="${delegationId}")\` for the full result.`
 
           return {
             title: "Delegator · Summary",
@@ -203,7 +205,7 @@ Use \`delegation(action=\"read\", delegationId=\"${delegationId}\")\` for full r
             metadata: {
               delegationId,
               action,
-              result: summarySource.slice(0, 1000),
+              result: summarySource.slice(0, 8000),
             },
           }
         }

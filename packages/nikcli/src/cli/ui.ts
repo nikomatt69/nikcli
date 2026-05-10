@@ -3,9 +3,14 @@ import { EOL } from "os"
 import { NamedError } from "@nikcli-ai/util/error"
 import { remoteService } from "./remote"
 import { logo as cliLogo } from "./logo"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "ui" })
 
 export namespace UI {
   export const CancelledError = NamedError.create("UICancelledError", z.void())
+
+  export type CancelledError = z.infer<typeof CancelledError>
 
   export const Style = {
     TEXT_HIGHLIGHT: "\x1b[96m",
@@ -22,48 +27,69 @@ export namespace UI {
     TEXT_SUCCESS_BOLD: "\x1b[92m\x1b[1m",
     TEXT_INFO: "\x1b[94m",
     TEXT_INFO_BOLD: "\x1b[94m\x1b[1m",
-  }
+  } as const
 
-  export function println(...message: string[]) {
+  export function println(...message: string[]): void {
     print(...message)
-    Bun.stderr.write(EOL)
-    forwardToRemote(EOL)
+    const eol = EOL
+    try {
+      Bun.stderr.write(eol)
+      forwardToRemote(eol)
+    } catch (error) {
+      log.error("Failed to write EOL", { error })
+    }
   }
 
-  export function print(...message: string[]) {
+  export function print(...message: string[]): void {
     blank = false
     const text = message.join(" ")
-    Bun.stderr.write(text)
-    forwardToRemote(text)
+    try {
+      Bun.stderr.write(text)
+      forwardToRemote(text)
+    } catch (error) {
+      log.error("Failed to write to stderr", { error })
+    }
   }
 
   let blank = false
-  export function empty() {
+
+  export function empty(): void {
     if (blank) return
     println("" + Style.TEXT_NORMAL)
     blank = true
   }
 
-  export function logo(pad?: string) {
+  export function logo(pad?: string): string {
     return cliLogo(pad)
   }
 
   export async function input(prompt: string): Promise<string> {
-    const readline = require("readline")
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    })
-
-    return new Promise((resolve) => {
-      rl.question(prompt, (answer: string) => {
-        rl.close()
-        resolve(answer.trim())
+    try {
+      const readline = await import("readline")
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
       })
-    })
+
+      return new Promise<string>((resolve, reject) => {
+        rl.question(prompt, (answer: string) => {
+          rl.close()
+          if (blank) {
+            blank = false
+          }
+          resolve(answer.trim())
+        })
+        rl.on("error", (error) => {
+          reject(error)
+        })
+      })
+    } catch (error) {
+      log.error("Failed to create readline interface", { error })
+      throw error
+    }
   }
 
-  export function error(message: string) {
+  export function error(message: string): void {
     println(Style.TEXT_DANGER_BOLD + "Error: " + Style.TEXT_NORMAL + message)
   }
 
@@ -71,9 +97,13 @@ export namespace UI {
     return text
   }
 
-  function forwardToRemote(text: string) {
+  function forwardToRemote(text: string): void {
     if (!text) return
-    if (!remoteService.hasActiveSession()) return
-    remoteService.writeToTerminal(text)
+    try {
+      if (!remoteService.hasActiveSession()) return
+      remoteService.writeToTerminal(text)
+    } catch (error) {
+      log.debug("Failed to forward to remote", { error })
+    }
   }
 }

@@ -13,6 +13,7 @@ import { Instance } from "../project/instance"
 import { Snapshot } from "@/snapshot"
 import { assertExternalDirectory } from "./external-directory"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Log } from "@/util/log"
 
 const MAX_DIAGNOSTICS_PER_FILE = 20
 const WHITESPACE_RUN_REGEX = /\s+/g
@@ -24,6 +25,8 @@ const UNESCAPE_STRING_REGEX = /\\(n|t|r|'|"|`|\\|\n|\$)/g
 function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
+
+const log = Log.create({ service: "edit-tool" })
 
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n")
@@ -140,7 +143,11 @@ export const EditTool = Tool.define("edit", {
         yield* lsp.touchFile(filePath, true)
         return yield* lsp.diagnostics()
       }),
-    )
+    ).catch((err) => {
+      // LSP errors are non-fatal, log and continue
+      log.debug("LSP diagnostics failed", { error: String(err), filePath })
+      return {} as Record<string, LSP.Diagnostic[]>
+    })
     const normalizedFilePath = Filesystem.normalizePath(filePath)
     const issues = diagnostics[normalizedFilePath] ?? []
     const errors = issues.filter((item) => item.severity === 1)

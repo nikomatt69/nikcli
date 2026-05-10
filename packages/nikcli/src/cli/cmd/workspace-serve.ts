@@ -7,7 +7,7 @@ export const WorkspaceServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a remote workspace event server",
   handler: async (args) => {
-    const opts = await resolveNetworkOptions(args)
+    const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
     const server = WorkspaceServer.Listen(opts)
     console.log(`workspace event server listening on http://${server.hostname}:${server.port}/event`)
     await new Promise(() => {})

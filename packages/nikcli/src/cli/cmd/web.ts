@@ -29,7 +29,7 @@ export const WebCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "start nikcli server and open web interface",
   handler: async (args) => {
-    const opts = await resolveNetworkOptions(args)
+    const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
 
     const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
     const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback

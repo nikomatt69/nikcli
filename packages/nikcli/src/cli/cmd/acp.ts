@@ -21,7 +21,7 @@ export const AcpCommand = cmd({
   },
   handler: async (args) => {
     await bootstrap(process.cwd(), async () => {
-      const opts = await resolveNetworkOptions(args)
+      const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
       const server = Server.listen(opts)
 
       const sdk = createNikcliClient({

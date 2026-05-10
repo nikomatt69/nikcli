@@ -13,14 +13,17 @@ import { Instance } from "../../project/instance"
 import type { Hooks } from "@nikcli-ai/plugin"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "auth-command" })
 
 type PluginAuth = NonNullable<Hooks["auth"]>
 
-function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
+function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>): Promise<A> {
   return runPromiseWithLayer(Auth.defaultLayer, effect)
 }
 
-function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>) {
+function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>): Promise<A> {
   return runPromiseWithLayer(Plugin.defaultLayer, withCurrentInstance(effect))
 }
 
@@ -63,28 +66,44 @@ function pluginList() {
   )
 }
 
+function handlePromptCancel<T>(value: unknown, fallback: T): T {
+  if (prompts.isCancel(value)) {
+    throw new UI.CancelledError()
+  }
+  return value as T
+}
+
 /**
  * Handle plugin-based authentication flow.
  * Returns true if auth was handled, false if it should fall through to default handling.
  */
 async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string): Promise<boolean> {
+  log.debug("Handling plugin auth", { provider })
+
   let index = 0
   if (plugin.auth.methods.length > 1) {
     const method = await prompts.select({
       message: "Login method",
       options: [
-        ...plugin.auth.methods.map((x, index) => ({
+        ...plugin.auth.methods.map((x, idx) => ({
           label: x.label,
-          value: index.toString(),
+          value: idx.toString(),
         })),
       ],
     })
-    if (prompts.isCancel(method)) throw new UI.CancelledError()
-    index = parseInt(method)
+    if (prompts.isCancel(method)) {
+      throw new UI.CancelledError()
+    }
+    index = parseInt(method, 10)
   }
+
+  if (!plugin.auth.methods[index]) {
+    log.error("Invalid auth method index", { index, methodsCount: plugin.auth.methods.length })
+    return false
+  }
+
   const method = plugin.auth.methods[index]
 
-  // Handle prompts for all auth types
   await Bun.sleep(10)
   const inputs: Record<string, string> = {}
   if (method.prompts) {
@@ -97,7 +116,9 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           message: prompt.message,
           options: prompt.options,
         })
-        if (prompts.isCancel(value)) throw new UI.CancelledError()
+        if (prompts.isCancel(value)) {
+          throw new UI.CancelledError()
+        }
         inputs[prompt.key] = value
       } else {
         const value = await prompts.text({
@@ -105,7 +126,9 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           placeholder: prompt.placeholder,
           validate: prompt.validate ? (v) => prompt.validate!(v ?? "") : undefined,
         })
-        if (prompts.isCancel(value)) throw new UI.CancelledError()
+        if (prompts.isCancel(value)) {
+          throw new UI.CancelledError()
+        }
         inputs[prompt.key] = value
       }
     }
@@ -127,6 +150,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
       const result = await authorize.callback()
       if (result.type === "failed") {
         spinner.stop("Failed to authorize", 1)
+        log.error("OAuth authorization failed", { provider })
       }
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
@@ -147,6 +171,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           })
         }
         spinner.stop("Login successful")
+        log.info("OAuth login successful", { provider: saveProvider })
       }
     }
 
@@ -155,10 +180,13 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
         message: "Paste the authorization code here: ",
         validate: (x) => (x && x.length > 0 ? undefined : "Required"),
       })
-      if (prompts.isCancel(code)) throw new UI.CancelledError()
+      if (prompts.isCancel(code)) {
+        throw new UI.CancelledError()
+      }
       const result = await authorize.callback(code)
       if (result.type === "failed") {
         prompts.log.error("Failed to authorize")
+        log.error("OAuth code authorization failed", { provider })
       }
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
@@ -179,6 +207,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           })
         }
         prompts.log.success("Login successful")
+        log.info("OAuth code login successful", { provider: saveProvider })
       }
     }
 
@@ -191,6 +220,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
       const result = await method.authorize(inputs)
       if (result.type === "failed") {
         prompts.log.error("Failed to authorize")
+        log.error("API authorization failed", { provider })
       }
       if (result.type === "success") {
         const saveProvider = result.provider ?? provider
@@ -199,6 +229,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
           key: result.key,
         })
         prompts.log.success("Login successful")
+        log.info("API login successful", { provider: saveProvider })
       }
       prompts.outro("Done")
       return true
@@ -213,7 +244,9 @@ export const AuthCommand = cmd({
   describe: "manage credentials",
   builder: (yargs) =>
     yargs.command(AuthLoginCommand).command(AuthLogoutCommand).command(AuthListCommand).demandCommand(),
-  async handler() {},
+  async handler() {
+    log.debug("Auth command handler called without subcommand")
+  },
 })
 
 export const AuthListCommand = cmd({
@@ -226,39 +259,47 @@ export const AuthListCommand = cmd({
     const homedir = os.homedir()
     const displayPath = authPath.startsWith(homedir) ? authPath.replace(homedir, "~") : authPath
     prompts.intro(`Credentials ${UI.Style.TEXT_DIM}${displayPath}`)
-    const results = Object.entries(await authAll())
-    const database = await ModelsDev.get()
 
-    for (const [providerID, result] of results) {
-      const name = database[providerID]?.name || providerID
-      prompts.log.info(`${name} ${UI.Style.TEXT_DIM}${result.type}`)
-    }
+    try {
+      const results = Object.entries(await authAll())
+      const database = await ModelsDev.get()
 
-    prompts.outro(`${results.length} credentials`)
+      for (const [providerID, result] of results) {
+        const name = database[providerID]?.name || providerID
+        prompts.log.info(`${name} ${UI.Style.TEXT_DIM}${result.type}`)
+      }
 
-    // Environment variables section
-    const activeEnvVars: Array<{ provider: string; envVar: string }> = []
+      log.debug("Listed credentials", { count: results.length })
+      prompts.outro(`${results.length} credentials`)
 
-    for (const [providerID, provider] of Object.entries(database)) {
-      for (const envVar of provider.env) {
-        if (process.env[envVar]) {
-          activeEnvVars.push({
-            provider: provider.name || providerID,
-            envVar,
-          })
+      const activeEnvVars: Array<{ provider: string; envVar: string }> = []
+
+      for (const [providerID, provider] of Object.entries(database)) {
+        for (const envVar of provider.env) {
+          if (process.env[envVar]) {
+            activeEnvVars.push({
+              provider: provider.name || providerID,
+              envVar,
+            })
+          }
         }
       }
-    }
 
-    if (activeEnvVars.length > 0) {
-      UI.empty()
-      prompts.intro("Environment")
+      if (activeEnvVars.length > 0) {
+        UI.empty()
+        prompts.intro("Environment")
 
-      for (const { provider, envVar } of activeEnvVars) {
-        prompts.log.info(`${provider} ${UI.Style.TEXT_DIM}${envVar}`)
+        for (const { provider, envVar } of activeEnvVars) {
+          prompts.log.info(`${provider} ${UI.Style.TEXT_DIM}${envVar}`)
+        }
+
+        prompts.outro(
+          `${activeEnvVars.length} environment variable${activeEnvVars.length === 1 ? "" : "s"}`,
+        )
       }
-
-      prompts.outro(`${activeEnvVars.length} environment variable` + (activeEnvVars.length === 1 ? "" : "s"))
+    } catch (error) {
+      log.error("Failed to list credentials", { error })
+      prompts.outro("Failed to list credentials")
     }
   },
 })
@@ -276,8 +317,11 @@ export const AuthLoginCommand = cmd({
       {
         UI.empty()
         prompts.intro("Add credential")
+
         if (args.url) {
           const url = args.url
+          log.debug("Login with well-known URL", { url })
+
           const wellknownResponse = await runAuth(
             Effect.gen(function* () {
               const auth = yield* Auth.Service
@@ -286,6 +330,7 @@ export const AuthLoginCommand = cmd({
           )
             .then((x) => (x.ok ? x.json() : null))
             .catch(() => null)
+
           const wellknown = Auth.WellKnownAuthResponse.safeParse(wellknownResponse)
 
           if (!wellknown.success) {
@@ -303,6 +348,7 @@ export const AuthLoginCommand = cmd({
               }),
             )
           } catch (error) {
+            log.error("Failed to fetch well-known token", { error })
             prompts.log.error(error instanceof Error ? error.message : "Failed")
             prompts.outro("Done")
             return
@@ -314,9 +360,11 @@ export const AuthLoginCommand = cmd({
             token: token.trim(),
           })
           prompts.log.success("Logged into " + url)
+          log.info("Well-known login successful", { url })
           prompts.outro("Done")
           return
         }
+
         await ModelsDev.refresh().catch(() => {})
 
         const config = await configGet()
@@ -371,9 +419,14 @@ export const AuthLoginCommand = cmd({
           ],
         })
 
-        if (prompts.isCancel(provider)) throw new UI.CancelledError()
+        if (prompts.isCancel(provider)) {
+          prompts.outro("Done")
+          return
+        }
 
-        const plugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
+        const plugin = await pluginList().then((x) =>
+          x.find((x) => x.auth?.provider === provider),
+        )
         if (plugin && plugin.auth) {
           const handled = await handlePluginAuth({ auth: plugin.auth }, provider)
           if (handled) return
@@ -384,12 +437,15 @@ export const AuthLoginCommand = cmd({
             message: "Enter provider id",
             validate: (x) => (x && x.match(/^[0-9a-z-]+$/) ? undefined : "a-z, 0-9 and hyphens only"),
           })
-          if (prompts.isCancel(provider)) throw new UI.CancelledError()
+          if (prompts.isCancel(provider)) {
+            prompts.outro("Done")
+            return
+          }
           provider = provider.replace(/^@ai-sdk\//, "")
-          if (prompts.isCancel(provider)) throw new UI.CancelledError()
 
-          // Check if a plugin provides auth for this custom provider
-          const customPlugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
+          const customPlugin = await pluginList().then((x) =>
+            x.find((x) => x.auth?.provider === provider),
+          )
           if (customPlugin && customPlugin.auth) {
             const handled = await handlePluginAuth({ auth: customPlugin.auth }, provider)
             if (handled) return
@@ -428,7 +484,12 @@ export const AuthLoginCommand = cmd({
           message: "Enter your API key",
           validate: (x) => (x && x.length > 0 ? undefined : "Required"),
         })
-        if (prompts.isCancel(key)) throw new UI.CancelledError()
+        if (prompts.isCancel(key)) {
+          prompts.outro("Done")
+          return
+        }
+
+        log.info("Setting API key", { provider })
         await authSet(provider, {
           type: "api",
           key,
@@ -445,27 +506,40 @@ export const AuthLogoutCommand = cmd({
   describe: "log out from a configured provider",
   async handler() {
     UI.empty()
-    const credentials = await authAll().then((x) => Object.entries(x))
-    prompts.intro("Remove credential")
-    if (credentials.length === 0) {
-      prompts.log.error("No credentials found")
-      return
+    try {
+      const credentials = await authAll().then((x) => Object.entries(x))
+      prompts.intro("Remove credential")
+
+      if (credentials.length === 0) {
+        prompts.log.error("No credentials found")
+        return
+      }
+
+      const database = await ModelsDev.get()
+      const providerID = await prompts.select({
+        message: "Select provider",
+        options: credentials.map(([key, value]) => ({
+          label: (database[key]?.name || key) + UI.Style.TEXT_DIM + " (" + value.type + ")",
+          value: key,
+        })),
+      })
+
+      if (prompts.isCancel(providerID)) {
+        prompts.outro("Done")
+        return
+      }
+
+      log.info("Logging out provider", { provider: providerID })
+      await runAuth(
+        Effect.gen(function* () {
+          const auth = yield* Auth.Service
+          yield* auth.remove(providerID)
+        }),
+      )
+      prompts.outro("Logout successful")
+    } catch (error) {
+      log.error("Logout failed", { error })
+      prompts.outro("Done")
     }
-    const database = await ModelsDev.get()
-    const providerID = await prompts.select({
-      message: "Select provider",
-      options: credentials.map(([key, value]) => ({
-        label: (database[key]?.name || key) + UI.Style.TEXT_DIM + " (" + value.type + ")",
-        value: key,
-      })),
-    })
-    if (prompts.isCancel(providerID)) throw new UI.CancelledError()
-    await runAuth(
-      Effect.gen(function* () {
-        const auth = yield* Auth.Service
-        yield* auth.remove(providerID)
-      }),
-    )
-    prompts.outro("Logout successful")
   },
 })

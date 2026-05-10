@@ -12,10 +12,35 @@ import { EOL } from "os"
 import type { Argv } from "yargs"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { Log } from "@/util/log"
+import z from "zod"
+
+const log = Log.create({ service: "agent-command" })
 
 type AgentMode = "all" | "primary" | "subagent"
 
-function agentGenerate(input: { description: string; model?: { providerID: string; modelID: string } }) {
+const AgentModeSchema = z.enum(["all", "primary", "subagent"])
+
+const AVAILABLE_TOOLS = [
+  "bash",
+  "read",
+  "write",
+  "edit",
+  "generate_image",
+  "speak",
+  "list",
+  "glob",
+  "grep",
+  "webfetch",
+  "task",
+  "todowrite",
+  "todoread",
+] as const
+
+function agentGenerate(input: {
+  description: string
+  model?: { providerID: string; modelID: string }
+}) {
   return runPromiseWithLayer(
     Agent.defaultLayer,
     withCurrentInstance(
@@ -38,22 +63,6 @@ function agentList() {
     ),
   )
 }
-
-const AVAILABLE_TOOLS = [
-  "bash",
-  "read",
-  "write",
-  "edit",
-  "generate_image",
-  "speak",
-  "list",
-  "glob",
-  "grep",
-  "webfetch",
-  "task",
-  "todowrite",
-  "todoread",
-]
 
 const AgentCreateCommand = cmd({
   command: "create",
@@ -84,169 +93,188 @@ const AgentCreateCommand = cmd({
       }),
   async handler(args) {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
-      {
-        const cliPath = args.path
-        const cliDescription = args.description
-        const cliMode = args.mode as AgentMode | undefined
-        const cliTools = args.tools
+      const cliPath = args.path
+      const cliDescription = args.description
+      const cliMode = args.mode as AgentMode | undefined
+      const cliTools = args.tools
 
-        const isFullyNonInteractive = cliPath && cliDescription && cliMode && cliTools !== undefined
+      const isFullyNonInteractive = Boolean(cliPath && cliDescription && cliMode && cliTools !== undefined)
 
-        if (!isFullyNonInteractive) {
-          UI.empty()
-          prompts.intro("Create agent")
-        }
+      if (!isFullyNonInteractive) {
+        UI.empty()
+        prompts.intro("Create agent")
+      }
 
-        const project = Instance.project
+      const project = Instance.project
+      log.debug("Creating agent", {
+        projectWorktree: Instance.worktree,
+        isInteractive: !isFullyNonInteractive,
+      })
 
-        // Determine scope/path
-        let targetPath: string
-        if (cliPath) {
-          targetPath = path.join(cliPath, "agent")
-        } else {
-          let scope: "global" | "project" = "global"
-          if (project.vcs === "git") {
-            const scopeResult = await prompts.select({
-              message: "Location",
-              options: [
-                {
-                  label: "Current project",
-                  value: "project" as const,
-                  hint: Instance.worktree,
-                },
-                {
-                  label: "Global",
-                  value: "global" as const,
-                  hint: Global.Path.config,
-                },
-              ],
-            })
-            if (prompts.isCancel(scopeResult)) throw new UI.CancelledError()
-            scope = scopeResult
-          }
-          targetPath = path.join(
-            scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".nikcli"),
-            "agent",
-          )
-        }
-
-        // Get description
-        let description: string
-        if (cliDescription) {
-          description = cliDescription
-        } else {
-          const query = await prompts.text({
-            message: "Description",
-            placeholder: "What should this agent do?",
-            validate: (x) => (x && x.length > 0 ? undefined : "Required"),
-          })
-          if (prompts.isCancel(query)) throw new UI.CancelledError()
-          description = query
-        }
-
-        // Generate agent
-        const spinner = prompts.spinner()
-        spinner.start("Generating agent configuration...")
-        const model = args.model ? Provider.parseModel(args.model) : undefined
-        const generated = await agentGenerate({ description, model }).catch((error) => {
-          spinner.stop(`LLM failed to generate agent: ${error.message}`, 1)
-          if (isFullyNonInteractive) process.exit(1)
-          throw new UI.CancelledError()
-        })
-        spinner.stop(`Agent ${generated.identifier} generated`)
-
-        // Select tools
-        let selectedTools: string[]
-        if (cliTools !== undefined) {
-          selectedTools = cliTools ? cliTools.split(",").map((t) => t.trim()) : AVAILABLE_TOOLS
-        } else {
-          const result = await prompts.multiselect({
-            message: "Select tools to enable (Space to toggle)",
-            options: AVAILABLE_TOOLS.map((tool) => ({
-              label: tool,
-              value: tool,
-            })),
-            initialValues: AVAILABLE_TOOLS,
-          })
-          if (prompts.isCancel(result)) throw new UI.CancelledError()
-          selectedTools = result
-        }
-
-        // Get mode
-        let mode: AgentMode
-        if (cliMode) {
-          mode = cliMode
-        } else {
-          const modeResult = await prompts.select({
-            message: "Agent mode",
+      let targetPath: string
+      if (cliPath) {
+        targetPath = path.join(cliPath, "agent")
+      } else {
+        let scope: "global" | "project" = "global"
+        if (project.vcs === "git") {
+          const scopeResult = await prompts.select({
+            message: "Location",
             options: [
               {
-                label: "All",
-                value: "all" as const,
-                hint: "Can function in both primary and subagent roles",
+                label: "Current project",
+                value: "project" as const,
+                hint: Instance.worktree,
               },
               {
-                label: "Primary",
-                value: "primary" as const,
-                hint: "Acts as a primary/main agent",
-              },
-              {
-                label: "Subagent",
-                value: "subagent" as const,
-                hint: "Can be used as a subagent by other agents",
+                label: "Global",
+                value: "global" as const,
+                hint: Global.Path.config,
               },
             ],
-            initialValue: "all" as const,
           })
-          if (prompts.isCancel(modeResult)) throw new UI.CancelledError()
-          mode = modeResult
-        }
-
-        // Build tools config
-        const tools: Record<string, boolean> = {}
-        for (const tool of AVAILABLE_TOOLS) {
-          if (!selectedTools.includes(tool)) {
-            tools[tool] = false
+          if (prompts.isCancel(scopeResult)) {
+            prompts.outro("Done")
+            return
           }
+          scope = scopeResult
         }
+        targetPath = path.join(
+          scope === "global" ? Global.Path.config : path.join(Instance.worktree, ".nikcli"),
+          "agent",
+        )
+      }
 
-        // Build frontmatter
-        const frontmatter: {
-          description: string
-          mode: AgentMode
-          tools?: Record<string, boolean>
-        } = {
-          description: generated.whenToUse,
-          mode,
+      let description: string
+      if (cliDescription) {
+        description = cliDescription
+      } else {
+        const query = await prompts.text({
+          message: "Description",
+          placeholder: "What should this agent do?",
+          validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+        })
+        if (prompts.isCancel(query)) {
+          prompts.outro("Done")
+          return
         }
-        if (Object.keys(tools).length > 0) {
-          frontmatter.tools = tools
+        description = query
+      }
+
+      const spinner = prompts.spinner()
+      spinner.start("Generating agent configuration...")
+
+      const model = args.model ? Provider.parseModel(args.model) : undefined
+
+      const generated = await agentGenerate({ description, model }).catch((error) => {
+        spinner.stop(`LLM failed to generate agent: ${error.message}`, 1)
+        if (isFullyNonInteractive) {
+          process.exit(1)
         }
+        throw new UI.CancelledError()
+      })
 
-        // Write file
-        const content = matter.stringify(generated.systemPrompt, frontmatter)
-        const filePath = path.join(targetPath, `${generated.identifier}.md`)
+      spinner.stop(`Agent ${generated.identifier} generated`)
+      log.info("Agent generated", { identifier: generated.identifier })
 
-        await fs.mkdir(targetPath, { recursive: true })
+      let selectedTools: string[]
+      if (cliTools !== undefined) {
+        selectedTools = cliTools
+          ? cliTools.split(",").map((t) => t.trim())
+          : [...AVAILABLE_TOOLS]
+      } else {
+        const result = await prompts.multiselect({
+          message: "Select tools to enable (Space to toggle)",
+          options: AVAILABLE_TOOLS.map((tool) => ({
+            label: tool,
+            value: tool,
+          })),
+          initialValues: [...AVAILABLE_TOOLS],
+        })
+        if (prompts.isCancel(result)) {
+          prompts.outro("Done")
+          return
+        }
+        selectedTools = result
+      }
 
-        const file = Bun.file(filePath)
-        if (await file.exists()) {
-          if (isFullyNonInteractive) {
-            console.error(`Error: Agent file already exists: ${filePath}`)
-            process.exit(1)
-          }
-          prompts.log.error(`Agent file already exists: ${filePath}`)
+      let mode: AgentMode
+      if (cliMode) {
+        const parsed = AgentModeSchema.safeParse(cliMode)
+        if (!parsed.success) {
+          log.error("Invalid agent mode", { mode: cliMode })
           throw new UI.CancelledError()
         }
-
-        await Bun.write(filePath, content)
-
-        if (isFullyNonInteractive) {
-          console.log(filePath)
-        } else {
-          prompts.log.success(`Agent created: ${filePath}`)
+        mode = parsed.data
+      } else {
+        const modeResult = await prompts.select({
+          message: "Agent mode",
+          options: [
+            {
+              label: "All",
+              value: "all" as const,
+              hint: "Can function in both primary and subagent roles",
+            },
+            {
+              label: "Primary",
+              value: "primary" as const,
+              hint: "Acts as a primary/main agent",
+            },
+            {
+              label: "Subagent",
+              value: "subagent" as const,
+              hint: "Can be used as a subagent by other agents",
+            },
+          ],
+          initialValue: "all" as const,
+        })
+        if (prompts.isCancel(modeResult)) {
           prompts.outro("Done")
+          return
         }
+        mode = modeResult
+      }
+
+      const tools: Record<string, boolean> = {}
+      for (const tool of AVAILABLE_TOOLS) {
+        if (!selectedTools.includes(tool)) {
+          tools[tool] = false
+        }
+      }
+
+      const frontmatter: {
+        description: string
+        mode: AgentMode
+        tools?: Record<string, boolean>
+      } = {
+        description: generated.whenToUse,
+        mode,
+      }
+      if (Object.keys(tools).length > 0) {
+        frontmatter.tools = tools
+      }
+
+      const content = matter.stringify(generated.systemPrompt, frontmatter)
+      const filePath = path.join(targetPath, `${generated.identifier}.md`)
+
+      await fs.mkdir(targetPath, { recursive: true })
+
+      const file = Bun.file(filePath)
+      if (await file.exists()) {
+        if (isFullyNonInteractive) {
+          console.error(`Error: Agent file already exists: ${filePath}`)
+          process.exit(1)
+        }
+        prompts.log.error(`Agent file already exists: ${filePath}`)
+        throw new UI.CancelledError()
+      }
+
+      await Bun.write(filePath, content)
+
+      if (isFullyNonInteractive) {
+        console.log(filePath)
+      } else {
+        prompts.log.success(`Agent created: ${filePath}`)
+        prompts.outro("Done")
       }
     })
   },
@@ -257,19 +285,19 @@ const AgentListCommand = cmd({
   describe: "list all available agents",
   async handler() {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
-      {
-        const agents = await agentList()
-        const sortedAgents = agents.sort((a, b) => {
-          if (a.native !== b.native) {
-            return a.native ? -1 : 1
-          }
-          return a.name.localeCompare(b.name)
-        })
-
-        for (const agent of sortedAgents) {
-          process.stdout.write(`${agent.name} (${agent.mode})` + EOL)
-          process.stdout.write(`  ${JSON.stringify(agent.permission, null, 2)}` + EOL)
+      const agents = await agentList()
+      const sortedAgents = agents.sort((a, b) => {
+        if (a.native !== b.native) {
+          return a.native ? -1 : 1
         }
+        return a.name.localeCompare(b.name)
+      })
+
+      log.debug("Listed agents", { count: agents.length })
+
+      for (const agent of sortedAgents) {
+        process.stdout.write(`${agent.name} (${agent.mode})` + EOL)
+        process.stdout.write(`  ${JSON.stringify(agent.permission, null, 2)}` + EOL)
       }
     })
   },
@@ -279,5 +307,7 @@ export const AgentCommand = cmd({
   command: "agent",
   describe: "manage agents",
   builder: (yargs) => yargs.command(AgentCreateCommand).command(AgentListCommand).demandCommand(),
-  async handler() {},
+  async handler() {
+    log.debug("Agent command handler called without subcommand")
+  },
 })

@@ -16,6 +16,9 @@ import { Context, Effect, Layer } from "effect"
 export namespace LSP {
   const log = Log.create({ service: "lsp" })
 
+  // Re-export Diagnostic type for external consumers
+  export type Diagnostic = LSPClient.Diagnostic
+
   export const Event = {
     Updated: BusEvent.define("lsp.updated", z.object({})),
   }

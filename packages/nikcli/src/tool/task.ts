@@ -156,16 +156,103 @@ type DelegatorDecision =
   | {
       action: "finalize"
       reason?: string
+      confidence?: string
+      keyFindings?: string[]
     }
   | {
       action: "continue"
       reason?: string
+      analysis?: string
+      confidence?: string
       spawn?: {
         description: string
         prompt: string
         agent: string
       }
     }
+
+interface StructuredResult {
+  status: string
+  summary: string
+  confidence?: string
+  findings?: string[]
+  sources?: number
+  nextSteps?: string[]
+}
+
+function buildStructuredResult(workerResults: Delegation.SynthesisItem[]): StructuredResult {
+  const completedResults = workerResults.filter((r) => r.status === "complete")
+  const failedResults = workerResults.filter((r) => r.status === "error" || r.status === "timeout")
+
+  // Extract key information from results
+  const allText = workerResults.map((r) => r.resultSummary ?? r.progressSummary ?? r.error ?? "").join("\n\n")
+
+  // Count sources/links
+  const sourceMatches = allText.match(/https?:\/\/[^\s)\]]+/g) ?? []
+  const uniqueSources = new Set(sourceMatches).size
+
+  return {
+    status: failedResults.length > 0 ? "partial" : "complete",
+    summary: allText.slice(0, 2000),
+    sources: uniqueSources,
+    findings: completedResults.length > 0 ? completedResults.map((r) => r.title).slice(0, 5) : undefined,
+  }
+}
+
+function formatDelegatorPrompt(params: {
+  agentName: string
+  prompt: string
+  resultsText: string
+  accumulatedResults: Delegation.SynthesisItem[]
+  sessionSummaries: string[]
+  isLastRound: boolean
+  iteration: number
+}) {
+  const structured = buildStructuredResult(params.accumulatedResults)
+
+  return [
+    params.iteration === 0 ? `## Worker Task Completed` : `## Follow-up Round ${params.iteration + 1}`,
+    "",
+    `**Agent:** @${params.agentName}`,
+    `**Original Task:** ${params.prompt}`,
+    "",
+    "## Structured Results",
+    `\`\`\`json
+${JSON.stringify(structured, null, 2)}
+\`\`\``,
+    "",
+    "## Raw Output",
+    params.resultsText || "- none",
+    "",
+    ...(params.sessionSummaries.length > 0
+      ? ["", "## Previous Synthesis", params.sessionSummaries[params.sessionSummaries.length - 1]]
+      : []),
+    "",
+    params.isLastRound
+      ? "**FINAL ROUND: You must synthesize all results and finalize.**"
+      : "**Analyze results. If confident, finalize. If gaps remain, continue with follow-up.**",
+    "",
+    "## Required Response Format",
+    "```",
+    "Action: finalize | continue",
+    "Reason: <one sentence explaining your decision>",
+    "Confidence: high | medium | low",
+    "Analysis: <optional - brief analysis if needed>",
+    "```",
+    params.isLastRound
+      ? ""
+      : [
+          "",
+          "## If Continue (provide spawn block)",
+          "```",
+          "Spawn:",
+          "- description: <3-5 words>",
+          "- prompt: <specific task to address gaps>",
+          "- agent: <explore | researcher | refactor | general>",
+          "```",
+        ].join("\n"),
+  ].join("\n")
+}
 
 type ReusableSessionValidation = {
   parentSessionID: string
@@ -302,6 +389,22 @@ function buildSubtaskPermission(hasTaskPermission: boolean, primaryTools: Primar
   ]
 }
 
+// Strict permissions for follow-up agents - only read/search tools
+function buildFollowupPermission() {
+  return [
+    { permission: "todowrite", pattern: "*", action: "deny" as const },
+    { permission: "todoread", pattern: "*", action: "deny" as const },
+    { permission: "task", pattern: "*", action: "deny" as const },
+    { permission: "edit", pattern: "*", action: "deny" as const },
+    { permission: "write", pattern: "*", action: "deny" as const },
+    { permission: "bash", pattern: "*", action: "deny" as const },
+    // Only allow read-only operations for follow-up
+    { permission: "read", pattern: "*", action: "allow" as const },
+    { permission: "glob", pattern: "*", action: "allow" as const },
+    { permission: "grep", pattern: "*", action: "allow" as const },
+  ]
+}
+
 async function createPromptInput(params: {
   sessionID: string
   prompt: string
@@ -339,7 +442,18 @@ function parseDelegatorDecision(text: string): DelegatorDecision {
   const action = (actionMatch?.[1]?.toLowerCase() ?? "finalize") as "finalize" | "continue"
   const reasonMatch = text.match(/(?:\*\*)?Reason(?:\*\*)?[\s:]+(.+)/i)
   const reason = reasonMatch?.[1]?.trim()
-  if (action === "finalize") return { action, reason }
+
+  // Extract confidence if present
+  const confidenceMatch = text.match(/(?:\*\*)?Confidence(?:\*\*)?[\s:]+(high|medium|low)/i)
+  const confidence = confidenceMatch?.[1]?.toLowerCase() as "high" | "medium" | "low" | undefined
+
+  // Extract analysis if present
+  const analysisMatch = text.match(/(?:\*\*)?Analysis(?:\*\*)?[\s:]+(.+?)(?=\n\n|\nSpawn|$)/is)
+  const analysis = analysisMatch?.[1]?.trim()
+
+  if (action === "finalize") {
+    return { action, reason, confidence }
+  }
 
   const description = text.match(/^-\s*description:\s*(.+)$/im)?.[1]?.trim()
   const prompt = text.match(/^-\s*prompt:\s*(.+)$/im)?.[1]?.trim()
@@ -348,6 +462,8 @@ function parseDelegatorDecision(text: string): DelegatorDecision {
   return {
     action,
     reason,
+    confidence,
+    analysis,
     spawn:
       description && prompt && agent
         ? {
@@ -441,7 +557,8 @@ async function wakeParentSession(
   },
 ) {
   try {
-    const summaryLines = result.summary.split("\n").slice(0, 30).join("\n")
+    const summaryLines = result.summary.split("\n").slice(0, 100).join("\n")
+    const truncated = result.summary.split("\n").length > 100
     const lines = [
       `Background task "${result.description}" finished.`,
       `Status: ${result.status}`,
@@ -449,6 +566,7 @@ async function wakeParentSession(
       "",
       "Result:",
       summaryLines,
+      truncated ? "\n...(truncated)" : "",
       "",
       `Use delegation(action="read", delegationId="${result.delegatorDelegationId}") for the full result.`,
     ]
@@ -508,7 +626,11 @@ async function launchBackgroundSubtask(params: {
     parentSessionID: params.parentSessionID,
     agent: params.agent.name,
     prompt: params.prompt,
-    session: params.session,
+    session: {
+      id: params.session.id,
+      directory: params.session.directory,
+      workspaceID: params.session.workspaceID ?? "",
+    },
     source: params.agent.name === RESEARCH_AGENT ? "research" : params.source,
     metadata: params.metadata,
     delegatorSessionID: delegatorSession.id,
@@ -521,7 +643,11 @@ async function launchBackgroundSubtask(params: {
     parentSessionID: params.parentSessionID,
     agent: "delegator",
     prompt: `Synthesize @${params.agent.name}: ${params.prompt}`,
-    session: delegatorSession,
+    session: {
+      id: delegatorSession.id,
+      directory: delegatorSession.directory,
+      workspaceID: delegatorSession.workspaceID ?? "",
+    },
     source: "delegator",
     metadata: params.metadata,
     jobID: delegation.jobID,
@@ -564,34 +690,15 @@ async function launchBackgroundSubtask(params: {
 
         const isLastRound = iteration === MAX_ITERATIONS - 1
 
-        const wakeText = [
-          iteration === 0
-            ? `Background task completed with status: **${lastWorkerStatus}**.`
-            : `## Follow-up Round ${iteration + 1}`,
-          "",
-          `Agent: @${params.agent.name}`,
-          `Task: ${params.prompt}`,
-          "",
-          "## Accumulated Results",
-          resultsText || "- none",
-          "",
-          ...(sessionSummaries.length > 0
-            ? ["", "## Previous Synthesis", sessionSummaries[sessionSummaries.length - 1]]
-            : []),
-          "",
-          isLastRound
-            ? "**This is the final round. You must finalize.**"
-            : "**Analyze results and decide: finalize now or continue with follow-up work. If you continue, you must provide a Spawn block with single-line values for description, prompt, and agent.**",
-          "",
-          "## Your Decision (required)",
-          "Respond with: **Action:** finalize | continue",
-          "**Reason:** <one sentence>",
-          "If Action is continue, include:",
-          "**Spawn:**",
-          "- description: <short description>",
-          "- prompt: <single-line detailed task>",
-          "- agent: <agent type>",
-        ].join("\n")
+        const wakeText = formatDelegatorPrompt({
+          agentName: params.agent.name,
+          prompt: params.prompt,
+          resultsText,
+          accumulatedResults,
+          sessionSummaries,
+          isLastRound,
+          iteration,
+        })
 
         const delegatorResult = await runSessionPrompt(
           Effect.gen(function* () {
@@ -623,14 +730,19 @@ async function launchBackgroundSubtask(params: {
         const followupAgent = await agentGet(spawn.agent)
         if (!followupAgent) break
 
-        const followupHasTaskPermission = followupAgent.permission.some((rule) => rule.permission === "task")
+        // Use strict read-only permissions for follow-up agents
+        const followupPermission =
+          spawn.agent === "explore" || spawn.agent === "researcher"
+            ? buildFollowupPermission()
+            : buildSubtaskPermission(false, params.primaryTools)
+
         const followupSession = await runSession(
           Effect.gen(function* () {
             const session = yield* Session.Service
             return yield* session.create({
               parentID: params.parentSessionID,
               title: `${spawn.description} (@${followupAgent.name} follow-up)`,
-              permission: buildSubtaskPermission(followupHasTaskPermission, params.primaryTools),
+              permission: followupPermission,
             })
           }),
         )
@@ -638,7 +750,11 @@ async function launchBackgroundSubtask(params: {
           parentSessionID: params.parentSessionID,
           agent: followupAgent.name,
           prompt: spawn.prompt,
-          session: followupSession,
+          session: {
+            id: followupSession.id,
+            directory: followupSession.directory,
+            workspaceID: followupSession.workspaceID ?? "",
+          },
           source: "delegator-followup",
           jobID: delegation.jobID,
           rootDelegationID: delegation.rootDelegationID,
@@ -652,7 +768,7 @@ async function launchBackgroundSubtask(params: {
           prompt: spawn.prompt,
           agentName: followupAgent.name,
           model: params.model,
-          hasTaskPermission: followupHasTaskPermission,
+          hasTaskPermission: followupPermission.some((rule) => rule.permission === "task"),
           primaryTools: params.primaryTools,
           delegationID: followupDelegation.id,
         })

@@ -130,7 +130,7 @@ export const TuiThreadCommand = cmd({
     })
 
     // Check if server should be started (port or hostname explicitly set in CLI or config)
-    const networkOpts = await resolveNetworkOptions(args)
+    const networkOpts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
     const shouldStartServer =
       process.argv.includes("--port") ||
       process.argv.includes("--hostname") ||

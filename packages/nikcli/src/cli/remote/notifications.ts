@@ -1,12 +1,24 @@
 import { remoteService } from "./remote-service"
 import type { RemoteNotification, TaskInfo } from "./types"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "notifications" })
 
 export function sendRemoteNotification(notification: RemoteNotification): void {
-  if (!remoteService.hasActiveSession()) return
-  remoteService.notify(notification)
+  try {
+    if (!remoteService.hasActiveSession()) {
+      log.debug("No active session, skipping notification")
+      return
+    }
+    remoteService.notify(notification)
+    log.debug("Notification sent", { type: notification.type, title: notification.title })
+  } catch (error) {
+    log.error("Failed to send notification", { error })
+  }
 }
 
 export function notifyTaskStarted(taskName: string, description?: string): void {
+  log.debug("Task started notification", { taskName, description })
   sendRemoteNotification({
     type: "info",
     title: `Task Started: ${taskName}`,
@@ -15,10 +27,12 @@ export function notifyTaskStarted(taskName: string, description?: string): void 
 }
 
 export function notifyTaskCompleted(task: TaskInfo): void {
+  log.debug("Task completed notification", { name: task.name, success: task.success })
   remoteService.notifyTaskComplete(task)
 }
 
 export function notifyTaskFailed(taskName: string, error: string): void {
+  log.debug("Task failed notification", { taskName, error })
   sendRemoteNotification({
     type: "error",
     title: `Task Failed: ${taskName}`,
@@ -27,11 +41,13 @@ export function notifyTaskFailed(taskName: string, error: string): void {
 }
 
 export function notifyInputRequired(agentName: string, prompt: string): void {
+  log.debug("Input required notification", { agentName, prompt })
   remoteService.notifyInputRequired(agentName, prompt)
 }
 
 export function notifyProgress(taskName: string, progress: number, message?: string): void {
   const body = message ?? `Progress: ${progress}%`
+  log.debug("Progress notification", { taskName, progress, message })
   remoteService.broadcast({
     type: "progress",
     payload: {
@@ -43,6 +59,7 @@ export function notifyProgress(taskName: string, progress: number, message?: str
 }
 
 export function notifyInfo(title: string, body: string): void {
+  log.debug("Info notification", { title })
   sendRemoteNotification({
     type: "info",
     title,
@@ -55,6 +72,7 @@ export class RemoteNotificationManager {
 
   setEnabled(enabled: boolean): void {
     this.enabled = enabled
+    log.debug("Notification manager enabled state changed", { enabled })
   }
 
   isEnabled(): boolean {

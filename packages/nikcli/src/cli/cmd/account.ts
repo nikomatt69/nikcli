@@ -4,8 +4,11 @@ import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+import { Log } from "@/util/log"
 
-function runAccount<A, E>(effect: Effect.Effect<A, E, Account.Service>) {
+const log = Log.create({ service: "account-command" })
+
+function runAccount<A, E>(effect: Effect.Effect<A, E, Account.Service>): Promise<A> {
   return runPromiseWithLayer(Account.defaultLayer, effect)
 }
 
@@ -20,7 +23,9 @@ export const AccountCommand = cmd({
       .command(AccountSwitchCommand)
       .command(AccountOrgsCommand)
       .demandCommand(),
-  async handler() {},
+  async handler() {
+    log.debug("Account command handler called without subcommand")
+  },
 })
 
 export const AccountLoginCommand = cmd({
@@ -39,7 +44,8 @@ export const AccountLoginCommand = cmd({
     const spinner = prompts.spinner()
 
     try {
-      // Start device code flow
+      log.debug("Starting device code login flow", { serverUrl: args.server })
+
       const loginResult = await runAccount(
         Effect.gen(function* () {
           const account = yield* Account.Service
@@ -48,9 +54,10 @@ export const AccountLoginCommand = cmd({
       )
 
       prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
-      prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
+      prompts.log.info(
+        `Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`,
+      )
 
-      // Poll for completion
       spinner.start("Waiting for authorization...")
 
       const result = await runAccount(
@@ -66,31 +73,38 @@ export const AccountLoginCommand = cmd({
       )
 
       spinner.stop("Login successful")
+      log.info("Login successful", { accountID: result.accountID })
 
       prompts.log.success(`Account ID: ${result.accountID}`)
 
-      // Fetch and display user info if available
-      try {
-        const accountInfo = await runAccount(
-          Effect.gen(function* () {
-            const account = yield* Account.Service
-            return yield* account.get(result.accountID)
-          }),
-        )
-        if (accountInfo?.email) {
-          prompts.log.info(`Email: ${accountInfo.email}`)
-        }
-      } catch {
-        // Ignore
+      const accountInfo = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return yield* account.get(result.accountID)
+        }),
+      ).catch((error) => {
+        log.debug("Failed to fetch account info", { error })
+        return null
+      })
+
+      if (accountInfo?.email) {
+        prompts.log.info(`Email: ${accountInfo.email}`)
       }
 
       prompts.outro("Done")
     } catch (error) {
       spinner.stop("Login failed", 1)
 
+      if (error instanceof UI.CancelledError) {
+        prompts.outro("Done")
+        return
+      }
+
       if (error instanceof Error) {
+        log.error("Login failed", { error: error.message })
         prompts.log.error(error.message)
       } else {
+        log.error("Login failed with unknown error", { error })
         prompts.log.error("Unknown error")
       }
 
@@ -111,54 +125,66 @@ export const AccountLogoutCommand = cmd({
     UI.empty()
     prompts.intro("Account logout")
 
-    const accounts = await runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        return yield* account.list()
-      }),
-    )
-
-    if (accounts.length === 0) {
-      prompts.log.error("No accounts found")
-      prompts.outro("Done")
-      return
-    }
-
-    let accountId: string
-
-    if (args.accountId) {
-      accountId = args.accountId
-    } else {
-      const selected = await prompts.select({
-        message: "Select account",
-        options: accounts.map((a) => ({
-          label: a.email || a.id,
-          value: a.id,
-        })),
-      })
-
-      if (prompts.isCancel(selected)) throw new UI.CancelledError()
-      accountId = selected
-    }
-
-    const confirmed = await prompts.confirm({
-      message: `Remove account ${accountId}?`,
-      initialValue: false,
-    })
-
-    if (prompts.isCancel(confirmed)) throw new UI.CancelledError()
-
-    if (confirmed) {
-      await runAccount(
+    try {
+      const accounts = await runAccount(
         Effect.gen(function* () {
           const account = yield* Account.Service
-          yield* account.remove(accountId)
+          return yield* account.list()
         }),
       )
-      prompts.log.success("Account removed")
-    }
 
-    prompts.outro("Done")
+      if (accounts.length === 0) {
+        prompts.log.error("No accounts found")
+        prompts.outro("Done")
+        return
+      }
+
+      let accountId: string
+
+      if (args.accountId) {
+        accountId = args.accountId
+      } else {
+        const selected = await prompts.select({
+          message: "Select account",
+          options: accounts.map((a) => ({
+            label: a.email || a.id,
+            value: a.id,
+          })),
+        })
+
+        if (prompts.isCancel(selected)) {
+          prompts.outro("Done")
+          return
+        }
+        accountId = selected
+      }
+
+      const confirmed = await prompts.confirm({
+        message: `Remove account ${accountId}?`,
+        initialValue: false,
+      })
+
+      if (prompts.isCancel(confirmed)) {
+        prompts.outro("Done")
+        return
+      }
+
+      if (confirmed) {
+        log.info("Logging out account", { accountId })
+        await runAccount(
+          Effect.gen(function* () {
+            const account = yield* Account.Service
+            yield* account.remove(accountId)
+          }),
+        )
+        prompts.log.success("Account removed")
+      }
+
+      prompts.outro("Done")
+    } catch (error) {
+      log.error("Logout failed", { error })
+      prompts.outro("Done")
+    }
   },
 })
 
@@ -170,31 +196,37 @@ export const AccountListCommand = cmd({
     UI.empty()
     prompts.intro("Accounts")
 
-    const { accounts, active } = await runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        return {
-          accounts: yield* account.list(),
-          active: yield* account.active(),
-        }
-      }),
-    )
+    try {
+      const { accounts, active } = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return {
+            accounts: yield* account.list(),
+            active: yield* account.active(),
+          }
+        }),
+      )
 
-    if (accounts.length === 0) {
-      prompts.log.warn("No accounts found")
-      prompts.outro("Run `nikcli account login` to add one")
-      return
+      if (accounts.length === 0) {
+        prompts.log.warn("No accounts found")
+        prompts.outro("Run `nikcli account login` to add one")
+        return
+      }
+
+      for (const account of accounts) {
+        const isActive = active?.id === account.id
+        const marker = isActive ? UI.Style.TEXT_SUCCESS + " *" + UI.Style.TEXT_NORMAL : ""
+        prompts.log.info(`${account.email || account.id}${marker}`)
+        prompts.log.info(UI.Style.TEXT_DIM + `  Server: ${account.url}`)
+        prompts.log.info(`  ID: ${account.id}`)
+      }
+
+      log.debug("Listed accounts", { count: accounts.length })
+      prompts.outro(`${accounts.length} account${accounts.length === 1 ? "" : "s"}`)
+    } catch (error) {
+      log.error("Failed to list accounts", { error })
+      prompts.outro("Failed to list accounts")
     }
-
-    for (const account of accounts) {
-      const isActive = active?.id === account.id
-      const marker = isActive ? UI.Style.TEXT_SUCCESS + " *" + UI.Style.TEXT_NORMAL : ""
-      prompts.log.info(`${account.email || account.id}${marker}`)
-      prompts.log.info(UI.Style.TEXT_DIM + `  Server: ${account.url}`)
-      prompts.log.info(`  ID: ${account.id}`)
-    }
-
-    prompts.outro(`${accounts.length} account${accounts.length === 1 ? "" : "s"}`)
   },
 })
 
@@ -210,45 +242,54 @@ export const AccountSwitchCommand = cmd({
     UI.empty()
     prompts.intro("Switch account")
 
-    const accounts = await runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        return yield* account.list()
-      }),
-    )
+    try {
+      const accounts = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return yield* account.list()
+        }),
+      )
 
-    if (accounts.length === 0) {
-      prompts.log.error("No accounts found")
+      if (accounts.length === 0) {
+        prompts.log.error("No accounts found")
+        prompts.outro("Done")
+        return
+      }
+
+      let accountId: string
+
+      if (args.accountId) {
+        accountId = args.accountId
+      } else {
+        const selected = await prompts.select({
+          message: "Select account",
+          options: accounts.map((a) => ({
+            label: a.email || a.id,
+            value: a.id,
+          })),
+        })
+
+        if (prompts.isCancel(selected)) {
+          prompts.outro("Done")
+          return
+        }
+        accountId = selected
+      }
+
+      log.info("Switching to account", { accountId })
+      await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          yield* account.use(accountId)
+        }),
+      )
+      prompts.log.success(`Switched to ${accountId}`)
+
       prompts.outro("Done")
-      return
+    } catch (error) {
+      log.error("Failed to switch account", { error })
+      prompts.outro("Done")
     }
-
-    let accountId: string
-
-    if (args.accountId) {
-      accountId = args.accountId
-    } else {
-      const selected = await prompts.select({
-        message: "Select account",
-        options: accounts.map((a) => ({
-          label: a.email || a.id,
-          value: a.id,
-        })),
-      })
-
-      if (prompts.isCancel(selected)) throw new UI.CancelledError()
-      accountId = selected
-    }
-
-    await runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        yield* account.use(accountId)
-      }),
-    )
-    prompts.log.success(`Switched to ${accountId}`)
-
-    prompts.outro("Done")
   },
 })
 
@@ -264,23 +305,26 @@ export const AccountOrgsCommand = cmd({
     UI.empty()
     prompts.intro("Organizations")
 
-    const activeAccount = await runAccount(
-      Effect.gen(function* () {
-        const account = yield* Account.Service
-        return args.accountId ? yield* account.get(args.accountId) : yield* account.active()
-      }),
-    )
-
-    if (!activeAccount) {
-      prompts.log.error("No account found")
-      prompts.outro("Done")
-      return
-    }
-
     const spinner = prompts.spinner()
     spinner.start("Fetching organizations...")
 
     try {
+      const activeAccount = await runAccount(
+        Effect.gen(function* () {
+          const account = yield* Account.Service
+          return args.accountId
+            ? yield* account.get(args.accountId)
+            : yield* account.active()
+        }),
+      )
+
+      if (!activeAccount) {
+        spinner.stop()
+        prompts.log.error("No account found")
+        prompts.outro("Done")
+        return
+      }
+
       const orgs = await runAccount(
         Effect.gen(function* () {
           const account = yield* Account.Service
@@ -301,13 +345,21 @@ export const AccountOrgsCommand = cmd({
         }
       }
 
+      log.debug("Listed organizations", { count: orgs.length })
       prompts.outro(`${orgs.length} organization${orgs.length === 1 ? "" : "s"}`)
     } catch (error) {
       spinner.stop("Failed to fetch organizations", 1)
 
+      if (error instanceof UI.CancelledError) {
+        prompts.outro("Done")
+        return
+      }
+
       if (error instanceof Error) {
+        log.error("Failed to fetch organizations", { error: error.message })
         prompts.log.error(error.message)
       } else {
+        log.error("Failed to fetch organizations", { error })
         prompts.log.error("Unknown error")
       }
 

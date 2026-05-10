@@ -110,7 +110,7 @@ export namespace Provider {
   }
 
   async function loadOllamaProvider(config: Config.Info): Promise<Info | undefined> {
-    const configured = (config.provider as any)?.ollama
+    const configured = config.provider?.["ollama"]
     const configuredBaseURL =
       (configured?.options?.baseURL as string | undefined) ?? (Env.get("OLLAMA_BASE_URL") as string | undefined)
     const baseURL = normalizeOllamaV1BaseURL(configuredBaseURL ?? "http://127.0.0.1:11434/v1")
@@ -214,7 +214,7 @@ export namespace Provider {
     return isGpt5OrLater(modelID) && !modelID.startsWith("gpt-5-mini")
   }
 
-  const BUNDLED_PROVIDERS: Record<string, (options: any) => SDK> = {
+  const BUNDLED_PROVIDERS: Record<string, (options: Record<string, unknown>) => SDK> = {
     "@ai-sdk/amazon-bedrock": createAmazonBedrock,
     "@ai-sdk/anthropic": createAnthropic,
     "@ai-sdk/azure": createAzure,
@@ -222,7 +222,7 @@ export namespace Provider {
     "@ai-sdk/google-vertex": createVertex,
     "@ai-sdk/google-vertex/anthropic": createVertexAnthropic,
     "@ai-sdk/openai": createOpenAI,
-    "@ai-sdk/openai-compatible": createOpenAICompatible,
+    "@ai-sdk/openai-compatible": createOpenAICompatible as unknown as (options: Record<string, unknown>) => SDK,
     "@openrouter/ai-sdk-provider": createOpenRouter,
     "@ai-sdk/xai": createXai,
     "@ai-sdk/mistral": createMistral,
@@ -236,20 +236,20 @@ export namespace Provider {
     "@ai-sdk/vercel": createVercel,
     "@gitlab/gitlab-ai-provider": createGitLab,
     // @ts-ignore provider package exposes a compatibility factory not covered by current typings
-    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible,
+    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible as unknown as (options: Record<string, unknown>) => SDK,
   }
 
-  type CustomModelLoader = (sdk: any, modelID: string, options?: Record<string, any>) => Promise<any>
+  type CustomModelLoader = (sdk: SDK, modelID: string, options?: Record<string, unknown>) => Promise<unknown>
   type CustomLoader = (
-    provider: Info,
+    provider: { id: string; name: string; source: string; env: string[]; options: Record<string, unknown>; models: Record<string, unknown> },
     ctx: InstanceContext,
   ) => Promise<{
     autoload: boolean
     getModel?: CustomModelLoader
-    options?: Record<string, any>
+    options?: Record<string, unknown>
   }>
 
-  const CUSTOM_LOADERS: Record<string, CustomLoader> = {
+  const CUSTOM_LOADERS = {
     async anthropic() {
       return {
         autoload: false,
@@ -261,7 +261,7 @@ export namespace Provider {
         },
       }
     },
-    async nikcli(input, ctx) {
+    async nikcli(input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) {
       const hasKey = await (async () => {
         const env = Env.all()
         if (input.env.some((item) => env[item])) return true
@@ -273,7 +273,8 @@ export namespace Provider {
 
       if (!hasKey) {
         for (const [key, value] of Object.entries(input.models)) {
-          if (value.cost.input === 0) continue
+          const modelValue = value as { cost?: { input?: number } }
+          if (modelValue?.cost?.input === 0) continue
           delete input.models[key]
         }
       }
@@ -339,7 +340,7 @@ export namespace Provider {
         },
       }
     },
-    "amazon-bedrock": async (_input, ctx) => {
+    "amazon-bedrock": async (_input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) => {
       const config = await configGet(ctx)
       const providerConfig = config.provider?.["amazon-bedrock"]
 
@@ -533,7 +534,7 @@ export namespace Provider {
           project,
           location,
         },
-        async getModel(sdk: any, modelID) {
+        async getModel(sdk: any, modelID: string) {
           const id = String(modelID).trim()
           return sdk.languageModel(id)
         },
@@ -572,7 +573,7 @@ export namespace Provider {
         },
       }
     },
-    gitlab: async (input, ctx) => {
+    gitlab: async (input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) => {
       const instanceUrl = Env.get("GITLAB_INSTANCE_URL") || "https://gitlab.com"
 
       const auth = await authGet(input.id)
@@ -607,7 +608,7 @@ export namespace Provider {
         },
       }
     },
-    "cloudflare-ai-gateway": async (input) => {
+    "cloudflare-ai-gateway": async (input: { id: string }) => {
       const accountId = Env.get("CLOUDFLARE_ACCOUNT_ID")
       const gateway = Env.get("CLOUDFLARE_GATEWAY_ID")
 
@@ -671,7 +672,7 @@ export namespace Provider {
         },
       }
     },
-  }
+  } as unknown as Record<string, CustomLoader>
 
   const CostBlockSchema = Schema.Struct({
     read: Schema.Number,
@@ -1371,7 +1372,12 @@ export namespace Provider {
 
       const mod = await import(installedPath)
 
-      const fn = mod[Object.keys(mod).find((key) => key.startsWith("create"))!]
+      const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
+      if (!createKey) {
+        log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
+        throw new InitError({ providerID: model.providerID }, { cause: new Error("Provider module missing create function") })
+      }
+      const fn = mod[createKey]
       const loaded = fn({
         name: model.providerID,
         ...options,
@@ -1433,8 +1439,8 @@ export namespace Provider {
             const language = s.modelLoaders[model.providerID]
               ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
               : sdk.languageModel(model.api.id)
-            s.models.set(key, language)
-            return language
+            s.models.set(key, language as LanguageModelV2)
+            return language as LanguageModelV2
           } catch (e) {
             if (e instanceof NoSuchModelError) {
               throw new ModelNotFoundError(

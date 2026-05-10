@@ -7,7 +7,7 @@ export namespace MDNS {
   let bonjour: Bonjour | undefined
   let currentPort: number | undefined
 
-  export function publish(port: number) {
+  export function publish(port: number): void {
     if (currentPort === port) return
     if (bonjour) unpublish()
 
@@ -26,30 +26,32 @@ export namespace MDNS {
         log.info("mDNS service published", { name, port })
       })
 
-      service.on("error", (err) => {
-        log.error("mDNS service error", { error: err })
+      service.on("error", (err: unknown) => {
+        log.error("mDNS service error", { error: err instanceof Error ? err.message : String(err) })
       })
 
       currentPort = port
     } catch (err) {
-      log.error("mDNS publish failed", { error: err })
+      log.error("mDNS publish failed", { error: err instanceof Error ? err.message : String(err) })
       if (bonjour) {
         try {
           bonjour.destroy()
-        } catch {}
+        } catch (destroyErr) {
+          log.warn("mDNS destroy after publish failure", { error: destroyErr instanceof Error ? destroyErr.message : String(destroyErr) })
+        }
       }
       bonjour = undefined
       currentPort = undefined
     }
   }
 
-  export function unpublish() {
+  export function unpublish(): void {
     if (bonjour) {
       try {
         bonjour.unpublishAll()
         bonjour.destroy()
       } catch (err) {
-        log.error("mDNS unpublish failed", { error: err })
+        log.error("mDNS unpublish failed", { error: err instanceof Error ? err.message : String(err) })
       }
       bonjour = undefined
       currentPort = undefined

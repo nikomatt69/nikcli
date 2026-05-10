@@ -772,7 +772,10 @@ export namespace SessionPrompt {
               result,
             )
           }),
-        )
+        ).catch((err) => {
+          // Plugin errors are non-fatal, log and continue
+          log.debug("plugin trigger failed", { error: String(err), tool: "task" })
+        })
         assistantMessage.finish = "tool-calls"
         assistantMessage.time.completed = Date.now()
         await sessionUpdateMessage(assistantMessage)

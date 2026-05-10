@@ -70,7 +70,53 @@ export namespace Delegation {
     metadata?: { [key: string]: unknown }
   }
 
-  const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
+  const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000 // 15 min default (aligned with TIMEOUTS.default)
+  const DEFAULT_MAX_ITERATIONS = 3
+
+  // Configuration constants
+  const FORCE_FINALIZE_DELAY_MS = 1000
+  const MIN_HEARTBEAT_INTERVAL_MS = 1000
+
+  // Input validation schema
+  const CreateParamsSchema = z.object({
+    parentSessionID: z.string().min(1, "parentSessionID is required"),
+    agent: z.string().min(1, "agent is required"),
+    prompt: z.string().min(1, "prompt is required"),
+    session: z
+      .object({
+        id: z.string().min(1),
+        directory: z.string(),
+        workspaceID: z.string(),
+      })
+      .optional(),
+    source: BackgroundRun.Source.optional(),
+    metadata: z.record(z.string(), z.unknown()).optional(),
+    delegatorID: z.string().optional(),
+    delegatorSessionID: z.string().optional(),
+    delegatorEnabled: z.boolean().optional(),
+    jobID: z.string().optional(),
+    rootDelegationID: z.string().optional(),
+    parentDelegationID: z.string().optional(),
+    role: BackgroundRun.Role.optional(),
+  })
+  type CreateParams = z.infer<typeof CreateParamsSchema>
+
+  // Configurable timeout per delegation type (in ms)
+  const TIMEOUTS: { [key: string]: number } = {
+    default: 15 * 60 * 1000, // 15 min default
+    task: 15 * 60 * 1000,
+    "model-subtask": 10 * 60 * 1000,
+    research: 20 * 60 * 1000, // Research gets more time
+    advisor: 5 * 60 * 1000,
+    ultrareview: 15 * 60 * 1000,
+    delegator: 10 * 60 * 1000,
+    "delegator-followup": 10 * 60 * 1000,
+    other: 10 * 60 * 1000,
+  }
+
+  function getTimeoutForSource(source?: string): number {
+    return source ? (TIMEOUTS[source] ?? TIMEOUTS.default) : TIMEOUTS.default
+  }
 
   export interface SynthesisItem {
     id: string
@@ -273,17 +319,15 @@ export namespace Delegation {
   function setHeartbeat(delegationID: string): void {
     const entry = current()
     clearHeartbeat(delegationID)
-    const timer = setInterval(
-      () => {
-        void BackgroundRun.touchLease(delegationID).catch((error) => {
-          log.warn("Failed to refresh delegation lease", {
-            delegationID,
-            error,
-          })
+    const interval = Math.max(MIN_HEARTBEAT_INTERVAL_MS, Math.floor(BackgroundRun.LEASE_TIMEOUT_MS / 3))
+    const timer = setInterval(() => {
+      void BackgroundRun.touchLease(delegationID).catch((error) => {
+        log.warn("Failed to refresh delegation lease", {
+          delegationID,
+          error,
         })
-      },
-      Math.max(1000, Math.floor(BackgroundRun.LEASE_TIMEOUT_MS / 3)),
-    )
+      })
+    }, interval)
     entry.heartbeats.set(delegationID, timer)
   }
 
@@ -301,7 +345,7 @@ export namespace Delegation {
     delegationID: string,
     status: Exclude<Status, "running" | "orphaned">,
     error?: string,
-    delayMs: number = 1000,
+    delayMs: number = FORCE_FINALIZE_DELAY_MS,
   ): void {
     const entry = current()
     clearTimer(delegationID)
@@ -349,38 +393,25 @@ export namespace Delegation {
     }, BackgroundRun.LEASE_TIMEOUT_MS)
   }
 
-  export async function create(params: {
-    parentSessionID: string
-    agent: string
-    prompt: string
-    session?: Pick<Session.Info, "id" | "directory" | "workspaceID">
-    source?: BackgroundRun.Source
-    metadata?: { [key: string]: unknown }
-    delegatorID?: string
-    delegatorSessionID?: string
-    delegatorEnabled?: boolean
-    jobID?: string
-    rootDelegationID?: string
-    parentDelegationID?: string
-    role?: BackgroundRun.Role
-  }): Promise<Record> {
-    await ensureDelegationsDir(params.parentSessionID)
+  export async function create(params: CreateParams): Promise<Record> {
+    const validated = CreateParamsSchema.parse(params)
+    await ensureDelegationsDir(validated.parentSessionID)
     const entry = current()
 
     const record = await BackgroundRun.create({
-      parentSessionID: params.parentSessionID,
-      agent: params.agent,
-      prompt: params.prompt,
-      session: params.session,
-      source: params.source,
-      metadata: params.metadata,
-      delegatorID: params.delegatorID,
-      delegatorSessionID: params.delegatorSessionID,
-      delegatorEnabled: params.delegatorEnabled,
-      jobID: params.jobID,
-      rootDelegationID: params.rootDelegationID,
-      parentDelegationID: params.parentDelegationID,
-      role: params.role,
+      parentSessionID: validated.parentSessionID,
+      agent: validated.agent,
+      prompt: validated.prompt,
+      session: validated.session,
+      source: validated.source,
+      metadata: validated.metadata,
+      delegatorID: validated.delegatorID,
+      delegatorSessionID: validated.delegatorSessionID,
+      delegatorEnabled: validated.delegatorEnabled,
+      jobID: validated.jobID,
+      rootDelegationID: validated.rootDelegationID,
+      parentDelegationID: validated.parentDelegationID,
+      role: validated.role,
     })
 
     entry.activeDelegations.set(record.id, record)
@@ -551,6 +582,10 @@ export namespace Delegation {
     const jobID = await resolveJobID(identifier)
     if (!jobID) return undefined
     const records = await BackgroundRun.listForJob(jobID)
+    return findPrimaryRecord(records)
+  }
+
+  function findPrimaryRecord(records: Record[]): Record | undefined {
     return (
       records.find((record) => BackgroundRun.getRole(record) === "delegator") ??
       records.find((record) => record.id === BackgroundRun.getRootDelegationID(record)) ??
@@ -575,10 +610,7 @@ export namespace Delegation {
     if (!jobID) return undefined
     const records = await BackgroundRun.listForJob(jobID)
     if (!records.some((record) => hasAccess(record, sessionID))) return undefined
-    const readable =
-      records.find((record) => BackgroundRun.getRole(record) === "delegator") ??
-      records.find((record) => record.id === BackgroundRun.getRootDelegationID(record)) ??
-      records[0]
+    const readable = findPrimaryRecord(records)
     if (!readable) return undefined
     return BackgroundRun.readArtifact(readable.id)
   }
@@ -724,6 +756,80 @@ export namespace Delegation {
 
       void check()
     })
+  }
+
+  /**
+   * Smart wait for a job to settle using per-source timeouts.
+   * Returns true if all delegations settled normally, false if timeout.
+   */
+  export async function waitForJobSettled(
+    jobID: string,
+    options: { maxIterations?: number; defaultTimeoutMs?: number } = {},
+  ): Promise<{ settled: boolean; iterations: number; timedOut: boolean }> {
+    const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
+    const defaultTimeoutMs = options.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
+
+    for (let i = 0; i < maxIterations; i++) {
+      const records = await BackgroundRun.listForJob(jobID)
+      const running = records.filter((r) => r.status === "running")
+
+      if (running.length === 0) {
+        return { settled: true, iterations: i + 1, timedOut: false }
+      }
+
+      // Use max timeout from running delegations
+      const maxTimeout = Math.max(...running.map((r) => getTimeoutForSource(r.source)))
+      let timedOut = false
+
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          const timer = setTimeout(() => {
+            timedOut = true
+            resolve()
+          }, maxTimeout)
+        }),
+        new Promise<void>((resolve) => {
+          const unsubscribe = Bus.subscribe(Event.Completed, (event) => {
+            const jobRecords = records.filter((r) => r.parentSessionID === event.properties.parentSessionID)
+            if (jobRecords.length > 0 && jobRecords.every((r) => r.status !== "running")) {
+              unsubscribe()
+              resolve()
+            }
+          })
+        }),
+      ])
+
+      if (timedOut) {
+        log.warn("Job iteration timed out", { jobID, iteration: i + 1 })
+      }
+    }
+
+    const records = await BackgroundRun.listForJob(jobID)
+    const stillRunning = records.filter((r) => r.status === "running")
+
+    if (stillRunning.length > 0) {
+      log.error("Job did not settle within max iterations", {
+        jobID,
+        maxIterations,
+        stillRunning: stillRunning.map((r) => r.id),
+      })
+      // Force finalization for stuck delegations
+      await Promise.all(
+        stillRunning.map((r) =>
+          BackgroundRun.finalize(r.id, "timeout", "", "Max iterations reached").catch(() => undefined),
+        ),
+      )
+    }
+
+    return { settled: stillRunning.length === 0, iterations: maxIterations, timedOut: true }
+  }
+
+  /**
+   * Reconcile all interrupted delegations for current instance.
+   */
+  export async function reconcileAll(): Promise<void> {
+    const active = new Set(current().activeDelegations.keys())
+    await BackgroundRun.reconcileInterrupted(active)
   }
 
   export async function waitForSettledJob(identifier: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<void> {

@@ -17,7 +17,7 @@ export const ServeCommand = cmd({
   builder: (yargs) => withNetworkOptions(yargs),
   describe: "starts a headless nikcli server",
   handler: async (args) => {
-    const opts = await resolveNetworkOptions(args)
+    const opts = await resolveNetworkOptions(args as Parameters<typeof resolveNetworkOptions>[0])
 
     const loopback = opts.hostname === "127.0.0.1" || opts.hostname === "::1" || opts.hostname === "localhost"
     const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback

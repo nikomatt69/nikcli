@@ -17,6 +17,10 @@ import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
+import { Log } from "@/util/log"
+import z from "zod"
+
+const log = Log.create({ service: "run-command" })
 
 const TOOL: Record<string, [string, string]> = {
   todowrite: ["Todo", UI.Style.TEXT_WARNING_BOLD],
@@ -33,6 +37,11 @@ const TOOL: Record<string, [string, string]> = {
 
 const SHARE_ID = /^[0-9a-z]{26}$/i
 
+const ShareReferenceSchema = z.object({
+  shareID: z.string().regex(SHARE_ID),
+  origins: z.array(z.string().url()).default([]),
+})
+
 function commandGet(name: string) {
   return runPromiseWithLayer(
     Command.defaultLayer,
@@ -45,7 +54,7 @@ function commandGet(name: string) {
   )
 }
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>): Promise<A> {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
 }
 
@@ -58,7 +67,7 @@ function storageWrite<T>(key: string[], content: T) {
   )
 }
 
-function runShareNext<A, E>(effect: Effect.Effect<A, E, ShareNext.Service>) {
+function runShareNext<A, E>(effect: Effect.Effect<A, E, ShareNext.Service>): Promise<A> {
   return runPromiseWithLayer(ShareNext.defaultLayer, effect)
 }
 
@@ -86,53 +95,57 @@ function agentGet(name: string) {
   )
 }
 
-function shareErrorMessage(error: unknown) {
+function shareErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) return error.message
   if (error && typeof error === "object") {
-    const value = error as any
-    const message = value?.error?.message ?? value?.data?.message ?? value?.message
+    const value = error as Record<string, unknown>
+    const message =
+      (value?.error as { message?: string })?.message ??
+      (value?.data as { message?: string })?.message ??
+      (value?.message as string)
     if (typeof message === "string" && message.trim()) return message.trim()
   }
   return "Failed to share session"
 }
 
-function invalidSessionReference() {
+function invalidSessionReference(): never {
   UI.error("Invalid --session value. Use a `ses_...` session ID or a share URL/ID.")
   process.exit(1)
 }
 
-function resolveEnterpriseOrigin(hostname: string) {
+function resolveEnterpriseOrigin(hostname: string): string | undefined {
   if (hostname === "nikcli.store") return "https://s.nikcli.store"
   if (hostname === "dev.nikcli.store") return "https://dev.s.nikcli.store"
   if (hostname.endsWith(".dev.nikcli.store")) {
     const stage = hostname.slice(0, -".dev.nikcli.store".length)
     if (stage) return `https://${stage}.dev.s.nikcli.store`
   }
+  return undefined
 }
 
-function parseShareReference(input: string) {
+function parseShareReference(input: string): z.infer<typeof ShareReferenceSchema> | undefined {
   if (SHARE_ID.test(input)) {
     return {
-      shareID: input,
-      origins: [] as string[],
+      shareID: input.toLowerCase(),
+      origins: [],
     }
   }
 
-  if (!input.startsWith("http://") && !input.startsWith("https://")) return
+  if (!input.startsWith("http://") && !input.startsWith("https://")) return undefined
 
   let parsed: URL
   try {
     parsed = new URL(input)
   } catch {
-    return
+    return undefined
   }
 
   const parts = parsed.pathname.split("/").filter(Boolean)
-  if (parts.length !== 2) return
+  if (parts.length !== 2) return undefined
 
   const [prefix, shareID] = parts
-  if (prefix !== "share" && prefix !== "s") return
-  if (!SHARE_ID.test(shareID)) return
+  if (prefix !== "share" && prefix !== "s") return undefined
+  if (!SHARE_ID.test(shareID)) return undefined
 
   const origins = new Set<string>()
   const enterpriseOrigin = resolveEnterpriseOrigin(parsed.hostname)
@@ -140,115 +153,139 @@ function parseShareReference(input: string) {
   origins.add(parsed.origin)
 
   return {
-    shareID,
+    shareID: shareID.toLowerCase(),
     origins: Array.from(origins),
   }
 }
 
-async function fetchSharePayload(origins: string[], shareID: string) {
+async function fetchSharePayload(origins: string[], shareID: string): Promise<unknown | undefined> {
   const urls = origins.flatMap((origin) => [`${origin}/api/share/${shareID}/data`, `${origin}/api/share/${shareID}`])
 
   for (const url of urls) {
-    const response = await fetch(url).catch(() => undefined)
-    if (!response?.ok) continue
-    return response.json().catch(() => undefined)
+    try {
+      const response = await fetch(url)
+      if (!response.ok) continue
+      const json = await response.json().catch(() => undefined)
+      if (json) return json
+    } catch (error) {
+      log.debug("Failed to fetch share payload", { url, error })
+    }
   }
+  return undefined
 }
 
-function normalizeSharePayload(payload: any):
-  | {
-    info: any
-    messages: Array<{
-      info: any
-      parts: any[]
-    }>
-    diff?: any[]
-  }
-  | undefined {
+interface SharePayloadMessage {
+  info: Record<string, unknown>
+  parts: unknown[]
+}
+
+interface NormalizedSharePayload {
+  info: Record<string, unknown>
+  messages: SharePayloadMessage[]
+  diff?: unknown[]
+}
+
+function normalizeSharePayload(payload: unknown): NormalizedSharePayload | undefined {
+  if (!payload || typeof payload !== "object") return undefined
+
   if (Array.isArray(payload)) {
-    let info: any
-    let diff: any[] | undefined
-    const messages = new Map<string, { info?: any; parts: any[] }>()
+    let info: Record<string, unknown> | undefined
+    let diff: unknown[] | undefined
+    const messages = new Map<string, { info?: Record<string, unknown>; parts: unknown[] }>()
 
     for (const item of payload) {
       if (!item || typeof item !== "object") continue
-      if (item.type === "session") {
-        info = item.data
+      const typedItem = item as Record<string, unknown>
+
+      if (typedItem.type === "session") {
+        info = typedItem.data as Record<string, unknown>
         continue
       }
-      if (item.type === "session_diff" && Array.isArray(item.data)) {
-        diff = item.data
+      if (typedItem.type === "session_diff" && Array.isArray(typedItem.data)) {
+        diff = typedItem.data
         continue
       }
-      if (item.type === "message") {
-        const messageID = item.data?.id
+      if (typedItem.type === "message") {
+        const data = typedItem.data as Record<string, unknown>
+        const messageID = data?.id
         if (!messageID) continue
-        const existing = messages.get(messageID)
-        messages.set(messageID, {
-          info: item.data,
+        const existing = messages.get(messageID as string)
+        messages.set(messageID as string, {
+          info: data,
           parts: existing?.parts ?? [],
         })
         continue
       }
-      if (item.type === "part") {
-        const messageID = item.data?.messageID
+      if (typedItem.type === "part") {
+        const data = typedItem.data as Record<string, unknown>
+        const messageID = data?.messageID
         if (!messageID) continue
-        const existing = messages.get(messageID)
+        const existing = messages.get(messageID as string)
         if (existing) {
-          existing.parts.push(item.data)
+          existing.parts.push(data)
         } else {
-          messages.set(messageID, {
-            parts: [item.data],
+          messages.set(messageID as string, {
+            parts: [data],
           })
         }
       }
     }
 
-    if (!info) return
+    if (!info) return undefined
 
     return {
       info,
       diff,
       messages: Array.from(messages.values())
-        .filter((item): item is { info: any; parts: any[] } => Boolean(item.info))
-        .sort((a, b) => (a.info.time?.created ?? 0) - (b.info.time?.created ?? 0))
+        .filter((item): item is { info: Record<string, unknown>; parts: unknown[] } => Boolean(item.info))
+        .sort((a, b) => {
+          const aTime = (a.info?.time as { created?: number })?.created ?? 0
+          const bTime = (b.info?.time as { created?: number })?.created ?? 0
+          return aTime - bTime
+        })
         .map((item) => ({
-          info: item.info,
+          info: item.info!,
           parts: item.parts,
         })),
     }
   }
 
-  if (!payload?.info || !payload?.messages) return
+  const typedPayload = payload as { info?: unknown; messages?: unknown; diff?: unknown }
+  if (!typedPayload.info || !typedPayload.messages) return undefined
 
   return {
-    info: payload.info,
-    diff: Array.isArray(payload.diff) ? payload.diff : undefined,
-    messages: Object.values(payload.messages).map((msg: any) => {
-      const { parts, ...info } = msg
+    info: typedPayload.info as Record<string, unknown>,
+    diff: Array.isArray(typedPayload.diff) ? typedPayload.diff : undefined,
+    messages: Object.values(typedPayload.messages as Record<string, unknown>).map((msg) => {
+      const { parts, ...info } = msg as { parts: unknown[]; [key: string]: unknown }
       return {
         info,
-        parts,
+        parts: parts ?? [],
       }
     }),
   }
 }
 
-async function importShareReference(input: string) {
+async function importShareReference(input: string): Promise<string | undefined> {
   const parsed = parseShareReference(input)
-  if (!parsed) return
+  if (!parsed) return undefined
 
-  let payload = await runShareNext(
+  log.debug("Importing share reference", { shareID: parsed.shareID })
+
+  let payload: unknown = await runShareNext(
     Effect.gen(function* () {
       const shareNext = yield* ShareNext.Service
       return yield* shareNext.publicData(parsed.shareID)
     }),
   ).catch(() => undefined)
+
   if (!payload) {
     const configOrigin = await configGet()
       .then((config) => config.enterprise?.url ?? "https://s.nikcli.store")
       .catch(() => "https://s.nikcli.store")
-    payload = await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)
+    payload = (await fetchSharePayload(parsed.origins.length ? parsed.origins : [configOrigin], parsed.shareID)) as
+      | Record<string, unknown>
+      | undefined
   }
 
   const normalized = normalizeSharePayload(payload)
@@ -256,19 +293,23 @@ async function importShareReference(input: string) {
     throw new Error(`Share not found: ${parsed.shareID}`)
   }
 
-  await storageWrite(["session", Instance.project.id, normalized.info.id], normalized.info)
+  const info = normalized.info
+  await storageWrite(["session", Instance.project.id, info.id as string], info)
+
   if (normalized.diff) {
-    await storageWrite(["session_diff", normalized.info.id], normalized.diff)
+    await storageWrite(["session_diff", info.id as string], normalized.diff)
   }
 
   for (const msg of normalized.messages) {
-    await storageWrite(["message", normalized.info.id, msg.info.id], msg.info)
+    await storageWrite(["message", info.id as string, msg.info.id as string], msg.info)
     for (const part of msg.parts) {
-      await storageWrite(["part", msg.info.id, part.id], part)
+      const partTyped = part as { id: string }
+      await storageWrite(["part", msg.info.id as string, partTyped.id], part)
     }
   }
 
-  return normalized.info.id as string
+  log.info("Share imported successfully", { shareID: parsed.shareID, sessionID: info.id })
+  return info.id as string
 }
 
 export const RunCommand = cmd({
@@ -339,40 +380,63 @@ export const RunCommand = cmd({
       })
   },
   handler: async (args) => {
+    log.debug("Run command started", {
+      hasMessage: args.message.length > 0,
+      hasCommand: Boolean(args.command),
+      hasSession: Boolean(args.session),
+      hasAttach: Boolean(args.attach),
+    })
+
     let message = [...args.message, ...(args["--"] || [])]
       .map((arg) => (arg.includes(" ") ? `"${arg.replace(/"/g, '\\"')}"` : arg))
       .join(" ")
 
-    const fileParts: any[] = []
+    const fileParts: Array<{
+      type: "file"
+      url: string
+      filename: string
+      mime: string
+    }> = []
+
     if (args.file) {
       const files = Array.isArray(args.file) ? args.file : [args.file]
 
       for (const filePath of files) {
         const resolvedPath = path.resolve(process.cwd(), filePath)
         const file = Bun.file(resolvedPath)
-        const stats = await file.stat().catch(() => { })
-        if (!stats) {
+
+        try {
+          const exists = await file.exists()
+          if (!exists) {
+            UI.error(`File not found: ${filePath}`)
+            process.exit(1)
+          }
+
+          const stat = await file.stat()
+          const mime = stat.isDirectory() ? "application/x-directory" : "text/plain"
+
+          fileParts.push({
+            type: "file",
+            url: `file://${resolvedPath}`,
+            filename: path.basename(resolvedPath),
+            mime,
+          })
+        } catch (error) {
+          log.error("Failed to process file", { filePath, error })
           UI.error(`File not found: ${filePath}`)
           process.exit(1)
         }
-        if (!(await file.exists())) {
-          UI.error(`File not found: ${filePath}`)
-          process.exit(1)
-        }
-
-        const stat = await file.stat()
-        const mime = stat.isDirectory() ? "application/x-directory" : "text/plain"
-
-        fileParts.push({
-          type: "file",
-          url: `file://${resolvedPath}`,
-          filename: path.basename(resolvedPath),
-          mime,
-        })
       }
     }
 
-    if (!process.stdin.isTTY) message += "\n" + (await Bun.stdin.text())
+    if (!process.stdin.isTTY) {
+      try {
+        const stdinText = await Bun.stdin.text()
+        message += "\n" + stdinText
+      } catch (error) {
+        log.debug("Failed to read stdin", { error })
+      }
+    }
 
     if (message.trim().length === 0 && !args.command) {
       UI.error("You must provide a message or a command")
@@ -380,16 +444,18 @@ export const RunCommand = cmd({
     }
 
     const execute = async (sdk: NikcliClient, sessionID: string) => {
+      log.debug("Executing session", { sessionID })
+
       const printEvent = (color: string, type: string, title: string) => {
         UI.println(
-          color + `|`,
+          color + "|",
           UI.Style.TEXT_NORMAL + UI.Style.TEXT_DIM + ` ${type.padEnd(7, " ")}`,
           "",
           UI.Style.TEXT_NORMAL + title,
         )
       }
 
-      const outputJsonEvent = (type: string, data: any) => {
+      const outputJsonEvent = (type: string, data: object) => {
         if (args.format === "json") {
           process.stdout.write(JSON.stringify({ type, timestamp: Date.now(), sessionID, ...data }) + EOL)
           return true
@@ -440,8 +506,12 @@ export const RunCommand = cmd({
             const props = event.properties
             if (props.sessionID !== sessionID || !props.error) continue
             let err = String(props.error.name)
-            if ("data" in props.error && props.error.data && "message" in props.error.data) {
-              err = String(props.error.data.message)
+            if (
+              "data" in props.error &&
+              props.error.data &&
+              "message" in (props.error.data as Record<string, unknown>)
+            ) {
+              err = String((props.error.data as { message: string }).message)
             }
             errorMsg = errorMsg ? errorMsg + EOL + err : err
             if (outputJsonEvent("error", { error: props.error })) continue
@@ -517,10 +587,14 @@ export const RunCommand = cmd({
       }
 
       await eventProcessor
-      if (errorMsg) process.exit(1)
+      if (errorMsg) {
+        log.error("Session completed with errors", { sessionID, error: errorMsg })
+        process.exit(1)
+      }
     }
 
     if (args.attach) {
+      log.debug("Attaching to remote server", { url: args.attach })
       const sdk = createNikcliClient({ baseUrl: args.attach })
 
       const sessionID = await (async () => {
@@ -548,24 +622,24 @@ export const RunCommand = cmd({
         const result = await sdk.session.create(
           title
             ? {
-              title,
-              permission: [
-                {
-                  permission: "question",
-                  action: "deny",
-                  pattern: "*",
-                },
-              ],
-            }
+                title,
+                permission: [
+                  {
+                    permission: "question",
+                    action: "deny",
+                    pattern: "*",
+                  },
+                ],
+              }
             : {
-              permission: [
-                {
-                  permission: "question",
-                  action: "deny",
-                  pattern: "*",
-                },
-              ],
-            },
+                permission: [
+                  {
+                    permission: "question",
+                    action: "deny",
+                    pattern: "*",
+                  },
+                ],
+              },
         )
         return result.data?.id
       })()
@@ -590,10 +664,13 @@ export const RunCommand = cmd({
     }
 
     await bootstrap(process.cwd(), async () => {
+      log.debug("Running local nikcli session")
+
       const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
         const request = new Request(input, init)
         return Server.App().fetch(request)
       }) as typeof globalThis.fetch
+
       const sdk = createNikcliClient({ baseUrl: "http://nikcli.local", fetch: fetchFn })
 
       if (args.command) {

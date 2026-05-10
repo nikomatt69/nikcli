@@ -7,12 +7,16 @@ import { Project } from "../../project/project"
 import { Instance } from "../../project/instance"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Log } from "@/util/log"
+import z from "zod"
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
+const log = Log.create({ service: "stats-command" })
+
+function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>): Promise<A> {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
 }
 
-function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
+function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>): Promise<A> {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
@@ -33,6 +37,40 @@ function storageList(prefix: string[]) {
     }),
   )
 }
+
+const ModelUsageSchema = z.object({
+  messages: z.number(),
+  tokens: z.object({
+    input: z.number(),
+    output: z.number(),
+  }),
+  cost: z.number(),
+})
+
+const SessionStatsSchema = z.object({
+  totalSessions: z.number(),
+  totalMessages: z.number(),
+  totalCost: z.number(),
+  totalTokens: z.object({
+    input: z.number(),
+    output: z.number(),
+    reasoning: z.number(),
+    cache: z.object({
+      read: z.number(),
+      write: z.number(),
+    }),
+  }),
+  toolUsage: z.record(z.string(), z.number()),
+  modelUsage: z.record(z.string(), ModelUsageSchema),
+  dateRange: z.object({
+    earliest: z.number(),
+    latest: z.number(),
+  }),
+  days: z.number(),
+  costPerDay: z.number(),
+  tokensPerSession: z.number(),
+  medianTokensPerSession: z.number(),
+})
 
 interface SessionStats {
   totalSessions: number
@@ -91,6 +129,13 @@ export const StatsCommand = cmd({
       })
   },
   handler: async (args) => {
+    log.debug("Stats command started", {
+      days: args.days,
+      tools: args.tools,
+      models: args.models,
+      project: args.project,
+    })
+
     await bootstrap(process.cwd(), async () => {
       const stats = await aggregateSessionStats(args.days, args.project)
 
@@ -113,26 +158,33 @@ async function getCurrentProject(): Promise<Project.Info> {
 async function getAllSessions(): Promise<Session.Info[]> {
   const sessions: Session.Info[] = []
 
-  const projectKeys = await storageList(["project"])
-  const projects = await Promise.all(projectKeys.map((key) => storageRead<Project.Info>(key)))
+  try {
+    const projectKeys = await storageList(["project"])
+    const projects = await Promise.all(projectKeys.map((key) => storageRead<Project.Info>(key)))
 
-  for (const project of projects) {
-    if (!project) continue
+    for (const project of projects) {
+      if (!project) continue
 
-    const sessionKeys = await storageList(["session", project.id])
-    const projectSessions = await Promise.all(sessionKeys.map((key) => storageRead<Session.Info>(key)))
+      const sessionKeys = await storageList(["session", project.id])
+      const projectSessions = await Promise.all(sessionKeys.map((key) => storageRead<Session.Info>(key)))
 
-    for (const session of projectSessions) {
-      if (session) {
-        sessions.push(session)
+      for (const session of projectSessions) {
+        if (session) {
+          sessions.push(session)
+        }
       }
     }
+  } catch (error) {
+    log.error("Failed to get all sessions", { error })
   }
 
   return sessions
 }
 
-export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
+export async function aggregateSessionStats(
+  days?: number,
+  projectFilter?: string,
+): Promise<SessionStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -147,21 +199,30 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
   })()
 
   const windowDays = (() => {
-    if (days === undefined) return
+    if (days === undefined) return undefined
     if (days === 0) return 1
     return days
   })()
 
-  let filteredSessions = cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
+  let filteredSessions =
+    cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
       const currentProject = await getCurrentProject()
-      filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
+      filteredSessions = filteredSessions.filter(
+        (session) => session.projectID === currentProject.id,
+      )
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)
     }
   }
+
+  log.debug("Aggregating session stats", {
+    totalSessions: filteredSessions.length,
+    days,
+    projectFilter,
+  })
 
   const stats: SessionStats = {
     totalSessions: filteredSessions.length,
@@ -189,11 +250,14 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
   }
 
   if (filteredSessions.length > 1000) {
-    console.log(`Large dataset detected (${filteredSessions.length} sessions). This may take a while...`)
+    console.log(
+      `Large dataset detected (${filteredSessions.length} sessions). This may take a while...`,
+    )
   }
 
   if (filteredSessions.length === 0) {
     stats.days = windowDays ?? 0
+    log.debug("No sessions found, returning empty stats")
     return stats
   }
 
@@ -207,72 +271,94 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
     const batch = filteredSessions.slice(i, i + BATCH_SIZE)
 
     const batchPromises = batch.map(async (session) => {
-      const messages = await runSession(
-        Effect.gen(function* () {
-          const sessionService = yield* Session.Service
-          return yield* sessionService.messages({ sessionID: session.id })
-        }),
-      )
+      try {
+        const messages = await runSession(
+          Effect.gen(function* () {
+            const sessionService = yield* Session.Service
+            return yield* sessionService.messages({ sessionID: session.id })
+          }),
+        )
 
-      let sessionCost = 0
-      let sessionTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
-      let sessionToolUsage: Record<string, number> = {}
-      let sessionModelUsage: Record<
-        string,
-        {
-          messages: number
-          tokens: {
-            input: number
-            output: number
-          }
-          cost: number
+        let sessionCost = 0
+        let sessionTokens = {
+          input: 0,
+          output: 0,
+          reasoning: 0,
+          cache: { read: 0, write: 0 },
         }
-      > = {}
+        let sessionToolUsage: Record<string, number> = {}
+        let sessionModelUsage: Record<
+          string,
+          {
+            messages: number
+            tokens: {
+              input: number
+              output: number
+            }
+            cost: number
+          }
+        > = {}
 
-      for (const message of messages) {
-        if (message.info.role === "assistant") {
-          sessionCost += message.info.cost || 0
+        for (const message of messages) {
+          if (message.info.role === "assistant") {
+            sessionCost += message.info.cost || 0
 
-          const modelKey = `${message.info.providerID}/${message.info.modelID}`
-          if (!sessionModelUsage[modelKey]) {
-            sessionModelUsage[modelKey] = {
-              messages: 0,
-              tokens: { input: 0, output: 0 },
-              cost: 0,
+            const modelKey = `${message.info.providerID}/${message.info.modelID}`
+            if (!sessionModelUsage[modelKey]) {
+              sessionModelUsage[modelKey] = {
+                messages: 0,
+                tokens: { input: 0, output: 0 },
+                cost: 0,
+              }
+            }
+            sessionModelUsage[modelKey].messages++
+            sessionModelUsage[modelKey].cost += message.info.cost || 0
+
+            if (message.info.tokens) {
+              sessionTokens.input += message.info.tokens.input || 0
+              sessionTokens.output += message.info.tokens.output || 0
+              sessionTokens.reasoning += message.info.tokens.reasoning || 0
+              sessionTokens.cache.read += message.info.tokens.cache?.read || 0
+              sessionTokens.cache.write += message.info.tokens.cache?.write || 0
+
+              sessionModelUsage[modelKey].tokens.input += message.info.tokens.input || 0
+              sessionModelUsage[modelKey].tokens.output +=
+                (message.info.tokens.output || 0) + (message.info.tokens.reasoning || 0)
             }
           }
-          sessionModelUsage[modelKey].messages++
-          sessionModelUsage[modelKey].cost += message.info.cost || 0
 
-          if (message.info.tokens) {
-            sessionTokens.input += message.info.tokens.input || 0
-            sessionTokens.output += message.info.tokens.output || 0
-            sessionTokens.reasoning += message.info.tokens.reasoning || 0
-            sessionTokens.cache.read += message.info.tokens.cache?.read || 0
-            sessionTokens.cache.write += message.info.tokens.cache?.write || 0
-
-            sessionModelUsage[modelKey].tokens.input += message.info.tokens.input || 0
-            sessionModelUsage[modelKey].tokens.output +=
-              (message.info.tokens.output || 0) + (message.info.tokens.reasoning || 0)
+          for (const part of message.parts) {
+            if (part.type === "tool" && part.tool) {
+              sessionToolUsage[part.tool] = (sessionToolUsage[part.tool] || 0) + 1
+            }
           }
         }
 
-        for (const part of message.parts) {
-          if (part.type === "tool" && part.tool) {
-            sessionToolUsage[part.tool] = (sessionToolUsage[part.tool] || 0) + 1
-          }
+        return {
+          messageCount: messages.length,
+          sessionCost,
+          sessionTokens,
+          sessionTotalTokens: sessionTokens.input + sessionTokens.output + sessionTokens.reasoning,
+          sessionToolUsage,
+          sessionModelUsage,
+          earliestTime: cutoffTime > 0 ? session.time.updated : session.time.created,
+          latestTime: session.time.updated,
         }
-      }
-
-      return {
-        messageCount: messages.length,
-        sessionCost,
-        sessionTokens,
-        sessionTotalTokens: sessionTokens.input + sessionTokens.output + sessionTokens.reasoning,
-        sessionToolUsage,
-        sessionModelUsage,
-        earliestTime: cutoffTime > 0 ? session.time.updated : session.time.created,
-        latestTime: session.time.updated,
+      } catch (error) {
+        log.error("Failed to process session", { sessionId: session.id, error })
+        return {
+          messageCount: 0,
+          sessionCost: 0,
+          sessionTokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+          sessionTotalTokens: 0,
+          sessionToolUsage: {} as Record<string, number>,
+          sessionModelUsage: {} as Record<
+            string,
+            { messages: number; tokens: { input: number; output: number }; cost: number }
+          >,
+          earliestTime: session.time.updated,
+          latestTime: session.time.updated,
+        }
       }
     })
 
@@ -330,10 +416,19 @@ export async function aggregateSessionStats(days?: number, projectFilter?: strin
         ? (sessionTotalTokens[mid - 1] + sessionTotalTokens[mid]) / 2
         : sessionTotalTokens[mid]
 
+  log.debug("Stats aggregation complete", {
+    totalSessions: stats.totalSessions,
+    totalCost: stats.totalCost,
+  })
+
   return stats
 }
 
-export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit?: number) {
+export function displayStats(
+  stats: SessionStats,
+  toolLimit?: number,
+  modelLimit?: number,
+): void {
   const width = 56
 
   function renderRow(label: string, value: string): string {
@@ -343,7 +438,6 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
     return `│${label}${" ".repeat(padding)}${value} │`
   }
 
-  // Overview section
   console.log("┌────────────────────────────────────────────────────────┐")
   console.log("│                       OVERVIEW                         │")
   console.log("├────────────────────────────────────────────────────────┤")
@@ -353,17 +447,18 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
   console.log("└────────────────────────────────────────────────────────┘")
   console.log()
 
-  // Cost & Tokens section
   console.log("┌────────────────────────────────────────────────────────┐")
   console.log("│                    COST & TOKENS                       │")
   console.log("├────────────────────────────────────────────────────────┤")
-  const cost = isNaN(stats.totalCost) ? 0 : stats.totalCost
-  const costPerDay = isNaN(stats.costPerDay) ? 0 : stats.costPerDay
-  const tokensPerSession = isNaN(stats.tokensPerSession) ? 0 : stats.tokensPerSession
+  const cost = Number.isFinite(stats.totalCost) ? stats.totalCost : 0
+  const costPerDay = Number.isFinite(stats.costPerDay) ? stats.costPerDay : 0
+  const tokensPerSession = Number.isFinite(stats.tokensPerSession) ? stats.tokensPerSession : 0
   console.log(renderRow("Total Cost", `$${cost.toFixed(2)}`))
   console.log(renderRow("Avg Cost/Day", `$${costPerDay.toFixed(2)}`))
   console.log(renderRow("Avg Tokens/Session", formatNumber(Math.round(tokensPerSession))))
-  const medianTokensPerSession = isNaN(stats.medianTokensPerSession) ? 0 : stats.medianTokensPerSession
+  const medianTokensPerSession = Number.isFinite(stats.medianTokensPerSession)
+    ? stats.medianTokensPerSession
+    : 0
   console.log(renderRow("Median Tokens/Session", formatNumber(Math.round(medianTokensPerSession))))
   console.log(renderRow("Input", formatNumber(stats.totalTokens.input)))
   console.log(renderRow("Output", formatNumber(stats.totalTokens.output)))
@@ -372,7 +467,6 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
   console.log("└────────────────────────────────────────────────────────┘")
   console.log()
 
-  // Model Usage section
   if (modelLimit !== undefined && Object.keys(stats.modelUsage).length > 0) {
     const sortedModels = Object.entries(stats.modelUsage).sort(([, a], [, b]) => b.messages - a.messages)
     const modelsToDisplay = modelLimit === Infinity ? sortedModels : sortedModels.slice(0, modelLimit)
@@ -389,13 +483,11 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
       console.log(renderRow("  Cost", `$${usage.cost.toFixed(4)}`))
       console.log("├────────────────────────────────────────────────────────┤")
     }
-    // Remove last separator and add bottom border
-    process.stdout.write("\x1B[1A") // Move up one line
+    process.stdout.write("\x1B[1A")
     console.log("└────────────────────────────────────────────────────────┘")
   }
   console.log()
 
-  // Tool Usage section
   if (Object.keys(stats.toolUsage).length > 0) {
     const sortedTools = Object.entries(stats.toolUsage).sort(([, a], [, b]) => b - a)
     const toolsToDisplay = toolLimit ? sortedTools.slice(0, toolLimit) : sortedTools
@@ -404,7 +496,7 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
     console.log("│                      TOOL USAGE                        │")
     console.log("├────────────────────────────────────────────────────────┤")
 
-    const maxCount = Math.max(...toolsToDisplay.map(([, count]) => count))
+    const maxCount = Math.max(1, ...toolsToDisplay.map(([, count]) => count))
     const totalToolUsage = Object.values(stats.toolUsage).reduce((a, b) => a + b, 0)
 
     for (const [tool, count] of toolsToDisplay) {
@@ -426,6 +518,7 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
 }
 
 function formatNumber(num: number): string {
+  if (!Number.isFinite(num)) return "0"
   if (num >= 1000000) {
     return (num / 1000000).toFixed(1) + "M"
   } else if (num >= 1000) {

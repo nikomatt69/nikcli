@@ -99,7 +99,7 @@ export namespace Server {
     return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
   }
 
-  function tailscaleUserLogin(c: any): string | undefined {
+  function tailscaleUserLogin(c: { req: { header(name: string): string | undefined } }): string | undefined {
     const value = c.req.header("Tailscale-User-Login")
     const login = value?.trim()
     return login ? login : undefined
@@ -128,7 +128,6 @@ export namespace Server {
   const app = new Hono()
   export const App: () => Hono = lazy(
     () =>
-      // TODO: Break server.ts into smaller route files to fix type inference
       app
         .onError((err, c) => {
           log.error("failed", {

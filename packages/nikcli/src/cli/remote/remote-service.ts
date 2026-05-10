@@ -21,6 +21,10 @@ import type {
   SessionStatus,
   TaskInfo,
 } from "./types"
+import { RemoteServiceConfigSchema, RemoteSessionPersistenceSchema, SessionStatusSchema } from "./types"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "remote-service" })
 
 type SessionSnapshot = {
   id?: string
@@ -32,7 +36,12 @@ type SessionSnapshot = {
   port?: number
 }
 
-const DEFAULT_TUNNEL_PROVIDERS: TunnelProvider[] = ["localtunnel", "cloudflared", "ngrok", "remotosh"]
+const DEFAULT_TUNNEL_PROVIDERS: TunnelProvider[] = [
+  "localtunnel",
+  "cloudflared",
+  "ngrok",
+  "remotosh",
+]
 
 export class RemoteService extends EventEmitter {
   private static instance: RemoteService
@@ -49,6 +58,10 @@ export class RemoteService extends EventEmitter {
     this.configPath = path.join(os.homedir(), ".nikcli", "remote-config.json")
     this.sessionsDir = path.join(os.homedir(), ".nikcli", "remote-sessions")
     this.config = this.getDefaultConfig()
+    log.debug("RemoteService instance created", {
+      configPath: this.configPath,
+      sessionsDir: this.sessionsDir,
+    })
   }
 
   static getInstance(): RemoteService {
@@ -59,7 +72,12 @@ export class RemoteService extends EventEmitter {
   }
 
   async init(): Promise<void> {
-    if (this.initialized) return
+    if (this.initialized) {
+      log.debug("RemoteService already initialized")
+      return
+    }
+
+    log.debug("Initializing RemoteService")
 
     try {
       await this.ensureDirectories()
@@ -71,8 +89,10 @@ export class RemoteService extends EventEmitter {
       }
 
       this.initialized = true
+      log.info("RemoteService initialized successfully")
       this.emit("ready")
-    } catch (error: any) {
+    } catch (error) {
+      log.error("Failed to initialize RemoteService", { error })
       this.emit("error", error)
     }
   }
@@ -83,12 +103,20 @@ export class RemoteService extends EventEmitter {
 
   async startSession(options?: SessionOptions): Promise<RemoteSession> {
     if (!this.initialized) {
-      throw new Error("RemoteService not initialized. Call init() first.")
+      const error = new Error("RemoteService not initialized. Call init() first.")
+      log.error("Failed to start session", { error: error.message })
+      throw error
     }
 
     if (this.sessionManager?.isActive()) {
-      throw new Error('Session already active. Stop it first with "nikcli remote-control stop"')
+      const error = new Error(
+        'Session already active. Stop it first with "nikcli remote-control stop"',
+      )
+      log.error("Failed to start session", { error: error.message })
+      throw error
     }
+
+    log.debug("Starting new remote session", { options })
 
     if (this.sessionManager) {
       this.sessionManager.removeAllListeners()
@@ -98,21 +126,43 @@ export class RemoteService extends EventEmitter {
     this.sessionManager = new SessionManager(this.config)
 
     this.sessionManager.on("status:change", (session: RemoteSession) => {
-      void this.persistSession(session)
+      log.debug("Session status changed", { sessionId: session.id, status: session.status })
+      void this.persistSession(session).catch((e) =>
+        log.error("Failed to persist session", { error: e }),
+      )
       this.emit("session:status", session)
     })
 
-    this.sessionManager.on("device:connected", (session: RemoteSession, device: any) => {
-      void this.persistSession(session)
-      this.emit("device:connected", session, device)
-    })
+    this.sessionManager.on(
+      "device:connected",
+      (session: RemoteSession, device: { id: string }) => {
+        log.info("Device connected to session", {
+          sessionId: session.id,
+          deviceId: device.id,
+        })
+        void this.persistSession(session).catch((e) =>
+          log.error("Failed to persist session", { error: e }),
+        )
+        this.emit("device:connected", session, device)
+      },
+    )
 
-    this.sessionManager.on("device:disconnected", (session: RemoteSession, device: any) => {
-      void this.persistSession(session)
-      this.emit("device:disconnected", session, device)
-    })
+    this.sessionManager.on(
+      "device:disconnected",
+      (session: RemoteSession, device: { id: string }) => {
+        log.info("Device disconnected from session", {
+          sessionId: session.id,
+          deviceId: device.id,
+        })
+        void this.persistSession(session).catch((e) =>
+          log.error("Failed to persist session", { error: e }),
+        )
+        this.emit("device:disconnected", session, device)
+      },
+    )
 
     this.sessionManager.on("error", (error: Error) => {
+      log.error("Session manager error", { error: error.message })
       this.emit("session:error", error)
     })
 
@@ -127,16 +177,21 @@ export class RemoteService extends EventEmitter {
     const session = await this.sessionManager.start(options)
     await this.persistSession(session)
 
+    log.info("Remote session started", { sessionId: session.id, port: session.port })
     this.emit("session:started", session)
     return session
   }
 
   async stopSession(): Promise<void> {
     if (!this.sessionManager?.isActive()) {
-      throw new Error("No active session")
+      const error = new Error("No active session")
+      log.error("Failed to stop session", { error: error.message })
+      throw error
     }
 
     const session = this.sessionManager.getSession()
+    log.debug("Stopping remote session", { sessionId: session?.id })
+
     await this.sessionManager.stop()
     await this.handleSessionStopped(session)
   }
@@ -154,19 +209,13 @@ export class RemoteService extends EventEmitter {
     return (session?.connectedDevices?.length ?? 0) > 0
   }
 
-  private sanitizeForTunnel(data: string): string {
-    return data
-  }
-
   writeToTerminal(data: string): void {
     if (!this.sessionManager?.isActive()) return
-    const sanitized = this.sanitizeForTunnel(data)
-    this.sessionManager.writeToTerminal(sanitized)
+    this.sessionManager.writeToTerminal(data)
   }
 
   private broadcastToClients(_data: string): void {
     // The server already broadcasts to clients via WebSocket
-    // No action needed - this is just for receiving output from server
   }
 
   resizeTerminal(cols: number, rows: number): void {
@@ -189,34 +238,57 @@ export class RemoteService extends EventEmitter {
     provider?: TunnelProvider
   }): Promise<TunnelProvider | null> {
     const session = this.getSession()
-    if (!session) throw new Error("No active session")
-    if (!options.enableTunnel) return null
-    if (options.provider === "none") return null
+    if (!session) {
+      const error = new Error("No active session")
+      log.error("Failed to create tunnel", { error: error.message })
+      throw error
+    }
+
+    if (!options.enableTunnel) {
+      log.debug("Tunnel disabled by options")
+      return null
+    }
+
+    if (options.provider === "none") {
+      log.debug("Tunnel provider set to none")
+      return null
+    }
 
     const port = session.port ?? this.getServerPort()
     if (!port) {
-      throw new Error("Tunnel unavailable; missing server port")
+      const error = new Error("Tunnel unavailable; missing server port")
+      log.error("Failed to create tunnel", { error: error.message })
+      throw error
     }
 
     const providers = await this.getTunnelCandidates(options.provider)
     if (providers.length === 0) {
+      log.warn("No tunnel providers available")
       return null
     }
 
     const sessionToken = this.extractTokenFromUrl(session.qrUrl)
     if (!sessionToken) {
-      throw new Error("Tunnel unavailable; missing session token")
+      const error = new Error("Tunnel unavailable; missing session token")
+      log.error("Failed to create tunnel", { error: error.message })
+      throw error
     }
+
+    log.debug("Creating tunnel", { port, providers })
 
     await this.closeTunnel()
 
     for (const provider of providers) {
       const result = await createTunnel(port, provider).catch(() => null)
-      if (!result) continue
+      if (!result) {
+        log.debug("Tunnel creation failed for provider", { provider })
+        continue
+      }
 
       const tunnelUrl = this.buildSessionUrl(result.url, session.id, sessionToken)
       const reachable = await probeTunnel(tunnelUrl)
       if (!reachable) {
+        log.debug("Tunnel not reachable", { provider, tunnelUrl })
         await result.close().catch(() => {})
         continue
       }
@@ -225,14 +297,17 @@ export class RemoteService extends EventEmitter {
       session.tunnelUrl = tunnelUrl
       session.qrUrl = tunnelUrl
       await this.persistSession(session)
+      log.info("Tunnel created successfully", { provider, tunnelUrl })
       return provider
     }
 
+    log.warn("All tunnel providers failed")
     return null
   }
 
   async closeTunnel(): Promise<void> {
     if (this.activeTunnel) {
+      log.debug("Closing active tunnel")
       await this.activeTunnel.close().catch(() => {})
       this.activeTunnel = null
     }
@@ -292,8 +367,16 @@ export class RemoteService extends EventEmitter {
   }
 
   async updateConfig(config: Partial<RemoteServiceConfig>): Promise<void> {
-    this.config = { ...this.config, ...config }
+    const merged = { ...this.config, ...config }
+    const parsed = RemoteServiceConfigSchema.safeParse(merged)
+    if (!parsed.success) {
+      log.error("Invalid config update", { errors: parsed.error.issues })
+      throw new Error("Invalid configuration")
+    }
+
+    this.config = parsed.data
     await this.saveConfig()
+    log.debug("Config updated", { config: this.config })
   }
 
   async resolveSession(sessionId?: string): Promise<ResolvedRemoteSession | null> {
@@ -311,16 +394,23 @@ export class RemoteService extends EventEmitter {
   }
 
   async listPersistedSessions(): Promise<RemoteSessionPersistence[]> {
-    if (!(await Bun.file(this.sessionsDir).exists())) return []
+    if (!(await Bun.file(this.sessionsDir).exists())) {
+      return []
+    }
 
     const result: RemoteSessionPersistence[] = []
-    const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: this.sessionsDir }))
-    for (const file of files) {
-      const filePath = path.join(this.sessionsDir, file)
-      const loaded = await this.readPersistedSession(filePath)
-      if (loaded) {
-        result.push(loaded)
+
+    try {
+      const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: this.sessionsDir }))
+      for (const file of files) {
+        const filePath = path.join(this.sessionsDir, file)
+        const loaded = await this.readPersistedSession(filePath)
+        if (loaded) {
+          result.push(loaded)
+        }
       }
+    } catch (error) {
+      log.error("Failed to list persisted sessions", { error })
     }
 
     return result.toSorted((a, b) => {
@@ -397,32 +487,35 @@ export class RemoteService extends EventEmitter {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 4000)
 
-    const response = await fetch(controlURL, {
-      method: "POST",
-      headers: token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : undefined,
-      signal: controller.signal,
-    }).catch(() => null)
+    try {
+      const response = await fetch(controlURL, {
+        method: "POST",
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : undefined,
+        signal: controller.signal,
+      })
 
-    clearTimeout(timeout)
+      clearTimeout(timeout)
 
-    if (!response) {
+      if (response.ok) {
+        await this.cleanupPersistedSession(sessionId)
+        log.info("Stopped persisted session", { sessionId })
+        return true
+      }
+
+      if (response.status === 404 || response.status === 410) {
+        await this.cleanupPersistedSession(sessionId)
+      }
+
+      return false
+    } catch (error) {
+      log.debug("Failed to stop persisted session", { sessionId, error })
+      clearTimeout(timeout)
       return false
     }
-
-    if (response.ok) {
-      await this.cleanupPersistedSession(sessionId)
-      return true
-    }
-
-    if (response.status === 404 || response.status === 410) {
-      await this.cleanupPersistedSession(sessionId)
-    }
-
-    return false
   }
 
   async removePersistedSession(sessionId: string): Promise<void> {
@@ -438,6 +531,8 @@ export class RemoteService extends EventEmitter {
       this.handledStoppedSessions.add(sessionId)
     }
 
+    log.debug("Handling session stopped", { sessionId })
+
     await this.closeTunnel()
 
     if (sessionId) {
@@ -449,7 +544,8 @@ export class RemoteService extends EventEmitter {
 
   private async getTunnelCandidates(preferred?: TunnelProvider): Promise<TunnelProvider[]> {
     if (preferred && preferred !== "none") {
-      return (await checkTunnelAvailability(preferred)) ? [preferred] : []
+      const available = await checkTunnelAvailability(preferred)
+      return available ? [preferred] : []
     }
 
     const available: TunnelProvider[] = []
@@ -470,7 +566,10 @@ export class RemoteService extends EventEmitter {
     return url.toString()
   }
 
-  private hydratePersistedSession(session: RemoteSessionPersistence, snapshot?: SessionSnapshot): RemoteSession {
+  private hydratePersistedSession(
+    session: RemoteSessionPersistence,
+    snapshot?: SessionSnapshot,
+  ): RemoteSession {
     const startedAt = this.safeDate(snapshot?.startedAt ?? session.startedAt)
     const lastActivity = this.safeDate(snapshot?.lastActivity ?? session.lastActivity)
     const connectedCount = Math.max(0, snapshot?.connectedDevices ?? 0)
@@ -532,7 +631,9 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async fetchPersistedSessionSnapshot(session: RemoteSessionPersistence): Promise<SessionSnapshot | null> {
+  private async fetchPersistedSessionSnapshot(
+    session: RemoteSessionPersistence,
+  ): Promise<SessionSnapshot | null> {
     const token = this.extractTokenFromUrl(session.qrUrl)
     const headers = token
       ? {
@@ -548,7 +649,9 @@ export class RemoteService extends EventEmitter {
       const control = await this.fetchJSON(controlURL, headers)
       if (control && typeof control === "object") {
         const payload =
-          "session" in control && control.session && typeof control.session === "object" ? control.session : control
+          "session" in control && control.session && typeof control.session === "object"
+            ? (control as { session: Record<string, unknown> }).session
+            : (control as Record<string, unknown>)
         const normalized = this.normalizeSessionSnapshot(payload)
         if (normalized) return normalized
       }
@@ -558,14 +661,22 @@ export class RemoteService extends EventEmitter {
     if (!legacyURL) return null
     const legacy = await this.fetchJSON(legacyURL)
     if (!legacy || typeof legacy !== "object") return null
-    return this.normalizeSessionSnapshot(legacy)
+    return this.normalizeSessionSnapshot(legacy as Record<string, unknown>)
   }
 
   private normalizeSessionSnapshot(input: unknown): SessionSnapshot | null {
     if (!input || typeof input !== "object") return null
     const value = input as Record<string, unknown>
 
-    const status = typeof value.status === "string" ? (value.status as SessionStatus) : undefined
+    const statusRaw = value.status
+    let status: SessionStatus | undefined
+    if (typeof statusRaw === "string") {
+      const parsed = SessionStatusSchema.safeParse(statusRaw)
+      if (parsed.success) {
+        status = parsed.data
+      }
+    }
+
     const id = typeof value.id === "string" ? value.id : undefined
     const name = typeof value.name === "string" ? value.name : undefined
     const connectedDevicesRaw = value.connectedDevices
@@ -577,7 +688,8 @@ export class RemoteService extends EventEmitter {
     const startedAt = typeof value.startedAt === "string" ? value.startedAt : undefined
     const lastActivity = typeof value.lastActivity === "string" ? value.lastActivity : undefined
     const portRaw = value.port
-    const port = typeof portRaw === "number" && Number.isFinite(portRaw) ? Math.max(0, Math.floor(portRaw)) : undefined
+    const port =
+      typeof portRaw === "number" && Number.isFinite(portRaw) ? Math.max(0, Math.floor(portRaw)) : undefined
 
     if (!status && !id && !name && connectedDevices === undefined) return null
 
@@ -592,7 +704,10 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async fetchJSON(url: URL, headers?: Record<string, string>): Promise<unknown> {
+  private async fetchJSON(
+    url: URL,
+    headers?: Record<string, string>,
+  ): Promise<unknown> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3500)
 
@@ -612,26 +727,18 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async readPersistedSession(filePath: string): Promise<RemoteSessionPersistence | null> {
+  private async readPersistedSession(
+    filePath: string,
+  ): Promise<RemoteSessionPersistence | null> {
     try {
       const data = await Bun.file(filePath).text()
-      const parsed = JSON.parse(data) as Partial<RemoteSessionPersistence>
-      if (!parsed || typeof parsed !== "object") return null
-      if (!parsed.sessionId || !parsed.name || !parsed.qrUrl) return null
-      if (!parsed.startedAt || !parsed.lastActivity || !parsed.status) return null
-
-      return {
-        sessionId: parsed.sessionId,
-        name: parsed.name,
-        qrUrl: parsed.qrUrl,
-        localUrl: parsed.localUrl,
-        tunnelUrl: parsed.tunnelUrl,
-        tunnelPassword: parsed.tunnelPassword,
-        startedAt: parsed.startedAt,
-        lastActivity: parsed.lastActivity,
-        status: parsed.status,
-        port: parsed.port,
+      const parsed = JSON.parse(data)
+      const validated = RemoteSessionPersistenceSchema.safeParse(parsed)
+      if (!validated.success) {
+        log.debug("Persisted session has invalid format", { filePath })
+        return null
       }
+      return validated.data
     } catch {
       return null
     }
@@ -652,10 +759,15 @@ export class RemoteService extends EventEmitter {
       if (await Bun.file(this.configPath).exists()) {
         const data = await Bun.file(this.configPath).text()
         const loaded = JSON.parse(data)
-        return { ...this.getDefaultConfig(), ...loaded }
+        const parsed = RemoteServiceConfigSchema.safeParse(loaded)
+        if (parsed.success) {
+          log.debug("Config loaded from file")
+          return parsed.data
+        }
+        log.warn("Loaded config is invalid, using defaults", { errors: parsed.error.issues })
       }
-    } catch {
-      // ignore
+    } catch (error) {
+      log.debug("Failed to load config, using defaults", { error })
     }
     return this.getDefaultConfig()
   }
@@ -664,7 +776,7 @@ export class RemoteService extends EventEmitter {
     try {
       await Bun.write(this.configPath, JSON.stringify(this.config, null, 2))
     } catch {
-      // ignore
+      log.error("Failed to save config")
     }
   }
 
@@ -681,8 +793,10 @@ export class RemoteService extends EventEmitter {
     try {
       const { execSync } = await import("node:child_process")
       execSync("remoto --version", { stdio: "pipe", timeout: 10000 })
+      log.debug("Remotosh is available")
       return true
     } catch {
+      log.debug("Remotosh is not available")
       return false
     }
   }
@@ -690,6 +804,7 @@ export class RemoteService extends EventEmitter {
   private async recoverPreviousSessions(): Promise<void> {
     try {
       if (!(await Bun.file(this.sessionsDir).exists())) return
+
       const files = await Array.fromAsync(new Bun.Glob("*.json").scan({ cwd: this.sessionsDir }))
       for (const file of files) {
         const filePath = path.join(this.sessionsDir, file)
@@ -707,7 +822,7 @@ export class RemoteService extends EventEmitter {
         }
       }
     } catch {
-      // ignore
+      log.debug("Session recovery check completed with errors")
     }
   }
 
@@ -720,7 +835,7 @@ export class RemoteService extends EventEmitter {
       const filePath = this.getSessionFilePath(session.sessionId)
       await Bun.write(filePath, JSON.stringify(session, null, 2))
     } catch {
-      // ignore
+      log.error("Failed to persist session record", { sessionId: session.sessionId })
     }
   }
 
@@ -746,9 +861,10 @@ export class RemoteService extends EventEmitter {
       const filePath = this.getSessionFilePath(sessionId)
       if (await Bun.file(filePath).exists()) {
         await Bun.file(filePath).delete()
+        log.debug("Cleaned up persisted session", { sessionId })
       }
     } catch {
-      // ignore
+      log.error("Failed to cleanup persisted session", { sessionId })
     }
   }
 }

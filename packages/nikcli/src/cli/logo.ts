@@ -1,21 +1,34 @@
-const LOGO = [
-  `
-    ███╗   ██╗██╗██╗  ██╗ ██████╗██╗     ██╗
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "logo" })
+
+const LOGO: [string, string][] = [
+  [
+    `
+    ███╗   ██╗██╗██╗  ██╗ ██████╗██╗     ██╗`,
+    `
     ████╗  ██║██║██║ ██╔╝██╔════╝██║     ██║
     ██╔██╗ ██║██║█████╔╝ ██║     ██║     ██║
     ██║╚██╗██║██║██╔═██╗ ██║     ██║     ██║
     ██║ ╚████║██║██║  ██╗╚██████╗███████╗██║`,
+  ],
 ]
 
-export function logo(pad?: string) {
-  const result = []
-  for (const row of LOGO) {
-    if (pad) result.push(pad)
-    result.push(Bun.color("gray", "ansi"))
-    result.push(row[0])
+export function logo(pad?: string): string {
+  const result: string[] = []
+
+  for (const [firstPart, secondPart] of LOGO) {
+    if (pad) {
+      result.push(pad)
+    }
+    result.push(Bun.color("gray", "ansi") ?? "")
+    result.push(firstPart)
     result.push("\x1b[0m")
-    result.push(row[1])
+    result.push(secondPart)
     result.push("\n")
   }
-  return result.join("").trimEnd()
+
+  const output = result.join("").trimEnd()
+  log.debug("Logo rendered", { hasPad: Boolean(pad) })
+  return output
 }

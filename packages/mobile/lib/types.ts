@@ -674,7 +674,6 @@ export type SessionStreamEvent =
 export type MobileAuthToken = {
   id: string
   name?: string
-  hash: string
   createdAt: number
   lastUsedAt?: number
   expiresAt?: number
@@ -728,6 +727,10 @@ export type Routine = {
   name: string
   prompt: string
   triggers: RoutineTrigger[]
+  model?: {
+    providerID: string
+    modelID: string
+  }
   paused: boolean
   projectID: string
   directory: string
@@ -741,6 +744,10 @@ export type RoutineCreateInput = {
   name: string
   prompt: string
   triggers?: RoutineTrigger[]
+  model?: {
+    providerID: string
+    modelID: string
+  }
 }
 
 export type RoutineUpdateInput = Partial<RoutineCreateInput> & { paused?: boolean }

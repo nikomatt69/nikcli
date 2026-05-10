@@ -1,23 +1,33 @@
 import { generateQR, renderSessionCard } from "@nikcli-ai/remote"
 import type { RemoteSession, SessionStatus } from "./types"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "qr-renderer" })
 
 export class QRRenderer {
   async render(session: RemoteSession): Promise<void> {
-    console.clear()
-    const url = this.addSessionToUrl(this.getSessionUrl(session), session.id)
-    const localUrlWithSession = this.addSessionToUrl(session.localUrl || "", session.id)
-    const renderSession = {
-      ...session,
-      qrUrl: url,
-      tunnelUrl: session.tunnelUrl ? url : session.tunnelUrl,
-      localUrl: session.tunnelUrl ? session.localUrl : localUrlWithSession,
+    try {
+      console.clear()
+      const url = this.addSessionToUrl(this.getSessionUrl(session), session.id)
+      const localUrlWithSession = this.addSessionToUrl(session.localUrl || "", session.id)
+      const renderSession = {
+        ...session,
+        qrUrl: url,
+        tunnelUrl: session.tunnelUrl ? url : session.tunnelUrl,
+        localUrl: session.tunnelUrl ? session.localUrl : localUrlWithSession,
+      }
+
+      const card = await renderSessionCard(renderSession as Parameters<typeof renderSessionCard>[0])
+      console.log(card)
+
+      const qr = await generateQR(url)
+      console.log(qr)
+
+      log.debug("QR code rendered", { sessionId: session.id, url })
+    } catch (error) {
+      log.error("Failed to render QR code", { error, sessionId: session.id })
+      throw error
     }
-
-    const card = await renderSessionCard(renderSession as any)
-    console.log(card)
-
-    const qr = await generateQR(url)
-    console.log(qr)
   }
 
   updateStatus(session: RemoteSession): void {
@@ -28,6 +38,8 @@ export class QRRenderer {
     console.log("")
     console.log(`  Status: ${statusIcon} ${statusText}`)
     console.log(`  Devices: ${devices} connected`)
+
+    log.debug("Status updated", { sessionId: session.id, status: session.status, devices })
   }
 
   renderCompact(session: RemoteSession): string {
@@ -52,6 +64,7 @@ export class QRRenderer {
       }
       return parsed.toString()
     } catch {
+      log.warn("Failed to parse URL", { url })
       return url
     }
   }
