@@ -24,6 +24,7 @@ import { SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
 import { ServerProvider, useServer } from "@tui/context/server"
 import { SyncProvider, useSync } from "@tui/context/sync"
+import { AnalyticsProvider } from "@tui/context/analytics"
 import { LocalProvider, useLocal } from "@tui/context/local"
 import { DialogModel, useConnected } from "@tui/component/dialog-model"
 import { DialogMcp } from "@tui/component/dialog-mcp"
@@ -180,27 +181,29 @@ export function tui(input: {
                         >
                           <ProjectProvider>
                             <SyncProvider>
-                              <ThemeProvider mode={mode}>
-                                <LocalProvider>
-                                  <KeybindProvider>
-                                    <PromptStashProvider>
-                                      <DialogProvider>
-                                        <CommandProvider>
-                                          <FrecencyProvider>
-                                            <PromptHistoryProvider>
-                                              <EditorContextProvider>
-                                                <PromptRefProvider>
-                                                  <App />
-                                                </PromptRefProvider>
-                                              </EditorContextProvider>
-                                            </PromptHistoryProvider>
-                                          </FrecencyProvider>
-                                        </CommandProvider>
-                                      </DialogProvider>
-                                    </PromptStashProvider>
-                                  </KeybindProvider>
-                                </LocalProvider>
-                              </ThemeProvider>
+                              <AnalyticsProvider>
+                                <ThemeProvider mode={mode}>
+                                  <LocalProvider>
+                                    <KeybindProvider>
+                                      <PromptStashProvider>
+                                        <DialogProvider>
+                                          <CommandProvider>
+                                            <FrecencyProvider>
+                                              <PromptHistoryProvider>
+                                                <EditorContextProvider>
+                                                  <PromptRefProvider>
+                                                    <App />
+                                                  </PromptRefProvider>
+                                                </EditorContextProvider>
+                                              </PromptHistoryProvider>
+                                            </FrecencyProvider>
+                                          </CommandProvider>
+                                        </DialogProvider>
+                                      </PromptStashProvider>
+                                    </KeybindProvider>
+                                  </LocalProvider>
+                                </ThemeProvider>
+                              </AnalyticsProvider>
                             </SyncProvider>
                           </ProjectProvider>
                         </SDKProvider>
@@ -871,7 +874,7 @@ function App() {
         aliases: ["stats"],
       },
       onSelect: () => {
-        dialog.replace(() => <DialogAnalytics />)
+        dialog.replace(() => <DialogAnalytics onClose={() => dialog.clear()} />)
       },
       category: "Session",
     },

@@ -359,6 +359,11 @@ Every file-modifying tool calls `ctx.ask()` before execution:
 - **GrepTool** - FFF file search backend with Bun.Glob fallback
 - **TaskTool** - Subagent spawning (see below)
 
+### Tool Part States
+
+Part `state.status` values: `"pending"` → `"running"` → `"completed"` | `"error"`
+**NOT**: `"success"`, `"complete"`, `"failed"` (these don't exist in the schema)
+
 ### Tool Creation Pattern
 
 ```typescript
@@ -905,7 +910,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | Error safety for flushAll    | `processor.ts:475-481` | Wrapped `flushAll()` + `clear()` in try/finally |
 | Race condition in lazy init  | `util/lazy.ts`     | Added `lazyAsync()` for async-safe singleton init (uses Promise-caching pattern) |
 
-### Confirmed Issues (Updated 2026-05-08)
+### Confirmed Issues (Updated 2026-05-11)
 
 | #   | File                               | Issue                                                                   | Status          |
 | --- | ---------------------------------- | ----------------------------------------------------------------------- | --------------- |
@@ -917,12 +922,10 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 6   | `packages/app/src/utils/prompt.ts` | App undo/fork drops non-inline file parts                               | Pending         |
 | 7   | TUI                                | Explicit `--agent/--model` state issues                                 | Pending         |
 | 8   | TUI                                | Stale model/variant sync                                                | Pending         |
-| 9   | TUI                                | `read` tool image/PDF attachments not rendered                          | **Implemented** |
-| 10  | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
-| 11  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
-| 12  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
-| 13  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
-| 14  | `session/processor.ts:159-173`    | Reasoning-end double-write                                              | **Fixed**       |
+| 9   | `routes/tui.ts:266`                | `/execute-command` returns `200` for unknown commands (should be `400`) | Pending         |
+| 10  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
+| 11  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
+| 12  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
 
 ## Mobile IDE Backend Issues
 
@@ -1207,6 +1210,81 @@ Delete-safe navigation: `app.tsx` redirects to `home` on session deletion from a
 `src/connectors/registry.ts` — defined operations:
 `github_get_repo`, `github_get_file`, `github_create_issue`, `github_list_issues`, `github_search_code`, `github_list_repos`
 
+## TUI Analytics System (2026-05-11)
+
+### Analytics Architecture
+
+**Goal**: Persistent historical analytics + enterprise-quality braille-based visualizations.
+
+**Hybrid storage**: Pre-aggregated daily snapshots merged with live sync data when dialog opens.
+
+**Key files**:
+- `src/analytics/analytics.ts` — Server-side recording service (Zod schemas, event hooks on message/session/part updates)
+- `src/server/routes/analytics.ts` — API endpoints: `GET /analytics/global`, `GET /analytics/daily`, `GET /analytics/sessions`
+- `src/cli/cmd/tui/context/analytics.tsx` — TUI context for fetching historical data via `fetch()`
+- `src/cli/cmd/tui/component/chart-braille-line.tsx` — High-resolution braille chart components
+- `src/cli/cmd/tui/util/analytics-aggregator.ts` — Adds `mergeWithHistorical()` for snapshot merging
+
+**Storage keys**:
+- `["analytics", "daily", "YYYY-MM-DD"]` — Daily snapshots (tokens, cost, sessions, tools, models, providers, background runs, efficiency)
+- `["analytics", "global"]` — Cumulative user stats (totalSessions, totalTokens, totalCost, firstActivity, daysTracked)
+- `["analytics", "session", sessionID]` — Per-session analytics snapshots
+
+**Recording hooks** (in `src/session/index.ts:createNextImpl/updateMessageImpl/updatePartImpl/removeImpl`):
+- `Analytics.recordMessageCompleted()` on message completion
+- `Analytics.recordToolUsed()` on tool result
+- `Analytics.recordSessionCreated()` / `Analytics.recordSessionDeleted()`
+
+### Chart Components (`chart-braille-line.tsx`)
+
+High-resolution terminal charting using Unicode braille characters (U+2800–U+28FF) for 8× sub-pixel rendering:
+
+| Component | Purpose |
+| --------- | ------- |
+| `BrailleLineChart` | Multi-series line chart with legend, axis labels, per-row color dominance |
+| `BrailleAreaChart` | Filled area chart (single series) with top-border line |
+| `BrailleSparkline` | Compact 2-row inline chart |
+| `StackedBarChartV2` | Stacked bar with proportional widths |
+| `HBarPrecision` | Horizontal bar with 8-level Unicode precision (▏▎▍▌▋▊▉█) |
+| `KPICard` | KPI display with box-drawing border |
+| `ModelCard` | Model stats card with token bar charts |
+
+**Braille encoding** (2×4 dot matrix per character):
+- Bit layout: `[[0x01, 0x08], [0x02, 0x10], [0x04, 0x20], [0x40, 0x80]]`
+- Pattern: OR dots into `Uint8Array` per cell, then map to `String.fromCharCode(0x2800 + byte)`
+
+**Color scheme** (theme-coherent, distinct, no pink):
+```typescript
+export function getChartColors(theme: Theme) {
+  return [
+    theme.primary,    // cyan/blue — input tokens
+    theme.error,      // red — output tokens  
+    theme.success,    // green — cache/savings
+    theme.accent,    // accent — reasoning
+    theme.secondary, // secondary series
+    theme.info,       // additional series
+  ]
+}
+
+export function colorToString(color: RGBA): string {
+  const toHex = (n: number) => n.toString(16).padStart(2, "0")
+  return `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`
+}
+```
+
+### Analytics Dialog (`dialog-analytics.tsx`)
+
+6 tabs with braille charts: **Overview** (KPI cards + token/cost trends), **Tokens** (input/output/reasoning breakdown), **Models** (per-model stats), **Tools** (usage + success rates), **Projects** (project activity), **Sessions** (session history with background run status).
+
+Retrieves historical data via `fetch(sdk.url + '/analytics/global')` etc., merges with live sync data.
+
+### Theme System (`context/theme.tsx`)
+
+80+ built-in themes (dracula, catppuccin, tokyonight, nord, gruvbox, etc.).
+Theme colors are `RGBA` objects from `@opentui/core`.
+Key tokens: `primary`, `secondary`, `accent`, `error`, `warning`, `success`, `info`, `text`, `textMuted`, `background`, `backgroundPanel`, `border`, `borderSubtle`.
+Use `getChartColors(theme)` from `chart-braille-line.tsx` for chart-specific color palettes.
+
 ## GitHub Integration (`src/connectors/`)
 
 ### Core Files
@@ -1400,6 +1478,16 @@ Simple static ASCII logo (104 lines):
 ### Dialog System Details
 
 Dialogs are stack-based overlays rendered as full-screen absolute-positioned boxes with semi-transparent backdrop. Sizes: `medium` (60 chars), `large` (88 chars), `xlarge` (116 chars). Close on backdrop click or Esc/Ctrl+C. Components call `dialog.clear()` to dismiss.
+
+**Dialog centering pattern**: Large dialogs (xlarge) must call `dialog.setSize("xlarge")` in `onMount` to appear centered rather than offset:
+```typescript
+const dialog = useDialog()
+onMount(() => {
+  dialog.setSize("xlarge")
+})
+```
+
+**Analytics dialog** (`dialog-analytics.tsx`): 6-tab dashboard (overview, tokens, projects, runs, tools, sessions) with aggregated stats, multi-line charts, sparklines, and stacked bar charts.
 
 ## Mobile App (`packages/mobile/`)
 

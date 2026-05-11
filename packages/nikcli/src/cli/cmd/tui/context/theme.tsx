@@ -161,7 +161,7 @@ type ThemeColors = {
   syntaxPunctuation: RGBA
 }
 
-type Theme = ThemeColors & {
+export type Theme = ThemeColors & {
   _hasSelectedListItemText: boolean
   thinkingOpacity: number
 }

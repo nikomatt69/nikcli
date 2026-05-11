@@ -14,6 +14,18 @@ function testPath(name: string, fallback: string) {
   return process.env.NIKCLI_TEST_HOME ? path.join(process.env.NIKCLI_TEST_HOME, name) : fallback
 }
 
+/** Primary data root: `<XDG_DATA_HOME>/nikcli/` — holds `storage/`, `snapshot/`, DBs, etc. */
+function resolveDataDir(): string {
+  if (process.env.NIKCLI_TEST_HOME) {
+    return path.join(process.env.NIKCLI_TEST_HOME, "data")
+  }
+  const override = process.env.NIKCLI_DATA_DIR?.trim()
+  if (override) {
+    return path.resolve(override)
+  }
+  return data
+}
+
 export namespace Global {
   export const Path = {
     // Allow override via NIKCLI_TEST_HOME for test isolation
@@ -21,7 +33,7 @@ export namespace Global {
       return process.env.NIKCLI_TEST_HOME || os.homedir()
     },
     get data() {
-      return testPath("data", data)
+      return resolveDataDir()
     },
     get bin() {
       return path.join(Global.Path.data, "bin")

@@ -24,8 +24,15 @@ import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import { WorkspaceContext } from "../workspace/workspace-context"
-import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import {
+  InstanceState,
+  locallyInstance,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  type InstanceContext,
+} from "@/effect"
 import { Context, Effect, Layer } from "effect"
+import { Analytics } from "../analytics/analytics"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
@@ -36,10 +43,7 @@ function configGet(ctx?: InstanceContext) {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
-  )
+  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
 }
 
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>, ctx?: InstanceContext) {
@@ -502,6 +506,15 @@ export namespace Session {
     await publishBus(ctx, Event.Updated, {
       info: result,
     })
+
+    // Record session creation for analytics
+    Analytics.recordSession({
+      sessionID: result.id,
+      projectID: ctx.project.id,
+      directory: result.directory,
+      timestamp: result.time.created,
+    }).catch(() => {})
+
     return result
   }
 
@@ -569,6 +582,72 @@ export namespace Session {
   async function removeImpl(ctx: InstanceContext, sessionID: string) {
     try {
       const session = await getImpl(ctx, sessionID)
+
+      // Record session end analytics before removing
+      const sessionMessages = await storageList(["message", sessionID])
+      let totalInput = 0,
+        totalOutput = 0,
+        totalReasoning = 0,
+        totalCacheRead = 0,
+        totalCacheWrite = 0
+      let totalCost = 0,
+        msgCount = 0,
+        toolCalls = 0
+      let lastProviderID = "unknown",
+        lastModelID = "unknown"
+
+      for (const msgKey of sessionMessages) {
+        try {
+          const msg = await storageRead<MessageV2.Info>(msgKey)
+          if (msg.role === "assistant" && msg.tokens) {
+            totalInput += msg.tokens.input || 0
+            totalOutput += msg.tokens.output || 0
+            totalReasoning += msg.tokens.reasoning || 0
+            totalCacheRead += msg.tokens.cache?.read || 0
+            totalCacheWrite += msg.tokens.cache?.write || 0
+            totalCost += msg.cost || 0
+            msgCount++
+            if (msg.providerID) lastProviderID = msg.providerID
+            if (msg.modelID) lastModelID = msg.modelID
+          }
+        } catch {}
+      }
+
+      // Count tool parts
+      for (const msgKey of sessionMessages) {
+        try {
+          const parts = await storageList(["part", msgKey.at(-1)!])
+          for (const partKey of parts) {
+            try {
+              const part = await storageRead<{ type?: string }>(partKey)
+              if (part.type === "tool") toolCalls++
+            } catch {}
+          }
+        } catch {}
+      }
+
+      Analytics.recordSessionEnd({
+        sessionID,
+        projectID: ctx.project.id,
+        directory: session.directory,
+        title: session.title,
+        providerID: lastProviderID,
+        modelID: lastModelID,
+        messages: msgCount,
+        tokens: {
+          input: totalInput,
+          output: totalOutput,
+          reasoning: totalReasoning,
+          cacheRead: totalCacheRead,
+          cacheWrite: totalCacheWrite,
+        },
+        cost: totalCost,
+        toolCalls,
+        duration: session.time.updated - session.time.created,
+        created: session.time.created,
+        completed: session.time.updated,
+      }).catch(() => {})
+
       for (const child of await childrenImpl(ctx, sessionID)) {
         await removeImpl(ctx, child.id)
       }
@@ -598,6 +677,29 @@ export namespace Session {
     await publishBus(ctx, MessageV2.Event.Updated, {
       info: msg,
     })
+
+    // Record assistant message analytics
+    if (msg.role === "assistant" && msg.tokens && msg.time.completed) {
+      Analytics.recordMessage({
+        sessionID: msg.sessionID,
+        projectID: ctx.project.id,
+        directory: ctx.project.worktree,
+        providerID: msg.providerID,
+        modelID: msg.modelID,
+        tokens: {
+          input: msg.tokens.input || 0,
+          output: msg.tokens.output || 0,
+          reasoning: msg.tokens.reasoning || 0,
+          cache: {
+            read: msg.tokens.cache?.read || 0,
+            write: msg.tokens.cache?.write || 0,
+          },
+        },
+        cost: msg.cost || 0,
+        timestamp: msg.time.completed,
+      }).catch(() => {})
+    }
+
     return msg
   }
 
@@ -629,76 +731,92 @@ export namespace Session {
       part,
       delta,
     })
+
+    // Record tool usage analytics
+    if (part.type === "tool" && part.tool) {
+      const isSuccess =
+        part.state && typeof part.state === "object" && "status" in part.state
+          ? part.state.status === "completed"
+          : false
+      const isError =
+        part.state && typeof part.state === "object" && "status" in part.state ? part.state.status === "error" : false
+      if (isSuccess || isError) {
+        Analytics.recordToolUse({
+          toolName: part.tool,
+          sessionID: part.sessionID,
+          success: isSuccess,
+          timestamp: Date.now(),
+        }).catch(() => {})
+      }
+    }
+
     return part
   }
 
-  export const getUsage = fn(
-    UsageInput,
-    (input) => {
-      const safe = (value: number) => {
-        if (!Number.isFinite(value)) return 0
-        return value
+  export const getUsage = fn(UsageInput, (input) => {
+    const safe = (value: number) => {
+      if (!Number.isFinite(value)) return 0
+      return value
+    }
+    const inputTokens = safe(input.usage.inputTokens ?? 0)
+    const outputTokens = safe(input.usage.outputTokens ?? 0)
+    const reasoningTokens = safe(input.usage.reasoningTokens ?? 0)
+
+    const cacheReadInputTokens = safe(input.usage.cachedInputTokens ?? 0)
+    const cacheWriteInputTokens = safe(
+      (input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
+        // @ts-expect-error
+        input.metadata?.["bedrock"]?.["usage"]?.["cacheWriteInputTokens"] ??
+        // @ts-expect-error
+        input.metadata?.["venice"]?.["usage"]?.["cacheCreationInputTokens"] ??
+        0) as number,
+    )
+
+    const excludesCachedTokens = !!(input.metadata?.["anthropic"] || input.metadata?.["bedrock"])
+    const adjustedInputTokens = safe(
+      excludesCachedTokens ? inputTokens : inputTokens - cacheReadInputTokens - cacheWriteInputTokens,
+    )
+
+    const total = iife(() => {
+      if (
+        input.model.api.npm === "@ai-sdk/anthropic" ||
+        input.model.api.npm === "@ai-sdk/amazon-bedrock" ||
+        input.model.api.npm === "@ai-sdk/google-vertex/anthropic"
+      ) {
+        return adjustedInputTokens + outputTokens + cacheReadInputTokens + cacheWriteInputTokens
       }
-      const inputTokens = safe(input.usage.inputTokens ?? 0)
-      const outputTokens = safe(input.usage.outputTokens ?? 0)
-      const reasoningTokens = safe(input.usage.reasoningTokens ?? 0)
+      return input.usage.totalTokens
+    })
 
-      const cacheReadInputTokens = safe(input.usage.cachedInputTokens ?? 0)
-      const cacheWriteInputTokens = safe(
-        (input.metadata?.["anthropic"]?.["cacheCreationInputTokens"] ??
-          // @ts-expect-error
-          input.metadata?.["bedrock"]?.["usage"]?.["cacheWriteInputTokens"] ??
-          // @ts-expect-error
-          input.metadata?.["venice"]?.["usage"]?.["cacheCreationInputTokens"] ??
-          0) as number,
-      )
+    const tokens = {
+      total,
+      input: adjustedInputTokens,
+      output: outputTokens,
+      reasoning: reasoningTokens,
+      cache: {
+        write: cacheWriteInputTokens,
+        read: cacheReadInputTokens,
+      },
+    }
 
-      const excludesCachedTokens = !!(input.metadata?.["anthropic"] || input.metadata?.["bedrock"])
-      const adjustedInputTokens = safe(
-        excludesCachedTokens ? inputTokens : inputTokens - cacheReadInputTokens - cacheWriteInputTokens,
-      )
-
-      const total = iife(() => {
-        if (
-          input.model.api.npm === "@ai-sdk/anthropic" ||
-          input.model.api.npm === "@ai-sdk/amazon-bedrock" ||
-          input.model.api.npm === "@ai-sdk/google-vertex/anthropic"
-        ) {
-          return adjustedInputTokens + outputTokens + cacheReadInputTokens + cacheWriteInputTokens
-        }
-        return input.usage.totalTokens
-      })
-
-      const tokens = {
-        total,
-        input: adjustedInputTokens,
-        output: outputTokens,
-        reasoning: reasoningTokens,
-        cache: {
-          write: cacheWriteInputTokens,
-          read: cacheReadInputTokens,
-        },
-      }
-
-      const costInfo =
-        input.model.cost?.experimentalOver200K && tokens.input + tokens.cache.read > 200_000
-          ? input.model.cost.experimentalOver200K
-          : input.model.cost
-      return {
-        cost: safe(
-          new Decimal(0)
-            .add(new Decimal(tokens.input).mul(costInfo?.input ?? 0).div(1_000_000))
-            .add(new Decimal(tokens.output).mul(costInfo?.output ?? 0).div(1_000_000))
-            .add(new Decimal(tokens.cache.read).mul(costInfo?.cache?.read ?? 0).div(1_000_000))
-            .add(new Decimal(tokens.cache.write).mul(costInfo?.cache?.write ?? 0).div(1_000_000))
-            // models.dev does not expose separate reasoning pricing yet; use output pricing for reasoning tokens.
-            .add(new Decimal(tokens.reasoning).mul(costInfo?.output ?? 0).div(1_000_000))
-            .toNumber(),
-        ),
-        tokens,
-      }
-    },
-  )
+    const costInfo =
+      input.model.cost?.experimentalOver200K && tokens.input + tokens.cache.read > 200_000
+        ? input.model.cost.experimentalOver200K
+        : input.model.cost
+    return {
+      cost: safe(
+        new Decimal(0)
+          .add(new Decimal(tokens.input).mul(costInfo?.input ?? 0).div(1_000_000))
+          .add(new Decimal(tokens.output).mul(costInfo?.output ?? 0).div(1_000_000))
+          .add(new Decimal(tokens.cache.read).mul(costInfo?.cache?.read ?? 0).div(1_000_000))
+          .add(new Decimal(tokens.cache.write).mul(costInfo?.cache?.write ?? 0).div(1_000_000))
+          // models.dev does not expose separate reasoning pricing yet; use output pricing for reasoning tokens.
+          .add(new Decimal(tokens.reasoning).mul(costInfo?.output ?? 0).div(1_000_000))
+          .toNumber(),
+      ),
+      tokens,
+    }
+  })
 
   export class BusyError extends Error {
     constructor(public readonly sessionID: string) {
@@ -733,11 +851,7 @@ export namespace Session {
     getShare(id: string): Effect.Effect<ShareInfo, unknown>
     share(id: string): Effect.Effect<ShareInfo, unknown>
     unshare(id: string): Effect.Effect<void, unknown>
-    update(
-      id: string,
-      editor: (session: Info) => void,
-      options?: { touch?: boolean },
-    ): Effect.Effect<Info, unknown>
+    update(id: string, editor: (session: Info) => void, options?: { touch?: boolean }): Effect.Effect<Info, unknown>
     diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], unknown>
     messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], unknown>
     list(): Effect.Effect<AsyncIterable<Info>>
@@ -773,7 +887,8 @@ export namespace Session {
             ),
           ),
         ),
-      fork: (input) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => forkImpl(ctx, input)))),
+      fork: (input) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => forkImpl(ctx, input)))),
       touch: (sessionID) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>

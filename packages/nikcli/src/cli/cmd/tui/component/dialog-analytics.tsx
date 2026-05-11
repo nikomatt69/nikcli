@@ -2,58 +2,29 @@ import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
+import { useAnalytics } from "../context/analytics"
+import { useKeyboard } from "@opentui/solid"
 import { For, Show, createSignal, createMemo, onMount } from "solid-js"
-import type { Message, Provider, Session } from "@nikcli-ai/sdk/v2"
+import {
+  aggregateAnalytics,
+  mergeWithHistorical,
+  mergeSessionsFromApi,
+  augmentAggregatedStatsFromPersistedSessions,
+  type AggregatedStats,
+} from "../util/analytics-aggregator"
+import { useDialog } from "@tui/ui/dialog"
+import {
+  BrailleLineChart,
+  BrailleAreaChart,
+  StackedBarChartV2,
+  HBarPrecision,
+  KPICard,
+  ModelCard,
+  getChartColors,
+} from "./chart-braille-line"
 
-// Format helpers
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+// ===== Color utilities =====
 
-function formatTokens(n: number): string {
-  if (n < 1_000) return n.toString()
-  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`
-  return `${(n / 1_000_000).toFixed(1)}M`
-}
-
-function formatDate(ts: number): string {
-  return new Date(ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 60000) return `${Math.round(ms / 1000)}s`
-  if (ms < 3600000) return `${Math.round(ms / 60000)}m`
-  return `${(ms / 3600000).toFixed(1)}h`
-}
-
-// Types
-interface SessionStats {
-  sessionID: string
-  title: string
-  messages: number
-  tokens: { input: number; output: number; reasoning: number; cache: number }
-  cost: number
-  model: string
-  provider: string
-  updated: number
-  created: number
-}
-
-interface ProviderStats {
-  providerID: string
-  sessions: number
-  messages: number
-  tokens: { input: number; output: number; reasoning: number; cache: number }
-  cost: number
-  models: Set<string>
-}
-
-interface DayStats {
-  date: string
-  sessions: number
-  tokens: number
-  cost: number
-}
-
-// Color helper - convert RGBA to hex string
 function colorToString(color: string | { r: number; g: number; b: number; a?: number }): string {
   if (typeof color === "string") return color
   const { r, g, b, a = 1 } = color
@@ -67,6 +38,21 @@ function colorToString(color: string | { r: number; g: number; b: number; a?: nu
     .padStart(2, "0")}`
 }
 
+// Format helpers
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+
+function formatTokens(n: number): string {
+  if (n < 1_000) return n.toString()
+  if (n < 1_000_000) return `${(n / 1_000).toFixed(1)}k`
+  return `${(n / 1_000_000).toFixed(1)}M`
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 60000) return `${Math.round(ms / 1000)}s`
+  if (ms < 3600000) return `${Math.round(ms / 60000)}m`
+  return `${(ms / 3600000).toFixed(1)}h`
+}
+
 // Box drawing characters
 const BOX = {
   topLeft: "┌",
@@ -75,463 +61,86 @@ const BOX = {
   bottomRight: "┘",
   horizontal: "─",
   vertical: "│",
-  teeRight: "├",
-  teeLeft: "┤",
   cross: "┼",
   teeDown: "┬",
-  teeUp: "┴",
-  bullet: "◆",
-  lineDownRight: "╰",
-  lineDownLeft: "╯",
-  lineUpRight: "╭",
-  lineUpLeft: "╮",
-}
+} as const
 
-// Line Chart Component
-function LineChart(props: {
-  data: { label: string; value: number }[]
-  width: number
-  height: number
-  color: string
-  title?: string
-}) {
-  const { theme } = useTheme()
-  const colorStr = () => colorToString(props.color)
+// ===== MAIN DIALOG =====
 
-  const chart = createMemo(() => {
-    const data = props.data
-    if (data.length === 0) return { lines: [], xLabels: [], yLabels: [], max: 0 }
+type TabId = "overview" | "tokens" | "models" | "tools" | "projects" | "sessions"
 
-    const width = props.width
-    const height = props.height
+const TABS: { id: TabId; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "tokens", label: "Tokens" },
+  { id: "models", label: "Models" },
+  { id: "tools", label: "Tools" },
+  { id: "projects", label: "Projects" },
+  { id: "sessions", label: "Sessions" },
+]
 
-    const max = Math.max(...data.map((d) => d.value), 1)
-    const min = 0
-
-    // Build grid - rows are top to bottom (height rows, index 0 is top)
-    const grid: string[][] = Array.from({ length: height }, () => Array.from({ length: width }, () => " "))
-
-    // Draw Y-axis
-    for (let y = 0; y < height; y++) {
-      grid[y][0] = BOX.vertical
-    }
-
-    // Calculate points
-    const padding = 2 // padding on left and right for labels
-    const plotWidth = width - padding
-    const points: { x: number; y: number; value: number }[] = data.map((d, i) => {
-      const x = Math.round((i / (data.length - 1 || 1)) * (plotWidth - 1)) + padding
-      const normalized = (d.value - min) / (max - min || 1)
-      const y = Math.round((1 - normalized) * (height - 1))
-      return { x, y: Math.max(0, Math.min(height - 1, y)), value: d.value }
-    })
-
-    // Draw the line with step pattern (┄ or ╱ ╲)
-    for (let i = 0; i < points.length - 1; i++) {
-      const p1 = points[i]
-      const p2 = points[i + 1]
-      const dx = p2.x - p1.x
-      const dy = p2.y - p1.y
-
-      if (dx === 0) {
-        // Vertical line
-        const startY = Math.min(p1.y, p2.y)
-        const endY = Math.max(p1.y, p2.y)
-        for (let y = startY; y <= endY; y++) {
-          grid[y][p1.x] = "│"
-        }
-      } else {
-        // Horizontal then vertical (step pattern) - more readable
-        for (let x = p1.x; x < p2.x; x++) {
-          if (x >= 0 && x < width) {
-            grid[p1.y][x] = "─"
-          }
-        }
-        // Vertical connector
-        const startY = Math.min(p1.y, p2.y)
-        const endY = Math.max(p1.y, p2.y)
-        for (let y = startY; y <= endY; y++) {
-          if (y >= 0 && y < height && p2.x >= 0 && p2.x < width) {
-            grid[y][p2.x] = "│"
-          }
-        }
-      }
-    }
-
-    // Draw data points as dots
-    for (const p of points) {
-      if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < height) {
-        grid[p.y][p.x] = "●"
-      }
-    }
-
-    // Convert grid to lines
-    const lines = grid.map((row) => row.join(""))
-
-    // X-axis labels (show first, middle, last)
-    const xLabels: { pos: number; label: string }[] = []
-    if (data.length >= 1) {
-      xLabels.push({ pos: points[0]?.x ?? 0, label: data[0].label })
-    }
-    if (data.length >= 3) {
-      const midIdx = Math.floor(data.length / 2)
-      xLabels.push({ pos: points[midIdx]?.x ?? 0, label: data[midIdx].label })
-    }
-    if (data.length >= 2) {
-      xLabels.push({ pos: points[points.length - 1]?.x ?? 0, label: data[data.length - 1].label })
-    }
-
-    // Y-axis labels
-    const yLabels: { pos: number; label: string }[] = []
-    for (let i = 0; i <= 2; i++) {
-      const value = min + ((max - min) * (2 - i)) / 2
-      const y = Math.round((i / 2) * (height - 1))
-      yLabels.push({ pos: y, label: formatTokens(value) })
-    }
-
-    return { lines, xLabels, yLabels, max }
-  })
-
-  return (
-    <box gap={0}>
-      <Show when={props.title}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          {props.title}
-        </text>
-      </Show>
-      <box flexDirection="row" gap={0}>
-        {/* Y-axis labels */}
-        <box flexDirection="column" gap={0}>
-          <For each={chart().yLabels}>
-            {(yl) => (
-              <text fg={theme.textMuted} attributes={TextAttributes.BOLD} width={6} wrapMode="none">
-                {yl.label.padEnd(6)}
-              </text>
-            )}
-          </For>
-        </box>
-        {/* Chart area */}
-        <box flexDirection="column" gap={0}>
-          <For each={chart().lines}>
-            {(line) => (
-              <text fg={colorStr()} wrapMode="none">
-                {line}
-              </text>
-            )}
-          </For>
-          {/* X-axis labels */}
-          {(() => {
-            const xLabels = chart().xLabels
-            let result = " "
-            for (const xl of xLabels) {
-              const spaces = Math.max(0, xl.pos - 1)
-              result += " ".repeat(spaces) + xl.label + " "
-            }
-            const labelStr = String(result.trimEnd())
-            return (
-              <text fg={theme.textMuted} wrapMode="none">
-                {labelStr}
-              </text>
-            )
-          })()}
-        </box>
-      </box>
-    </box>
-  )
-}
-
-// Horizontal Bar Component
-function HBar(props: { label: string; value: number; max: number; width: number; color: string }) {
-  const { theme } = useTheme()
-  const filled = createMemo(() => Math.max(1, Math.floor((props.value / props.max) * props.width)))
-  const empty = createMemo(() => props.width - filled())
-  const filledBars = createMemo(() => "█".repeat(filled()))
-  const emptyBars = createMemo(() => "░".repeat(empty()))
-
-  return (
-    <box flexDirection="row" gap={1} alignItems="center">
-      <text fg={theme.textMuted} width={8}>
-        {props.label}
-      </text>
-      <text fg={props.color}>{filledBars()}</text>
-      <text fg={props.color}>{emptyBars()}</text>
-      <text fg={theme.textMuted}>{formatTokens(props.value)}</text>
-    </box>
-  )
-}
-
-// Global Stats Box Component
-function GlobalStatsBox(props: { sessions: number; messages: number; cost: number; tokens: number }) {
-  const { theme } = useTheme()
-  const colorStr = (c: string) => colorToString(c)
-  const h = BOX.horizontal
-
-  // Calculate box width based on content
-  const sessionsLabel = `Sessions: ${props.sessions}`
-  const messagesLabel = `Messages: ${props.messages}`
-  const costLabel = `Cost: ${money.format(props.cost)}`
-  const tokensLabel = `Tokens: ${formatTokens(props.tokens)}`
-
-  const maxLen = Math.max(sessionsLabel.length, messagesLabel.length, costLabel.length, tokensLabel.length)
-  const boxWidth = maxLen + 8 // padding
-
-  // Pre-compute spacing to avoid reactive expression issues
-  const spacing1 = " ".repeat(maxLen - sessionsLabel.length + 1)
-  const spacing2 = " ".repeat(maxLen - messagesLabel.length + 1)
-  const spacing3 = " ".repeat(maxLen - costLabel.length + 1)
-  const spacing4 = " ".repeat(maxLen - tokensLabel.length + 1)
-
-  return (
-    <box gap={0}>
-      {/* Top border */}
-      <text fg={theme.border} wrapMode="none">
-        {BOX.topLeft}
-        {h.repeat(boxWidth)}
-        {BOX.teeDown}
-        {h.repeat(boxWidth)}
-        {BOX.teeDown}
-        {h.repeat(boxWidth)}
-        {BOX.teeDown}
-        {h.repeat(boxWidth)}
-        {BOX.topRight}
-      </text>
-
-      {/* Stats row */}
-      <text fg={theme.border} wrapMode="none">
-        {BOX.vertical}
-        <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-          {" Sessions: "}
-        </text>
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-          {props.sessions}
-        </text>
-        {spacing1}
-        {BOX.vertical}
-        <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-          {" Messages: "}
-        </text>
-        <text fg={theme.primary} attributes={TextAttributes.BOLD}>
-          {props.messages}
-        </text>
-        {spacing2}
-        {BOX.vertical}
-        <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-          {" Cost: "}
-        </text>
-        <text fg={theme.success} attributes={TextAttributes.BOLD}>
-          {money.format(props.cost)}
-        </text>
-        {spacing3}
-        {BOX.vertical}
-        <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-          {" Tokens: "}
-        </text>
-        <text fg={theme.warning} attributes={TextAttributes.BOLD}>
-          {formatTokens(props.tokens)}
-        </text>
-        {spacing4}
-        {BOX.vertical}
-      </text>
-
-      {/* Bottom border */}
-      <text fg={theme.border} wrapMode="none">
-        {BOX.bottomLeft}
-        {h.repeat(boxWidth)}
-        {BOX.cross}
-        {h.repeat(boxWidth)}
-        {BOX.cross}
-        {h.repeat(boxWidth)}
-        {BOX.cross}
-        {h.repeat(boxWidth)}
-        {BOX.bottomRight}
-      </text>
-    </box>
-  )
-}
-
-// Section Header Component
-function SectionHeader(props: { title: string; icon?: string }) {
-  const { theme } = useTheme()
-  return (
-    <box flexDirection="row" gap={1} alignItems="center">
-      <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-        {props.icon || "◆"} {props.title}
-      </text>
-      <text fg={theme.borderSubtle}>{BOX.horizontal.repeat(20)}</text>
-    </box>
-  )
-}
-
-// Mini Sparkline Component
-function Sparkline(props: { data: number[]; width: number; color: string }) {
-  const colorStr = () => colorToString(props.color)
-
-  const line = createMemo(() => {
-    if (props.data.length === 0) return " ".repeat(props.width)
-    const max = Math.max(...props.data, 1)
-    const min = Math.min(...props.data, 0)
-    const range = max - min || 1
-
-    let result = ""
-    for (let i = 0; i < props.width; i++) {
-      const dataIdx = Math.floor((i / (props.width - 1)) * (props.data.length - 1))
-      const value = props.data[dataIdx] ?? 0
-      const normalized = (value - min) / range
-
-      // Map to a vertical character
-      const bucket = Math.floor(normalized * 4)
-      const chars = ["▁", "▂", "▃", "▅", "▆", "▇", "█"]
-      result += chars[Math.min(bucket, chars.length - 1)]
-    }
-    return result
-  })
-
-  return <text fg={colorStr()}>{line()}</text>
-}
-
-// Main Dialog
-export function DialogAnalytics() {
+export function DialogAnalytics(props: { onClose: () => void }) {
   const { theme } = useTheme()
   const sync = useSync()
   const sdk = useSDK()
+  const analyticsCtx = useAnalytics()
+  const dialog = useDialog()
 
   const [loading, setLoading] = createSignal(true)
-  const [sessionStats, setSessionStats] = createSignal<SessionStats[]>([])
-  const [providerStats, setProviderStats] = createSignal<Map<string, ProviderStats>>(new Map())
-  const [dayStats, setDayStats] = createSignal<DayStats[]>([])
-  const [totalStats, setTotalStats] = createSignal({
-    sessions: 0,
-    messages: 0,
-    tokens: { input: 0, output: 0, reasoning: 0, cache: 0 },
-    cost: 0,
-  })
+  const [stats, setStats] = createSignal<AggregatedStats | null>(null)
+  const [activeTab, setActiveTab] = createSignal<TabId>("overview")
 
   onMount(async () => {
+    dialog.setSize("xlarge")
     await loadAnalytics()
   })
+
+  async function waitForSyncBootstrap() {
+    const started = Date.now()
+    const maxWait = 15_000
+    while (Date.now() - started < maxWait) {
+      if (sync.status === "complete") return
+      // `session.list` runs in the non-blocking batch; `partial` can persist if another
+      // sub-request hangs — proceed once we have an index or after a short grace period.
+      if (sync.ready && sync.data.session.length > 0) return
+      if (sync.ready && Date.now() - started > 2_500) return
+      await new Promise((r) => setTimeout(r, 40))
+    }
+  }
 
   async function loadAnalytics() {
     setLoading(true)
     try {
-      // Get all sessions from sync store
-      const sessions = sync.data.session
-
-      // Aggregate stats from each session's messages
-      const statsMap = new Map<string, SessionStats>()
-      const providerMap = new Map<string, ProviderStats>()
-      const dayMap = new Map<string, DayStats>()
-
-      let totalInput = 0
-      let totalOutput = 0
-      let totalReasoning = 0
-      let totalCache = 0
-      let totalCost = 0
-      let totalMessages = 0
-
-      for (const session of sessions) {
-        const messages = sync.data.message[session.id] ?? []
-        const assistantMessages = messages.filter((m) => m.role === "assistant")
-
-        let sessionInput = 0
-        let sessionOutput = 0
-        let sessionReasoning = 0
-        let sessionCache = 0
-        let sessionCost = 0
-        let lastModel = "unknown"
-        let lastProvider = "unknown"
-
-        for (const msg of assistantMessages) {
-          if (msg.tokens) {
-            sessionInput += msg.tokens.input || 0
-            sessionOutput += msg.tokens.output || 0
-            sessionReasoning += msg.tokens.reasoning || 0
-            sessionCache += (msg.tokens.cache?.read || 0) + (msg.tokens.cache?.write || 0)
-            totalMessages++
-          }
-          if (msg.cost) {
-            sessionCost += msg.cost
-            totalCost += msg.cost
-          }
-          if (msg.modelID) lastModel = msg.modelID
-          if (msg.providerID) lastProvider = msg.providerID
-        }
-
-        totalInput += sessionInput
-        totalOutput += sessionOutput
-        totalReasoning += sessionReasoning
-        totalCache += sessionCache
-
-        const sessionTokens = sessionInput + sessionOutput + sessionReasoning
-        const dateKey = new Date(session.time.updated).toISOString().split("T")[0]
-
-        statsMap.set(session.id, {
-          sessionID: session.id,
-          title: session.title || session.id.slice(-8),
-          messages: messages.length,
-          tokens: {
-            input: sessionInput,
-            output: sessionOutput,
-            reasoning: sessionReasoning,
-            cache: sessionCache,
-          },
-          cost: sessionCost,
-          model: lastModel,
-          provider: lastProvider,
-          updated: session.time.updated,
-          created: session.time.created,
-        })
-
-        // Provider stats
-        const pKey = lastProvider
-        const pStats = providerMap.get(pKey) || {
-          providerID: pKey,
-          sessions: 0,
-          messages: 0,
-          tokens: { input: 0, output: 0, reasoning: 0, cache: 0 },
-          cost: 0,
-          models: new Set<string>(),
-        }
-        pStats.sessions++
-        pStats.messages += assistantMessages.length
-        pStats.tokens.input += sessionInput
-        pStats.tokens.output += sessionOutput
-        pStats.tokens.reasoning += sessionReasoning
-        pStats.tokens.cache += sessionCache
-        pStats.cost += sessionCost
-        pStats.models.add(lastModel)
-        providerMap.set(pKey, pStats)
-
-        // Day stats
-        const dStats = dayMap.get(dateKey) || { date: dateKey, sessions: 0, tokens: 0, cost: 0 }
-        dStats.sessions++
-        dStats.tokens += sessionTokens
-        dStats.cost += sessionCost
-        dayMap.set(dateKey, dStats)
-      }
-
-      // Convert to sorted arrays
-      const sortedSessions = Array.from(statsMap.values()).sort(
-        (a, b) => b.tokens.input + b.tokens.output - (a.tokens.input + a.tokens.output),
-      )
-
-      const sortedDays = Array.from(dayMap.values())
-        .sort((a, b) => a.date.localeCompare(b.date))
-        .slice(-14) // Last 14 days
-
-      setSessionStats(sortedSessions.slice(0, 10))
-      setProviderStats(providerMap)
-      setDayStats(sortedDays)
-      setTotalStats({
-        sessions: sessions.length,
-        messages: totalMessages,
-        tokens: {
-          input: totalInput,
-          output: totalOutput,
-          reasoning: totalReasoning,
-          cache: totalCache,
-        },
-        cost: totalCost,
+      await waitForSyncBootstrap()
+      const liveStats = aggregateAnalytics({
+        session: sync.data.session,
+        message: sync.data.message,
+        part: sync.data.part,
+        todo: sync.data.todo,
+        workspaceList: sync.data.workspaceList,
+        background_job: sync.data.background_job,
       })
+
+      try {
+        if (sdk.url) {
+          const gotHistorical = await analyticsCtx.refresh()
+          let stats: AggregatedStats = gotHistorical
+            ? mergeWithHistorical(liveStats, {
+                global: analyticsCtx.global(),
+                daily: analyticsCtx.daily(),
+              })
+            : liveStats
+          const persistedSessions = analyticsCtx.sessions()
+          if (persistedSessions.length > 0) {
+            stats = { ...stats, sessions: mergeSessionsFromApi(stats.sessions, persistedSessions) }
+            stats = augmentAggregatedStatsFromPersistedSessions(stats, persistedSessions)
+          }
+          setStats(stats)
+        } else {
+          setStats(liveStats)
+        }
+      } catch {
+        setStats(liveStats)
+      }
     } catch (e) {
       console.error("Failed to load analytics:", e)
     } finally {
@@ -539,206 +148,634 @@ export function DialogAnalytics() {
     }
   }
 
-  const totalTokens = createMemo(
-    () => totalStats().tokens.input + totalStats().tokens.output + totalStats().tokens.reasoning,
-  )
-
-  const providers = createMemo(() => {
-    const sorted = Array.from(providerStats().values()).sort((a, b) => b.cost - a.cost)
-    return sorted
+  // Computed values
+  const totalNonCache = createMemo(() => {
+    const s = stats()?.global.tokens
+    if (!s) return 0
+    return s.input + s.output + s.reasoning
   })
 
-  const maxDayTokens = createMemo(() => {
-    const days = dayStats()
-    if (days.length === 0) return 1
-    return Math.max(...days.map((d) => d.tokens), 1)
+  const last14Days = createMemo(() => stats()?.days.slice(-14) ?? [])
+  const last30Days = createMemo(() => stats()?.days.slice(-30) ?? [])
+
+  // Tab navigation
+  const tabIndex = createMemo(() => TABS.findIndex((t) => t.id === activeTab()))
+  const prevTab = () => {
+    const idx = tabIndex()
+    if (idx > 0) setActiveTab(TABS[idx - 1]!.id)
+  }
+  const nextTab = () => {
+    const idx = tabIndex()
+    if (idx < TABS.length - 1) setActiveTab(TABS[idx + 1]!.id)
+  }
+
+  useKeyboard((evt) => {
+    if (evt.name === "arrow-left") prevTab()
+    else if (evt.name === "arrow-right") nextTab()
   })
-
-  const maxSessionTokens = createMemo(() => {
-    const sessions = sessionStats()
-    if (sessions.length === 0) return 1
-    return Math.max(...sessions.map((s) => s.tokens.input + s.tokens.output + s.tokens.reasoning), 1)
-  })
-
-  const dayTokensData = createMemo(() =>
-    dayStats().map((d) => ({
-      label: d.date.slice(5), // "MM-DD"
-      value: d.tokens,
-    })),
-  )
-
-  const dayCostData = createMemo(() =>
-    dayStats().map((d) => ({
-      label: d.date.slice(5),
-      value: d.cost,
-    })),
-  )
 
   return (
-    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={0}>
+    <box paddingLeft={3} paddingRight={3} gap={2} paddingBottom={1}>
       {/* Header */}
       <box flexDirection="row" justifyContent="space-between" alignItems="center">
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>
-          ◈ Analytics
+          ◈ ANALYTICS
         </text>
-        <text fg={theme.textMuted}>esc to close</text>
+        <text fg={theme.textMuted}>←→ or click tabs | esc to close</text>
       </box>
 
       <Show when={loading()}>
         <text fg={theme.textMuted}>Loading analytics...</text>
       </Show>
 
-      <Show when={!loading()}>
-        {/* Global Stats Box */}
-        <GlobalStatsBox
-          sessions={totalStats().sessions}
-          messages={totalStats().messages}
-          cost={totalStats().cost}
-          tokens={totalTokens()}
-        />
-
-        {/* Token Breakdown with Sparkline */}
-        <box gap={0}>
-          <SectionHeader title="Token Breakdown" icon="◆" />
-          <box flexDirection="row" gap={2}>
-            {/* Bars */}
-            <box flexDirection="column" gap={0} flexGrow={1}>
-              <HBar
-                label="input"
-                value={totalStats().tokens.input}
-                max={totalTokens()}
-                width={20}
-                color={colorToString(theme.primary)}
-              />
-              <HBar
-                label="output"
-                value={totalStats().tokens.output}
-                max={totalTokens()}
-                width={20}
-                color={colorToString(theme.error)}
-              />
-              <HBar
-                label="reason"
-                value={totalStats().tokens.reasoning}
-                max={totalTokens()}
-                width={20}
-                color={colorToString(theme.warning)}
-              />
-              <HBar
-                label="cache"
-                value={totalStats().tokens.cache}
-                max={totalTokens()}
-                width={20}
-                color={colorToString(theme.textMuted)}
-              />
-            </box>
-            {/* Mini sparkline */}
-            <box justifyContent="center">
-              <Sparkline data={dayStats().map((d) => d.tokens)} width={20} color={colorToString(theme.primary)} />
-            </box>
-          </box>
+      <Show when={!loading() && stats()}>
+        {/* Tab Bar */}
+        <box flexDirection="row" gap={2}>
+          <For each={TABS}>
+            {(tab) => (
+              <text
+                fg={activeTab() === tab.id ? theme.primary : theme.textMuted}
+                attributes={activeTab() === tab.id ? TextAttributes.BOLD : undefined}
+                onMouseUp={() => setActiveTab(tab.id)}
+              >
+                {activeTab() === tab.id ? "[" : " "}
+                {tab.label}
+                {activeTab() === tab.id ? "]" : " "}
+              </text>
+            )}
+          </For>
         </box>
 
-        {/* Daily Usage - Line Chart */}
-        <Show when={dayStats().length > 0}>
-          <box gap={0}>
-            <SectionHeader title="Daily Usage (14 days)" icon="◆" />
-            <box flexDirection="row" gap={3}>
-              {/* Tokens line chart */}
-              <box flexGrow={1}>
-                <LineChart
-                  data={dayTokensData()}
-                  width={25}
-                  height={5}
-                  color={colorToString(theme.primary)}
-                  title="Tokens"
-                />
-              </box>
-              {/* Cost bar chart */}
-              <box flexGrow={1}>
-                <LineChart
-                  data={dayCostData()}
-                  width={25}
-                  height={5}
-                  color={colorToString(theme.success)}
-                  title="Cost ($)"
-                />
-              </box>
-            </box>
-          </box>
-        </Show>
+        <text fg={theme.border} wrapMode="none">
+          {BOX.horizontal.repeat(60)}
+        </text>
 
-        {/* Provider Usage - Two columns */}
-        <Show when={providers().length > 0}>
-          <box gap={0}>
-            <SectionHeader title="Provider Usage" icon="◆" />
-            <box flexDirection="row" gap={3}>
-              {/* Left column - Providers */}
-              <box flexDirection="column" gap={0} flexGrow={1}>
-                <For each={providers()}>
-                  {(prov) => (
-                    <box flexDirection="row" gap={1} alignItems="center">
-                      <text fg={theme.primary} width={10}>
-                        {prov.providerID}
-                      </text>
-                      <text fg={theme.textMuted} width={12}>
-                        {prov.sessions}s / {prov.messages}m
-                      </text>
-                      <text fg={theme.success}>{money.format(prov.cost)}</text>
-                    </box>
-                  )}
-                </For>
-              </box>
-              {/* Right column - Model list */}
-              <box flexDirection="column" gap={0} flexGrow={1}>
-                <For each={providers().slice(0, 3)}>
-                  {(prov) => (
-                    <box flexDirection="column" gap={0}>
-                      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-                        {prov.providerID}
-                      </text>
-                      <For each={Array.from(prov.models).slice(0, 2)}>
-                        {(model) => (
-                          <text fg={theme.textMuted} paddingLeft={1}>
-                            • {model}
-                          </text>
-                        )}
-                      </For>
-                    </box>
-                  )}
-                </For>
-              </box>
-            </box>
-          </box>
+        {/* Tab Content */}
+        <Show when={activeTab() === "overview"}>
+          <OverviewTab stats={stats()!} last14Days={last14Days()} last30Days={last30Days()} />
         </Show>
+        <Show when={activeTab() === "tokens"}>
+          <TokensTab stats={stats()!} last14Days={last14Days()} />
+        </Show>
+        <Show when={activeTab() === "models"}>
+          <ModelsTab stats={stats()!} />
+        </Show>
+        <Show when={activeTab() === "tools"}>
+          <ToolsTab stats={stats()!} />
+        </Show>
+        <Show when={activeTab() === "projects"}>
+          <ProjectsTab stats={stats()!} />
+        </Show>
+        <Show when={activeTab() === "sessions"}>
+          <SessionsTab stats={stats()!} />
+        </Show>
+      </Show>
+    </box>
+  )
+}
 
-        {/* Top Sessions */}
-        <Show when={sessionStats().length > 0}>
-          <box gap={0}>
-            <SectionHeader title="Top Sessions" icon="◆" />
-            <For each={sessionStats().slice(0, 5)}>
-              {(session) => {
-                const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
-                const pct = Math.round((total / maxSessionTokens()) * 100)
-                const dashes = "─".repeat(Math.min(15, Math.floor(pct / 7)))
-                return (
-                  <box flexDirection="row" gap={1} alignItems="center">
-                    <text fg={theme.text} width={14} wrapMode="none">
-                      {session.title.slice(0, 14)}
-                    </text>
-                    <text fg={theme.primary} width={6}>
-                      {pct}%
-                    </text>
-                    <text fg={theme.borderSubtle}>{dashes}</text>
-                    <text fg={theme.textMuted} wrapMode="none">
-                      {formatTokens(total)}
-                    </text>
-                  </box>
-                )
-              }}
-            </For>
+// ===== TAB COMPONENTS =====
+
+function OverviewTab(props: {
+  stats: AggregatedStats
+  last14Days: typeof props.stats.days
+  last30Days: typeof props.stats.days
+}) {
+  const { theme } = useTheme()
+  const g = () => props.stats.global
+  const viz = () => getChartColors(theme)
+
+  return (
+    <box flexDirection="column" gap={2}>
+      {/* KPI Cards */}
+      <box flexDirection="row" gap={2}>
+        <KPICard
+          label="SESSIONS"
+          value={g().sessions.toString()}
+          color={viz().series[0]!}
+          subtitle={`${g().sessions - g().archivedSessions} active`}
+        />
+        <KPICard label="MESSAGES" value={formatTokens(g().messages)} color={viz().series[1]!} />
+        <KPICard
+          label="COST"
+          value={money.format(g().cost)}
+          color={viz().series[2]!}
+          subtitle={`$${g().efficiency.costPer1kTokens.toFixed(4)}/1k tokens`}
+        />
+        <KPICard
+          label="TOKENS"
+          value={formatTokens(g().tokens.input + g().tokens.output + g().tokens.reasoning)}
+          color={viz().series[3]!}
+          subtitle={`in:${formatTokens(g().tokens.input)} out:${formatTokens(g().tokens.output)}`}
+        />
+      </box>
+
+      {/* Braille Line Chart - Token Usage Over Time */}
+      <Show when={props.last30Days.length > 0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Token Usage Over Time (30 days)
+        </text>
+        <BrailleLineChart
+          series={[
+            {
+              label: "Input",
+              data: props.last30Days.map((d) => d.input),
+              color: viz().input,
+            },
+            {
+              label: "Output",
+              data: props.last30Days.map((d) => d.output),
+              color: viz().output,
+            },
+            {
+              label: "Cache",
+              data: props.last30Days.map((d) => d.cacheRead + d.cacheWrite),
+              color: viz().cache,
+            },
+          ]}
+          width={60}
+          height={8}
+          showGrid
+          showLegend
+          showAxis
+          yFormat={formatTokens}
+        />
+      </Show>
+
+      {/* Daily Stacked Bar Chart */}
+      <Show when={props.last14Days.length > 0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Daily Token Breakdown (14 days)
+        </text>
+        <For each={props.last14Days.slice(-7)}>
+          {(day) => (
+            <box flexDirection="row" gap={2} alignItems="center">
+              <text fg={theme.textMuted} width={6} wrapMode="none">
+                {day.date.slice(5)}
+              </text>
+              <StackedBarChartV2
+                segments={[
+                  { label: "Input", value: day.input, color: viz().input },
+                  { label: "Output", value: day.output, color: viz().output },
+                  { label: "Cache", value: day.cacheRead + day.cacheWrite, color: viz().cache },
+                  { label: "Reason", value: day.reasoning, color: viz().reasoning },
+                ]}
+                width={30}
+                showLabels={false}
+              />
+              <text fg={theme.textMuted}>{formatTokens(day.tokens)}</text>
+            </box>
+          )}
+        </For>
+        {/* Legend */}
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().input} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Input</text>
           </box>
-        </Show>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().output} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Output</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().cache} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Cache</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={viz().reasoning} wrapMode="none">
+              ■
+            </text>
+            <text fg={theme.textMuted}>Reason</text>
+          </box>
+        </box>
+      </Show>
+
+      {/* Provider Summary */}
+      <box flexDirection="column" gap={0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Top Providers
+        </text>
+        <For each={Array.from(props.stats.providers.values()).slice(0, 3)}>
+          {(prov) => (
+            <box flexDirection="row" gap={2} alignItems="center">
+              <text fg={theme.primary} width={12}>
+                {prov.providerID}
+              </text>
+              <text fg={theme.textMuted}>
+                {prov.sessions}s / {prov.messages}m
+              </text>
+              <text fg={theme.success}>{money.format(prov.cost)}</text>
+            </box>
+          )}
+        </For>
+      </box>
+    </box>
+  )
+}
+
+function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.stats.days }) {
+  const { theme } = useTheme()
+  const viz = () => getChartColors(theme)
+  const g = () => props.stats.global
+  const tokens = () => g().tokens
+  const total = createMemo(() => tokens().input + tokens().output + tokens().reasoning)
+  const totalWithCache = createMemo(() => total() + tokens().cacheRead + tokens().cacheWrite)
+
+  return (
+    <box flexDirection="column" gap={1}>
+      {/* Token Breakdown Bars with 8-level precision */}
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Token Breakdown
+      </text>
+      <box flexDirection="column" gap={0}>
+        <HBarPrecision
+          label="input"
+          value={tokens().input}
+          max={total()}
+          width={25}
+          color={viz().input}
+          showPct
+        />
+        <HBarPrecision
+          label="output"
+          value={tokens().output}
+          max={total()}
+          width={25}
+          color={viz().output}
+          showPct
+        />
+        <HBarPrecision
+          label="reasoning"
+          value={tokens().reasoning}
+          max={total()}
+          width={25}
+          color={viz().reasoning}
+          showPct
+        />
+        <HBarPrecision
+          label="cache-read"
+          value={tokens().cacheRead}
+          max={totalWithCache()}
+          width={25}
+          color={viz().cache}
+          showPct
+        />
+        <HBarPrecision
+          label="cache-write"
+          value={tokens().cacheWrite}
+          max={totalWithCache()}
+          width={25}
+          color={viz().cacheWrite}
+          showPct
+        />
+      </box>
+
+      {/* Braille Area Chart for token trend */}
+      <Show when={props.last14Days.length > 0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          14-Day Token Trend
+        </text>
+        <BrailleAreaChart
+          data={props.last14Days.map((d) => d.tokens)}
+          width={50}
+          height={4}
+          color={viz().input}
+        />
+      </Show>
+
+      {/* Efficiency Metrics */}
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Efficiency Metrics
+      </text>
+      <box flexDirection="row" gap={3}>
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.textMuted}>Cost/1K tokens</text>
+          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            ${g().efficiency.costPer1kTokens.toFixed(4)}
+          </text>
+        </box>
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.textMuted}>Cost/session</text>
+          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            {money.format(g().efficiency.costPerSession)}
+          </text>
+        </box>
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.textMuted}>Tokens/session</text>
+          <text fg={viz().input} attributes={TextAttributes.BOLD}>
+            {formatTokens(g().efficiency.avgTokensPerSession)}
+          </text>
+        </box>
+        <box flexDirection="column" gap={0}>
+          <text fg={theme.textMuted}>Avg cost/day</text>
+          <text fg={colorToString(theme.warning)} attributes={TextAttributes.BOLD}>
+            {money.format(g().efficiency.avgCostPerDay)}
+          </text>
+        </box>
+      </box>
+    </box>
+  )
+}
+
+function ModelsTab(props: { stats: AggregatedStats }) {
+  const { theme } = useTheme()
+  const viz = () => getChartColors(theme)
+  const models = createMemo(() => props.stats.models.slice(0, 8))
+  const maxTokens = createMemo(() => {
+    const m = models()
+    if (m.length === 0) return 1
+    return Math.max(...m.map((mod) => mod.tokens.input + mod.tokens.output), 1)
+  })
+
+  return (
+    <box flexDirection="column" gap={1}>
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Model Usage ({props.stats.models.length} models)
+      </text>
+
+      <For each={models()}>
+        {(model) => (
+          <ModelCard
+            name={model.modelID}
+            provider={model.providerID}
+            requests={model.messages}
+            inputTokens={model.tokens.input}
+            outputTokens={model.tokens.output}
+            maxTokens={maxTokens()}
+            color={viz().series[4]!}
+          />
+        )}
+      </For>
+
+      <Show when={props.stats.models.length === 0}>
+        <text fg={theme.textMuted}>No model usage data</text>
+      </Show>
+    </box>
+  )
+}
+
+function ProjectsTab(props: { stats: AggregatedStats }) {
+  const { theme } = useTheme()
+  const g = () => props.stats.global
+
+  const vcsStats = createMemo(() => {
+    const git = props.stats.projects.filter((p) => p.vcs === "git").length
+    const local = props.stats.projects.filter((p) => p.vcs === "local" || p.vcs === "unknown").length
+    return { git, local, total: props.stats.projects.length }
+  })
+
+  return (
+    <box flexDirection="column" gap={1}>
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Projects ({g().projects.length})
+      </text>
+
+      {/* VCS Breakdown */}
+      <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Git:</text>
+          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            {vcsStats().git}
+          </text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Local:</text>
+          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+            {vcsStats().local}
+          </text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Avg sessions:</text>
+          <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
+            {(g().sessions / (vcsStats().total || 1)).toFixed(1)}
+          </text>
+        </box>
+      </box>
+
+      {/* Project Cards */}
+      <box flexDirection="column" gap={0}>
+        <For each={props.stats.projects.slice(0, 8)}>
+          {(proj) => (
+            <box
+              flexDirection="row"
+              gap={2}
+              alignItems="center"
+              border={["bottom"]}
+              borderColor={theme.borderSubtle}
+              paddingLeft={1}
+              paddingRight={1}
+            >
+              <text fg={proj.vcs === "git" ? theme.success : theme.textMuted} width={3}>
+                {proj.vcs === "git" ? "●" : "○"}
+              </text>
+              <text fg={theme.text} width={16}>
+                {proj.name.slice(-16)}
+              </text>
+              <text fg={theme.textMuted}>{proj.sessionCount}s</text>
+              <text fg={theme.primary}>{formatTokens(proj.totalTokens)}</text>
+              <text fg={theme.success}>{money.format(proj.totalCost)}</text>
+            </box>
+          )}
+        </For>
+      </box>
+
+      <Show when={props.stats.projects.length === 0}>
+        <text fg={theme.textMuted}>No projects yet</text>
+      </Show>
+    </box>
+  )
+}
+
+function ToolsTab(props: { stats: AggregatedStats }) {
+  const { theme } = useTheme()
+  const viz = () => getChartColors(theme)
+  const tools = () => props.stats.toolUsage
+  const maxCount = createMemo(() => tools().mostUsed[0]?.count ?? 1)
+
+  return (
+    <box flexDirection="column" gap={1}>
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Tool Usage ({tools().total} calls)
+      </text>
+
+      {/* Tool List with bars */}
+      <box flexDirection="column" gap={0}>
+        <For each={tools().mostUsed.slice(0, 10)}>
+          {(tool) => {
+            const barWidth = createMemo(() => Math.floor((tool.count / maxCount()) * 20))
+            const successColor = createMemo(() => {
+              if (tool.successRate >= 90) return colorToString(theme.success)
+              if (tool.successRate >= 70) return colorToString(theme.warning)
+              return colorToString(theme.error)
+            })
+            return (
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text fg={theme.text} width={16} wrapMode="none">
+                  {tool.name.slice(-16)}
+                </text>
+                <text fg={viz().input} wrapMode="none">
+                  {"█".repeat(barWidth())}
+                </text>
+                <text fg={theme.textMuted} width={5}>
+                  {tool.count}
+                </text>
+                <text fg={successColor()} width={5}>
+                  {tool.successRate.toFixed(0)}%
+                </text>
+              </box>
+            )
+          }}
+        </For>
+      </box>
+
+      <Show when={tools().mostUsed.length === 0}>
+        <text fg={theme.textMuted}>No tool usage data</text>
+      </Show>
+
+      {/* Legend */}
+      <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={colorToString(theme.success)} wrapMode="none">
+            ■
+          </text>
+          <text fg={theme.textMuted}>90%+ success</text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={colorToString(theme.warning)} wrapMode="none">
+            ■
+          </text>
+          <text fg={theme.textMuted}>70-90%</text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={colorToString(theme.error)} wrapMode="none">
+            ■
+          </text>
+          <text fg={theme.textMuted}>&lt;70%</text>
+        </box>
+      </box>
+    </box>
+  )
+}
+
+function SessionsTab(props: { stats: AggregatedStats }) {
+  const { theme } = useTheme()
+  const viz = () => getChartColors(theme)
+  const g = () => props.stats.global
+  const ws = () => props.stats.workspaces
+  const topSessions = createMemo(() => props.stats.sessions.slice(0, 5))
+  const bg = () => props.stats.backgroundRuns
+
+  return (
+    <box flexDirection="column" gap={1}>
+      {/* Session Stats */}
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Sessions
+      </text>
+      <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Total:</text>
+          <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
+            {g().sessions}
+          </text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Active:</text>
+          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+            {g().sessions - g().archivedSessions}
+          </text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Archived:</text>
+          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+            {g().archivedSessions}
+          </text>
+        </box>
+      </box>
+
+      {/* Top Sessions */}
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Top by Tokens
+      </text>
+      <For each={topSessions()}>
+        {(session) => {
+          const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
+          return (
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.text} width={14}>
+                {session.title.slice(-14)}
+              </text>
+              <text fg={theme.primary}>{formatTokens(total)}</text>
+              <text fg={theme.success}>{money.format(session.cost)}</text>
+            </box>
+          )
+        }}
+      </For>
+
+      {/* Background Runs */}
+      <Show when={bg().total > 0}>
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Background Runs ({bg().total})
+        </text>
+        <StackedBarChartV2
+          segments={[
+            { label: "Completed", value: bg().completed, color: viz().cache },
+            { label: "Running", value: bg().running, color: viz().input },
+            { label: "Error", value: bg().error, color: viz().alert },
+            { label: "Cancelled", value: bg().cancelled, color: viz().reasoning },
+          ]}
+          width={35}
+          showLabels
+        />
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Success:</text>
+            <text fg={colorToString(theme.success)}>{bg().successRate.toFixed(0)}%</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Avg duration:</text>
+            <text fg={viz().input}>{formatDuration(bg().avgDuration)}</text>
+          </box>
+        </box>
+      </Show>
+
+      {/* Workspaces Summary */}
+      <text fg={theme.text} attributes={TextAttributes.BOLD}>
+        Workspaces
+      </text>
+      <box flexDirection="row" gap={3}>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Total:</text>
+          <text fg={colorToString(theme.primary)}>{ws().total}</text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Active:</text>
+          <text fg={colorToString(theme.success)}>{ws().active}</text>
+        </box>
+        <box flexDirection="row" gap={1} alignItems="center">
+          <text fg={theme.textMuted}>Disconnected:</text>
+          <text fg={colorToString(theme.error)}>{ws().disconnected}</text>
+        </box>
+      </box>
+
+      {/* Type breakdown */}
+      <Show when={Object.keys(ws().byType).length > 0}>
+        <text fg={theme.textMuted}>By type:</text>
+        <box flexDirection="row" gap={2}>
+          <For each={Object.entries(ws().byType)}>
+            {([type, count]) => (
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text fg={colorToString(theme.accent)}>{type}:</text>
+                <text fg={theme.text}>{count}</text>
+              </box>
+            )}
+          </For>
+        </box>
       </Show>
     </box>
   )
