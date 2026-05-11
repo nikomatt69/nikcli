@@ -78,6 +78,7 @@ import { DialogLogin } from "@tui/component/dialog-login"
 import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
+import { DialogAnalytics } from "@tui/component/dialog-analytics"
 
 async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
   // can't set raw mode if not a TTY
@@ -283,13 +284,10 @@ function App() {
         await DialogLogin.run(dialog)
       }
 
-      const tuiConfig = await withInstanceAsync(
-        { directory: sdk.directory || process.cwd() },
-        async () => {
-          initBrainScheduler()
-          return TuiConfig.get()
-        },
-      )
+      const tuiConfig = await withInstanceAsync({ directory: sdk.directory || process.cwd() }, async () => {
+        initBrainScheduler()
+        return TuiConfig.get()
+      })
       const api = createTuiApi({
         command,
         tuiConfig,
@@ -862,6 +860,18 @@ function App() {
       },
       onSelect: () => {
         dialog.replace(() => <DialogUsage />)
+      },
+      category: "Session",
+    },
+    {
+      title: "Analytics",
+      value: "analytics.view",
+      slash: {
+        name: "analytics",
+        aliases: ["stats"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogAnalytics />)
       },
       category: "Session",
     },

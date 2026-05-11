@@ -41,6 +41,7 @@ import { PluginCommand } from "./cli/cmd/plug"
 import { AccountCommand } from "./cli/cmd/account"
 import { HeapCommand } from "./cli/cmd/heap"
 import { RoutineCommand } from "./cli/cmd/routine"
+import { UsageCommand } from "./cli/cmd/usage"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -124,6 +125,7 @@ const cli = yargs(hideBin(process.argv))
   .command(CompanionCommand)
   .command(MobileCommand)
   .command(RoutineCommand)
+  .command(UsageCommand)
   .command(PluginCommand)
   .fail((msg, err) => {
     if (

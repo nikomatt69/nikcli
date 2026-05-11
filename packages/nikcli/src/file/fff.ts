@@ -1,6 +1,7 @@
 import path from "path"
 import fs from "fs/promises"
 import crypto from "crypto"
+import { Context, Effect, Layer, Scope } from "effect"
 import {
   FileFinder,
   type FileItem,
@@ -17,21 +18,80 @@ import { minimatch } from "minimatch"
 import { Instance } from "../project/instance"
 import { Global } from "../global"
 import { Log } from "../util/log"
+import { instance, type InstanceContext } from "@/effect/instance-ref"
 
 export namespace FFF {
   const log = Log.create({ service: "fff" })
 
-  type Ready = {
-    available: true
-    finder: FileFinder
+  // ============================================
+  // Error Types
+  // ============================================
+
+  export class FFFError extends Error {
+    constructor(public readonly reason: string) {
+      super(reason)
+      this.name = "FFFError"
+    }
   }
 
-  type Unavailable = {
-    available: false
-    error: string
+  export class FFFNotReadyError extends FFFError {
+    constructor() {
+      super("FFF FileFinder is not ready")
+    }
   }
 
-  type Handle = Ready | Unavailable
+  // ============================================
+  // Input Types
+  // ============================================
+
+  export interface FilesInput {
+    cwd: string
+    glob?: string[]
+    hidden?: boolean
+    follow?: boolean
+    maxDepth?: number
+    limit?: number
+  }
+
+  export interface AllowedInput {
+    rel: string
+    file?: string
+    glob?: string[]
+    hidden?: boolean
+  }
+
+  // ============================================
+  // Service Interface
+  // ============================================
+
+  export interface Interface {
+    readonly available: Effect.Effect<boolean>
+    readonly waitForScan: (timeoutMs?: number) => Effect.Effect<boolean>
+    readonly files: (input: FilesInput) => Effect.Effect<string[], FFFError>
+    readonly searchFiles: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
+    readonly searchDirs: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
+    readonly searchMixed: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
+    readonly grep: (query: string, opts?: GrepOptions) => Effect.Effect<GrepResult, FFFError>
+    readonly filesRich: (query: string, opts?: SearchOptions) => Effect.Effect<SearchResult, FFFError>
+    readonly mixed: (query: string, opts?: SearchOptions) => Effect.Effect<MixedSearchResult, FFFError>
+    readonly allowed: (input: AllowedInput) => Effect.Effect<boolean>
+  }
+
+  export class Service extends Context.Tag("FFF.Service")<Service, Interface>() {}
+
+  // ============================================
+  // Internal Helpers
+  // ============================================
+
+  type Handle =
+    | {
+        available: true
+        finder: FileFinder
+      }
+    | {
+        available: false
+        error: string
+      }
 
   function projectKey(dir: string) {
     const hash = crypto.createHash("sha256").update(dir).digest("hex").slice(0, 16)
@@ -61,95 +121,57 @@ export namespace FFF {
     }
   }
 
-  const state = Instance.state(
-    async (): Promise<Handle> => {
-      const dir = Instance.directory
-      try {
-        const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
-        await fs.mkdir(dbDir, { recursive: true })
+  async function initializeHandle(ctx: InstanceContext): Promise<Handle> {
+    const dir = ctx.directory
+    try {
+      const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
+      await fs.mkdir(dbDir, { recursive: true })
 
-        const created = FileFinder.create({
-          basePath: dir,
-          frecencyDbPath: path.join(dbDir, "frecency.mdb"),
-          historyDbPath: path.join(dbDir, "history.mdb"),
-          aiMode: true,
-        })
+      const created = FileFinder.create({
+        basePath: dir,
+        frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+        historyDbPath: path.join(dbDir, "history.mdb"),
+        aiMode: true,
+      })
 
-        if (!created.ok) {
-          log.warn("FileFinder.create failed", { error: created.error })
-          // Check if it's an LMDB corruption error - reset cache and retry once
-          if (isLMDBError(created.error)) {
-            log.warn("lmdb corruption detected, retrying with fresh cache")
-            await resetCorruptedDB(dbDir)
-            await fs.mkdir(dbDir, { recursive: true })
-            const retry = FileFinder.create({
-              basePath: dir,
-              frecencyDbPath: path.join(dbDir, "frecency.mdb"),
-              historyDbPath: path.join(dbDir, "history.mdb"),
-              aiMode: true,
-            })
-            if (retry.ok) {
-              log.info("lmdb recovery succeeded", { dir, dbDir })
-              return { available: true, finder: retry.value }
-            }
-            if (retry.ok === false && isLMDBError(retry.error)) {
-              log.error("lmdb recovery failed twice, giving up", { error: retry.error })
-              return { available: false, error: retry.error }
-            }
-          }
-          return { available: false, error: created.error }
-        }
-
-        log.info("initialized", { dir, dbDir })
-        return { available: true, finder: created.value }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        // Check for LMDB corruption during init
-        if (isLMDBError(message)) {
-          log.warn("lmdb corruption during init, resetting cache")
-          const dbDir = path.join(Global.Path.cache, "fff", projectKey(Instance.directory))
+      if (!created.ok) {
+        log.warn("FileFinder.create failed", { error: created.error })
+        // Check if it's an LMDB corruption error - reset cache and retry once
+        if (isLMDBError(created.error)) {
+          log.warn("lmdb corruption detected, retrying with fresh cache")
           await resetCorruptedDB(dbDir)
+          await fs.mkdir(dbDir, { recursive: true })
+          const retry = FileFinder.create({
+            basePath: dir,
+            frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+            historyDbPath: path.join(dbDir, "history.mdb"),
+            aiMode: true,
+          })
+          if (retry.ok) {
+            log.info("lmdb recovery succeeded", { dir, dbDir })
+            return { available: true, finder: retry.value }
+          }
+          if (retry.ok === false && isLMDBError(retry.error)) {
+            log.error("lmdb recovery failed twice, giving up", { error: retry.error })
+            return { available: false, error: retry.error }
+          }
         }
-        log.warn("init threw", { error: message })
-        return { available: false, error: message }
+        return { available: false, error: created.error }
       }
-    },
-    async (handle) => {
-      if (handle.available) {
-        try {
-          handle.finder.destroy()
-        } catch (error) {
-          log.warn("destroy failed", { error })
-        }
+
+      log.info("initialized", { dir, dbDir })
+      return { available: true, finder: created.value }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      // Check for LMDB corruption during init
+      if (isLMDBError(message)) {
+        log.warn("lmdb corruption during init, resetting cache")
+        const dbDir = path.join(Global.Path.cache, "fff", projectKey(ctx.directory))
+        await resetCorruptedDB(dbDir)
       }
-    },
-  )
-
-  export async function available(): Promise<boolean> {
-    return (await state()).available
-  }
-
-  export async function waitForScan(timeoutMs: number = 5000): Promise<boolean> {
-    const r = await ready()
-    if (!r) return false
-    const result = r.finder.waitForScan(timeoutMs)
-    if (!result.ok) {
-      log.warn("waitForScan failed", { error: result.error })
-      return false
+      log.warn("init threw", { error: message })
+      return { available: false, error: message }
     }
-    return result.value
-  }
-
-  async function ready(): Promise<Ready | undefined> {
-    const handle = await state()
-    return handle.available ? handle : undefined
-  }
-
-  // During the initial background scan results can be partial, so callers must
-  // use their eager fallback until FFF has a complete index.
-  function unusableDuringWarmup(finder: FileFinder, items: unknown[]): boolean {
-    void items
-    return finder.isScanning()
   }
 
   function hidden(item: string): boolean {
@@ -163,19 +185,12 @@ export namespace FFF {
     return item.replaceAll("\\", "/").split("/").filter(Boolean).length
   }
 
-  function globPatterns(pattern: string): string[] {
-    const normalized = pattern.replaceAll("\\", "/")
-    return [normalized]
-  }
-
   function matchesGlob(item: string, pattern: string): boolean {
     const normalized = item.replaceAll("\\", "/")
-    return globPatterns(pattern).some((candidate) =>
-      minimatch(normalized, candidate, {
-        dot: true,
-        matchBase: !candidate.includes("/"),
-      }),
-    )
+    return minimatch(normalized, pattern, {
+      dot: true,
+      matchBase: !pattern.includes("/"),
+    })
   }
 
   function matchesGlobs(item: string, globs: string[] | undefined): boolean {
@@ -207,16 +222,262 @@ export namespace FFF {
     return relative.endsWith("/") ? relative : `${relative}/`
   }
 
-  export async function files(input: {
-    cwd: string
-    glob?: string[]
-    hidden?: boolean
-    follow?: boolean
-    maxDepth?: number
-    limit?: number
-  }): Promise<string[] | undefined> {
-    if (input.follow === false) return undefined
-    if (input.hidden !== false) return undefined
+  // ============================================
+  // Layer Implementation
+  // ============================================
+
+  const layer = Layer.scoped(
+    Service,
+    Effect.gen(function* () {
+      const ctx = yield* instance
+      const handle = yield* Effect.tryPromise({
+        try: () => initializeHandle(ctx),
+        catch: (e) => new FFFError(e instanceof Error ? e.message : String(e)),
+      })
+
+      if (!handle.available) {
+        return yield* Effect.fail(new FFFNotReadyError())
+      }
+
+      const finder = handle.finder
+
+      const svc: Interface = {
+        available: Effect.succeed(true),
+
+        waitForScan: (timeoutMs = 5000) =>
+          Effect.sync(() => {
+            const result = finder.waitForScan(timeoutMs)
+            return result.ok && result.value
+          }),
+
+        files: (input) =>
+          Effect.gen(function* () {
+            const prefix = yield* Effect.tryPromise({
+              try: () => relativePrefix(input.cwd),
+              catch: (e) => new FFFError(e instanceof Error ? e.message : String(e)),
+            })
+            if (prefix === undefined) return []
+
+            const output: string[] = []
+            const pageSize = Math.max(input.limit ?? 500, 500)
+
+            for (let pageIndex = 0; ; pageIndex++) {
+              const page = finder.fileSearch("", { pageIndex, pageSize })
+              if (!page.ok) {
+                log.warn("fileSearch failed", { query: "", error: page.error })
+                return yield* Effect.fail(new FFFError(`fileSearch failed: ${page.error}`))
+              }
+              if (finder.isScanning()) {
+                return yield* Effect.fail(new FFFNotReadyError())
+              }
+              for (const item of page.value.items) {
+                const relative = item.relativePath.replaceAll("\\", "/")
+                if (relative === ".git" || relative.startsWith(".git/")) continue
+                if (prefix && !relative.startsWith(prefix)) continue
+                const local = prefix ? relative.slice(prefix.length) : relative
+                if (!local) continue
+                if (input.hidden === false && hidden(local)) continue
+                if (input.maxDepth !== undefined && depth(local) > input.maxDepth) continue
+                if (!matchesGlobs(local, input.glob)) continue
+                output.push(local)
+                if (input.limit && output.length >= input.limit) return output
+              }
+              const seen = (pageIndex + 1) * pageSize
+              const total = Math.max(page.value.totalFiles, page.value.totalMatched, page.value.items.length)
+              if (page.value.items.length === 0 || seen >= total) break
+            }
+            return output
+          }),
+
+        searchFiles: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.fileSearch(query, opts)
+            if (!result.ok) {
+              log.warn("fileSearch failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`fileSearch failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value.items.map((item) => item.relativePath)
+          }),
+
+        searchDirs: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.directorySearch(query, opts)
+            if (!result.ok) {
+              log.warn("directorySearch failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`directorySearch failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value.items.map((item) => item.relativePath)
+          }),
+
+        searchMixed: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.mixedSearch(query, opts)
+            if (!result.ok) {
+              log.warn("mixedSearch failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`mixedSearch failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value.items.map((entry) => entry.item.relativePath)
+          }),
+
+        grep: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.grep(query, opts)
+            if (!result.ok) {
+              log.warn("grep failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`grep failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value
+          }),
+
+        filesRich: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.fileSearch(query, opts)
+            if (!result.ok) {
+              log.warn("fileSearch (rich) failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`fileSearch failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value
+          }),
+
+        mixed: (query, opts) =>
+          Effect.gen(function* () {
+            const result = finder.mixedSearch(query, opts)
+            if (!result.ok) {
+              log.warn("mixedSearch (rich) failed", { query, error: result.error })
+              return yield* Effect.fail(new FFFError(`mixedSearch failed: ${result.error}`))
+            }
+            if (finder.isScanning()) {
+              return yield* Effect.fail(new FFFNotReadyError())
+            }
+            return result.value
+          }),
+
+        allowed: (input) =>
+          Effect.sync(() => {
+            const rel = input.rel.replaceAll("\\", "/")
+            const file = input.file ?? rel.split("/").at(-1) ?? rel
+            if (input.hidden === false) {
+              const isHidden = rel.split("/").some((part) => part.startsWith(".") && part.length > 1)
+              if (isHidden) return false
+            }
+            return matchesGlobs(rel, input.glob)
+          }),
+      }
+
+      return Service.of(svc)
+    }),
+  )
+
+  export const defaultLayer = layer
+
+  // ============================================
+  // Backward Compatibility (Legacy API)
+  // ============================================
+
+  // Uses the same state pattern as before for backward compatibility
+  const state = Instance.state(
+    async (): Promise<Handle> => {
+      const dir = Instance.directory
+      try {
+        const dbDir = path.join(Global.Path.cache, "fff", projectKey(dir))
+        await fs.mkdir(dbDir, { recursive: true })
+
+        const created = FileFinder.create({
+          basePath: dir,
+          frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+          historyDbPath: path.join(dbDir, "history.mdb"),
+          aiMode: true,
+        })
+
+        if (!created.ok) {
+          log.warn("FileFinder.create failed", { error: created.error })
+          if (isLMDBError(created.error)) {
+            log.warn("lmdb corruption detected, retrying with fresh cache")
+            await resetCorruptedDB(dbDir)
+            await fs.mkdir(dbDir, { recursive: true })
+            const retry = FileFinder.create({
+              basePath: dir,
+              frecencyDbPath: path.join(dbDir, "frecency.mdb"),
+              historyDbPath: path.join(dbDir, "history.mdb"),
+              aiMode: true,
+            })
+            if (retry.ok) {
+              log.info("lmdb recovery succeeded", { dir, dbDir })
+              return { available: true, finder: retry.value }
+            }
+            if (retry.ok === false && isLMDBError(retry.error)) {
+              log.error("lmdb recovery failed twice, giving up", { error: retry.error })
+              return { available: false, error: retry.error }
+            }
+          }
+          return { available: false, error: created.error }
+        }
+
+        log.info("initialized", { dir, dbDir })
+        return { available: true, finder: created.value }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        if (isLMDBError(message)) {
+          log.warn("lmdb corruption during init, resetting cache")
+          const dbDir = path.join(Global.Path.cache, "fff", projectKey(Instance.directory))
+          await resetCorruptedDB(dbDir)
+        }
+        log.warn("init threw", { error: message })
+        return { available: false, error: message }
+      }
+    },
+    async (handle) => {
+      if (handle.available) {
+        try {
+          handle.finder.destroy()
+        } catch (error) {
+          log.warn("destroy failed", { error })
+        }
+      }
+    },
+  )
+
+  async function ready(): Promise<{ available: true; finder: FileFinder } | undefined> {
+    const handle = await state()
+    return handle.available ? handle : undefined
+  }
+
+  // During the initial background scan results can be partial
+  function isScanning(finder: FileFinder): boolean {
+    return finder.isScanning()
+  }
+
+  export async function available(): Promise<boolean> {
+    return (await state()).available
+  }
+
+  export async function waitForScan(timeoutMs: number = 5000): Promise<boolean> {
+    const r = await ready()
+    if (!r) return false
+    const result = r.finder.waitForScan(timeoutMs)
+    if (!result.ok) {
+      log.warn("waitForScan failed", { error: result.error })
+      return false
+    }
+    return result.value
+  }
+
+  export async function files(input: FilesInput): Promise<string[] | undefined> {
     const r = await ready()
     if (!r) return undefined
     const prefix = await relativePrefix(input.cwd)
@@ -230,7 +491,7 @@ export namespace FFF {
         log.warn("fileSearch failed", { query: "", error: page.error })
         return undefined
       }
-      if (unusableDuringWarmup(r.finder, page.value.items)) return undefined
+      if (isScanning(r.finder)) return undefined
       for (const item of page.value.items) {
         const relative = item.relativePath.replaceAll("\\", "/")
         if (relative === ".git" || relative.startsWith(".git/")) continue
@@ -258,7 +519,7 @@ export namespace FFF {
       log.warn("fileSearch failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value.items.map((item) => item.relativePath)
   }
 
@@ -270,7 +531,7 @@ export namespace FFF {
       log.warn("directorySearch failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value.items.map((item) => item.relativePath)
   }
 
@@ -282,7 +543,7 @@ export namespace FFF {
       log.warn("mixedSearch failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value.items.map((entry) => entry.item.relativePath)
   }
 
@@ -294,7 +555,7 @@ export namespace FFF {
       log.warn("grep failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value
   }
 
@@ -307,7 +568,7 @@ export namespace FFF {
       log.warn("fileSearch (rich) failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value
   }
 
@@ -320,7 +581,7 @@ export namespace FFF {
       log.warn("mixedSearch (rich) failed", { query, error: result.error })
       return undefined
     }
-    if (unusableDuringWarmup(r.finder, result.value.items)) return undefined
+    if (isScanning(r.finder)) return undefined
     return result.value
   }
 
@@ -328,7 +589,7 @@ export namespace FFF {
    * Utility: check whether a relative path passes hidden/glob filters.
    * Mirrors the opencode Fff.allowed() helper used by tools.
    */
-  export function allowed(input: { rel: string; file?: string; glob?: string[]; hidden?: boolean }): boolean {
+  export function allowed(input: AllowedInput): boolean {
     const rel = input.rel.replaceAll("\\", "/")
     const file = input.file ?? rel.split("/").at(-1) ?? rel
     if (input.hidden === false) {
