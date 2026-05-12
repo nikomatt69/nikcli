@@ -100,6 +100,7 @@
     "@hono/zod-validator": "catalog:",
     "@modelcontextprotocol/sdk": "1.25.2",
     "@nikcli-ai/companion": "workspace:*",
+    "@nikcli-ai/llm": "workspace:*",
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/remote": "workspace:*",
     "@nikcli-ai/script": "workspace:*",

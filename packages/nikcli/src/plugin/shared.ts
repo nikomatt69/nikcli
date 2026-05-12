@@ -89,16 +89,16 @@ export async function resolvePathPluginTarget(spec: string) {
   return pathToFileURL(path.resolve(file, pkg.main)).href
 }
 
-export async function checkPluginCompatibility(target: string, opencodeVersion: string) {
-  if (!semver.valid(opencodeVersion) || semver.major(opencodeVersion) === 0) return
+export async function checkPluginCompatibility(target: string, nikcliVersion: string) {
+  if (!semver.valid(nikcliVersion) || semver.major(nikcliVersion) === 0) return
   const pkg = await readPluginPackage(target).catch(() => undefined)
   if (!pkg) return
   const engines = pkg.json.engines
   if (!isRecord(engines)) return
-  const range = engines.opencode
+  const range = engines.nikcli
   if (typeof range !== "string") return
-  if (!semver.satisfies(opencodeVersion, range)) {
-    throw new Error(`Plugin requires opencode ${range} but running ${opencodeVersion}`)
+  if (!semver.satisfies(nikcliVersion, range)) {
+    throw new Error(`Plugin requires nikcli ${range} but running ${nikcliVersion}`)
   }
 }
 

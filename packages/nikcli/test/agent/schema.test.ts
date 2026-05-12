@@ -33,6 +33,13 @@ describe("Agent.SUBAGENT_TOOLSETS", () => {
     expect(tools).toContain("websearch")
     expect(tools).toContain("docs_search")
   })
+
+  it("lists scout repository research tools", () => {
+    const tools = Agent.SUBAGENT_TOOLSETS.scout
+    expect(tools).toContain("repo_clone")
+    expect(tools).toContain("repo_overview")
+    expect(tools).toContain("read")
+  })
 })
 
 describe("Agent.Info parse benchmark", () => {

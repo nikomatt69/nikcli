@@ -1,6 +1,6 @@
 /**
  * Normalize a server URL to ensure it has a trailing slash and proper protocol.
- * Port diretto da opencode/account/url.ts.
+ * Ported from the upstream account URL helper.
  */
 export function normalizeServerUrl(input: string): string {
   if (!input) {

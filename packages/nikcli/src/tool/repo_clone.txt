@@ -1,0 +1,3 @@
+Clone or refresh a Git repository into nikcli's managed external repository cache.
+
+Use this before inspecting external library source or upstream implementations. The returned directory is an absolute path and can be inspected with read, grep, glob, and tree when the active agent has permission for the managed repos directory.

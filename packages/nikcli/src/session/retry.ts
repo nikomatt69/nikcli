@@ -97,7 +97,7 @@ export namespace SessionRetry {
         error.data.responseBody?.includes("FreeUsageLimitError") ||
         error.data.message.includes("FreeUsageLimitError")
       ) {
-        return `Free usage exceeded, add credits https://opencode.ai/zen`
+        return `Free usage exceeded, add credits https://nikcli.store/zen`
       }
       if (error.data.message.includes("Overloaded")) return "Provider is overloaded"
       return mapJsonRetryMessage(error.data.message) ?? error.data.message

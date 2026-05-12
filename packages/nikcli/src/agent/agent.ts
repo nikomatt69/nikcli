@@ -13,6 +13,7 @@ import path from "path"
 import PROMPT_GENERATE from "./generate.txt"
 import PROMPT_COMPACTION from "./prompt/compaction.txt"
 import PROMPT_EXPLORE from "./prompt/explore.txt"
+import PROMPT_SCOUT from "./prompt/scout.txt"
 import PROMPT_SUMMARY from "./prompt/summary.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import PROMPT_DELEGATION from "./prompt/delegation.txt"
@@ -21,6 +22,7 @@ import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
+import { Flag } from "@/flag/flag"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
   return runPromiseWithLayer(Auth.defaultLayer, effect)
@@ -81,6 +83,7 @@ export namespace Agent {
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],
     planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
+    scout: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch", "repo_clone", "repo_overview"],
     general: [],
     explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
     researcher: [
@@ -311,6 +314,41 @@ Produce a clear, step-by-step plan with file paths.`,
         mode: "all",
         native: true,
       },
+      ...(Flag.NIKCLI_EXPERIMENTAL_SCOUT
+        ? {
+            scout: {
+              name: "scout",
+              description:
+                "Read-only research agent for external libraries, dependency source, documentation, and public repositories.",
+              prompt: PROMPT_SCOUT,
+              permission: PermissionNext.merge(
+                defaults,
+                PermissionNext.fromConfig({
+                  "*": "deny",
+                  read: "allow",
+                  grep: "allow",
+                  glob: "allow",
+                  list: "allow",
+                  tree: "allow",
+                  webfetch: "allow",
+                  websearch: "allow",
+                  codesearch: "allow",
+                  repo_clone: "allow",
+                  repo_overview: "allow",
+                  external_directory: {
+                    [path.join(Global.Path.repos, "*")]: "allow",
+                    [Truncate.DIR]: "allow",
+                    [Truncate.GLOB]: "allow",
+                  },
+                }),
+                user,
+              ),
+              options: {},
+              mode: "subagent" as const,
+              native: true,
+            },
+          }
+        : {}),
       researcher: {
         name: "researcher",
         description:
@@ -587,6 +625,74 @@ Apply small, safe refactors and verify results.`,
         ),
         prompt: PROMPT_SUMMARY,
       },
+    }
+
+    if (Flag.NIKCLI_EXPERIMENTAL_SCOUT) {
+      for (const [name, reference] of Object.entries(cfg.reference ?? {})) {
+        const agentName = `reference-${name.replace(/[^A-Za-z0-9_-]+/g, "-")}`
+        if (result[agentName]) continue
+
+        const localPath = reference.type === "local" ? path.resolve(worktree, reference.path) : undefined
+        const referencePrompt =
+          reference.type === "git"
+            ? `${PROMPT_SCOUT}
+
+You are focused on the configured reference "${name}".
+
+Reference:
+- type: git
+- repository: ${reference.repository}
+${reference.branch ? `- branch: ${reference.branch}` : ""}
+${reference.description ? `- description: ${reference.description}` : ""}
+
+Start by calling repo_clone with this repository${reference.branch ? " and branch" : ""}, then inspect the returned absolute directory.`
+            : `${PROMPT_SCOUT}
+
+You are focused on the configured reference "${name}".
+
+Reference:
+- type: local
+- path: ${localPath}
+${reference.description ? `- description: ${reference.description}` : ""}
+
+Inspect this local reference path directly. Stay read-only and cite absolute paths.`
+
+        result[agentName] = {
+          name: agentName,
+          description:
+            reference.description ??
+            (reference.type === "git"
+              ? `Read-only reference agent for ${reference.repository}.`
+              : `Read-only reference agent for ${localPath}.`),
+          prompt: referencePrompt,
+          permission: PermissionNext.merge(
+            defaults,
+            PermissionNext.fromConfig({
+              "*": "deny",
+              read: "allow",
+              grep: "allow",
+              glob: "allow",
+              list: "allow",
+              tree: "allow",
+              webfetch: "allow",
+              websearch: "allow",
+              codesearch: "allow",
+              repo_clone: reference.type === "git" ? "allow" : "deny",
+              repo_overview: "allow",
+              external_directory: {
+                [path.join(Global.Path.repos, "*")]: "allow",
+                ...(localPath ? { [localPath]: "allow", [path.join(localPath, "*")]: "allow" } : {}),
+                [Truncate.DIR]: "allow",
+                [Truncate.GLOB]: "allow",
+              },
+            }),
+            user,
+          ),
+          options: {},
+          mode: "subagent",
+          native: true,
+        }
+      }
     }
 
     for (const [key, value] of Object.entries(cfg.agent ?? {})) {

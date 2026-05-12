@@ -233,9 +233,7 @@ function resolveEditorConnection(): EditorConnection | undefined {
     }
   }
 
-  const port = parsePort(
-    process.env.NIKCLI_EDITOR_SSE_PORT || process.env.CLAUDE_CODE_SSE_PORT || process.env.OPENCODE_EDITOR_SSE_PORT,
-  )
+  const port = parsePort(process.env.NIKCLI_EDITOR_SSE_PORT || process.env.CLAUDE_CODE_SSE_PORT)
   if (!port) return
   return {
     url: `ws://127.0.0.1:${port}`,

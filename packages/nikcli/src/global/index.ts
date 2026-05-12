@@ -38,6 +38,9 @@ export namespace Global {
     get bin() {
       return path.join(Global.Path.data, "bin")
     },
+    get repos() {
+      return path.join(Global.Path.data, "repos")
+    },
     get log() {
       return path.join(Global.Path.data, "log")
     },
@@ -67,6 +70,7 @@ export async function initialize() {
     fs.mkdir(Global.Path.state, { recursive: true }),
     fs.mkdir(Global.Path.log, { recursive: true }),
     fs.mkdir(Global.Path.bin, { recursive: true }),
+    fs.mkdir(Global.Path.repos, { recursive: true }),
   ])
 
   const CACHE_VERSION = "14"

@@ -26,6 +26,7 @@ import { Bus } from "../../bus"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "@/session/prompt"
 import { Git } from "@/git"
+import { parseGitHubRemote } from "@/util/repository"
 
 type GitHubAuthor = {
   login: string
@@ -143,11 +144,7 @@ const SUPPORTED_EVENTS = [...USER_EVENTS, ...REPO_EVENTS] as const
 type UserEvent = (typeof USER_EVENTS)[number]
 type RepoEvent = (typeof REPO_EVENTS)[number]
 
-export function parseGitHubRemote(url: string): { owner: string; repo: string } | null {
-  const match = url.match(/^(?:(?:https?|ssh):\/\/)?(?:git@)?github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/)
-  if (!match) return null
-  return { owner: match[1], repo: match[2] }
-}
+export { parseGitHubRemote }
 
 export function extractResponseText(parts: MessageV2.Part[]): string | null {
   const textPart = parts.findLast((p) => p.type === "text")

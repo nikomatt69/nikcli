@@ -1,0 +1,3 @@
+Summarize a managed external repository clone.
+
+Use this after repo_clone to quickly understand the repository root, current branch, commit, remote, top-level file distribution, and representative tracked files before deeper grep/read inspection.

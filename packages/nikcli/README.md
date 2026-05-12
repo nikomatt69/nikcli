@@ -2,7 +2,7 @@
 
 nikcli is a Bun-based AI coding agent combining a terminal UI, an HTTP server API, external service connectors, and a mobile companion app.
 
-nikcli is a **fork of [opencode](https://opencode.ai)**. It builds on the opencode foundation and extends it with additional capabilities including connectors, a mobile companion, and a structured CLI command surface.
+nikcli is an AI-powered development tool with connectors, a mobile companion, and a structured CLI command surface.
 
 ## Core Surfaces
 

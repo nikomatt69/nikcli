@@ -3,7 +3,6 @@ import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
 import {
-  streamText,
   wrapLanguageModel,
   type ModelMessage,
   type StreamTextResult,
@@ -13,6 +12,7 @@ import {
   tool,
   jsonSchema,
 } from "ai"
+import { LLMCore } from "@nikcli-ai/llm"
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
@@ -241,7 +241,7 @@ export namespace LLM {
       })
     }
 
-    const result = streamText({
+    const result = LLMCore.stream({
       onError(error) {
         l.error("stream error", {
           error,
@@ -321,8 +321,7 @@ export namespace LLM {
     })
     // Suppress unhandled NoContentGeneratedError when model produces only tool calls (no text).
     // processor.ts consumes fullStream only; stream.text rejects if no text is generated.
-    result.text.catch(() => {})
-    return result
+    return LLMCore.suppressNoContentText(result)
   }
 
   async function resolveTools(input: Pick<StreamInput, "tools" | "agent" | "user">) {

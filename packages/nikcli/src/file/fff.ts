@@ -587,7 +587,7 @@ export namespace FFF {
 
   /**
    * Utility: check whether a relative path passes hidden/glob filters.
-   * Mirrors the opencode Fff.allowed() helper used by tools.
+   * Mirrors the nikcli Fff.allowed() helper used by tools.
    */
   export function allowed(input: AllowedInput): boolean {
     const rel = input.rel.replaceAll("\\", "/")

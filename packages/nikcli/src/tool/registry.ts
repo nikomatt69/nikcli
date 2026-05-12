@@ -22,6 +22,8 @@ import z from "zod"
 import { Plugin } from "../plugin"
 import { WebSearchTool } from "./websearch"
 import { CodeSearchTool } from "./codesearch"
+import { RepoCloneTool } from "./repo_clone"
+import { RepoOverviewTool } from "./repo_overview"
 import { TreeTool } from "./tree"
 import { ContextCollectTool } from "./context_collect"
 import { ContextRelatedTool } from "./context_related"
@@ -226,6 +228,8 @@ export namespace ToolRegistry {
           TodoReadTool,
           WebSearchTool,
           CodeSearchTool,
+          RepoCloneTool,
+          RepoOverviewTool,
           SkillTool,
           ApplyPatchTool,
           ...(Flag.NIKCLI_EXPERIMENTAL_LSP_TOOL ? [LspTool] : []),

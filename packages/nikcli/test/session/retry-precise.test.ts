@@ -71,7 +71,7 @@ describe("SessionRetry.retryable precise strings", () => {
       isRetryable: true,
     })
     expect(SessionRetry.retryable(e.toObject())).toBe(
-      "Free usage exceeded, add credits https://opencode.ai/zen",
+      "Free usage exceeded, add credits https://nikcli.store/zen",
     )
   })
 

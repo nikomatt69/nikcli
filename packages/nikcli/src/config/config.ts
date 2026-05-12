@@ -715,6 +715,8 @@ export namespace Config {
           webfetch: PermissionAction.optional(),
           websearch: PermissionAction.optional(),
           codesearch: PermissionAction.optional(),
+          repo_clone: PermissionAction.optional(),
+          repo_overview: PermissionAction.optional(),
           speak: PermissionRule.optional(),
           lsp: PermissionRule.optional(),
           doom_loop: PermissionAction.optional(),
@@ -736,6 +738,29 @@ export namespace Config {
     subtask: z.boolean().optional(),
   })
   export type Command = z.infer<typeof Command>
+
+  export const Reference = z
+    .union([
+      z
+        .object({
+          type: z.literal("git"),
+          repository: z.string(),
+          branch: z.string().optional(),
+          description: z.string().optional(),
+        })
+        .strict(),
+      z
+        .object({
+          type: z.literal("local"),
+          path: z.string(),
+          description: z.string().optional(),
+        })
+        .strict(),
+    ])
+    .meta({
+      ref: "ReferenceConfig",
+    })
+  export type Reference = z.infer<typeof Reference>
 
   export const Agent = z
     .object({
@@ -1190,6 +1215,10 @@ export namespace Config {
         .record(z.string(), Command)
         .optional()
         .describe("Command configuration, see https://nikcli.store/docs/commands"),
+      reference: z
+        .record(z.string(), Reference)
+        .optional()
+        .describe("Named external repositories or local directories exposed as read-only reference agents."),
       watcher: z
         .object({
           ignore: z.array(z.string()).optional(),
@@ -1249,6 +1278,7 @@ export namespace Config {
           // subagent
           general: Agent.optional(),
           explore: Agent.optional(),
+          scout: Agent.optional(),
           // specialized
           title: Agent.optional(),
           summary: Agent.optional(),
