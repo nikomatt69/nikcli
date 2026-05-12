@@ -40,6 +40,10 @@ export namespace SessionProcessor {
   export type Info = ReturnType<typeof createImpl>
   export type Result = Awaited<ReturnType<Info["process"]>>
 
+  function isAbortError(error: unknown) {
+    return error instanceof DOMException && error.name === "AbortError"
+  }
+
   function askPermission(input: PermissionNext.AskInput) {
     return runPromiseWithLayer(
       PermissionNext.defaultLayer,
@@ -144,6 +148,7 @@ export namespace SessionProcessor {
     if (buffer.length === DOOM_LOOP_THRESHOLD) {
       const lastThree = buffer.slice(-DOOM_LOOP_THRESHOLD)
       if (lastThree.every((p) => p.tool === toolName && Bun.deepEquals(p.input, toolInput))) {
+        buffer.length = 0
         return askPermission({
           permission: "doom_loop",
           patterns: [toolName],
@@ -562,11 +567,16 @@ export namespace SessionProcessor {
               if (needsCompaction) break
             }
           } catch (e: any) {
+            const error = MessageV2.fromError(e, { providerID: input.model.providerID })
+            if (input.abort.aborted || isAbortError(e)) {
+              input.assistantMessage.error = error
+              break
+            }
+
             log.error("process", {
               error: e,
               stack: JSON.stringify(e.stack),
             })
-            const error = MessageV2.fromError(e, { providerID: input.model.providerID })
             // Context overflow is handled through retryable provider error classification below.
             const retry = SessionRetry.retryable(error)
             if (retry !== undefined) {
@@ -586,6 +596,10 @@ export namespace SessionProcessor {
                 } catch (sleepError) {
                   input.assistantMessage.error = MessageV2.fromError(sleepError, {
                     providerID: input.model.providerID,
+                  })
+                  Bus.publish(Session.Event.Error, {
+                    sessionID: input.assistantMessage.sessionID,
+                    error: input.assistantMessage.error,
                   })
                   break
                 }

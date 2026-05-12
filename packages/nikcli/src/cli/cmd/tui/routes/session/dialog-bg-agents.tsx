@@ -184,12 +184,13 @@ export function DialogBgAgents(props: {
       onSelect={(opt) => {
         const value = opt.value
         if (value.kind === "job") {
-          // Navigate back to the parent session (the agent that launched this job)
-          // This ensures the wake returns to the same agent (e.g., plan mode)
+          const sessionID = value.workerSessionID ?? value.delegatorSessionID
+          if (!sessionID) return
+          void sync.session.sync(sessionID, { full: true })
           route.navigate({
             type: "session",
-            sessionID: props.sessionID,
-            workspaceID: sync.session.get(props.sessionID)?.workspaceID,
+            sessionID,
+            workspaceID: sync.session.get(sessionID)?.workspaceID,
           })
           dialog.clear()
         } else {

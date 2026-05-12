@@ -2565,7 +2565,9 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
   const meta = props.metadata as Record<string, any>
   const input = props.input as Record<string, any>
-  const sessionID = createMemo(() => (typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined))
+  const metadataSessionID = createMemo(() =>
+    typeof meta.sessionId === "string" ? (meta.sessionId as string) : undefined,
+  )
   const rootDelegationID = createMemo(() => {
     if (typeof meta.rootDelegationId === "string") return meta.rootDelegationId as string
     if (typeof meta.delegationId === "string") return meta.delegationId as string
@@ -2579,6 +2581,7 @@ function Task(props: ToolProps<typeof TaskTool>) {
     if (!delegationID) return undefined
     return sync.background.get(props.part.sessionID, delegationID)
   })
+  const sessionID = createMemo(() => metadataSessionID() ?? backgroundJob()?.workerSessionID)
   const liveSummary = createMemo(() => (typeof meta.liveSummary === "string" ? meta.liveSummary.trim() : ""))
   const derivedLiveSummary = createMemo(() => {
     const child = sessionID()
