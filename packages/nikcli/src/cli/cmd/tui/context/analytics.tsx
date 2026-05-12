@@ -2,7 +2,14 @@ import { createSignal, onMount } from "solid-js"
 import { useSDK } from "./sdk"
 import { createSimpleContext } from "./helper"
 import { Log } from "@/util/log"
+import { Global } from "@/global"
 import type { DailyAnalytics, GlobalAnalytics, SessionAnalytics } from "@/analytics/analytics"
+import {
+  loadPersistedAnalyticsFromDataRoot,
+  mergeGlobalAnalytics,
+  mergeDailyAnalyticsLists,
+  mergeSessionAnalyticsLists,
+} from "@/analytics/analytics"
 
 const log = Log.create({ service: "analytics-context" })
 
@@ -37,26 +44,43 @@ export const { use: useAnalytics, provider: AnalyticsProvider } = createSimpleCo
       setLoading(true)
       let gotHistorical = false
       try {
+        const dataRoot = Global.Path.data
+        const disk = await loadPersistedAnalyticsFromDataRoot(dataRoot)
+        if (disk.global) gotHistorical = true
+        if (disk.daily.length > 0) gotHistorical = true
+        if (disk.sessions.length > 0) gotHistorical = true
+
+        let mergedGlobal: GlobalAnalytics = disk.global ?? EMPTY_GLOBAL
+        let mergedDaily: DailyAnalytics[] = disk.daily
+        let mergedSessions: SessionAnalytics[] = disk.sessions
+
         const base = sdk.url
-        if (!base) return false
+        if (base) {
+          const [gRes, dRes, sRes] = await Promise.all([
+            fetch(`${base}/analytics/global`).catch(() => null),
+            fetch(`${base}/analytics/daily?days=90`).catch(() => null),
+            fetch(`${base}/analytics/sessions`).catch(() => null),
+          ])
 
-        const [gRes, dRes, sRes] = await Promise.all([
-          fetch(`${base}/analytics/global`).catch(() => null),
-          fetch(`${base}/analytics/daily?days=90`).catch(() => null),
-          fetch(`${base}/analytics/sessions`).catch(() => null),
-        ])
+          if (gRes?.ok) {
+            const api = (await gRes.json()) as GlobalAnalytics
+            mergedGlobal = mergeGlobalAnalytics(mergedGlobal, api)
+            gotHistorical = true
+          }
+          if (dRes?.ok) {
+            const apiDaily = (await dRes.json()) as DailyAnalytics[]
+            mergedDaily = mergeDailyAnalyticsLists(mergedDaily, apiDaily)
+            gotHistorical = true
+          }
+          if (sRes?.ok) {
+            const apiSessions = (await sRes.json()) as SessionAnalytics[]
+            mergedSessions = mergeSessionAnalyticsLists(mergedSessions, apiSessions)
+          }
+        }
 
-        if (gRes?.ok) {
-          setGlobal(await gRes.json())
-          gotHistorical = true
-        }
-        if (dRes?.ok) {
-          setDaily(await dRes.json())
-          gotHistorical = true
-        }
-        if (sRes?.ok) {
-          setSessions(await sRes.json())
-        }
+        setGlobal(mergedGlobal)
+        setDaily(mergedDaily)
+        setSessions(mergedSessions)
       } catch (e) {
         log.debug("Analytics refresh failed", { error: e })
       } finally {
