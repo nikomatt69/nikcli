@@ -1,5 +1,5 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
-import { Effect, Layer, Schema } from "effect"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { Effect, Layer, Schema, SchemaGetter } from "effect"
 import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
 import { Monitor } from "@/monitor/manager"
@@ -13,9 +13,16 @@ import { Todo } from "@/session/todo"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 
 export namespace SessionHttpApi {
+  const BooleanFromString = Schema.String.pipe(
+    Schema.decodeTo(Schema.Boolean, {
+      decode: SchemaGetter.transform((value: string) => value === "true"),
+      encode: SchemaGetter.transform((value: boolean) => String(value)),
+    }),
+  )
+
   const ListQuery = Schema.Struct({
     directory: Schema.optional(Schema.String),
-    roots: Schema.optional(Schema.BooleanFromString),
+    roots: Schema.optional(BooleanFromString),
     start: Schema.optional(Schema.NumberFromString),
     search: Schema.optional(Schema.String),
     limit: Schema.optional(Schema.NumberFromString),
@@ -33,7 +40,7 @@ export namespace SessionHttpApi {
     skills: Schema.optional(Schema.Array(Schema.String)),
     github: Schema.optional(Schema.Unknown),
     workspaceID: Schema.optional(Schema.String),
-  }).annotations({ identifier: "SessionCreateInput" })
+  }).annotate({ identifier: "SessionCreateInput" })
   const UpdatePayload = Schema.Struct({
     title: Schema.optional(Schema.String),
     time: Schema.optional(
@@ -41,24 +48,24 @@ export namespace SessionHttpApi {
         archived: Schema.optional(Schema.Number),
       }),
     ),
-  }).annotations({ identifier: "SessionUpdateInput" })
+  }).annotate({ identifier: "SessionUpdateInput" })
   const ForkPayload = Schema.Struct({
     messageID: Schema.optional(Schema.String),
-  }).annotations({ identifier: "SessionForkInput" })
+  }).annotate({ identifier: "SessionForkInput" })
   const RevertPayload = Schema.Struct({
     messageID: Schema.String,
     partID: Schema.optional(Schema.String),
-  }).annotations({ identifier: "SessionRevertInput" })
+  }).annotate({ identifier: "SessionRevertInput" })
 
-  const SessionList = Schema.Array(Schema.Unknown).annotations({ identifier: "SessionList" })
-  const MessageList = Schema.Array(Schema.Unknown).annotations({ identifier: "MessageList" })
-  const FileDiffList = Schema.Array(Schema.Unknown).annotations({ identifier: "FileDiffList" })
-  const SessionInfo = Schema.Unknown.annotations({ identifier: "SessionInfo" })
-  const SessionStatusMap = Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+  const SessionList = Schema.Array(Schema.Unknown).annotate({ identifier: "SessionList" })
+  const MessageList = Schema.Array(Schema.Unknown).annotate({ identifier: "MessageList" })
+  const FileDiffList = Schema.Array(Schema.Unknown).annotate({ identifier: "FileDiffList" })
+  const SessionInfo = Schema.Unknown.annotate({ identifier: "SessionInfo" })
+  const SessionStatusMap = Schema.Record(Schema.String, Schema.Unknown).annotate({
     identifier: "SessionStatusMap",
   })
-  const TodoList = Schema.Array(Schema.Unknown).annotations({ identifier: "TodoList" })
-  const BooleanResult = Schema.Boolean.annotations({ identifier: "BooleanResult" })
+  const TodoList = Schema.Array(Schema.Unknown).annotate({ identifier: "TodoList" })
+  const BooleanResult = Schema.Boolean.annotate({ identifier: "BooleanResult" })
   const SessionIDPath = Schema.Struct({
     sessionID: Schema.String,
   })
@@ -71,77 +78,82 @@ export namespace SessionHttpApi {
     messageID: Schema.String,
     partID: Schema.String,
   })
-  const MessageWithParts = Schema.Unknown.annotations({ identifier: "MessageWithParts" })
-  const MessagePart = Schema.Unknown.annotations({ identifier: "MessagePart" })
+  const MessageWithParts = Schema.Unknown.annotate({ identifier: "MessageWithParts" })
+  const MessagePart = Schema.Unknown.annotate({ identifier: "MessagePart" })
 
   export const Group = HttpApiGroup.make("session")
-    .add(HttpApiEndpoint.get("list", "/").setUrlParams(ListQuery).addSuccess(SessionList))
-    .add(HttpApiEndpoint.post("create", "/").setPayload(CreatePayload).addSuccess(SessionInfo))
-    .add(HttpApiEndpoint.get("status", "/status").addSuccess(SessionStatusMap))
-    .add(HttpApiEndpoint.get("get", "/:sessionID").setPath(SessionIDPath).addSuccess(SessionInfo))
-    .add(HttpApiEndpoint.del("remove", "/:sessionID").setPath(SessionIDPath).addSuccess(BooleanResult))
+    .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))
+    .add(HttpApiEndpoint.post("create", "/", { payload: CreatePayload, success: SessionInfo }))
+    .add(HttpApiEndpoint.get("status", "/status", { success: SessionStatusMap }))
+    .add(HttpApiEndpoint.get("get", "/:sessionID", { params: SessionIDPath, success: SessionInfo }))
+    .add(HttpApiEndpoint.delete("remove", "/:sessionID", { params: SessionIDPath, success: BooleanResult }))
     .add(
-      HttpApiEndpoint.patch("update", "/:sessionID")
-        .setPath(SessionIDPath)
-        .setPayload(UpdatePayload)
-        .addSuccess(SessionInfo),
+      HttpApiEndpoint.patch("update", "/:sessionID", {
+        params: SessionIDPath,
+        payload: UpdatePayload,
+        success: SessionInfo,
+      }),
     )
     .add(
-      HttpApiEndpoint.post("fork", "/:sessionID/fork")
-        .setPath(SessionIDPath)
-        .setPayload(ForkPayload)
-        .addSuccess(SessionInfo),
+      HttpApiEndpoint.post("fork", "/:sessionID/fork", {
+        params: SessionIDPath,
+        payload: ForkPayload,
+        success: SessionInfo,
+      }),
     )
-    .add(HttpApiEndpoint.post("abort", "/:sessionID/abort").setPath(SessionIDPath).addSuccess(BooleanResult))
+    .add(HttpApiEndpoint.post("abort", "/:sessionID/abort", { params: SessionIDPath, success: BooleanResult }))
     .add(
-      HttpApiEndpoint.post("revert", "/:sessionID/revert")
-        .setPath(SessionIDPath)
-        .setPayload(RevertPayload)
-        .addSuccess(SessionInfo),
+      HttpApiEndpoint.post("revert", "/:sessionID/revert", {
+        params: SessionIDPath,
+        payload: RevertPayload,
+        success: SessionInfo,
+      }),
     )
-    .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert").setPath(SessionIDPath).addSuccess(SessionInfo))
-    .add(HttpApiEndpoint.get("children", "/:sessionID/children").setPath(SessionIDPath).addSuccess(SessionList))
-    .add(HttpApiEndpoint.get("todo", "/:sessionID/todo").setPath(SessionIDPath).addSuccess(TodoList))
-    .add(HttpApiEndpoint.get("diff", "/:sessionID/diff").setPath(SessionIDPath).setUrlParams(DiffQuery).addSuccess(FileDiffList))
+    .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo }))
+    .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList }))
+    .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList }))
+    .add(HttpApiEndpoint.get("diff", "/:sessionID/diff", { params: SessionIDPath, query: DiffQuery, success: FileDiffList }))
     .add(
-      HttpApiEndpoint.get("messages", "/:sessionID/message")
-        .setPath(SessionIDPath)
-        .setUrlParams(MessagesQuery)
-        .addSuccess(MessageList),
+      HttpApiEndpoint.get("messages", "/:sessionID/message", {
+        params: SessionIDPath,
+        query: MessagesQuery,
+        success: MessageList,
+      }),
     )
-    .add(HttpApiEndpoint.get("message", "/:sessionID/message/:messageID").setPath(MessagePath).addSuccess(MessageWithParts))
-    .add(HttpApiEndpoint.del("messageRemove", "/:sessionID/message/:messageID").setPath(MessagePath).addSuccess(BooleanResult))
-    .add(HttpApiEndpoint.del("partRemove", "/:sessionID/message/:messageID/part/:partID").setPath(PartPath).addSuccess(BooleanResult))
+    .add(HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", { params: MessagePath, success: MessageWithParts }))
+    .add(HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", { params: MessagePath, success: BooleanResult }))
+    .add(HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", { params: PartPath, success: BooleanResult }))
     .add(
-      HttpApiEndpoint.patch("partUpdate", "/:sessionID/message/:messageID/part/:partID")
-        .setPath(PartPath)
-        .setPayload(MessagePart)
-        .addSuccess(MessagePart),
+      HttpApiEndpoint.patch("partUpdate", "/:sessionID/message/:messageID/part/:partID", {
+        params: PartPath,
+        payload: MessagePart,
+        success: MessagePart,
+      }),
     )
     .prefix("/session")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
-    list: ({ urlParams }: { urlParams: typeof ListQuery.Type }) =>
+    list: ({ query }: { query: typeof ListQuery.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
         const service = yield* Session.Service
         const iterable = yield* service.list()
         const sessions = yield* Effect.promise(() => Array.fromAsync(iterable))
-        const term = urlParams.search?.toLowerCase()
-        const directory = WorkspaceContext.workspaceID ? ctx.directory : urlParams.directory
+        const term = query.search?.toLowerCase()
+        const directory = WorkspaceContext.workspaceID ? ctx.directory : query.directory
         const filtered = sessions.filter((session) => {
           if (directory !== undefined && session.directory !== directory) return false
-          if (urlParams.roots && session.parentID) return false
-          if (urlParams.start !== undefined && session.time.updated < urlParams.start) return false
+          if (query.roots && session.parentID) return false
+          if (query.start !== undefined && session.time.updated < query.start) return false
           if (term !== undefined && !session.title.toLowerCase().includes(term)) return false
           return true
         })
         filtered.sort((a, b) => b.time.updated - a.time.updated)
-        return urlParams.limit !== undefined ? filtered.slice(0, urlParams.limit) : filtered
+        return query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {
@@ -153,17 +165,17 @@ export namespace SessionHttpApi {
         const session = yield* Session.Service
         return yield* session.create(payload as Session.CreateInput)
       }).pipe(Effect.orDie),
-    remove: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        yield* session.remove(path.sessionID)
+        yield* session.remove(params.sessionID)
         return true
       }).pipe(Effect.orDie),
-    update: ({ path, payload }: { path: typeof SessionIDPath.Type; payload: typeof UpdatePayload.Type }) =>
+    update: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof UpdatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         return yield* session.update(
-          path.sessionID,
+          params.sessionID,
           (draft) => {
             if (payload.title !== undefined) draft.title = payload.title
             if (payload.time?.archived !== undefined) draft.time.archived = payload.time.archived
@@ -171,85 +183,85 @@ export namespace SessionHttpApi {
           { touch: false },
         )
       }).pipe(Effect.orDie),
-    fork: ({ path, payload }: { path: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
+    fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.fork({ sessionID: path.sessionID, messageID: payload.messageID })
+        return yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
       }).pipe(Effect.orDie),
-    abort: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
-        yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(path.sessionID))
-        yield* Effect.promise(() => Monitor.cancelAll(path.sessionID))
+        yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(params.sessionID))
+        yield* Effect.promise(() => Monitor.cancelAll(params.sessionID))
         const sessionPrompt = yield* SessionPrompt.Service
-        yield* sessionPrompt.cancel(path.sessionID)
+        yield* sessionPrompt.cancel(params.sessionID)
         return true
       }).pipe(Effect.orDie),
-    revert: ({ path, payload }: { path: typeof SessionIDPath.Type; payload: typeof RevertPayload.Type }) =>
+    revert: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof RevertPayload.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        return yield* revert.revert({ sessionID: path.sessionID, ...payload })
+        return yield* revert.revert({ sessionID: params.sessionID, ...payload })
       }).pipe(Effect.orDie),
-    unrevert: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        return yield* revert.unrevert({ sessionID: path.sessionID })
+        return yield* revert.unrevert({ sessionID: params.sessionID })
       }).pipe(Effect.orDie),
-    get: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    get: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.get(path.sessionID)
+        return yield* session.get(params.sessionID)
       }).pipe(Effect.orDie),
-    children: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.children(path.sessionID)
+        return yield* session.children(params.sessionID)
       }).pipe(Effect.orDie),
-    todo: ({ path }: { path: typeof SessionIDPath.Type }) =>
+    todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const todo = yield* Todo.Service
-        return yield* todo.get(path.sessionID)
+        return yield* todo.get(params.sessionID)
       }).pipe(Effect.orDie),
-    diff: ({ path, urlParams }: { path: typeof SessionIDPath.Type; urlParams: typeof DiffQuery.Type }) =>
+    diff: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof DiffQuery.Type }) =>
       Effect.gen(function* () {
         const summary = yield* SessionSummary.Service
-        return yield* summary.diff({ sessionID: path.sessionID, messageID: urlParams.messageID })
+        return yield* summary.diff({ sessionID: params.sessionID, messageID: query.messageID })
       }).pipe(Effect.orDie),
-    messages: ({ path, urlParams }: { path: typeof SessionIDPath.Type; urlParams: typeof MessagesQuery.Type }) =>
+    messages: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof MessagesQuery.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.messages({ sessionID: path.sessionID, limit: urlParams.limit })
+        return yield* session.messages({ sessionID: params.sessionID, limit: query.limit })
       }).pipe(Effect.orDie),
-    message: ({ path }: { path: typeof MessagePath.Type }) =>
+    message: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        yield* session.get(path.sessionID)
-        return yield* Effect.promise(() => MessageV2.get(path))
+        yield* session.get(params.sessionID)
+        return yield* Effect.promise(() => MessageV2.get(params))
       }).pipe(Effect.orDie),
-    messageRemove: ({ path }: { path: typeof MessagePath.Type }) =>
+    messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        yield* session.get(path.sessionID)
-        yield* session.removeMessage({ sessionID: path.sessionID, messageID: path.messageID })
+        yield* session.get(params.sessionID)
+        yield* session.removeMessage({ sessionID: params.sessionID, messageID: params.messageID })
         return true
       }).pipe(Effect.orDie),
-    partRemove: ({ path }: { path: typeof PartPath.Type }) =>
+    partRemove: ({ params }: { params: typeof PartPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        yield* session.get(path.sessionID)
-        yield* session.removePart(path)
+        yield* session.get(params.sessionID)
+        yield* session.removePart(params)
         return true
       }).pipe(Effect.orDie),
-    partUpdate: ({ path, payload }: { path: typeof PartPath.Type; payload: unknown }) =>
+    partUpdate: ({ params, payload }: { params: typeof PartPath.Type; payload: unknown }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        yield* session.get(path.sessionID)
+        yield* session.get(params.sessionID)
         const part = MessageV2.Part.parse(payload)
-        if (part.id !== path.partID || part.messageID !== path.messageID || part.sessionID !== path.sessionID) {
+        if (part.id !== params.partID || part.messageID !== params.messageID || part.sessionID !== params.sessionID) {
           throw new Error(
-            `Part mismatch: body.id='${part.id}' vs partID='${path.partID}', body.messageID='${part.messageID}' vs messageID='${path.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${path.sessionID}'`,
+            `Part mismatch: body.id='${part.id}' vs partID='${params.partID}', body.messageID='${part.messageID}' vs messageID='${params.messageID}', body.sessionID='${part.sessionID}' vs sessionID='${params.sessionID}'`,
           )
         }
-        yield* Effect.promise(() => MessageV2.get({ sessionID: path.sessionID, messageID: path.messageID }))
+        yield* Effect.promise(() => MessageV2.get({ sessionID: params.sessionID, messageID: params.messageID }))
         return yield* session.updatePart(part)
       }).pipe(Effect.orDie),
   }

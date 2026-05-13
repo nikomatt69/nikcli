@@ -9,16 +9,16 @@ export namespace SessionStatus {
   // Legacy callers depend on `parse({type:"idle", extra: 1})` stripping unknown keys; the
   // walker defaults to `.strict()` which would throw, so opt each variant into "strip" mode.
   const strip = zodObjectMode("strip")
-  const InfoSchema = Schema.Union(
-    Schema.Struct({ type: Schema.Literal("idle") }).annotations(strip),
+  const InfoSchema = Schema.Union([
+    Schema.Struct({ type: Schema.Literal("idle") }).annotate(strip),
     Schema.Struct({
       type: Schema.Literal("retry"),
       attempt: Schema.Number,
       message: Schema.String,
       next: Schema.Number,
-    }).annotations(strip),
-    Schema.Struct({ type: Schema.Literal("busy") }).annotations(strip),
-  ).annotations({ identifier: "SessionStatus" })
+    }).annotate(strip),
+    Schema.Struct({ type: Schema.Literal("busy") }).annotate(strip),
+  ]).annotate({ identifier: "SessionStatus" })
   export const Info = zod(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 

@@ -73,7 +73,7 @@ export namespace SessionCompaction {
   const COMPACTION_BUFFER = 20_000
 
   const CreateInputSchema = Schema.Struct({
-    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
     agent: Schema.String,
     model: Schema.Struct({
       providerID: Schema.String,

@@ -74,7 +74,7 @@ export const SessionListCommand = cmd({
         }),
       )
 
-      sessions.sort((a, b) => b.time.updated - a.time.updated)
+      sessions.sort((a: Session.Info, b: Session.Info) => b.time.updated - a.time.updated)
 
       const limitedSessions = args.maxCount ? sessions.slice(0, args.maxCount) : sessions
 

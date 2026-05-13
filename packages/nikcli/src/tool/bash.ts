@@ -227,12 +227,12 @@ export const BashTool = Tool.define("bash", async () => {
       .replaceAll("${maxBytes}", String(Truncate.MAX_BYTES)),
     parameters: zod(
       Schema.Struct({
-        command: Schema.String.annotations({ description: "The command to execute" }),
-        timeout: Schema.optional(Schema.Number).annotations({ description: "Optional timeout in milliseconds" }),
-        workdir: Schema.optional(Schema.String).annotations({
+        command: Schema.String.annotate({ description: "The command to execute" }),
+        timeout: Schema.optional(Schema.Number).annotate({ description: "Optional timeout in milliseconds" }),
+        workdir: Schema.optional(Schema.String).annotate({
           description: `The working directory to run the command in. Defaults to ${Instance.directory}. Use this instead of 'cd' commands.`,
         }),
-        description: Schema.String.annotations({
+        description: Schema.String.annotate({
           description:
             "Clear, concise description of what this command does in 5-10 words. Examples:\nInput: ls\nOutput: Lists files in current directory\n\nInput: git status\nOutput: Shows working tree status\n\nInput: npm install\nOutput: Installs package dependencies\n\nInput: mkdir foo\nOutput: Creates directory 'foo'",
         }),

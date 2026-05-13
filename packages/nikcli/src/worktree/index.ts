@@ -16,7 +16,7 @@ export namespace Worktree {
     name: Schema.String,
     branch: Schema.String,
     directory: Schema.String,
-  }).annotations({ identifier: "Worktree" })
+  }).annotate({ identifier: "Worktree" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
@@ -27,19 +27,19 @@ export namespace Worktree {
     baseBranch: Schema.optional(Schema.String),
     remote: Schema.optional(Schema.String),
     startCommand: Schema.optional(Schema.String),
-  }).annotations({ identifier: "WorktreeCreateInput" })
+  }).annotate({ identifier: "WorktreeCreateInput" })
   export const CreateInput = zodObject(CreateInputSchema)
   export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
 
   const RemoveInputSchema = Schema.Struct({
     directory: Schema.String,
-  }).annotations({ identifier: "WorktreeRemoveInput" })
+  }).annotate({ identifier: "WorktreeRemoveInput" })
   export const RemoveInput = zodObject(RemoveInputSchema)
   export type RemoveInput = Schema.Schema.Type<typeof RemoveInputSchema>
 
   const ResetInputSchema = Schema.Struct({
     directory: Schema.String,
-  }).annotations({ identifier: "WorktreeResetInput" })
+  }).annotate({ identifier: "WorktreeResetInput" })
   export const ResetInput = zodObject(ResetInputSchema)
   export type ResetInput = Schema.Schema.Type<typeof ResetInputSchema>
 

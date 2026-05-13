@@ -193,7 +193,7 @@ export namespace TuiConfig {
     const text = yield* paths.readFile(filepath)
     if (!text) return {}
     return yield* load(paths, text, filepath).pipe(
-      Effect.catchAll((error) =>
+      Effect.catch((error: unknown) =>
         Effect.sync(() => {
           log.warn("failed to load tui config", { path: filepath, error })
           return {}

@@ -36,9 +36,9 @@ export namespace File {
     name: Schema.String,
     path: Schema.String,
     absolute: Schema.String,
-    type: Schema.Literal("file", "directory"),
+    type: Schema.Literals(["file", "directory"]),
     ignored: Schema.Boolean,
-  }).annotations({ identifier: "FileNode" })
+  }).annotate({ identifier: "FileNode" })
   export const Node = zodObject(NodeSchema)
   export type Node = Schema.Schema.Type<typeof NodeSchema>
 
@@ -66,7 +66,7 @@ export namespace File {
     ),
     encoding: Schema.optional(Schema.Literal("base64")),
     mimeType: Schema.optional(Schema.String),
-  }).annotations({ identifier: "FileContent" })
+  }).annotate({ identifier: "FileContent" })
   export const Content = zodObject(ContentSchema)
   export type Content = Schema.Schema.Type<typeof ContentSchema>
 

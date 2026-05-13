@@ -3,7 +3,7 @@ import {
   HttpApiBuilder,
   HttpApiEndpoint,
   HttpApiGroup,
-} from "@effect/platform"
+} from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Question } from "@/question"
 
@@ -11,7 +11,7 @@ export namespace QuestionHttpApi {
   export const Option = Schema.Struct({
     label: Schema.String,
     description: Schema.String,
-  }).annotations({ identifier: "QuestionOption" })
+  }).annotate({ identifier: "QuestionOption" })
 
   export const Info = Schema.Struct({
     question: Schema.String,
@@ -19,7 +19,7 @@ export namespace QuestionHttpApi {
     options: Schema.Array(Option),
     multiple: Schema.optional(Schema.Boolean),
     custom: Schema.optional(Schema.Boolean),
-  }).annotations({ identifier: "QuestionInfo" })
+  }).annotate({ identifier: "QuestionInfo" })
 
   export const Request = Schema.Struct({
     id: Schema.String,
@@ -31,35 +31,37 @@ export namespace QuestionHttpApi {
         callID: Schema.String,
       }),
     ),
-  }).annotations({ identifier: "QuestionRequest" })
+  }).annotate({ identifier: "QuestionRequest" })
 
-  export const Answer = Schema.Array(Schema.String).annotations({ identifier: "QuestionAnswer" })
+  export const Answer = Schema.Array(Schema.String).annotate({ identifier: "QuestionAnswer" })
   export const Reply = Schema.Struct({
     answers: Schema.Array(Answer),
-  }).annotations({ identifier: "QuestionReply" })
+  }).annotate({ identifier: "QuestionReply" })
 
   const RequestPath = Schema.Struct({
     requestID: Schema.String,
   })
 
   export const Group = HttpApiGroup.make("question")
-    .add(HttpApiEndpoint.get("list", "/").addSuccess(Schema.Array(Request)))
+    .add(HttpApiEndpoint.get("list", "/", { success: Schema.Array(Request) }))
     .add(
-      HttpApiEndpoint.post("reply", "/:requestID/reply")
-        .setPath(RequestPath)
-        .setPayload(Reply)
-        .addSuccess(Schema.Boolean),
+      HttpApiEndpoint.post("reply", "/:requestID/reply", {
+        params: RequestPath,
+        payload: Reply,
+        success: Schema.Boolean,
+      }),
     )
     .add(
-      HttpApiEndpoint.post("reject", "/:requestID/reject")
-        .setPath(RequestPath)
-        .addSuccess(Schema.Boolean),
+      HttpApiEndpoint.post("reject", "/:requestID/reject", {
+        params: RequestPath,
+        success: Schema.Boolean,
+      }),
     )
     .prefix("/question")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     list: () =>
@@ -67,19 +69,19 @@ export namespace QuestionHttpApi {
         const question = yield* Question.Service
         return yield* question.list()
       }),
-    reply: ({ path, payload }: { path: { requestID: string }; payload: typeof Reply.Type }) =>
+    reply: ({ params, payload }: { params: { requestID: string }; payload: typeof Reply.Type }) =>
       Effect.gen(function* () {
         const question = yield* Question.Service
         yield* question.reply({
-          requestID: path.requestID,
+          requestID: params.requestID,
           answers: payload.answers.map((answer) => [...answer]),
         })
         return true
       }),
-    reject: ({ path }: { path: { requestID: string } }) =>
+    reject: ({ params }: { params: { requestID: string } }) =>
       Effect.gen(function* () {
         const question = yield* Question.Service
-        yield* question.reject(path.requestID)
+        yield* question.reject(params.requestID)
         return true
       }),
   }

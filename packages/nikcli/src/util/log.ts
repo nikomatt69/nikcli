@@ -5,7 +5,7 @@ import { zod } from "@/util/effect-zod"
 import { Schema } from "effect"
 
 export namespace Log {
-  const LevelSchema = Schema.Literal("DEBUG", "INFO", "WARN", "ERROR").annotations({
+  const LevelSchema = Schema.Literals(["DEBUG", "INFO", "WARN", "ERROR"]).annotate({
     identifier: "LogLevel",
     description: "Log level",
   })

@@ -6,7 +6,7 @@ export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
 
 export function makeRuntime<R, E>(layer: Layer.Layer<R, E, never>) {
-  return ManagedRuntime.make(layer, sharedMemoMap)
+  return ManagedRuntime.make(layer, { memoMap: sharedMemoMap })
 }
 
 export const AppRuntime = makeRuntime(Layer.empty)
@@ -21,17 +21,17 @@ export function runtimeFor<R, E>(layer: Layer.Layer<R, E, never>) {
 }
 
 export function runPromiseWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<R, LE, never>,
+  layer: Layer.Layer<any, LE, never>,
   effect: Effect.Effect<A, E, R>,
-) {
-  return runtimeFor(layer).runPromise(effect)
+): Promise<A> {
+  return runtimeFor(layer).runPromise(effect as Effect.Effect<A, E, any>)
 }
 
 export function runPromiseExitWithLayer<A, E, R, LE>(
-  layer: Layer.Layer<R, LE, never>,
+  layer: Layer.Layer<any, LE, never>,
   effect: Effect.Effect<A, E, R>,
-) {
-  return runtimeFor(layer).runPromiseExit(effect)
+): Promise<import("effect").Exit.Exit<A, E | LE>> {
+  return runtimeFor(layer).runPromiseExit(effect as Effect.Effect<A, E, any>)
 }
 
 export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
@@ -43,6 +43,6 @@ export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
   return locallyInstance(ctx, effect)
 }
 
-export function runPromise<A, E>(effect: Effect.Effect<A, E, never>) {
+export function runPromise<A, E>(effect: Effect.Effect<A, E, never>): Promise<A> {
   return AppRuntime.runPromise(effect)
 }

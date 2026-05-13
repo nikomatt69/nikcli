@@ -1,5 +1,5 @@
-import { HttpApiBuilder } from "@effect/platform"
-import { BunHttpServer } from "@effect/platform-bun"
+import { HttpRouter } from "effect/unstable/http"
+import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
 import { Context, Layer } from "effect"
 import { InstanceRef, sharedMemoMap } from "@/effect"
 import { Instance } from "@/project/instance"
@@ -79,8 +79,10 @@ export namespace HttpApiBridge {
     ["DELETE", /^\/experimental\/worktree$/],
   ] as const
 
-  const handler = HttpApiBuilder.toWebHandler(
-    Layer.mergeAll(PublicHttpApi.layer, BunHttpServer.layerContext),
+  const handler = HttpRouter.toWebHandler(
+    PublicHttpApi.layer.pipe(
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+    ),
     { memoMap: sharedMemoMap },
   ).handler
 
@@ -96,7 +98,7 @@ export namespace HttpApiBridge {
         directory: Instance.directory,
         worktree: Instance.worktree,
         project: Instance.project,
-      }) as Context.Context<never>,
+      }) as Context.Context<any>,
     )
   }
 }

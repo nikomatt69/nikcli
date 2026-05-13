@@ -12,16 +12,16 @@ function runTodo<A, E>(effect: Effect.Effect<A, E, Todo.Service>) {
 const ReadParameters = Schema.Struct({})
 
 const TodoItem = Schema.Struct({
-  content: Schema.String.annotations({ description: "Brief description of the task" }),
-  status: Schema.String.annotations({
+  content: Schema.String.annotate({ description: "Brief description of the task" }),
+  status: Schema.String.annotate({
     description: "Current status of the task: pending, in_progress, completed, cancelled",
   }),
-  priority: Schema.String.annotations({ description: "Priority level of the task: high, medium, low" }),
-  id: Schema.String.annotations({ description: "Unique identifier for the todo item" }),
+  priority: Schema.String.annotate({ description: "Priority level of the task: high, medium, low" }),
+  id: Schema.String.annotate({ description: "Unique identifier for the todo item" }),
 })
 
 const WriteParameters = Schema.Struct({
-  todos: Schema.Array(TodoItem).annotations({ description: "The updated todo list" }),
+  todos: Schema.Array(TodoItem).annotate({ description: "The updated todo list" }),
 })
 
 export const TodoWriteTool = Tool.define("todowrite", {

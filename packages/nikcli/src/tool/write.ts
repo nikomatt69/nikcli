@@ -23,8 +23,8 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
 }
 
 const Parameters = Schema.Struct({
-  content: Schema.String.annotations({ description: "The content to write to the file" }),
-  filePath: Schema.String.annotations({
+  content: Schema.String.annotate({ description: "The content to write to the file" }),
+  filePath: Schema.String.annotate({
     description: "The absolute path to the file to write (must be absolute, not relative)",
   }),
 })

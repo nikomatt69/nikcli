@@ -116,22 +116,23 @@ export namespace Skill {
   }
 
   const CreateInputSchema = Schema.Struct({
-    name: Schema.String.pipe(Schema.minLength(1)).annotations({
+    name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
       description: "Skill name (kebab-case recommended)",
     }),
-    description: Schema.String.pipe(Schema.minLength(1)).annotations({
+    description: Schema.String.pipe(Schema.check(Schema.isMinLength(1))).annotate({
       description: "Short description of the skill",
     }),
-    category: Schema.optional(Schema.String).annotations({ description: "Optional category" }),
-    tags: Schema.optional(Schema.Array(Schema.String)).annotations({ description: "Optional tags" }),
-    content: Schema.optional(Schema.String).annotations({ description: "Optional markdown content body" }),
-    scope: Schema.optionalWith(Schema.Literal("workspace", "global"), {
-      default: () => "workspace" as const,
-    }).annotations({ description: "Where to create the skill" }),
+    category: Schema.optional(Schema.String).annotate({ description: "Optional category" }),
+    tags: Schema.optional(Schema.Array(Schema.String)).annotate({ description: "Optional tags" }),
+    content: Schema.optional(Schema.String).annotate({ description: "Optional markdown content body" }),
+    scope: Schema.Literals(["workspace", "global"]).pipe(
+      Schema.optional,
+      Schema.withDecodingDefault(Effect.succeed("workspace" as const)),
+    ).annotate({ description: "Where to create the skill" }),
   })
   const CreateInput = zodObject(CreateInputSchema)
 
-  export type CreateInput = Schema.Schema.Encoded<typeof CreateInputSchema>
+  export type CreateInput = Schema.Codec.Encoded<typeof CreateInputSchema>
   export type CreateParsedInput = Schema.Schema.Type<typeof CreateInputSchema>
 
   export const layer = Layer.effect(

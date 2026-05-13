@@ -22,7 +22,7 @@ export namespace PermissionNext {
     return pattern
   }
 
-  export const ActionSchema = Schema.Literal("allow", "deny", "ask").annotations({
+  export const ActionSchema = Schema.Literals(["allow", "deny", "ask"]).annotate({
     identifier: "PermissionAction",
   })
   export const Action = zod(ActionSchema)
@@ -32,11 +32,11 @@ export namespace PermissionNext {
     permission: Schema.String,
     pattern: Schema.String,
     action: ActionSchema,
-  }).annotations({ identifier: "PermissionRule" })
+  }).annotate({ identifier: "PermissionRule" })
   export const Rule = zodObject(RuleSchema)
   export type Rule = Schema.Schema.Type<typeof RuleSchema>
 
-  export const RulesetSchema = Schema.mutable(Schema.Array(RuleSchema)).annotations({
+  export const RulesetSchema = Schema.mutable(Schema.Array(RuleSchema)).annotate({
     identifier: "PermissionRuleset",
   })
   export const Ruleset = zod(RulesetSchema)
@@ -65,11 +65,11 @@ export namespace PermissionNext {
   }
 
   const RequestSchema = Schema.Struct({
-    id: Schema.String.pipe(Schema.startsWith("per")),
-    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
+    id: Schema.String.pipe(Schema.check(Schema.isStartsWith("per"))),
+    sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
     permission: Schema.String,
     patterns: Schema.Array(Schema.String),
-    metadata: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
+    metadata: Schema.Record(Schema.String, Schema.Unknown),
     always: Schema.Array(Schema.String),
     tool: Schema.optional(
       Schema.Struct({
@@ -77,11 +77,11 @@ export namespace PermissionNext {
         callID: Schema.String,
       }),
     ),
-  }).annotations({ identifier: "PermissionRequest" })
+  }).annotate({ identifier: "PermissionRequest" })
   export const Request = zodObject(RequestSchema)
   export type Request = Schema.Schema.Type<typeof RequestSchema>
 
-  const ReplySchema = Schema.Literal("once", "always", "reject")
+  const ReplySchema = Schema.Literals(["once", "always", "reject"])
   export const Reply = zod(ReplySchema)
   export type Reply = Schema.Schema.Type<typeof ReplySchema>
 
@@ -163,7 +163,7 @@ export namespace PermissionNext {
       const state = yield* InstanceState.make<State>((ctx) =>
         Effect.gen(function* () {
           const approved = yield* storageRead<Ruleset>(["permission", ctx.project.id]).pipe(
-            Effect.catchAll(() => Effect.succeed([] as Ruleset)),
+            Effect.catch(() => Effect.succeed([] as Ruleset)),
           )
           return {
             pending: {},
@@ -183,12 +183,12 @@ export namespace PermissionNext {
           log.info("evaluated", { permission: request.permission, pattern, action: rule })
           if (rule.action === "deny") {
             return yield* Effect.fail(
-              new DeniedError(ruleset.filter((r) => Wildcard.match(request.permission, r.permission))),
+              new DeniedError(ruleset.filter((r: Rule) => Wildcard.match(request.permission, r.permission))),
             )
           }
           if (rule.action === "ask") {
             const id = parsed.id ?? Identifier.ascending("permission")
-            return yield* Effect.async<void, RejectedError | CorrectedError>((resume) => {
+            return yield* Effect.callback<void, RejectedError | CorrectedError>((resume) => {
               const info: Request = {
                 id,
                 ...request,
@@ -196,7 +196,7 @@ export namespace PermissionNext {
               s.pending[id] = {
                 info,
                 resolve: () => resume(Effect.void),
-                reject: (error) => resume(Effect.fail(error)),
+                reject: (error: RejectedError | CorrectedError) => resume(Effect.fail(error)),
               }
               void Bus.publish(Event.Asked, info)
               return Effect.sync(() => {
@@ -261,7 +261,7 @@ export namespace PermissionNext {
           for (const [id, pending] of Object.entries(s.pending)) {
             if (pending.info.sessionID !== sessionID) continue
             const ok = pending.info.patterns.every(
-              (pattern) => evaluate(pending.info.permission, pattern, s.approved).action === "allow",
+              (pattern: string) => evaluate(pending.info.permission, pattern, s.approved).action === "allow",
             )
             if (!ok) continue
             delete s.pending[id]
@@ -312,7 +312,7 @@ export namespace PermissionNext {
     const merged = merge(...rulesets)
     log.info("evaluate", { permission, pattern, ruleset: merged })
     const match = merged.findLast(
-      (rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
+      (rule: Rule) => Wildcard.match(permission, rule.permission) && Wildcard.match(pattern, rule.pattern),
     )
     return match ?? { action: "ask", permission, pattern: "*" }
   }
@@ -324,7 +324,7 @@ export namespace PermissionNext {
     for (const tool of tools) {
       const permission = EDIT_TOOLS.includes(tool) ? "edit" : tool
 
-      const rule = ruleset.findLast((r) => Wildcard.match(permission, r.permission))
+      const rule = ruleset.findLast((r: Rule) => Wildcard.match(permission, r.permission))
       if (!rule) continue
       if (rule.pattern === "*" && rule.action === "deny") result.add(tool)
     }

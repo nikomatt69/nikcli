@@ -6,23 +6,23 @@ import DESCRIPTION from "./question.txt"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const QuestionWithoutCustom = Schema.Struct({
-  question: Schema.String.annotations({ description: "Complete question" }),
-  header: Schema.String.pipe(Schema.maxLength(30)).annotations({
+  question: Schema.String.annotate({ description: "Complete question" }),
+  header: Schema.String.pipe(Schema.check(Schema.isMaxLength(30))).annotate({
     description: "Very short label (max 30 chars)",
   }),
   options: Schema.Array(
     Schema.Struct({
-      label: Schema.String.pipe(Schema.maxLength(30)).annotations({
+      label: Schema.String.pipe(Schema.check(Schema.isMaxLength(30))).annotate({
         description: "Display text (1-5 words, concise)",
       }),
-      description: Schema.String.annotations({ description: "Explanation of choice" }),
+      description: Schema.String.annotate({ description: "Explanation of choice" }),
     }),
-  ).annotations({ description: "Available choices" }),
-  multiple: Schema.optional(Schema.Boolean).annotations({ description: "Allow selecting multiple choices" }),
+  ).annotate({ description: "Available choices" }),
+  multiple: Schema.optional(Schema.Boolean).annotate({ description: "Allow selecting multiple choices" }),
 })
 
 const Parameters = Schema.Struct({
-  questions: Schema.Array(QuestionWithoutCustom).annotations({ description: "Questions to ask" }),
+  questions: Schema.Array(QuestionWithoutCustom).annotate({ description: "Questions to ask" }),
 })
 
 export const QuestionTool = Tool.define("question", {

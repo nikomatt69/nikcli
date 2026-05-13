@@ -22,13 +22,13 @@ type MacIcon = {
 
 export namespace Todo {
   const InfoSchema = Schema.Struct({
-    content: Schema.String.annotations({ description: "Brief description of the task" }),
-    status: Schema.String.annotations({
+    content: Schema.String.annotate({ description: "Brief description of the task" }),
+    status: Schema.String.annotate({
       description: "Current status of the task: pending, in_progress, completed, cancelled",
     }),
-    priority: Schema.String.annotations({ description: "Priority level of the task: high, medium, low" }),
-    id: Schema.String.annotations({ description: "Unique identifier for the todo item" }),
-  }).annotations({ identifier: "Todo" })
+    priority: Schema.String.annotate({ description: "Priority level of the task: high, medium, low" }),
+    id: Schema.String.annotate({ description: "Unique identifier for the todo item" }),
+  }).annotate({ identifier: "Todo" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 

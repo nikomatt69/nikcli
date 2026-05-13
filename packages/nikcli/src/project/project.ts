@@ -116,7 +116,7 @@ export namespace Project {
       initialized: Schema.optional(Schema.Number),
     }),
     sandboxes: Schema.mutable(Schema.Array(Schema.String)),
-  }).annotations({ identifier: "Project" })
+  }).annotate({ identifier: "Project" })
   export const Info = zodObject(InfoSchema)
   // The Project service mutates `Info` records during merge/update flows. `DeepMutable` strips
   // readonly so those internal mutations type-check; the wire format is still emitted via
@@ -344,7 +344,7 @@ export namespace Project {
       },
     }
     if (sandbox !== result.worktree && !result.sandboxes.includes(sandbox)) result.sandboxes.push(sandbox)
-    result.sandboxes = result.sandboxes.filter((x) => existsSync(x))
+    result.sandboxes = result.sandboxes.filter((x: string) => existsSync(x))
     await storageWrite<Info>(["project", id], result)
     GlobalBus.emit("event", {
       payload: {
@@ -418,9 +418,9 @@ export namespace Project {
   async function listImpl() {
     const keys = await storageList(["project"])
     const projects = await Promise.all(keys.map((x) => storageRead<Info>(x)))
-    return projects.map((project) => ({
+    return projects.map((project: Info) => ({
       ...project,
-      sandboxes: project.sandboxes?.filter((x) => existsSync(x)),
+      sandboxes: project.sandboxes?.filter((x: string) => existsSync(x)),
     }))
   }
 
@@ -460,7 +460,7 @@ export namespace Project {
   async function removeSandboxImpl(projectID: string, directory: string) {
     const result = await storageUpdate<Info>(["project", projectID], (draft) => {
       const sandboxes = draft.sandboxes ?? []
-      draft.sandboxes = sandboxes.filter((sandbox) => sandbox !== directory)
+      draft.sandboxes = sandboxes.filter((sandbox: string) => sandbox !== directory)
       draft.time.updated = Date.now()
     })
     GlobalBus.emit("event", {

@@ -48,7 +48,7 @@ function storageList(prefix: string[]) {
 }
 
 export namespace Workspace {
-  const ConnectionStatusSchema = Schema.Literal("connecting", "connected", "disconnected", "error")
+  const ConnectionStatusSchema = Schema.Literals(["connecting", "connected", "disconnected", "error"])
   export const ConnectionStatus = zod(ConnectionStatusSchema)
   export type ConnectionStatus = Schema.Schema.Type<typeof ConnectionStatusSchema>
 
@@ -75,11 +75,11 @@ export namespace Workspace {
   }
 
   const InfoSchema = Schema.Struct({
-    id: Schema.String.pipe(Schema.startsWith("wrk")),
+    id: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
     branch: Schema.NullOr(Schema.String),
     projectID: Schema.String,
     config: ConfigSchema,
-  }).annotations({ identifier: "Workspace" })
+  }).annotate({ identifier: "Workspace" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
@@ -100,19 +100,31 @@ export namespace Workspace {
   }
 
   const RestoreSchema = Schema.Struct({
-    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
-    sessions: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] as ReadonlyArray<string> }),
-    events: Schema.optionalWith(Schema.Array(Schema.Unknown), { default: () => [] as ReadonlyArray<unknown> }),
-  }).annotations({ identifier: "Workspace.Restore" })
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
+    sessions: Schema.Array(Schema.String).pipe(
+      Schema.optional,
+      Schema.withDecodingDefault(Effect.succeed([] as ReadonlyArray<string>)),
+    ),
+    events: Schema.Array(Schema.Unknown).pipe(
+      Schema.optional,
+      Schema.withDecodingDefault(Effect.succeed([] as ReadonlyArray<unknown>)),
+    ),
+  }).annotate({ identifier: "Workspace.Restore" })
   export const Restore = zodObject(RestoreSchema)
   export type Restore = Schema.Schema.Type<typeof RestoreSchema>
 
   const SessionRestoreSchema = Schema.Struct({
-    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
-    sessions: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] as ReadonlyArray<string> }),
-    events: Schema.optionalWith(Schema.Array(Schema.Unknown), { default: () => [] as ReadonlyArray<unknown> }),
-    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
-  }).annotations({ identifier: "Workspace.SessionRestore" })
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
+    sessions: Schema.Array(Schema.String).pipe(
+      Schema.optional,
+      Schema.withDecodingDefault(Effect.succeed([] as ReadonlyArray<string>)),
+    ),
+    events: Schema.Array(Schema.Unknown).pipe(
+      Schema.optional,
+      Schema.withDecodingDefault(Effect.succeed([] as ReadonlyArray<unknown>)),
+    ),
+    sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
+  }).annotate({ identifier: "Workspace.SessionRestore" })
   export const SessionRestore = zodObject(SessionRestoreSchema)
   export type SessionRestore = Schema.Schema.Type<typeof SessionRestoreSchema>
 

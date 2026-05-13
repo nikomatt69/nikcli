@@ -7,19 +7,19 @@ import path from "path"
 import { Instance } from "../project/instance"
 
 const Parameters = Schema.Struct({
-  filePath: Schema.String.annotations({ description: "The absolute path to the file to modify" }),
+  filePath: Schema.String.annotate({ description: "The absolute path to the file to modify" }),
   edits: Schema.Array(
     Schema.Struct({
-      filePath: Schema.String.annotations({ description: "The absolute path to the file to modify" }),
-      oldString: Schema.String.annotations({ description: "The text to replace" }),
-      newString: Schema.String.annotations({
+      filePath: Schema.String.annotate({ description: "The absolute path to the file to modify" }),
+      oldString: Schema.String.annotate({ description: "The text to replace" }),
+      newString: Schema.String.annotate({
         description: "The text to replace it with (must be different from oldString)",
       }),
-      replaceAll: Schema.optional(Schema.Boolean).annotations({
+      replaceAll: Schema.optional(Schema.Boolean).annotate({
         description: "Replace all occurrences of oldString (default false)",
       }),
     }),
-  ).annotations({ description: "Array of edit operations to perform sequentially on the file" }),
+  ).annotate({ description: "Array of edit operations to perform sequentially on the file" }),
 })
 
 export const MultiEditTool = Tool.define("multiedit", {

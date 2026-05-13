@@ -37,10 +37,10 @@ export const IGNORE_PATTERNS = [
 const LIMIT = 100
 
 const Parameters = Schema.Struct({
-  path: Schema.optional(Schema.String).annotations({
+  path: Schema.optional(Schema.String).annotate({
     description: "The absolute path to the directory to list (must be absolute, not relative)",
   }),
-  ignore: Schema.optional(Schema.Array(Schema.String)).annotations({ description: "List of glob patterns to ignore" }),
+  ignore: Schema.optional(Schema.Array(Schema.String)).annotate({ description: "List of glob patterns to ignore" }),
 })
 
 export const ListTool = Tool.define("list", {

@@ -221,5 +221,5 @@ export namespace SystemPrompt {
     }),
   )
 
-  export const defaultLayer = Layer.unwrapEffect(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
+  export const defaultLayer = Layer.unwrap(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
 }

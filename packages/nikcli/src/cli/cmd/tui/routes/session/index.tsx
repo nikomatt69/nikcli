@@ -56,6 +56,7 @@ import type { TaskTool } from "@/tool/task"
 import type { MonitorTool } from "@/tool/monitor"
 import type { QuestionTool } from "@/tool/question"
 import type { OpenTUIVizTool } from "@/tool/opentui"
+import type { LSP } from "@/lsp"
 import { useKeyboard, useRenderer, useTerminalDimensions, type JSX } from "@opentui/solid"
 import { useSDK } from "@tui/context/sdk"
 import { useCommandDialog } from "@tui/component/dialog-command"
@@ -2785,7 +2786,7 @@ function Edit(props: ToolProps<typeof EditTool>) {
   const diagnostics = createMemo(() => {
     const filePath = Filesystem.normalizePath(props.input.filePath ?? "")
     const arr = props.metadata.diagnostics?.[filePath] ?? []
-    return arr.filter((x) => x.severity === 1).slice(0, 3)
+    return arr.filter((x: LSP.Diagnostic) => x.severity === 1).slice(0, 3)
   })
 
   return (

@@ -22,7 +22,7 @@ export namespace Vcs {
 
   const InfoSchema = Schema.Struct({
     branch: Schema.String,
-  }).annotations({ identifier: "VcsInfo" })
+  }).annotate({ identifier: "VcsInfo" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 

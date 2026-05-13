@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect"
 import { Workspace } from "@/workspace"
@@ -9,9 +9,9 @@ export namespace WorkspaceHttpApi {
     name: Schema.String,
     description: Schema.String,
     available: Schema.optional(Schema.Boolean),
-  }).annotations({ identifier: "WorkspaceAdaptorInfo" })
+  }).annotate({ identifier: "WorkspaceAdaptorInfo" })
 
-  const WorkspaceConfig = Schema.Union(
+  const WorkspaceConfig = Schema.Union([
     Schema.Struct({
       type: Schema.Literal("worktree"),
       directory: Schema.String,
@@ -20,22 +20,22 @@ export namespace WorkspaceHttpApi {
     Schema.Struct({
       type: Schema.Literal("container"),
       directory: Schema.String,
-      runtime: Schema.Literal("docker", "podman"),
+      runtime: Schema.Literals(["docker", "podman"]),
       image: Schema.String,
       containerName: Schema.String,
       port: Schema.Number,
       serverUrl: Schema.String,
       eventLimit: Schema.optional(Schema.Number),
     }),
-  ).annotations({ identifier: "WorkspaceConfig" })
+  ]).annotate({ identifier: "WorkspaceConfig" })
 
   const WorkspaceInfo = Schema.Struct({
     id: Schema.String,
     branch: Schema.NullOr(Schema.String),
     projectID: Schema.String,
     config: WorkspaceConfig,
-  }).annotations({ identifier: "Workspace" })
-  const OptionalWorkspaceInfo = Schema.Union(WorkspaceInfo, Schema.Null).annotations({
+  }).annotate({ identifier: "Workspace" })
+  const OptionalWorkspaceInfo = Schema.Union([WorkspaceInfo, Schema.Null]).annotate({
     identifier: "OptionalWorkspace",
   })
   const WorkspacePath = Schema.Struct({
@@ -48,7 +48,7 @@ export namespace WorkspaceHttpApi {
   const CreatePayload = Schema.Struct({
     branch: Schema.NullOr(Schema.String),
     config: WorkspaceConfig,
-  }).annotations({ identifier: "WorkspaceCreateInput" })
+  }).annotate({ identifier: "WorkspaceCreateInput" })
   const RestoreQuery = Schema.Struct({
     timeoutMs: Schema.optional(Schema.NumberFromString),
   })
@@ -56,41 +56,44 @@ export namespace WorkspaceHttpApi {
     workspaceID: Schema.String,
     sessions: Schema.Array(Schema.String),
     events: Schema.Array(Schema.Unknown),
-  }).annotations({ identifier: "WorkspaceRestore" })
+  }).annotate({ identifier: "WorkspaceRestore" })
   const SessionRestorePayload = Schema.Struct({
     workspaceID: Schema.String,
     sessionID: Schema.String,
     sessions: Schema.Array(Schema.String),
     events: Schema.Array(Schema.Unknown),
-  }).annotations({ identifier: "WorkspaceSessionRestore" })
+  }).annotate({ identifier: "WorkspaceSessionRestore" })
 
   export const Group = HttpApiGroup.make("workspace")
-    .add(HttpApiEndpoint.get("adaptors", "/adaptor").addSuccess(Schema.Array(AdaptorInfo)))
+    .add(HttpApiEndpoint.get("adaptors", "/adaptor", { success: Schema.Array(AdaptorInfo) }))
     .add(
-      HttpApiEndpoint.post("create", "/:id")
-        .setPath(WorkspacePath)
-        .setPayload(CreatePayload)
-        .addSuccess(WorkspaceInfo),
+      HttpApiEndpoint.post("create", "/:id", {
+        params: WorkspacePath,
+        payload: CreatePayload,
+        success: WorkspaceInfo,
+      }),
     )
-    .add(HttpApiEndpoint.get("list", "/").addSuccess(Schema.Array(WorkspaceInfo)))
-    .add(HttpApiEndpoint.del("remove", "/:id").setPath(WorkspacePath).addSuccess(OptionalWorkspaceInfo))
+    .add(HttpApiEndpoint.get("list", "/", { success: Schema.Array(WorkspaceInfo) }))
+    .add(HttpApiEndpoint.delete("remove", "/:id", { params: WorkspacePath, success: OptionalWorkspaceInfo }))
     .add(
-      HttpApiEndpoint.post("restore", "/:id/restore")
-        .setPath(WorkspacePath)
-        .setUrlParams(RestoreQuery)
-        .addSuccess(RestorePayload),
+      HttpApiEndpoint.post("restore", "/:id/restore", {
+        params: WorkspacePath,
+        query: RestoreQuery,
+        success: RestorePayload,
+      }),
     )
     .add(
-      HttpApiEndpoint.post("sessionRestore", "/:id/session/:sessionID/restore")
-        .setPath(SessionRestorePath)
-        .setUrlParams(RestoreQuery)
-        .addSuccess(SessionRestorePayload),
+      HttpApiEndpoint.post("sessionRestore", "/:id/session/:sessionID/restore", {
+        params: SessionRestorePath,
+        query: RestoreQuery,
+        success: SessionRestorePayload,
+      }),
     )
     .prefix("/experimental/workspace")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     adaptors: () =>
@@ -103,41 +106,47 @@ export namespace WorkspaceHttpApi {
         const ctx = yield* InstanceState.context
         return yield* Effect.promise(() => Workspace.list(ctx.project))
       }).pipe(Effect.orDie),
-    create: ({ path, payload }: { path: typeof WorkspacePath.Type; payload: typeof CreatePayload.Type }) =>
+    create: ({ params, payload }: { params: typeof WorkspacePath.Type; payload: typeof CreatePayload.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
         return yield* Effect.promise(() =>
           Workspace.create({
-            id: path.id,
+            id: params.id,
             projectID: ctx.project.id,
             branch: payload.branch,
             config: payload.config,
           }),
         )
       }).pipe(Effect.orDie),
-    remove: ({ path }: { path: typeof WorkspacePath.Type }) =>
-      Effect.promise(() => Workspace.remove(path.id).then((workspace) => workspace ?? null)).pipe(Effect.orDie),
-    restore: ({ path, urlParams }: { path: typeof WorkspacePath.Type; urlParams: typeof RestoreQuery.Type }) =>
+    remove: ({ params }: { params: typeof WorkspacePath.Type }) =>
+      Effect.promise(() => Workspace.remove(params.id).then((workspace) => workspace ?? null)).pipe(Effect.orDie),
+    restore: ({ params, query }: { params: typeof WorkspacePath.Type; query: typeof RestoreQuery.Type }) =>
       Effect.promise(() =>
         Workspace.restore({
-          workspaceID: path.id,
-          timeoutMs: urlParams.timeoutMs ?? 30_000,
+          workspaceID: params.id,
+          timeoutMs: query.timeoutMs ?? 30_000,
         }),
-      ).pipe(Effect.orDie),
+      ).pipe(
+        Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
+        Effect.orDie,
+      ),
     sessionRestore: ({
-      path,
-      urlParams,
+      params,
+      query,
     }: {
-      path: typeof SessionRestorePath.Type
-      urlParams: typeof RestoreQuery.Type
+      params: typeof SessionRestorePath.Type
+      query: typeof RestoreQuery.Type
     }) =>
       Effect.promise(() =>
         Workspace.sessionRestore({
-          workspaceID: path.id,
-          sessionID: path.sessionID,
-          timeoutMs: urlParams.timeoutMs ?? 30_000,
+          workspaceID: params.id,
+          sessionID: params.sessionID,
+          timeoutMs: query.timeoutMs ?? 30_000,
         }),
-      ).pipe(Effect.orDie),
+      ).pipe(
+        Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
+        Effect.orDie,
+      ),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "workspace", (builder) =>

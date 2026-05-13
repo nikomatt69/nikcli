@@ -89,7 +89,7 @@ export namespace ConfigPaths {
       try: () => Filesystem.readText(filepath),
       catch: (err) => err as NodeJS.ErrnoException,
     }).pipe(
-      Effect.catchAll((err) => {
+      Effect.catch((err: NodeJS.ErrnoException) => {
         if (err.code === "ENOENT") return Effect.succeed(undefined)
         return Effect.fail(new JsonError({ path: filepath }, { cause: err }))
       }),
@@ -145,7 +145,7 @@ export namespace ConfigPaths {
         try: () => Filesystem.readText(resolvedPath),
         catch: (error) => error as NodeJS.ErrnoException,
       }).pipe(
-        Effect.catchAll((error) => {
+        Effect.catch((error: NodeJS.ErrnoException) => {
           if (missing === "empty") return Effect.succeed("")
 
           const errMsg = `bad file reference: "${token}"`

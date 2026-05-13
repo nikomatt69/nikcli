@@ -10,17 +10,17 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace ProviderAuth {
   const MethodSchema = Schema.Struct({
-    type: Schema.Literal("oauth", "api"),
+    type: Schema.Literals(["oauth", "api"]),
     label: Schema.String,
-  }).annotations({ identifier: "ProviderAuthMethod" })
+  }).annotate({ identifier: "ProviderAuthMethod" })
   export const Method = zodObject(MethodSchema)
   export type Method = Schema.Schema.Type<typeof MethodSchema>
 
   const AuthorizationSchema = Schema.Struct({
     url: Schema.String,
-    method: Schema.Literal("auto", "code"),
+    method: Schema.Literals(["auto", "code"]),
     instructions: Schema.String,
-  }).annotations({ identifier: "ProviderAuthAuthorization" })
+  }).annotate({ identifier: "ProviderAuthAuthorization" })
   export const Authorization = zodObject(AuthorizationSchema)
   export type Authorization = Schema.Schema.Type<typeof AuthorizationSchema>
 

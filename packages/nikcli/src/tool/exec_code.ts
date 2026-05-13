@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import { NativeExecutor } from "@/session/native-executor"
@@ -6,13 +6,15 @@ import { Log } from "@/util/log"
 import DESCRIPTION from "./exec_code.txt"
 
 const Parameters = Schema.Struct({
-  code: Schema.String.annotations({
+  code: Schema.String.annotate({
     description: "JavaScript/TypeScript code to execute. Tools are available as async globals.",
   }),
-  timeout: Schema.optionalWith(
-    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1), Schema.lessThanOrEqualTo(120)),
-    { default: () => 30 },
-  ).annotations({ description: "Execution timeout in seconds (default: 30, max: 120)" }),
+  timeout: Schema.Int.pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(1)),
+    Schema.check(Schema.isLessThanOrEqualTo(120)),
+    Schema.optional,
+    Schema.withDecodingDefault(Effect.succeed(30)),
+  ).annotate({ description: "Execution timeout in seconds (default: 30, max: 120)" }),
 })
 
 const log = Log.create({ service: "tool.exec_code" })

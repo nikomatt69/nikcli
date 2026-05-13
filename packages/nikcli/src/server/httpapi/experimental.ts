@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { zodToJsonSchema } from "zod-to-json-schema"
 import { InstanceState } from "@/effect"
@@ -17,7 +17,7 @@ export namespace ExperimentalHttpApi {
     id: Schema.String,
     description: Schema.String,
     parameters: Schema.Unknown,
-  }).annotations({ identifier: "ToolListItem" })
+  }).annotate({ identifier: "ToolListItem" })
 
   const McpResource = Schema.Struct({
     name: Schema.String,
@@ -25,16 +25,16 @@ export namespace ExperimentalHttpApi {
     description: Schema.optional(Schema.String),
     mimeType: Schema.optional(Schema.String),
     client: Schema.String,
-  }).annotations({ identifier: "McpResource" })
+  }).annotate({ identifier: "McpResource" })
 
-  const ToolIDs = Schema.Array(Schema.String).annotations({ identifier: "ToolIDs" })
-  const ToolList = Schema.Array(ToolListItem).annotations({ identifier: "ToolList" })
-  const WorktreeList = Schema.Array(Schema.String).annotations({ identifier: "WorktreeList" })
+  const ToolIDs = Schema.Array(Schema.String).annotate({ identifier: "ToolIDs" })
+  const ToolList = Schema.Array(ToolListItem).annotate({ identifier: "ToolList" })
+  const WorktreeList = Schema.Array(Schema.String).annotate({ identifier: "WorktreeList" })
   const WorktreeInfo = Schema.Struct({
     name: Schema.String,
     branch: Schema.String,
     directory: Schema.String,
-  }).annotations({ identifier: "Worktree" })
+  }).annotate({ identifier: "Worktree" })
   const WorktreeCreateInput = Schema.Struct({
     name: Schema.optional(Schema.String),
     branch: Schema.optional(Schema.String),
@@ -42,31 +42,32 @@ export namespace ExperimentalHttpApi {
     baseBranch: Schema.optional(Schema.String),
     remote: Schema.optional(Schema.String),
     startCommand: Schema.optional(Schema.String),
-  }).annotations({ identifier: "WorktreeCreateInput" })
+  }).annotate({ identifier: "WorktreeCreateInput" })
   const WorktreeDirectoryInput = Schema.Struct({
     directory: Schema.String,
-  }).annotations({ identifier: "WorktreeDirectoryInput" })
-  const ResourceMap = Schema.Record({ key: Schema.String, value: McpResource }).annotations({
+  }).annotate({ identifier: "WorktreeDirectoryInput" })
+  const ResourceMap = Schema.Record(Schema.String, McpResource).annotate({
     identifier: "McpResourceMap",
   })
 
   export const Group = HttpApiGroup.make("experimental")
-    .add(HttpApiEndpoint.get("toolIDs", "/tool/ids").addSuccess(ToolIDs))
-    .add(HttpApiEndpoint.get("tools", "/tool").setUrlParams(ToolQuery).addSuccess(ToolList))
-    .add(HttpApiEndpoint.post("worktreeCreate", "/worktree").setPayload(WorktreeCreateInput).addSuccess(WorktreeInfo))
-    .add(HttpApiEndpoint.get("worktree", "/worktree").addSuccess(WorktreeList))
-    .add(HttpApiEndpoint.del("worktreeRemove", "/worktree").setPayload(WorktreeDirectoryInput).addSuccess(Schema.Boolean))
+    .add(HttpApiEndpoint.get("toolIDs", "/tool/ids", { success: ToolIDs }))
+    .add(HttpApiEndpoint.get("tools", "/tool", { query: ToolQuery, success: ToolList }))
+    .add(HttpApiEndpoint.post("worktreeCreate", "/worktree", { payload: WorktreeCreateInput, success: WorktreeInfo }))
+    .add(HttpApiEndpoint.get("worktree", "/worktree", { success: WorktreeList }))
+    .add(HttpApiEndpoint.delete("worktreeRemove", "/worktree", { payload: WorktreeDirectoryInput, success: Schema.Boolean }))
     .add(
-      HttpApiEndpoint.post("worktreeReset", "/worktree/reset")
-        .setPayload(WorktreeDirectoryInput)
-        .addSuccess(Schema.Boolean),
+      HttpApiEndpoint.post("worktreeReset", "/worktree/reset", {
+        payload: WorktreeDirectoryInput,
+        success: Schema.Boolean,
+      }),
     )
-    .add(HttpApiEndpoint.get("resource", "/resource").addSuccess(ResourceMap))
+    .add(HttpApiEndpoint.get("resource", "/resource", { success: ResourceMap }))
     .prefix("/experimental")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     toolIDs: () =>
@@ -74,10 +75,10 @@ export namespace ExperimentalHttpApi {
         const registry = yield* ToolRegistry.Service
         return yield* registry.ids()
       }).pipe(Effect.orDie),
-    tools: ({ urlParams }: { urlParams: typeof ToolQuery.Type }) =>
+    tools: ({ query }: { query: typeof ToolQuery.Type }) =>
       Effect.gen(function* () {
         const registry = yield* ToolRegistry.Service
-        const tools = yield* registry.tools({ providerID: urlParams.provider, modelID: urlParams.model })
+        const tools = yield* registry.tools({ providerID: query.provider, modelID: query.model })
         return tools.map((tool) => ({
           id: tool.id,
           description: tool.description,

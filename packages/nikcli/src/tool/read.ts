@@ -20,11 +20,11 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
 }
 
 const Parameters = Schema.Struct({
-  filePath: Schema.String.annotations({ description: "The absolute path to the file or directory to read" }),
-  offset: Schema.optional(Schema.NumberFromString).annotations({
+  filePath: Schema.String.annotate({ description: "The absolute path to the file or directory to read" }),
+  offset: Schema.optional(Schema.NumberFromString).annotate({
     description: "The line number to start reading from (1-indexed)",
   }),
-  limit: Schema.optional(Schema.NumberFromString).annotations({
+  limit: Schema.optional(Schema.NumberFromString).annotate({
     description: "The maximum number of lines to read (defaults to 2000)",
   }),
 })

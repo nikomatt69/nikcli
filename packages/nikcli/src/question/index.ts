@@ -11,25 +11,25 @@ export namespace Question {
   const log = Log.create({ service: "question" })
 
   const OptionSchema = Schema.Struct({
-    label: Schema.String.pipe(Schema.maxLength(30)).annotations({
+    label: Schema.String.pipe(Schema.check(Schema.isMaxLength(30))).annotate({
       description: "Display text (1-5 words, concise)",
     }),
-    description: Schema.String.annotations({ description: "Explanation of choice" }),
-  }).annotations({ identifier: "QuestionOption" })
+    description: Schema.String.annotate({ description: "Explanation of choice" }),
+  }).annotate({ identifier: "QuestionOption" })
   export const Option = zodObject(OptionSchema)
   export type Option = Schema.Schema.Type<typeof OptionSchema>
 
   const InfoSchema = Schema.Struct({
-    question: Schema.String.annotations({ description: "Complete question" }),
-    header: Schema.String.pipe(Schema.maxLength(30)).annotations({
+    question: Schema.String.annotate({ description: "Complete question" }),
+    header: Schema.String.pipe(Schema.check(Schema.isMaxLength(30))).annotate({
       description: "Very short label (max 30 chars)",
     }),
-    options: Schema.Array(OptionSchema).annotations({ description: "Available choices" }),
-    multiple: Schema.optional(Schema.Boolean).annotations({ description: "Allow selecting multiple choices" }),
-    custom: Schema.optional(Schema.Boolean).annotations({
+    options: Schema.Array(OptionSchema).annotate({ description: "Available choices" }),
+    multiple: Schema.optional(Schema.Boolean).annotate({ description: "Allow selecting multiple choices" }),
+    custom: Schema.optional(Schema.Boolean).annotate({
       description: "Allow typing a custom answer (default: true)",
     }),
-  }).annotations({ identifier: "QuestionInfo" })
+  }).annotate({ identifier: "QuestionInfo" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
@@ -50,7 +50,7 @@ export namespace Question {
     })
   export type Request = z.infer<typeof Request>
 
-  const AnswerSchema = Schema.Array(Schema.String).annotations({ identifier: "QuestionAnswer" })
+  const AnswerSchema = Schema.Array(Schema.String).annotate({ identifier: "QuestionAnswer" })
   export const Answer = zod(AnswerSchema)
   export type Answer = Schema.Schema.Type<typeof AnswerSchema>
 
@@ -124,7 +124,7 @@ export namespace Question {
 
         log.info("asking", { id, questions: input.questions.length })
 
-        return yield* Effect.async<Answer[], RejectedError>((resume) => {
+        return yield* Effect.callback<Answer[], RejectedError>((resume) => {
           const info: Request = {
             id,
             sessionID: input.sessionID,

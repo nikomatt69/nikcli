@@ -20,7 +20,7 @@ import { existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { Event } from "../server/event"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, ScopedCache } from "effect"
 import { InstanceState, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
 import { ConfigPaths } from "./paths"
@@ -1817,12 +1817,12 @@ export namespace Config {
       const update: Interface["update"] = Effect.fn("Config.update")(function* (config) {
         const ctx = yield* InstanceState.context
         yield* Effect.promise(() => updateImpl(ctx, config))
-        yield* scopedState.invalidate(ctx.directory)
+        yield* ScopedCache.invalidate(scopedState, ctx.directory)
       })
 
       const updateGlobal: Interface["updateGlobal"] = Effect.fn("Config.updateGlobal")(function* (config) {
         yield* Effect.promise(() => updateGlobalImpl(config))
-        yield* scopedState.invalidateAll
+        yield* ScopedCache.invalidateAll(scopedState)
       })
 
       const directories: Interface["directories"] = Effect.fn("Config.directories")(function* () {

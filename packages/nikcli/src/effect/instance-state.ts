@@ -3,7 +3,7 @@ import { Duration, Effect, ScopedCache, Scope } from "effect"
 import { instance, type InstanceContext } from "./instance-ref"
 
 export const context: Effect.Effect<InstanceContext> = instance.pipe(
-  Effect.catchAll(() =>
+  Effect.catch(() =>
     Effect.sync(() => ({
       directory: Instance.directory,
       worktree: Instance.worktree,
@@ -31,5 +31,5 @@ export function make<S>(
 }
 
 export function get<S>(cache: ScopedCache.ScopedCache<string, S>): Effect.Effect<S> {
-  return Effect.scoped(context.pipe(Effect.flatMap((ctx) => cache.get(ctx.directory))))
+  return Effect.scoped(context.pipe(Effect.flatMap((ctx) => ScopedCache.get(cache, ctx.directory))))
 }

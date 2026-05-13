@@ -26,12 +26,12 @@ const operations = [
 ] as const
 
 const Parameters = Schema.Struct({
-  operation: Schema.Literal(...operations).annotations({ description: "The LSP operation to perform" }),
-  filePath: Schema.String.annotations({ description: "The absolute or relative path to the file" }),
-  line: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)).annotations({
+  operation: Schema.Literals(operations).annotate({ description: "The LSP operation to perform" }),
+  filePath: Schema.String.annotate({ description: "The absolute or relative path to the file" }),
+  line: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
     description: "The line number (1-based, as shown in editors)",
   }),
-  character: Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(1)).annotations({
+  character: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))).annotate({
     description: "The character offset (1-based, as shown in editors)",
   }),
 })

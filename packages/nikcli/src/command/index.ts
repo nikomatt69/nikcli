@@ -170,7 +170,9 @@ export namespace Command {
               get template() {
                 return new Promise<string>(async (resolve, reject) => {
                   const args = prompt.arguments
-                    ? Object.fromEntries(prompt.arguments?.map((argument, i) => [argument.name, `$${i + 1}`]))
+                    ? Object.fromEntries(
+                        prompt.arguments?.map((argument: { name: string }, i: number) => [argument.name, `$${i + 1}`]),
+                      )
                     : {}
                   const template = await runPromiseWithLayer(
                     MCP.defaultLayer,
@@ -184,12 +186,14 @@ export namespace Command {
                   ).catch(reject)
                   resolve(
                     template?.messages
-                      .map((message) => (message.content.type === "text" ? message.content.text : ""))
+                      .map((message: { content: { type: string; text?: string } }) =>
+                        message.content.type === "text" ? message.content.text : "",
+                      )
                       .join("\n") || "",
                   )
                 })
               },
-              hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+              hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
             }
           }
 
@@ -212,7 +216,7 @@ export namespace Command {
 - operation: ${operationName}
 - args: ${argsExample}${argsEntries.length > 0 ? `\n\nReplace the placeholder values ($$) with actual values:\n${argsEntries.join("\n")}` : ""}`
               },
-              hints: prompt.arguments?.map((_, i) => `$${i + 1}`) ?? [],
+              hints: prompt.arguments?.map((_: unknown, i: number) => `$${i + 1}`) ?? [],
             }
           }
 

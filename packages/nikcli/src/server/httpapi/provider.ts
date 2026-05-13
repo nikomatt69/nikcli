@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Auth } from "@/auth"
 import { Config } from "@/config/config"
@@ -16,37 +16,37 @@ export namespace ProviderHttpApi {
 
   const ApiPayload = Schema.Struct({
     key: Schema.String,
-  }).annotations({ identifier: "ProviderApiPayload" })
+  }).annotate({ identifier: "ProviderApiPayload" })
 
   const Success = Schema.Struct({
     success: Schema.Literal(true),
-  }).annotations({ identifier: "ProviderMutationSuccess" })
+  }).annotate({ identifier: "ProviderMutationSuccess" })
 
   const Method = Schema.Struct({
-    type: Schema.Literal("oauth", "api"),
+    type: Schema.Literals(["oauth", "api"]),
     label: Schema.String,
-  }).annotations({ identifier: "ProviderAuthMethod" })
+  }).annotate({ identifier: "ProviderAuthMethod" })
 
   export const ListResponse = Schema.Struct({
     all: Schema.Array(ConfigHttpApi.ProviderInfo),
-    default: Schema.Record({ key: Schema.String, value: Schema.String }),
+    default: Schema.Record(Schema.String, Schema.String),
     connected: Schema.Array(Schema.String),
-  }).annotations({ identifier: "ProviderList" })
+  }).annotate({ identifier: "ProviderList" })
 
-  export const AuthMethods = Schema.Record({ key: Schema.String, value: Schema.Array(Method) }).annotations({
+  export const AuthMethods = Schema.Record(Schema.String, Schema.Array(Method)).annotate({
     identifier: "ProviderAuthMethods",
   })
 
   export const Group = HttpApiGroup.make("provider")
-    .add(HttpApiEndpoint.get("list", "/").addSuccess(ListResponse))
-    .add(HttpApiEndpoint.get("auth", "/auth").addSuccess(AuthMethods))
-    .add(HttpApiEndpoint.post("api", "/:providerID/api").setPath(ProviderPath).setPayload(ApiPayload).addSuccess(Success))
-    .add(HttpApiEndpoint.del("removeAuth", "/:providerID/auth").setPath(ProviderPath).addSuccess(Success))
+    .add(HttpApiEndpoint.get("list", "/", { success: ListResponse }))
+    .add(HttpApiEndpoint.get("auth", "/auth", { success: AuthMethods }))
+    .add(HttpApiEndpoint.post("api", "/:providerID/api", { params: ProviderPath, payload: ApiPayload, success: Success }))
+    .add(HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }))
     .prefix("/provider")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     list: () =>
@@ -82,17 +82,17 @@ export namespace ProviderHttpApi {
         const providerAuth = yield* ProviderAuth.Service
         return yield* providerAuth.methods()
       }).pipe(Effect.orDie),
-    api: ({ path, payload }: { path: { providerID: string }; payload: typeof ApiPayload.Type }) =>
+    api: ({ params, payload }: { params: { providerID: string }; payload: typeof ApiPayload.Type }) =>
       Effect.gen(function* () {
         const providerAuth = yield* ProviderAuth.Service
-        yield* providerAuth.api({ providerID: path.providerID, key: payload.key })
+        yield* providerAuth.api({ providerID: params.providerID, key: payload.key })
         yield* Effect.promise(() => Instance.dispose())
         return { success: true as const }
       }).pipe(Effect.orDie),
-    removeAuth: ({ path }: { path: { providerID: string } }) =>
+    removeAuth: ({ params }: { params: { providerID: string } }) =>
       Effect.gen(function* () {
         const auth = yield* Auth.Service
-        yield* auth.remove(path.providerID)
+        yield* auth.remove(params.providerID)
         yield* Effect.promise(() => Instance.dispose())
         return { success: true as const }
       }).pipe(Effect.orDie),

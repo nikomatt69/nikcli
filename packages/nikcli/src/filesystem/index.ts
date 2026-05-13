@@ -1,8 +1,8 @@
 import { realpathSync, statSync } from "fs"
 import path from "path"
-import { FileSystem as PlatformFileSystem } from "@effect/platform"
+import { FileSystem as PlatformFileSystem } from "effect"
 import { BunFileSystem } from "@effect/platform-bun"
-import { Context, Effect, Layer, Option, Stream } from "effect"
+import { Context, Effect, Layer, Stream } from "effect"
 
 export namespace AppFileSystem {
   function isContained(parent: string, child: string) {
@@ -73,12 +73,12 @@ export namespace AppFileSystem {
       const raw = yield* PlatformFileSystem.FileSystem
 
       const exists = (filepath: string) =>
-        raw.exists(filepath).pipe(Effect.catchAll(() => Effect.succeed(false)))
+        raw.exists(filepath).pipe(Effect.catch(() => Effect.succeed(false)))
 
       const isDir = (filepath: string) =>
         raw.stat(filepath).pipe(
           Effect.map((info) => info.type === "Directory"),
-          Effect.catchAll(() => Effect.succeed(false)),
+          Effect.catch(() => Effect.succeed(false)),
         )
 
       const readText = Effect.fn("AppFileSystem.readText")(function* (filepath: string) {
@@ -122,8 +122,8 @@ export namespace AppFileSystem {
       })
 
       const up = (options: { targets: string[]; start: string; stop?: string }): Stream.Stream<string> =>
-        Stream.unfoldEffect(options.start as string | null, (current) => {
-          if (current === null) return Effect.succeed(Option.none())
+        Stream.unfold(options.start as string | null, (current: string | null) => {
+          if (current === null) return Effect.succeed(undefined)
           return Effect.gen(function* () {
             const matches: string[] = []
             for (const target of options.targets) {
@@ -136,9 +136,9 @@ export namespace AppFileSystem {
                 : current === path.dirname(current)
                   ? null
                   : path.dirname(current)
-            return Option.some([matches, next] as const)
+            return [matches, next] as const
           })
-        }).pipe(Stream.flatMap((batch) => Stream.fromIterable(batch)))
+        }).pipe(Stream.flatMap((batch) => Stream.fromIterable(batch as string[])))
 
       const globUp = (pattern: string, start: string, stop?: string) =>
         Effect.promise(async () => {

@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import path from "path"
 import { File } from "@/file"
@@ -12,8 +12,8 @@ export namespace FileHttpApi {
 
   const FileSearchParams = Schema.Struct({
     query: Schema.String,
-    dirs: Schema.optional(Schema.Literal("true", "false")),
-    type: Schema.optional(Schema.Literal("file", "directory")),
+    dirs: Schema.optional(Schema.Literals(["true", "false"])),
+    type: Schema.optional(Schema.Literals(["file", "directory"])),
     limit: Schema.optional(Schema.NumberFromString),
   })
 
@@ -28,11 +28,11 @@ export namespace FileHttpApi {
   const WritePayload = Schema.Struct({
     path: Schema.String,
     content: Schema.String,
-  }).annotations({ identifier: "FileWritePayload" })
+  }).annotate({ identifier: "FileWritePayload" })
 
   const WriteSuccess = Schema.Struct({
     success: Schema.Boolean,
-  }).annotations({ identifier: "FileWriteResult" })
+  }).annotate({ identifier: "FileWriteResult" })
 
   const SearchMatch = Schema.Struct({
     path: Schema.Struct({
@@ -52,7 +52,7 @@ export namespace FileHttpApi {
         end: Schema.Number,
       }),
     ),
-  }).annotations({ identifier: "SearchMatch" })
+  }).annotate({ identifier: "SearchMatch" })
 
   const Range = Schema.Struct({
     start: Schema.Struct({
@@ -72,15 +72,15 @@ export namespace FileHttpApi {
       uri: Schema.String,
       range: Range,
     }),
-  }).annotations({ identifier: "Symbol" })
+  }).annotate({ identifier: "Symbol" })
 
   const FileNode = Schema.Struct({
     name: Schema.String,
     path: Schema.String,
     absolute: Schema.String,
-    type: Schema.Literal("file", "directory"),
+    type: Schema.Literals(["file", "directory"]),
     ignored: Schema.Boolean,
-  }).annotations({ identifier: "FileNode" })
+  }).annotate({ identifier: "FileNode" })
 
   const Patch = Schema.Struct({
     oldFileName: Schema.String,
@@ -106,69 +106,70 @@ export namespace FileHttpApi {
     patch: Schema.optional(Patch),
     encoding: Schema.optional(Schema.Literal("base64")),
     mimeType: Schema.optional(Schema.String),
-  }).annotations({ identifier: "FileContent" })
+  }).annotate({ identifier: "FileContent" })
 
   const FileInfo = Schema.Struct({
     path: Schema.String,
     added: Schema.Number,
     removed: Schema.Number,
-    status: Schema.Literal("added", "deleted", "modified"),
-  }).annotations({ identifier: "File" })
+    status: Schema.Literals(["added", "deleted", "modified"]),
+  }).annotate({ identifier: "File" })
 
   export const Group = HttpApiGroup.make("file")
-    .add(HttpApiEndpoint.get("findText", "/find").setUrlParams(TextSearchParams).addSuccess(Schema.Array(SearchMatch)))
-    .add(HttpApiEndpoint.get("findFile", "/find/file").setUrlParams(FileSearchParams).addSuccess(Schema.Array(Schema.String)))
+    .add(HttpApiEndpoint.get("findText", "/find", { query: TextSearchParams, success: Schema.Array(SearchMatch) }))
+    .add(HttpApiEndpoint.get("findFile", "/find/file", { query: FileSearchParams, success: Schema.Array(Schema.String) }))
     .add(
-      HttpApiEndpoint.get("findSymbol", "/find/symbol")
-        .setUrlParams(SymbolSearchParams)
-        .addSuccess(Schema.Array(SymbolInfo)),
+      HttpApiEndpoint.get("findSymbol", "/find/symbol", {
+        query: SymbolSearchParams,
+        success: Schema.Array(SymbolInfo),
+      }),
     )
-    .add(HttpApiEndpoint.get("list", "/file").setUrlParams(PathParams).addSuccess(Schema.Array(FileNode)))
-    .add(HttpApiEndpoint.get("content", "/file/content").setUrlParams(PathParams).addSuccess(FileContent))
-    .add(HttpApiEndpoint.put("write", "/file/content").setPayload(WritePayload).addSuccess(WriteSuccess))
-    .add(HttpApiEndpoint.get("status", "/file/status").addSuccess(Schema.Array(FileInfo)))
+    .add(HttpApiEndpoint.get("list", "/file", { query: PathParams, success: Schema.Array(FileNode) }))
+    .add(HttpApiEndpoint.get("content", "/file/content", { query: PathParams, success: FileContent }))
+    .add(HttpApiEndpoint.put("write", "/file/content", { payload: WritePayload, success: WriteSuccess }))
+    .add(HttpApiEndpoint.get("status", "/file/status", { success: Schema.Array(FileInfo) }))
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
-    findText: ({ urlParams }: { urlParams: typeof TextSearchParams.Type }) =>
+    findText: ({ query }: { query: typeof TextSearchParams.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
         const result = yield* Effect.promise(() =>
           SearchBackend.search({
             cwd: ctx.directory,
-            pattern: urlParams.pattern,
+            pattern: query.pattern,
             limit: 10,
           }),
         )
         return result.matches
       }).pipe(Effect.orDie),
-    findFile: ({ urlParams }: { urlParams: typeof FileSearchParams.Type }) =>
+    findFile: ({ query }: { query: typeof FileSearchParams.Type }) =>
       Effect.gen(function* () {
         const file = yield* File.Service
         return yield* file.search({
-          query: urlParams.query,
-          limit: urlParams.limit ?? 10,
-          dirs: urlParams.dirs !== "false",
-          type: urlParams.type,
+          query: query.query,
+          limit: query.limit ?? 10,
+          dirs: query.dirs !== "false",
+          type: query.type,
         })
       }).pipe(Effect.orDie),
-    findSymbol: (_: { urlParams: typeof SymbolSearchParams.Type }) => Effect.succeed([]),
-    list: ({ urlParams }: { urlParams: typeof PathParams.Type }) =>
+    findSymbol: (_: { query: typeof SymbolSearchParams.Type }) => Effect.succeed([]),
+    list: ({ query }: { query: typeof PathParams.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
-        const requestedPath = urlParams.path
+        const requestedPath = query.path
         const absolutePath = path.isAbsolute(requestedPath) ? requestedPath : path.join(ctx.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
         const file = yield* File.Service
         return yield* file.list(normalizedPath)
       }).pipe(Effect.orDie),
-    content: ({ urlParams }: { urlParams: typeof PathParams.Type }) =>
+    content: ({ query }: { query: typeof PathParams.Type }) =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
-        const requestedPath = urlParams.path
+        const requestedPath = query.path
         const absolutePath = path.isAbsolute(requestedPath) ? requestedPath : path.join(ctx.directory, requestedPath)
         const normalizedPath = path.normalize(absolutePath)
         const file = yield* File.Service

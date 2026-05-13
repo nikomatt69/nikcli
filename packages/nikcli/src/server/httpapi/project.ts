@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect"
 import { Project } from "@/project/project"
@@ -24,31 +24,32 @@ export namespace ProjectHttpApi {
     icon: Schema.optional(Icon),
     time: Time,
     sandboxes: Schema.Array(Schema.String),
-  }).annotations({ identifier: "Project" })
+  }).annotate({ identifier: "Project" })
 
   export const UpdateInput = Schema.Struct({
     name: Schema.optional(Schema.String),
     icon: Schema.optional(Icon),
-  }).annotations({ identifier: "ProjectUpdateInput" })
+  }).annotate({ identifier: "ProjectUpdateInput" })
 
   const ProjectPath = Schema.Struct({
     projectID: Schema.String,
   })
 
   export const Group = HttpApiGroup.make("project")
-    .add(HttpApiEndpoint.get("list", "/").addSuccess(Schema.Array(Info)))
-    .add(HttpApiEndpoint.get("current", "/current").addSuccess(Info))
+    .add(HttpApiEndpoint.get("list", "/", { success: Schema.Array(Info) }))
+    .add(HttpApiEndpoint.get("current", "/current", { success: Info }))
     .add(
-      HttpApiEndpoint.patch("update", "/:projectID")
-        .setPath(ProjectPath)
-        .setPayload(UpdateInput)
-        .addSuccess(Info),
+      HttpApiEndpoint.patch("update", "/:projectID", {
+        params: ProjectPath,
+        payload: UpdateInput,
+        success: Info,
+      }),
     )
     .prefix("/project")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     list: () =>
@@ -61,11 +62,11 @@ export namespace ProjectHttpApi {
         const ctx = yield* InstanceState.context
         return ctx.project
       }),
-    update: ({ path, payload }: { path: { projectID: string }; payload: typeof UpdateInput.Type }) =>
+    update: ({ params, payload }: { params: { projectID: string }; payload: typeof UpdateInput.Type }) =>
       Effect.gen(function* () {
         const project = yield* Project.Service
         return yield* project.update({
-          projectID: path.projectID,
+          projectID: params.projectID,
           name: payload.name,
           icon: payload.icon,
         })

@@ -15,18 +15,18 @@ interface SearchInput extends Record<string, unknown> {
 }
 
 const Parameters = Schema.Struct({
-  query: Schema.String.annotations({ description: "Websearch query" }),
-  numResults: Schema.optional(Schema.Number).annotations({
+  query: Schema.String.annotate({ description: "Websearch query" }),
+  numResults: Schema.optional(Schema.Number).annotate({
     description: "Number of search results to return (default: 8)",
   }),
-  livecrawl: Schema.optional(Schema.Literal("fallback", "preferred")).annotations({
+  livecrawl: Schema.optional(Schema.Literals(["fallback", "preferred"])).annotate({
     description:
       "Live crawl mode - 'fallback': use live crawling as backup if cached content unavailable, 'preferred': prioritize live crawling (default: 'fallback')",
   }),
-  type: Schema.optional(Schema.Literal("auto", "fast", "deep")).annotations({
+  type: Schema.optional(Schema.Literals(["auto", "fast", "deep"])).annotate({
     description: "Search type - 'auto': balanced search (default), 'fast': quick results, 'deep': comprehensive search",
   }),
-  contextMaxCharacters: Schema.optional(Schema.Number).annotations({
+  contextMaxCharacters: Schema.optional(Schema.Number).annotate({
     description: "Maximum characters for context string optimized for LLMs (default: 10000)",
   }),
 })

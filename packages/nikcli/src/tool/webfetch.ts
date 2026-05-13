@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import TurndownService from "turndown"
@@ -10,11 +10,14 @@ const DEFAULT_TIMEOUT = 30 * 1000 // 30 seconds
 const MAX_TIMEOUT = 120 * 1000 // 2 minutes
 
 const Parameters = Schema.Struct({
-  url: Schema.String.annotations({ description: "The URL to fetch content from" }),
-  format: Schema.optionalWith(Schema.Literal("text", "markdown", "html"), { default: () => "markdown" as const }).annotations({
+  url: Schema.String.annotate({ description: "The URL to fetch content from" }),
+  format: Schema.Literals(["text", "markdown", "html"]).pipe(
+    Schema.optional,
+    Schema.withDecodingDefault(Effect.succeed("markdown" as const)),
+  ).annotate({
     description: "The format to return the content in (text, markdown, or html). Defaults to markdown.",
   }),
-  timeout: Schema.optional(Schema.Number).annotations({ description: "Optional timeout in seconds (max 120)" }),
+  timeout: Schema.optional(Schema.Number).annotate({ description: "Optional timeout in seconds (max 120)" }),
 })
 
 export const WebFetchTool = Tool.define("webfetch", {

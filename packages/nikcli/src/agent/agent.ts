@@ -21,7 +21,7 @@ import PROMPT_DELEGATOR from "./prompt/delegator.txt"
 import PROMPT_ULTRAREVIEW_REVIEWER from "./prompt/ultrareview-reviewer.txt"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
-import { zodObject } from "@/util/effect-zod"
+import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Flag } from "@/flag/flag"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
@@ -53,11 +53,10 @@ export namespace Agent {
     providerID: Schema.String,
   })
 
-  const InfoSchema = Schema.mutable(
-    Schema.Struct({
+  const InfoSchema = Schema.Struct({
       name: Schema.String,
       description: Schema.optional(Schema.String),
-      mode: Schema.Literal("subagent", "primary", "all"),
+      mode: Schema.Literals(["subagent", "primary", "all"]),
       native: Schema.optional(Schema.Boolean),
       hidden: Schema.optional(Schema.Boolean),
       topP: Schema.optional(Schema.Number),
@@ -68,17 +67,16 @@ export namespace Agent {
       advisor: Schema.optional(
         Schema.Struct({
           model: ModelRefSchema,
-          maxUses: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+          maxUses: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
         }),
       ),
       variant: Schema.optional(Schema.String),
       prompt: Schema.optional(Schema.String),
-      options: Schema.mutable(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
-      steps: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
-    }),
-  ).annotations({ identifier: "Agent" })
+      options: Schema.Record(Schema.String, Schema.Unknown),
+      steps: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+  }).annotate({ identifier: "Agent" })
   export const Info = zodObject(InfoSchema)
-  export type Info = Schema.Schema.Type<typeof InfoSchema>
+  export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],
@@ -734,7 +732,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
 
     for (const name in result) {
       const agent = result[name]
-      const explicit = agent.permission.some((r) => {
+      const explicit = agent.permission.some((r: PermissionNext.Rule) => {
         if (r.permission !== "external_directory") return false
         if (r.action !== "deny") return false
         return r.pattern === Truncate.DIR || r.pattern === Truncate.GLOB
@@ -805,7 +803,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
               return agent.name
             }
 
-            const primaryVisible = (yield* list()).find((a) => a.mode !== "subagent" && a.hidden !== true)
+            const primaryVisible = (yield* list()).find((a: Info) => a.mode !== "subagent" && a.hidden !== true)
             if (!primaryVisible) return yield* Effect.fail(new Error("no primary visible agent found"))
             return primaryVisible.name
           }),
@@ -847,7 +845,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
                 ),
                 {
                   role: "user",
-                  content: `Create an agent configuration based on this request: \"${input.description}\".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
+                  content: `Create an agent configuration based on this request: \"${input.description}\".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i: Info) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
                 },
               ],
               model: language,

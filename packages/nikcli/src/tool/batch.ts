@@ -13,14 +13,14 @@ export const BatchTool = Tool.define("batch", async () => {
       Schema.Struct({
         tool_calls: Schema.Array(
           Schema.Struct({
-            tool: Schema.String.annotations({ description: "The name of the tool to execute" }),
-            parameters: Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
+            tool: Schema.String.annotate({ description: "The name of the tool to execute" }),
+            parameters: Schema.Record(Schema.String, Schema.Unknown).annotate({
               description: "Parameters for the tool",
             }),
           }),
         )
-          .pipe(Schema.minItems(1))
-          .annotations({ description: "Array of tool calls to execute in parallel" }),
+          .pipe(Schema.check(Schema.isMinLength(1)))
+          .annotate({ description: "Array of tool calls to execute in parallel" }),
       }),
     ),
     formatValidationError(error) {

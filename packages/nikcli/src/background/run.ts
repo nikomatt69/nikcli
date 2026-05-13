@@ -60,11 +60,11 @@ export namespace BackgroundRun {
   export const LEASE_TIMEOUT_MS = 15_000
   type Metadata = { [key: string]: unknown }
 
-  const StatusSchema = Schema.Literal("running", "complete", "error", "timeout", "cancelled", "orphaned")
+  const StatusSchema = Schema.Literals(["running", "complete", "error", "timeout", "cancelled", "orphaned"])
   export const Status = zod(StatusSchema)
   export type Status = Schema.Schema.Type<typeof StatusSchema>
 
-  const SourceSchema = Schema.Literal(
+  const SourceSchema = Schema.Literals([
     "task",
     "model-subtask",
     "advisor",
@@ -73,11 +73,11 @@ export namespace BackgroundRun {
     "delegator",
     "delegator-followup",
     "other",
-  )
+  ])
   export const Source = zod(SourceSchema)
   export type Source = Schema.Schema.Type<typeof SourceSchema>
 
-  const RoleSchema = Schema.Literal("worker", "delegator", "followup", "advisor", "other")
+  const RoleSchema = Schema.Literals(["worker", "delegator", "followup", "advisor", "other"])
   export const Role = zod(RoleSchema)
   export type Role = Schema.Schema.Type<typeof RoleSchema>
 
@@ -86,7 +86,7 @@ export namespace BackgroundRun {
     sessionID: Schema.optional(Schema.String),
     parentSessionID: Schema.String,
     agent: Schema.String,
-    parentAgent: Schema.optional(Schema.String.pipe(Schema.minLength(1))),
+    parentAgent: Schema.optional(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))),
     prompt: Schema.String,
     status: StatusSchema,
     createdAt: Schema.Number,
@@ -101,9 +101,9 @@ export namespace BackgroundRun {
     resultSummary: Schema.optional(Schema.String),
     progressSummary: Schema.optional(Schema.String),
     error: Schema.optional(Schema.String),
-    metadata: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
     ownerID: Schema.optional(Schema.String),
-    ownerPID: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.greaterThan(0))),
+    ownerPID: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
     heartbeatAt: Schema.optional(Schema.Number),
     lastActivityAt: Schema.optional(Schema.Number),
     // Delegator fields
@@ -493,8 +493,10 @@ ${result}
       ),
     )
     const assistant =
-      result?.info.role === "assistant" ? result : messages.findLast((item) => item.info.role === "assistant")
-    const text = assistant?.parts.findLast((part): part is MessageV2.TextPart => part.type === "text")?.text ?? ""
+      result?.info.role === "assistant"
+        ? result
+        : messages.findLast((item: MessageV2.WithParts) => item.info.role === "assistant")
+    const text = assistant?.parts.findLast((part: MessageV2.Part): part is MessageV2.TextPart => part.type === "text")?.text ?? ""
 
     return {
       text,

@@ -6,6 +6,7 @@ import { NoSuchModelError, type Provider as SDK } from "ai"
 import { Log } from "../util/log"
 import { BunProc } from "../bun"
 import { Plugin } from "../plugin"
+import type { Hooks as PluginHooks } from "@nikcli-ai/plugin"
 import { ModelsDev } from "./models"
 import { NamedError } from "@nikcli-ai/util/error"
 import { Auth } from "../auth"
@@ -69,7 +70,7 @@ function runPlugin<A, E>(effect: Effect.Effect<A, E, Plugin.Service>, ctx?: Inst
   return runPromiseWithLayer(Plugin.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
 }
 
-function authGet(providerID: string) {
+function authGet(providerID: string): Promise<Auth.Info | undefined> {
   return runAuth(
     Effect.gen(function* () {
       const auth = yield* Auth.Service
@@ -78,7 +79,7 @@ function authGet(providerID: string) {
   )
 }
 
-function authAll() {
+function authAll(): Promise<Record<string, Auth.Info>> {
   return runAuth(
     Effect.gen(function* () {
       const auth = yield* Auth.Service
@@ -87,7 +88,7 @@ function authAll() {
   )
 }
 
-function pluginList(ctx?: InstanceContext) {
+function pluginList(ctx?: InstanceContext): Promise<PluginHooks[]> {
   return runPlugin(
     Effect.gen(function* () {
       const plugin = yield* Plugin.Service
@@ -97,7 +98,7 @@ function pluginList(ctx?: InstanceContext) {
   )
 }
 
-function configGet(ctx?: InstanceContext) {
+function configGet(ctx?: InstanceContext): Promise<Config.Info> {
   const effect = Effect.gen(function* () {
     const config = yield* Config.Service
     return yield* config.get()
@@ -734,12 +735,12 @@ export namespace Provider {
       toolcall: Schema.Boolean,
       input: CapabilitiesIOSchema,
       output: CapabilitiesIOSchema,
-      interleaved: Schema.Union(
+      interleaved: Schema.Union([
         Schema.Boolean,
         Schema.Struct({
-          field: Schema.Literal("reasoning_content", "reasoning_details"),
+          field: Schema.Literals(["reasoning_content", "reasoning_details"]),
         }),
-      ),
+      ]),
     }),
     cost: Schema.Struct({
       input: Schema.Number,
@@ -758,26 +759,26 @@ export namespace Provider {
       input: Schema.optional(Schema.Number),
       output: Schema.Number,
     }),
-    status: Schema.Literal("alpha", "beta", "deprecated", "active"),
-    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    headers: Schema.Record({ key: Schema.String, value: Schema.String }),
+    status: Schema.Literals(["alpha", "beta", "deprecated", "active"]),
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    headers: Schema.Record(Schema.String, Schema.String),
     release_date: Schema.String,
     variants: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Record({ key: Schema.String, value: Schema.Unknown }) }),
+      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
     ),
-  }).annotations({ identifier: "Model" })
+  }).annotate({ identifier: "Model" })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
 
   const InfoSchema = Schema.Struct({
     id: Schema.String,
     name: Schema.String,
-    source: Schema.Literal("env", "config", "custom", "api"),
+    source: Schema.Literals(["env", "config", "custom", "api"]),
     env: Schema.mutable(Schema.Array(Schema.String)),
     key: Schema.optional(Schema.String),
-    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    models: Schema.Record({ key: Schema.String, value: ModelSchema }),
-  }).annotations({ identifier: "Provider" })
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    models: Schema.Record(Schema.String, ModelSchema),
+  }).annotate({ identifier: "Provider" })
   export const Info = zodObject(InfoSchema)
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
 
@@ -1035,7 +1036,7 @@ export namespace Provider {
     const env = Env.all()
     for (const [providerID, provider] of Object.entries(database)) {
       if (disabled.has(providerID)) continue
-      const apiKey = provider.env.map((item) => env[item]).find(Boolean)
+      const apiKey = provider.env.map((item: string) => env[item]).find(Boolean)
       if (!apiKey) continue
       mergeProvider(providerID, {
         source: "env",
@@ -1044,7 +1045,7 @@ export namespace Provider {
     }
 
     // load apikeys
-    for (const [providerID, provider] of Object.entries(await authAll())) {
+    for (const [providerID, provider] of Object.entries(await authAll()) as Array<[string, Auth.Info]>) {
       if (disabled.has(providerID)) continue
       if (provider.type === "api") {
         mergeProvider(providerID, {
@@ -1145,7 +1146,7 @@ export namespace Provider {
         })
     }
 
-    for (const [providerID, provider] of Object.entries(providers)) {
+    for (const [providerID, provider] of Object.entries(providers) as Array<[string, Info]>) {
       if (!isProviderAllowed(providerID)) {
         delete providers[providerID]
         continue
@@ -1153,7 +1154,7 @@ export namespace Provider {
 
       const configProvider = config.provider?.[providerID]
 
-      for (const [modelID, model] of Object.entries(provider.models)) {
+      for (const [modelID, model] of Object.entries(provider.models) as Array<[string, Model]>) {
         model.api.id = model.api.id ?? model.id ?? modelID
         if (modelID === "gpt-5-chat-latest" || (providerID === "openrouter" && modelID === "openai/gpt-5-chat"))
           delete provider.models[modelID]

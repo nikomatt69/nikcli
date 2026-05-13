@@ -4,31 +4,31 @@ import { Tool } from "./tool"
 
 const BarChartComponent = Schema.Struct({
   type: Schema.Literal("bar_chart"),
-  title: Schema.optional(Schema.String).annotations({ description: "Optional heading for this chart" }),
+  title: Schema.optional(Schema.String).annotate({ description: "Optional heading for this chart" }),
   items: Schema.Array(
     Schema.Struct({
-      label: Schema.String.annotations({ description: "Bar label, shown to the left" }),
-      value: Schema.Number.annotations({ description: "Numeric value for this bar" }),
-      unit: Schema.optional(Schema.String).annotations({ description: "Optional unit suffix, e.g. '%', 'ms'" }),
+      label: Schema.String.annotate({ description: "Bar label, shown to the left" }),
+      value: Schema.Number.annotate({ description: "Numeric value for this bar" }),
+      unit: Schema.optional(Schema.String).annotate({ description: "Optional unit suffix, e.g. '%', 'ms'" }),
     }),
   )
-    .pipe(Schema.minItems(1))
-    .annotations({ description: "Data rows. Values are normalised to the maximum automatically." }),
-  maxValue: Schema.optional(Schema.Number).annotations({
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({ description: "Data rows. Values are normalised to the maximum automatically." }),
+  maxValue: Schema.optional(Schema.Number).annotate({
     description: "Override the 100% ceiling. Defaults to the largest value in items.",
   }),
   barWidth: Schema.optional(
-    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(10), Schema.lessThanOrEqualTo(60)),
-  ).annotations({ description: "Character width of the bar area. Defaults to 40." }),
+    Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(10)), Schema.check(Schema.isLessThanOrEqualTo(60))),
+  ).annotate({ description: "Character width of the bar area. Defaults to 40." }),
 })
 
 const TableComponent = Schema.Struct({
   type: Schema.Literal("table"),
   title: Schema.optional(Schema.String),
   headers: Schema.Array(Schema.String)
-    .pipe(Schema.minItems(1))
-    .annotations({ description: "Column header labels" }),
-  rows: Schema.Array(Schema.Array(Schema.String)).annotations({
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({ description: "Column header labels" }),
+  rows: Schema.Array(Schema.Array(Schema.String)).annotate({
     description: "2D array of cell values. Each inner array must match headers length.",
   }),
 })
@@ -40,7 +40,7 @@ const KeyValueComponent = Schema.Struct({
     Schema.Struct({
       key: Schema.String,
       value: Schema.String,
-      status: Schema.optional(Schema.Literal("default", "success", "warning", "error", "info")).annotations({
+      status: Schema.optional(Schema.Literals(["default", "success", "warning", "error", "info"])).annotate({
         description:
           "Colour-codes the value: success=green, warning=yellow, error=red, info=blue, default=text",
       }),
@@ -54,23 +54,23 @@ const ProgressBarsComponent = Schema.Struct({
   items: Schema.Array(
     Schema.Struct({
       label: Schema.String,
-      value: Schema.Number.pipe(Schema.greaterThanOrEqualTo(0)).annotations({ description: "Current value" }),
-      max: Schema.Number.pipe(Schema.greaterThan(0)).annotations({ description: "Maximum value (100% mark)" }),
+      value: Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({ description: "Current value" }),
+      max: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({ description: "Maximum value (100% mark)" }),
       unit: Schema.optional(Schema.String),
     }),
   ),
   barWidth: Schema.optional(
-    Schema.Number.pipe(Schema.int(), Schema.greaterThanOrEqualTo(10), Schema.lessThanOrEqualTo(60)),
+    Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(10)), Schema.check(Schema.isLessThanOrEqualTo(60))),
   ),
 })
 
 const TextComponent = Schema.Struct({
   type: Schema.Literal("text"),
   title: Schema.optional(Schema.String),
-  content: Schema.String.annotations({ description: "Plain or markdown-lite text content" }),
+  content: Schema.String.annotate({ description: "Plain or markdown-lite text content" }),
   style: Schema.optional(
-    Schema.Literal("default", "info", "success", "warning", "error", "code", "muted"),
-  ).annotations({
+    Schema.Literals(["default", "info", "success", "warning", "error", "code", "muted"]),
+  ).annotate({
     description:
       "Semantic colour: info=blue, success=green, warning=yellow, error=red, code=monospace block, muted=subdued",
   }),
@@ -81,26 +81,26 @@ const TimelineComponent = Schema.Struct({
   title: Schema.optional(Schema.String),
   events: Schema.Array(
     Schema.Struct({
-      time: Schema.optional(Schema.String).annotations({ description: "Human-readable timestamp or duration label" }),
-      label: Schema.String.annotations({ description: "Event description" }),
-      status: Schema.Literal("done", "active", "pending", "error").annotations({
+      time: Schema.optional(Schema.String).annotate({ description: "Human-readable timestamp or duration label" }),
+      label: Schema.String.annotate({ description: "Event description" }),
+      status: Schema.Literals(["done", "active", "pending", "error"]).annotate({
         description: "done=✓, active=●, pending=○, error=✗",
       }),
-      detail: Schema.optional(Schema.String).annotations({
+      detail: Schema.optional(Schema.String).annotate({
         description: "Optional secondary text rendered below the label",
       }),
     }),
   ),
 })
 
-const VisualizationComponent = Schema.Union(
+const VisualizationComponent = Schema.Union([
   BarChartComponent,
   TableComponent,
   KeyValueComponent,
   ProgressBarsComponent,
   TextComponent,
   TimelineComponent,
-)
+])
 
 export type OpenTUIVizSpecType = {
   title: string
@@ -110,10 +110,10 @@ export type OpenTUIVizSpecType = {
 export type VizComponent = Schema.Schema.Type<typeof VisualizationComponent>
 
 const Parameters = Schema.Struct({
-  title: Schema.String.annotations({ description: "Overall title shown in the dialog header" }),
+  title: Schema.String.annotate({ description: "Overall title shown in the dialog header" }),
   components: Schema.Array(VisualizationComponent)
-    .pipe(Schema.minItems(1), Schema.maxItems(8))
-    .annotations({
+    .pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(8)))
+    .annotate({
       description:
         "One or more visualization blocks. Use multiple components to build dashboards. " +
         "Tab-navigation is shown automatically when there are 2+ components.",

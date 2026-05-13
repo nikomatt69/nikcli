@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import z from "zod"
 import { zod, zodObject, zodObjectMode, zodOverride, ZodOverrideId } from "@/util/effect-zod"
 
@@ -48,7 +48,7 @@ describe("effect-zod walker", () => {
   })
 
   it("union", () => {
-    const s = zod(Schema.Union(Schema.String, Schema.Number))
+    const s = zod(Schema.Union([Schema.String, Schema.Number]))
     expect(s.safeParse("a").success).toBe(true)
     expect(s.safeParse(1).success).toBe(true)
     expect(s.safeParse(true).success).toBe(false)
@@ -62,7 +62,7 @@ describe("effect-zod walker", () => {
   })
 
   it("record", () => {
-    const s = zod(Schema.Record({ key: Schema.String, value: Schema.Number }))
+    const s = zod(Schema.Record(Schema.String, Schema.Number))
     expect(s.safeParse({ a: 1, b: 2 }).success).toBe(true)
     expect(s.safeParse({ a: "no" }).success).toBe(false)
   })
@@ -84,14 +84,14 @@ describe("effect-zod walker", () => {
 
   it("identifier annotation maps to z.meta({ ref })", () => {
     const s = zod(
-      Schema.Struct({ id: Schema.String }).annotations({ identifier: "Foo" }),
+      Schema.Struct({ id: Schema.String }).annotate({ identifier: "Foo" }),
     ) as z.ZodType & { meta: () => { ref: string } | undefined }
     const meta = (s as any).meta?.()
     expect(meta?.ref).toBe("Foo")
   })
 
   it("description annotation maps to .describe", () => {
-    const s = zod(Schema.String.annotations({ description: "user name" }))
+    const s = zod(Schema.String.annotate({ description: "user name" }))
     expect(s.description).toBe("user name")
   })
 
@@ -110,7 +110,7 @@ describe("effect-zod walker", () => {
     const s = zod(
       Schema.Struct({
         name: Schema.String,
-      }).annotations(zodObjectMode("strip")),
+      }).annotate(zodObjectMode("strip")),
     )
     expect(s.parse({ name: "x", extra: true } as any)).toEqual({ name: "x" })
   })
@@ -119,7 +119,7 @@ describe("effect-zod walker", () => {
     const s = zod(
       Schema.Struct({
         name: Schema.String,
-      }).annotations(zodObjectMode("passthrough")),
+      }).annotate(zodObjectMode("passthrough")),
     )
     expect(s.parse({ name: "x", extra: true } as unknown as { name: string })).toEqual(
       { name: "x", extra: true } as unknown as { name: string },
@@ -129,7 +129,7 @@ describe("effect-zod walker", () => {
   it("zodOverride escape hatch replaces derivation", () => {
     const original = z.string().regex(/^[A-Z]+$/)
     const s = zod(
-      Schema.String.annotations({ [ZodOverrideId]: () => original }),
+      Schema.String.annotate({ [ZodOverrideId]: () => original }),
     )
     expect(s.safeParse("ABC").success).toBe(true)
     expect(s.safeParse("abc").success).toBe(false)
@@ -138,32 +138,32 @@ describe("effect-zod walker", () => {
   it("zodOverride helper produces the same annotation shape", () => {
     const original = z.literal("ok")
     const ann = zodOverride(() => original)
-    const s = zod(Schema.String.annotations(ann))
+    const s = zod(Schema.String.annotate(ann))
     expect(s.safeParse("ok").success).toBe(true)
     expect(s.safeParse("nope").success).toBe(false)
   })
 
   it("refinement: integer", () => {
-    const s = zod(Schema.Number.pipe(Schema.int()))
+    const s = zod(Schema.Int)
     expect(s.safeParse(1).success).toBe(true)
     expect(s.safeParse(1.5).success).toBe(false)
   })
 
   it("refinement: greater than", () => {
-    const s = zod(Schema.Number.pipe(Schema.greaterThan(0)))
+    const s = zod(Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))))
     expect(s.safeParse(1).success).toBe(true)
     expect(s.safeParse(0).success).toBe(false)
     expect(s.safeParse(-1).success).toBe(false)
   })
 
   it("refinement: pattern", () => {
-    const s = zod(Schema.String.pipe(Schema.pattern(/^[A-Z]+$/)))
+    const s = zod(Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Z]+$/))))
     expect(s.safeParse("ABC").success).toBe(true)
     expect(s.safeParse("abc").success).toBe(false)
   })
 
   it("refinement: minLength / maxLength", () => {
-    const s = zod(Schema.String.pipe(Schema.minLength(2), Schema.maxLength(4)))
+    const s = zod(Schema.String.pipe(Schema.check(Schema.isMinLength(2)), Schema.check(Schema.isMaxLength(4))))
     expect(s.safeParse("a").success).toBe(false)
     expect(s.safeParse("ab").success).toBe(true)
     expect(s.safeParse("abcd").success).toBe(true)
@@ -188,7 +188,10 @@ describe("effect-zod walker", () => {
   it("Schema.optionalWith default still produces a JSON-Schema-safe Zod", () => {
     const s = zod(
       Schema.Struct({
-        format: Schema.optionalWith(Schema.Literal("a", "b"), { default: () => "a" as const }),
+        format: Schema.Literals(["a", "b"]).pipe(
+          Schema.optional,
+          Schema.withDecodingDefaultType(Effect.succeed("a" as const)),
+        ),
       }),
     )
     expect(() => z.toJSONSchema(s)).not.toThrow()

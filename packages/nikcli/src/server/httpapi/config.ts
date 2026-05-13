@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "@effect/platform"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
@@ -6,7 +6,7 @@ import { Provider } from "@/provider/provider"
 import { mapValues } from "remeda"
 
 export namespace ConfigHttpApi {
-  export const Info = Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({ identifier: "Config" })
+  export const Info = Schema.Record(Schema.String, Schema.Unknown).annotate({ identifier: "Config" })
 
   const Model = Schema.Struct({
     id: Schema.String,
@@ -17,36 +17,36 @@ export namespace ConfigHttpApi {
     limit: Schema.optional(Schema.Unknown),
     api: Schema.optional(Schema.Unknown),
     status: Schema.optional(Schema.String),
-    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    headers: Schema.Record({ key: Schema.String, value: Schema.String }),
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    headers: Schema.Record(Schema.String, Schema.String),
     release_date: Schema.String,
-    variants: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   })
 
   export const ProviderInfo = Schema.Struct({
     id: Schema.String,
     name: Schema.String,
-    source: Schema.Literal("env", "config", "custom", "api"),
+    source: Schema.Literals(["env", "config", "custom", "api"]),
     env: Schema.Array(Schema.String),
     key: Schema.optional(Schema.String),
-    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    models: Schema.Record({ key: Schema.String, value: Model }),
-  }).annotations({ identifier: "Provider" })
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    models: Schema.Record(Schema.String, Model),
+  }).annotate({ identifier: "Provider" })
 
   export const ProviderSummary = Schema.Struct({
     providers: Schema.Array(ProviderInfo),
-    default: Schema.Record({ key: Schema.String, value: Schema.String }),
-  }).annotations({ identifier: "ConfigProviders" })
+    default: Schema.Record(Schema.String, Schema.String),
+  }).annotate({ identifier: "ConfigProviders" })
 
   export const Group = HttpApiGroup.make("config")
-    .add(HttpApiEndpoint.get("get", "/").addSuccess(Info))
-    .add(HttpApiEndpoint.patch("update", "/").setPayload(Info).addSuccess(Info))
-    .add(HttpApiEndpoint.get("providers", "/providers").addSuccess(ProviderSummary))
+    .add(HttpApiEndpoint.get("get", "/", { success: Info }))
+    .add(HttpApiEndpoint.patch("update", "/", { payload: Info, success: Info }))
+    .add(HttpApiEndpoint.get("providers", "/providers", { success: ProviderSummary }))
     .prefix("/config")
 
   export const Api = HttpApi.make("nikcli").add(Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   export const handlers = {
     get: () =>

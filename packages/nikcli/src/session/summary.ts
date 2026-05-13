@@ -25,8 +25,8 @@ export namespace SessionSummary {
   export type SummarizeInput = Schema.Schema.Type<typeof SummarizeInputSchema>
 
   const DiffInputSchema = Schema.Struct({
-    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
-    messageID: Schema.optional(Schema.String.pipe(Schema.startsWith("msg"))),
+    sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
+    messageID: Schema.optional(Schema.String.pipe(Schema.check(Schema.isStartsWith("msg")))),
   })
   export const DiffInput = zodObject(DiffInputSchema)
   export type DiffInput = Schema.Schema.Type<typeof DiffInputSchema>
@@ -287,7 +287,7 @@ export namespace SessionSummary {
     }),
   )
 
-  export const defaultLayer = Layer.unwrapEffect(
+  export const defaultLayer = Layer.unwrap(
     Effect.sync(() => layer.pipe(Layer.provide(Layer.mergeAll(Snapshot.defaultLayer, Agent.defaultLayer)))),
   )
 }

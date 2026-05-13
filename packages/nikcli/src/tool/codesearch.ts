@@ -1,4 +1,4 @@
-import { Schema } from "effect"
+import { Effect, Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./codesearch.txt"
@@ -10,14 +10,16 @@ interface McpCodeRequest extends Record<string, unknown> {
 }
 
 const Parameters = Schema.Struct({
-  query: Schema.String.annotations({
+  query: Schema.String.annotate({
     description:
       "Search query to find relevant context for APIs, Libraries, and SDKs. For example, 'React useState hook examples', 'Python pandas dataframe filtering', 'Express.js middleware', 'Next js partial prerendering configuration'",
   }),
-  tokensNum: Schema.optionalWith(
-    Schema.Number.pipe(Schema.greaterThanOrEqualTo(1000), Schema.lessThanOrEqualTo(50000)),
-    { default: () => 5000 },
-  ).annotations({
+  tokensNum: Schema.Number.pipe(
+    Schema.check(Schema.isGreaterThanOrEqualTo(1000)),
+    Schema.check(Schema.isLessThanOrEqualTo(50000)),
+    Schema.optional,
+    Schema.withDecodingDefault(Effect.succeed(5000)),
+  ).annotate({
     description:
       "Number of tokens to return (1000-50000). Default is 5000 tokens. Adjust this value based on how much context you need - use lower values for focused queries and higher values for comprehensive documentation.",
   }),

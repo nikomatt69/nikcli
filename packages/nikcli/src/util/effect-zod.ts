@@ -30,7 +30,7 @@
  *   `default` → `.default(...)`, `examples` (passed through `.meta` so
  *   `hono-openapi` keeps them in OpenAPI output).
  *
- * Escape hatch: `Schema.annotations({ [ZodOverrideId]: () => zodSchema })`
+ * Escape hatch: `Schema.annotate({ [ZodOverrideId]: () => zodSchema })`
  * replaces the entire derivation with a hand-crafted zod schema. Use for cases
  * the pure-Schema path cannot express (e.g. `$ref` to an external URL).
  *
@@ -40,8 +40,7 @@
  * - `BigInt`, `Symbol`, `TemplateLiteral`, `Enums` — add when first needed.
  */
 
-import { type Annotated, type AST, getAnnotation } from "effect/SchemaAST"
-import { Option } from "effect"
+import { type AST, isOptional, resolve } from "effect/SchemaAST"
 import * as Schema from "effect/Schema"
 import z from "zod"
 
@@ -129,33 +128,35 @@ const DEFAULT_IDENTIFIERS = new Set([
   "DateFromNumber",
 ])
 
-function readAnnotations(ast: Annotated): RefAnnotation {
+function readAnnotations(ast: AST | undefined): RefAnnotation {
   const out: RefAnnotation = {}
-  const id = getAnnotation<string>(IdentifierAnnotationId)(ast)
-  if (Option.isSome(id) && !DEFAULT_IDENTIFIERS.has(id.value)) out.ref = id.value
-  const desc = getAnnotation<string>(DescriptionAnnotationId)(ast)
-  if (Option.isSome(desc) && !DEFAULT_DESCRIPTIONS.has(desc.value)) out.description = desc.value
-  const title = getAnnotation<string>(TitleAnnotationId)(ast)
-  if (Option.isSome(title) && !DEFAULT_TITLES.has(title.value)) out.title = title.value
-  const def = getAnnotation<unknown>(DefaultAnnotationId)(ast)
-  if (Option.isSome(def)) out.default = def.value
-  const examples = getAnnotation<ReadonlyArray<unknown>>(ExamplesAnnotationId)(ast)
-  if (Option.isSome(examples)) out.examples = examples.value
-  const json = getAnnotation<Record<string, unknown>>(JSONSchemaAnnotationId)(ast)
-  if (Option.isSome(json)) out.jsonSchema = json.value
-  const brand = getAnnotation<ReadonlyArray<string | symbol>>(BrandAnnotationId)(ast)
-  if (Option.isSome(brand)) out.brand = brand.value
-  const sid = getAnnotation<string | symbol>(SchemaIdAnnotationId)(ast)
-  if (Option.isSome(sid)) {
+  if (ast === undefined) return out
+  const annotations = resolve(ast) as Record<PropertyKey, unknown> | undefined
+  const id = annotations?.identifier ?? annotations?.[IdentifierAnnotationId]
+  if (typeof id === "string" && !DEFAULT_IDENTIFIERS.has(id)) out.ref = id
+  const desc = annotations?.description ?? annotations?.[DescriptionAnnotationId]
+  if (typeof desc === "string" && !DEFAULT_DESCRIPTIONS.has(desc)) out.description = desc
+  const title = annotations?.title ?? annotations?.[TitleAnnotationId]
+  if (typeof title === "string" && !DEFAULT_TITLES.has(title)) out.title = title
+  const def = annotations?.default ?? annotations?.[DefaultAnnotationId]
+  if (def !== undefined) out.default = def
+  const examples = annotations?.examples ?? annotations?.[ExamplesAnnotationId]
+  if (Array.isArray(examples)) out.examples = examples
+  const json = annotations?.jsonSchema ?? annotations?.[JSONSchemaAnnotationId]
+  if (json && typeof json === "object" && !Array.isArray(json)) out.jsonSchema = json as Record<string, unknown>
+  const brand = annotations?.brand ?? annotations?.[BrandAnnotationId]
+  if (Array.isArray(brand)) out.brand = brand as ReadonlyArray<string | symbol>
+  const sid = annotations?.schemaId ?? annotations?.[SchemaIdAnnotationId]
+  if (typeof sid === "string" || typeof sid === "symbol") {
     // SchemaId values are themselves symbols (e.g. `Symbol(effect/SchemaId/Int)`); normalize
     // to the symbol's description string so callers can switch on it.
     out.schemaId =
-      typeof sid.value === "symbol" ? sid.value.description ?? sid.value : sid.value
+      typeof sid === "symbol" ? sid.description ?? sid : sid
   }
-  const override = getAnnotation<ZodOverrideFn>(ZodOverrideId)(ast)
-  if (Option.isSome(override)) out.override = override.value
-  const objectMode = getAnnotation<ZodObjectMode>(ZodObjectModeId)(ast)
-  if (Option.isSome(objectMode)) out.objectMode = objectMode.value
+  const override = annotations?.[ZodOverrideId]
+  if (typeof override === "function") out.override = override as ZodOverrideFn
+  const objectMode = annotations?.[ZodObjectModeId]
+  if (objectMode === "strict" || objectMode === "strip" || objectMode === "passthrough") out.objectMode = objectMode
   return out
 }
 
@@ -277,21 +278,23 @@ function walk(ast: AST): z.ZodType {
   const ann = readAnnotations(ast)
   if (ann.override) return applyAnnotations(ann.override(), ann)
 
-  switch (ast._tag) {
-    case "StringKeyword":
+  switch ((ast as any)._tag as string) {
+    case "String":
       return applyAnnotations(z.string(), ann)
-    case "NumberKeyword":
+    case "Number":
       return applyAnnotations(z.number(), ann)
-    case "BooleanKeyword":
+    case "Boolean":
       return applyAnnotations(z.boolean(), ann)
-    case "UnknownKeyword":
-    case "AnyKeyword":
+    case "Null":
+      return applyAnnotations(z.null(), ann)
+    case "Unknown":
+    case "Any":
     case "ObjectKeyword":
-    case "VoidKeyword":
+    case "Void":
       return applyAnnotations(z.unknown(), ann)
-    case "NeverKeyword":
+    case "Never":
       return applyAnnotations(z.never(), ann)
-    case "UndefinedKeyword":
+    case "Undefined":
       return applyAnnotations(z.undefined(), ann)
     case "Literal": {
       const literalAst = ast as AST & { literal: string | number | boolean | bigint | null }
@@ -305,36 +308,36 @@ function walk(ast: AST): z.ZodType {
       // The parent TypeLiteral case handles `isOptional` via `.optional()`. Emitting
       // `z.undefined()` here breaks Zod v4's `toJSONSchema` ("Undefined cannot be represented
       // in JSON Schema").
-      const filtered = unionAst.types.filter((t) => t._tag !== "UndefinedKeyword")
+      const filtered = unionAst.types.filter((t) => (t as any)._tag !== "Undefined")
       if (filtered.length === 0) return applyAnnotations(z.never(), ann)
       const variants = filtered.map((t) => walk(t))
       if (variants.length === 1) return applyAnnotations(variants[0], ann)
       return applyAnnotations(z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]]), ann)
     }
-    case "TupleType": {
+    case "Arrays": {
       const tupleAst = ast as AST & {
-        elements: ReadonlyArray<{ type: AST; isOptional: boolean }>
-        rest: ReadonlyArray<{ type: AST }>
+        elements: ReadonlyArray<AST>
+        rest: ReadonlyArray<AST>
       }
       // `Schema.Array(...)` is encoded as a TupleType with no elements and a single rest element.
       if (tupleAst.elements.length === 0 && tupleAst.rest.length === 1) {
-        return applyAnnotations(z.array(walk(tupleAst.rest[0].type)), ann)
+        return applyAnnotations(z.array(walk(tupleAst.rest[0])), ann)
       }
-      const items = tupleAst.elements.map((el) => walk(el.type))
+      const items = tupleAst.elements.map((el) => walk(el))
       if (tupleAst.rest.length === 0) {
         return applyAnnotations(z.tuple(items as [z.ZodType, ...z.ZodType[]]), ann)
       }
       return applyAnnotations(
-        z.tuple(items as [z.ZodType, ...z.ZodType[]]).rest(walk(tupleAst.rest[0].type)),
+        z.tuple(items as [z.ZodType, ...z.ZodType[]]).rest(walk(tupleAst.rest[0])),
         ann,
       )
     }
-    case "TypeLiteral": {
+    case "Objects": {
       const literalAst = ast as AST & {
         propertySignatures: ReadonlyArray<{
           name: PropertyKey
           type: AST
-          isOptional: boolean
+          isOptional?: boolean
         }>
         indexSignatures: ReadonlyArray<{ parameter: AST; type: AST }>
       }
@@ -342,7 +345,8 @@ function walk(ast: AST): z.ZodType {
       for (const sig of literalAst.propertySignatures) {
         if (typeof sig.name !== "string") continue
         const child = walk(sig.type)
-        shape[sig.name] = sig.isOptional ? child.optional() : child
+        const optional = isOptional(sig.type)
+        shape[sig.name] = optional ? child.optional() : child
       }
       let object: z.ZodType = z.object(shape)
       if (literalAst.indexSignatures.length === 0) {
@@ -375,22 +379,22 @@ function walk(ast: AST): z.ZodType {
       return applyAnnotations(inner, ann)
     }
     case "Suspend": {
-      const suspendAst = ast as AST & { f: () => AST }
-      return applyAnnotations(z.lazy(() => walk(suspendAst.f())) as z.ZodType, ann)
+      const suspendAst = ast as AST & { thunk: () => AST }
+      return applyAnnotations(z.lazy(() => walk(suspendAst.thunk())) as z.ZodType, ann)
     }
     case "Transformation": {
       const transAst = ast as AST & { from: AST; to: AST }
       // Detect the canonical String→T coercion transformations and emit `z.coerce.*`
       // so the tool/HTTP boundary accepts either the wire string or the decoded value
       // and outputs the decoded value.
-      if (transAst.from._tag === "StringKeyword") {
-        if (transAst.to._tag === "NumberKeyword") {
+      if ((transAst.from as any)._tag === "String") {
+        if ((transAst.to as any)._tag === "Number") {
           return applyAnnotations(z.coerce.number(), ann)
         }
-        if (transAst.to._tag === "BooleanKeyword") {
+        if ((transAst.to as any)._tag === "Boolean") {
           return applyAnnotations(z.coerce.boolean(), ann)
         }
-        if (transAst.to._tag === "BigIntKeyword") {
+        if ((transAst.to as any)._tag === "BigInt") {
           return applyAnnotations(z.coerce.bigint(), ann)
         }
       }
@@ -406,7 +410,7 @@ function walk(ast: AST): z.ZodType {
       }
       return applyAnnotations(z.unknown(), ann)
     }
-    case "Enums": {
+    case "Enum": {
       const enumsAst = ast as AST & { enums: ReadonlyArray<readonly [string, string | number]> }
       const values = enumsAst.enums.map(([, v]) => v)
       const literals = values.map((v) => z.literal(v as any))
@@ -428,8 +432,8 @@ function walk(ast: AST): z.ZodType {
  * remaining Zod-only consumer (hono-openapi route validators, AI SDK tool
  * parameter schemas, legacy SDK output).
  */
-export function zod<A, I>(schema: Schema.Schema<A, I, never>): z.ZodType<A> {
-  return walk(schema.ast) as z.ZodType<A>
+export function zod<S extends Schema.Top>(schema: S): z.ZodType<S["Type"]> {
+  return walk(schema.ast) as z.ZodType<S["Type"]>
 }
 
 /**
@@ -442,13 +446,11 @@ export function zod<A, I>(schema: Schema.Schema<A, I, never>): z.ZodType<A> {
  * `.shape`, `.partial`, `.omit`, `.merge`, `.extend` are all available on
  * the result.
  */
-type FieldToZod<F> = F extends Schema.PropertySignature<infer Token, infer A, any, any, any, any, any>
-  ? Token extends "?:"
-    ? z.ZodOptional<z.ZodType<A>>
-    : z.ZodType<A>
-  : F extends Schema.Schema<infer A, any, any>
-    ? z.ZodType<A>
-    : z.ZodType<unknown>
+type FieldToZod<F> = F extends Schema.Top
+  ? F["~type.optionality"] extends "optional"
+    ? z.ZodOptional<z.ZodType<F["Type"]>>
+    : z.ZodType<F["Type"]>
+  : z.ZodType<unknown>
 
 type FieldsToShape<Fields extends Schema.Struct.Fields> = {
   [K in keyof Fields]: FieldToZod<Fields[K]>
@@ -460,10 +462,10 @@ export function zodObject<Fields extends Schema.Struct.Fields>(
 ): z.ZodObject<FieldsToShape<Fields>>
 // Overload: any Schema producing an object value (e.g. `Schema.mutable(Schema.Struct(...))`).
 // Loses the precise field shape but still gives a `z.ZodObject` with the correct output type.
-export function zodObject<A extends object, I, R>(
-  schema: Schema.Schema<A, I, R>,
-): z.ZodType<A> & z.ZodObject<z.ZodRawShape>
-export function zodObject(schema: Schema.Schema<any, any, any>): z.ZodObject<any> {
+export function zodObject<S extends Schema.Top & { readonly Type: object }>(
+  schema: S,
+): z.ZodType<S["Type"]> & z.ZodObject<z.ZodRawShape>
+export function zodObject(schema: Schema.Top): z.ZodObject<any> {
   const out = walk(schema.ast)
   if (out instanceof z.ZodObject) {
     return out as z.ZodObject<any>

@@ -37,31 +37,31 @@ export namespace Auth {
     expires: Schema.Number,
     accountId: Schema.optional(Schema.String),
     enterpriseUrl: Schema.optional(Schema.String),
-  }).annotations({ identifier: "OAuth" })
+  }).annotate({ identifier: "OAuth" })
   export const Oauth = zodObject(OauthSchema)
 
   const ApiSchema = Schema.Struct({
     type: Schema.Literal("api"),
     key: Schema.String,
-  }).annotations({ identifier: "ApiAuth" })
+  }).annotate({ identifier: "ApiAuth" })
   export const Api = zodObject(ApiSchema)
 
   const WellKnownSchema = Schema.Struct({
     type: Schema.Literal("wellknown"),
     key: Schema.String,
     token: Schema.String,
-  }).annotations({ identifier: "WellKnownAuth" })
+  }).annotate({ identifier: "WellKnownAuth" })
   export const WellKnown = zodObject(WellKnownSchema)
 
-  const InfoSchema = Schema.Union(OauthSchema, ApiSchema, WellKnownSchema).annotations({ identifier: "Auth" })
+  const InfoSchema = Schema.Union([OauthSchema, ApiSchema, WellKnownSchema]).annotate({ identifier: "Auth" })
   export const Info = zod(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
   export const WellKnownAuthResponse = zodObject(
     Schema.Struct({
       auth: Schema.Struct({
-        command: Schema.Array(Schema.String.pipe(Schema.minLength(1))).pipe(Schema.minItems(1)),
-        env: Schema.String.pipe(Schema.pattern(/^[A-Z_][A-Z0-9_]*$/)),
+        command: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(Schema.check(Schema.isMinLength(1))),
+        env: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Z_][A-Z0-9_]*$/))),
       }),
     }),
   )

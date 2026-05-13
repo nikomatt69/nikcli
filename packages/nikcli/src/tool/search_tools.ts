@@ -4,7 +4,7 @@ import { Tool } from "./tool"
 import DESCRIPTION from "./search_tools.txt"
 
 const Parameters = Schema.Struct({
-  query: Schema.String.annotations({
+  query: Schema.String.annotate({
     description: "A keyword or tool name to search for (e.g. 'image', 'memory', 'git', 'speak')",
   }),
 })

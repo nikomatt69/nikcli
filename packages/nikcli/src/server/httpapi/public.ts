@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder } from "@effect/platform"
+import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi"
 import { Layer } from "effect"
 import { PermissionNext } from "@/permission/next"
 import { Project } from "@/project/project"
@@ -29,7 +29,7 @@ export namespace PublicHttpApi {
     .add(SessionHttpApi.Group)
     .add(WorkspaceHttpApi.Group)
 
-  export const ApiLive = HttpApiBuilder.api(Api)
+  export const ApiLive = HttpApiBuilder.layer(Api)
 
   const QuestionHandlersLive = HttpApiBuilder.group(Api, "question", (handlers) =>
     handlers

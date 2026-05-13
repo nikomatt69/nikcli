@@ -286,7 +286,7 @@ const AgentListCommand = cmd({
   async handler() {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
       const agents = await agentList()
-      const sortedAgents = agents.sort((a, b) => {
+      const sortedAgents = agents.sort((a: Agent.Info, b: Agent.Info) => {
         if (a.native !== b.native) {
           return a.native ? -1 : 1
         }

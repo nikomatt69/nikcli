@@ -115,11 +115,11 @@ async function run(input: {
 }
 
 const Parameters = Schema.Struct({
-  pattern: Schema.String.annotations({ description: "The regex pattern to search for in file contents" }),
-  path: Schema.optional(Schema.String).annotations({
+  pattern: Schema.String.annotate({ description: "The regex pattern to search for in file contents" }),
+  path: Schema.optional(Schema.String).annotate({
     description: "The directory to search in. Defaults to the current working directory.",
   }),
-  include: Schema.optional(Schema.String).annotations({
+  include: Schema.optional(Schema.String).annotate({
     description: 'File pattern to include in the search (e.g. "*.js", "*.{ts,tsx}")',
   }),
 })

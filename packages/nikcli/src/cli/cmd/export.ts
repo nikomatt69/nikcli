@@ -7,6 +7,7 @@ import * as prompts from "@clack/prompts"
 import { EOL } from "os"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import type { MessageV2 } from "@/session/message-v2"
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
@@ -50,12 +51,12 @@ export const ExportCommand = cmd({
           return
         }
 
-        sessions.sort((a, b) => b.time.updated - a.time.updated)
+        sessions.sort((a: Session.Info, b: Session.Info) => b.time.updated - a.time.updated)
 
         const selectedSession = await prompts.autocomplete({
           message: "Select session to export",
           maxItems: 10,
-          options: sessions.map((session) => ({
+          options: sessions.map((session: Session.Info) => ({
             label: session.title,
             value: session.id,
             hint: `${new Date(session.time.updated).toLocaleString()} • ${session.id.slice(-8)}`,
@@ -86,7 +87,7 @@ export const ExportCommand = cmd({
 
         const exportData = {
           info: sessionInfo,
-          messages: messages.map((msg) => ({
+          messages: messages.map((msg: MessageV2.WithParts) => ({
             info: msg.info,
             parts: msg.parts,
           })),

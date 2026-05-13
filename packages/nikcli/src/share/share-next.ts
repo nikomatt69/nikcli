@@ -268,7 +268,7 @@ export namespace ShareNext {
       Effect.gen(function* () {
         const sessionService = yield* Session.Service
         const session = yield* sessionService.get(sessionID)
-        const diffs = yield* sessionService.diff(sessionID).pipe(Effect.catchAll(() => Effect.succeed([])))
+        const diffs = yield* sessionService.diff(sessionID).pipe(Effect.catch(() => Effect.succeed([])))
         return { session, diffs }
       }),
     )

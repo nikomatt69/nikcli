@@ -108,7 +108,7 @@ export namespace ModelsDev {
     return database
   }
 
-  const ModalityValueSchema = Schema.Literal("text", "audio", "image", "video", "pdf")
+  const ModalityValueSchema = Schema.Literals(["text", "audio", "image", "video", "pdf"])
 
   const CostBlockSchema = Schema.Struct({
     input: Schema.Number,
@@ -127,12 +127,12 @@ export namespace ModelsDev {
     temperature: Schema.Boolean,
     tool_call: Schema.Boolean,
     interleaved: Schema.optional(
-      Schema.Union(
+      Schema.Union([
         Schema.Literal(true),
         Schema.Struct({
-          field: Schema.Literal("reasoning_content", "reasoning_details"),
+          field: Schema.Literals(["reasoning_content", "reasoning_details"]),
         }),
-      ),
+      ]),
     ),
     cost: Schema.optional(
       Schema.Struct({
@@ -155,12 +155,12 @@ export namespace ModelsDev {
       }),
     ),
     experimental: Schema.optional(Schema.Boolean),
-    status: Schema.optional(Schema.Literal("alpha", "beta", "deprecated")),
-    options: Schema.Record({ key: Schema.String, value: Schema.Unknown }),
-    headers: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+    status: Schema.optional(Schema.Literals(["alpha", "beta", "deprecated"])),
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     provider: Schema.optional(Schema.Struct({ npm: Schema.String, api: Schema.String })),
     variants: Schema.optional(
-      Schema.Record({ key: Schema.String, value: Schema.Record({ key: Schema.String, value: Schema.Unknown }) }),
+      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
     ),
   })
   export const Model = zodObject(ModelSchema)
@@ -172,7 +172,7 @@ export namespace ModelsDev {
     env: Schema.mutable(Schema.Array(Schema.String)),
     id: Schema.String,
     npm: Schema.optional(Schema.String),
-    models: Schema.Record({ key: Schema.String, value: ModelSchema }),
+    models: Schema.Record(Schema.String, ModelSchema),
   })
   export const Provider = zodObject(ProviderSchema)
   export type Provider = DeepMutable<Schema.Schema.Type<typeof ProviderSchema>>

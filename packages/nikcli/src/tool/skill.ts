@@ -59,12 +59,12 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
   const hint = examples.length > 0 ? ` (e.g., ${examples}, ...)` : ""
 
   const parametersSchema = Schema.Struct({
-    name: Schema.optional(Schema.String).annotations({
+    name: Schema.optional(Schema.String).annotate({
       description: `The skill identifier from available_skills${hint}`,
     }),
-    search: Schema.optional(Schema.String).annotations({ description: "Filter skills by name or description" }),
-    category: Schema.optional(Schema.String).annotations({ description: "Filter skills by category" }),
-    tags: Schema.optional(Schema.String).annotations({ description: "Filter by comma-separated tags" }),
+    search: Schema.optional(Schema.String).annotate({ description: "Filter skills by name or description" }),
+    category: Schema.optional(Schema.String).annotate({ description: "Filter skills by category" }),
+    tags: Schema.optional(Schema.String).annotate({ description: "Filter by comma-separated tags" }),
   })
   const parameters = zod(parametersSchema)
 

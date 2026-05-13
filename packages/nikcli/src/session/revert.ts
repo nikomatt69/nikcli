@@ -54,9 +54,9 @@ export namespace SessionRevert {
   }
 
   const RevertInputSchema = Schema.Struct({
-    sessionID: Schema.String.pipe(Schema.startsWith("ses")),
-    messageID: Schema.String.pipe(Schema.startsWith("msg")),
-    partID: Schema.optional(Schema.String.pipe(Schema.startsWith("prt"))),
+    sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
+    messageID: Schema.String.pipe(Schema.check(Schema.isStartsWith("msg"))),
+    partID: Schema.optional(Schema.String.pipe(Schema.check(Schema.isStartsWith("prt")))),
   })
   export const RevertInput = zodObject(RevertInputSchema)
   export type RevertInput = Schema.Schema.Type<typeof RevertInputSchema>

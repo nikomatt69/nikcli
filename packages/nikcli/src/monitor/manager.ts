@@ -61,16 +61,16 @@ function storageWrite<T>(key: string[], content: T) {
 }
 
 export namespace Monitor {
-  const StatusSchema = Schema.Literal("running", "complete", "error", "timeout", "cancelled")
+  const StatusSchema = Schema.Literals(["running", "complete", "error", "timeout", "cancelled"])
   export const Status = zod(StatusSchema)
   export type Status = Schema.Schema.Type<typeof StatusSchema>
 
   const RecordSchema = Schema.Struct({
     id: Schema.String,
     sessionID: Schema.String,
-    messageID: Schema.String.pipe(Schema.startsWith("msg")),
+    messageID: Schema.String.pipe(Schema.check(Schema.isStartsWith("msg"))),
     callID: Schema.String,
-    partID: Schema.optional(Schema.String.pipe(Schema.startsWith("prt"))),
+    partID: Schema.optional(Schema.String.pipe(Schema.check(Schema.isStartsWith("prt")))),
     title: Schema.String,
     command: Schema.String,
     cwd: Schema.String,
@@ -85,8 +85,8 @@ export namespace Monitor {
     commandPath: Schema.String,
     pidPath: Schema.String,
     exitCodePath: Schema.String,
-    preview: Schema.optionalWith(Schema.String, { default: () => "" }),
-    bytes: Schema.optionalWith(Schema.Number, { default: () => 0 }),
+    preview: Schema.String.pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed(""))),
+    bytes: Schema.Number.pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed(0))),
     time: Schema.Struct({
       created: Schema.Number,
       updated: Schema.Number,
@@ -313,7 +313,7 @@ export namespace Monitor {
       monitorID: runtime.record.id,
       delta: payload,
       preview: runtime.record.preview,
-      bytes: runtime.record.bytes,
+      bytes: runtime.record.bytes ?? 0,
       status: runtime.record.status,
     })
   }
@@ -399,7 +399,7 @@ export namespace Monitor {
     const handleChunk = (chunk: Buffer) => {
       const text = chunk.toString()
       if (!text) return
-      runtime.record.bytes += Buffer.byteLength(text)
+      runtime.record.bytes = (runtime.record.bytes ?? 0) + Buffer.byteLength(text)
       runtime.outputTail = appendTail(runtime.outputTail, text)
       runtime.pendingDelta += text
       runtime.logStream.write(text)

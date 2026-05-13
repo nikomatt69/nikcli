@@ -247,32 +247,32 @@ export const SpeakTool = Tool.define("speak", {
   description: DESCRIPTION,
   parameters: zod(
     Schema.Struct({
-      text: Schema.String.annotations({
+      text: Schema.String.annotate({
         description: "Text to speak. Can include audio tags like [laughs], [whispers], [excited], etc.",
       }),
-      provider: Schema.optional(Schema.String).annotations({
+      provider: Schema.optional(Schema.String).annotate({
         description: "TTS provider (e.g., elevenlabs, openrouter)",
       }),
       stability: Schema.optional(
-        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1)),
-      ).annotations({ description: "Voice stability (0-1). Lower = more expressive. Default: 0.5" }),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
+      ).annotate({ description: "Voice stability (0-1). Lower = more expressive. Default: 0.5" }),
       similarityBoost: Schema.optional(
-        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(1)),
-      ).annotations({ description: "Voice similarity boost (0-1). Default: 0.75" }),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
+      ).annotate({ description: "Voice similarity boost (0-1). Default: 0.75" }),
       speed: Schema.optional(
-        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0.5), Schema.lessThanOrEqualTo(2)),
-      ).annotations({ description: "Speech speed multiplier (0.5-2). Default: 1.0" }),
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0.5)), Schema.check(Schema.isLessThanOrEqualTo(2))),
+      ).annotate({ description: "Speech speed multiplier (0.5-2). Default: 1.0" }),
       volume: Schema.optional(
-        Schema.Number.pipe(Schema.greaterThanOrEqualTo(0), Schema.lessThanOrEqualTo(2)),
-      ).annotations({ description: "Playback volume (0-2). Default: 1.0" }),
-      voiceId: Schema.optional(Schema.String).annotations({ description: "TTS voice ID (provider-dependent default)" }),
-      modelId: Schema.optional(Schema.String).annotations({ description: "TTS model ID (provider-dependent default)" }),
-      outputFormat: Schema.optional(Schema.String).annotations({
+        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(2))),
+      ).annotate({ description: "Playback volume (0-2). Default: 1.0" }),
+      voiceId: Schema.optional(Schema.String).annotate({ description: "TTS voice ID (provider-dependent default)" }),
+      modelId: Schema.optional(Schema.String).annotate({ description: "TTS model ID (provider-dependent default)" }),
+      outputFormat: Schema.optional(Schema.String).annotate({
         description: "TTS output format (provider-dependent default)",
       }),
       timeoutMs: Schema.optional(
-        Schema.Number.pipe(Schema.int(), Schema.greaterThan(0)),
-      ).annotations({ description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})` }),
+        Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+      ).annotate({ description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})` }),
     }),
   ),
   async execute(params, ctx) {

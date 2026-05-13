@@ -10,10 +10,10 @@ export namespace Sandbox {
 
   const RefWorkspace = Schema.Struct({
     type: Schema.Literal("workspace"),
-    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
   })
 
-  export const RefSchema = Schema.Union(RefLocal, RefWorkspace)
+  export const RefSchema = Schema.Union([RefLocal, RefWorkspace])
   export const Ref = zod(RefSchema)
   export type Ref = Schema.Schema.Type<typeof RefSchema>
 
@@ -23,16 +23,16 @@ export namespace Sandbox {
 
   const StateWorktree = Schema.Struct({
     kind: Schema.Literal("worktree"),
-    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
   })
 
   const StateContainer = Schema.Struct({
     kind: Schema.Literal("container"),
-    workspaceID: Schema.String.pipe(Schema.startsWith("wrk")),
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
     serverURL: Schema.String,
   })
 
-  export const StateSchema = Schema.Union(StateLocal, StateWorktree, StateContainer)
+  export const StateSchema = Schema.Union([StateLocal, StateWorktree, StateContainer])
   export const State = zod(StateSchema)
   export type State = Schema.Schema.Type<typeof StateSchema>
 

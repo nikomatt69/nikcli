@@ -37,7 +37,7 @@ export namespace Installation {
   const InfoSchema = Schema.Struct({
     version: Schema.String,
     latest: Schema.String,
-  }).annotations({ identifier: "InstallationInfo" })
+  }).annotate({ identifier: "InstallationInfo" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 

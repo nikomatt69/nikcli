@@ -22,14 +22,14 @@ export namespace Pty {
   })
 
   const InfoSchema = Schema.Struct({
-    id: Schema.String.pipe(Schema.startsWith("pty")),
+    id: Schema.String.pipe(Schema.check(Schema.isStartsWith("pty"))),
     title: Schema.String,
     command: Schema.String,
     args: Schema.Array(Schema.String),
     cwd: Schema.String,
-    status: Schema.Literal("running", "exited"),
+    status: Schema.Literals(["running", "exited"]),
     pid: Schema.Number,
-  }).annotations({ identifier: "Pty" })
+  }).annotate({ identifier: "Pty" })
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
@@ -38,7 +38,7 @@ export namespace Pty {
     args: Schema.optional(Schema.Array(Schema.String)),
     cwd: Schema.optional(Schema.String),
     title: Schema.optional(Schema.String),
-    env: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+    env: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   })
   export const CreateInput = zodObject(CreateInputSchema)
   export type CreateInput = Schema.Schema.Type<typeof CreateInputSchema>
