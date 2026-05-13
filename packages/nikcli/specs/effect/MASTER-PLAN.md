@@ -4,6 +4,36 @@ This document is the single integrated execution plan for the `packages/nikcli` 
 
 The plan is deliberately progressive: every phase ships compilable, testable, behavior-preserving code. No phase introduces a placeholder, mock, or `TODO`. Earlier phases prepare the seams that later phases consume.
 
+## Phase Q — effect 3.21 → 4.0.0-beta.65 upgrade (in progress, 2026-05-13)
+
+Bumps:
+
+- ✅ `packages/llm`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`. `bun run typecheck` clean.
+- ✅ `packages/http-recorder`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`. `bun run typecheck` clean.
+- 🚧 `packages/nikcli`: bumped from effect `3.21.2` → `4.0.0-beta.65`, `@effect/platform` `0.96.1` → `4.0.0-beta.65`, `@effect/platform-bun` `0.89.0` → `4.0.0-beta.65`. **~1,770 type errors remaining**.
+
+Mechanical landings in this turn:
+
+- ✅ Mass-converted 42 `Context.Tag("ID")<Self, Shape>()` declarations to `Context.Service<Self, Shape>()("ID")` (effect 4 removed `Context.Tag`). Covered single-line and 4 multi-line declarations across:
+  `src/snapshot/`, `src/connectors/`, `src/skill/`, `src/file/`, `src/pty/`, `src/config/`, `src/auth/`, `src/worktree/`, `src/plugin/`, `src/provider/`, `src/effect/instance-ref.ts`, `src/bus/`, `src/lsp/`, `src/agent/`, `src/filesystem/`, `src/mcp/`, `src/installation/`, `src/storage/`, `src/project/`, `src/question/`, `src/command/`, `src/format/`, `src/account/`, `src/permission/next.ts`, `src/tool/`, `src/share/`, `src/session/{todo,compaction,revert,processor,system,status,prompt,summary,index}.ts`.
+- ✅ Mass-renamed `Layer.scoped(...)` → `Layer.effect(...)` across 21 files (effect 4 unified scoped/effect under `Layer.effect`).
+
+Remaining breaking-change surface (must be hand-fixed):
+
+- **Layer composition** (~80 sites): `Effect.gen` inside `Layer.effect(...)` now leaks `R = unknown` dependencies. Each `runPromiseWithLayer(...)` call in `agent.ts`, `brain/index.ts`, `chatbot/handlers.ts`, `cli/cmd/*` etc. must explicitly compose the Service-Layer with the dependency layers via `Layer.provide`.
+- **Schema API drift** (~440 TS2339 + ~180 TS2345): `Schema.Struct({...}).annotations({...})` no longer works in place — `.annotations(...)` is now a pipeable. `Schema.Schema.Type<typeof X>` extraction has stricter requirements. Affects 14+ `src/*/schema.ts` and inline schema declarations.
+- **HttpApi reorganization**: `@effect/platform` re-exports for HttpApi changed in 4.x. `HttpApi`, `HttpApiBuilder`, `HttpApiEndpoint`, `HttpApiGroup` imports in `src/server/httpapi/*.ts` (14 files) need verification against effect 4 module layout.
+- **Effect.gen generator typing** (~650 TS18046 cascades): `yield* Effect.promise(...)` returning `unknown` in some sites where the callee's Promise return type is wide. Many of these collapse once the underlying function signature is fixed.
+- **`@effect/platform` direct imports** (user directive 2026-05-13): drop `@effect/platform` peer entirely; consume only `@effect/platform-bun` or `@effect/platform-node`. `src/filesystem/index.ts` and `src/server/httpapi/*.ts` are the affected files.
+
+Error trajectory:
+
+| Stage | TS errors |
+| --- | --- |
+| After `effect@4.0.0-beta.65` install | 3,265 |
+| After `Context.Tag` → `Context.Service` mass-edit | 1,743 |
+| After `Layer.scoped` → `Layer.effect` mass-rename | 1,771 *(slight uptick: new `R = never` constraint surfacing)* |
+
 ## Execution log (2026-05-07)
 
 Concrete progress landed on this branch in the first execution pass:

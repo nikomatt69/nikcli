@@ -41,7 +41,7 @@ export namespace SessionStatus {
 
   const state = InstanceState.make<Record<string, Info>>(() => Effect.succeed({}))
 
-  export class Service extends Context.Tag("SessionStatus.Service")<
+  export class Service extends Context.Service<
     Service,
     {
       get(sessionID: string): Effect.Effect<Info>
@@ -49,9 +49,9 @@ export namespace SessionStatus {
       set(sessionID: string, status: Info): Effect.Effect<void>
       hydrate(sessionID: string, status: Info): Effect.Effect<void>
     }
-  >() {}
+  >()("SessionStatus.Service") {}
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const cache = yield* state

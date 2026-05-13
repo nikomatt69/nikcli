@@ -649,7 +649,7 @@ export namespace Plugin {
     init(): Effect.Effect<void, unknown>
   }
 
-  export class Service extends Context.Tag("Plugin.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Plugin.Service") {}
 
   type State = {
     hooks: Hooks[]
@@ -788,7 +788,7 @@ export namespace Plugin {
     })
   }
 
-  const layer = Layer.scoped(
+  const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>((ctx) =>

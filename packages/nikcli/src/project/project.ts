@@ -145,7 +145,7 @@ export namespace Project {
     removeSandbox(projectID: string, directory: string): Effect.Effect<Info, unknown>
   }
 
-  export class Service extends Context.Tag("Project.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Project.Service") {}
 
   async function fromDirectoryImpl(directory: string) {
     log.info("fromDirectory", { directory })

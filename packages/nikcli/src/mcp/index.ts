@@ -207,7 +207,7 @@ export namespace MCP {
     getAuthStatus(mcpName: string): Effect.Effect<AuthStatus, unknown>
   }
 
-  export class Service extends Context.Tag("MCP.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("MCP.Service") {}
 
   const state = InstanceState.make<State>((ctx) =>
     Effect.gen(function* () {
@@ -998,7 +998,7 @@ export namespace MCP {
     return expired ? "expired" : "authenticated"
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const scopedState = yield* state

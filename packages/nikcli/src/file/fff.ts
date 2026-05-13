@@ -77,7 +77,7 @@ export namespace FFF {
     readonly allowed: (input: AllowedInput) => Effect.Effect<boolean>
   }
 
-  export class Service extends Context.Tag("FFF.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("FFF.Service") {}
 
   // ============================================
   // Internal Helpers
@@ -226,7 +226,7 @@ export namespace FFF {
   // Layer Implementation
   // ============================================
 
-  const layer = Layer.scoped(
+  const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const ctx = yield* instance

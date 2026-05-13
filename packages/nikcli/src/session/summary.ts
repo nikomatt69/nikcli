@@ -37,7 +37,7 @@ export namespace SessionSummary {
     computeDiff(input: { messages: MessageV2.WithParts[] }): Effect.Effect<Snapshot.FileDiff[], unknown>
   }
 
-  export class Service extends Context.Tag("SessionSummary.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SessionSummary.Service") {}
 
   function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
     return runPromiseWithLayer(Storage.defaultLayer, effect)

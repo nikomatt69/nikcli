@@ -135,7 +135,7 @@ export namespace PermissionNext {
     readonly list: () => Effect.Effect<Request[]>
   }
 
-  export class Service extends Context.Tag("@nikcli/PermissionNext")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/PermissionNext") {}
 
   function storageRead<T>(key: string[]) {
     return Effect.provide(
@@ -157,7 +157,7 @@ export namespace PermissionNext {
     )
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>((ctx) =>

@@ -36,7 +36,7 @@ export namespace Format {
     readonly status: () => Effect.Effect<Status[]>
   }
 
-  export class Service extends Context.Tag("@nikcli/Format")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Format") {}
 
   function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -51,7 +51,7 @@ export namespace Format {
     )
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(

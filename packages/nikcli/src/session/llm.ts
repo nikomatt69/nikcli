@@ -12,7 +12,17 @@ import {
   tool,
   jsonSchema,
 } from "ai"
-import { LLMCore } from "@nikcli-ai/llm"
+import { LLMCore, Runtime as LLMRuntime, ToolChoice } from "@nikcli-ai/llm"
+import {
+  Message as LLMMessage,
+  type ModelRef,
+  type ContentPart,
+  type ToolDefinition,
+  LLMRequest as LLMRequestClass,
+  SystemPart,
+  GenerationOptions,
+  HttpOptions,
+} from "@nikcli-ai/llm"
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
@@ -118,13 +128,14 @@ export namespace LLM {
       modelID: input.model.id,
       providerID: input.model.providerID,
     })
-    const [{ language, provider }, cfg, auth] = await Promise.all([
+    const [{ language, provider, modelRef }, cfg, auth] = await Promise.all([
       runProvider(
         Effect.gen(function* () {
           const service = yield* Provider.Service
           const language = yield* service.getLanguage(input.model)
           const provider = yield* service.getProvider(input.model.providerID)
-          return { language, provider }
+          const modelRef = yield* service.getModelRef(input.model)
+          return { language, provider, modelRef }
         }),
       ),
       configGet(),
@@ -137,6 +148,14 @@ export namespace LLM {
     ])
     if (!provider) {
       throw new Provider.ModelNotFoundError({ providerID: input.model.providerID, modelID: input.model.id })
+    }
+    if (modelRef) {
+      l.debug("model ref resolved", {
+        route: modelRef.route,
+        baseURL: modelRef.baseURL,
+        modelID: modelRef.id,
+        providerID: modelRef.provider,
+      })
     }
     const isCodex = provider.id === "openai" && auth?.type === "oauth"
 
@@ -215,6 +234,38 @@ export namespace LLM {
         )
       }),
     )
+
+    // Run the request through @nikcli-ai/llm's route-based provider stack to
+    // compile a provider-native body. This exercises the route registered by
+    // @nikcli-ai/llm/providers end-to-end (body.from + transport.prepare) — proving
+    // the route resolves even though the actual HTTP dispatch still goes through
+    // the AI SDK path below.
+    if (modelRef) {
+      try {
+        const llmRequest = buildLLMRequest(
+          input,
+          modelRef,
+          {
+            temperature: params.temperature,
+            topP: params.topP,
+            topK: params.topK,
+            options: params.options,
+          },
+          buildRequestHeaders(input.model.providerID, input.sessionID, input.user.id, isCodex, input.model.headers),
+        )
+        const prepared = await LLMRuntime.prepareRequest(llmRequest)
+        l.debug("LLM request prepared via @nikcli-ai/llm route", {
+          modelID: modelRef.id,
+          providerID: modelRef.provider,
+          route: prepared.route,
+          protocol: prepared.protocol,
+          msgCount: llmRequest.messages.length,
+          toolCount: llmRequest.tools.length,
+        })
+      } catch (e) {
+        l.warn("LLM request prepare failed (non-fatal)", { error: String(e) })
+      }
+    }
 
     const maxOutputTokens =
       isCodex || provider.id.includes("github-copilot") ? undefined : ProviderTransform.maxOutputTokens(input.model)
@@ -345,5 +396,182 @@ export namespace LLM {
       }
     }
     return false
+  }
+
+  // ── @nikcli-ai/llm converters ──────────────────────────────────────────
+
+  /**
+   * Convert an AI SDK TextPart / ImagePart / FilePart into a @nikcli-ai/llm ContentPart.
+   */
+  function toLLMContentPart(part: ModelMessage["content"][number]): ContentPart | undefined {
+    if (typeof part === "string") {
+      return { type: "text" as const, text: part }
+    }
+    switch (part.type) {
+      case "text":
+        return { type: "text" as const, text: (part as any).text }
+      case "image": {
+        const p = part as any
+        if (typeof p.image === "string") {
+          return { type: "media" as const, mediaType: p.mimeType ?? "image/png", data: p.image }
+        }
+        return p.image instanceof Uint8Array
+          ? { type: "media" as const, mediaType: p.mimeType ?? "image/png", data: p.image }
+          : undefined
+      }
+      case "file": {
+        const p = part as any
+        if (typeof p.data === "string") {
+          const match = /^data:([^;]+);/.exec(p.data)
+          return {
+            type: "media" as const,
+            mediaType: match?.[1] ?? p.mimeType ?? "application/octet-stream",
+            data: p.data,
+          }
+        }
+        return p.data instanceof Uint8Array
+          ? { type: "media" as const, mediaType: p.mimeType ?? "application/octet-stream", data: p.data }
+          : undefined
+      }
+      default:
+        return undefined
+    }
+  }
+
+  /**
+   * Convert an AI SDK ModelMessage[] into @nikcli-ai/llm Message[].
+   */
+  function modelMessagesToLLMMessages(
+    msgs: ModelMessage[],
+  ): typeof LLMMessage extends new (...args: any[]) => infer I ? I[] : any[] {
+    const result: any[] = []
+    for (const msg of msgs) {
+      switch (msg.role) {
+        case "user": {
+          const parts: ContentPart[] =
+            typeof msg.content === "string"
+              ? msg.content
+                ? [{ type: "text" as const, text: msg.content }]
+                : []
+              : msg.content.map(toLLMContentPart).filter((p): p is ContentPart => p !== undefined)
+          if (parts.length > 0) result.push(LLMMessage.user(parts))
+          break
+        }
+        case "assistant": {
+          const parts: ContentPart[] = []
+          if (typeof msg.content === "string") {
+            if (msg.content) parts.push({ type: "text" as const, text: msg.content })
+          } else if (Array.isArray(msg.content)) {
+            for (const part of msg.content) {
+              const p = part as any
+              if (p.type === "text") {
+                parts.push({ type: "text" as const, text: p.text })
+              } else if (p.type === "reasoning") {
+                parts.push({ type: "reasoning" as const, text: p.text })
+              }
+            }
+          }
+          // Map tool calls from the assistant message (AI SDK format varies by version)
+          const toolCalls = (msg as any).tool_calls ?? (msg as any).parts?.filter((p: any) => p.type === "tool-call")
+          if (toolCalls) {
+            for (const tc of toolCalls) {
+              try {
+                parts.push({
+                  type: "tool-call" as const,
+                  id: tc.id ?? tc.toolCallId ?? `tc-${parts.length}`,
+                  name: tc.function?.name ?? tc.toolName ?? "unknown",
+                  input: tc.function?.arguments
+                    ? typeof tc.function.arguments === "string"
+                      ? JSON.parse(tc.function.arguments)
+                      : tc.function.arguments
+                    : (tc.input ?? {}),
+                } as ContentPart)
+              } catch {
+                parts.push({
+                  type: "tool-call" as const,
+                  id: tc.id ?? tc.toolCallId ?? `tc-${parts.length}`,
+                  name: tc.function?.name ?? tc.toolName ?? "unknown",
+                  input: {},
+                } as ContentPart)
+              }
+            }
+          }
+          if (parts.length > 0) result.push(LLMMessage.assistant(parts))
+          break
+        }
+        case "tool": {
+          const text =
+            typeof msg.content === "string"
+              ? msg.content
+              : Array.isArray(msg.content)
+                ? msg.content.map((p: any) => (typeof p === "string" ? p : (p.text ?? ""))).join("\n")
+                : String((msg as any).content ?? "")
+          result.push(
+            LLMMessage.tool({
+              type: "tool-result" as const,
+              id: (msg as any).tool_call_id ?? `tr-${result.length}`,
+              name: (msg as any).tool_call_name ?? "unknown",
+              result: { type: "text" as const, value: text },
+            }),
+          )
+          break
+        }
+      }
+    }
+    return result
+  }
+
+  /**
+   * Convert an AI SDK Tool map into @nikcli-ai/llm ToolDefinition[].
+   */
+  function toLLMToolDefinitions(tools: Record<string, Tool>): ToolDefinition[] {
+    return Object.entries(tools)
+      .filter(([, t]) => !!t.description)
+      .map(([name, t]) => ({
+        name,
+        description: t.description ?? "",
+        inputSchema: ((t as any).parameters ?? (t as any).inputSchema ?? {}) as Record<string, unknown>,
+      })) as ToolDefinition[]
+  }
+
+  /**
+   * Build an @nikcli-ai/llm LLMRequest from the stream input and resolved ModelRef.
+   */
+  export function buildLLMRequest(
+    input: StreamInput,
+    modelRef: ModelRef,
+    genParams: { temperature?: number; topP?: number; topK?: number; options?: Record<string, unknown> },
+    headers?: Record<string, string>,
+  ): LLMRequestClass {
+    // System parts
+    const system = SystemPart.content(input.system.join("\n\n"))
+
+    // Messages
+    const messages = modelMessagesToLLMMessages(input.messages)
+
+    // Generation options
+    const generation = new GenerationOptions({
+      maxTokens: genParams.options?.["maxOutputTokens"] as number | undefined,
+      temperature: genParams.temperature,
+      topP: genParams.topP,
+      topK: genParams.topK,
+    })
+    const hasGen = Object.values(generation).some((v) => v !== undefined)
+
+    // HTTP options
+    const httpOptions = headers && Object.keys(headers).length > 0 ? new HttpOptions({ headers }) : undefined
+
+    // Tool definitions
+    const tools = toLLMToolDefinitions(input.tools)
+
+    return new LLMRequestClass({
+      model: modelRef,
+      system,
+      messages,
+      tools,
+      generation: hasGen ? generation : undefined,
+      http: httpOptions, 
+      toolChoice: input.toolChoice === "required" ? ToolChoice.make("any") : input.toolChoice === "none" ? ToolChoice.make("none") : undefined,     
+    })
   }
 }

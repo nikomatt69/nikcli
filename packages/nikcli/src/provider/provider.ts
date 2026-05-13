@@ -14,7 +14,13 @@ import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import {
+  InstanceState,
+  locallyInstance,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  type InstanceContext,
+} from "@/effect"
 
 // Direct imports for bundled providers
 import { createAmazonBedrock, type AmazonBedrockProviderSettings } from "@ai-sdk/amazon-bedrock"
@@ -39,6 +45,21 @@ import { createPerplexity } from "@ai-sdk/perplexity"
 import { createVercel } from "@ai-sdk/vercel"
 import { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
+
+// @nikcli-ai/llm provider factories for the new route-based model ref system
+import {
+  OpenAI,
+  Anthropic,
+  Google,
+  AmazonBedrock,
+  Azure,
+  XAI,
+  OpenRouter,
+  GitHubCopilot,
+  OpenAICompatible,
+} from "@nikcli-ai/llm/providers"
+import { byProvider as providerProfiles } from "@nikcli-ai/llm/providers/openai-compatible-profile"
+import type { ModelRef } from "@nikcli-ai/llm"
 
 function runAuth<A, E>(effect: Effect.Effect<A, E, Auth.Service>) {
   return runPromiseWithLayer(Auth.defaultLayer, effect)
@@ -81,10 +102,7 @@ function configGet(ctx?: InstanceContext) {
     const config = yield* Config.Service
     return yield* config.get()
   })
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
-  )
+  return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
 }
 
 export namespace Provider {
@@ -236,12 +254,21 @@ export namespace Provider {
     "@ai-sdk/vercel": createVercel,
     "@gitlab/gitlab-ai-provider": createGitLab,
     // @ts-ignore provider package exposes a compatibility factory not covered by current typings
-    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible as unknown as (options: Record<string, unknown>) => SDK,
+    "@ai-sdk/github-copilot": createGitHubCopilotOpenAICompatible as unknown as (
+      options: Record<string, unknown>,
+    ) => SDK,
   }
 
   type CustomModelLoader = (sdk: SDK, modelID: string, options?: Record<string, unknown>) => Promise<unknown>
   type CustomLoader = (
-    provider: { id: string; name: string; source: string; env: string[]; options: Record<string, unknown>; models: Record<string, unknown> },
+    provider: {
+      id: string
+      name: string
+      source: string
+      env: string[]
+      options: Record<string, unknown>
+      models: Record<string, unknown>
+    },
     ctx: InstanceContext,
   ) => Promise<{
     autoload: boolean
@@ -340,7 +367,10 @@ export namespace Provider {
         },
       }
     },
-    "amazon-bedrock": async (_input: { id: string; env: string[]; models: Record<string, unknown> }, ctx: InstanceContext) => {
+    "amazon-bedrock": async (
+      _input: { id: string; env: string[]; models: Record<string, unknown> },
+      ctx: InstanceContext,
+    ) => {
       const config = await configGet(ctx)
       const providerConfig = config.provider?.["amazon-bedrock"]
 
@@ -846,12 +876,17 @@ export namespace Provider {
     getModel(providerID: string, modelID: string): Effect.Effect<Model, unknown>
     getLanguage(model: Model): Effect.Effect<LanguageModelV2, unknown>
     getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, unknown>
-    closest(providerID: string, query: string[]): Effect.Effect<{ providerID: string; modelID: string } | undefined, unknown>
+    /** Resolve a model to a @nikcli-ai/llm ModelRef for the route-based provider system. */
+    getModelRef(model: Model): Effect.Effect<ModelRef | undefined, unknown>
+    closest(
+      providerID: string,
+      query: string[],
+    ): Effect.Effect<{ providerID: string; modelID: string } | undefined, unknown>
     getSmallModel(providerID: string): Effect.Effect<Model | undefined, unknown>
     defaultModel(): Effect.Effect<{ providerID: string; modelID: string }, unknown>
   }
 
-  export class Service extends Context.Tag("Provider.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Provider.Service") {}
 
   async function buildState(ctx: InstanceContext): Promise<State> {
     using _ = log.time("state")
@@ -1375,7 +1410,10 @@ export namespace Provider {
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
         log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
-        throw new InitError({ providerID: model.providerID }, { cause: new Error("Provider module missing create function") })
+        throw new InitError(
+          { providerID: model.providerID },
+          { cause: new Error("Provider module missing create function") },
+        )
       }
       const fn = mod[createKey]
       const loaded = fn({
@@ -1415,7 +1453,107 @@ export namespace Provider {
     return info
   }
 
-  export const layer = Layer.scoped(
+  /** Resolve a @nikcli-ai/llm ModelRef from a Provider.Model + Provider.Info pair. */
+  function mapToModelRef(model: Model, providerInfo: Info): ModelRef | undefined {
+    const apiKey = (providerInfo.options?.["apiKey"] as string | undefined) ?? providerInfo.key
+    const baseURL = model.api.url || (providerInfo.options?.["baseURL"] as string | undefined)
+    const providerID = model.providerID
+    const npm = model.api.npm
+    const id = model.api.id
+
+    // Helper to extract typed options from the provider's generic options bag.
+    // Returns `undefined` for absent keys so downstream defaults apply.
+    const opt = <T>(key: string): T | undefined => providerInfo.options?.[key] as T | undefined
+
+    try {
+      switch (npm) {
+        case "@ai-sdk/openai":
+          // OpenAI SDK is shared by OpenAI, Azure, and GitHub Copilot — disambiguate by providerID.
+          if (providerID.includes("github-copilot")) {
+            return GitHubCopilot.model(id, { baseURL, apiKey, headers: model.headers } as any)
+          }
+          if (providerID.includes("azure")) {
+            const resourceName =
+              (providerInfo.options?.["resourceName"] as string | undefined) ?? extractAzureResource(baseURL ?? "")
+            return Azure.model(id, {
+              ...(resourceName ? { resourceName } : {}),
+              baseURL,
+              apiKey,
+            } as any)
+          }
+          return OpenAI.responses(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/anthropic":
+          return Anthropic.model(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/google":
+          return Google.model(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/amazon-bedrock":
+          return AmazonBedrock.model(id, {
+            region: opt<string>("region"),
+            baseURL,
+            apiKey,
+          } as any)
+
+        case "@ai-sdk/xai":
+          return XAI.responses(id, { baseURL, apiKey } as any)
+
+        case "@openrouter/ai-sdk-provider":
+          return OpenRouter.model(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/github-copilot":
+          return GitHubCopilot.model(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/groq":
+          return OpenAICompatible.groq.model(id, { apiKey } as any)
+
+        case "@ai-sdk/deepinfra":
+          return OpenAICompatible.deepinfra.model(id, { apiKey } as any)
+
+        case "@ai-sdk/cerebras":
+          return OpenAICompatible.cerebras.model(id, { apiKey } as any)
+
+        case "@ai-sdk/togetherai":
+          return OpenAICompatible.togetherai.model(id, { apiKey } as any)
+
+        // Edge case: GitHub Copilot Enterprise inherits from GitHub Copilot
+        case "@ai-sdk/github-copilot-enterprise":
+          return GitHubCopilot.model(id, { baseURL, apiKey } as any)
+
+        case "@ai-sdk/openai-compatible":
+        default: {
+          // Try to match against known OpenAI-compatible profiles
+          const profile = providerProfiles[providerID]
+          if (profile) {
+            return OpenAICompatible.profileModel(profile, id, { apiKey, baseURL } as any)
+          }
+          // Generic fallback for custom OpenAI-compatible providers
+          if (baseURL) {
+            return OpenAICompatible.model(id, { provider: providerID, baseURL, apiKey } as any)
+          }
+          // No baseURL — can't construct a valid route without an endpoint
+          return undefined
+        }
+      }
+    } catch (e) {
+      log.warn("mapToModelRef failed", {
+        providerID,
+        modelID: model.id,
+        npm,
+        error: String(e),
+      })
+      return undefined
+    }
+  }
+
+  /** Extract the Azure resource name from an azure.com baseURL. */
+  function extractAzureResource(baseURL: string): string | undefined {
+    const match = /https:\/\/([^.]+)\.openai\.azure\.com/.exec(baseURL)
+    return match?.[1]
+  }
+
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* stateEffect
@@ -1590,6 +1728,13 @@ export namespace Provider {
         return bestAvailable() ?? { providerID, modelID }
       })
 
+      const getModelRef: Interface["getModelRef"] = Effect.fn("Provider.getModelRef")(function* (model) {
+        const s = yield* getState()
+        const providerInfo = s.providers[model.providerID]
+        if (!providerInfo) return undefined
+        return mapToModelRef(model, providerInfo)
+      })
+
       return Service.of({
         list: Effect.fn("Provider.list")(function* () {
           return (yield* getState()).providers
@@ -1600,6 +1745,7 @@ export namespace Provider {
         getModel: getModelEffect,
         getLanguage,
         getImageModel,
+        getModelRef,
         closest,
         getSmallModel,
         defaultModel,

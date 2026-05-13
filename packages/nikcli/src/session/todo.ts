@@ -68,7 +68,7 @@ export namespace Todo {
     init(): Effect.Effect<void>
   }
 
-  export class Service extends Context.Tag("Todo.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Todo.Service") {}
 
   function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
     return runPromiseWithLayer(Storage.defaultLayer, effect)

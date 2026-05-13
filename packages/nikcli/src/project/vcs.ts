@@ -35,9 +35,9 @@ export namespace Vcs {
     readonly branch: () => Effect.Effect<string | undefined>
   }
 
-  export class Service extends Context.Tag("@nikcli/Vcs")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Vcs") {}
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(

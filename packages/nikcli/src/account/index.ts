@@ -105,7 +105,7 @@ export namespace Account {
     config(): Effect.Effect<{ serverUrl: string }>
   }
 
-  export class Service extends Context.Tag("Account.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Account.Service") {}
 
   export const layer = Layer.succeed(
     Service,

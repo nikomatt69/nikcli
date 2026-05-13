@@ -30,7 +30,7 @@ export namespace Snapshot {
     diffFull(from: string, to: string): Effect.Effect<FileDiff[], unknown>
   }
 
-  export class Service extends Context.Tag("Snapshot.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Snapshot.Service") {}
 
   export const layer = Layer.succeed(
     Service,

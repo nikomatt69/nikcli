@@ -101,9 +101,9 @@ export namespace Question {
     readonly list: () => Effect.Effect<Request[]>
   }
 
-  export class Service extends Context.Tag("@nikcli/Question")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Question") {}
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(() =>

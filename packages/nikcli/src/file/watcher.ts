@@ -53,7 +53,7 @@ export namespace FileWatcher {
     readonly init: () => Effect.Effect<void>
   }
 
-  export class Service extends Context.Tag("@nikcli/FileWatcher")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/FileWatcher") {}
 
   function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -68,7 +68,7 @@ export namespace FileWatcher {
     )
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(

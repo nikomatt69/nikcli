@@ -90,7 +90,7 @@ export namespace ToolRegistry {
     ) => Effect.Effect<Resolved[], unknown>
   }
 
-  export class Service extends Context.Tag("@nikcli/ToolRegistry")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/ToolRegistry") {}
 
   function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -143,7 +143,7 @@ export namespace ToolRegistry {
     }))
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(

@@ -58,7 +58,7 @@ export namespace Config {
     directories(): Effect.Effect<string[], unknown>
   }
 
-  export class Service extends Context.Tag("Config.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Config.Service") {}
 
   async function loadState(
     ctx: InstanceContext,
@@ -1799,7 +1799,7 @@ export namespace Config {
     })
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const paths = yield* ConfigPaths.Service

@@ -85,7 +85,7 @@ export namespace Pty {
     readonly connect: (id: string, ws: WSContext) => Effect.Effect<Connection | undefined, unknown>
   }
 
-  export class Service extends Context.Tag("@nikcli/Pty")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Pty") {}
 
   function closeSessions(sessions: Map<string, ActiveSession>) {
     for (const session of sessions.values()) {
@@ -99,7 +99,7 @@ export namespace Pty {
     sessions.clear()
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make(() =>

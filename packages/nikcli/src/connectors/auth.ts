@@ -26,7 +26,7 @@ export namespace ConnectorAuth {
     isTokenExpired(connectorName: string): Effect.Effect<boolean | null, unknown>
   }
 
-  export class Service extends Context.Tag("ConnectorAuth.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("ConnectorAuth.Service") {}
 
   export const layer = Layer.succeed(
     Service,

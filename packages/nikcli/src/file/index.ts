@@ -151,7 +151,7 @@ export namespace File {
     }): Effect.Effect<string[], unknown>
   }
 
-  export class Service extends Context.Tag("File.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("File.Service") {}
 
   const state = InstanceState.make<State>((ctx) =>
     Effect.gen(function* () {
@@ -525,7 +525,7 @@ export namespace File {
     return output
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const scopedState = yield* state

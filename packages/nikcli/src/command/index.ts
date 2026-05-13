@@ -74,7 +74,7 @@ export namespace Command {
     readonly list: () => Effect.Effect<Info[], unknown>
   }
 
-  export class Service extends Context.Tag("@nikcli/Command")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Command") {}
 
   function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -89,7 +89,7 @@ export namespace Command {
     )
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<Record<string, Info>>((ctx) =>

@@ -35,7 +35,7 @@ export namespace SessionProcessor {
     create(input: CreateInput): Effect.Effect<Info>
   }
 
-  export class Service extends Context.Tag("SessionProcessor.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SessionProcessor.Service") {}
 
   export type Info = ReturnType<typeof createImpl>
   export type Result = Awaited<ReturnType<Info["process"]>>

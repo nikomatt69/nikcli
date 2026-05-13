@@ -11,8 +11,8 @@ export interface WorkspaceContext {
   readonly id?: string
 }
 
-export class InstanceRef extends Context.Tag("@nikcli/InstanceRef")<InstanceRef, InstanceContext>() {}
-export class WorkspaceRef extends Context.Tag("@nikcli/WorkspaceRef")<WorkspaceRef, WorkspaceContext>() {}
+export class InstanceRef extends Context.Service<InstanceRef, InstanceContext>()("@nikcli/InstanceRef") {}
+export class WorkspaceRef extends Context.Service<WorkspaceRef, WorkspaceContext>()("@nikcli/WorkspaceRef") {}
 
 const currentInstanceRef = FiberRef.unsafeMake<Option.Option<InstanceContext>>(Option.none())
 const currentWorkspaceRef = FiberRef.unsafeMake<Option.Option<WorkspaceContext>>(Option.none())

@@ -313,12 +313,12 @@ export namespace SessionPrompt {
     return Effect.runPromise(withCurrentInstance(InstanceState.context))
   }
 
-  class StateCache extends Context.Tag("SessionPrompt.StateCache")<
+  class StateCache extends Context.Service<
     StateCache,
     ScopedCache.ScopedCache<string, PromptState>
-  >() {}
+  >()("SessionPrompt.StateCache") {}
 
-  const stateLayer = Layer.scoped(
+  const stateLayer = Layer.effect(
     StateCache,
     InstanceState.make<PromptState>(() =>
       Effect.gen(function* () {
@@ -435,7 +435,7 @@ export namespace SessionPrompt {
     command(input: CommandInput): Effect.Effect<Awaited<ReturnType<typeof command>>, unknown>
   }
 
-  export class Service extends Context.Tag("SessionPrompt.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SessionPrompt.Service") {}
 
   const prompt = fn(PromptInput, async (input) => {
     const session = await sessionGet(input.sessionID)

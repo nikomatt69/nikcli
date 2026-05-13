@@ -19,7 +19,7 @@ export namespace ConfigPaths {
     readonly parseText: (text: string, input: ParseSource, missing?: MissingMode) => Effect.Effect<unknown, Error>
   }
 
-  export class Service extends Context.Tag("@nikcli/ConfigPaths")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/ConfigPaths") {}
 
   const projectFilesEffect = Effect.fn("ConfigPaths.projectFiles")(function* (
     name: string,

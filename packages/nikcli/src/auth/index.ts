@@ -77,7 +77,7 @@ export namespace Auth {
     getValid(providerID: string): Effect.Effect<Info | undefined, unknown>
   }
 
-  export class Service extends Context.Tag("Auth.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Auth.Service") {}
 
   export const layer = Layer.succeed(
     Service,

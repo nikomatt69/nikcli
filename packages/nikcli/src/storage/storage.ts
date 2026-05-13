@@ -61,7 +61,7 @@ export namespace Storage {
     list(prefix: string[]): Effect.Effect<string[][], unknown>
   }
 
-  export class Service extends Context.Tag("Storage.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
 
   export const NotFoundError = NamedError.create(
     "NotFoundError",

@@ -100,7 +100,7 @@ export namespace Skill {
     readonly remove: (name: string) => Effect.Effect<boolean, unknown>
   }
 
-  export class Service extends Context.Tag("@nikcli/Skill")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Skill") {}
 
   function configDirectories(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -134,7 +134,7 @@ export namespace Skill {
   export type CreateInput = Schema.Schema.Encoded<typeof CreateInputSchema>
   export type CreateParsedInput = Schema.Schema.Type<typeof CreateInputSchema>
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>((ctx) =>

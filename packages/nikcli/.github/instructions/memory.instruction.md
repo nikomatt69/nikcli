@@ -550,6 +550,15 @@ Core loop consumes AI SDK `streamText()` `fullStream` async iterator. Handles 20
 - Server `retry-after-ms` / `retry-after` headers respected
 - Max 5 attempts; partial parts cleaned up on retry
 
+### Abort Signal Propagation
+
+Single `AbortController` per session prompt, propagated across layers:
+```
+prompt.ts (loop) → processor.ts (LLM.stream) → llm.ts (LLM.stream) → 
+  @nikcli-ai/llm/core.ts (LLMCore.stream) → AI SDK streamText(abortSignal)
+```
+Each tool receives `abort: options.abortSignal!` via `prompt.ts:1120`. Subprocess abort via `kill()` in `shell()` (`prompt.ts:2133-2138`). Deferred cleanup via `using`/`defer()` pattern.
+
 ### Compaction Triggering (`compaction.ts`)
 
 - Overflow detected at `finish-step`: `tokens.total >= (inputLimit - reserved)`
@@ -586,12 +595,48 @@ text-end
 4. `resolveTools()` builds AI SDK tool set
 5. `LLM.stream()` → `processor.process()` → result (`continue`/`stop`/`compact`)
 
+### Race Condition Handling (`prompt.ts`)
+
+- `PromptState` type tracks per-session `AbortController` + callbacks
+- `start(sessionID)` creates controller; `cancel(sessionID)` aborts + rejects
+- Concurrent prompts to same session: second waits via callbacks queue (`prompt.ts:271-276`)
+- Loop checks for new user messages via `lastUser.id < lastAssistant.id` on fresh fetches
+
 ### `lazyAsync` (`src/util/lazy.ts`)
 
 Async-safe initialization for `state()` and similar singletons:
 - Uses `Promise`-caching pattern (subsequent callers share init promise)
 - Replaces original `lazy()` for async initializers to prevent race conditions
 - Both `lazy()` (sync) and `lazyAsync()` exist; `lazyAsync` used for all async init
+
+## LLM Provider System (`src/provider/provider.ts`)
+
+### Three Resolution Pathways
+
+**1. AI SDK Language Model** (`getLanguage`, lines 1567-1595):
+- Cache lookup → `getSDK()` → custom loader (`modelLoaders[providerID]`) or generic `sdk.languageModel()`
+- Custom loaders: OpenAI (`sdk.languageModel(model.api.id)`), Azure, GitHub Copilot, Amazon Bedrock, Google Vertex
+
+**2. @nikcli-ai/llm Route-Based Streaming** (`getModelRef`, lines 1731-1736):
+- `mapToModelRef()` maps `model.api.npm` → route + provider factory
+- Routes registered in `packages/llm/src/providers/index.ts`: Anthropic, AmazonBedrock, Azure, Cloudflare, GitHubCopilot, Google, OpenAI, OpenAICompatible, OpenRouter, XAI
+
+**3. Provider State Construction** (`buildState`, lines 891-1194):
+1. Load models.dev database
+2. Ollama auto-detection (probes `http://127.0.0.1:11434/v1/models`)
+3. Config provider merge (user's `nikcli.json` overrides)
+4. Environment variable detection
+5. Auth key loading from storage
+6. Plugin auth loaders (Codex, Copilot, Cursor, Cloudflare)
+7. Custom loaders: Anthropic beta headers, Bedrock credential chain, Google Vertex project/location, SAP AI Core, etc.
+8. Plugin model hooks
+9. Filter by enabled/disabled/blacklist/whitelist
+
+### SDK Caching (`getSDK`, lines 1295-1434)
+
+- Key: hash of npm package + options
+- Wrapped fetch: strips OpenAI `itemId` metadata, injects `cache_control: { type: "ephemeral" }` on last tool definition for Anthropic-compatible providers
+- Bundled providers (Anthropic, OpenAI, Google) imported directly; others use dynamic `import()`
 
 ## Mobile Development System (`src/mobile/`)
 
@@ -651,78 +696,98 @@ nikcli mobile dev
 - `GET /tophat/status` - Tophat providers and devices
 - `GET /tophat/install-url` - Generate install URLs
 
-## Server/TUI Integration (`src/server/`)
+## Server Architecture (`src/server/`)
 
-### Route Organization
+### Transport Layer
+
+Built on Bun's HTTP server + **Hono** framework. Three transports:
+- **HTTP/HTTPS** (REST) — default port 4096, configurable
+- **WebSocket** — PTY sessions (`/pty/:ptyID/connect`), workspace remote proxying (`/__workspace_ws`)
+- **Server-Sent Events (SSE)** — `/event` and `/global/event` for real-time streaming
+- **mDNS** — optional discovery via `bonjour-service`, publishes `nikcli-{port}.local`
+
+### Middleware Stack (ordered)
+
+1. Error handler → 2. Share redirect → 3. Share endpoints → 4. **User auth** (Bearer `nku_`) → 5. **Server auth** (mobile bearer / Tailscale / Basic auth) → 6. Request logging → 7. CORS → 8. `/global` routes → 9. **Instance/Workspace context** (resolves directory from `x-nikcli-directory` header or `?directory=` query, handles HTTP/WebSocket proxy) → 10. OpenAPI doc → 11. Query validation → 12. **HttpApiBridge** (experimental Effect-based HTTP API) → 13. All route groups → 14. Catch-all proxy to `app.nikcli.store`
+
+### Route Groups (19 total)
+
+Defined via Hono `describeRoute` + `hono-openapi` with Zod validation:
+
+| Group | Path | Key Operations |
+|-------|------|---------------|
+| session | `/session/*` | CRUD, fork, abort, share, diff, summarize, message/prompt, revert, undo |
+| file-explorer | `/fs/*` | file read/write/delete, directory listing, workspace glob |
+| mcp | `/mcp/*` | MCP server CRUD, tools, resources, prompts |
+| providers | `/provider/*` | provider config, auth, model list |
+| config | `/config/*` | get/set config, workspace config |
+| connector | `/connector/*` | connector auth, operations, health |
+| question | `/question/*` | ask, reply, reject |
+| permission | `/permission/*` | respond, allow, deny rules |
+| pty | `/pty/*` | PTY connect/disconnect/exec |
+| project | `/project/*` | project CRUD, workspace discovery |
+| workspace | `/workspace/*` | workspace CRUD, sync, events |
+| global | `/global/*` | health, events, dispose |
+| tui | `/tui/*` | control, input, routes, themes, onboarding |
+| analytics | `/analytics/*` | global/daily/session stats |
+| mobile | `/mobile/*` | doctor, expo, simulator, tophat, git, github, oauth |
+| user | `/user/*` | register, login, logout, token refresh |
+| chatbot | `/chatbot/*` | MCP-compatible chat completions |
+| companion | `/companion/*` | companion service endpoints |
+| static | `/s/` | shareable link redirects |
+
+### Experimental HttpApiBridge (`server/httpapi-bridge.ts`)
+
+New Effect-based HTTP API layered on top of Hono. Activated via `NIKCLI_EXPERIMENTAL_HTTPAPI=1`. Routes requests through `Effect`-based services with typed request/response schemas. Two-layer system: Hono routes handle HTTP transport, HttpApiBridge handles business logic via Effect.
+
+### Server Startup (`Server.listen()`, server.ts:904)
+
+1. Configure CORS whitelist from options + env
+2. `Bun.serve({ hostname, port, fetch: App().fetch, websocket })`
+3. If port 0, try 4096 first then fall back to OS-assigned port
+4. Optionally publish mDNS service
+5. If local install, start syncing all project workspaces
+6. Return wrapped `.stop()` that unpublishes mDNS
+
+## App Initialization & Lifecycle (`src/index.ts`, `src/global/index.ts`)
+
+### Startup Sequence
+
+1. **Process handlers**: `unhandledRejection`/`uncaughtException` → `Log.Default.error()`
+2. **Global init** (`Global.initialize()`): Creates XDG dirs (data/cache/config/state/log/bin/repos), clears cache on version bump (`CACHE_VERSION = "14"`)
+3. **Log init** (`Log.init()`): DEBUG for local dev, INFO otherwise; file-based logs in `<data>/log/`, cleans when >5 files
+4. **Yargs middleware**: calls `initialize()` + `Log.init()`, sets `AGENT=1`/`NIKCLI=1`
+5. **Command dispatch**: registers all subcommands, calls `cli.parse()`
+6. **Top-level error handling**: catches `NamedError`, `Error`, `ResolveMessage` → `FormatError()` → user-friendly message → `process.exit(1)`
+
+### Instance Bootstrap (`src/cli/bootstrap.ts`)
 
 ```
-/session/*        - Core session management
-/tui/*            - TUI-specific endpoints
-/global/*         - Global events/health
-/project/*        - Project management
-/mcp/*            - MCP routes
-/auth/*           - Authentication
-/permission/*     - Permission handling
+bootstrap(directory, callback) → Instance.provide({ directory, init: InstanceBootstrap, fn: callback })
 ```
+Wraps operations in `Instance` context (Effect DI), resolves project, sets up worktree/sandbox, calls `Instance.dispose()` after execution.
 
-### Communication Patterns
+### Effect Service Layer
 
-1. **Event Bus** - Server→TUI via Bus.publish()
-2. **SSE** - `/event` endpoint for real-time updates
-3. **Request/Response Queue** - External control via `/tui/control/*`
-4. **SDK Client** - Auto-generated from OpenAPI spec in `packages/sdk/js/src/`
+Nikcli uses `@effect/schema` + `@effect/platform` for dependency injection:
+- `Context.Tag<T>()` creates service tags; `Layer` composes implementations
+- `runPromiseWithLayer()` executes Effect workflows with a given layer
+- All storage/config/provider operations return `Effect<A, E>` values
+- `withCurrentInstance()` provides instance context within Effect fibers
 
-### SDK Client Pattern (`packages/sdk/js/src/v2/client.ts`)
+### Config as Service (`src/config/config.ts:1569`)
 
-```typescript
-export function createNikcliClient(config?: Config & { directory?: string; workspace?: string }) {
-  const client = createClient(config)  // Generated from OpenAPI spec
-  return new NikcliClient({ client })
-}
+Massive Zod schema `Config.Info` (1847 lines). Precedence (lowest→highest): remote → global user → `NIKCLI_CONFIG` env → project `nikcli.json` → `NIKCLI_CONFIG_CONTENT` env → config directories (`agent/`, `command/`, `plugin/`). Supports JSONC, variable substitution (`{env:VAR}`, `{file:path}`), `$schema` auto-injection. Uses `mergeDeep` from `remeda` for array concatenation on `plugin`/`instructions` fields.
 
-// Usage with directory header
-const sdk = createNikcliClient({
-  baseUrl: "http://nikcli.local",
-  directory: "/path/to/project",
-  fetch: customFetch,
-})
-```
+## Logging Infrastructure (`src/util/log.ts`)
 
-### SDK Generation (`packages/sdk/js/script/build.ts`)
-
-```bash
-# Run the build script to regenerate SDK from OpenAPI spec
-./packages/sdk/js/script/build.ts
-```
-
-**Process:**
-1. Generate OpenAPI spec from server (`bun dev generate > openapi.json`)
-2. Generate SDK via `@hey-api/openapi-ts` → `src/v2/gen/` (types + client)
-3. Format and compile
-
-**Key files:**
-- `src/v2/gen/types.gen.ts` — All TypeScript types from schemas
-- `src/v2/gen/sdk.gen.ts` — SDK client with all API methods
-- `src/v2/gen/models.gen.ts` — Generated model interfaces
-
-### TUI Worker Communication (`src/cli/cmd/tui/worker.ts`)
-
-```typescript
-const fetchFn = (input: RequestInfo | URL, init?: RequestInit) => {
-  const request = new Request(input, init)
-  const auth = getAuthorizationHeader()  // Basic auth
-  request.headers.set("Authorization", auth)
-  return Server.App().fetch(request)
-}
-
-for await (const event of sdk.event.subscribe({}).stream) {
-  Rpc.emit("event", { id, event })
-}
-```
-
-### Middleware Stack
-
-1. Error Handler → 2. User Auth (Bearer nku\_) → 3. CORS → 4. Workspace Context → 5. Query Validation
+- `Log.create({ service: "name" })` for namespaced loggers
+- `Log.Default` for top-level error handling
+- Levels: `debug()`, `info()`, `warn()`, `error()`
+- Timing: `logger.time("operation")` — auto-logs duration on scope exit
+- Extra data: `log.info("message", { count: 42 })`
+- File-based logging: `<data>/log/` with timestamped `.log` files
+- Init via `Log.init()` in startup sequence
 
 ## Event Bus System (`src/bus/`)
 
@@ -1653,6 +1718,21 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - Build/CI: `.github/workflows/` present, lint+typecheck in pipeline
 - Critical gaps: zero tool tests, zero server tests, zero CLI tests
 
+### NamedError (`@nikcli-ai/util/error`)
+
+External package at `packages/util/src/error.ts`. Base class:
+```typescript
+export class NamedError extends Error {
+  constructor(
+    public override message: string,
+    public name: string,  // stable error identifier
+    public override cause?: unknown
+  )
+}
+```
+
+`Storage.NotFoundError` extends `NamedError` with name `"STORAGE_NOT_FOUND"`. Thrown by `withErrorHandling` on ENOENT. Other errors propagate as-is.
+
 ## Session Summary (2026-05-03)
 
 ### Completed Work
@@ -1688,38 +1768,38 @@ Full polish plan saved at `.nikcli/plans/1777478578333-curious-circuit.md`. Phas
 - `createSignal` for simple reactive state
 - `createMemo` for derived computed state
 
-## Session Summary (2026-05-07)
+## Brain Pass (2026-05-12) — 4-Agent Deep Exploration
 
-### Completed Work
+Four parallel background agents explored the nikcli codebase across different dimensions. Key new architectural knowledge:
 
-1. **10-agent codebase exploration** — Comprehensive analysis across:
-   - Testing patterns: Bun test framework, Effect-based utilities, project instance tests, HTTP API tests, benchmark pattern
-   - Session & storage: Session.Info/MessageV2/part hierarchy, Storage.read/write/update, Identifier schema, context propagation
-   - Tool system: Tool.define pattern, 52 tool files, parameter schemas, tool result patterns, naming conventions
-   - SDK patterns: packages/sdk structure, OpenAPI auto-generation, v2 client with directory/workspace headers
-   - UI/TUI components: SolidJS + OpenTUI, provider hierarchy, state management patterns, dialog system
-   - Plugin system: Server hooks (config, event, auth, tool, provider), TUI plugins (route, command, keybind, slots)
-   - Question module: Interactive user questioning, Effect-based service, pending queue, reply/reject flow
-   - Auth/credentials: OAuth flows, bearer tokens, credential resolution order
-   - Build tooling: Bun test/run/dev/build/typecheck/lint scripts, tsgo, oxlint, multi-platform build
+### LLM Provider Resolution (3 Pathways)
 
-2. **Memory consolidation** — Added testing patterns, SDK generation documentation, tool creation pattern, question module architecture
+1. **AI SDK LanguageModel** (`getLanguage`, provider.ts:1567-1595) — uses model loaders per provider, cached SDK instances
+2. **@nikcli-ai/llm Route-Based** (`getModelRef`, provider.ts:1731-1736) — maps `model.api.npm` → provider factory (Anthropic, OpenAI, Google, Bedrock, xAI, OpenRouter, Copilot, Azure)
+3. **Provider State Construction** (`buildState`, provider.ts:891-1194) — merges models.dev DB + config + env vars + auth + plugin loaders
 
-### Key Insights
+### Session Loop Architecture (prompt.ts)
 
-- **Tool metadata auto-injection**: `ctx.metadata()` wrapper automatically injects `truncated: false`
-- **SDK generation workflow**: Run `./packages/sdk/js/script/build.ts` to regenerate from OpenAPI spec
-- **Question module flow**: Ask → Bus.publish(Event.Asked) → TUI → User reply → Bus.publish(Event.Replied) → Agent resumes
-- **Testing utilities**: Project instance pattern via `Instance.provide()`, HTTP API via `Server.App().fetch()`
-- **Build command**: `bun run build` uses `@opentui/solid` plugin for SolidJS support, outputs cross-platform binaries
+- `PromptState` map tracks per-session `AbortController` + callbacks
+- `while(true)` main loop: `createUserMessage` → `SessionProcessor` → `LLM.stream` → `processor.process` → result
+- Race handling: callbacks queue for concurrent prompts to same session
+- Abort propagates: prompt.ts → processor.ts → llm.ts → @nikcli-ai/llm/core.ts → AI SDK `streamText(abortSignal)`
+- Deferred cleanup via `using`/`defer()` pattern
 
-## Session Summary (2026-04-29 to 2026-05-02)
+### Server Architecture Refinement
 
-### Completed Work
+- **19 route groups** discovered (not just 8 categories as previously documented)
+- Experimental `HttpApiBridge` (Effect-based HTTP API) layered on Hono
+- Middleware stack fully mapped with instance/workspace context resolution
+- `HttpApiBridge` at layer 12 routes through Effect-based services
 
-1. **Changes GitHub panel** — Added `gh` CLI wrapper (`util/github.ts`), GitHub PR sidebar in changes route (`g` toggle), OAuth/login/refresh/copy keybinds
-2. **Git graph route** — GHUI-style commit browser, 5 code review rounds, PR detection via refs/merge pattern only, robust spawn, stale data guards, theme consistency
-3. **Mobile UI polish** — 7-phase plan: theme tokens, app shell, screen patterns, session/transcript, settings, repos/git/routines, terminal. `bun run typecheck` passes
-4. **Mobile IDE backend audit** — Found client/backend mismatch (`/git/*` vs `/mobile/git/*`), git backend bugs, GitHub OAuth persistence issue
-5. **PTY/WebSocket terminal fixes** — Timeout 10s→30s, auto-retry 3x, error overlay with retry, WS auth via query param token
-6. **Onboarding dialog update** (2026-05-02) — Step 3 changed from "Configuration & docs" to "Filesystem Footprint" visual dashboard showing 4 sections (Application Data, Configuration, Cache & State, Project Directory) with color-coded sensitivity legend
+### App Initialization & Effect DI
+
+- `Global.initialize()` creates all XDG dirs, manages cache version bumps
+- `Log.init()` file-based logging with auto-cleanup of old logs
+- Effect service layer throughout: `Context.Tag<T>()`, `Layer`, `runPromiseWithLayer`
+- NamedError from `@nikcli-ai/util/error` package (packages/util/src/error.ts)
+
+### All Tool IDs (38+ discovered)
+
+`apply_patch`, `advisor`, `ask`, `bash`, `batch`, `codesearch`, `context_collect`, `context_diagnostics`, `context_related`, `copy`, `delegation`, `delegator`, `edit`, `exec_code`, `glob`, `goto`, `grep`, `identify`, `image_preview`, `install_plugin`, `invalid`, `list`, `lsp`, `memory_search`, `monitor`, `open_tui`, `plan_enter`, `plan_exit`, `question`, `read`, `repo_clone`, `repo_overview`, `search_tools`, `shell`, `speak`, `task`, `todo_read`, `todo_write`, `tree`, `webfetch`, `websearch`, `write`

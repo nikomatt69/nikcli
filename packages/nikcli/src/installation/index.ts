@@ -41,7 +41,7 @@ export namespace Installation {
   export const Info = zodObject(InfoSchema)
   export type Info = Schema.Schema.Type<typeof InfoSchema>
 
-  export class Service extends Context.Tag("Installation.Service")<
+  export class Service extends Context.Service<
     Service,
     {
       info(): Effect.Effect<Info, unknown>
@@ -49,7 +49,7 @@ export namespace Installation {
       latest(installMethod?: Method): Effect.Effect<string, unknown>
       upgrade(method: Method, target: string): Effect.Effect<void, unknown>
     }
-  >() {}
+  >()("Installation.Service") {}
 
   export const layer = Layer.succeed(
     Service,

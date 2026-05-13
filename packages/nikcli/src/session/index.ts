@@ -866,7 +866,7 @@ export namespace Session {
     initialize(input: InitializeInput): Effect.Effect<void, unknown>
   }
 
-  export class Service extends Context.Tag("Session.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Session.Service") {}
 
   export const layer = Layer.succeed(
     Service,

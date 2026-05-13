@@ -39,7 +39,7 @@ export namespace SystemPrompt {
     skills(names?: string[]): Effect.Effect<string[], unknown>
   }
 
-  export class Service extends Context.Tag("SystemPrompt.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SystemPrompt.Service") {}
 
   export function header(providerID: string) {
     if (providerID.includes("anthropic")) return [PROMPT_ANTHROPIC_SPOOF.trim()]

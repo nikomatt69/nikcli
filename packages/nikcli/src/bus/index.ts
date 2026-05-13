@@ -40,7 +40,7 @@ export namespace Bus {
     subscribeAll(callback: (event: any) => void): Effect.Effect<() => void>
   }
 
-  export class Service extends Context.Tag("Bus.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Bus.Service") {}
 
   const stateEffect = InstanceState.make<State>((ctx) =>
     Effect.gen(function* () {
@@ -67,7 +67,7 @@ export namespace Bus {
     }),
   )
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* stateEffect

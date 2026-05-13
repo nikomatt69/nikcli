@@ -201,7 +201,7 @@ export namespace Worktree {
   export type WorktreeEntry = { path?: string; branch?: string }
   type RegistryRecord = Info & { createdAt: number; updatedAt: number }
 
-  export class Service extends Context.Tag("Worktree.Service")<
+  export class Service extends Context.Service<
     Service,
     {
       create(input?: CreateInput): Effect.Effect<Info, unknown>
@@ -209,7 +209,7 @@ export namespace Worktree {
       reset(input: ResetInput): Effect.Effect<boolean, unknown>
       list(): Effect.Effect<Info[], unknown>
     }
-  >() {}
+  >()("Worktree.Service") {}
 
   export const layer = Layer.succeed(
     Service,

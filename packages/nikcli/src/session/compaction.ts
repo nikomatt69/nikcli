@@ -100,7 +100,7 @@ export namespace SessionCompaction {
     create(input: CreateInput): Effect.Effect<void, unknown>
   }
 
-  export class Service extends Context.Tag("SessionCompaction.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SessionCompaction.Service") {}
 
   async function isOverflowImpl(input: {
     tokens: MessageV2.Assistant["tokens"]

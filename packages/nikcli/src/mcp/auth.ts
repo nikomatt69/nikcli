@@ -46,7 +46,7 @@ export namespace McpAuth {
     isTokenExpired(mcpName: string): Effect.Effect<boolean | null, unknown>
   }
 
-  export class Service extends Context.Tag("McpAuth.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("McpAuth.Service") {}
 
   export const layer = Layer.succeed(
     Service,

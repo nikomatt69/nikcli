@@ -28,7 +28,7 @@ export namespace AppFileSystem {
     readonly statSafe: (filepath: string) => Effect.Effect<import("fs").Stats | undefined>
   }
 
-  export class Service extends Context.Tag("@nikcli/AppFileSystem")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/AppFileSystem") {}
 
   function contains(parent: string, child: string) {
     return isContained(parent, child)

@@ -58,9 +58,9 @@ export namespace ProviderAuth {
     readonly api: (input: ApiInput) => Effect.Effect<void, unknown>
   }
 
-  export class Service extends Context.Tag("@nikcli/ProviderAuth")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/ProviderAuth") {}
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const state = yield* InstanceState.make<State>(() =>

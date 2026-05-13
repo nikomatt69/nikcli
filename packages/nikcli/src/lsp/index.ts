@@ -104,7 +104,7 @@ export namespace LSP {
     outgoingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
   }
 
-  export class Service extends Context.Tag("LSP.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("LSP.Service") {}
 
   function configGet(ctx: InstanceContext) {
     return runPromiseWithLayer(
@@ -507,7 +507,7 @@ export namespace LSP {
     return Promise.all(tasks)
   }
 
-  export const layer = Layer.scoped(
+  export const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       const scopedState = yield* state

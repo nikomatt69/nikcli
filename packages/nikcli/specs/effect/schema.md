@@ -277,6 +277,13 @@ Possible later tightening after the Schema-first migration is stable:
 - [ ] `src/provider/models.ts`
 - [ ] `src/provider/provider.ts`
 
+#### `@nikcli-ai/llm` route routing (2026-05-13)
+
+- [x] `Provider.Service.getModelRef` resolves each `Provider.Model` to a `ModelRef` via `@nikcli-ai/llm/providers` (`OpenAI.responses`, `Anthropic.model`, `Azure.model`, `XAI.responses`, `OpenRouter.model`, `GitHubCopilot.model`, `OpenAICompatible.profileModel/model`, etc.). Implemented in `mapToModelRef()` in `src/provider/provider.ts`.
+- [x] `@nikcli-ai/llm` now ships a Promise/AsyncIterable runtime (`@nikcli-ai/llm/runtime`) that provisions `LLMClient.layer` with `RequestExecutor.defaultLayer` internally. This bridges the effect@3.21 ↔ effect@4.x gap between nikcli and the LLM package without coupling types across runtimes.
+- [x] `src/session/llm.ts` calls `Runtime.prepareRequest(llmRequest)` on every stream — this compiles the request through the registered route's `body.from` + `transport.prepare`, exercising `@nikcli-ai/llm`'s provider routing end-to-end (everything short of the actual HTTP dispatch).
+- [ ] HTTP dispatch: still flows through AI SDK (`LLMCore.stream` = `streamText`). Migrating requires either an `LLMEvent` → AI-SDK `fullStream` adapter, or rewriting `src/session/processor.ts` to consume `LLMEvent` directly. See `packages/llm/src/runtime.ts` `streamRequest()` for the available entry point.
+
 ### Tool schemas
 
 Each tool declares its parameters via a zod schema. Tools are consumed by

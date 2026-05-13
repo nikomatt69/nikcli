@@ -126,7 +126,7 @@ export namespace Agent {
     >
   }
 
-  export class Service extends Context.Tag("Agent.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("Agent.Service") {}
 
   async function buildState(worktree: string, cfg: Config.Info) {
     const defaults = PermissionNext.fromConfig({
@@ -750,7 +750,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
     return result
   }
 
-  const layer = Layer.scoped(
+  const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
       function configGet(ctx: InstanceContext) {

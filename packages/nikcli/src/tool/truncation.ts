@@ -27,7 +27,7 @@ export namespace Truncate {
     readonly output: (text: string, options?: Options, agent?: Agent.Info) => Effect.Effect<Result>
   }
 
-  export class Service extends Context.Tag("@nikcli/Truncate")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("@nikcli/Truncate") {}
 
   export const layer = Layer.effect(
     Service,

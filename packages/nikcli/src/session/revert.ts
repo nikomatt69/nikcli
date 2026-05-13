@@ -67,7 +67,7 @@ export namespace SessionRevert {
     cleanup(session: Session.Info): Effect.Effect<void, unknown>
   }
 
-  export class Service extends Context.Tag("SessionRevert.Service")<Service, Interface>() {}
+  export class Service extends Context.Service<Service, Interface>()("SessionRevert.Service") {}
 
   async function revertImpl(input: RevertInput) {
     await runSessionPrompt(
