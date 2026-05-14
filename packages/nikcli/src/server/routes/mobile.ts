@@ -2,7 +2,6 @@ import path from "path"
 import { Hono } from "hono"
 import { describeRoute, resolver, validator } from "hono-openapi"
 import { streamSSE } from "hono/streaming"
-import { NamedError } from "@nikcli-ai/util/error"
 import z from "zod"
 import { Bus } from "@/bus"
 import { Instance } from "@/project/instance"
@@ -1939,7 +1938,7 @@ export const MobileRoutes = lazy(() =>
           ).catch(() => undefined)
           void Bus.publish(Session.Event.Error, {
             sessionID,
-            error: new NamedError.Unknown({ message }).toObject(),
+            error: { name: "UnknownError" as const, data: { message } },
           }).catch(() => undefined)
           log.error("mobile session prompt failed", {
             sessionID,

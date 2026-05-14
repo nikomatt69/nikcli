@@ -1,7 +1,7 @@
 import type { Provider } from "@/provider/provider"
 
 export const EventError = {
-  unknown: (message: string) => ({ name: "Unknown" as const, data: { message } }),
+  unknown: (message: string) => ({ name: "UnknownError" as const, data: { message } }),
 
   agentNotFound: (agent: string, available: string[]) => ({
     name: "AgentNotFoundError" as const,

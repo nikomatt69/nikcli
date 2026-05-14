@@ -33,7 +33,7 @@ import { Command } from "../command"
 import { $, fileURLToPath } from "bun"
 import { ConfigMarkdown } from "../config/markdown"
 import { SessionSummary } from "./summary"
-import { NamedError } from "@nikcli-ai/util/error"
+import { EventError } from "./event-error"
 import { fn } from "@/util/fn"
 import { SessionProcessor } from "./processor"
 import { TaskTool } from "@/tool/task"
@@ -1654,9 +1654,7 @@ export namespace SessionPrompt {
                   const message = error instanceof Error ? error.message : String(error)
                   Bus.publish(Session.Event.Error, {
                     sessionID: input.sessionID,
-                    error: new NamedError.Unknown({
-                      message,
-                    }).toObject(),
+                    error: EventError.unknown(message),
                   })
                   pieces.push({
                     id: Identifier.ascending("part"),
@@ -2267,7 +2265,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         const hint = suggestions?.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""
         Bus.publish(Session.Event.Error, {
           sessionID: input.sessionID,
-          error: new NamedError.Unknown({ message: `Model not found: ${providerID}/${modelID}.${hint}` }).toObject(),
+          error: EventError.unknown(`Model not found: ${providerID}/${modelID}.${hint}`),
         })
       }
       throw e
@@ -2276,12 +2274,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     if (!agent) {
       const available = await agentList().then((agents) => agents.filter((a) => !a.hidden).map((a) => a.name))
       const hint = available.length ? ` Available agents: ${available.join(", ")}` : ""
-      const error = new NamedError.Unknown({ message: `Agent not found: "${agentName}".${hint}` })
+      const agentNotFoundMsg = `Agent not found: "${agentName}".${hint}`
       Bus.publish(Session.Event.Error, {
         sessionID: input.sessionID,
-        error: error.toObject(),
+        error: EventError.unknown(agentNotFoundMsg),
       })
-      throw error
+      throw new Error(agentNotFoundMsg)
     }
 
     const templateParts = await resolvePromptParts(template)

@@ -1,6 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
+import { EventError } from "./event-error"
 import { Schema } from "effect"
 import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
 import { Identifier } from "../id/id"
@@ -421,7 +422,7 @@ export namespace MessageV2 {
     error: z
       .discriminatedUnion("name", [
         AuthError.Schema,
-        NamedError.Unknown.Schema,
+        z.object({ name: z.literal("UnknownError"), data: z.object({ message: z.string() }) }).meta({ ref: "UnknownError" }),
         z.object({ name: z.literal("MessageOutputLengthError"), data: z.object({}) }).meta({ ref: "MessageOutputLengthError" }),
         z.object({ name: z.literal("MessageContextOverflowError"), data: z.object({ message: z.string(), responseBody: z.string().optional() }) }).meta({ ref: "MessageContextOverflowError" }),
         AbortedError.Schema,
@@ -906,9 +907,9 @@ export namespace MessageV2 {
       }
       // falls through — both cases have return statements, so fall-through is unreachable
       case e instanceof Error:
-        return new NamedError.Unknown({ message: e.toString() }, { cause: e }).toObject()
+        return EventError.unknown(e.toString())
       default:
-        return new NamedError.Unknown({ message: JSON.stringify(e) }, { cause: e })
+        return EventError.unknown(JSON.stringify(e))
     }
   }
 }

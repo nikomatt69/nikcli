@@ -3,7 +3,7 @@ import { createNikcliClient } from "@nikcli-ai/sdk/v2"
 import os from "os"
 import path from "path"
 import { fileURLToPath } from "url"
-import { NamedError } from "@nikcli-ai/util/error"
+import { EventError } from "../session/event-error"
 import { retry } from "@nikcli-ai/util/retry"
 import { Bus } from "../bus"
 import { BunProc } from "../bun"
@@ -716,9 +716,7 @@ export namespace Plugin {
             error: message,
           })
           Bus.publish(Session.Event.Error, {
-            error: new NamedError.Unknown({
-              message: `Failed to install built-in plugin ${pkg}@${version}: ${message}`,
-            }).toObject(),
+            error: EventError.unknown(`Failed to install built-in plugin ${pkg}@${version}: ${message}`),
           })
 
           return ""

@@ -1,7 +1,7 @@
 import path from "path"
 import { createHash } from "crypto"
 import { Config } from "../config/config"
-import { NamedError } from "@nikcli-ai/util/error"
+import { EventError } from "@/session/event-error"
 import { ConfigMarkdown } from "../config/markdown"
 import { Log } from "../util/log"
 import { Global } from "@/global"
@@ -140,7 +140,7 @@ export namespace Skill {
               const message = err instanceof ConfigMarkdown.FrontmatterError
                 ? err.message
                 : `Failed to parse skill ${match}`
-              Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+              Bus.publish(Session.Event.Error, { error: EventError.unknown(message) })
               log.error("failed to load skill", { skill: match, err })
               return undefined
             })

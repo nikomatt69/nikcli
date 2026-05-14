@@ -144,7 +144,7 @@ export namespace Server {
           }
           if (err instanceof HTTPException) return err.getResponse()
           const message = err instanceof Error && err.stack ? err.stack : err.toString()
-          return c.json(new NamedError.Unknown({ message }).toObject(), {
+          return c.json({ name: "Unknown" as const, data: { message } }, {
             status: 500,
           })
         })
