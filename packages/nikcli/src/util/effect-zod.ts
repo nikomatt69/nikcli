@@ -506,9 +506,9 @@ export function zod<S extends Schema.Top>(schema: S): z.ZodType<S["Type"]> {
  */
 type FieldToZod<F> = F extends Schema.Top
   ? F["~type.optionality"] extends "optional"
-    ? z.ZodOptional<z.ZodType<F["Type"]>>
-    : z.ZodType<F["Type"]>
-  : z.ZodType<unknown>
+    ? z.ZodOptional<z.ZodType<F["Type"], F["Type"]>>
+    : z.ZodType<F["Type"], F["Type"]>
+  : z.ZodType<unknown, unknown>
 
 type FieldsToShape<Fields extends Schema.Struct.Fields> = {
   [K in keyof Fields]: FieldToZod<Fields[K]>

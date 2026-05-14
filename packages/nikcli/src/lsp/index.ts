@@ -11,7 +11,8 @@ import { spawn } from "child_process"
 import { Flag } from "@/flag/flag"
 import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
+import { zodObject } from "@/util/effect-zod"
 
 export namespace LSP {
   const log = Log.create({ service: "lsp" })
@@ -23,48 +24,28 @@ export namespace LSP {
     Updated: BusEvent.define("lsp.updated", z.object({})),
   }
 
-  export const Range = z
-    .object({
-      start: z.object({
-        line: z.number(),
-        character: z.number(),
-      }),
-      end: z.object({
-        line: z.number(),
-        character: z.number(),
-      }),
-    })
-    .meta({
-      ref: "Range",
-    })
-  export type Range = z.infer<typeof Range>
+  const PositionSchema = Schema.Struct({ line: Schema.Number, character: Schema.Number })
+  const RangeSchema = Schema.Struct({ start: PositionSchema, end: PositionSchema })
+  export const Range = zodObject(RangeSchema).meta({ ref: "Range" })
+  export type Range = Schema.Schema.Type<typeof RangeSchema>
 
-  export const Symbol = z
-    .object({
-      name: z.string(),
-      kind: z.number(),
-      location: z.object({
-        uri: z.string(),
-        range: Range,
-      }),
-    })
-    .meta({
-      ref: "Symbol",
-    })
-  export type Symbol = z.infer<typeof Symbol>
+  const SymbolSchema = Schema.Struct({
+    name: Schema.String,
+    kind: Schema.Number,
+    location: Schema.Struct({ uri: Schema.String, range: RangeSchema }),
+  })
+  export const Symbol = zodObject(SymbolSchema).meta({ ref: "Symbol" })
+  export type Symbol = Schema.Schema.Type<typeof SymbolSchema>
 
-  export const DocumentSymbol = z
-    .object({
-      name: z.string(),
-      detail: z.string().optional(),
-      kind: z.number(),
-      range: Range,
-      selectionRange: Range,
-    })
-    .meta({
-      ref: "DocumentSymbol",
-    })
-  export type DocumentSymbol = z.infer<typeof DocumentSymbol>
+  const DocumentSymbolSchema = Schema.Struct({
+    name: Schema.String,
+    detail: Schema.optional(Schema.String),
+    kind: Schema.Number,
+    range: RangeSchema,
+    selectionRange: RangeSchema,
+  })
+  export const DocumentSymbol = zodObject(DocumentSymbolSchema).meta({ ref: "DocumentSymbol" })
+  export type DocumentSymbol = Schema.Schema.Type<typeof DocumentSymbolSchema>
 
   const filterExperimentalServers = (servers: Record<string, LSPServer.Info>) => {
     if (Flag.NIKCLI_EXPERIMENTAL_LSP_TY) {

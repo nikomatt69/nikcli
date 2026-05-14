@@ -11,7 +11,7 @@ Validation invariant per epoch: `bun run typecheck` exits 0 before moving forwar
 
 ---
 
-## State Snapshot — 2026-05-14
+## State Snapshot — 2026-05-15
 
 ### Complete
 
@@ -27,6 +27,9 @@ Validation invariant per epoch: `bun run typecheck` exits 0 before moving forwar
 | Phase A1–A3: Filesystem, lazy, env consolidation | MASTER-PLAN.md |
 | Phase B1–B4: config/tui config consolidation | MASTER-PLAN.md |
 | Phase E: schema leaf files | schema.md |
+| **E1-A**: NamedError.create → Schema.TaggedErrorClass for all service errors | commit `6de3069` |
+| **E1-B**: NamedError.Unknown → EventError helpers; wire format aligned to "UnknownError" | commit `6de3069` |
+| **E1-C Step 1**: LSP leaf schemas (Range, Symbol, DocumentSymbol) → Effect Schema via zodObject | `src/lsp/index.ts`; fix in `effect-zod.ts` FieldToZod input type |
 
 ### Still Open (this plan)
 
