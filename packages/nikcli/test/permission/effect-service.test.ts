@@ -3,6 +3,7 @@ import { Effect, Fiber } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import type { PermissionNext as PermissionNextNamespace } from "@/permission/next"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-permission-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -22,6 +23,15 @@ async function makeProjectDir() {
 }
 
 describe("PermissionNext.Service", () => {
+  const waitForPending = Effect.fn("PermissionNext.test.waitForPending")(function* (permission: PermissionNextNamespace.Interface) {
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const pending = yield* permission.list()
+      if (pending.length > 0) return pending
+      yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 10)))
+    }
+    return yield* permission.list()
+  })
+
   it("tracks pending permissions and resolves one-time replies in an instance scope", async () => {
     const directory = await makeProjectDir()
     await Effect.runPromise(
@@ -29,7 +39,7 @@ describe("PermissionNext.Service", () => {
         { directory },
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
-          const fiber = yield* Effect.fork(
+          const fiber = yield* Effect.forkChild(
             permission.ask({
               permission: "edit",
               patterns: ["src/index.ts"],
@@ -40,8 +50,7 @@ describe("PermissionNext.Service", () => {
             }),
           )
 
-          yield* Effect.yieldNow()
-          const pending = yield* permission.list()
+          const pending = yield* waitForPending(permission)
           expect(pending).toHaveLength(1)
           expect(pending[0].permission).toBe("edit")
 
@@ -62,7 +71,7 @@ describe("PermissionNext.Service", () => {
         { directory },
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
-          const fiber = yield* Effect.fork(
+          const fiber = yield* Effect.forkChild(
             permission.ask({
               permission: "bash",
               patterns: ["rm -rf build"],
@@ -70,11 +79,10 @@ describe("PermissionNext.Service", () => {
               metadata: { tool: "bash" },
               always: ["rm -rf build"],
               ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
-            }).pipe(Effect.either),
+            }).pipe(Effect.result),
           )
 
-          yield* Effect.yieldNow()
-          const pending = yield* permission.list()
+          const pending = yield* waitForPending(permission)
           expect(pending).toHaveLength(1)
 
           yield* permission.reply({
@@ -88,9 +96,9 @@ describe("PermissionNext.Service", () => {
       ),
     )
 
-    expect(error._tag).toBe("Left")
-    if (error._tag === "Left") {
-      expect(error.left.message).toContain("Use a safer command")
+    expect(error._tag).toBe("Failure")
+    if (error._tag === "Failure") {
+      expect(error.failure.message).toContain("Use a safer command")
     }
   })
 })

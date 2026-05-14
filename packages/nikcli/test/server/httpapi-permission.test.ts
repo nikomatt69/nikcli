@@ -1,7 +1,7 @@
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
-import { HttpApiBuilder } from "@effect/platform"
-import { BunHttpServer } from "@effect/platform-bun"
-import { Effect, Fiber, Layer, ManagedRuntime } from "effect"
+import { HttpRouter } from "effect/unstable/http"
+import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
+import { Context, Effect, Fiber, Layer, ManagedRuntime } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -10,7 +10,7 @@ const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-permiss
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
-const { InstanceScope, withCurrentInstance } = await import("@/effect")
+const { InstanceRef, InstanceScope, withCurrentInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { PermissionNext } = await import("@/permission/next")
 const { PermissionHttpApi } = await import("@/server/httpapi/permission")
@@ -25,10 +25,23 @@ async function makeProjectDir() {
 }
 
 function makeHandler(memoMap: Layer.MemoMap) {
-  return HttpApiBuilder.toWebHandler(
-    Layer.mergeAll(PermissionHttpApi.layer, BunHttpServer.layerContext),
+  return HttpRouter.toWebHandler(
+    PermissionHttpApi.layer.pipe(
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+    ),
     { memoMap },
   )
+}
+
+async function waitForPending(handle: (request: Request) => Promise<Response>) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = await handle(new Request("http://nikcli.local/permission"))
+    expect(response.status).toBe(200)
+    const pending = (await response.json()) as Array<{ id: string; permission: string }>
+    if (pending.length > 0) return pending
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  return [] as Array<{ id: string; permission: string }>
 }
 
 describe("Permission HttpApi", () => {
@@ -39,8 +52,14 @@ describe("Permission HttpApi", () => {
         { directory },
         Effect.promise(async () => {
           const memoMap = Effect.runSync(Layer.makeMemoMap)
-          const permissionRuntime = ManagedRuntime.make(PermissionNext.defaultLayer, memoMap)
+          const permissionRuntime = ManagedRuntime.make(PermissionNext.defaultLayer, { memoMap })
           const { handler, dispose } = makeHandler(memoMap)
+          const httpContext = Context.make(InstanceRef, {
+            directory,
+            worktree: directory,
+            project: Instance.project,
+          }) as Context.Context<any>
+          const handle = (request: Request) => handler(request, httpContext)
           const fiber = permissionRuntime.runFork(
             withCurrentInstance(
               Effect.gen(function* () {
@@ -56,15 +75,11 @@ describe("Permission HttpApi", () => {
               }),
             ),
           )
-          await Promise.resolve()
-
-          const listResponse = await handler(new Request("http://nikcli.local/permission"))
-          expect(listResponse.status).toBe(200)
-          const pending = (await listResponse.json()) as Array<{ id: string; permission: string }>
+          const pending = await waitForPending(handle)
           expect(pending).toHaveLength(1)
           expect(pending[0].permission).toBe("edit")
 
-          const replyResponse = await handler(
+          const replyResponse = await handle(
             new Request(`http://nikcli.local/permission/${pending[0].id}/reply`, {
               method: "POST",
               headers: { "content-type": "application/json" },

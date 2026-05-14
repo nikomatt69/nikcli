@@ -31,6 +31,17 @@ function request(pathname: string, directory: string, init?: RequestInit) {
   return Server.App().fetch(new Request(url, init))
 }
 
+async function waitForList<T>(pathname: string, directory: string) {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const response = await request(pathname, directory)
+    expect(response.status).toBe(200)
+    const pending = (await response.json()) as T[]
+    if (pending.length > 0) return pending
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+  return [] as T[]
+}
+
 describe("HttpApi bridge", () => {
   it("serves implemented question and permission routes behind NIKCLI_EXPERIMENTAL_HTTPAPI", async () => {
     const directory = await makeProjectDir()
@@ -44,7 +55,7 @@ describe("HttpApi bridge", () => {
           withCurrentInstance(
             Effect.gen(function* () {
               const question = yield* Question.Service
-              return yield* Effect.forkDaemon(
+              return yield* Effect.forkDetach(
                 question.ask({
                   sessionID: "session-httpapi-bridge-question",
                   questions: [
@@ -70,7 +81,7 @@ describe("HttpApi bridge", () => {
           withCurrentInstance(
             Effect.gen(function* () {
               const permission = yield* PermissionNext.Service
-              return yield* Effect.forkDaemon(
+              return yield* Effect.forkDetach(
                 permission.ask({
                   permission: "edit",
                   patterns: ["src/index.ts"],
@@ -85,16 +96,10 @@ describe("HttpApi bridge", () => {
         ),
     })
 
-    await Promise.resolve()
-
-    const questionList = await request("/question", directory)
-    expect(questionList.status).toBe(200)
-    const questions = (await questionList.json()) as Array<{ id: string }>
+    const questions = await waitForList<{ id: string }>("/question", directory)
     expect(questions).toHaveLength(1)
 
-    const permissionList = await request("/permission", directory)
-    expect(permissionList.status).toBe(200)
-    const permissions = (await permissionList.json()) as Array<{ id: string }>
+    const permissions = await waitForList<{ id: string }>("/permission", directory)
     expect(permissions).toHaveLength(1)
 
     const questionReply = await request(`/question/${questions[0].id}/reply`, directory, {

@@ -328,36 +328,97 @@ Two fragments injected into all primary agent prompts:
 
 ### Tool Framework (`tool.ts`)
 
-- `Tool.Info` — interface with `id` and `init()` returning `Def`
-- `Tool.Def` — contains `description`, Zod `parameters`, `execute()`
-- `Tool.Context` — passed to every tool: `sessionID`, `messageID`, `agent`, `abort`, `ask()`, `metadata()`, `messages`
+Core interfaces:
+```typescript
+// Tool.Info — the entry point returned by Tool.define()
+interface Info<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
+  id: string
+  init: (ctx?: InitContext) => Promise<Def<Parameters, M>>
+}
 
-All tools wrap `execute()` with automatic Zod validation and output truncation handling.
+// Tool.Def — the initialized tool definition
+interface Def<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
+  description: string
+  parameters: Parameters
+  execute(args: z.infer<Parameters>, ctx: Context): Effect.Effect<Result<M>, Error>
+  executeAsync(args: z.infer<Parameters>, ctx: Context): Promise<Result<M>>
+  formatValidationError?(error: z.ZodError): string
+}
+
+// Tool.Context — passed to every tool execution
+interface Context<M extends Metadata = Metadata> {
+  sessionID: string
+  messageID: string
+  agent: string
+  abort: AbortSignal
+  callID?: string
+  extra?: Record<string, unknown>
+  messages?: MessageV2.WithParts[]
+  metadata(input: { title?: string; metadata?: M }): void
+  ask(input: Omit<PermissionNext.Request, "id" | "sessionID" | "tool">): Promise<void>
+}
+
+// Tool.Result — return type for all tools
+interface Result<M extends Metadata = Metadata> {
+  title: string
+  metadata: M
+  output: string
+  attachments?: MessageV2.FilePart[]
+}
+```
 
 ### Tool Registry (`registry.ts`)
 
-`ToolRegistry.tools(model, agent?)` filters tools before exposing to LLM:
-- `codesearch`/`websearch`: only for nikcli provider or `Flag.NIKCLI_ENABLE_EXA`
-- `apply_patch`: only for GPT models (non-oss, non-gpt-4); replaces `edit`/`write`
-- `advisor`: only if `agent.advisor` is configured
-- Loads custom tools from `{tool,tools}/*.{js,ts}` in configured directories
-- Loads plugin tools
+`ToolRegistry.Service` with Effect-based interface:
+```typescript
+interface Interface {
+  register: (tool: Tool.Info) => Effect.Effect<void, unknown>
+  ids: () => Effect.Effect<string[], unknown>
+  tools: (model: { providerID: string; modelID: string }, agent?: Agent.Info, options?: { slim?: boolean }) => Effect.Effect<Resolved[], unknown>
+}
+```
+
+Tool discovery from multiple sources:
+1. **Built-in tools** (hardcoded in `all()`): ~25 tools including Bash, Edit, Read, Write, Grep, Task, etc.
+2. **Custom tools** from `{tool,tools}/*.{js,ts}` in config directories
+3. **Plugin tools** via `plugin.tool` hook
+
+Slim mode (`SLIM_TOOLS = new Set(["bash","read","glob","grep","tree","edit","write","task","search_tools"])`).
+
+### Tool Execution Flow
+
+```
+Tool.define(id, init)
+  → init() returns Def or Effect<Def>
+  → Tool.normalize() wraps execute in Effect context
+  → executeAsync() wraps with Zod validation + truncation
+  → result returned as { title, metadata, output, attachments? }
+```
+
+### Effect Schema → Zod Conversion (`src/util/effect-zod.ts`)
+
+| Effect Schema | Zod Equivalent |
+|--------------|----------------|
+| `Schema.Struct({ ... })` | `z.object({ ... })` |
+| `Schema.Array(...)` | `z.array(...)` |
+| `Schema.Union(...)` | `z.union([...])` |
+| `Schema.Literal(...)` | `z.literal(...)` |
+| `Schema.Record(K, V)` | `z.record(K, V)` |
+| `Schema.optional(...)` | `.optional()` |
+
+### Built-in Tools Inventory (25+)
+
+**File Operations**: `read`, `write`, `edit`, `glob`, `grep`, `ls`, `tree`
+**Execution**: `bash`, `task`, `delegation`, `delegator`, `batch`, `exec_code`, `monitor`
+**Context/Intelligence**: `memory_search`, `context_collect`, `context_related`, `context_diagnostics`, `codesearch`, `websearch`, `webfetch`, `search_tools`
+**External**: `generate_image`, `speak`, `mcp-exa`, `repo_clone`, `repo_overview`
 
 ### Permission Flow
 
-Every file-modifying tool calls `ctx.ask()` before execution:
+- Every file-modifying tool calls `ctx.ask()` before execution
 - BashTool extracts directories/patterns via tree-sitter parsing
 - EditTool requests edit permission per file
 - Permission rules defined per agent in `src/agent/agent.ts`
-
-### Core Tools
-
-- **BashTool** - Command execution with tree-sitter parsing
-- **EditTool** - 9 smart replacement strategies
-- **ReadTool** - Streaming file reads with binary detection
-- **WriteTool** - Atomic writes via temp file
-- **GrepTool** - FFF file search backend with Bun.Glob fallback
-- **TaskTool** - Subagent spawning (see below)
 
 ### Tool Part States
 
@@ -519,6 +580,13 @@ refactor: ["read", "grep", "glob", "list", "bash", "edit", "write", "apply_patch
 - Output stored to `~/.nikcli/tool-output/{tool_id}` for 7 days
 
 ## Session Processing System (`src/session/`)
+
+### ID Patterns (`src/id/id.ts`)
+
+- **Session IDs**: `Identifier.descending("session")` → `ses_0a1b2c3d4e5f...` (high bits flipped for newest-first ordering)
+- **Message/Part IDs**: `Identifier.ascending("message")` → `msg_1a2b3c4d5e6f...` (normal for chronological ordering)
+- Prefix structure: `ses`, `msg`, `prt`, `usr`, `tool`, `wrk`, `evt`, `syn`, `per`
+- Monotonically increasing within same millisecond; random base62 suffix for uniqueness
 
 ### Stream Processing (`processor.ts`)
 
@@ -1768,38 +1836,8 @@ export class NamedError extends Error {
 - `createSignal` for simple reactive state
 - `createMemo` for derived computed state
 
-## Brain Pass (2026-05-12) — 4-Agent Deep Exploration
+### LLM Provider Resolution (3 pathways)
 
-Four parallel background agents explored the nikcli codebase across different dimensions. Key new architectural knowledge:
-
-### LLM Provider Resolution (3 Pathways)
-
-1. **AI SDK LanguageModel** (`getLanguage`, provider.ts:1567-1595) — uses model loaders per provider, cached SDK instances
-2. **@nikcli-ai/llm Route-Based** (`getModelRef`, provider.ts:1731-1736) — maps `model.api.npm` → provider factory (Anthropic, OpenAI, Google, Bedrock, xAI, OpenRouter, Copilot, Azure)
-3. **Provider State Construction** (`buildState`, provider.ts:891-1194) — merges models.dev DB + config + env vars + auth + plugin loaders
-
-### Session Loop Architecture (prompt.ts)
-
-- `PromptState` map tracks per-session `AbortController` + callbacks
-- `while(true)` main loop: `createUserMessage` → `SessionProcessor` → `LLM.stream` → `processor.process` → result
-- Race handling: callbacks queue for concurrent prompts to same session
-- Abort propagates: prompt.ts → processor.ts → llm.ts → @nikcli-ai/llm/core.ts → AI SDK `streamText(abortSignal)`
-- Deferred cleanup via `using`/`defer()` pattern
-
-### Server Architecture Refinement
-
-- **19 route groups** discovered (not just 8 categories as previously documented)
-- Experimental `HttpApiBridge` (Effect-based HTTP API) layered on Hono
-- Middleware stack fully mapped with instance/workspace context resolution
-- `HttpApiBridge` at layer 12 routes through Effect-based services
-
-### App Initialization & Effect DI
-
-- `Global.initialize()` creates all XDG dirs, manages cache version bumps
-- `Log.init()` file-based logging with auto-cleanup of old logs
-- Effect service layer throughout: `Context.Tag<T>()`, `Layer`, `runPromiseWithLayer`
-- NamedError from `@nikcli-ai/util/error` package (packages/util/src/error.ts)
-
-### All Tool IDs (38+ discovered)
-
-`apply_patch`, `advisor`, `ask`, `bash`, `batch`, `codesearch`, `context_collect`, `context_diagnostics`, `context_related`, `copy`, `delegation`, `delegator`, `edit`, `exec_code`, `glob`, `goto`, `grep`, `identify`, `image_preview`, `install_plugin`, `invalid`, `list`, `lsp`, `memory_search`, `monitor`, `open_tui`, `plan_enter`, `plan_exit`, `question`, `read`, `repo_clone`, `repo_overview`, `search_tools`, `shell`, `speak`, `task`, `todo_read`, `todo_write`, `tree`, `webfetch`, `websearch`, `write`
+1. **AI SDK LanguageModel** (`getLanguage`) — custom model loaders per provider (OpenAI, Azure, Copilot, Bedrock, Vertex)
+2. **@nikcli-ai/llm Route-Based** (`getModelRef`) — maps `model.api.npm` → route + provider factory
+3. **Provider State Construction** (`buildState`) — merges models.dev DB + config + env + auth + plugin loaders

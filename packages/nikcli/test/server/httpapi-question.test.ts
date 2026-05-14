@@ -1,7 +1,7 @@
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
-import { HttpApiBuilder } from "@effect/platform"
-import { BunHttpServer } from "@effect/platform-bun"
-import { Effect, Fiber, Layer, ManagedRuntime } from "effect"
+import { HttpRouter } from "effect/unstable/http"
+import { BunFileSystem, BunHttpServer, BunPath } from "@effect/platform-bun"
+import { Context, Effect, Fiber, Layer, ManagedRuntime } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -10,7 +10,7 @@ const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-httpapi-questio
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
 
-const { InstanceScope, withCurrentInstance } = await import("@/effect")
+const { InstanceRef, InstanceScope, withCurrentInstance } = await import("@/effect")
 const { Instance } = await import("@/project/instance")
 const { Question } = await import("@/question")
 const { QuestionHttpApi } = await import("@/server/httpapi/question")
@@ -25,8 +25,10 @@ async function makeProjectDir() {
 }
 
 function makeHandler(memoMap: Layer.MemoMap) {
-  return HttpApiBuilder.toWebHandler(
-    Layer.mergeAll(QuestionHttpApi.layer, BunHttpServer.layerContext),
+  return HttpRouter.toWebHandler(
+    QuestionHttpApi.layer.pipe(
+      Layer.provide(Layer.mergeAll(BunHttpServer.layerHttpServices, BunFileSystem.layer, BunPath.layer)),
+    ),
     { memoMap },
   )
 }
@@ -39,8 +41,14 @@ describe("Question HttpApi", () => {
         { directory },
         Effect.promise(async () => {
           const memoMap = Effect.runSync(Layer.makeMemoMap)
-          const questionRuntime = ManagedRuntime.make(Question.defaultLayer, memoMap)
+          const questionRuntime = ManagedRuntime.make(Question.defaultLayer, { memoMap })
           const { handler, dispose } = makeHandler(memoMap)
+          const httpContext = Context.make(InstanceRef, {
+            directory,
+            worktree: directory,
+            project: Instance.project,
+          }) as Context.Context<any>
+          const handle = (request: Request) => handler(request, httpContext)
           const first = questionRuntime.runFork(
             withCurrentInstance(
               Effect.gen(function* () {
@@ -60,12 +68,12 @@ describe("Question HttpApi", () => {
           )
           await Promise.resolve()
 
-          const listResponse = await handler(new Request("http://nikcli.local/question"))
+          const listResponse = await handle(new Request("http://nikcli.local/question"))
           expect(listResponse.status).toBe(200)
           const pending = (await listResponse.json()) as Array<{ id: string }>
           expect(pending).toHaveLength(1)
 
-          const replyResponse = await handler(
+          const replyResponse = await handle(
             new Request(`http://nikcli.local/question/${pending[0].id}/reply`, {
               method: "POST",
               headers: { "content-type": "application/json" },
@@ -94,12 +102,12 @@ describe("Question HttpApi", () => {
             ),
           )
           await Promise.resolve()
-          const pendingAfterReply = (await handler(new Request("http://nikcli.local/question")).then((response) =>
+          const pendingAfterReply = (await handle(new Request("http://nikcli.local/question")).then((response) =>
             response.json(),
           )) as Array<{ id: string }>
           expect(pendingAfterReply).toHaveLength(1)
 
-          const rejectResponse = await handler(
+          const rejectResponse = await handle(
             new Request(`http://nikcli.local/question/${pendingAfterReply[0].id}/reject`, {
               method: "POST",
             }),

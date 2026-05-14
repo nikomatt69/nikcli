@@ -35,7 +35,7 @@ describe("ProviderAuth.Service", () => {
               providerID: "missing-provider",
               method: 0,
             })
-            .pipe(Effect.either)
+            .pipe(Effect.result)
 
           return { methods, missing }
         }).pipe(Effect.provide(ProviderAuth.defaultLayer)),
@@ -48,9 +48,9 @@ describe("ProviderAuth.Service", () => {
         expect(ProviderAuth.Method.parse(method)).toEqual(method)
       }
     }
-    expect(result.missing._tag).toBe("Left")
-    if (result.missing._tag === "Left") {
-      expect(result.missing.left).toBeInstanceOf(ProviderAuth.OauthMissing)
+    expect(result.missing._tag).toBe("Failure")
+    if (result.missing._tag === "Failure") {
+      expect(result.missing.failure).toBeInstanceOf(ProviderAuth.OauthMissing)
     }
   })
 })

@@ -274,32 +274,91 @@ function refineArray(
   return zod
 }
 
+function applyCheck(zodType: z.ZodType, check: unknown): z.ZodType {
+  const annotations = (check as { annotations?: Record<string, unknown> } | undefined)?.annotations
+  const meta = annotations?.meta as Record<string, unknown> | undefined
+  switch (meta?._tag) {
+    case "isInt":
+      return refineNumber(zodType, undefined, (n) => n.int())
+    case "isGreaterThan":
+      return refineNumber(zodType, undefined, (n) => n.gt(meta.exclusiveMinimum as number))
+    case "isGreaterThanOrEqualTo":
+      return refineNumber(zodType, undefined, (n) => n.gte(meta.minimum as number))
+    case "isLessThan":
+      return refineNumber(zodType, undefined, (n) => n.lt(meta.exclusiveMaximum as number))
+    case "isLessThanOrEqualTo":
+      return refineNumber(zodType, undefined, (n) => n.lte(meta.maximum as number))
+    case "isPattern":
+      return refineString(zodType, undefined, (s) => s.regex(meta.regExp as RegExp))
+    case "isMinLength":
+      return refineString(
+        refineArray(zodType, undefined, (a) => a.min(meta.minLength as number)),
+        undefined,
+        (s) => s.min(meta.minLength as number),
+      )
+    case "isMaxLength":
+      return refineString(
+        refineArray(zodType, undefined, (a) => a.max(meta.maxLength as number)),
+        undefined,
+        (s) => s.max(meta.maxLength as number),
+      )
+    case "isStartsWith":
+      return refineString(zodType, undefined, (s) => s.startsWith(meta.startsWith as string))
+    case "isEndsWith":
+      return refineString(zodType, undefined, (s) => s.endsWith(meta.endsWith as string))
+    default:
+      return zodType
+  }
+}
+
+function applyChecks(zodType: z.ZodType, ast: AST): z.ZodType {
+  const checks = (ast as { checks?: ReadonlyArray<unknown> }).checks
+  if (!checks) return zodType
+  let out = zodType
+  for (const check of checks) {
+    if ((check as { _tag?: string })._tag === "FilterGroup") {
+      for (const nested of (check as { checks: ReadonlyArray<unknown> }).checks) out = applyCheck(out, nested)
+    } else {
+      out = applyCheck(out, check)
+    }
+  }
+  return out
+}
+
 function walk(ast: AST): z.ZodType {
   const ann = readAnnotations(ast)
-  if (ann.override) return applyAnnotations(ann.override(), ann)
+  const finalize = (zodType: z.ZodType) => applyChecks(applyAnnotations(zodType, ann), ast)
+  if (ann.override) return finalize(ann.override())
+
+  const encoded = (ast as { encoding?: ReadonlyArray<{ to: AST }> }).encoding?.at(-1)?.to
+  if (encoded && (encoded as any)._tag === "String") {
+    if ((ast as any)._tag === "Number") return finalize(z.coerce.number())
+    if ((ast as any)._tag === "Boolean") return finalize(z.coerce.boolean())
+    if ((ast as any)._tag === "BigInt") return finalize(z.coerce.bigint())
+  }
 
   switch ((ast as any)._tag as string) {
     case "String":
-      return applyAnnotations(z.string(), ann)
+      return finalize(z.string())
     case "Number":
-      return applyAnnotations(z.number(), ann)
+      return finalize(z.number())
     case "Boolean":
-      return applyAnnotations(z.boolean(), ann)
+      return finalize(z.boolean())
     case "Null":
-      return applyAnnotations(z.null(), ann)
+      return finalize(z.null())
     case "Unknown":
     case "Any":
     case "ObjectKeyword":
     case "Void":
-      return applyAnnotations(z.unknown(), ann)
+      return finalize(z.unknown())
     case "Never":
-      return applyAnnotations(z.never(), ann)
+      return finalize(z.never())
     case "Undefined":
-      return applyAnnotations(z.undefined(), ann)
+      return finalize(z.undefined())
     case "Literal": {
       const literalAst = ast as AST & { literal: string | number | boolean | bigint | null }
-      if (literalAst.literal === null) return applyAnnotations(z.null(), ann)
-      return applyAnnotations(z.literal(literalAst.literal as any), ann)
+      if (literalAst.literal === null) return finalize(z.null())
+      return finalize(z.literal(literalAst.literal as any))
     }
     case "Union": {
       const unionAst = ast as AST & { types: ReadonlyArray<AST> }
@@ -309,10 +368,10 @@ function walk(ast: AST): z.ZodType {
       // `z.undefined()` here breaks Zod v4's `toJSONSchema` ("Undefined cannot be represented
       // in JSON Schema").
       const filtered = unionAst.types.filter((t) => (t as any)._tag !== "Undefined")
-      if (filtered.length === 0) return applyAnnotations(z.never(), ann)
+      if (filtered.length === 0) return finalize(z.never())
       const variants = filtered.map((t) => walk(t))
-      if (variants.length === 1) return applyAnnotations(variants[0], ann)
-      return applyAnnotations(z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]]), ann)
+      if (variants.length === 1) return finalize(variants[0])
+      return finalize(z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]]))
     }
     case "Arrays": {
       const tupleAst = ast as AST & {
@@ -321,15 +380,14 @@ function walk(ast: AST): z.ZodType {
       }
       // `Schema.Array(...)` is encoded as a TupleType with no elements and a single rest element.
       if (tupleAst.elements.length === 0 && tupleAst.rest.length === 1) {
-        return applyAnnotations(z.array(walk(tupleAst.rest[0])), ann)
+        return finalize(z.array(walk(tupleAst.rest[0])))
       }
       const items = tupleAst.elements.map((el) => walk(el))
       if (tupleAst.rest.length === 0) {
-        return applyAnnotations(z.tuple(items as [z.ZodType, ...z.ZodType[]]), ann)
+        return finalize(z.tuple(items as [z.ZodType, ...z.ZodType[]]))
       }
-      return applyAnnotations(
+      return finalize(
         z.tuple(items as [z.ZodType, ...z.ZodType[]]).rest(walk(tupleAst.rest[0])),
-        ann,
       )
     }
     case "Objects": {
@@ -365,22 +423,22 @@ function walk(ast: AST): z.ZodType {
           object = (object as z.ZodObject<any>).catchall(valueZ)
         }
       }
-      return applyAnnotations(object, ann)
+      return finalize(object)
     }
     case "Refinement": {
       const refAst = ast as AST & { from: AST }
       const inner = walk(refAst.from)
       if (typeof ann.schemaId === "string" && KNOWN_SCHEMA_IDS[ann.schemaId]) {
         const refined = KNOWN_SCHEMA_IDS[ann.schemaId](inner, ann.jsonSchema)
-        return applyAnnotations(refined, ann)
+        return finalize(refined)
       }
       // Unknown refinement: fall back to the underlying type — JSON Schema won't include
       // the refinement constraints, but validation still runs through the zod custom check.
-      return applyAnnotations(inner, ann)
+      return finalize(inner)
     }
     case "Suspend": {
       const suspendAst = ast as AST & { thunk: () => AST }
-      return applyAnnotations(z.lazy(() => walk(suspendAst.thunk())) as z.ZodType, ann)
+      return finalize(z.lazy(() => walk(suspendAst.thunk())) as z.ZodType)
     }
     case "Transformation": {
       const transAst = ast as AST & { from: AST; to: AST }
@@ -389,39 +447,39 @@ function walk(ast: AST): z.ZodType {
       // and outputs the decoded value.
       if ((transAst.from as any)._tag === "String") {
         if ((transAst.to as any)._tag === "Number") {
-          return applyAnnotations(z.coerce.number(), ann)
+          return finalize(z.coerce.number())
         }
         if ((transAst.to as any)._tag === "Boolean") {
-          return applyAnnotations(z.coerce.boolean(), ann)
+          return finalize(z.coerce.boolean())
         }
         if ((transAst.to as any)._tag === "BigInt") {
-          return applyAnnotations(z.coerce.bigint(), ann)
+          return finalize(z.coerce.bigint())
         }
       }
       // Default: walk the input side; the boundary type is what the wire format carries.
-      return applyAnnotations(walk(transAst.from), ann)
+      return finalize(walk(transAst.from))
     }
     case "Declaration": {
       // Declarations wrap things like Schema.NullOr or branded primitives. Walk the surrogate
       // form when present; otherwise treat as unknown.
       const decl = ast as AST & { typeParameters: ReadonlyArray<AST>; annotations: any }
       if (decl.typeParameters.length === 1) {
-        return applyAnnotations(walk(decl.typeParameters[0]), ann)
+        return finalize(walk(decl.typeParameters[0]))
       }
-      return applyAnnotations(z.unknown(), ann)
+      return finalize(z.unknown())
     }
     case "Enum": {
       const enumsAst = ast as AST & { enums: ReadonlyArray<readonly [string, string | number]> }
       const values = enumsAst.enums.map(([, v]) => v)
       const literals = values.map((v) => z.literal(v as any))
-      if (literals.length === 1) return applyAnnotations(literals[0], ann)
+      if (literals.length === 1) return finalize(literals[0])
       const unionArgs = literals as unknown as [z.ZodType, z.ZodType, ...z.ZodType[]]
-      return applyAnnotations(z.union(unionArgs), ann)
+      return finalize(z.union(unionArgs))
     }
     default:
       // Construct not yet supported: fall back to z.unknown() with annotations.
       // Add a switch case here when a new construct first appears in src/.
-      return applyAnnotations(z.unknown(), ann)
+      return finalize(z.unknown())
   }
 }
 

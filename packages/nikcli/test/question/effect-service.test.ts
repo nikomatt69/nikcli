@@ -29,7 +29,7 @@ describe("Question.Service", () => {
         { directory },
         Effect.gen(function* () {
           const service = yield* Question.Service
-          const fiber = yield* Effect.fork(
+          const fiber = yield* Effect.forkChild(
             service.ask({
               sessionID: "session-question-test",
               questions: [
@@ -41,7 +41,7 @@ describe("Question.Service", () => {
               ],
             }),
           )
-          yield* Effect.yieldNow()
+          yield* Effect.yieldNow
           const pending = yield* service.list()
           expect(pending).toHaveLength(1)
           yield* service.reply({
