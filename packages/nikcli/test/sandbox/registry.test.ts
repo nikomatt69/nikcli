@@ -106,7 +106,7 @@ describe("SandboxRegistry", () => {
     it("creates error with workspaceID", () => {
       const error = new NotFoundError({ workspaceID: "wrk_123" })
       expect(error.name).toBe("SandboxNotFoundError")
-      expect(error.data.workspaceID).toBe("wrk_123")
+      expect(error.workspaceID).toBe("wrk_123")
     })
   })
 })

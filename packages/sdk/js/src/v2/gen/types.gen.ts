@@ -527,17 +527,7 @@ export type EventMessagePartRemoved = {
 }
 
 export type PermissionRequest = {
-  /**
-   * startsWith("per")
-   *
-   * a string starting with "per"
-   */
   id: string
-  /**
-   * startsWith("ses")
-   *
-   * a string starting with "ses"
-   */
   sessionID: string
   permission: string
   patterns: Array<string>
@@ -595,11 +585,6 @@ export type EventSessionIdle = {
 }
 
 export type QuestionOption = {
-  /**
-   * maxLength(30)
-   *
-   * Display text (1-5 words, concise)
-   */
   label: string
   /**
    * Explanation of choice
@@ -612,17 +597,18 @@ export type QuestionInfo = {
    * Complete question
    */
   question: string
-  /**
-   * maxLength(30)
-   *
-   * Very short label (max 30 chars)
-   */
   header: string
   /**
    * Available choices
    */
   options: Array<QuestionOption>
+  /**
+   * Allow selecting multiple choices
+   */
   multiple?: boolean
+  /**
+   * Allow typing a custom answer (default: true)
+   */
   custom?: boolean
 }
 
@@ -677,18 +663,8 @@ export type EventMonitorCreated = {
     record: {
       id: string
       sessionID: string
-      /**
-       * startsWith("msg")
-       *
-       * a string starting with "msg"
-       */
       messageID: string
       callID: string
-      /**
-       * startsWith("prt")
-       *
-       * a string starting with "prt"
-       */
       partID?: string
       title: string
       command: string
@@ -722,18 +698,8 @@ export type EventMonitorUpdated = {
     record: {
       id: string
       sessionID: string
-      /**
-       * startsWith("msg")
-       *
-       * a string starting with "msg"
-       */
       messageID: string
       callID: string
-      /**
-       * startsWith("prt")
-       *
-       * a string starting with "prt"
-       */
       partID?: string
       title: string
       command: string
@@ -1081,11 +1047,6 @@ export type EventVcsBranchUpdated = {
 }
 
 export type Pty = {
-  /**
-   * startsWith("pty")
-   *
-   * a string starting with "pty"
-   */
   id: string
   title: string
   command: string
@@ -1180,8 +1141,8 @@ export type GlobalEvent = {
 }
 
 export type BadRequestError = {
-  data: unknown
-  errors: Array<{
+  message: string
+  errors?: Array<{
     [key: string]: unknown
   }>
   success: false
@@ -1678,6 +1639,19 @@ export type RemoteConfig = {
   askOnExistingSession?: boolean
 }
 
+export type ReferenceConfig =
+  | {
+      type: "git"
+      repository: string
+      branch?: string
+      description?: string
+    }
+  | {
+      type: "local"
+      path: string
+      description?: string
+    }
+
 export type PermissionActionConfig = "ask" | "allow" | "deny"
 
 export type PermissionObjectConfig = {
@@ -1723,6 +1697,8 @@ export type PermissionConfig =
       webfetch?: PermissionActionConfig
       websearch?: PermissionActionConfig
       codesearch?: PermissionActionConfig
+      repo_clone?: PermissionActionConfig
+      repo_overview?: PermissionActionConfig
       speak?: PermissionRuleConfig
       lsp?: PermissionRuleConfig
       doom_loop?: PermissionActionConfig
@@ -2160,6 +2136,12 @@ export type Config = {
       subtask?: boolean
     }
   }
+  /**
+   * Named external repositories or local directories exposed as read-only reference agents.
+   */
+  reference?: {
+    [key: string]: ReferenceConfig
+  }
   watcher?: {
     ignore?: Array<string>
   }
@@ -2217,6 +2199,7 @@ export type Config = {
     build?: AgentConfig
     general?: AgentConfig
     explore?: AgentConfig
+    scout?: AgentConfig
     title?: AgentConfig
     summary?: AgentConfig
     compaction?: AgentConfig
@@ -2668,11 +2651,6 @@ export type WorktreeCreateInput = {
 }
 
 export type Workspace = {
-  /**
-   * startsWith("wrk")
-   *
-   * a string starting with "wrk"
-   */
   id: string
   branch: string | null
   projectID: string
@@ -2680,11 +2658,6 @@ export type Workspace = {
     | {
         directory: string
         type: "worktree"
-        /**
-         * greaterThan(0)
-         *
-         * a positive number
-         */
         eventLimit?: number
       }
     | {
@@ -2693,47 +2666,22 @@ export type Workspace = {
         runtime: "docker" | "podman"
         image: string
         containerName: string
-        /**
-         * greaterThan(0)
-         *
-         * a positive number
-         */
         port: number
         serverUrl: string
-        /**
-         * greaterThan(0)
-         *
-         * a positive number
-         */
         eventLimit?: number
       }
 }
 
 export type WorkspaceRestore = {
-  /**
-   * startsWith("wrk")
-   *
-   * a string starting with "wrk"
-   */
   workspaceID: string
   sessions?: Array<string>
   events?: Array<unknown>
 }
 
 export type WorkspaceSessionRestore = {
-  /**
-   * startsWith("wrk")
-   *
-   * a string starting with "wrk"
-   */
   workspaceID: string
   sessions?: Array<string>
   events?: Array<unknown>
-  /**
-   * startsWith("ses")
-   *
-   * a string starting with "ses"
-   */
   sessionID: string
 }
 
@@ -3246,11 +3194,6 @@ export type Agent = {
       modelID: string
       providerID: string
     }
-    /**
-     * greaterThan(0)
-     *
-     * a positive number
-     */
     maxUses?: number
   }
   variant?: string
@@ -3258,11 +3201,6 @@ export type Agent = {
   options: {
     [key: string]: unknown
   }
-  /**
-   * greaterThan(0)
-   *
-   * a positive number
-   */
   steps?: number
 }
 
@@ -3896,11 +3834,6 @@ export type ExperimentalWorkspaceAdaptorListResponse =
 export type ExperimentalWorkspaceRemoveData = {
   body?: never
   path: {
-    /**
-     * startsWith("wrk")
-     *
-     * a string starting with "wrk"
-     */
     id: string
   }
   query?: {
@@ -3937,11 +3870,6 @@ export type ExperimentalWorkspaceCreateData = {
       | {
           directory: string
           type: "worktree"
-          /**
-           * greaterThan(0)
-           *
-           * a positive number
-           */
           eventLimit?: number
         }
       | {
@@ -3950,27 +3878,12 @@ export type ExperimentalWorkspaceCreateData = {
           runtime: "docker" | "podman"
           image: string
           containerName: string
-          /**
-           * greaterThan(0)
-           *
-           * a positive number
-           */
           port: number
           serverUrl: string
-          /**
-           * greaterThan(0)
-           *
-           * a positive number
-           */
           eventLimit?: number
         }
   }
   path: {
-    /**
-     * startsWith("wrk")
-     *
-     * a string starting with "wrk"
-     */
     id: string
   }
   query?: {
@@ -4003,11 +3916,6 @@ export type ExperimentalWorkspaceCreateResponse =
 export type ExperimentalWorkspaceRestoreData = {
   body?: never
   path: {
-    /**
-     * startsWith("wrk")
-     *
-     * a string starting with "wrk"
-     */
     id: string
   }
   query?: {
@@ -4045,11 +3953,6 @@ export type ExperimentalWorkspaceRestoreResponse =
 export type ExperimentalWorkspaceSessionRestoreData = {
   body?: never
   path: {
-    /**
-     * startsWith("wrk")
-     *
-     * a string starting with "wrk"
-     */
     id: string
     sessionID: string
   }
@@ -4781,21 +4684,11 @@ export type SessionShareResponse = SessionShareResponses[keyof SessionShareRespo
 export type SessionDiffData = {
   body?: never
   path: {
-    /**
-     * startsWith("ses")
-     *
-     * a string starting with "ses"
-     */
     sessionID: string
   }
   query?: {
     directory?: string
     workspace?: string
-    /**
-     * startsWith("msg")
-     *
-     * a string starting with "msg"
-     */
     messageID?: string
   }
   url: "/session/{sessionID}/diff"
@@ -5240,17 +5133,7 @@ export type SessionShellResponse = SessionShellResponses[keyof SessionShellRespo
 
 export type SessionRevertData = {
   body?: {
-    /**
-     * startsWith("msg")
-     *
-     * a string starting with "msg"
-     */
     messageID: string
-    /**
-     * startsWith("prt")
-     *
-     * a string starting with "prt"
-     */
     partID?: string
   }
   path: {
@@ -8429,6 +8312,107 @@ export type TuiControlResponseResponses = {
 }
 
 export type TuiControlResponseResponse = TuiControlResponseResponses[keyof TuiControlResponseResponses]
+
+export type AnalyticsGlobalData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/analytics/global"
+}
+
+export type AnalyticsGlobalResponses = {
+  /**
+   * Global analytics
+   */
+  200: unknown
+}
+
+export type AnalyticsDailyData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    from?: string
+    to?: string
+    days?: string
+  }
+  url: "/analytics/daily"
+}
+
+export type AnalyticsDailyResponses = {
+  /**
+   * Daily analytics
+   */
+  200: Array<unknown>
+}
+
+export type AnalyticsDailyResponse = AnalyticsDailyResponses[keyof AnalyticsDailyResponses]
+
+export type AnalyticsSessionData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/analytics/session/{sessionID}"
+}
+
+export type AnalyticsSessionErrors = {
+  /**
+   * Session not found
+   */
+  404: unknown
+}
+
+export type AnalyticsSessionResponses = {
+  /**
+   * Session analytics
+   */
+  200: unknown
+}
+
+export type AnalyticsSessionsData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/analytics/sessions"
+}
+
+export type AnalyticsSessionsResponses = {
+  /**
+   * Session analytics list
+   */
+  200: Array<unknown>
+}
+
+export type AnalyticsSessionsResponse = AnalyticsSessionsResponses[keyof AnalyticsSessionsResponses]
+
+export type AnalyticsLeaderboardData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/analytics/leaderboard"
+}
+
+export type AnalyticsLeaderboardResponses = {
+  /**
+   * Leaderboard data
+   */
+  200: unknown
+}
 
 export type InstanceDisposeData = {
   body?: never

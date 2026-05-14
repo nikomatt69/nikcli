@@ -4,6 +4,12 @@ import { client } from "./client.gen.js"
 import { buildClientParams, type Client, type Options as Options2, type TDataShape } from "./client/index.js"
 import type {
   AgentPartInput,
+  AnalyticsDailyResponses,
+  AnalyticsGlobalResponses,
+  AnalyticsLeaderboardResponses,
+  AnalyticsSessionErrors,
+  AnalyticsSessionResponses,
+  AnalyticsSessionsResponses,
   AppAgentsResponses,
   AppLogErrors,
   AppLogResponses,
@@ -1159,11 +1165,6 @@ export class Workspace extends HeyApiClient {
         | {
             directory: string
             type: "worktree"
-            /**
-             * greaterThan(0)
-             *
-             * a positive number
-             */
             eventLimit?: number
           }
         | {
@@ -1172,18 +1173,8 @@ export class Workspace extends HeyApiClient {
             runtime: "docker" | "podman"
             image: string
             containerName: string
-            /**
-             * greaterThan(0)
-             *
-             * a positive number
-             */
             port: number
             serverUrl: string
-            /**
-             * greaterThan(0)
-             *
-             * a positive number
-             */
             eventLimit?: number
           }
     },
@@ -6364,6 +6355,166 @@ export class Tui extends HeyApiClient {
   }
 }
 
+export class Analytics extends HeyApiClient {
+  /**
+   * Get global analytics
+   *
+   * Retrieve cumulative global analytics across all sessions.
+   */
+  public global<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsGlobalResponses, unknown, ThrowOnError>({
+      url: "/analytics/global",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get daily analytics
+   *
+   * Retrieve daily analytics snapshots for a date range.
+   */
+  public daily<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      from?: string
+      to?: string
+      days?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "from" },
+            { in: "query", key: "to" },
+            { in: "query", key: "days" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsDailyResponses, unknown, ThrowOnError>({
+      url: "/analytics/daily",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get session analytics
+   *
+   * Retrieve analytics for a specific session.
+   */
+  public session<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsSessionResponses, AnalyticsSessionErrors, ThrowOnError>({
+      url: "/analytics/session/{sessionID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get all session analytics
+   *
+   * Retrieve analytics summaries for all completed sessions.
+   */
+  public sessions<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsSessionsResponses, unknown, ThrowOnError>({
+      url: "/analytics/sessions",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get analytics leaderboard
+   *
+   * Retrieve ranked models, providers, and tools by various metrics.
+   */
+  public leaderboard<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<AnalyticsLeaderboardResponses, unknown, ThrowOnError>({
+      url: "/analytics/leaderboard",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Instance extends HeyApiClient {
   /**
    * Dispose instance
@@ -7116,6 +7267,11 @@ export class NikcliClient extends HeyApiClient {
   private _tui?: Tui
   get tui(): Tui {
     return (this._tui ??= new Tui({ client: this.client }))
+  }
+
+  private _analytics?: Analytics
+  get analytics(): Analytics {
+    return (this._analytics ??= new Analytics({ client: this.client }))
   }
 
   private _instance?: Instance

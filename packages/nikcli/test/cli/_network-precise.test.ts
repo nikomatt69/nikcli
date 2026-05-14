@@ -158,7 +158,7 @@ describe("FormatError — exact substrings (contract)", () => {
   })
 
   it("UI.CancelledError is exactly empty string", () => {
-    expect(FormatError(new UI.CancelledError(undefined as unknown as void))).toBe("")
+    expect(FormatError(new UI.CancelledError())).toBe("")
   })
 })
 

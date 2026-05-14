@@ -1,6 +1,5 @@
-import z from "zod"
 import { EOL } from "os"
-import { NamedError } from "@nikcli-ai/util/error"
+import { Schema } from "effect"
 import { remoteService } from "./remote"
 import { logo as cliLogo } from "./logo"
 import { Log } from "@/util/log"
@@ -8,9 +7,7 @@ import { Log } from "@/util/log"
 const log = Log.create({ service: "ui" })
 
 export namespace UI {
-  export const CancelledError = NamedError.create("UICancelledError", z.void())
-
-  export type CancelledError = z.infer<typeof CancelledError>
+  export class CancelledError extends Schema.TaggedErrorClass<CancelledError>()("UICancelledError", {}) {}
 
   export const Style = {
     TEXT_HIGHLIGHT: "\x1b[96m",

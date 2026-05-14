@@ -2,7 +2,6 @@ import { BusEvent } from "@/bus/bus-event"
 import path from "path"
 import { $ } from "bun"
 import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
 import { Log } from "../util/log"
 import { iife } from "@/util/iife"
 import { Flag } from "../flag/flag"
@@ -134,12 +133,9 @@ export namespace Installation {
     return "unknown"
   }
 
-  export const UpgradeFailedError = NamedError.create(
-    "UpgradeFailedError",
-    z.object({
-      stderr: z.string(),
-    }),
-  )
+  export class UpgradeFailedError extends Schema.TaggedErrorClass<UpgradeFailedError>()("UpgradeFailedError", {
+    stderr: Schema.String,
+  }) {}
 
   async function getBrewFormula() {
     const tapFormula = await $`brew list --formula nikomatt69/tap/nikcli`.throws(false).quiet().text()

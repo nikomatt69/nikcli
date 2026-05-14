@@ -80,10 +80,10 @@ export const UpgradeCommand = {
     if (err) {
       spinner.stop("Upgrade failed", 1)
       if (err instanceof Installation.UpgradeFailedError) {
-        if (method === "choco" && err.data.stderr.includes("not running from an elevated command shell")) {
+        if (method === "choco" && err.stderr.includes("not running from an elevated command shell")) {
           prompts.log.error("Please run the terminal as Administrator and try again")
         } else {
-          prompts.log.error(err.data.stderr)
+          prompts.log.error(err.stderr)
         }
       } else if (err instanceof Error) prompts.log.error(err.message)
       prompts.outro("Done")

@@ -1,6 +1,7 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
 import { NamedError } from "@nikcli-ai/util/error"
+import { Schema } from "effect"
 import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
 import { Identifier } from "../id/id"
 import { LSP } from "../lsp"
@@ -39,14 +40,11 @@ function storageRead<T>(key: string[]) {
 }
 
 export namespace MessageV2 {
-  export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
-  export const ContextOverflowError = NamedError.create(
-    "MessageContextOverflowError",
-    z.object({
-      message: z.string(),
-      responseBody: z.string().optional(),
-    }),
-  )
+  export class OutputLengthError extends Schema.TaggedErrorClass<OutputLengthError>()("MessageOutputLengthError", {}) {}
+  export class ContextOverflowError extends Schema.TaggedErrorClass<ContextOverflowError>()("MessageContextOverflowError", {
+    message: Schema.String,
+    responseBody: Schema.optional(Schema.String),
+  }) {}
   export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
   export const StructuredOutputError = NamedError.create(
     "StructuredOutputError",
@@ -424,8 +422,8 @@ export namespace MessageV2 {
       .discriminatedUnion("name", [
         AuthError.Schema,
         NamedError.Unknown.Schema,
-        OutputLengthError.Schema,
-        ContextOverflowError.Schema,
+        z.object({ name: z.literal("MessageOutputLengthError"), data: z.object({}) }).meta({ ref: "MessageOutputLengthError" }),
+        z.object({ name: z.literal("MessageContextOverflowError"), data: z.object({ message: z.string(), responseBody: z.string().optional() }) }).meta({ ref: "MessageContextOverflowError" }),
         AbortedError.Schema,
         StructuredOutputError.Schema,
         APIError.Schema,
@@ -839,8 +837,8 @@ export namespace MessageV2 {
             cause: e,
           },
         ).toObject()
-      case MessageV2.OutputLengthError.isInstance(e):
-        return e
+      case e instanceof MessageV2.OutputLengthError:
+        return { name: "MessageOutputLengthError" as const, data: {} as Record<string, never> }
       case LoadAPIKeyError.isInstance(e):
         return new MessageV2.AuthError(
           {

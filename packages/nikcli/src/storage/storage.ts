@@ -4,9 +4,7 @@ import { Global } from "../global"
 import { Filesystem } from "../util/filesystem"
 import { Lock } from "../util/lock"
 import { $ } from "bun"
-import { NamedError } from "@nikcli-ai/util/error"
-import z from "zod"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 /** In-memory read-through cache with write-through invalidation. */
 namespace Cache {
@@ -63,12 +61,9 @@ export namespace Storage {
 
   export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
 
-  export const NotFoundError = NamedError.create(
-    "NotFoundError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("NotFoundError", {
+    message: Schema.String,
+  }) {}
 
   const MIGRATIONS: Migration[] = [
     async (dir) => {

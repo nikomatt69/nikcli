@@ -119,7 +119,7 @@ function parseTargets(raw: unknown) {
   return [...map.values()]
 }
 
-async function detectOpencodePluginTargets(target: string): Promise<Target[] | undefined> {
+async function detectNikCliPluginTargets(target: string): Promise<Target[] | undefined> {
   const pkg = await readPluginPackage(target)
   const json = pkg.json
 
@@ -247,7 +247,7 @@ export async function readPluginManifest(target: string): Promise<ManifestResult
 
   let targets = parseTargets(pkg.item.json["oc-plugin"])
   if (!targets.length) {
-    targets = (await detectOpencodePluginTargets(target)) ?? []
+    targets = (await detectNikCliPluginTargets(target)) ?? []
   }
   if (!targets.length) {
     return {

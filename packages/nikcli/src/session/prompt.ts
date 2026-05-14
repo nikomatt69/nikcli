@@ -2262,8 +2262,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     try {
       await providerGetModel(taskModel.providerID, taskModel.modelID)
     } catch (e) {
-      if (Provider.ModelNotFoundError.isInstance(e)) {
-        const { providerID, modelID, suggestions } = e.data
+      if (e instanceof Provider.ModelNotFoundError) {
+        const { providerID, modelID, suggestions } = e
         const hint = suggestions?.length ? ` Did you mean: ${suggestions.join(", ")}?` : ""
         Bus.publish(Session.Event.Error, {
           sessionID: input.sessionID,

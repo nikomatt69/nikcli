@@ -977,7 +977,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     },
   ])("toModelMessages: $label", ({ label: _label, messages, model, expected, hasVisual }) => {
     if (_label === "assistant with error is skipped") {
-      ;(messages[0].info as unknown as MessageV2.Assistant).error = new MessageV2.OutputLengthError({} as never, { cause: new Error("x") })
+      ;(messages[0].info as unknown as MessageV2.Assistant).error = { name: "MessageOutputLengthError" as const, data: {} as Record<string, never> }
     }
     const converted = MessageV2.toModelMessages(messages as unknown as MessageV2.WithParts[], model as never)
     expect(converted.length).toBe(expected)

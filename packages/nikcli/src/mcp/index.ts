@@ -11,7 +11,6 @@ import {
 } from "@modelcontextprotocol/sdk/types.js"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
-import { NamedError } from "@nikcli-ai/util/error"
 import z from "zod/v4"
 import { Installation } from "../installation"
 import { withTimeout } from "@/util/timeout"
@@ -22,7 +21,7 @@ import { BusEvent } from "../bus/bus-event"
 import { Bus } from "@/bus"
 import { TuiEvent } from "@/cli/cmd/tui/event"
 import open from "open"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
 
@@ -74,12 +73,9 @@ export namespace MCP {
     }),
   )
 
-  export const Failed = NamedError.create(
-    "MCPFailed",
-    z.object({
-      name: z.string(),
-    }),
-  )
+  export class Failed extends Schema.TaggedErrorClass<Failed>()("MCPFailed", {
+    name: Schema.String,
+  }) {}
 
   type MCPClient = Client
 

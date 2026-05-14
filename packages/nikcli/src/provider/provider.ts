@@ -1,4 +1,3 @@
-import z from "zod"
 import fuzzysort from "fuzzysort"
 import { Config } from "../config/config"
 import { mapValues, mergeDeep, omit, pickBy, sortBy } from "remeda"
@@ -8,7 +7,7 @@ import { BunProc } from "../bun"
 import { Plugin } from "../plugin"
 import type { Hooks as PluginHooks } from "@nikcli-ai/plugin"
 import { ModelsDev } from "./models"
-import { NamedError } from "@nikcli-ai/util/error"
+
 import { Auth } from "../auth"
 import { Env } from "../env"
 import { Flag } from "../flag/flag"
@@ -1411,10 +1410,7 @@ export namespace Provider {
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
         log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
-        throw new InitError(
-          { providerID: model.providerID },
-          { cause: new Error("Provider module missing create function") },
-        )
+        throw Object.assign(new InitError({ providerID: model.providerID }), { cause: new Error("Provider module missing create function") })
       }
       const fn = mod[createKey]
       const loaded = fn({
@@ -1431,7 +1427,7 @@ export namespace Provider {
         error: e instanceof Error ? e.message : String(e),
         stack: e instanceof Error ? e.stack : undefined,
       })
-      throw new InitError({ providerID: model.providerID }, { cause: e })
+      throw Object.assign(new InitError({ providerID: model.providerID }), { cause: e })
     }
   }
 
@@ -1582,13 +1578,10 @@ export namespace Provider {
             return language as LanguageModelV2
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw new ModelNotFoundError(
-                {
-                  modelID: model.id,
-                  providerID: model.providerID,
-                },
-                { cause: e },
-              )
+              throw Object.assign(new ModelNotFoundError({
+                modelID: model.id,
+                providerID: model.providerID,
+              }), { cause: e })
             }
             throw e
           }
@@ -1632,13 +1625,10 @@ export namespace Provider {
             return image
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw new ModelNotFoundError(
-                {
-                  modelID: model.id,
-                  providerID: model.providerID,
-                },
-                { cause: e },
-              )
+              throw Object.assign(new ModelNotFoundError({
+                modelID: model.id,
+                providerID: model.providerID,
+              }), { cause: e })
             }
             throw e
           }
@@ -1777,19 +1767,13 @@ export namespace Provider {
     }
   }
 
-  export const ModelNotFoundError = NamedError.create(
-    "ProviderModelNotFoundError",
-    z.object({
-      providerID: z.string(),
-      modelID: z.string(),
-      suggestions: z.array(z.string()).optional(),
-    }),
-  )
+  export class ModelNotFoundError extends Schema.TaggedErrorClass<ModelNotFoundError>()("ProviderModelNotFoundError", {
+    providerID: Schema.String,
+    modelID: Schema.String,
+    suggestions: Schema.optional(Schema.Array(Schema.String)),
+  }) {}
 
-  export const InitError = NamedError.create(
-    "ProviderInitError",
-    z.object({
-      providerID: z.string(),
-    }),
-  )
+  export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
+    providerID: Schema.String,
+  }) {}
 }

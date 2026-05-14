@@ -1,10 +1,9 @@
-import z from "zod"
 import { Global } from "../global"
 import { Log } from "../util/log"
 import path from "path"
 import { Filesystem } from "../util/filesystem"
-import { NamedError } from "@nikcli-ai/util/error"
 import { readableStreamToText } from "bun"
+import { Schema } from "effect"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
 import { proxied } from "../util/network"
@@ -55,13 +54,10 @@ export namespace BunProc {
     return process.execPath
   }
 
-  export const InstallFailedError = NamedError.create(
-    "BunInstallFailedError",
-    z.object({
-      pkg: z.string(),
-      version: z.string(),
-    }),
-  )
+  export class InstallFailedError extends Schema.TaggedErrorClass<InstallFailedError>()("BunInstallFailedError", {
+    pkg: Schema.String,
+    version: Schema.String,
+  }) {}
 
   export async function install(pkg: string, version = "latest") {
     // Use lock to ensure only one install at a time
@@ -107,12 +103,7 @@ export namespace BunProc {
     await BunProc.run(args, {
       cwd: Global.Path.cache,
     }).catch((e) => {
-      throw new InstallFailedError(
-        { pkg, version },
-        {
-          cause: e,
-        },
-      )
+      throw Object.assign(new InstallFailedError({ pkg, version }), { cause: e })
     })
 
     // Resolve actual version from installed package when using "latest"

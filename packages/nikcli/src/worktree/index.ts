@@ -2,7 +2,6 @@ import { $ } from "bun"
 import fs from "fs/promises"
 import path from "path"
 import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
 import { Global } from "../global"
 import { Git } from "@/git"
 import { Log } from "@/util/log"
@@ -43,47 +42,29 @@ export namespace Worktree {
   export const ResetInput = zodObject(ResetInputSchema)
   export type ResetInput = Schema.Schema.Type<typeof ResetInputSchema>
 
-  export const NotGitError = NamedError.create(
-    "WorktreeNotGitError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class NotGitError extends Schema.TaggedErrorClass<NotGitError>()("WorktreeNotGitError", {
+    message: Schema.String,
+  }) {}
 
-  export const NameGenerationFailedError = NamedError.create(
-    "WorktreeNameGenerationFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class NameGenerationFailedError extends Schema.TaggedErrorClass<NameGenerationFailedError>()("WorktreeNameGenerationFailedError", {
+    message: Schema.String,
+  }) {}
 
-  export const CreateFailedError = NamedError.create(
-    "WorktreeCreateFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class CreateFailedError extends Schema.TaggedErrorClass<CreateFailedError>()("WorktreeCreateFailedError", {
+    message: Schema.String,
+  }) {}
 
-  export const StartCommandFailedError = NamedError.create(
-    "WorktreeStartCommandFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class StartCommandFailedError extends Schema.TaggedErrorClass<StartCommandFailedError>()("WorktreeStartCommandFailedError", {
+    message: Schema.String,
+  }) {}
 
-  export const RemoveFailedError = NamedError.create(
-    "WorktreeRemoveFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class RemoveFailedError extends Schema.TaggedErrorClass<RemoveFailedError>()("WorktreeRemoveFailedError", {
+    message: Schema.String,
+  }) {}
 
-  export const ResetFailedError = NamedError.create(
-    "WorktreeResetFailedError",
-    z.object({
-      message: z.string(),
-    }),
-  )
+  export class ResetFailedError extends Schema.TaggedErrorClass<ResetFailedError>()("WorktreeResetFailedError", {
+    message: Schema.String,
+  }) {}
 
   const ADJECTIVES = [
     "brave",

@@ -1,4 +1,3 @@
-import z from "zod"
 import path from "path"
 import { createHash } from "crypto"
 import { Config } from "../config/config"
@@ -37,23 +36,17 @@ export namespace Skill {
     content: string
   }
 
-  export const InvalidError = NamedError.create(
-    "SkillInvalidError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-    }),
-  )
+  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("SkillInvalidError", {
+    path: Schema.String,
+    message: Schema.optional(Schema.String),
+    issues: Schema.optional(Schema.Unknown),
+  }) {}
 
-  export const NameMismatchError = NamedError.create(
-    "SkillNameMismatchError",
-    z.object({
-      path: z.string(),
-      expected: z.string(),
-      actual: z.string(),
-    }),
-  )
+  export class NameMismatchError extends Schema.TaggedErrorClass<NameMismatchError>()("SkillNameMismatchError", {
+    path: Schema.String,
+    expected: Schema.String,
+    actual: Schema.String,
+  }) {}
 
   // External skill directories to search for (project-level and global)
   // These follow the directory layout used by Claude Code and other agents.
@@ -144,8 +137,8 @@ export namespace Skill {
 
           const addSkill = async (match: string) => {
             const md = await ConfigMarkdown.parse(match).catch((err) => {
-              const message = ConfigMarkdown.FrontmatterError.isInstance(err)
-                ? err.data.message
+              const message = err instanceof ConfigMarkdown.FrontmatterError
+                ? err.message
                 : `Failed to parse skill ${match}`
               Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
               log.error("failed to load skill", { skill: match, err })

@@ -1,30 +1,31 @@
 # Effect migration master plan
 
+> **Cross-reference**: For the full remaining work across ALL specs (Effect migration +
+> v2 features + OpenAPI cleanup + TUI plugins), see
+> [`../integration-master-plan.md`](../integration-master-plan.md). That document is the
+> single authoritative execution order from this point forward.
+
 This document is the single integrated execution plan for the `packages/nikcli` Effect migration. It sequences every item tracked in the other 9 spec files (`migration.md`, `facades.md`, `instance-context.md`, `loose-ends.md`, `routes.md`, `tools.md`, `schema.md`, `server-package.md`, `http-api.md`) into one dependency-ordered roadmap.
 
 The plan is deliberately progressive: every phase ships compilable, testable, behavior-preserving code. No phase introduces a placeholder, mock, or `TODO`. Earlier phases prepare the seams that later phases consume.
 
-## Phase Q — effect 3.21 → 4.0.0-beta.65 upgrade (in progress, 2026-05-13)
+## Phase Q — effect 3.21 → 4.0.0-beta.65 upgrade (complete, 2026-05-14)
 
-Bumps:
+Outcome: `bun turbo typecheck` reports **19/19 workspace packages successful** on `effect@4.0.0-beta.65`. `@effect/platform` is fully purged; the runtime peer is `@effect/platform-bun` only (nikcli) and `@effect/platform-node` (llm, http-recorder).
 
-- ✅ `packages/llm`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`. `bun run typecheck` clean.
-- ✅ `packages/http-recorder`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`. `bun run typecheck` clean.
-- 🚧 `packages/nikcli`: bumped from effect `3.21.2` → `4.0.0-beta.65`, `@effect/platform` `0.96.1` → `4.0.0-beta.65`, `@effect/platform-bun` `0.89.0` → `4.0.0-beta.65`. **~1,770 type errors remaining**.
+Final bumps:
 
-Mechanical landings in this turn:
+- ✅ `packages/llm`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`.
+- ✅ `packages/http-recorder`: effect `4.0.0-beta.59` → `4.0.0-beta.65`, `@effect/platform-node` `4.0.0-beta.57` → `4.0.0-beta.65`.
+- ✅ `packages/nikcli`: effect `3.21.2` → `4.0.0-beta.65`; `@effect/platform-bun` `0.89.0` → `4.0.0-beta.65`; `@effect/platform` (`0.96.1`) removed entirely per the 2026-05-13 directive.
 
-- ✅ Mass-converted 42 `Context.Tag("ID")<Self, Shape>()` declarations to `Context.Service<Self, Shape>()("ID")` (effect 4 removed `Context.Tag`). Covered single-line and 4 multi-line declarations across:
-  `src/snapshot/`, `src/connectors/`, `src/skill/`, `src/file/`, `src/pty/`, `src/config/`, `src/auth/`, `src/worktree/`, `src/plugin/`, `src/provider/`, `src/effect/instance-ref.ts`, `src/bus/`, `src/lsp/`, `src/agent/`, `src/filesystem/`, `src/mcp/`, `src/installation/`, `src/storage/`, `src/project/`, `src/question/`, `src/command/`, `src/format/`, `src/account/`, `src/permission/next.ts`, `src/tool/`, `src/share/`, `src/session/{todo,compaction,revert,processor,system,status,prompt,summary,index}.ts`.
+Mechanical landings (across the migration window):
+
+- ✅ Mass-converted 42 `Context.Tag("ID")<Self, Shape>()` declarations to `Context.Service<Self, Shape>()("ID")` (effect 4 removed `Context.Tag`) across `src/snapshot/`, `src/connectors/`, `src/skill/`, `src/file/`, `src/pty/`, `src/config/`, `src/auth/`, `src/worktree/`, `src/plugin/`, `src/provider/`, `src/effect/instance-ref.ts`, `src/bus/`, `src/lsp/`, `src/agent/`, `src/filesystem/`, `src/mcp/`, `src/installation/`, `src/storage/`, `src/project/`, `src/question/`, `src/command/`, `src/format/`, `src/account/`, `src/permission/next.ts`, `src/tool/`, `src/share/`, `src/session/{todo,compaction,revert,processor,system,status,prompt,summary,index}.ts`.
 - ✅ Mass-renamed `Layer.scoped(...)` → `Layer.effect(...)` across 21 files (effect 4 unified scoped/effect under `Layer.effect`).
-
-Remaining breaking-change surface (must be hand-fixed):
-
-- **Layer composition** (~80 sites): `Effect.gen` inside `Layer.effect(...)` now leaks `R = unknown` dependencies. Each `runPromiseWithLayer(...)` call in `agent.ts`, `brain/index.ts`, `chatbot/handlers.ts`, `cli/cmd/*` etc. must explicitly compose the Service-Layer with the dependency layers via `Layer.provide`.
-- **Schema API drift** (~440 TS2339 + ~180 TS2345): `Schema.Struct({...}).annotations({...})` no longer works in place — `.annotations(...)` is now a pipeable. `Schema.Schema.Type<typeof X>` extraction has stricter requirements. Affects 14+ `src/*/schema.ts` and inline schema declarations.
-- **HttpApi reorganization**: `@effect/platform` re-exports for HttpApi changed in 4.x. `HttpApi`, `HttpApiBuilder`, `HttpApiEndpoint`, `HttpApiGroup` imports in `src/server/httpapi/*.ts` (14 files) need verification against effect 4 module layout.
-- **Effect.gen generator typing** (~650 TS18046 cascades): `yield* Effect.promise(...)` returning `unknown` in some sites where the callee's Promise return type is wide. Many of these collapse once the underlying function signature is fixed.
-- **`@effect/platform` direct imports** (user directive 2026-05-13): drop `@effect/platform` peer entirely; consume only `@effect/platform-bun` or `@effect/platform-node`. `src/filesystem/index.ts` and `src/server/httpapi/*.ts` are the affected files.
+- ✅ Mass-renamed `Schema.X.annotations({...})` → `Schema.X.annotate({...})` across ~40 files; `Schema.Literal(a,b,c)` → `Schema.Literals(a,b,c)` for multi-literal call sites (commit `76bace9`).
+- ✅ `@effect/platform` import sites repointed to `effect/unstable/httpapi/*` (HttpApi) and root `effect` (FileSystem); platform peer removed from `bun.lock` and `package.json` (commit `1decb20`).
+- ✅ `src/util/effect-zod.ts` type-inference tightening (+118 lines) so `zodObject(Schema.Struct<Fields>)` preserves typed `.shape`/`.omit` field types under the effect 4 Schema declarations.
 
 Error trajectory:
 
@@ -33,6 +34,22 @@ Error trajectory:
 | After `effect@4.0.0-beta.65` install | 3,265 |
 | After `Context.Tag` → `Context.Service` mass-edit | 1,743 |
 | After `Layer.scoped` → `Layer.effect` mass-rename | 1,771 *(slight uptick: new `R = never` constraint surfacing)* |
+| After `.annotations` → `.annotate` + `Schema.Literals` cleanup (`76bace9`) | small residual |
+| After `@effect/platform` purge + `effect-zod` tightening (`1decb20`) | **0** |
+
+Validation gates at completion:
+
+- `bun turbo typecheck` — 19/19 packages successful.
+- `cd packages/nikcli && ./node_modules/.bin/tsgo --noEmit` — exit 0 with no output.
+- `grep -r '"@effect/platform"' packages/*/package.json` — no matches.
+- `grep -r '"effect": "[^4]' packages/*/package.json` — no matches (only `4.0.0-beta.65` pins).
+
+Follow-ups (not part of Phase Q; tracked separately):
+
+- HTTP dispatch: `LLMCore.stream` (AI SDK) → `LLMRuntime.streamRequest` (`@nikcli-ai/llm`). Route exercise is already wired at `session/llm.ts:256` via `LLMRuntime.prepareRequest`; the streamed bytes still flow through AI SDK until a `LLMEvent` → `fullStream` adapter (or a `processor.ts` rewrite) lands.
+- Phase G ScopedCache replacement (`src/project/instance.ts`).
+- Phase H ALS-backed `Instance.directory/worktree/project` cleanup.
+- Phase P residual: session-domain inline schemas (compaction, message-v2, message, prompt, revert, summary, status, todo, session) and ~20 server route DTOs.
 
 ## Execution log (2026-05-07)
 

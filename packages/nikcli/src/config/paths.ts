@@ -1,12 +1,10 @@
 import path from "path"
 import os from "os"
-import z from "zod"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
-import { NamedError } from "@nikcli-ai/util/error"
 import { Filesystem } from "@/util/filesystem"
 import { Flag } from "@/flag/flag"
 import { Global } from "@/global"
-import { Cause, Context, Effect, Exit, Layer } from "effect"
+import { Cause, Context, Effect, Exit, Layer, Schema } from "effect"
 
 export namespace ConfigPaths {
   type MissingMode = "error" | "empty"
@@ -67,22 +65,16 @@ export namespace ConfigPaths {
     return [path.join(dir, `${name}.jsonc`), path.join(dir, `${name}.json`)]
   }
 
-  export const JsonError = NamedError.create(
-    "ConfigJsonError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-    }),
-  )
+  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigPathsJsonError", {
+    path: Schema.String,
+    message: Schema.optional(Schema.String),
+  }) {}
 
-  export const InvalidError = NamedError.create(
-    "ConfigInvalidError",
-    z.object({
-      path: z.string(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-      message: z.string().optional(),
-    }),
-  )
+  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigPathsInvalidError", {
+    path: Schema.String,
+    issues: Schema.optional(Schema.Unknown),
+    message: Schema.optional(Schema.String),
+  }) {}
 
   const readFileEffect = Effect.fn("ConfigPaths.readFile")(function* (filepath: string) {
     return yield* Effect.tryPromise({
@@ -91,7 +83,7 @@ export namespace ConfigPaths {
     }).pipe(
       Effect.catch((err: NodeJS.ErrnoException) => {
         if (err.code === "ENOENT") return Effect.succeed(undefined)
-        return Effect.fail(new JsonError({ path: filepath }, { cause: err }))
+        return Effect.fail(Object.assign(new JsonError({ path: filepath }), { cause: err }))
       }),
     )
   })
@@ -151,16 +143,13 @@ export namespace ConfigPaths {
           const errMsg = `bad file reference: "${token}"`
           if (error.code === "ENOENT") {
             return Effect.fail(
-              new InvalidError(
-                {
-                  path: configSource,
-                  message: errMsg + ` ${resolvedPath} does not exist`,
-                },
-                { cause: error },
-              ),
+              Object.assign(new InvalidError({
+                path: configSource,
+                message: errMsg + ` ${resolvedPath} does not exist`,
+              }), { cause: error }),
             )
           }
-          return Effect.fail(new InvalidError({ path: configSource, message: errMsg }, { cause: error }))
+          return Effect.fail(Object.assign(new InvalidError({ path: configSource, message: errMsg }), { cause: error }))
         }),
       )
 

@@ -1,5 +1,4 @@
-import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
+import { Schema } from "effect"
 import { Session } from "@/session"
 import { Workspace } from "@/workspace"
 import { getAdaptor } from "@/workspace/adaptors"
@@ -8,7 +7,9 @@ import { Log } from "@/util/log"
 
 const log = Log.create({ service: "sandbox.registry" })
 
-export const NotFoundError = NamedError.create("SandboxNotFoundError", z.object({ workspaceID: z.string() }))
+export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SandboxNotFoundError", {
+  workspaceID: Schema.String,
+}) {}
 
 // Simple LRU cache for workspace resolution (30s TTL)
 interface CacheEntry {

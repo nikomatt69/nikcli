@@ -88,7 +88,7 @@ describe("FormatError", () => {
   })
 
   it("returns empty string for UI.CancelledError", () => {
-    const e = new UI.CancelledError(undefined as unknown as void)
+    const e = new UI.CancelledError()
     expect(FormatError(e)).toBe("")
   })
 

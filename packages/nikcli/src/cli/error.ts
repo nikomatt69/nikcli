@@ -8,13 +8,13 @@ import { UI } from "./ui"
 const log = Log.create({ service: "error-formatter" })
 
 export function FormatError(input: unknown): string | undefined {
-  if (MCP.Failed.isInstance(input)) {
-    log.debug("Formatting MCP error", { serverName: input.data.name })
-    return `MCP server "${input.data.name}" failed. Note, nikcli does not support MCP authentication yet.`
+  if (input instanceof MCP.Failed) {
+    log.debug("Formatting MCP error", { serverName: input.name })
+    return `MCP server "${input.name}" failed. Note, nikcli does not support MCP authentication yet.`
   }
 
-  if (Provider.ModelNotFoundError.isInstance(input)) {
-    const { providerID, modelID, suggestions } = input.data
+  if (input instanceof Provider.ModelNotFoundError) {
+    const { providerID, modelID, suggestions } = input
     const message = [
       `Model not found: ${providerID}/${modelID}`,
       ...(Array.isArray(suggestions) && suggestions.length
@@ -27,44 +27,45 @@ export function FormatError(input: unknown): string | undefined {
     return message
   }
 
-  if (Provider.InitError.isInstance(input)) {
-    log.debug("Formatting provider init error", { providerID: input.data.providerID })
-    return `Failed to initialize provider "${input.data.providerID}". Check credentials and configuration.`
+  if (input instanceof Provider.InitError) {
+    log.debug("Formatting provider init error", { providerID: input.providerID })
+    return `Failed to initialize provider "${input.providerID}". Check credentials and configuration.`
   }
 
-  if (Config.JsonError.isInstance(input)) {
+  if (input instanceof Config.JsonError) {
     const message =
-      `Config file at ${input.data.path} is not valid JSON(C)` +
-      (input.data.message ? `: ${input.data.message}` : "")
-    log.warn("Config JSON error", { path: input.data.path, message: input.data.message })
+      `Config file at ${input.path} is not valid JSON(C)` +
+      (input.message ? `: ${input.message}` : "")
+    log.warn("Config JSON error", { path: input.path, message: input.message })
     return message
   }
 
-  if (Config.ConfigDirectoryTypoError.isInstance(input)) {
+  if (input instanceof Config.ConfigDirectoryTypoError) {
     log.debug("Formatting config directory typo error", {
-      dir: input.data.dir,
-      suggestion: input.data.suggestion,
+      dir: input.dir,
+      suggestion: input.suggestion,
     })
-    return `Directory "${input.data.dir}" in ${input.data.path} is not valid. Rename the directory to "${input.data.suggestion}" or remove it. This is a common typo.`
+    return `Directory "${input.dir}" in ${input.path} is not valid. Rename the directory to "${input.suggestion}" or remove it. This is a common typo.`
   }
 
-  if (ConfigMarkdown.FrontmatterError.isInstance(input)) {
-    log.debug("Formatting frontmatter error", { message: input.data.message })
-    return input.data.message
+  if (input instanceof ConfigMarkdown.FrontmatterError) {
+    log.debug("Formatting frontmatter error", { message: input.message })
+    return input.message
   }
 
-  if (Config.InvalidError.isInstance(input)) {
-    log.debug("Formatting config invalid error", { path: input.data.path, issues: input.data.issues?.length })
+  if (input instanceof Config.InvalidError) {
+    const issues = input.issues as Array<{ message: string; path: string[] }> | undefined
+    log.debug("Formatting config invalid error", { path: input.path, issues: issues?.length })
     return [
       `Configuration is invalid${
-        input.data.path && input.data.path !== "config" ? ` at ${input.data.path}` : ""
+        input.path && input.path !== "config" ? ` at ${input.path}` : ""
       }` +
-        (input.data.message ? `: ${input.data.message}` : ""),
-      ...(input.data.issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
+        (input.message ? `: ${input.message}` : ""),
+      ...(issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
     ].join("\n")
   }
 
-  if (UI.CancelledError.isInstance(input)) {
+  if (input instanceof UI.CancelledError) {
     return undefined
   }
 

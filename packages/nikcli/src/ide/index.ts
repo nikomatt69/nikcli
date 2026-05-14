@@ -2,7 +2,7 @@ import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { spawn } from "bun"
 import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
+import { Schema } from "effect"
 import { Log } from "../util/log"
 
 const SUPPORTED_IDES = [
@@ -25,14 +25,11 @@ export namespace Ide {
     ),
   }
 
-  export const AlreadyInstalledError = NamedError.create("AlreadyInstalledError", z.object({}))
+  export class AlreadyInstalledError extends Schema.TaggedErrorClass<AlreadyInstalledError>()("AlreadyInstalledError", {}) {}
 
-  export const InstallFailedError = NamedError.create(
-    "InstallFailedError",
-    z.object({
-      stderr: z.string(),
-    }),
-  )
+  export class InstallFailedError extends Schema.TaggedErrorClass<InstallFailedError>()("InstallFailedError", {
+    stderr: Schema.String,
+  }) {}
 
   export function ide() {
     if (process.env["TERM_PROGRAM"] === "vscode") {

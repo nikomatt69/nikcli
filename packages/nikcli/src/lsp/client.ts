@@ -8,8 +8,8 @@ import { Log } from "../util/log"
 import { LANGUAGE_EXTENSIONS } from "./language"
 import z from "zod"
 import type { LSPServer } from "./server"
-import { NamedError } from "@nikcli-ai/util/error"
 import { withTimeout } from "../util/timeout"
+import { Schema } from "effect"
 import { Instance } from "../project/instance"
 import { Filesystem } from "../util/filesystem"
 
@@ -22,12 +22,9 @@ export namespace LSPClient {
 
   export type Diagnostic = VSCodeDiagnostic
 
-  export const InitializeError = NamedError.create(
-    "LSPInitializeError",
-    z.object({
-      serverID: z.string(),
-    }),
-  )
+  export class InitializeError extends Schema.TaggedErrorClass<InitializeError>()("LSPInitializeError", {
+    serverID: Schema.String,
+  }) {}
 
   export const Event = {
     Diagnostics: BusEvent.define(
@@ -115,12 +112,7 @@ export namespace LSPClient {
       45_000,
     ).catch((err) => {
       l.error("initialize error", { error: err })
-      throw new InitializeError(
-        { serverID: input.serverID },
-        {
-          cause: err,
-        },
-      )
+      throw Object.assign(new InitializeError({ serverID: input.serverID }), { cause: err })
     })
 
     await connection.sendNotification("initialized", {})

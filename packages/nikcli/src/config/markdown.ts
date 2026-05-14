@@ -1,6 +1,5 @@
-import { NamedError } from "@nikcli-ai/util/error"
 import matter from "gray-matter"
-import { z } from "zod"
+import { Schema } from "effect"
 
 export namespace ConfigMarkdown {
   export const FILE_REGEX = /(?<![\w`])@(\.?[^\s`,.]*(?:\.[^\s`,.]+)*)/g
@@ -68,21 +67,15 @@ export namespace ConfigMarkdown {
       const md = matter(template)
       return md
     } catch (err) {
-      throw new FrontmatterError(
-        {
-          path: filePath,
-          message: `${filePath}: Failed to parse YAML frontmatter: ${err instanceof Error ? err.message : String(err)}`,
-        },
-        { cause: err },
-      )
+      throw Object.assign(new FrontmatterError({
+        path: filePath,
+        message: `${filePath}: Failed to parse YAML frontmatter: ${err instanceof Error ? err.message : String(err)}`,
+      }), { cause: err })
     }
   }
 
-  export const FrontmatterError = NamedError.create(
-    "ConfigFrontmatterError",
-    z.object({
-      path: z.string(),
-      message: z.string(),
-    }),
-  )
+  export class FrontmatterError extends Schema.TaggedErrorClass<FrontmatterError>()("ConfigFrontmatterError", {
+    path: Schema.String,
+    message: Schema.String,
+  }) {}
 }

@@ -490,12 +490,10 @@
         "jimp": "1.6.0",
         "jsonc-parser": "3.3.1",
         "minimatch": "10.0.3",
-        "mysql2": "3.16.1",
         "node-pty": "1.1.0",
         "open": "10.1.2",
         "opentui-spinner": "0.0.6",
         "partial-json": "0.1.7",
-        "pg": "8.17.2",
         "remeda": "catalog:",
         "semver": "7.7.4",
         "solid-js": "catalog:",
@@ -527,8 +525,6 @@
         "@standard-schema/spec": "1.0.0",
         "@tsconfig/bun": "catalog:",
         "@types/babel__core": "7.20.5",
-        "@types/bun": "catalog:",
-        "@types/pg": "8.16.0",
         "@types/semver": "7.7.1",
         "@types/ssh2": "1.15.5",
         "@types/turndown": "5.0.5",
@@ -6304,8 +6300,6 @@
     "nikcli/@opentui/solid": ["@opentui/solid@0.1.95", "", { "dependencies": { "@babel/core": "7.28.0", "@babel/preset-typescript": "7.27.1", "@opentui/core": "0.1.95", "babel-plugin-module-resolver": "5.0.2", "babel-preset-solid": "1.9.10", "entities": "7.0.1", "s-js": "^0.4.9" }, "peerDependencies": { "solid-js": "1.9.11" } }, "sha512-iotYCvULgDurLXv3vgOzTLnEOySHFOa/6cEDex76jBt+gkniOEh2cjxxIVt6lkfTsk6UNTk6yCdwNK3nca/j+Q=="],
 
     "nikcli/ghostty-web": ["ghostty-web@0.3.0", "", {}, "sha512-SAdSHWYF20GMZUB0n8kh1N6Z4ljMnuUqT8iTB2n5FAPswEV10MejEpLlhW/769GL5+BQa1NYwEg9y/XCckV5+A=="],
-
-    "nikcli/mysql2": ["mysql2@3.16.1", "", { "dependencies": { "aws-ssl-profiles": "^1.1.1", "denque": "^2.1.0", "generate-function": "^2.3.1", "iconv-lite": "^0.7.0", "long": "^5.2.1", "lru.min": "^1.0.0", "named-placeholders": "^1.1.6", "seq-queue": "^0.0.5", "sqlstring": "^2.3.2" } }, "sha512-b75qsDB3ieYEzMsT1uRGsztM/sy6vWPY40uPZlVVl8eefAotFCoS7jaDB5DxDNtlW5kdVGd9jptSpkvujNxI2A=="],
 
     "nikcli/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 

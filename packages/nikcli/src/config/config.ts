@@ -8,7 +8,6 @@ import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
 import { lazy, lazyAsync } from "../util/lazy"
-import { NamedError } from "@nikcli-ai/util/error"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
@@ -20,7 +19,7 @@ import { existsSync } from "fs"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { Event } from "../server/event"
-import { Context, Effect, Layer, ScopedCache } from "effect"
+import { Context, Effect, Layer, Schema, ScopedCache } from "effect"
 import { InstanceState, runPromiseWithLayer } from "@/effect"
 import type { InstanceContext } from "@/effect"
 import { ConfigPaths } from "./paths"
@@ -271,11 +270,11 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
-          ? err.data.message
+        const message = err instanceof ConfigMarkdown.FrontmatterError
+          ? err.message
           : `Failed to parse command ${item}`
         const { Session } = await import("@/session")
-        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load command", { command: item, err })
         return undefined
       })
@@ -295,7 +294,7 @@ export namespace Config {
         result[config.name] = parsed.data
         continue
       }
-      throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
+      throw Object.assign(new InvalidError({ path: item, issues: parsed.error.issues }), { cause: parsed.error })
     }
     return result
   }
@@ -311,11 +310,11 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
-          ? err.data.message
+        const message = err instanceof ConfigMarkdown.FrontmatterError
+          ? err.message
           : `Failed to parse agent ${item}`
         const { Session } = await import("@/session")
-        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load agent", { agent: item, err })
         return undefined
       })
@@ -335,7 +334,7 @@ export namespace Config {
         result[config.name] = parsed.data
         continue
       }
-      throw new InvalidError({ path: item, issues: parsed.error.issues }, { cause: parsed.error })
+      throw Object.assign(new InvalidError({ path: item, issues: parsed.error.issues }), { cause: parsed.error })
     }
     return result
   }
@@ -350,11 +349,11 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = ConfigMarkdown.FrontmatterError.isInstance(err)
-          ? err.data.message
+        const message = err instanceof ConfigMarkdown.FrontmatterError
+          ? err.message
           : `Failed to parse mode ${item}`
         const { Session } = await import("@/session")
-        Bus.publish(Session.Event.Error, { error: new NamedError.Unknown({ message }).toObject() })
+        Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load mode", { mode: item, err })
         return undefined
       })
@@ -1583,7 +1582,7 @@ export namespace Config {
       .text()
       .catch((err) => {
         if (err.code === "ENOENT") return
-        throw new JsonError({ path: filepath }, { cause: err })
+        throw Object.assign(new JsonError({ path: filepath }), { cause: err })
       })
     if (!text) return {}
     return load(text, filepath, env)
@@ -1622,15 +1621,12 @@ export namespace Config {
             .catch((error) => {
               const errMsg = `bad file reference: "${match}"`
               if (error.code === "ENOENT") {
-                throw new InvalidError(
-                  {
+                throw Object.assign(new InvalidError({
                     path: configFilepath,
                     message: errMsg + ` ${resolvedPath} does not exist`,
-                  },
-                  { cause: error },
-                )
+                  }), { cause: error })
               }
-              throw new InvalidError({ path: configFilepath, message: errMsg }, { cause: error })
+              throw Object.assign(new InvalidError({ path: configFilepath, message: errMsg }), { cause: error })
             })
         ).trim()
         // escape newlines/quotes, strip outer quotes
@@ -1708,31 +1704,22 @@ export namespace Config {
       issues: parsed.error.issues,
     })
   }
-  export const JsonError = NamedError.create(
-    "ConfigJsonError",
-    z.object({
-      path: z.string(),
-      message: z.string().optional(),
-    }),
-  )
+  export class JsonError extends Schema.TaggedErrorClass<JsonError>()("ConfigJsonError", {
+    path: Schema.String,
+    message: Schema.optional(Schema.String),
+  }) {}
 
-  export const ConfigDirectoryTypoError = NamedError.create(
-    "ConfigDirectoryTypoError",
-    z.object({
-      path: z.string(),
-      dir: z.string(),
-      suggestion: z.string(),
-    }),
-  )
+  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()("ConfigDirectoryTypoError", {
+    path: Schema.String,
+    dir: Schema.String,
+    suggestion: Schema.String,
+  }) {}
 
-  export const InvalidError = NamedError.create(
-    "ConfigInvalidError",
-    z.object({
-      path: z.string(),
-      issues: z.custom<z.core.$ZodIssue[]>().optional(),
-      message: z.string().optional(),
-    }),
-  )
+  export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
+    path: Schema.optional(Schema.String),
+    issues: Schema.optional(Schema.Unknown),
+    message: Schema.optional(Schema.String),
+  }) {}
 
   async function updateImpl(ctx: InstanceContext, config: Info) {
     const filepath = path.join(ctx.directory, "nikcli.json")
@@ -1784,7 +1771,7 @@ export namespace Config {
       .text()
       .catch((err) => {
         if (err.code === "ENOENT") return "{}"
-        throw new JsonError({ path: filepath }, { cause: err })
+        throw Object.assign(new JsonError({ path: filepath }), { cause: err })
       })
 
     const existing = before.trim() ? parseConfig(before, filepath) : ({} as Info)
