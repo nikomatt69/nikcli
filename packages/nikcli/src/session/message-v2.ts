@@ -1,6 +1,5 @@
 import { BusEvent } from "@/bus/bus-event"
 import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
 import { EventError } from "./event-error"
 import { Schema } from "effect"
 import { APICallError, convertToModelMessages, LoadAPIKeyError, type ModelMessage, type UIMessage } from "ai"
@@ -46,33 +45,64 @@ export namespace MessageV2 {
     message: Schema.String,
     responseBody: Schema.optional(Schema.String),
   }) {}
-  export const AbortedError = NamedError.create("MessageAbortedError", z.object({ message: z.string() }))
-  export const StructuredOutputError = NamedError.create(
-    "StructuredOutputError",
-    z.object({
-      message: z.string(),
-      retries: z.number(),
-    }),
-  )
-  export const AuthError = NamedError.create(
-    "ProviderAuthError",
-    z.object({
-      providerID: z.string(),
-      message: z.string(),
-    }),
-  )
-  export const APIError = NamedError.create(
-    "APIError",
-    z.object({
-      message: z.string(),
-      statusCode: z.number().optional(),
-      isRetryable: z.boolean(),
-      responseHeaders: z.record(z.string(), z.string()).optional(),
-      responseBody: z.string().optional(),
-      metadata: z.record(z.string(), z.string()).optional(),
-    }),
-  )
-  export type APIError = z.infer<typeof APIError.Schema>
+  export class AbortedError extends Schema.TaggedErrorClass<AbortedError>()("MessageAbortedError", {
+    message: Schema.String,
+  }) {
+    static readonly Schema = z
+      .object({ name: z.literal("MessageAbortedError"), data: z.object({ message: z.string() }) })
+      .meta({ ref: "MessageAbortedError" })
+    static isInstance(error: unknown): error is z.infer<typeof AbortedError.Schema> {
+      return typeof error === "object" && error !== null && (error as any).name === "MessageAbortedError"
+    }
+  }
+  export class StructuredOutputError extends Schema.TaggedErrorClass<StructuredOutputError>()("StructuredOutputError", {
+    message: Schema.String,
+    retries: Schema.Number,
+  }) {
+    static readonly Schema = z
+      .object({ name: z.literal("StructuredOutputError"), data: z.object({ message: z.string(), retries: z.number() }) })
+      .meta({ ref: "StructuredOutputError" })
+    static isInstance(error: unknown): error is z.infer<typeof StructuredOutputError.Schema> {
+      return typeof error === "object" && error !== null && (error as any).name === "StructuredOutputError"
+    }
+  }
+  export class AuthError extends Schema.TaggedErrorClass<AuthError>()("ProviderAuthError", {
+    providerID: Schema.String,
+    message: Schema.String,
+  }) {
+    static readonly Schema = z
+      .object({ name: z.literal("ProviderAuthError"), data: z.object({ providerID: z.string(), message: z.string() }) })
+      .meta({ ref: "ProviderAuthError" })
+    static isInstance(error: unknown): error is z.infer<typeof AuthError.Schema> {
+      return typeof error === "object" && error !== null && (error as any).name === "ProviderAuthError"
+    }
+  }
+  export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", { 
+    message: Schema.String,
+    statusCode: Schema.optional(Schema.Number),
+    isRetryable: Schema.Boolean,
+    responseHeaders: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+    responseBody: Schema.optional(Schema.String),
+    metadata: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+  }) {
+    static readonly Schema = z
+      .object({
+        name: z.literal("APIError"),
+        data: z.object({
+          message: z.string(),
+          statusCode: z.number().optional(),
+          isRetryable: z.boolean(),
+          responseHeaders: z.record(z.string(), z.string()).optional(),
+          responseBody: z.string().optional(),
+          metadata: z.record(z.string(), z.string()).optional(),
+        }),
+      })
+      .meta({ ref: "APIError" })
+    static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
+      return typeof error === "object" && error !== null && (error as any).name === "APIError"
+    }
+  }
+
 
   export const OutputFormatText = z
     .object({
@@ -832,25 +862,15 @@ export namespace MessageV2 {
   export function fromError(e: unknown, ctx: { providerID: string }) {
     switch (true) {
       case e instanceof DOMException && e.name === "AbortError":
-        return new MessageV2.AbortedError(
-          { message: e.message },
-          {
-            cause: e,
-          },
-        ).toObject()
+        return { name: "MessageAbortedError" as const, data: { message: e.message } }
       case e instanceof MessageV2.OutputLengthError:
         return { name: "MessageOutputLengthError" as const, data: {} as Record<string, never> }
       case LoadAPIKeyError.isInstance(e):
-        return new MessageV2.AuthError(
-          {
-            providerID: ctx.providerID,
-            message: e.message,
-          },
-          { cause: e },
-        ).toObject()
+        return { name: "ProviderAuthError" as const, data: { providerID: ctx.providerID, message: e.message } }
       case (e as SystemError)?.code === "ECONNRESET":
-        return new MessageV2.APIError(
-          {
+        return {
+          name: "APIError" as const,
+          data: {
             message: "Connection reset by server",
             isRetryable: true,
             metadata: {
@@ -859,8 +879,7 @@ export namespace MessageV2 {
               message: (e as SystemError).message ?? "",
             },
           },
-          { cause: e },
-        ).toObject()
+        }
       case APICallError.isInstance(e): {
         const message = iife(() => {
           let msg = e.message
@@ -893,8 +912,9 @@ export namespace MessageV2 {
         }).trim()
 
         const metadata = e.url ? { url: e.url } : undefined
-        return new MessageV2.APIError(
-          {
+        return {
+          name: "APIError" as const,
+          data: {
             message,
             statusCode: e.statusCode,
             isRetryable: ctx.providerID.startsWith("openai") ? isOpenAiErrorRetryable(e) : e.isRetryable,
@@ -902,8 +922,7 @@ export namespace MessageV2 {
             responseBody: e.responseBody,
             metadata,
           },
-          { cause: e },
-        ).toObject()
+        }
       }
       // falls through — both cases have return statements, so fall-through is unreachable
       case e instanceof Error:

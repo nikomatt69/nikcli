@@ -413,6 +413,26 @@ Tool.define(id, init)
 **Context/Intelligence**: `memory_search`, `context_collect`, `context_related`, `context_diagnostics`, `codesearch`, `websearch`, `webfetch`, `search_tools`
 **External**: `generate_image`, `speak`, `mcp-exa`, `repo_clone`, `repo_overview`
 
+### Batch Tool + Plan Mode (`src/tool/batch.ts`)
+
+The batch tool executes multiple tool calls in a single turn. When running with `plan` agent, it enforces read-only restrictions:
+
+**Restricted tools in plan mode**: `edit`, `write`, `apply_patch`, unsafe `bash`
+**Safe bash commands in plan mode**: `ls`, `cat`, `git status`, `git diff`, `git log`, `grep`, `head`, `tail`, `find`, `wc`, `file`
+
+Key functions:
+```typescript
+function isPlanModeAgent(agent?: string): boolean {
+  return agent === "plan"
+}
+
+function isSafeBashCommand(command: string): boolean {
+  // Allowed: ls, cat, git status, grep, find, etc.
+}
+```
+
+Error messages guide users toward allowed alternatives or suggest switching to `build` agent.
+
 ### Permission Flow
 
 - Every file-modifying tool calls `ctx.ask()` before execution
@@ -1841,3 +1861,111 @@ export class NamedError extends Error {
 1. **AI SDK LanguageModel** (`getLanguage`) — custom model loaders per provider (OpenAI, Azure, Copilot, Bedrock, Vertex)
 2. **@nikcli-ai/llm Route-Based** (`getModelRef`) — maps `model.api.npm` → route + provider factory
 3. **Provider State Construction** (`buildState`) — merges models.dev DB + config + env + auth + plugin loaders
+
+## Deep Analysis Sessions (2026-05-14)
+
+### Session & Agent System (`src/session/`, `src/agent/`)
+
+**Session creation flow** (`Session.Service.createNextImpl`):
+- Inherits skills from parent session if not specified
+- ID format: `Identifier.descending("session")` for newest-first ordering
+- Title: "New session - YYYY-MM-DD..." (or parent title for forked sessions)
+- Publishes `BusEvent.Session.Created` after storage write
+- Analytics recording on session creation
+
+**Message processing loop** (`SessionPrompt.loop()`):
+1. Load messages stream, filter compacted sessions
+2. Check session end (finish type + role)
+3. Handle special tasks (SubtaskPart, CompactionPart)
+4. Create processor → process messages → result (continue/stop/compact)
+
+**Plan mode behavior** (`src/tool/batch.ts`):
+- `plan` agent restricts file modification: `edit`, `write`, `apply_patch` blocked
+- `bash` restricted to read-only commands: `ls`, `cat`, `git status/diff/log`, `grep`, `find`, `wc`
+- Error messages guide toward allowed alternatives or suggest `build` agent switch
+
+**Message serialization** (`MessageV2.withParts`):
+- Part-based storage with incremental updates
+- Delta coalescer reduces ~500 writes/message to ~10-20 via 150ms debouncing
+- Text delta flow: in-memory append → Bus.publish → scheduled Storage.write → text-end flushes immediately
+
+### LLM Provider System (`src/provider/`)
+
+**Provider support** (25+ providers):
+- Bundled: OpenAI, Anthropic, Google
+- Custom loaders: Azure, GitHub Copilot, Amazon Bedrock, Google Vertex, GitLab
+- OpenRouter (150+ models), Ollama (auto-detect at localhost:11434)
+- SAP AI Core, Cloudflare AI Gateway, Mistral, Groq, DeepInfra, Cerebras, Cohere, Perplexity
+
+**Model schema** (`Provider.Model`):
+- `cost`: input/output per-million pricing + cache read/write
+- `limit.context`: max context tokens
+- `capabilities`: temperature, reasoning, toolcall, attachments, input/output types
+
+**SDK caching** (`getSDK`):
+- Key: xxHash32(npm + options)
+- Bundled providers imported directly; others use dynamic `import()` via BunProc.install
+- Custom fetch wraps: timeout via AbortSignal, strips OpenAI itemId metadata, injects cache_control for Anthropic
+
+### Server Routes (19 route groups)
+
+**Key routes by priority**:
+- `/session/*` — CRUD, fork, abort, share, diff, summarize
+- `/provider/*` — config, auth, model list
+- `/mobile/*` — doctor, expo, simulator, git, github, oauth
+- `/workspace/*` — CRUD, sync, events
+- `/tui/*` — control, input, routes, themes, onboarding
+- `/mcp/*` — MCP server CRUD, tools, resources, prompts
+
+**Middleware stack** (ordered):
+1. Error handler → 2. Share redirect → 3. Share endpoints → 4. User auth → 5. Server auth → 6. Request logging → 7. CORS → 8. `/global` routes → 9. Workspace context → 10. OpenAPI → 11. Query validation → 12. HttpApiBridge (experimental) → 13. Route groups → 14. Catch-all proxy
+
+### Utilities (`src/util/`)
+
+| Utility | File | Purpose |
+|---------|------|---------|
+| `Filesystem` | `filesystem.ts` | isContained, readJson, writeJson, findUp, globUp |
+| `Archive` | `archive.ts` | extractZip (cross-platform unzip/PowerShell) |
+| `WindowsPath` | `windows-path.ts` | Git Bash/Cygwin/WSL path conversion |
+| `Log` | `log.ts` | Structured logging with file output, timing, tagging |
+| `Format` | `format.ts` | formatDuration (human-readable durations) |
+| `Color` | `color.ts` | hexToRgb, hexToAnsiBold |
+| `Locale` | `locale.ts` | titlecase, time, datetime, number, duration, truncate, truncateMiddle, pluralize |
+| `Lock` | `lock.ts` | In-memory reader-writer lock |
+| `Flock` | `flock.ts` | File-based distributed lock with lease |
+
+### Remote Execution System (`src/cli/remote/`, `packages/remote/`, `packages/companion/`)
+
+**Architecture**:
+```
+RemoteServer (packages/remote/)
+├── HTTPS Server (createServer) — /health, /api/session, /ghostty-*.wasm
+├── WebSocket Server — /ws/cli/, /ws/browser/
+└── STDOUT Proxy — process.stdout/stdin forwarding
+
+CLI Layer (packages/nikcli/)
+├── RemoteService singleton
+├── SessionManager — start/stop/broadcast/notifications
+├── TunnelManager — localtunnel, cloudflared, ngrok, remotafh
+└── SubagentRemoteHooks — onStart/onProgress/onComplete → broadcast
+```
+
+**WebSocket protocol** (auth required):
+1. Client connects → `auth:required` → client sends `{type: "auth", token}`
+2. Auth success → bidirectional: terminal:input/resize ↔ terminal:output
+3. Heartbeat: ping/pong every 5s, timeout 60s
+4. Max 5 concurrent connections per server
+
+**Companion package** (`packages/companion/`):
+- `ws-bridge.ts` — WebSocket bridge between local server and companion app
+- `cli-launcher.ts` — Launches companion app via URL scheme
+- Session state management with durable persistence
+
+### Integration Master Plan (`specs/integration-master-plan.md`)
+
+Central tracking document for v2 migration. Key epochs:
+- **E7**: v2 Features — batch tool + plan mode (E7-E)
+- **E9**: APIError migration (retry.ts → api-error.ts)
+- **E10**: Config migration (to Effect-based services)
+
+Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode integration complete. APIError migration pending in test files.

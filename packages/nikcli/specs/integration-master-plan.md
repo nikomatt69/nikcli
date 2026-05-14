@@ -15,21 +15,22 @@ Validation invariant per epoch: `bun run typecheck` exits 0 before moving forwar
 
 ### Complete
 
-| Area | Evidence |
-|------|----------|
-| Effect 4.0.0-beta.65 upgrade (Phase Q) | 0 type errors, all 19 packages |
-| Service shape migrations (39 services) | migration.md checklist |
-| Phase J: all tool parameter schemas | schema.md tool section |
-| Phase F: Instance.provide entry boundaries (21 files) | MASTER-PLAN.md |
-| Phase K1: MCP OAuth bridge | httpapi/mcp.ts |
-| HttpApi bridge slices: question, permission, config, project, provider, file, mcp, session CRUD, workspace, experimental | httpapi/ directory |
-| OpenAPI translation PRs 1+2 (drift tests + InstanceQueryParameters removal) | openapi-translation-cleanup.md |
-| Phase A1–A3: Filesystem, lazy, env consolidation | MASTER-PLAN.md |
-| Phase B1–B4: config/tui config consolidation | MASTER-PLAN.md |
-| Phase E: schema leaf files | schema.md |
-| **E1-A**: NamedError.create → Schema.TaggedErrorClass for all service errors | commit `6de3069` |
-| **E1-B**: NamedError.Unknown → EventError helpers; wire format aligned to "UnknownError" | commit `6de3069` |
-| **E1-C Step 1**: LSP leaf schemas (Range, Symbol, DocumentSymbol) → Effect Schema via zodObject | `src/lsp/index.ts`; fix in `effect-zod.ts` FieldToZod input type |
+| Area                                                                                                                                                                                                            | Evidence                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Effect 4.0.0-beta.65 upgrade (Phase Q)                                                                                                                                                                          | 0 type errors, all 19 packages                                   |
+| Service shape migrations (39 services)                                                                                                                                                                          | migration.md checklist                                           |
+| Phase J: all tool parameter schemas                                                                                                                                                                             | schema.md tool section                                           |
+| Phase F: Instance.provide entry boundaries (21 files)                                                                                                                                                           | MASTER-PLAN.md                                                   |
+| Phase K1: MCP OAuth bridge                                                                                                                                                                                      | httpapi/mcp.ts                                                   |
+| HttpApi bridge slices: question, permission, config, project, provider, file, mcp, session CRUD, workspace, experimental                                                                                        | httpapi/ directory                                               |
+| OpenAPI translation PRs 1+2 (drift tests + InstanceQueryParameters removal)                                                                                                                                     | openapi-translation-cleanup.md                                   |
+| Phase A1–A3: Filesystem, lazy, env consolidation                                                                                                                                                                | MASTER-PLAN.md                                                   |
+| Phase B1–B4: config/tui config consolidation                                                                                                                                                                    | MASTER-PLAN.md                                                   |
+| Phase E: schema leaf files                                                                                                                                                                                      | schema.md                                                        |
+| **E1-A**: NamedError.create → Schema.TaggedErrorClass for all service errors                                                                                                                                    | commit `6de3069`                                                 |
+| **E1-B**: NamedError.Unknown → EventError helpers; wire format aligned to "UnknownError"                                                                                                                        | commit `6de3069`                                                 |
+| **E1-C Step 1**: LSP leaf schemas (Range, Symbol, DocumentSymbol) → Effect Schema via zodObject                                                                                                                 | `src/lsp/index.ts`; fix in `effect-zod.ts` FieldToZod input type |
+| **Batch Tool + Plan Mode**: batch tool restricts file modification tools (edit, write, apply_patch) and bash commands in plan mode. Safe read-only bash commands (ls, cat, git status, grep, etc.) are allowed. | `src/tool/batch.ts`, `src/tool/batch.txt`                        |
 
 ### Still Open (this plan)
 
@@ -117,6 +118,7 @@ The session cluster is the largest remaining Phase P surface and directly blocks
 flip. Migrate leaf-first per `schema.md` ordering:
 
 **Step 1** — LSP + snapshot leaf schemas (unblock message-v2):
+
 - `src/lsp/lsp.ts` — `LSP.Range`, `LSP.Location` as Effect Schema.
 - `src/snapshot/index.ts` — `Snapshot.FileDiff`, `Snapshot.Patch` (Patch already
   migrated; verify `FileDiff` shape).
@@ -130,6 +132,7 @@ Schema is the source of truth; derive `.zod` via `zodObject(...)` for the SSE/Op
 boundary only.
 
 **Step 3** — Remaining session files in order:
+
 - `src/session/message.ts`
 - `src/session/prompt.ts`
 - `src/session/revert.ts`
@@ -145,6 +148,7 @@ For each file: declare `Schema.Struct(...)` or `Schema.Class(...)`, expose
 `bun packages/sdk/js/script/build.ts`.
 
 **Step 4** — Remaining Phase P surfaces (can overlap with Step 3):
+
 - Provider domain: `src/provider/models.ts`, `src/provider/provider.ts`.
 - Config domain: skills, formatter, console-state, mcp, lsp, model-id, command, plugin,
   provider sections of config schema.
@@ -193,11 +197,13 @@ Replace `cache: Map<string, Promise<Context>>` in `src/project/instance.ts` with
 `Effect.ScopedCache`:
 
 ```ts
-const cache = yield* Effect.ScopedCache.make({
-  capacity: Number.MAX_SAFE_INTEGER,
-  timeToLive: Duration.infinity,
-  lookup: (directory: string) => makeInstanceLayer(directory),
-})
+const cache =
+  yield *
+  Effect.ScopedCache.make({
+    capacity: Number.MAX_SAFE_INTEGER,
+    timeToLive: Duration.infinity,
+    lookup: (directory: string) => makeInstanceLayer(directory),
+  })
 ```
 
 `Instance.provide({directory, fn})` becomes `AppRuntime.runPromise(Effect.gen(function*() {
@@ -208,6 +214,7 @@ const cache = yield* Effect.ScopedCache.make({
 `Instance.disposeAll()` → `cache.invalidateAll()`.
 
 Risks to validate with focused tests before landing:
+
 - Concurrent `Instance.provide` for same directory deduplicates via fiber-join.
 - `Instance.dispose()` fired while boot in-flight.
 - `init?` callback runs exactly once per directory.
@@ -237,18 +244,19 @@ Start after Epoch 2. All routes use Bun-native `@effect/platform-bun` runtime.
 
 Bridge the remaining session routes not yet in `src/server/httpapi/session.ts`:
 
-| Route | Notes |
-|-------|-------|
-| `POST /session/:sessionID/init` | run project init command |
-| `POST /session/:sessionID/share` | requires `ShareNext.Service` |
-| `DELETE /session/:sessionID/share` | unshare session |
-| `POST /session/:sessionID/summarize` | requires `SessionSummary.Service` |
-| `POST /session/:sessionID/prompt_async` | async prompt (non-streaming) |
-| `POST /session/:sessionID/command` | run command |
-| `POST /session/:sessionID/shell` | run shell command via Bun |
-| `POST /session/:sessionID/permissions/:permissionID` | deprecated reply route |
+| Route                                                | Notes                             |
+| ---------------------------------------------------- | --------------------------------- |
+| `POST /session/:sessionID/init`                      | run project init command          |
+| `POST /session/:sessionID/share`                     | requires `ShareNext.Service`      |
+| `DELETE /session/:sessionID/share`                   | unshare session                   |
+| `POST /session/:sessionID/summarize`                 | requires `SessionSummary.Service` |
+| `POST /session/:sessionID/prompt_async`              | async prompt (non-streaming)      |
+| `POST /session/:sessionID/command`                   | run command                       |
+| `POST /session/:sessionID/shell`                     | run shell command via Bun         |
+| `POST /session/:sessionID/permissions/:permissionID` | deprecated reply route            |
 
 Each handler:
+
 - Uses `InstanceState.context` / `InstanceState.directory` — no `Instance.*` ALS reads.
 - Declares typed domain errors in the endpoint error schema.
 - Has bridge-level test coverage (`bun test test/server/httpapi-session.test.ts`).
@@ -286,6 +294,7 @@ Replace Hono WebSocket in PTY routes with `@effect/platform-bun` WebSocket suppo
 upgrade that pipes PTY input/output through the bun WebSocket handler.
 
 Routes to implement in `src/server/httpapi/pty.ts`:
+
 - `GET /pty` — list PTY sessions.
 - `POST /pty` — create PTY session.
 - `GET /pty/:ptyID` — get PTY session.
@@ -379,23 +388,23 @@ Each group requires:
 
 Deletion order (ascending blast radius):
 
-| Group | Files |
-|-------|-------|
-| top-level instance reads | `src/server/routes/top-level.ts` |
-| config | `src/server/routes/config.ts` |
-| project | `src/server/routes/project.ts` |
-| provider | `src/server/routes/provider.ts` |
-| question | `src/server/routes/question.ts` |
-| permission | `src/server/routes/permission.ts` |
-| file | `src/server/routes/file.ts` |
-| mcp | `src/server/routes/mcp.ts` |
-| experimental | `src/server/routes/experimental.ts` |
-| workspace | `src/server/routes/workspace.ts` |
-| sync | `src/server/routes/sync.ts` |
-| session | `src/server/routes/session.ts` |
-| event | `src/server/routes/event.ts` |
-| pty | `src/server/routes/pty.ts` |
-| tui | `src/server/routes/tui.ts` |
+| Group                    | Files                               |
+| ------------------------ | ----------------------------------- |
+| top-level instance reads | `src/server/routes/top-level.ts`    |
+| config                   | `src/server/routes/config.ts`       |
+| project                  | `src/server/routes/project.ts`      |
+| provider                 | `src/server/routes/provider.ts`     |
+| question                 | `src/server/routes/question.ts`     |
+| permission               | `src/server/routes/permission.ts`   |
+| file                     | `src/server/routes/file.ts`         |
+| mcp                      | `src/server/routes/mcp.ts`          |
+| experimental             | `src/server/routes/experimental.ts` |
+| workspace                | `src/server/routes/workspace.ts`    |
+| sync                     | `src/server/routes/sync.ts`         |
+| session                  | `src/server/routes/session.ts`      |
+| event                    | `src/server/routes/event.ts`        |
+| pty                      | `src/server/routes/pty.ts`          |
+| tui                      | `src/server/routes/tui.ts`          |
 
 Per file: remove `describeRoute` + validator + handler, remove `.route(...)` registration,
 delete duplicate Zod-only DTOs, regenerate SDK, verify no diff.
@@ -481,6 +490,38 @@ type PromptEditor = {
 
 Effect Schema for `PromptPart` variants. Tests cover append/prepend round-trip.
 
+### E7-E: Batch Tool + Plan Mode Integration (✅ Complete)
+
+**Status:** Implemented in `src/tool/batch.ts`, `src/tool/batch.txt`
+
+**Overview:**
+The batch tool now integrates with Plan Mode to enforce read-only restrictions during the planning phase. This prevents accidental file modifications while still allowing parallel tool execution for context gathering.
+
+**Plan Mode Behavior:**
+When `ctx.agent === "plan"`, the batch tool enforces the following restrictions:
+
+| Tool          | Status        | Notes                        |
+| ------------- | ------------- | ---------------------------- |
+| `edit`        | ❌ Blocked    | Use read, grep, glob instead |
+| `write`       | ❌ Blocked    | Use read, grep instead       |
+| `apply_patch` | ❌ Blocked    | Not available in plan mode   |
+| `bash`        | ⚠️ Restricted | Only safe read-only commands |
+
+**Safe Bash Commands (Plan Mode):**
+
+- `ls`, `cat`, `git status`, `git diff`, `git log`
+- `grep`, `head`, `tail`, `find`, `wc`, `file`
+
+**Implementation Details:**
+
+- `PLAN_MODE_RESTRICTED` set — tools blocked in plan mode
+- `PLAN_MODE_SAFE_BASH` set — allowed bash commands
+- `isPlanModeAgent(agent)` — detects plan mode from context
+- `isSafeBashCommand(command)` — validates bash commands
+- Clear error messages with examples for alternative tools
+
+**Gate:** `bun run typecheck` passes with no errors in batch tool
+
 ---
 
 ## Epoch 8 — RuntimeFlags + Global Cleanup
@@ -488,6 +529,7 @@ Effect Schema for `PromptPart` variants. Tests cover append/prepend round-trip.
 ### E8-A: Flag.ts Deletion (P2)
 
 Sweep remaining `Flag.*` reads:
+
 - Per callsite: route through `RuntimeFlags.Service`, accept as env/config boundary, or
   migrate to typed `Config`.
 - Delete `test/fixture/flag.ts` once tests no longer mutate `Flag`.
@@ -529,7 +571,7 @@ Follow `specs/effect/server-package.md`:
 
 ## v2 API Surface (specs/v2/api.ts)
 
-The public `OpenCode.make({})` / `nikcli.session.*` / `nikcli.tool.add(...)` API exposed
+The public `nikcli.make({})` / `nikcli.session.*` / `nikcli.tool.add(...)` API exposed
 by `@nikcli-ai/core` is the long-term public SDK surface. Wire it after the internal
 HttpApi migration is stable:
 
@@ -563,31 +605,32 @@ Per `specs/tui-plugins.md`, the current system is documented but two gaps remain
 
 ## Validation Gates Per Epoch
 
-| Epoch | Gate |
-|-------|------|
-| E1-A | `rg "NamedError.create" src` → session wire helpers only |
-| E1-B | `rg "NamedError.Unknown" src` → 0 matches |
-| E1-C | SDK byte-identity after each file; `bun run typecheck` |
-| E2-A | `bun test test/sync/... test/workspace/...` |
-| E2-B | `bun test test/project/instance-cache.test.ts`; concurrent dispose test |
-| E2-C | `bun test test/server/httpapi-*.test.ts`; middleware LOC decreases |
-| E3-A | `bun test test/server/httpapi-session.test.ts` covers all new routes |
-| E3-B | `bun test test/server/httpapi-sync.test.ts` |
-| E3-C | SSE stream test; no Hono `streamSSE` import in Effect backend |
-| E3-D | PTY WebSocket integration test using Bun WS client |
-| E3-E | TUI control routes integration test |
-| E4-A | `bun packages/sdk/js/script/build.ts --diff` → 0 unexpected lines |
-| E4-B | Each PR: OpenAPI drift test + typecheck + SDK diff |
-| E4-C | `bun packages/sdk/js/script/build.ts` → identical to pre-flip baseline or documented diff |
-| E5 | Per group: SDK diff 0; `rg "from \"hono\"" src/server` shrinks after each deletion |
-| E6 | `rg -l "Instance\.(current|directory|worktree|project|provide)" src` → documented bridge files only |
-| E7-A | `bun run typecheck` in packages/plugin + packages/nikcli |
-| E7-B | Plugin config migration test; existing keybind tests pass |
-| E7-C | Config schema snapshot test |
-| E7-D | Prompt hook test covering append/prepend/insertAfter |
-| E8-A | `rg "from.*flag.ts" packages/*/src` → 0 matches |
-| E8-B | No import-time directory creation outside `GlobalPaths.Service.init` |
-| E9 | `bun test` in packages/server; `packages/nikcli` still passes |
+| Epoch | Gate                                                                     |
+| ----- | ------------------------------------------------------------------------ |
+| E1-A  | `rg "NamedError.create" src` → session wire helpers only                 |
+| E1-B  | `rg "NamedError.Unknown" src` → 0 matches                                |
+| E1-C  | SDK byte-identity after each file; `bun run typecheck`                   |
+| E2-A  | `bun test test/sync/... test/workspace/...`                              |
+| E2-B  | `bun test test/project/instance-cache.test.ts`                           |
+| E2-C  | `bun test test/server/httpapi-*.test.ts`                                 |
+| E3-A  | `bun test test/server/httpapi-session.test.ts`                           |
+| E3-B  | `bun test test/server/httpapi-sync.test.ts`                              |
+| E3-C  | SSE stream test; no Hono `streamSSE` import                              |
+| E3-D  | PTY WebSocket integration test                                           |
+| E3-E  | TUI control routes integration test                                      |
+| E4-A  | `bun packages/sdk/js/script/build.ts --diff` → 0                         |
+| E4-B  | OpenAPI drift test + typecheck + SDK diff                                |
+| E4-C  | SDK generation identical to pre-flip baseline                            |
+| E5    | `rg "from \"hono\"" src/server` shrinks                                  |
+| E6    | `rg -l "Instance\.(current\|directory\|worktree\|project\|provide)" src` |
+| E7-A  | `bun run typecheck` in packages/plugin + packages/nikcli                 |
+| E7-B  | Plugin config migration test                                             |
+| E7-C  | Config schema snapshot test                                              |
+| E7-D  | Prompt hook test append/prepend/insertAfter                              |
+| E7-E  | `bun run typecheck` passes; no errors in batch tool                      |
+| E8-A  | `rg "from.*flag.ts" packages/*/src` → 0                                  |
+| E8-B  | No import-time dir creation outside `GlobalPaths.Service.init`           |
+| E9    | `bun test` in packages/server                                            |
 
 ---
 

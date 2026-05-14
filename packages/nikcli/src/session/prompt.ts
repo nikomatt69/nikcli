@@ -1055,10 +1055,10 @@ export namespace SessionPrompt {
           step = 0
           continue
         }
-        processor.message.error = new MessageV2.StructuredOutputError({
-          message: "Model did not produce structured output",
-          retries: structuredOutputRetries,
-        }).toObject()
+        processor.message.error = {
+          name: "StructuredOutputError" as const,
+          data: { message: "Model did not produce structured output", retries: structuredOutputRetries },
+        }
         await sessionUpdateMessage(processor.message)
         break
       }
