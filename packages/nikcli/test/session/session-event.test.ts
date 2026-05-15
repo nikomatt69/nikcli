@@ -62,9 +62,12 @@ describe("SessionEvent", () => {
       messageID: Identifier.ascending("message"),
       attempt: 1,
       error: {
-        message: "rate limited",
-        isRetryable: true,
-        statusCode: 429,
+        name: "APIError",
+        data: {
+          message: "rate limited",
+          isRetryable: true,
+          statusCode: 429,
+        },
       },
     })
     expect(evt.attempt).toBe(1)

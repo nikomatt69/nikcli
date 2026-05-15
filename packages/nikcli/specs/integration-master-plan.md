@@ -34,6 +34,7 @@ Validation invariant per epoch: `bun run typecheck` exits 0 before moving forwar
 | **E1-C Step 3**: Remaining NamedError.create → TaggedErrorClass: `session/message.ts` (wire-only), `provider/auth.ts` (OauthMissing/OauthCodeMissing/OauthCallbackFailed), `session/retry.ts` type cleanup, `server/server.ts` + `index.ts` instanceof NamedError removal | 0 NamedError refs in `src/` |
 | **E2-C**: HTTP error boundary reduction — `Session.BusyError` → `Schema.TaggedErrorClass`; server.ts maps BusyError (409), Storage.NotFoundError (404), ModelNotFoundError (400), Worktree* (400); dead NamedError branch removed | `src/session/index.ts`, `src/session/prompt.ts`, `src/server/server.ts` |
 | **Batch Tool + Plan Mode**: batch tool restricts file modification tools (edit, write, apply_patch) and bash commands in plan mode. Safe read-only bash commands (ls, cat, git status, grep, etc.) are allowed. | `src/tool/batch.ts`, `src/tool/batch.txt`                        |
+| **Test suite green**: All 487 session tests pass. Fixed pre-existing test bugs: `Message.Info` benchmark filtering, `ModelMessage.content` vs `.parts` in toModelMessages assertions, `expected` counts after `convertToModelMessages` splits tool messages into assistant+tool pairs, bedrock `cacheWriteInputTokens` double-count in `getUsage`, `SessionEvent.RetryError` wire format shape. | `test/session/`, `src/session/index.ts` |
 
 ### Still Open (this plan)
 

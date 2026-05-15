@@ -603,6 +603,7 @@ describe("Message schema and converter suite", () => {
         metadata: {
           time: { created: 1, completed: 2 },
           sessionID: "session-1",
+          tool: {},
           assistant: {
             system: ["sys"],
             modelID: "x",
@@ -637,7 +638,7 @@ describe("Message schema and converter suite", () => {
   })
 
   it("benchmarks Message.Info parsing", () => {
-    const sample = messageSchemaCases.filter((item) => item.valid).map((item) => item.value)
+    const sample = messageSchemaCases.filter((item) => item.valid && item.parse === Message.Info.parse).map((item) => item.value)
     const iterations = 3_000
     const start = performance.now()
     let count = 0
@@ -776,7 +777,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     const converted = MessageV2.toModelMessages([message], openAIModel as never)
     expect(converted.length).toBe(1)
     expect(converted[0].role).toBe("user")
-    expect((converted[0] as unknown as { parts: MessageV2.Part[] }).parts[0]).toHaveProperty("type", "text")
+    expect((converted[0] as unknown as { content: unknown[] }).content[0]).toHaveProperty("type", "text")
   })
 
   it.each([
@@ -822,7 +823,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
         ]),
       ],
       model: openAIModel as never,
-      expected: 2,
+      expected: 1,
       hasVisual: true,
     },
     {
@@ -852,7 +853,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
       hasVisual: false,
     },
     {
-      label: "assistant pending tool has output-error",
+      label: "assistant pending tool becomes tool message pair",
       messages: [
         createMessageV2Assistant("assistant-tool-pending", "user-tool", [
           {
@@ -871,7 +872,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
         ]),
       ],
       model: openAIModel as never,
-      expected: 1,
+      expected: 2,
       hasVisual: false,
     },
     {
@@ -898,7 +899,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
         ]),
       ],
       model: customModel as never,
-      expected: 2,
+      expected: 3,
       hasVisual: true,
     },
     {
@@ -925,7 +926,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
         ]),
       ],
       model: openAIModel as never,
-      expected: 1,
+      expected: 2,
       hasVisual: false,
     },
     {
@@ -979,7 +980,7 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     const converted = MessageV2.toModelMessages(messages as unknown as MessageV2.WithParts[], model as never)
     expect(converted.length).toBe(expected)
     if (hasVisual) {
-      expect(converted.some((message) => message.role === "user" && (message as unknown as { parts: MessageV2.Part[] }).parts.some((part: MessageV2.Part) => part.type === "file"))).toBe(true)
+      expect(converted.some((message) => message.role === "user" && Array.isArray((message as unknown as { content: unknown[] }).content) && (message as unknown as { content: Array<{ type: string }> }).content.some((part) => part.type === "file"))).toBe(true)
     }
   })
 

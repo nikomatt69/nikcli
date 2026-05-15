@@ -773,8 +773,13 @@ export namespace Session {
     )
 
     const excludesCachedTokens = !!(input.metadata?.["anthropic"] || input.metadata?.["bedrock"])
+    const bedrockIncludesCacheWrite = !!input.metadata?.["bedrock"]
     const adjustedInputTokens = safe(
-      excludesCachedTokens ? inputTokens : inputTokens - cacheReadInputTokens - cacheWriteInputTokens,
+      excludesCachedTokens
+        ? bedrockIncludesCacheWrite
+          ? inputTokens - cacheWriteInputTokens
+          : inputTokens
+        : inputTokens - cacheReadInputTokens - cacheWriteInputTokens,
     )
 
     const total = iife(() => {
