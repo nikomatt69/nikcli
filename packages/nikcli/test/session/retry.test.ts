@@ -3,7 +3,7 @@ import { MessageV2 } from "@/session/message-v2"
 import { SessionRetry } from "@/session/retry"
 
 function apiError(input: ConstructorParameters<typeof MessageV2.APIError>[0]) {
-  return new MessageV2.APIError(input, { cause: new Error(String(input.message)) })
+  return new MessageV2.APIError(input)
 }
 
 describe("SessionRetry", () => {

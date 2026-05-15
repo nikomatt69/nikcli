@@ -60,16 +60,13 @@ function listStatus() {
 }
 
 function createApiError(message: string, responseHeaders?: Record<string, string>, responseBody?: string, isRetryable = true) {
-  return new MessageV2.APIError(
-    {
-      message,
-      isRetryable,
-      statusCode: 429,
-      responseBody,
-      responseHeaders,
-    },
-    { cause: new Error(message) },
-  )
+  return new MessageV2.APIError({
+    message,
+    isRetryable,
+    statusCode: 429,
+    responseBody,
+    responseHeaders,
+  })
 }
 
 function createProviderModel(npm: string, id: string, costs: { input: number; output: number; cacheRead?: number; cacheWrite?: number }) {
@@ -371,12 +368,12 @@ describe("Session retry helpers", () => {
   ] as const
 
   it.each([...retryableCases])("$label is mapped", ({ input, expected }) => {
-    expect(SessionRetry.retryable(input)).toBe(expected)
+    expect(SessionRetry.retryable(input.toObject())).toBe(expected)
   })
 
   it("returns undefined for unsupported retry reason", () => {
     const nonRetry = createApiError("temporary issue", undefined, undefined, false)
-    expect(SessionRetry.retryable(nonRetry)).toBeUndefined()
+    expect(SessionRetry.retryable(nonRetry.toObject())).toBeUndefined()
   })
 
   it("benchmarks retry delay and retryable parsing", () => {
@@ -399,7 +396,7 @@ describe("Session retry helpers", () => {
 
     const startRetry = performance.now()
     for (const error of retryErrors) {
-          SessionRetry.retryable(error as unknown as MessageV2.APIError)
+          SessionRetry.retryable(error as never)
     }
     const elapsedRetry = performance.now() - startRetry
 

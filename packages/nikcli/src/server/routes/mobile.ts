@@ -13,6 +13,7 @@ import { SessionSummary } from "@/session/summary"
 import { MessageV2 } from "@/session/message-v2"
 import { Agent } from "@/agent/agent"
 import { PermissionNext } from "@/permission/next"
+import { Question } from "@/question"
 import { Provider } from "@/provider/provider"
 import { GlobalBus } from "@/bus/global"
 import { Snapshot } from "@/snapshot"
@@ -47,6 +48,10 @@ const log = Log.create({ service: "mobile-routes" })
 
 function runPermission<A, E>(effect: Effect.Effect<A, E, PermissionNext.Service>) {
   return runPromiseWithLayer(PermissionNext.defaultLayer, withCurrentInstance(effect))
+}
+
+function runQuestion<A, E>(effect: Effect.Effect<A, E, Question.Service>) {
+  return runPromiseWithLayer(Question.defaultLayer, withCurrentInstance(effect))
 }
 
 function runCommand<A, E>(effect: Effect.Effect<A, E, Command.Service>) {
@@ -577,47 +582,47 @@ async function latestPromptDefaults(sessionID: string) {
 
 async function resolveMobilePromptDefaults(session: Session.Info) {
   return withInstanceAsync({ directory: session.directory }, async () => {
-      const current = await latestPromptDefaults(session.id)
-      if (current.agent && current.model) return current
+    const current = await latestPromptDefaults(session.id)
+    if (current.agent && current.model) return current
 
-      const allKeys = await storageList(["session"])
-      const sessions: Session.Info[] = []
-      for (const key of allKeys) {
-        if (key.length !== 3 || key[2] === session.id) continue
-        const candidate = await storageRead<Session.Info>(key).catch(() => undefined)
-        if (!candidate || candidate.projectID !== session.projectID) continue
-        sessions.push(candidate)
-      }
+    const allKeys = await storageList(["session"])
+    const sessions: Session.Info[] = []
+    for (const key of allKeys) {
+      if (key.length !== 3 || key[2] === session.id) continue
+      const candidate = await storageRead<Session.Info>(key).catch(() => undefined)
+      if (!candidate || candidate.projectID !== session.projectID) continue
+      sessions.push(candidate)
+    }
 
-      sessions.sort((a, b) => b.time.updated - a.time.updated)
+    sessions.sort((a, b) => b.time.updated - a.time.updated)
 
-      for (const candidate of sessions) {
-        const fallback = await latestPromptDefaults(candidate.id)
-        if (!fallback.agent || !fallback.model) continue
-        return {
-          agent: current.agent ?? fallback.agent,
-          model: current.model ?? fallback.model,
-        }
-      }
-
+    for (const candidate of sessions) {
+      const fallback = await latestPromptDefaults(candidate.id)
+      if (!fallback.agent || !fallback.model) continue
       return {
-        agent:
-          current.agent ??
-          (await runAgent(
-            Effect.gen(function* () {
-              const agent = yield* Agent.Service
-              return yield* agent.defaultAgent()
-            }),
-          )),
-        model:
-          current.model ??
-          (await runProvider(
-            Effect.gen(function* () {
-              const provider = yield* Provider.Service
-              return yield* provider.defaultModel()
-            }),
-          )),
+        agent: current.agent ?? fallback.agent,
+        model: current.model ?? fallback.model,
       }
+    }
+
+    return {
+      agent:
+        current.agent ??
+        (await runAgent(
+          Effect.gen(function* () {
+            const agent = yield* Agent.Service
+            return yield* agent.defaultAgent()
+          }),
+        )),
+      model:
+        current.model ??
+        (await runProvider(
+          Effect.gen(function* () {
+            const provider = yield* Provider.Service
+            return yield* provider.defaultModel()
+          }),
+        )),
+    }
   })
 }
 
@@ -1526,32 +1531,32 @@ export const MobileRoutes = lazy(() =>
           })
 
           const session = await withInstanceAsync({ directory: worktree.directory }, async () => {
-              return WorkspaceContext.provide({
-                workspaceID: workspace?.id,
-                async fn() {
-                  return runSession(
-                    Effect.gen(function* () {
-                      const service = yield* Session.Service
-                      return yield* service.create({
-                        title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
-                        workspaceID: workspace?.id,
-                        github: {
-                          owner: body.owner,
-                          repo: body.repo,
-                          fullName: `${body.owner}/${body.repo}`,
-                          baseBranch,
-                          headBranch,
-                          repositoryDirectory: imported.import.directory,
-                          cloneUrl: imported.import.cloneUrl,
-                          htmlUrl: body.htmlUrl,
-                          private: body.private,
-                          worktree,
-                        },
-                      })
-                    }),
-                  )
-                },
-              })
+            return WorkspaceContext.provide({
+              workspaceID: workspace?.id,
+              async fn() {
+                return runSession(
+                  Effect.gen(function* () {
+                    const service = yield* Session.Service
+                    return yield* service.create({
+                      title: body.title?.trim() || `${body.owner}/${body.repo} ${baseBranch}`,
+                      workspaceID: workspace?.id,
+                      github: {
+                        owner: body.owner,
+                        repo: body.repo,
+                        fullName: `${body.owner}/${body.repo}`,
+                        baseBranch,
+                        headBranch,
+                        repositoryDirectory: imported.import.directory,
+                        cloneUrl: imported.import.cloneUrl,
+                        htmlUrl: body.htmlUrl,
+                        private: body.private,
+                        worktree,
+                      },
+                    })
+                  }),
+                )
+              },
+            })
           })
 
           return c.json({ session, worktree, project: imported.project, workspace })
@@ -1710,29 +1715,29 @@ export const MobileRoutes = lazy(() =>
           }),
         )
         const { messages, permissions, status } = await withInstanceAsync({ directory: info.directory }, async () => {
-            const [messages, permissions] = await Promise.all([
-              runSessionForSession(
-                info,
-                Effect.gen(function* () {
-                  const service = yield* Session.Service
-                  return yield* service.messages({ sessionID })
-                }),
-              ),
-              runPermission(
-                Effect.gen(function* () {
-                  const permission = yield* PermissionNext.Service
-                  const items = yield* permission.list()
-                  return items.filter((item) => item.sessionID === sessionID)
-                }),
-              ),
-            ])
-            const status = await runStatus(
+          const [messages, permissions] = await Promise.all([
+            runSessionForSession(
+              info,
               Effect.gen(function* () {
-                const sessionStatus = yield* SessionStatus.Service
-                return yield* sessionStatus.get(sessionID)
+                const service = yield* Session.Service
+                return yield* service.messages({ sessionID })
               }),
-            )
-            return { messages, permissions, status }
+            ),
+            runPermission(
+              Effect.gen(function* () {
+                const permission = yield* PermissionNext.Service
+                const items = yield* permission.list()
+                return items.filter((item) => item.sessionID === sessionID)
+              }),
+            ),
+          ])
+          const status = await runStatus(
+            Effect.gen(function* () {
+              const sessionStatus = yield* SessionStatus.Service
+              return yield* sessionStatus.get(sessionID)
+            }),
+          )
+          return { messages, permissions, status }
         })
         return c.json({
           info,
@@ -1765,12 +1770,12 @@ export const MobileRoutes = lazy(() =>
           }),
         )
         const result = await withInstanceAsync({ directory: session.directory }, async () => {
-            return runSummary(
-              Effect.gen(function* () {
-                const summary = yield* SessionSummary.Service
-                return yield* summary.diff({ sessionID: params.sessionID, messageID: params.messageID })
-              }),
-            )
+          return runSummary(
+            Effect.gen(function* () {
+              const summary = yield* SessionSummary.Service
+              return yield* summary.diff({ sessionID: params.sessionID, messageID: params.messageID })
+            }),
+          )
         })
         return c.json(result)
       },
@@ -2125,6 +2130,112 @@ export const MobileRoutes = lazy(() =>
       },
     )
     .post(
+      "/session/:sessionID/question/:requestID",
+      describeRoute({
+        summary: "Respond to question from mobile",
+        description: "Answer a pending question request.",
+        operationId: "mobile.question.respond",
+        responses: {
+          200: {
+            description: "Question answered",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string(), requestID: z.string() })),
+      validator("json", z.object({ answers: z.array(z.array(z.string())) })),
+      async (c) => {
+        const params = c.req.valid("param")
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(params.sessionID)
+          }),
+        )
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "POST",
+            url: `/session/${encodeURIComponent(params.sessionID)}/question/${encodeURIComponent(params.requestID)}`,
+            body: JSON.stringify({ answers: c.req.valid("json").answers }),
+            headers: {
+              "content-type": "application/json",
+            },
+            signal: c.req.raw.signal,
+          })
+
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
+
+            return c.json({ success: true as const })
+          }
+        }
+        await runQuestion(
+          Effect.gen(function* () {
+            const question = yield* Question.Service
+            yield* question.reply({ requestID: params.requestID, answers: c.req.valid("json").answers })
+          }),
+        )
+        return c.json({ success: true as const })
+      },
+    )
+    .delete(
+      "/session/:sessionID/question/:requestID",
+      describeRoute({
+        summary: "Reject question from mobile",
+        description: "Dismiss/reject a pending question request.",
+        operationId: "mobile.question.reject",
+        responses: {
+          200: {
+            description: "Question rejected",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string(), requestID: z.string() })),
+      async (c) => {
+        const params = c.req.valid("param")
+        const session = await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            return yield* service.getAnyProject(params.sessionID)
+          }),
+        )
+        if (session.workspaceID) {
+          const response = await proxyWorkspaceRequest({
+            workspaceID: session.workspaceID,
+            method: "DELETE",
+            url: `/session/${encodeURIComponent(params.sessionID)}/question/${encodeURIComponent(params.requestID)}`,
+            headers: {},
+            signal: c.req.raw.signal,
+          })
+
+          if (response) {
+            if (!response.ok) {
+              return new Response(response.body, {
+                status: response.status,
+                headers: toHeadersObject(response.headers),
+              })
+            }
+
+            return c.json({ success: true as const })
+          }
+        }
+        await runQuestion(
+          Effect.gen(function* () {
+            const question = yield* Question.Service
+            yield* question.reject(params.requestID)
+          }),
+        )
+        return c.json({ success: true as const })
+      },
+    )
+    .post(
       "/session/:sessionID/publish",
       describeRoute({
         summary: "Publish GitHub session",
@@ -2156,125 +2267,125 @@ export const MobileRoutes = lazy(() =>
           return c.json({ error: "Session worktree has already been cleaned" }, 400)
 
         return withInstanceAsync({ directory: sessionInfo.directory }, async () => {
-            const session = await runSession(
-              Effect.gen(function* () {
-                const service = yield* Session.Service
-                return yield* service.get(sessionInfo.id)
-              }),
-            )
-            const github = session.github
-            if (!github) return c.json({ error: "Session is not linked to GitHub" }, 400)
-            const status = await runStatus(
-              Effect.gen(function* () {
-                const sessionStatus = yield* SessionStatus.Service
-                return yield* sessionStatus.get(session.id)
-              }),
-            )
-            if (status.type !== "idle") {
-              return c.json({ error: "Wait for the session to become idle before publishing" }, 400)
-            }
+          const session = await runSession(
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              return yield* service.get(sessionInfo.id)
+            }),
+          )
+          const github = session.github
+          if (!github) return c.json({ error: "Session is not linked to GitHub" }, 400)
+          const status = await runStatus(
+            Effect.gen(function* () {
+              const sessionStatus = yield* SessionStatus.Service
+              return yield* sessionStatus.get(session.id)
+            }),
+          )
+          if (status.type !== "idle") {
+            return c.json({ error: "Wait for the session to become idle before publishing" }, 400)
+          }
 
-            await MobileGithubRepo.runGit(["fetch", "origin", github.baseBranch, "--prune"], {
-              cwd: session.directory,
-              token,
-            })
+          await MobileGithubRepo.runGit(["fetch", "origin", github.baseBranch, "--prune"], {
+            cwd: session.directory,
+            token,
+          })
 
-            const dirty = await MobileGithubRepo.runGit(["status", "--porcelain"], {
-              cwd: session.directory,
-              token,
-            })
+          const dirty = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+            cwd: session.directory,
+            token,
+          })
 
-            if (dirty.trim()) {
-              await MobileGithubRepo.runGit(["add", "-A"], { cwd: session.directory, token })
-              await MobileGithubRepo.runGit(
-                ["commit", "-m", body.commitMessage?.trim() || session.title.trim() || `Update ${github.fullName}`],
-                {
-                  cwd: session.directory,
-                  token,
-                },
-              )
-            }
-
-            await MobileGithubRepo.runGit(["push", "--set-upstream", "origin", github.headBranch], {
-              cwd: session.directory,
-              token,
-            })
-
-            const ahead = await MobileGithubRepo.runGit(
-              ["rev-list", "--left-right", "--count", `origin/${github.baseBranch}...HEAD`],
+          if (dirty.trim()) {
+            await MobileGithubRepo.runGit(["add", "-A"], { cwd: session.directory, token })
+            await MobileGithubRepo.runGit(
+              ["commit", "-m", body.commitMessage?.trim() || session.title.trim() || `Update ${github.fullName}`],
               {
                 cwd: session.directory,
                 token,
               },
             )
-            const [, aheadCountText = "0"] = ahead.trim().split(/\s+/)
-            const aheadCount = Number.parseInt(aheadCountText, 10) || 0
+          }
 
-            const commitSha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], {
+          await MobileGithubRepo.runGit(["push", "--set-upstream", "origin", github.headBranch], {
+            cwd: session.directory,
+            token,
+          })
+
+          const ahead = await MobileGithubRepo.runGit(
+            ["rev-list", "--left-right", "--count", `origin/${github.baseBranch}...HEAD`],
+            {
               cwd: session.directory,
               token,
-            })
+            },
+          )
+          const [, aheadCountText = "0"] = ahead.trim().split(/\s+/)
+          const aheadCount = Number.parseInt(aheadCountText, 10) || 0
 
-            const existingPullRequest =
-              github.pullRequest ||
-              (await GithubApi.findPullRequestByHead(
-                token,
-                github.owner,
-                github.repo,
-                `${github.owner}:${github.headBranch}`,
-              )
-                .then((value) =>
-                  value
-                    ? {
-                        number: value.number,
-                        url: value.html_url,
-                        title: value.title,
-                      }
-                    : undefined,
-                )
-                .catch(() => undefined))
+          const commitSha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], {
+            cwd: session.directory,
+            token,
+          })
 
-            const pullRequest =
-              existingPullRequest ||
-              (aheadCount > 0
-                ? await GithubApi.createPullRequest(
-                    token,
-                    github.owner,
-                    github.repo,
-                    body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
-                    github.headBranch,
-                    github.baseBranch,
-                    body.body?.trim() || defaultPullRequestBody(session),
-                  ).then((value) => ({
-                    number: value.number,
-                    url: value.html_url,
-                    title: value.title,
-                  }))
-                : undefined)
-
-            if (!pullRequest) {
-              return c.json({ error: "Create changes in the worktree before publishing a pull request" }, 400)
-            }
-
-            await runSessionForSession(
-              session,
-              Effect.gen(function* () {
-                const service = yield* Session.Service
-                yield* service.update(session.id, (draft) => {
-                  if (!draft.github) return
-                  draft.github.pullRequest = pullRequest
-                  draft.github.lastCommitSha = commitSha.trim()
-                  draft.github.publishedAt = Date.now()
-                  draft.github.publishError = undefined
-                })
-              }),
+          const existingPullRequest =
+            github.pullRequest ||
+            (await GithubApi.findPullRequestByHead(
+              token,
+              github.owner,
+              github.repo,
+              `${github.owner}:${github.headBranch}`,
             )
+              .then((value) =>
+                value
+                  ? {
+                      number: value.number,
+                      url: value.html_url,
+                      title: value.title,
+                    }
+                  : undefined,
+              )
+              .catch(() => undefined))
 
-            return c.json({
-              commitSha: commitSha.trim(),
-              branch: github.headBranch,
-              pullRequest,
-            })
+          const pullRequest =
+            existingPullRequest ||
+            (aheadCount > 0
+              ? await GithubApi.createPullRequest(
+                  token,
+                  github.owner,
+                  github.repo,
+                  body.title?.trim() || session.title.trim() || `${github.fullName} changes`,
+                  github.headBranch,
+                  github.baseBranch,
+                  body.body?.trim() || defaultPullRequestBody(session),
+                ).then((value) => ({
+                  number: value.number,
+                  url: value.html_url,
+                  title: value.title,
+                }))
+              : undefined)
+
+          if (!pullRequest) {
+            return c.json({ error: "Create changes in the worktree before publishing a pull request" }, 400)
+          }
+
+          await runSessionForSession(
+            session,
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(session.id, (draft) => {
+                if (!draft.github) return
+                draft.github.pullRequest = pullRequest
+                draft.github.lastCommitSha = commitSha.trim()
+                draft.github.publishedAt = Date.now()
+                draft.github.publishError = undefined
+              })
+            }),
+          )
+
+          return c.json({
+            commitSha: commitSha.trim(),
+            branch: github.headBranch,
+            pullRequest,
+          })
         })
       },
     )
@@ -2307,41 +2418,41 @@ export const MobileRoutes = lazy(() =>
 
         const repositoryDirectory = sessionInfo.github.repositoryDirectory || sessionInfo.github.worktree.directory
         const idle = await withInstanceAsync({ directory: sessionInfo.directory }, async () => {
-            const status = await runStatus(
-              Effect.gen(function* () {
-                const sessionStatus = yield* SessionStatus.Service
-                return yield* sessionStatus.get(sessionInfo.id)
-              }),
-            )
-            return status.type === "idle"
+          const status = await runStatus(
+            Effect.gen(function* () {
+              const sessionStatus = yield* SessionStatus.Service
+              return yield* sessionStatus.get(sessionInfo.id)
+            }),
+          )
+          return status.type === "idle"
         })
         if (!idle) {
           return c.json({ error: "Wait for the session to become idle before cleaning up the worktree" }, 400)
         }
 
         await withInstanceAsync({ directory: repositoryDirectory }, async () => {
-            if (sessionInfo.workspaceID) {
-              await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
-            }
-            await runWorktree(
-              Effect.gen(function* () {
-                const service = yield* Worktree.Service
-                yield* service.remove({ directory: sessionInfo.github!.worktree.directory })
-              }),
-            )
+          if (sessionInfo.workspaceID) {
+            await Workspace.remove(sessionInfo.workspaceID).catch(() => undefined)
+          }
+          await runWorktree(
+            Effect.gen(function* () {
+              const service = yield* Worktree.Service
+              yield* service.remove({ directory: sessionInfo.github!.worktree.directory })
+            }),
+          )
         })
 
         await withInstanceAsync({ directory: repositoryDirectory }, async () => {
-            await runSessionForSession(
-              sessionInfo,
-              Effect.gen(function* () {
-                const service = yield* Session.Service
-                yield* service.update(sessionInfo.id, (draft) => {
-                  if (!draft.github) return
-                  draft.github.worktree.cleanedAt = Date.now()
-                })
-              }),
-            )
+          await runSessionForSession(
+            sessionInfo,
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(sessionInfo.id, (draft) => {
+                if (!draft.github) return
+                draft.github.worktree.cleanedAt = Date.now()
+              })
+            }),
+          )
         })
 
         return c.json({ success: true as const })
@@ -2471,15 +2582,15 @@ export const MobileRoutes = lazy(() =>
         ).catch(() => undefined)
         if (!session) return c.json({ error: "not found" }, 404)
         await withInstanceAsync({ directory: session.directory }, async () => {
-            await runSessionForSession(
-              session,
-              Effect.gen(function* () {
-                const service = yield* Session.Service
-                yield* service.update(sessionID, (draft) => {
-                  draft.title = title.trim()
-                })
-              }),
-            )
+          await runSessionForSession(
+            session,
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(sessionID, (draft) => {
+                draft.title = title.trim()
+              })
+            }),
+          )
         })
         return c.json({ success: true as const })
       },
@@ -2580,129 +2691,129 @@ export const MobileRoutes = lazy(() =>
       }),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const [statusOutput, branchOutput, aheadBehind, stagedNumstat, unstagedNumstat] = await Promise.all([
-              MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
-                cwd: Instance.directory,
-                token,
-              }) as Promise<string>,
-              MobileGithubRepo.runGit(["branch", "--show-current"], {
-                cwd: Instance.directory,
-                token,
-              }) as Promise<string>,
-              MobileGithubRepo.runGit(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], {
-                cwd: Instance.directory,
-                token,
-              }).catch(() => "0 0") as Promise<string>,
-              MobileGithubRepo.runGit(["diff", "--cached", "--numstat"], { cwd: Instance.directory, token }).catch(
-                () => "",
-              ) as Promise<string>,
-              MobileGithubRepo.runGit(["diff", "--numstat"], { cwd: Instance.directory, token }).catch(
-                () => "",
-              ) as Promise<string>,
-            ])
+          const token = (await githubToken()) ?? undefined
+          const [statusOutput, branchOutput, aheadBehind, stagedNumstat, unstagedNumstat] = await Promise.all([
+            MobileGithubRepo.runGit(["status", "--porcelain", "-uall"], {
+              cwd: Instance.directory,
+              token,
+            }) as Promise<string>,
+            MobileGithubRepo.runGit(["branch", "--show-current"], {
+              cwd: Instance.directory,
+              token,
+            }) as Promise<string>,
+            MobileGithubRepo.runGit(["rev-list", "--left-right", "--count", "@{upstream}...HEAD"], {
+              cwd: Instance.directory,
+              token,
+            }).catch(() => "0 0") as Promise<string>,
+            MobileGithubRepo.runGit(["diff", "--cached", "--numstat"], { cwd: Instance.directory, token }).catch(
+              () => "",
+            ) as Promise<string>,
+            MobileGithubRepo.runGit(["diff", "--numstat"], { cwd: Instance.directory, token }).catch(
+              () => "",
+            ) as Promise<string>,
+          ])
 
-            const [behind = "0", ahead = "0"] = aheadBehind.trim().split(/\s+/)
-            const commitsAhead = Number.parseInt(ahead, 10) || 0
-            const commitsBehind = Number.parseInt(behind, 10) || 0
+          const [behind = "0", ahead = "0"] = aheadBehind.trim().split(/\s+/)
+          const commitsAhead = Number.parseInt(ahead, 10) || 0
+          const commitsBehind = Number.parseInt(behind, 10) || 0
 
-            const staged: Array<{
-              status: string
-              path: string
-              additions?: number
-              deletions?: number
-              oldPath?: string
-            }> = []
-            const unstaged: Array<{
-              status: string
-              path: string
-              additions?: number
-              deletions?: number
-              oldPath?: string
-            }> = []
-            const untracked: string[] = []
-            const stagedStats = parseNumstat(stagedNumstat)
-            const unstagedStats = parseNumstat(unstagedNumstat)
+          const staged: Array<{
+            status: string
+            path: string
+            additions?: number
+            deletions?: number
+            oldPath?: string
+          }> = []
+          const unstaged: Array<{
+            status: string
+            path: string
+            additions?: number
+            deletions?: number
+            oldPath?: string
+          }> = []
+          const untracked: string[] = []
+          const stagedStats = parseNumstat(stagedNumstat)
+          const unstagedStats = parseNumstat(unstagedNumstat)
 
-            function changeStatus(code: string): "added" | "modified" | "deleted" | "renamed" | undefined {
-              if (code === "A") return "added"
-              if (code === "M") return "modified"
-              if (code === "D") return "deleted"
-              if (code === "R") return "renamed"
-              return undefined
+          function changeStatus(code: string): "added" | "modified" | "deleted" | "renamed" | undefined {
+            if (code === "A") return "added"
+            if (code === "M") return "modified"
+            if (code === "D") return "deleted"
+            if (code === "R") return "renamed"
+            return undefined
+          }
+
+          function parsePorcelainPath(value: string) {
+            const arrowIndex = value.indexOf(" -> ")
+            if (arrowIndex === -1) return { path: value }
+            return { oldPath: value.slice(0, arrowIndex), path: value.slice(arrowIndex + 4) }
+          }
+
+          const lines = statusOutput.split("\n").filter(Boolean)
+          for (const line of lines) {
+            const index = line[0] ?? " "
+            const worktree = line[1] ?? " "
+            const rawPath = line.slice(3)
+            const { path, oldPath } = parsePorcelainPath(rawPath)
+
+            if (index === "?" && worktree === "?") {
+              untracked.push(path)
+              continue
             }
 
-            function parsePorcelainPath(value: string) {
-              const arrowIndex = value.indexOf(" -> ")
-              if (arrowIndex === -1) return { path: value }
-              return { oldPath: value.slice(0, arrowIndex), path: value.slice(arrowIndex + 4) }
-            }
+            if (index === "!" && worktree === "!") continue
 
-            const lines = statusOutput.split("\n").filter(Boolean)
-            for (const line of lines) {
-              const index = line[0] ?? " "
-              const worktree = line[1] ?? " "
-              const rawPath = line.slice(3)
-              const { path, oldPath } = parsePorcelainPath(rawPath)
-
-              if (index === "?" && worktree === "?") {
-                untracked.push(path)
-                continue
-              }
-
-              if (index === "!" && worktree === "!") continue
-
-              const stagedStatus = changeStatus(index)
-              if (stagedStatus) {
-                const parsed = stagedStats.get(path) ?? { additions: 0, deletions: 0 }
-                staged.push({
-                  status: stagedStatus,
-                  path,
-                  oldPath,
-                  additions: parsed.additions,
-                  deletions: parsed.deletions,
-                })
-              }
-
-              const unstagedStatus = changeStatus(worktree)
-              if (unstagedStatus) {
-                const parsed = unstagedStats.get(path) ?? { additions: 0, deletions: 0 }
-                unstaged.push({
-                  status: unstagedStatus,
-                  path,
-                  oldPath,
-                  additions: parsed.additions,
-                  deletions: parsed.deletions,
-                })
-              }
-            }
-
-            let lastCommit: { sha: string; message: string; author: string; timestamp: number } | undefined
-            try {
-              const logOutput = await MobileGithubRepo.runGit(["log", "-1", "--format=%H%n%s%n%an%n%ae%n%at"], {
-                cwd: Instance.directory,
-                token,
+            const stagedStatus = changeStatus(index)
+            if (stagedStatus) {
+              const parsed = stagedStats.get(path) ?? { additions: 0, deletions: 0 }
+              staged.push({
+                status: stagedStatus,
+                path,
+                oldPath,
+                additions: parsed.additions,
+                deletions: parsed.deletions,
               })
-              const logLines = logOutput.split("\n")
-              if (logLines.length >= 5) {
-                lastCommit = {
-                  sha: logLines[0],
-                  message: logLines[1],
-                  author: logLines[2],
-                  timestamp: Number.parseInt(logLines[4], 10) * 1000,
-                }
-              }
-            } catch {}
+            }
 
-            return c.json({
-              branch: branchOutput.trim(),
-              staged,
-              unstaged,
-              untracked,
-              commitsAhead,
-              commitsBehind,
-              lastCommit,
+            const unstagedStatus = changeStatus(worktree)
+            if (unstagedStatus) {
+              const parsed = unstagedStats.get(path) ?? { additions: 0, deletions: 0 }
+              unstaged.push({
+                status: unstagedStatus,
+                path,
+                oldPath,
+                additions: parsed.additions,
+                deletions: parsed.deletions,
+              })
+            }
+          }
+
+          let lastCommit: { sha: string; message: string; author: string; timestamp: number } | undefined
+          try {
+            const logOutput = await MobileGithubRepo.runGit(["log", "-1", "--format=%H%n%s%n%an%n%ae%n%at"], {
+              cwd: Instance.directory,
+              token,
             })
+            const logLines = logOutput.split("\n")
+            if (logLines.length >= 5) {
+              lastCommit = {
+                sha: logLines[0],
+                message: logLines[1],
+                author: logLines[2],
+                timestamp: Number.parseInt(logLines[4], 10) * 1000,
+              }
+            }
+          } catch {}
+
+          return c.json({
+            branch: branchOutput.trim(),
+            staged,
+            unstaged,
+            untracked,
+            commitsAhead,
+            commitsBehind,
+            lastCommit,
+          })
         })
       },
     )
@@ -2757,16 +2868,16 @@ export const MobileRoutes = lazy(() =>
       ),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const query = c.req.valid("query")
-            const args = ["diff", "--no-color", "-U1000"]
-            if (query?.staged === "true") args.push("--cached")
-            if (query?.file) {
-              args.push("--", query.file)
-            }
+          const token = (await githubToken()) ?? undefined
+          const query = c.req.valid("query")
+          const args = ["diff", "--no-color", "-U1000"]
+          if (query?.staged === "true") args.push("--cached")
+          if (query?.file) {
+            args.push("--", query.file)
+          }
 
-            const output = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
-            return c.json(parseFileDiffs(output))
+          const output = await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+          return c.json(parseFileDiffs(output))
         })
       },
     )
@@ -2802,53 +2913,53 @@ export const MobileRoutes = lazy(() =>
       validator("query", z.object({ limit: z.coerce.number().default(50) }).optional()),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const query = c.req.valid("query")
-            const limit = query?.limit ?? 50
+          const token = (await githubToken()) ?? undefined
+          const query = c.req.valid("query")
+          const limit = query?.limit ?? 50
 
-            const output = await MobileGithubRepo.runGit(
-              ["log", "--no-color", "--format=%H%x1f%s%x1f%an%x1f%ae%x1f%at%x1e", "-n", String(limit)],
-              { cwd: Instance.directory, token },
-            )
+          const output = await MobileGithubRepo.runGit(
+            ["log", "--no-color", "--format=%H%x1f%s%x1f%an%x1f%ae%x1f%at%x1e", "-n", String(limit)],
+            { cwd: Instance.directory, token },
+          )
 
-            const commits: Array<{
-              sha: string
-              message: string
-              author: { name: string; email: string }
-              timestamp: number
-              filesCount: number
-              additions: number
-              deletions: number
-            }> = []
-            const commitBlocks = output.split("\x1e")
-            for (const block of commitBlocks) {
-              const fields = block.trim().split("\x1f")
-              if (fields.length < 5) continue
-              const [sha, message, authorName, authorEmail, timestamp] = fields
-              const timestampMs = Number.parseInt(timestamp, 10) * 1000
+          const commits: Array<{
+            sha: string
+            message: string
+            author: { name: string; email: string }
+            timestamp: number
+            filesCount: number
+            additions: number
+            deletions: number
+          }> = []
+          const commitBlocks = output.split("\x1e")
+          for (const block of commitBlocks) {
+            const fields = block.trim().split("\x1f")
+            if (fields.length < 5) continue
+            const [sha, message, authorName, authorEmail, timestamp] = fields
+            const timestampMs = Number.parseInt(timestamp, 10) * 1000
 
-              const statOutput = await MobileGithubRepo.runGit(
-                ["show", "--numstat", "--no-color", "--format=", sha.trim()],
-                {
-                  cwd: Instance.directory,
-                  token,
-                },
-              ).catch(() => "")
+            const statOutput = await MobileGithubRepo.runGit(
+              ["show", "--numstat", "--no-color", "--format=", sha.trim()],
+              {
+                cwd: Instance.directory,
+                token,
+              },
+            ).catch(() => "")
 
-              const { filesCount, additions, deletions } = parseCommitStat(statOutput)
+            const { filesCount, additions, deletions } = parseCommitStat(statOutput)
 
-              commits.push({
-                sha: sha.trim(),
-                message,
-                author: { name: authorName, email: authorEmail },
-                timestamp: timestampMs,
-                filesCount,
-                additions,
-                deletions,
-              })
-            }
+            commits.push({
+              sha: sha.trim(),
+              message,
+              author: { name: authorName, email: authorEmail },
+              timestamp: timestampMs,
+              filesCount,
+              additions,
+              deletions,
+            })
+          }
 
-            return c.json(commits)
+          return c.json(commits)
         })
       },
     )
@@ -2881,39 +2992,39 @@ export const MobileRoutes = lazy(() =>
       }),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const branchOutput = await MobileGithubRepo.runGit(["branch", "-a", "-v"], {
-              cwd: Instance.directory,
-              token,
+          const token = (await githubToken()) ?? undefined
+          const branchOutput = await MobileGithubRepo.runGit(["branch", "-a", "-v"], {
+            cwd: Instance.directory,
+            token,
+          })
+          const branches: Array<{
+            name: string
+            isCurrent: boolean
+            isProtected: boolean
+            aheadBy: number
+            behindBy: number
+          }> = []
+
+          const branchLines = branchOutput.split("\n").filter(Boolean)
+          for (const line of branchLines) {
+            const match = line.match(/^([* ])\s*(\S+)\s*([a-f0-9]+)?\s*(.*)$/)
+            if (!match) continue
+            const [, indicator, name, , rest] = match
+            if (name.startsWith("->") || name.includes("HEAD")) continue
+
+            const ahead = rest.match(/ahead (\d+)/)?.[1] ?? "0"
+            const behind = rest.match(/behind (\d+)/)?.[1] ?? "0"
+
+            branches.push({
+              name,
+              isCurrent: indicator === "*",
+              isProtected: name === "main" || name === "master" || name === "develop",
+              aheadBy: Number.parseInt(ahead, 10) || 0,
+              behindBy: Number.parseInt(behind, 10) || 0,
             })
-            const branches: Array<{
-              name: string
-              isCurrent: boolean
-              isProtected: boolean
-              aheadBy: number
-              behindBy: number
-            }> = []
+          }
 
-            const branchLines = branchOutput.split("\n").filter(Boolean)
-            for (const line of branchLines) {
-              const match = line.match(/^([* ])\s*(\S+)\s*([a-f0-9]+)?\s*(.*)$/)
-              if (!match) continue
-              const [, indicator, name, , rest] = match
-              if (name.startsWith("->") || name.includes("HEAD")) continue
-
-              const ahead = rest.match(/ahead (\d+)/)?.[1] ?? "0"
-              const behind = rest.match(/behind (\d+)/)?.[1] ?? "0"
-
-              branches.push({
-                name,
-                isCurrent: indicator === "*",
-                isProtected: name === "main" || name === "master" || name === "develop",
-                aheadBy: Number.parseInt(ahead, 10) || 0,
-                behindBy: Number.parseInt(behind, 10) || 0,
-              })
-            }
-
-            return c.json(branches)
+          return c.json(branches)
         })
       },
     )
@@ -2951,33 +3062,33 @@ export const MobileRoutes = lazy(() =>
       ),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const body = c.req.valid("json")
-            const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
+          const token = (await githubToken()) ?? undefined
+          const body = c.req.valid("json")
+          const args = body.amend ? ["commit", "--amend", "--no-edit"] : ["commit", "-m", body.message]
 
-            if (!body.stagedOnly) {
-              if (body.files?.length) {
-                await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
-              } else {
-                await MobileGithubRepo.runGit(["add", "-A"], { cwd: Instance.directory, token })
-              }
+          if (!body.stagedOnly) {
+            if (body.files?.length) {
+              await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
+            } else {
+              await MobileGithubRepo.runGit(["add", "-A"], { cwd: Instance.directory, token })
             }
+          }
 
-            const statusOutput = await MobileGithubRepo.runGit(["diff", "--cached", "--name-only"], {
-              cwd: Instance.directory,
-              token,
-            })
-            if (!statusOutput.trim() && !body.amend) {
-              return c.json({ error: "No changes to commit" }, 400)
-            }
+          const statusOutput = await MobileGithubRepo.runGit(["diff", "--cached", "--name-only"], {
+            cwd: Instance.directory,
+            token,
+          })
+          if (!statusOutput.trim() && !body.amend) {
+            return c.json({ error: "No changes to commit" }, 400)
+          }
 
-            await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
-            const sha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], { cwd: Instance.directory, token })
-            const message = body.amend
-              ? await MobileGithubRepo.runGit(["log", "-1", "--format=%s"], { cwd: Instance.directory, token })
-              : body.message
+          await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+          const sha = await MobileGithubRepo.runGit(["rev-parse", "HEAD"], { cwd: Instance.directory, token })
+          const message = body.amend
+            ? await MobileGithubRepo.runGit(["log", "-1", "--format=%s"], { cwd: Instance.directory, token })
+            : body.message
 
-            return c.json({ sha: sha.trim(), message })
+          return c.json({ sha: sha.trim(), message })
         })
       },
     )
@@ -2998,11 +3109,11 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ branch: z.string().min(1), create: z.boolean().optional() })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const body = c.req.valid("json")
-            const args = body.create ? ["checkout", "-b", body.branch] : ["checkout", body.branch]
-            await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
-            return c.json({ success: true as const })
+          const token = (await githubToken()) ?? undefined
+          const body = c.req.valid("json")
+          const args = body.create ? ["checkout", "-b", body.branch] : ["checkout", body.branch]
+          await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+          return c.json({ success: true as const })
         })
       },
     )
@@ -3022,10 +3133,10 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const body = c.req.valid("json")
-            await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
-            return c.json({ success: true as const })
+          const token = (await githubToken()) ?? undefined
+          const body = c.req.valid("json")
+          await MobileGithubRepo.runGit(["add", "--", ...body.files], { cwd: Instance.directory, token })
+          return c.json({ success: true as const })
         })
       },
     )
@@ -3045,10 +3156,10 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const body = c.req.valid("json")
-            await MobileGithubRepo.runGit(["reset", "HEAD", "--", ...body.files], { cwd: Instance.directory, token })
-            return c.json({ success: true as const })
+          const token = (await githubToken()) ?? undefined
+          const body = c.req.valid("json")
+          await MobileGithubRepo.runGit(["reset", "HEAD", "--", ...body.files], { cwd: Instance.directory, token })
+          return c.json({ success: true as const })
         })
       },
     )
@@ -3068,10 +3179,10 @@ export const MobileRoutes = lazy(() =>
       validator("json", z.object({ files: z.array(z.string()) })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const body = c.req.valid("json")
-            await MobileGithubRepo.runGit(["checkout", "--", ...body.files], { cwd: Instance.directory, token })
-            return c.json({ success: true as const })
+          const token = (await githubToken()) ?? undefined
+          const body = c.req.valid("json")
+          await MobileGithubRepo.runGit(["checkout", "--", ...body.files], { cwd: Instance.directory, token })
+          return c.json({ success: true as const })
         })
       },
     )
@@ -3096,22 +3207,22 @@ export const MobileRoutes = lazy(() =>
       validator("query", z.object({ upstream: z.string().optional() }).optional()),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            const query = c.req.valid("query")
-            const currentBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], {
-              cwd: Instance.directory,
-              token,
-            })
-            const args = query?.upstream
-              ? ["push", "--set-upstream", "origin", query.upstream]
-              : ["push", "--set-upstream", "origin", currentBranch.trim()]
+          const token = (await githubToken()) ?? undefined
+          const query = c.req.valid("query")
+          const currentBranch = await MobileGithubRepo.runGit(["branch", "--show-current"], {
+            cwd: Instance.directory,
+            token,
+          })
+          const args = query?.upstream
+            ? ["push", "--set-upstream", "origin", query.upstream]
+            : ["push", "--set-upstream", "origin", currentBranch.trim()]
 
-            try {
-              await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
-              return c.json({ success: true as const, pushed: true })
-            } catch {
-              return c.json({ success: true as const, pushed: false })
-            }
+          try {
+            await MobileGithubRepo.runGit(args, { cwd: Instance.directory, token })
+            return c.json({ success: true as const, pushed: true })
+          } catch {
+            return c.json({ success: true as const, pushed: false })
+          }
         })
       },
     )
@@ -3141,27 +3252,27 @@ export const MobileRoutes = lazy(() =>
       }),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const token = (await githubToken()) ?? undefined
-            try {
-              await MobileGithubRepo.runGit(["fetch", "origin"], { cwd: Instance.directory, token })
-              await MobileGithubRepo.runGit(["pull", "--no-rebase"], { cwd: Instance.directory, token })
-              return c.json({ success: true as const, pulled: true })
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error)
-              const hasConflicts = message.toLowerCase().includes("conflict")
-              if (hasConflicts) {
-                const statusOutput = await MobileGithubRepo.runGit(["status", "--porcelain"], {
-                  cwd: Instance.directory,
-                  token,
-                })
-                const conflicts = statusOutput
-                  .split("\n")
-                  .filter((line) => line.startsWith("UU") || line.startsWith("AA") || line.startsWith("DD"))
-                  .map((line) => line.slice(4))
-                return c.json({ success: true as const, pulled: false, conflicts })
-              }
-              return c.json({ success: true as const, pulled: false })
+          const token = (await githubToken()) ?? undefined
+          try {
+            await MobileGithubRepo.runGit(["fetch", "origin"], { cwd: Instance.directory, token })
+            await MobileGithubRepo.runGit(["pull", "--no-rebase"], { cwd: Instance.directory, token })
+            return c.json({ success: true as const, pulled: true })
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            const hasConflicts = message.toLowerCase().includes("conflict")
+            if (hasConflicts) {
+              const statusOutput = await MobileGithubRepo.runGit(["status", "--porcelain"], {
+                cwd: Instance.directory,
+                token,
+              })
+              const conflicts = statusOutput
+                .split("\n")
+                .filter((line) => line.startsWith("UU") || line.startsWith("AA") || line.startsWith("DD"))
+                .map((line) => line.slice(4))
+              return c.json({ success: true as const, pulled: false, conflicts })
             }
+            return c.json({ success: true as const, pulled: false })
+          }
         })
       },
     )
@@ -3182,7 +3293,7 @@ export const MobileRoutes = lazy(() =>
       }),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            return c.json(await Routine.list())
+          return c.json(await Routine.list())
         })
       },
     )
@@ -3203,8 +3314,8 @@ export const MobileRoutes = lazy(() =>
       validator("json", MobileRoutineCreateInput),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const body = c.req.valid("json")
-            return c.json(await Routine.create(body))
+          const body = c.req.valid("json")
+          return c.json(await Routine.create(body))
         })
       },
     )
@@ -3225,8 +3336,8 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            return c.json(await Routine.get(id))
+          const { id } = c.req.valid("param")
+          return c.json(await Routine.get(id))
         })
       },
     )
@@ -3248,9 +3359,9 @@ export const MobileRoutes = lazy(() =>
       validator("json", MobileRoutineUpdateInput),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            const body = c.req.valid("json")
-            return c.json(await Routine.update(id, body))
+          const { id } = c.req.valid("param")
+          const body = c.req.valid("json")
+          return c.json(await Routine.update(id, body))
         })
       },
     )
@@ -3271,9 +3382,9 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            await Routine.remove(id)
-            return c.json({ success: true as const })
+          const { id } = c.req.valid("param")
+          await Routine.remove(id)
+          return c.json({ success: true as const })
         })
       },
     )
@@ -3295,10 +3406,10 @@ export const MobileRoutes = lazy(() =>
       validator("json", MobileRoutineRunInput.optional()),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            const body = c.req.valid("json")
-            const session = await Routine.run(id, { text: body?.text })
-            return c.json(session)
+          const { id } = c.req.valid("param")
+          const body = c.req.valid("json")
+          const session = await Routine.run(id, { text: body?.text })
+          return c.json(session)
         })
       },
     )
@@ -3319,8 +3430,8 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            return c.json(await Routine.pause(id))
+          const { id } = c.req.valid("param")
+          return c.json(await Routine.pause(id))
         })
       },
     )
@@ -3341,8 +3452,8 @@ export const MobileRoutes = lazy(() =>
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { id } = c.req.valid("param")
-            return c.json(await Routine.resume(id))
+          const { id } = c.req.valid("param")
+          return c.json(await Routine.resume(id))
         })
       },
     )
@@ -3365,17 +3476,17 @@ export const MobileRoutes = lazy(() =>
       validator("json", MobileRoutineTriggerInput.optional()),
       async (c) => {
         return withInstanceAsync({ directory: Instance.directory }, async () => {
-            const { token: pathToken } = c.req.valid("param")
-            const authorization = c.req.header("authorization")
-            const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
-            const token = bearerToken || pathToken
-            const body = c.req.valid("json")
-            const routine = await Routine.getByToken(token)
-            if (!routine) {
-              return c.json({ error: "Routine not found or API trigger disabled" }, 404)
-            }
-            const session = await Routine.run(routine.id, { text: body?.text })
-            return c.json(session)
+          const { token: pathToken } = c.req.valid("param")
+          const authorization = c.req.header("authorization")
+          const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim()
+          const token = bearerToken || pathToken
+          const body = c.req.valid("json")
+          const routine = await Routine.getByToken(token)
+          if (!routine) {
+            return c.json({ error: "Routine not found or API trigger disabled" }, 404)
+          }
+          const session = await Routine.run(routine.id, { text: body?.text })
+          return c.json(session)
         })
       },
     ),

@@ -30,6 +30,7 @@ Validation invariant per epoch: `bun run typecheck` exits 0 before moving forwar
 | **E1-A**: NamedError.create → Schema.TaggedErrorClass for all service errors                                                                                                                                    | commit `6de3069`                                                 |
 | **E1-B**: NamedError.Unknown → EventError helpers; wire format aligned to "UnknownError"                                                                                                                        | commit `6de3069`                                                 |
 | **E1-C Step 1**: LSP leaf schemas (Range, Symbol, DocumentSymbol) → Effect Schema via zodObject                                                                                                                 | `src/lsp/index.ts`; fix in `effect-zod.ts` FieldToZod input type |
+| **E1-C Step 2**: `session/message-v2.ts` — 4 NamedError.create → Schema.TaggedErrorClass with static `.Schema` (Zod wire format) + `.isInstance()` (checks `"data" in error`) + `.toObject()` bridge          | `src/session/message-v2.ts`, `src/session/retry.ts` field access fix, `src/session/processor.ts` delay call fix |
 | **Batch Tool + Plan Mode**: batch tool restricts file modification tools (edit, write, apply_patch) and bash commands in plan mode. Safe read-only bash commands (ls, cat, git status, grep, etc.) are allowed. | `src/tool/batch.ts`, `src/tool/batch.txt`                        |
 
 ### Still Open (this plan)

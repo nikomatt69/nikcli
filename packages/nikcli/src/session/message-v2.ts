@@ -77,7 +77,7 @@ export namespace MessageV2 {
       return typeof error === "object" && error !== null && (error as any).name === "ProviderAuthError"
     }
   }
-  export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", { 
+  export class APIError extends Schema.TaggedErrorClass<APIError>()("APIError", {
     message: Schema.String,
     statusCode: Schema.optional(Schema.Number),
     isRetryable: Schema.Boolean,
@@ -99,7 +99,25 @@ export namespace MessageV2 {
       })
       .meta({ ref: "APIError" })
     static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
-      return typeof error === "object" && error !== null && (error as any).name === "APIError"
+      return (
+        typeof error === "object" &&
+        error !== null &&
+        (error as any).name === "APIError" &&
+        "data" in (error as any)
+      )
+    }
+    toObject() {
+      return {
+        name: "APIError" as const,
+        data: {
+          message: this.message,
+          statusCode: this.statusCode,
+          isRetryable: this.isRetryable,
+          responseHeaders: this.responseHeaders,
+          responseBody: this.responseBody,
+          metadata: this.metadata,
+        },
+      }
     }
   }
 

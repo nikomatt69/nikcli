@@ -141,6 +141,8 @@ import type {
   MobilePermissionRespondResponses,
   MobileProjectListResponses,
   MobilePromptStashCreateInput,
+  MobileQuestionRejectResponses,
+  MobileQuestionRespondResponses,
   MobileRoutineCreateErrors,
   MobileRoutineCreateInput,
   MobileRoutineCreateResponses,
@@ -4302,6 +4304,83 @@ export class Permission2 extends HeyApiClient {
   }
 }
 
+export class Question2 extends HeyApiClient {
+  /**
+   * Reject question from mobile
+   *
+   * Dismiss/reject a pending question request.
+   */
+  public reject<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      requestID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "requestID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobileQuestionRejectResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/question/{requestID}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Respond to question from mobile
+   *
+   * Answer a pending question request.
+   */
+  public respond<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      requestID: string
+      directory?: string
+      workspace?: string
+      answers?: Array<Array<string>>
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "path", key: "requestID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "answers" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileQuestionRespondResponses, unknown, ThrowOnError>({
+      url: "/mobile/session/{sessionID}/question/{requestID}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+}
+
 export class Worktree2 extends HeyApiClient {
   /**
    * Remove mobile worktree
@@ -5196,6 +5275,11 @@ export class Mobile extends HeyApiClient {
   private _permission?: Permission2
   get permission(): Permission2 {
     return (this._permission ??= new Permission2({ client: this.client }))
+  }
+
+  private _question?: Question2
+  get question(): Question2 {
+    return (this._question ??= new Question2({ client: this.client }))
   }
 
   private _worktree?: Worktree2

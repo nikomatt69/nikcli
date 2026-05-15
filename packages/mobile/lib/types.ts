@@ -343,6 +343,34 @@ export type PermissionRequest = {
   metadata: Record<string, unknown>
 }
 
+// ── Question Types ─────────────────────────────────────────────────────────
+
+export type QuestionOption = {
+  label: string
+  description: string
+}
+
+export type QuestionInfo = {
+  question: string
+  header: string
+  options: QuestionOption[]
+  multiple?: boolean
+  custom?: boolean
+}
+
+export type QuestionRequest = {
+  id: string
+  sessionID: string
+  questions: QuestionInfo[]
+  tool?: {
+    messageID: string
+    callID: string
+  }
+}
+
+// Union type for any pending approval request
+export type ApprovalRequest = PermissionRequest | QuestionRequest
+
 export type ProjectInfo = {
   id: string
   worktree: string
@@ -485,6 +513,7 @@ export type SessionDetail = {
   status?: SessionStatus
   messages: MessageWithParts[]
   permissions: PermissionRequest[]
+  questions: QuestionRequest[]
 }
 
 export type GitHubRepo = {
@@ -669,6 +698,12 @@ export type SessionStreamEvent =
       type: "permission.replied"
       properties: { sessionID: string; requestID: string; reply: "once" | "always" | "reject" }
     }
+  | { type: "question.asked"; properties: QuestionRequest }
+  | {
+      type: "question.replied"
+      properties: { sessionID: string; requestID: string; answers: string[][] }
+    }
+  | { type: "question.rejected"; properties: { sessionID: string; requestID: string } }
   | { type: string; properties: any }
 
 export type MobileAuthToken = {

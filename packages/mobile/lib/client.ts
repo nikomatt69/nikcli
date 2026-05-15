@@ -33,6 +33,7 @@ import type {
   PtyCreateInput,
   PtyInfo,
   PtyUpdateInput,
+  QuestionRequest,
   SearchMatch,
   Routine,
   RoutineCreateInput,
@@ -217,6 +218,25 @@ export class MobileClient {
       {
         method: "POST",
         body: JSON.stringify({ response }),
+      },
+    )
+  }
+
+  respondToQuestion(sessionID: string, requestID: string, answers: string[][]) {
+    return this.request<{ success: true }>(
+      `/mobile/session/${encodeURIComponent(sessionID)}/question/${encodeURIComponent(requestID)}`,
+      {
+        method: "POST",
+        body: JSON.stringify({ answers }),
+      },
+    )
+  }
+
+  rejectQuestion(sessionID: string, requestID: string) {
+    return this.request<{ success: true }>(
+      `/mobile/session/${encodeURIComponent(sessionID)}/question/${encodeURIComponent(requestID)}`,
+      {
+        method: "DELETE",
       },
     )
   }

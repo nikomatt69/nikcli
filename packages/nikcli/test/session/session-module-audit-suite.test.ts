@@ -458,7 +458,7 @@ describe("Session retry matrix", () => {
 
   it.each([...retryableCases])("maps retryable reason for $message", ({ message, expected }) => {
     const result = SessionRetry.retryable(
-      new MessageV2.APIError({ message, isRetryable: true, statusCode: 429 } as never, { cause: new Error(message) }) as never,
+      new MessageV2.APIError({ message, isRetryable: true, statusCode: 429 }).toObject(),
     )
     expect(result).toBe(expected)
   })
@@ -469,7 +469,7 @@ describe("Session retry matrix", () => {
     const headers = { "retry-after-ms": "333" }
     let checksum = 0
     for (let i = 1; i <= iterations; i += 1) {
-      const ms = SessionRetry.delay(i, new MessageV2.APIError({ message: "Overloaded", isRetryable: true, responseHeaders: headers, statusCode: 429 } as never, { cause: new Error("x") }))
+      const ms = SessionRetry.delay(i, new MessageV2.APIError({ message: "Overloaded", isRetryable: true, responseHeaders: headers, statusCode: 429 }))
       checksum += ms
     }
     const elapsed = performance.now() - start

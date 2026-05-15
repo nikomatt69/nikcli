@@ -3058,7 +3058,16 @@ export type Symbol = {
   kind: number
   location: {
     uri: string
-    range: Range
+    range: {
+      start: {
+        line: number
+        character: number
+      }
+      end: {
+        line: number
+        character: number
+      }
+    }
   }
 }
 
@@ -6595,6 +6604,56 @@ export type MobilePermissionRespondResponses = {
 }
 
 export type MobilePermissionRespondResponse = MobilePermissionRespondResponses[keyof MobilePermissionRespondResponses]
+
+export type MobileQuestionRejectData = {
+  body?: never
+  path: {
+    sessionID: string
+    requestID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/question/{requestID}"
+}
+
+export type MobileQuestionRejectResponses = {
+  /**
+   * Question rejected
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileQuestionRejectResponse = MobileQuestionRejectResponses[keyof MobileQuestionRejectResponses]
+
+export type MobileQuestionRespondData = {
+  body?: {
+    answers: Array<Array<string>>
+  }
+  path: {
+    sessionID: string
+    requestID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/question/{requestID}"
+}
+
+export type MobileQuestionRespondResponses = {
+  /**
+   * Question answered
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileQuestionRespondResponse = MobileQuestionRespondResponses[keyof MobileQuestionRespondResponses]
 
 export type MobileGithubSessionPublishData = {
   body?: MobileGithubPublishInput
