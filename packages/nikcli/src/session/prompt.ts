@@ -355,7 +355,7 @@ export namespace SessionPrompt {
 
   function assertNotBusy(sessionID: string) {
     const match = state()[sessionID]
-    if (match) throw new Session.BusyError(sessionID)
+    if (match) throw Session.BusyError.create(sessionID)
   }
 
   export const PromptInput = z.object({
@@ -1949,7 +1949,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
   async function shell(input: ShellInput) {
     const controller = start(input.sessionID)
     if (!controller) {
-      throw new Session.BusyError(input.sessionID)
+      throw Session.BusyError.create(input.sessionID)
     }
     const abort = controller.signal
     await using _ = defer(() => finish(input.sessionID, controller))
@@ -2452,7 +2452,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       assertNotBusy: (sessionID) =>
         Effect.gen(function* () {
           const match = (yield* getServiceStateEffect())[sessionID]
-          if (match) throw new Session.BusyError(sessionID)
+          if (match) throw Session.BusyError.create(sessionID)
         }),
       prompt: (input) => Effect.tryPromise(() => prompt(input)),
       resolvePromptParts: (template) =>

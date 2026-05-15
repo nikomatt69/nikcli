@@ -33,6 +33,7 @@ import { ProviderRoutes } from "./routes/provider"
 import { lazy } from "../util/lazy"
 import { InstanceBootstrap } from "../project/bootstrap"
 import { Storage } from "../storage/storage"
+import { Session } from "@/session"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import { websocket } from "hono/bun"
 import { HTTPException } from "hono/http-exception"
@@ -133,6 +134,8 @@ export namespace Server {
           log.error("failed", {
             error: err,
           })
+          if (err instanceof Session.BusyError)
+            return c.json({ name: err._tag, data: { sessionID: err.sessionID, message: err.message } }, { status: 409 })
           if (err instanceof Storage.NotFoundError)
             return c.json({ name: err._tag, data: { message: err.message } }, { status: 404 })
           if (err instanceof Provider.ModelNotFoundError)

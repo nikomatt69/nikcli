@@ -31,7 +31,7 @@ import {
   withCurrentInstance,
   type InstanceContext,
 } from "@/effect"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { Analytics } from "../analytics/analytics"
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
@@ -818,9 +818,12 @@ export namespace Session {
     }
   })
 
-  export class BusyError extends Error {
-    constructor(public readonly sessionID: string) {
-      super(`Session ${sessionID} is busy`)
+  export class BusyError extends Schema.TaggedErrorClass<BusyError>()("SessionBusyError", {
+    sessionID: Schema.String,
+    message: Schema.String,
+  }) {
+    static create(sessionID: string) {
+      return new BusyError({ sessionID, message: `Session ${sessionID} is busy` })
     }
   }
 
