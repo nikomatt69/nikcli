@@ -3,7 +3,6 @@ import { Plugin } from "../plugin"
 import { map, filter, pipe, fromEntries, mapValues } from "remeda"
 import z from "zod"
 import type { AuthOuathResult, Hooks } from "@nikcli-ai/plugin"
-import { NamedError } from "@nikcli-ai/util/error"
 import { Auth } from "@/auth"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
@@ -171,18 +170,11 @@ export namespace ProviderAuth {
 
   export const defaultLayer = layer
 
-  export const OauthMissing = NamedError.create(
-    "ProviderAuthOauthMissing",
-    z.object({
-      providerID: z.string(),
-    }),
-  )
-  export const OauthCodeMissing = NamedError.create(
-    "ProviderAuthOauthCodeMissing",
-    z.object({
-      providerID: z.string(),
-    }),
-  )
-
-  export const OauthCallbackFailed = NamedError.create("ProviderAuthOauthCallbackFailed", z.object({}))
+  export class OauthMissing extends Schema.TaggedErrorClass<OauthMissing>()("ProviderAuthOauthMissing", {
+    providerID: Schema.String,
+  }) {}
+  export class OauthCodeMissing extends Schema.TaggedErrorClass<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
+    providerID: Schema.String,
+  }) {}
+  export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFailed>()("ProviderAuthOauthCallbackFailed", {}) {}
 }

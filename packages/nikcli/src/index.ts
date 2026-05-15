@@ -11,7 +11,6 @@ import { ModelsCommand } from "./cli/cmd/models"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
 import { initialize } from "./global"
-import { NamedError } from "@nikcli-ai/util/error"
 import { FormatError } from "./cli/error"
 import { ServeCommand } from "./cli/cmd/serve"
 import { WorkspaceServeCommand } from "./cli/cmd/workspace-serve"
@@ -145,13 +144,6 @@ try {
   await cli.parse()
 } catch (e) {
   let data: Record<string, any> = {}
-  if (e instanceof NamedError) {
-    const obj = e.toObject()
-    Object.assign(data, {
-      ...obj.data,
-    })
-  }
-
   if (e instanceof Error) {
     Object.assign(data, {
       name: e.name,

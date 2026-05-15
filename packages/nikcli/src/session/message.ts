@@ -1,15 +1,16 @@
 import z from "zod"
-import { NamedError } from "@nikcli-ai/util/error"
 
 export namespace Message {
-  export const OutputLengthError = NamedError.create("MessageOutputLengthError", z.object({}))
-  export const AuthError = NamedError.create(
-    "ProviderAuthError",
-    z.object({
-      providerID: z.string(),
-      message: z.string(),
-    }),
-  )
+  export const OutputLengthError = {
+    Schema: z
+      .object({ name: z.literal("MessageOutputLengthError"), data: z.object({}) })
+      .meta({ ref: "MessageOutputLengthError" }),
+  }
+  export const AuthError = {
+    Schema: z
+      .object({ name: z.literal("ProviderAuthError"), data: z.object({ providerID: z.string(), message: z.string() }) })
+      .meta({ ref: "ProviderAuthError" }),
+  }
 
   export const ToolCall = z
     .object({

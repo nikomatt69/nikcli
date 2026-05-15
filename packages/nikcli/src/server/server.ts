@@ -9,7 +9,6 @@ import { proxy } from "hono/proxy"
 import { basicAuth } from "hono/basic-auth"
 import z from "zod"
 import { Provider } from "../provider/provider"
-import { NamedError } from "@nikcli-ai/util/error"
 import { LSP } from "../lsp"
 import { Format } from "../format"
 import { TuiRoutes } from "./routes/tui"
@@ -134,14 +133,15 @@ export namespace Server {
           log.error("failed", {
             error: err,
           })
-          if (err instanceof NamedError) {
-            let status: ContentfulStatusCode
-            if (err instanceof Storage.NotFoundError) status = 404
-            else if (err instanceof Provider.ModelNotFoundError) status = 400
-            else if (err.name.startsWith("Worktree")) status = 400
-            else status = 500
-            return c.json(err.toObject(), { status })
-          }
+          if (err instanceof Storage.NotFoundError)
+            return c.json({ name: err._tag, data: { message: err.message } }, { status: 404 })
+          if (err instanceof Provider.ModelNotFoundError)
+            return c.json(
+              { name: err._tag, data: { providerID: err.providerID, modelID: err.modelID, suggestions: err.suggestions } },
+              { status: 400 },
+            )
+          if (err instanceof Error && err.name.startsWith("Worktree"))
+            return c.json({ name: err.name, data: { message: err.message } }, { status: 400 })
           if (err instanceof HTTPException) return err.getResponse()
           const message = err instanceof Error && err.stack ? err.stack : err.toString()
           return c.json({ name: "Unknown" as const, data: { message } }, {

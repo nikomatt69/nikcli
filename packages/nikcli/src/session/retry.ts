@@ -1,4 +1,3 @@
-import type { NamedError } from "@nikcli-ai/util/error"
 import { MessageV2 } from "./message-v2"
 
 export namespace SessionRetry {
@@ -90,7 +89,7 @@ export namespace SessionRetry {
     return undefined
   }
 
-  export function retryable(error: ReturnType<NamedError["toObject"]>) {
+  export function retryable(error: { name: string; data?: Record<string, unknown> }) {
     if (MessageV2.APIError.isInstance(error)) {
       if (!error.data.isRetryable) return undefined
       if (
