@@ -85,7 +85,7 @@ COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
 ENV NIKCLI_VERSION=1.5.0
-RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform@0.96.1 @effect/platform-bun@4.0.0-beta.65
+RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.65
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
@@ -117,7 +117,7 @@ ENV PORT=4096
 ENV XDG_DATA_HOME=/data
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
-ENV NIKCLI_SERVER_USERNAME=nikcli 
+ENV NIKCLI_SERVER_USERNAME=nikcli
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
 ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0

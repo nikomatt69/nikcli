@@ -54,35 +54,42 @@ cp "$ROOT/packages/llm/package.json" "$CTX/packages/llm/package.json"
 cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
-# Full source (excluding node_modules, dist, build artifacts)
-RSYNC_OPTS="-a --delete \
-  --exclude node_modules \
-  --exclude dist \
-  --exclude build \
-  --exclude .cache \
-  --exclude .turbo \
-  --exclude .next \
-  --exclude .nuxt \
-  --exclude .svelte-kit \
-  --exclude .expo \
-  --exclude .output \
-  --exclude coverage \
-  --exclude tmp \
-  --exclude .DS_Store \
-  --exclude '*.d.ts.map' \
-  --exclude '*.js.map'"
+# Full source (excluding node_modules, dist, build artifacts, and dev-only dirs)
+RSYNC_OPTS=(
+  -a --delete
+  --exclude=node_modules
+  --exclude=dist
+  --exclude=build
+  --exclude=.cache
+  --exclude=.turbo
+  --exclude=.next
+  --exclude=.nuxt
+  --exclude=.svelte-kit
+  --exclude=.expo
+  --exclude=.output
+  --exclude=coverage
+  --exclude=tmp
+  --exclude=.DS_Store
+  --exclude="*.d.ts.map"
+  --exclude="*.js.map"
+  --exclude=test
+  --exclude=specs
+  --exclude=.nikcli
+  --exclude="*.md"
+  --exclude="*.mdx"
+)
 
-eval rsync $RSYNC_OPTS "$ROOT/packages/nikcli/"  "$CTX/packages/nikcli/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/script/"   "$CTX/packages/script/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/util/"     "$CTX/packages/util/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/sdk/js/"   "$CTX/packages/sdk/js/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/remote/"   "$CTX/packages/remote/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/plugin/"   "$CTX/packages/plugin/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/companion/" "$CTX/packages/companion/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/slack/"    "$CTX/packages/slack/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/llm/"      "$CTX/packages/llm/"
-eval rsync $RSYNC_OPTS "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
-eval rsync $RSYNC_OPTS "$ROOT/github/"            "$CTX/github/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/nikcli/"       "$CTX/packages/nikcli/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/script/"        "$CTX/packages/script/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/util/"          "$CTX/packages/util/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/sdk/js/"        "$CTX/packages/sdk/js/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/remote/"        "$CTX/packages/remote/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/plugin/"        "$CTX/packages/plugin/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/companion/"     "$CTX/packages/companion/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/slack/"         "$CTX/packages/slack/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/llm/"           "$CTX/packages/llm/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
+rsync "${RSYNC_OPTS[@]}" "$ROOT/github/"                 "$CTX/github/"
 
 rm -rf \
   "$CTX/packages/nikcli/.cache" \
@@ -126,11 +133,19 @@ if [ -d "$HOME/.railway" ] && [ ! -d "$ROOT/.railway" ]; then
   cp -r "$HOME/.railway" "$CTX/.railway"
 fi
 
-if [ "$DETACH" = "--detach" ] || [ "$DETACH" = "-d" ]; then
-  cd "$CTX"
-  railway up --detach
-  echo "✓ Deploy triggered (detached). Check status: railway logs"
-else
-  cd "$CTX"
-  railway up
-fi
+cd "$CTX"
+
+RETRIES=3
+for attempt in $(seq 1 $RETRIES); do
+  if [ "$DETACH" = "--detach" ] || [ "$DETACH" = "-d" ]; then
+    railway up --detach && echo "✓ Deploy triggered (detached). Check status: railway logs" && exit 0
+  else
+    railway up && exit 0
+  fi
+  if [ $attempt -lt $RETRIES ]; then
+    echo "→ Upload failed (attempt $attempt/$RETRIES), retrying in 10s..."
+    sleep 10
+  fi
+done
+echo "✗ Deploy failed after $RETRIES attempts"
+exit 1
