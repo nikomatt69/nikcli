@@ -203,7 +203,7 @@ export function ComposerToolDrawer({
           </Pressable>
         </Animated.View>
 
-        <View style={{ paddingHorizontal: 16, paddingBottom: 24 }}>
+        <View style={{ paddingHorizontal: 10, paddingBottom: 24 }}>
           <Animated.View
             style={{
               transform: [{ translateY }, { scale: contentScaleAnim }],
@@ -233,7 +233,7 @@ export function ComposerToolDrawer({
               pointerEvents="none"
             />
 
-            <View style={{ padding: 16, flex: 1 }}>
+            <View style={{ padding: 10, flex: 1 }}>
               {/* Header */}
               <View
                 style={{
@@ -249,7 +249,7 @@ export function ComposerToolDrawer({
                     alignItems: "center",
                     gap: 8,
                     backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.08)",
-                    paddingHorizontal: 12,
+                    paddingHorizontal: 10,
                     paddingVertical: 8,
                     borderRadius: 12,
                     borderWidth: 1,
@@ -297,17 +297,11 @@ export function ComposerToolDrawer({
               </View>
 
               {/* Tab Bar */}
-              <View style={{ flexDirection: "row", gap: 6, marginBottom: 12, marginTop: 2 }}>
+              <View style={{ flexDirection: "row", gap: 4, marginBottom: 12, marginTop: 2 }}>
                 {tabs.map((tab) => {
                   const Icon = getIconComponent(tab)
                   const isActive = activeTab === tab
-                  const tabCounts: Record<ComposerTab, number> = {
-                    tools: tools.length,
-                    skills: skills.length,
-                    mcp: connectedMcp,
-                    model: availableModels.length,
-                  }
-                  const count = tabCounts[tab]
+                  
 
                   return (
                     <AnimatedTabButton
@@ -324,22 +318,7 @@ export function ComposerToolDrawer({
                       <Text style={{ fontSize: 11.5, fontWeight: "600", color: isActive ? "#fff" : palette.muted }}>
                         {TAB_LABELS[tab]}
                       </Text>
-                      {count > 0 && (
-                        <View
-                          style={{
-                            borderRadius: 8,
-                            paddingHorizontal: 5,
-                            paddingVertical: 2,
-                            backgroundColor: isActive ? "rgba(255,255,255,0.28)" : "rgba(14,165,233,0.18)",
-                          }}
-                        >
-                          <Text
-                            style={{ fontSize: 9, fontWeight: "700", color: isActive ? "#fff" : palette.accentLight }}
-                          >
-                            {count}
-                          </Text>
-                        </View>
-                      )}
+                      
                     </AnimatedTabButton>
                   )
                 })}

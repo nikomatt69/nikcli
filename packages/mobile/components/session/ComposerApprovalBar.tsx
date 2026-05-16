@@ -149,7 +149,7 @@ function QuestionApprovalView(props: {
   const optionBgSelected = isDark ? "rgba(96,165,250,0.15)" : "rgba(59,130,246,0.10)"
 
   return (
-    <View style={{ flex: 1, minWidth: 0 }}>
+    <View style={{ flex: 1, minWidth: 0, paddingHorizontal: 10 }}>
       {/* Question header */}
       <View style={{ marginBottom: 6 }}>
         <Text
@@ -180,7 +180,7 @@ function QuestionApprovalView(props: {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ flexDirection: "row", gap: 6, paddingVertical: 2 }}
+        contentContainerStyle={{ flexDirection: "column", gap: 10, paddingVertical: 10 }}
       >
         {options.map((option, optIdx) => {
           const isSelected = isMultiple
@@ -215,7 +215,7 @@ function QuestionApprovalView(props: {
                 flexShrink: 0,
                 flexDirection: "row",
                 alignItems: "center",
-                gap: 4,
+                gap: 6,
                 opacity: pressed ? 0.8 : 1,
                 transform: [{ scale: pressed ? 0.97 : 1 }],
               })}
@@ -253,7 +253,7 @@ function QuestionApprovalView(props: {
 
       {/* Question navigation (only if multiple questions) */}
       {questions.length > 1 && (
-        <View style={{ flexDirection: "row", gap: 4, marginTop: 8 }}>
+        <View style={{ flexDirection: "row", gap: 16, marginTop: 8 }}>
           {questions.map((q, idx) => (
             <Pressable
               key={idx}
@@ -419,6 +419,8 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
           borderRadius: 18,
           overflow: "hidden",
           borderWidth: 1,
+          padding: 5,
+          marginTop: 12,
           borderColor: barColors.border,
           backgroundColor: barColors.background,
         }}
@@ -460,7 +462,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
 
           {/* Navigation arrows (only when multiple) */}
           {count > 1 && (
-            <View style={{ flexDirection: "row", gap: 2 }}>
+            <View style={{ flexDirection: "row", gap: 16 }}>
               <Pressable
                 onPress={() => {
                   void triggerHaptic("selection")
@@ -509,7 +511,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
 
           {/* Action buttons based on type */}
           {currentType === "permission" ? (
-            <View style={{ flexDirection: "row", gap: 4, flexShrink: 0 }}>
+            <View style={{ flexDirection: "row", gap: 16, flexShrink: 0 }}> 
               {/* Reject */}
               <Pressable
                 onPress={() => handlePermissionRespond("reject")}

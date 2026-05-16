@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef } from "react"
 import { Animated, Pressable, Text, View } from "react-native"
-import { ArrowRight, Ellipsis, Trash2 } from "lucide-react-native"
+import { ArrowRight, Square, Trash2 } from "lucide-react-native"
 import { InfoChip } from "@/components/ui/InfoChip"
+import { ActionSheet, type ActionSheetRef } from "@/components/BottomSheet"
 import type { SessionSummary } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
@@ -26,11 +27,169 @@ function repoBadge(item: SessionSummary): string | null {
   return `${repo}:${branch}`
 }
 
+type SheetRowProps = {
+  icon: React.ReactNode
+  label: string
+  description: string
+  onPress(): void
+  tone?: "accent" | "danger" | "neutral"
+}
+
+function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetRowProps) {
+  const { palette, isDark } = useAppTheme()
+  const scaleAnim = useRef(new Animated.Value(1)).current
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, { toValue: 0.97, damping: 20, stiffness: 280, mass: 0.85, useNativeDriver: true }).start()
+  }
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, { toValue: 1, damping: 18, stiffness: 300, mass: 0.8, useNativeDriver: true }).start()
+  }
+
+  const iconBg =
+    tone === "danger"
+      ? isDark ? "rgba(143,143,143,0.08)" : "rgba(239,68,68,0.10)"
+      : tone === "neutral"
+        ? isDark ? "rgba(148,163,184,0.09)" : "rgba(100,116,139,0.08)"
+        : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)"
+
+  const iconBorder =
+    tone === "danger"
+      ? isDark ? "rgba(143,143,143,0.16)" : "rgba(239,68,68,0.22)"
+      : tone === "neutral"
+        ? isDark ? "rgba(148,163,184,0.18)" : "rgba(100,116,139,0.16)"
+        : isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)"
+
+  const labelColor = tone === "danger" ? palette.danger : palette.ink
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
+    >
+      <Animated.View
+        style={{
+          transform: [{ scale: scaleAnim }],
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 14,
+          minHeight: 64,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+        }}
+      >
+        <View
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: iconBg,
+            borderWidth: 1,
+            borderColor: iconBorder,
+          }}
+        >
+          {icon}
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: labelColor, lineHeight: 20 }} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={{ fontSize: 12.5, color: palette.muted, marginTop: 2, lineHeight: 16 }} numberOfLines={1}>
+            {description}
+          </Text>
+        </View>
+      </Animated.View>
+    </Pressable>
+  )
+}
+
+function SectionDivider() {
+  return <View style={{ marginHorizontal: 20, marginTop: 8, height: 1, backgroundColor: "rgba(128,128,128,0.12)" }} />
+}
+
+type SessionActionsSheetProps = {
+  sheetRef: React.RefObject<ActionSheetRef>
+  title: string
+  isBusy: boolean
+  onStop(): void
+  onDelete(): void
+  onOpen(): void
+}
+
+function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, onOpen }: SessionActionsSheetProps) {
+  const { palette, isDark } = useAppTheme()
+
+  return (
+    <ActionSheet ref={sheetRef} snapPoints={[340]}>
+      {/* Header */}
+      <View
+        style={{
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+          paddingHorizontal: 20,
+          paddingBottom: 16,
+        }}
+      >
+        <Text style={{ fontSize: 10, fontWeight: "700", letterSpacing: 1.8, color: palette.accent, textTransform: "uppercase" }}>
+          Session actions
+        </Text>
+        <Text style={{ fontSize: 17, fontWeight: "700", color: palette.ink, marginTop: 6, lineHeight: 24 }} numberOfLines={2}>
+          {title || "Untitled session"}
+        </Text>
+      </View>
+
+      <View>
+        <SheetRow
+          icon={<ArrowRight size={19} color={palette.accentLight} strokeWidth={2.1} />}
+          label="Open session"
+          description="Jump to the session timeline"
+          tone="accent"
+          onPress={() => {
+            sheetRef.current?.dismiss()
+            setTimeout(onOpen, 120)
+          }}
+        />
+
+        <SectionDivider />
+        <SheetRow
+          icon={<Square size={19} color={palette.soft} strokeWidth={2.1} />}
+          label="Abort session"
+          description={isBusy ? "Stop the active run immediately" : "No active run to abort"}
+          tone="neutral"
+          onPress={() => {
+            sheetRef.current?.dismiss()
+            setTimeout(onStop, 120)
+          }}
+        />
+
+        <SectionDivider />
+        <SheetRow
+          icon={<Trash2 size={19} color={palette.danger} strokeWidth={2.1} />}
+          label="Delete session"
+          description="Permanently remove all data"
+          tone="danger"
+          onPress={() => {
+            sheetRef.current?.dismiss()
+            setTimeout(onDelete, 120)
+          }}
+        />
+        <View style={{ height: 20 }} />
+      </View>
+    </ActionSheet>
+  )
+}
+
 export function SessionListItem(props: {
   item: SessionSummary
   onPress(): void
-  onLongPress?: () => void
   onDelete?: () => void
+  onStop?: () => void
   index?: number
 }) {
   const { palette, isDark } = useAppTheme()
@@ -39,15 +198,19 @@ export function SessionListItem(props: {
   const translateY = useRef(new Animated.Value(10)).current
   const opacity = useRef(new Animated.Value(0)).current
   const scale = useRef(new Animated.Value(1)).current
+  const sheetRef = useRef<ActionSheetRef>(null)
   const badge = repoBadge(props.item)
   const containerBacked = Boolean(props.item.info.workspaceID)
   const changedFiles = (summary?.additions ?? 0) + (summary?.deletions ?? 0)
+  const isBusy = status === "busy"
+
   const footerLabel =
     status === "busy"
       ? "Execution is active and streaming new output"
       : status === "retry"
         ? "Needs attention before the next run can continue"
         : "Ready for transcript, approvals, and publish review"
+
   const statusColors =
     status === "busy"
       ? {
@@ -80,8 +243,11 @@ export function SessionListItem(props: {
     Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 3 }).start()
   }, [scale])
 
+  const openSheet = useCallback(() => {
+    sheetRef.current?.present()
+  }, [])
+
   useEffect(() => {
-    // Reset to initial state to ensure clean entrance animation on remount
     opacity.setValue(0)
     translateY.setValue(10)
     const delay = (props.index ?? 0) * 30
@@ -104,7 +270,8 @@ export function SessionListItem(props: {
     <Animated.View style={{ opacity, transform: [{ translateY }, { scale }] }}>
       <Pressable
         onPress={props.onPress}
-        onLongPress={props.onLongPress}
+        onLongPress={openSheet}
+        delayLongPress={380}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         className="overflow-hidden rounded-[8px] border border-border bg-surface px-4 py-4"
@@ -141,14 +308,7 @@ export function SessionListItem(props: {
               paddingVertical: 7,
             }}
           >
-            <View
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 999,
-                backgroundColor: statusColors.dotColor,
-              }}
-            />
+            <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: statusColors.dotColor }} />
             <Text style={{ color: statusColors.textColor, fontSize: 10, fontWeight: "700", letterSpacing: 1.2 }}>
               {status.toUpperCase()}
             </Text>
@@ -168,26 +328,32 @@ export function SessionListItem(props: {
             {footerLabel}
           </Text>
           <View className="flex-row items-center gap-2">
-            {props.onDelete ? (
-              <Pressable
-                onPress={(event) => {
-                  event.stopPropagation()
-                  props.onDelete?.()
-                }}
-                hitSlop={10}
-                className="rounded-[8px] border border-danger/35 bg-danger/10 px-3 py-2"
-              >
-                <Trash2 size={14} color={palette.danger} strokeWidth={2.1} />
-              </Pressable>
-            ) : null}
             <View className="flex-row items-center gap-1 rounded-[8px] border border-border/70 bg-background/80 px-3 py-2">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.2px] text-accent-light">Open</Text>
               <ArrowRight size={13} color={palette.accentLight} strokeWidth={2.1} />
             </View>
-            {props.onLongPress ? <Ellipsis size={14} color={palette.muted} strokeWidth={2.1} /> : null}
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation()
+                openSheet()
+              }}
+              hitSlop={10}
+              className="rounded-[8px] border border-border/70 bg-background/80 px-3 py-2"
+            >
+              <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 2 }}>···</Text>
+            </Pressable>
           </View>
         </View>
       </Pressable>
+
+      <SessionListActionsSheet
+        sheetRef={sheetRef}
+        title={props.item.info.title ?? ""}
+        isBusy={isBusy}
+        onOpen={props.onPress}
+        onStop={props.onStop ?? (() => {})}
+        onDelete={props.onDelete ?? (() => {})}
+      />
     </Animated.View>
   )
 }

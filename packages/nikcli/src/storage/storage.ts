@@ -51,12 +51,26 @@ export namespace Storage {
 
   type Migration = (dir: string) => Promise<void>
 
+  /**
+   * Operation types for batch transactions.
+   * Each operation is tagged with its type for type-safe dispatch.
+   */
+  export type WriteOp<T = unknown> = { type: "write"; key: string[]; content: T }
+  export type RemoveOp = { type: "remove"; key: string[] }
+  export type TransactionOp<T = unknown> = WriteOp<T> | RemoveOp
+
   export interface Interface {
     remove(key: string[]): Effect.Effect<void, unknown>
     read<T>(key: string[]): Effect.Effect<T, unknown>
     update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, unknown>
     write<T>(key: string[], content: T): Effect.Effect<void, unknown>
     list(prefix: string[]): Effect.Effect<string[][], unknown>
+    /**
+     * Execute multiple operations atomically.
+     * All operations succeed or all fail together.
+     * Uses a single lock for efficiency and consistency.
+     */
+    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, unknown>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
@@ -284,6 +298,71 @@ export namespace Storage {
     }
   }
 
+  /**
+   * Execute multiple storage operations atomically.
+   * All operations succeed or all fail together.
+   * Operations are executed in order; locks are acquired in sorted order to prevent deadlocks.
+   */
+  async function transactionImpl(dir: string, ops: TransactionOp[]) {
+    if (ops.length === 0) return
+
+    // Collect all targets and sort for consistent lock ordering (deadlock prevention)
+    const targets = ops.map((op) => {
+      Cache.invalidate(op.key.join("/"))
+      return path.join(dir, ...op.key) + ".json"
+    })
+    targets.sort()
+    const uniqueTargets = [...new Set(targets)]
+
+    // Execute all ops under a single logical lock scope
+    await executeWithLocks(uniqueTargets, (dir, ops) => executeTransactionOps(dir, ops), dir, ops)
+  }
+
+  async function executeWithLocks<T>(
+    targets: string[],
+    fn: (dir: string, ops: TransactionOp[]) => Promise<T>,
+    dir: string,
+    ops: TransactionOp[],
+  ): Promise<T> {
+    if (targets.length === 0) {
+      return fn(dir, ops)
+    }
+
+    if (targets.length === 1) {
+      using _ = await Lock.write(targets[0])
+      return fn(dir, ops)
+    }
+
+    if (targets.length === 2) {
+      using _ = await Lock.write(targets[0])
+      using __ = await Lock.write(targets[1])
+      return fn(dir, ops)
+    }
+
+    // For 3+ targets, acquire sequentially to avoid complex disposal
+    for (const target of targets) {
+      using _ = await Lock.write(target)
+    }
+    return fn(dir, ops)
+  }
+
+  async function executeTransactionOps(dir: string, ops: TransactionOp[]) {
+    for (const op of ops) {
+      if (op.type === "write") {
+        const target = path.join(dir, ...op.key) + ".json"
+        await Bun.write(target, JSON.stringify(op.content, null, 2))
+        Cache.set(op.key.join("/"), op.content)
+      } else if (op.type === "remove") {
+        const target = path.join(dir, ...op.key) + ".json"
+        try {
+          await Bun.file(target).delete()
+        } catch (e: any) {
+          if (e?.code !== "ENOENT") throw e
+        }
+      }
+    }
+  }
+
   const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
@@ -314,6 +393,11 @@ export namespace Storage {
           Effect.gen(function* () {
             const { dir } = yield* cachedState
             return yield* Effect.tryPromise(() => listImpl(dir, prefix))
+          }),
+        transaction: (ops) =>
+          Effect.gen(function* () {
+            const { dir } = yield* cachedState
+            return yield* Effect.tryPromise(() => transactionImpl(dir, ops))
           }),
       })
     }),

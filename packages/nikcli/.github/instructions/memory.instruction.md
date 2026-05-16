@@ -1646,7 +1646,7 @@ onMount(() => {
 
 ### Stack
 
-Expo 52, React Native 0.76, NativeWind, lucide-react-native, expo-router, react-native-webview, zustand, Expo SecureStore.
+Expo 52, React Native 0.76, NativeWind, lucide-react-native, expo-router, react-native-webview, zustand, Expo SecureStore, expo-image.
 
 ### Architecture
 
@@ -1692,8 +1692,9 @@ Expo 52, React Native 0.76, NativeWind, lucide-react-native, expo-router, react-
 | `components/git/GitFileTree.tsx` | Git file tree |
 | `hooks/use-session-stream.ts` | SSE session event hook |
 
-### Known Issues (2026-04-29)
+### Known Issues (2026-05-15)
 
+- `ChatBubble.tsx` uses `import { Image } from "expo-image"` but `expo-image` was missing from `package.json` dependencies (fixed 2026-05-15: added `"expo-image": "~1.14.0"`)
 - `_layout.tsx:31`: `settings` and `user` are registered tabs but filtered out of `AppTabBar`; navigating to them from header/drawer leaves no selected tab and `AppHeader` falls back to Sessions.
 - `SessionComposer.tsx:653`: stop button's `onPress` only triggers haptics; `onStop` prop is accepted but never destructured/wired. Also: attachment/model/MCP props are accepted but only `onAttach` is destructured.
 - `terminal/index.tsx:9,324`: imports `SafeAreaView` from React Native and adds top safe-area padding inside a screen that already has app chrome. Should use `View` and account only for bottom/keyboard safe area.
@@ -1961,6 +1962,24 @@ CLI Layer (packages/nikcli/)
 - `cli-launcher.ts` — Launches companion app via URL scheme
 - Session state management with durable persistence
 
+## Server Build Infrastructure (`Dockerfile.serve`)
+
+### Build Process (2026-05-15)
+
+Multi-stage Docker build using `oven/bun:1.3.14-debian` base:
+1. **Base**: `apt-get install` (bash, git, libgcc-s1, libstdc++, openssh-server, curl, ca-certificates, patchelf) + Homebrew clone
+2. **Build stage**: `bun install` → copies all source packages → `bun run script/build.ts --single --skip-install`
+3. **Package resolution stage**: `bun install --os="*" --cpu="*"` for platform-specific `@opentui/solid` + `@effect/platform` deps
+4. **Runtime stage**: copies nikcli binary from build stage, installs platform-specific glibc via `patchelf`, sets up SSH, creates `/data` dirs
+
+### Bundled Packages (25 plugins + core packages)
+
+Core packages in build: `@nikcli-ai/app`, `@nikcli-ai/cloud`, `@nikcli-ai/companion-ui`, `@nikcli-ai/console-app`, `@nikcli-ai/console-core`, `@nikcli-ai/console-function`, `@nikcli-ai/console-mail`, `@nikcli-ai/console-resource`, `@nikcli-ai/desktop`, `@nikcli-ai/enterprise`, `@nikcli-ai/function`, `@nikcli-ai/mobile`, `@nikcli-ai/remote-client`, `@nikcli-ai/ui`, `@nikcli-ai/web`, `@opentui/webrenderer`, and all plugin packages (`agent-memory`, `background`, `background-agents`, `context-analysis`, `direnv`, `dynamic-context-pruning`, `envsitter-guard`, `handoff`, `safety-net`, `smart-title`).
+
+### Package Resolution Strategy
+
+`bun install --os="*" --cpu="*"` (2026-05-15) is the standard pattern for resolving platform-specific native dependencies (e.g., `@opentui/solid`, `@effect/platform-bun`) inside Docker builds without needing a separate `postinstall` step.
+
 ### Integration Master Plan (`specs/integration-master-plan.md`)
 
 Central tracking document for v2 migration. Key epochs:
@@ -1969,3 +1988,11 @@ Central tracking document for v2 migration. Key epochs:
 - **E10**: Config migration (to Effect-based services)
 
 Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode integration complete. APIError migration pending in test files.
+
+## Brain Pass (2026-05-16)
+
+### Signal Consolidated
+
+1. **Mobile: expo-image dependency** — `ChatBubble.tsx` uses `import { Image } from "expo-image"` but the package was missing from `package.json`. Fixed 2026-05-15 by adding `"expo-image": "~1.14.0"` (coherent with SDK 52 ecosystem). Note: `bun install` may timeout in Docker; run manually.
+2. **Docker build infrastructure** — Multi-stage `Dockerfile.serve` uses `oven/bun:1.3.14-debian`, builds nikcli binary, then resolves platform-specific deps via `bun install --os="*" --cpu="*"` for packages like `@opentui/solid`, `@effect/platform-bun`. 25+ plugin packages bundled.
+3. **Mobile known issues** — 8 issues documented, 1 new fix applied (`expo-image` added to the list).

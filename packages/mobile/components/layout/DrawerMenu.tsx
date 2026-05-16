@@ -1,9 +1,9 @@
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native"
 import { router } from "expo-router"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { RefreshCw, X } from "lucide-react-native"
+import { RefreshCw, Square, X } from "lucide-react-native"
 import { StatusPill } from "@/components/layout/StatusPill"
 import { APP_TABS, getCurrentProjectLabel, getGitHubStatusLabel } from "@/components/layout/navigation.config"
 import { useServer } from "@/lib/server-provider"
@@ -16,7 +16,8 @@ type DrawerMenuProps = {
 
 export function DrawerMenu({ routeName }: DrawerMenuProps) {
   const { top, bottom } = useSafeAreaInsets()
-  const { bootstrap, config, refreshBootstrap } = useServer()
+  const { bootstrap, config, client, refreshBootstrap } = useServer()
+  const [abortingAll, setAbortingAll] = useState(false)
   const { palette, isDark } = useAppTheme()
   const open = useUIStore((state) => state.drawerOpen)
   const closeDrawer = useUIStore((state) => state.closeDrawer)
@@ -382,6 +383,44 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
               >
                 <RefreshCw size={16} color={palette.ink} strokeWidth={2.1} />
                 <Text style={{ fontWeight: "600", color: palette.ink }}>Refresh host state</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={!client || abortingAll}
+                onPress={async () => {
+                  if (!client) return
+                  setAbortingAll(true)
+                  try {
+                    const sessions = await client.listSessions()
+                    const busy = sessions.filter((s) => s.status?.type === "busy")
+                    await Promise.allSettled(busy.map((s) => client.abortSession(s.info.id)))
+                  } finally {
+                    setAbortingAll(false)
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Abort all active sessions"
+                accessibilityHint="Stops every session that is currently running"
+                accessibilityState={{ disabled: !client || abortingAll }}
+                style={{
+                  marginTop: 8,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: isDark ? "rgba(248,113,113,0.28)" : "rgba(239,68,68,0.22)",
+                  backgroundColor: isDark ? "rgba(80,28,28,0.60)" : "rgba(239,68,68,0.07)",
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  opacity: abortingAll ? 0.6 : 1,
+                }}
+              >
+                <Square size={16} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.2} />
+                <Text style={{ fontWeight: "600", color: isDark ? "#f87171" : "#dc2626" }}>
+                  {abortingAll ? "Aborting…" : "Abort all active sessions"}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>

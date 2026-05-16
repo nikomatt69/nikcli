@@ -93,8 +93,8 @@ export function ComposerPermissionBar(props: {
             flexDirection: "row",
             alignItems: "center",
             paddingHorizontal: 12,
-            paddingVertical: 10,
-            gap: 8,
+            paddingVertical: 12,
+            gap: 10,
           }}
         >
           {/* Icon */}
@@ -104,18 +104,18 @@ export function ComposerPermissionBar(props: {
               borderWidth: 1,
               borderColor: isDark ? "rgba(255,180,0,0.22)" : "rgba(217,119,6,0.22)",
               backgroundColor: isDark ? "rgba(255,180,0,0.10)" : "rgba(217,119,6,0.10)",
-              padding: 5,
+              padding: 7,
               flexShrink: 0,
             }}
           >
-            <Shield size={13} color={isDark ? "#fbbf24" : "#d97706"} strokeWidth={2.1} />
+            <Shield size={15} color={isDark ? "#fbbf24" : "#d97706"} strokeWidth={2.1} />
           </View>
 
           {/* Permission text */}
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text
               style={{
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: "700",
                 letterSpacing: 1.1,
                 textTransform: "uppercase",
@@ -128,7 +128,7 @@ export function ComposerPermissionBar(props: {
             <Text
               numberOfLines={1}
               style={{
-                fontSize: 12,
+                fontSize: 13,
                 fontWeight: "500",
                 color: isDark ? "rgba(255,255,255,0.82)" : "rgba(30,20,0,0.82)",
               }}
@@ -145,26 +145,26 @@ export function ComposerPermissionBar(props: {
                   void triggerHaptic("selection")
                   setIndex((prev) => (prev - 1 + count) % count)
                 }}
-                hitSlop={6}
+                hitSlop={10}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.5 : 1,
-                  padding: 4,
+                  padding: 6,
                 })}
               >
-                <ChevronLeft size={14} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
+                <ChevronLeft size={16} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
               </Pressable>
               <Pressable
                 onPress={() => {
                   void triggerHaptic("selection")
                   setIndex((prev) => (prev + 1) % count)
                 }}
-                hitSlop={6}
+                hitSlop={10}
                 style={({ pressed }) => ({
                   opacity: pressed ? 0.5 : 1,
-                  padding: 4,
+                  padding: 6,
                 })}
               >
-                <ChevronRight size={14} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
+                <ChevronRight size={16} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
               </Pressable>
             </View>
           )}
@@ -173,62 +173,62 @@ export function ComposerPermissionBar(props: {
           <View
             style={{
               width: StyleSheet.hairlineWidth,
-              height: 28,
+              height: 32,
               backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)",
             }}
           />
 
           {/* Action buttons */}
-          <View style={{ flexDirection: "row", gap: 4, flexShrink: 0 }}>
+          <View style={{ flexDirection: "row", gap: 6, flexShrink: 0 }}>
             {/* Reject */}
             <Pressable
               onPress={() => respond("reject")}
-              hitSlop={4}
+              hitSlop={8}
               style={({ pressed }) => ({
-                borderRadius: 10,
+                borderRadius: 11,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(248,113,113,0.30)" : "rgba(239,68,68,0.22)",
                 backgroundColor: isDark ? "rgba(80,28,28,0.80)" : "rgba(239,68,68,0.08)",
-                padding: 7,
+                padding: 11,
                 opacity: pressed ? 0.7 : 1,
                 transform: [{ scale: pressed ? 0.92 : 1 }],
               })}
             >
-              <X size={13} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
+              <X size={15} color={isDark ? "#f87171" : "#dc2626"} strokeWidth={2.4} />
             </Pressable>
 
             {/* Allow once */}
             <Pressable
               onPress={() => respond("once")}
-              hitSlop={4}
+              hitSlop={8}
               style={({ pressed }) => ({
-                borderRadius: 10,
+                borderRadius: 11,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(255,255,255,0.16)" : "rgba(193,208,223,0.78)",
                 backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.82)",
-                padding: 7,
+                padding: 11,
                 opacity: pressed ? 0.7 : 1,
                 transform: [{ scale: pressed ? 0.92 : 1 }],
               })}
             >
-              <Check size={13} color={isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.55)"} strokeWidth={2.4} />
+              <Check size={15} color={isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.55)"} strokeWidth={2.4} />
             </Pressable>
 
             {/* Always allow */}
             <Pressable
               onPress={() => respond("always")}
-              hitSlop={4}
+              hitSlop={8}
               style={({ pressed }) => ({
-                borderRadius: 10,
+                borderRadius: 11,
                 borderWidth: 1,
                 borderColor: isDark ? "rgba(52,211,153,0.28)" : "rgba(16,185,129,0.22)",
                 backgroundColor: isDark ? "rgba(6,40,28,0.82)" : "rgba(16,185,129,0.08)",
-                padding: 7,
+                padding: 11,
                 opacity: pressed ? 0.7 : 1,
                 transform: [{ scale: pressed ? 0.92 : 1 }],
               })}
             >
-              <ShieldCheck size={13} color={isDark ? "#34d399" : "#059669"} strokeWidth={2.2} />
+              <ShieldCheck size={15} color={isDark ? "#34d399" : "#059669"} strokeWidth={2.2} />
             </Pressable>
           </View>
         </View>

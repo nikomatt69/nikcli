@@ -171,7 +171,30 @@ export default function SessionsScreen() {
         }
         ItemSeparatorComponent={() => <View className="h-3" />}
         renderItem={({ item, index }) => (
-          <SessionListItem item={item} index={index} onPress={() => router.push(`/sessions/${item.info.id}`)} />
+          <SessionListItem
+            item={item}
+            index={index}
+            onPress={() => router.push(`/sessions/${item.info.id}`)}
+            onStop={async () => {
+              if (!client) return
+              try {
+                await client.abortSession(item.info.id)
+                void load(searchRef.current)
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e))
+              }
+            }}
+            onDelete={async () => {
+              if (!client) return
+              setSessions((prev) => prev.filter((s) => s.info.id !== item.info.id))
+              try {
+                await client.deleteSession(item.info.id)
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e))
+                void load(searchRef.current)
+              }
+            }}
+          />
         )}
         ListHeaderComponent={hero}
         ListEmptyComponent={

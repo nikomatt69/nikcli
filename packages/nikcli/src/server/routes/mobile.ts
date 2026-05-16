@@ -2096,6 +2096,32 @@ export const MobileRoutes = lazy(() =>
         return c.json({ success: true as const })
       },
     )
+    .delete(
+      "/session/:sessionID",
+      describeRoute({
+        summary: "Delete mobile session",
+        description: "Permanently delete a session and all associated data.",
+        operationId: "mobile.session.delete",
+        responses: {
+          200: {
+            description: "Session deleted",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: z.string() })),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.remove(sessionID)
+          }),
+        )
+        return c.json({ success: true as const })
+      },
+    )
     .post(
       "/session/:sessionID/permissions/:permissionID",
       describeRoute({

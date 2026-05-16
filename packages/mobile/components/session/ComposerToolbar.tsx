@@ -209,7 +209,7 @@ function ComposerDrawer({
           />
 
           {/* Drag handle */}
-          <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
+          <View style={{ alignItems: "center", paddingTop: 6, paddingBottom: 4 }}>
             <View
               style={{
                 width: 42,
@@ -234,8 +234,8 @@ function ComposerDrawer({
             <Text
               style={{
                 flex: 1,
-                fontSize: 17,
-                fontWeight: "700",
+                fontSize: 10,
+                fontWeight: "bold",
                 letterSpacing: -0.3,
                 color: palette.ink,
               }}

@@ -298,54 +298,11 @@ export function SessionComposer({
         paddingBottom: Math.max(insets.bottom, 10),
       }}
     >
-      {/* Top hairline separator */}
-      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: palette.border }} />
+      {/* Top hairline separator — intentionally transparent */}
+      <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: "transparent" }} />
 
       {/* Status banner — glass pill, animated slide-down */}
-      {showStatus && (
-        <Animated.View
-          style={{
-            opacity: statusAnim,
-            transform: [{ translateY: statusTranslateY }],
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              paddingVertical: 9,
-              paddingHorizontal: 16,
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: palette.border,
-              backgroundColor: cleaned
-                ? isDark
-                  ? "rgba(143,143,143,0.07)"
-                  : "rgba(220,38,38,0.06)"
-                : isDark
-                  ? "rgba(183,183,183,0.07)"
-                  : "rgba(217,119,6,0.07)",
-            }}
-          >
-            {sessionBlocked ? (
-              <ActivityIndicator size={10} color={palette.warn} />
-            ) : (
-              <Lock size={11} color={palette.danger} strokeWidth={2.2} />
-            )}
-            <Text
-              style={{
-                fontSize: 11,
-                fontWeight: "600",
-                letterSpacing: 0.2,
-                color: sessionBlocked ? palette.warn : palette.danger,
-              }}
-            >
-              {cleaned ? "Read-only worktree" : "Processing…"}
-            </Text>
-          </View>
-        </Animated.View>
-      )}
+      
 
       {/* Slash autocomplete — animated fade + slide up */}
       {showSlash && (

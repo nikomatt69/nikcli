@@ -206,6 +206,12 @@ export class MobileClient {
     })
   }
 
+  deleteSession(sessionID: string) {
+    return this.request<{ success: true }>(`/mobile/session/${encodeURIComponent(sessionID)}`, {
+      method: "DELETE",
+    })
+  }
+
   abortSession(sessionID: string) {
     return this.request<{ success: true }>(`/mobile/session/${encodeURIComponent(sessionID)}/abort`, {
       method: "POST",
