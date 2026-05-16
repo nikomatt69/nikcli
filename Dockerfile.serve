@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.13-debian AS base
+FROM oven/bun:1.3.14-debian AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash git libgcc-s1 libstdc++6 openssh-server curl ca-certificates patchelf \
@@ -30,6 +30,8 @@ COPY packages/remote/package.json /app/packages/remote/
 COPY packages/plugin/package.json /app/packages/plugin/
 COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
+COPY packages/llm/package.json /app/packages/llm/
+COPY packages/http-recorder/package.json /app/packages/http-recorder/
 COPY github/package.json /app/github/
 
 # Stub package.json for workspace packages not built in this image
@@ -77,11 +79,13 @@ COPY packages/remote /app/packages/remote
 COPY packages/plugin /app/packages/plugin
 COPY packages/companion /app/packages/companion
 COPY packages/slack /app/packages/slack
+COPY packages/llm /app/packages/llm
+COPY packages/http-recorder /app/packages/http-recorder
 COPY github /app/github
 
 ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=0.0.0-dev
-RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform@0.96.1 @effect/platform-bun@0.89.0
+ENV NIKCLI_VERSION=1.5.0
+RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform@0.96.1 @effect/platform-bun@4.0.0-beta.65
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
 
 FROM base AS runtime
@@ -113,7 +117,7 @@ ENV PORT=4096
 ENV XDG_DATA_HOME=/data
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
-ENV NIKCLI_SERVER_USERNAME=nikcli
+ENV NIKCLI_SERVER_USERNAME=nikcli 
 ENV NIKCLI_SERVER_SSH_ENABLED=true
 ENV NIKCLI_SERVER_SSH_PORT=2222
 ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0

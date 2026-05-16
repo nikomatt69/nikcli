@@ -256,6 +256,7 @@ const MobileSessionDetail = z
     status: SessionStatus.Info.optional(),
     messages: MessageV2.WithParts.array(),
     permissions: PermissionNext.Request.array(),
+    questions: Question.Request.array(),
   })
   .meta({ ref: "MobileSessionDetail" })
 
@@ -1714,36 +1715,47 @@ export const MobileRoutes = lazy(() =>
             return yield* service.getAnyProject(sessionID)
           }),
         )
-        const { messages, permissions, status } = await withInstanceAsync({ directory: info.directory }, async () => {
-          const [messages, permissions] = await Promise.all([
-            runSessionForSession(
-              info,
+        const { messages, permissions, questions, status } = await withInstanceAsync(
+          { directory: info.directory },
+          async () => {
+            const [messages, permissions, questionItems] = await Promise.all([
+              runSessionForSession(
+                info,
+                Effect.gen(function* () {
+                  const service = yield* Session.Service
+                  return yield* service.messages({ sessionID })
+                }),
+              ),
+              runPermission(
+                Effect.gen(function* () {
+                  const permission = yield* PermissionNext.Service
+                  const items = yield* permission.list()
+                  return items.filter((item) => item.sessionID === sessionID)
+                }),
+              ),
+              runQuestion(
+                Effect.gen(function* () {
+                  const question = yield* Question.Service
+                  const items = yield* question.list()
+                  return items.filter((item) => item.sessionID === sessionID)
+                }),
+              ),
+            ])
+            const status = await runStatus(
               Effect.gen(function* () {
-                const service = yield* Session.Service
-                return yield* service.messages({ sessionID })
+                const sessionStatus = yield* SessionStatus.Service
+                return yield* sessionStatus.get(sessionID)
               }),
-            ),
-            runPermission(
-              Effect.gen(function* () {
-                const permission = yield* PermissionNext.Service
-                const items = yield* permission.list()
-                return items.filter((item) => item.sessionID === sessionID)
-              }),
-            ),
-          ])
-          const status = await runStatus(
-            Effect.gen(function* () {
-              const sessionStatus = yield* SessionStatus.Service
-              return yield* sessionStatus.get(sessionID)
-            }),
-          )
-          return { messages, permissions, status }
-        })
+            )
+            return { messages, permissions, questions: questionItems, status }
+          },
+        )
         return c.json({
           info,
           status,
           messages,
           permissions,
+          questions,
         })
       },
     )

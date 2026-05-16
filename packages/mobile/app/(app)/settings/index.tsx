@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native"
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import * as WebBrowser from "expo-web-browser"
 import { Link, useFocusEffect } from "expo-router"
 import { SettingsNavCard } from "@/components/settings/SettingsNavCard"
@@ -13,7 +13,7 @@ import { useServer } from "@/lib/server-provider"
 import { getAppPreferences, setAppPreferences } from "@/lib/storage"
 import { ensureNotificationPermissions } from "@/lib/notifications"
 import { useUIStore } from "@/lib/store"
-import { useAppTheme } from "@/lib/theme"
+import { useAppTheme, useTheme, THEME_LIST } from "@/lib/theme"
 import {
   type HostConfigSnapshot,
   type HostMcpConfig,
@@ -114,7 +114,9 @@ export default function SettingsScreen() {
   const { client, config, bootstrap, bootstrapLoading, refreshBootstrap, save, clear, currentUser, signOut } =
     useServer()
   const { palette, colorScheme } = useAppTheme()
+  const { themeId, themeName, setTheme } = useTheme()
   const { setColorScheme } = useColorScheme()
+  const [themePickerOpen, setThemePickerOpen] = useState(false)
   const themeMode = useUIStore((state) => state.themeMode)
   const setThemeMode = useUIStore((state) => state.setThemeMode)
   const visibleSettingsSections = useUIStore((state) => state.visibleSettingsSections)
@@ -1016,6 +1018,28 @@ export default function SettingsScreen() {
           <InfoChip label={visibleSettingsSections.skills ? "Skills visible" : "Skills hidden"} />
         </View>
 
+        {/* Theme Selector Dropdown */}
+        <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
+          <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">Color Theme</Text>
+          <Pressable
+            onPress={() => setThemePickerOpen(true)}
+            className={`mt-3 flex-row items-center justify-between rounded-[12px] border px-4 py-3 ${optionChipClass(true)}`}
+          >
+            <View>
+              <Text className="text-sm font-semibold text-ink">{themeName}</Text>
+              <Text className="mt-1 text-xs text-soft">Tap to change theme</Text>
+            </View>
+            <View className="flex-row items-center gap-2">
+              {/* Theme preview swatches */}
+              <View
+                className="h-6 w-6 rounded-full border-2 border-border"
+                style={{ backgroundColor: palette?.accent ?? "#0ea5e9" }}
+              />
+              <Text style={{ color: palette?.ink ?? "#0d1b2a", fontSize: 14 }}>▼</Text>
+            </View>
+          </Pressable>
+        </View>
+
         <View className="mt-4 flex-row gap-2">
           {(["system", "light", "dark"] as ThemeMode[]).map((mode) => {
             const active = themeMode === mode
@@ -1776,6 +1800,71 @@ export default function SettingsScreen() {
           <Text className="mt-3 text-sm text-soft">Refreshing host and GitHub posture…</Text>
         </View>
       ) : null}
+
+      {/* Theme Picker Modal */}
+      <Modal
+        visible={themePickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setThemePickerOpen(false)}
+      >
+        <View className="flex-1 justify-end bg-black/50">
+          <Pressable className="flex-1" onPress={() => setThemePickerOpen(false)} />
+          <View
+            className="rounded-t-[24px] border-t border-border bg-surface px-4 pb-8 pt-3"
+            style={{ backgroundColor: palette?.surface ?? "#ffffff" }}
+          >
+            <View className="mb-4 h-1 w-10 rounded-full bg-border self-center" />
+            <Text className="mb-4 text-center text-lg font-semibold" style={{ color: palette?.ink ?? "#0d1b2a" }}>
+              Choose Theme
+            </Text>
+            <ScrollView
+              className="max-h-[400px]"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {THEME_LIST.map((theme) => {
+                const isSelected = theme.id === themeId
+                return (
+                  <Pressable
+                    key={theme.id}
+                    onPress={() => {
+                      setTheme(theme.id)
+                      setThemePickerOpen(false)
+                    }}
+                    className={`mx-1 my-1 flex-row items-center justify-between rounded-[12px] px-4 py-3 ${isSelected ? "bg-accent/10" : ""}`}
+                    style={{
+                      backgroundColor: isSelected ? `${palette?.accent ?? "#0ea5e9"}20` : "transparent",
+                    }}
+                  >
+                    <View>
+                      <Text
+                        className={`text-sm font-semibold ${isSelected ? "text-accent" : ""}`}
+                        style={{ color: isSelected ? (palette?.accent ?? "#0ea5e9") : (palette?.ink ?? "#0d1b2a") }}
+                      >
+                        {theme.name}
+                      </Text>
+                      {theme.author && (
+                        <Text className="mt-1 text-xs" style={{ color: palette?.muted ?? "#61768c" }}>
+                          by {theme.author}
+                        </Text>
+                      )}
+                    </View>
+                    {isSelected && (
+                      <View
+                        className="h-6 w-6 items-center justify-center rounded-full"
+                        style={{ backgroundColor: `${palette?.accent ?? "#0ea5e9"}30` }}
+                      >
+                        <Text style={{ color: palette?.accent ?? "#0ea5e9", fontWeight: "bold" }}>✓</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                )
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   )
 }

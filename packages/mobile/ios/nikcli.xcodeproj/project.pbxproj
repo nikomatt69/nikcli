@@ -3,50 +3,50 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		03574FE4E8C94064CB9A6F22 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = F34D7E492A359207796E5F19 /* PrivacyInfo.xcprivacy */; };
 		13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB01A68108700A75B9A /* AppDelegate.mm */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
-		179C5C30BB64448DB0ADFC3B /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC108C601BED41F3883770E5 /* LiveActivityWidgetBundle.swift */; };
-		184A49028CE54465908A643E /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12BA849FA194717BFE91EB5 /* View+applyIfPresent.swift */; };
-		217D49BE6F044201B42C198F /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905CE895829E4028B71499AA /* Image+dynamic.swift */; };
-		253AE1528F5F446FB87835FC /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32DEACBC0373413D9A9DABDC /* ViewHelpers.swift */; };
-		3A719E6AEF8A40E3A6EB4071 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCD4DF3924D4DB8BA629923 /* Date+toTimerInterval.swift */; };
+		22AA9715634D4E86AF1B527E /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FC873BED2334529B5657F43 /* noop-file.swift */; };
+		2660029E851A4A668889353F /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 245D1E9E09534802B0B78B59 /* LiveActivityView.swift */; };
+		36098C38BB5E429E95F1BF96 /* Date+toTimerInterval.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03EF8C03B8044C73A2B1EBF0 /* Date+toTimerInterval.swift */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		722E1B1DFC7F4101932C968E /* noop-file.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D348D1E7B442DDA05B89FC /* noop-file.swift */; };
-		736161E74F40400E968252A2 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5764FCD7684AB8A36E20B2 /* LiveActivityWidget.swift */; };
-		7BA671C7036842DB80D9F996 /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1B75679A7EC4DB1BB756A45 /* LiveActivityView.swift */; };
-		8D24F772DB8747D2B23FD5C2 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 84984D24784443B8871B260A /* LiveActivity.appex */; };
+		40DCB6AC9B934FF1B1E00F7B /* View+applyIfPresent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C78071AB7845BF9D62E8E5 /* View+applyIfPresent.swift */; };
+		61A8D5B108622430D682AAE0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 6B48D4C2B3AA9DF9F78535F1 /* PrivacyInfo.xcprivacy */; };
+		6EE2500F0C614B3D80D2CF0F /* ViewHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A638F1A8A2D45D8888ADE6F /* ViewHelpers.swift */; };
+		6FD47B957005445EB79C68C2 /* LiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66934813D44B4B73A14720FD /* LiveActivityWidget.swift */; };
+		73204A43FAAF430D83BAF9B4 /* LiveActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = DFC930E203FF4F939C8E83BF /* LiveActivity.appex */; };
+		795E42CD1E5240B49910571A /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C9FB34B519425F90BBF4B6 /* View+applyWidgetURL.swift */; };
+		79839B5B057F4B37AAD408BC /* LiveActivityWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 910EC793739D43528358D1F2 /* LiveActivityWidgetBundle.swift */; };
+		8E63AB31763F4F22AC73EC3C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AD2AB32529DB4E63AEABB416 /* Assets.xcassets */; };
 		96905EF65AED1B983A6B3ABC /* libPods-nikcli.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 58EEBF8E8E6FB1BC6CAF49B5 /* libPods-nikcli.a */; };
 		B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		EC03A6F2A4CA44E28C92457A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B1E30B559D6749568F2CA1A2 /* Assets.xcassets */; };
-		EF26C0DBD7264100B26BA8EB /* View+applyWidgetURL.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFA2CD3795F1465FB96F35F4 /* View+applyWidgetURL.swift */; };
-		F5A6120123C5470A8D5ADE29 /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = FED0DCC3BFE64F428BAAAB5A /* Color+hex.swift */; };
+		E887D5CFF85944308C293143 /* Color+hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = CED1F4E0BC3E4A30B5E9407A /* Color+hex.swift */; };
+		FD059A4F914346F09B3D96B9 /* Image+dynamic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 107972DF672D4EA9B584FA46 /* Image+dynamic.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		64F68BCF963E427B92D64C85 /* PBXContainerItemProxy */ = {
+		A111C2B925904028AF4D0779 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 0AFB400969924E73A2789C2C;
+			remoteGlobalIDString = 9AA5E9A0BF5B4DC590F7BC4E;
 			remoteInfo = LiveActivity;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		405DB19E4FE0486182678B57 /* Embed Foundation Extensions */ = {
+		5F5769F7347E4E6EB780424D /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				8D24F772DB8747D2B23FD5C2 /* LiveActivity.appex in Embed Foundation Extensions */,
+				73204A43FAAF430D83BAF9B4 /* LiveActivity.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -54,35 +54,35 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		03EF8C03B8044C73A2B1EBF0 /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
+		107972DF672D4EA9B584FA46 /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* nikcli.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = nikcli.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FAF1A68108700A75B9A /* AppDelegate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AppDelegate.h; path = nikcli/AppDelegate.h; sourceTree = "<group>"; };
 		13B07FB01A68108700A75B9A /* AppDelegate.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = AppDelegate.mm; path = nikcli/AppDelegate.mm; sourceTree = "<group>"; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = nikcli/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = nikcli/Info.plist; sourceTree = "<group>"; };
 		13B07FB71A68108700A75B9A /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = nikcli/main.m; sourceTree = "<group>"; };
-		32DEACBC0373413D9A9DABDC /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = ViewHelpers.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
+		178EF71BDAB0453A9C2E242C /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		245D1E9E09534802B0B78B59 /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
+		26A73B283F2C4430AF902A07 /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = unknown; path = LiveActivity.entitlements; sourceTree = "<group>"; };
+		4A638F1A8A2D45D8888ADE6F /* ViewHelpers.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = ViewHelpers.swift; sourceTree = "<group>"; };
 		58EEBF8E8E6FB1BC6CAF49B5 /* libPods-nikcli.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-nikcli.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F5764FCD7684AB8A36E20B2 /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityWidget.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		66934813D44B4B73A14720FD /* LiveActivityWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidget.swift; sourceTree = "<group>"; };
+		6B48D4C2B3AA9DF9F78535F1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = nikcli/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		6C2E3173556A471DD304B334 /* Pods-nikcli.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.debug.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.debug.xcconfig"; sourceTree = "<group>"; };
-		79D348D1E7B442DDA05B89FC /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "nikcli/noop-file.swift"; sourceTree = "<group>"; };
 		7A4D352CD337FB3A3BF06240 /* Pods-nikcli.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-nikcli.release.xcconfig"; path = "Target Support Files/Pods-nikcli/Pods-nikcli.release.xcconfig"; sourceTree = "<group>"; };
-		84984D24784443B8871B260A /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = undefined; name = LiveActivity.appex; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		905CE895829E4028B71499AA /* Image+dynamic.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Image+dynamic.swift"; path = "Image+dynamic.swift"; sourceTree = "<group>"; };
-		9DCD4DF3924D4DB8BA629923 /* Date+toTimerInterval.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Date+toTimerInterval.swift"; path = "Date+toTimerInterval.swift"; sourceTree = "<group>"; };
+		7FC873BED2334529B5657F43 /* noop-file.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "noop-file.swift"; path = "nikcli/noop-file.swift"; sourceTree = "<group>"; };
+		8CC27C6E47494E5DAD86F8E3 /* nikcli-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "nikcli-Bridging-Header.h"; path = "nikcli/nikcli-Bridging-Header.h"; sourceTree = "<group>"; };
+		910EC793739D43528358D1F2 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
+		92C9FB34B519425F90BBF4B6 /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = nikcli/SplashScreen.storyboard; sourceTree = "<group>"; };
-		B1E30B559D6749568F2CA1A2 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Assets.xcassets; path = Assets.xcassets; sourceTree = "<group>"; };
+		AD2AB32529DB4E63AEABB416 /* Assets.xcassets */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 9; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		BC108C601BED41F3883770E5 /* LiveActivityWidgetBundle.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityWidgetBundle.swift; path = LiveActivityWidgetBundle.swift; sourceTree = "<group>"; };
-		C12BA849FA194717BFE91EB5 /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "View+applyIfPresent.swift"; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
-		C1B75679A7EC4DB1BB756A45 /* LiveActivityView.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = LiveActivityView.swift; path = LiveActivityView.swift; sourceTree = "<group>"; };
-		CFA2CD3795F1465FB96F35F4 /* View+applyWidgetURL.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "View+applyWidgetURL.swift"; path = "View+applyWidgetURL.swift"; sourceTree = "<group>"; };
-		D812F641B39C4F9E9971680D /* Info.plist */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = Info.plist; sourceTree = "<group>"; };
-		DEBFE3A9665E4622819FF54E /* LiveActivity.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = LiveActivity.entitlements; path = LiveActivity.entitlements; sourceTree = "<group>"; };
+		C2C78071AB7845BF9D62E8E5 /* View+applyIfPresent.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "View+applyIfPresent.swift"; sourceTree = "<group>"; };
+		CED1F4E0BC3E4A30B5E9407A /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; path = "Color+hex.swift"; sourceTree = "<group>"; };
+		DFC930E203FF4F939C8E83BF /* LiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = 9; includeInIndex = 0; path = LiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F34D7E492A359207796E5F19 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = nikcli/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		F918AEAAC1DD4969B9B877D5 /* nikcli-Bridging-Header.h */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "nikcli-Bridging-Header.h"; path = "nikcli/nikcli-Bridging-Header.h"; sourceTree = "<group>"; };
 		FAC715A2D49A985799AEE119 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-nikcli/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		FED0DCC3BFE64F428BAAAB5A /* Color+hex.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = "Color+hex.swift"; path = "Color+hex.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,7 +94,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CE5BBD66FFA2400D8CF02AB2 /* Frameworks */ = {
+		8C530BB9DB63487CB4F5014E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -104,6 +104,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		082E812B5D644B56A83D1A34 /* LiveActivity */ = {
+			isa = PBXGroup;
+			children = (
+				CED1F4E0BC3E4A30B5E9407A /* Color+hex.swift */,
+				03EF8C03B8044C73A2B1EBF0 /* Date+toTimerInterval.swift */,
+				107972DF672D4EA9B584FA46 /* Image+dynamic.swift */,
+				245D1E9E09534802B0B78B59 /* LiveActivityView.swift */,
+				66934813D44B4B73A14720FD /* LiveActivityWidget.swift */,
+				910EC793739D43528358D1F2 /* LiveActivityWidgetBundle.swift */,
+				C2C78071AB7845BF9D62E8E5 /* View+applyIfPresent.swift */,
+				92C9FB34B519425F90BBF4B6 /* View+applyWidgetURL.swift */,
+				4A638F1A8A2D45D8888ADE6F /* ViewHelpers.swift */,
+				178EF71BDAB0453A9C2E242C /* Info.plist */,
+				AD2AB32529DB4E63AEABB416 /* Assets.xcassets */,
+				26A73B283F2C4430AF902A07 /* LiveActivity.entitlements */,
+			);
+			path = LiveActivity;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* nikcli */ = {
 			isa = PBXGroup;
 			children = (
@@ -114,9 +133,9 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				79D348D1E7B442DDA05B89FC /* noop-file.swift */,
-				F918AEAAC1DD4969B9B877D5 /* nikcli-Bridging-Header.h */,
-				F34D7E492A359207796E5F19 /* PrivacyInfo.xcprivacy */,
+				7FC873BED2334529B5657F43 /* noop-file.swift */,
+				8CC27C6E47494E5DAD86F8E3 /* nikcli-Bridging-Header.h */,
+				6B48D4C2B3AA9DF9F78535F1 /* PrivacyInfo.xcprivacy */,
 			);
 			name = nikcli;
 			sourceTree = "<group>";
@@ -146,7 +165,7 @@
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				D65327D7A22EEC0BE12398D9 /* Pods */,
 				D7E4C46ADA2E9064B798F356 /* ExpoModulesProviders */,
-				ED7849F4C47A42DCBA505024 /* LiveActivity */,
+				082E812B5D644B56A83D1A34 /* LiveActivity */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -157,7 +176,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* nikcli.app */,
-				84984D24784443B8871B260A /* LiveActivity.appex */,
+				DFC930E203FF4F939C8E83BF /* LiveActivity.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -196,36 +215,40 @@
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
-		ED7849F4C47A42DCBA505024 /* LiveActivity */ = {
-			isa = PBXGroup;
-			children = (
-				FED0DCC3BFE64F428BAAAB5A /* Color+hex.swift */,
-				9DCD4DF3924D4DB8BA629923 /* Date+toTimerInterval.swift */,
-				905CE895829E4028B71499AA /* Image+dynamic.swift */,
-				C1B75679A7EC4DB1BB756A45 /* LiveActivityView.swift */,
-				5F5764FCD7684AB8A36E20B2 /* LiveActivityWidget.swift */,
-				BC108C601BED41F3883770E5 /* LiveActivityWidgetBundle.swift */,
-				C12BA849FA194717BFE91EB5 /* View+applyIfPresent.swift */,
-				CFA2CD3795F1465FB96F35F4 /* View+applyWidgetURL.swift */,
-				32DEACBC0373413D9A9DABDC /* ViewHelpers.swift */,
-				D812F641B39C4F9E9971680D /* Info.plist */,
-				B1E30B559D6749568F2CA1A2 /* Assets.xcassets */,
-				DEBFE3A9665E4622819FF54E /* LiveActivity.entitlements */,
-			);
-			name = LiveActivity;
-			path = LiveActivity;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		0AFB400969924E73A2789C2C /* LiveActivity */ = {
+		13B07F861A680F5B00A75B9A /* nikcli */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 4A0394078CAD4B75AB60265F /* Build configuration list for PBXNativeTarget "LiveActivity" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "nikcli" */;
 			buildPhases = (
-				50B8C12F09784588BEAC00A9 /* Sources */,
-				CE5BBD66FFA2400D8CF02AB2 /* Frameworks */,
-				658F55E6123D4B0C9213FA03 /* Resources */,
+				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
+				87C881EF9454C43DCAA1D8D0 /* [Expo] Configure project */,
+				13B07F871A680F5B00A75B9A /* Sources */,
+				13B07F8C1A680F5B00A75B9A /* Frameworks */,
+				13B07F8E1A680F5B00A75B9A /* Resources */,
+				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
+				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
+				5F5769F7347E4E6EB780424D /* Embed Foundation Extensions */,
+				430D6FA88C90B4C7EFF2DAC1 /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				03179DEDA9EC4676BD612F4B /* PBXTargetDependency */,
+			);
+			name = nikcli;
+			productName = nikcli;
+			productReference = 13B07F961A680F5B00A75B9A /* nikcli.app */;
+			productType = "com.apple.product-type.application";
+		};
+		9AA5E9A0BF5B4DC590F7BC4E /* LiveActivity */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C03665A6235A4244A1415BB5 /* Build configuration list for PBXNativeTarget "LiveActivity" */;
+			buildPhases = (
+				E246C0BAD23449F9A23B004C /* Sources */,
+				8C530BB9DB63487CB4F5014E /* Frameworks */,
+				0D62B6357D71453FAC071C9A /* Resources */,
 			);
 			buildRules = (
 			);
@@ -233,32 +256,8 @@
 			);
 			name = LiveActivity;
 			productName = LiveActivity;
-			productReference = 84984D24784443B8871B260A /* LiveActivity.appex */;
+			productReference = DFC930E203FF4F939C8E83BF /* LiveActivity.appex */;
 			productType = "com.apple.product-type.app-extension";
-		};
-		13B07F861A680F5B00A75B9A /* nikcli */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "nikcli" */;
-			buildPhases = (
-				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				8308428BF3BDA03AD631367E /* [Expo] Configure project */,
-				13B07F871A680F5B00A75B9A /* Sources */,
-				13B07F8C1A680F5B00A75B9A /* Frameworks */,
-				13B07F8E1A680F5B00A75B9A /* Resources */,
-				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
-				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				405DB19E4FE0486182678B57 /* Embed Foundation Extensions */,
-				25310DE292CB4BE1222EB98B /* [CP] Embed Pods Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				378ECA68686646699EF9FC56 /* PBXTargetDependency */,
-			);
-			name = nikcli;
-			productName = nikcli;
-			productReference = 13B07F961A680F5B00A75B9A /* nikcli.app */;
-			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -268,10 +267,10 @@
 			attributes = {
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
-					0AFB400969924E73A2789C2C = {
+					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
 					};
-					13B07F861A680F5B00A75B9A = {
+					9AA5E9A0BF5B4DC590F7BC4E = {
 						LastSwiftMigration = 1250;
 					};
 				};
@@ -290,12 +289,20 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* nikcli */,
-				0AFB400969924E73A2789C2C /* LiveActivity */,
+				9AA5E9A0BF5B4DC590F7BC4E /* LiveActivity */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		0D62B6357D71453FAC071C9A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8E63AB31763F4F22AC73EC3C /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		13B07F8E1A680F5B00A75B9A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -303,15 +310,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				03574FE4E8C94064CB9A6F22 /* PrivacyInfo.xcprivacy in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		658F55E6123D4B0C9213FA03 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				EC03A6F2A4CA44E28C92457A /* Assets.xcassets in Resources */,
+				61A8D5B108622430D682AAE0 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -355,7 +354,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		25310DE292CB4BE1222EB98B /* [CP] Embed Pods Frameworks */ = {
+		430D6FA88C90B4C7EFF2DAC1 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -411,7 +410,7 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-nikcli/Pods-nikcli-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		8308428BF3BDA03AD631367E /* [Expo] Configure project */ = {
+		87C881EF9454C43DCAA1D8D0 /* [Expo] Configure project */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -440,33 +439,33 @@
 				13B07FBC1A68108700A75B9A /* AppDelegate.mm in Sources */,
 				13B07FC11A68108700A75B9A /* main.m in Sources */,
 				B18059E884C0ABDD17F3DC3D /* ExpoModulesProvider.swift in Sources */,
-				722E1B1DFC7F4101932C968E /* noop-file.swift in Sources */,
+				22AA9715634D4E86AF1B527E /* noop-file.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		50B8C12F09784588BEAC00A9 /* Sources */ = {
+		E246C0BAD23449F9A23B004C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F5A6120123C5470A8D5ADE29 /* Color+hex.swift in Sources */,
-				3A719E6AEF8A40E3A6EB4071 /* Date+toTimerInterval.swift in Sources */,
-				217D49BE6F044201B42C198F /* Image+dynamic.swift in Sources */,
-				7BA671C7036842DB80D9F996 /* LiveActivityView.swift in Sources */,
-				736161E74F40400E968252A2 /* LiveActivityWidget.swift in Sources */,
-				179C5C30BB64448DB0ADFC3B /* LiveActivityWidgetBundle.swift in Sources */,
-				184A49028CE54465908A643E /* View+applyIfPresent.swift in Sources */,
-				EF26C0DBD7264100B26BA8EB /* View+applyWidgetURL.swift in Sources */,
-				253AE1528F5F446FB87835FC /* ViewHelpers.swift in Sources */,
+				E887D5CFF85944308C293143 /* Color+hex.swift in Sources */,
+				36098C38BB5E429E95F1BF96 /* Date+toTimerInterval.swift in Sources */,
+				FD059A4F914346F09B3D96B9 /* Image+dynamic.swift in Sources */,
+				2660029E851A4A668889353F /* LiveActivityView.swift in Sources */,
+				6FD47B957005445EB79C68C2 /* LiveActivityWidget.swift in Sources */,
+				79839B5B057F4B37AAD408BC /* LiveActivityWidgetBundle.swift in Sources */,
+				40DCB6AC9B934FF1B1E00F7B /* View+applyIfPresent.swift in Sources */,
+				795E42CD1E5240B49910571A /* View+applyWidgetURL.swift in Sources */,
+				6EE2500F0C614B3D80D2CF0F /* ViewHelpers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		378ECA68686646699EF9FC56 /* PBXTargetDependency */ = {
+		03179DEDA9EC4676BD612F4B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 0AFB400969924E73A2789C2C /* LiveActivity */;
-			targetProxy = 64F68BCF963E427B92D64C85 /* PBXContainerItemProxy */;
+			target = 9AA5E9A0BF5B4DC590F7BC4E /* LiveActivity */;
+			targetProxy = A111C2B925904028AF4D0779 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -479,6 +478,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = nikcli/nikcli.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -486,7 +486,10 @@
 				);
 				INFOPLIST_FILE = nikcli/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -512,9 +515,13 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = nikcli/nikcli.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				INFOPLIST_FILE = nikcli/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -579,14 +586,14 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
@@ -635,13 +642,13 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
-				LD_RUNPATH_SEARCH_PATHS = "/usr/lib/swift $(inherited)";
+				LD_RUNPATH_SEARCH_PATHS = (
+					/usr/lib/swift,
+					"$(inherited)",
+				);
 				LIBRARY_SEARCH_PATHS = "$(SDKROOT)/usr/lib/swift\"$(inherited)\"";
 				MTL_ENABLE_DEBUG_INFO = NO;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					" ",
-				);
+				OTHER_LDFLAGS = "$(inherited)  ";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native";
 				SDKROOT = iphoneos;
 				USE_HERMES = true;
@@ -649,12 +656,13 @@
 			};
 			name = Release;
 		};
-		95FDE0376E7C4AE2B76FEA89 /* Debug */ = {
+		A62C0242738D4F35833C0EB6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
@@ -670,12 +678,13 @@
 			};
 			name = Debug;
 		};
-		B6BD20B641D442198406E068 /* Release */ = {
+		BD155CEDBF4D435C95E2DF12 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLICATION_EXTENSION_API_ONLY = YES;
 				CODE_SIGN_ENTITLEMENTS = LiveActivity/LiveActivity.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5FAU2JSAM3;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LiveActivity/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LiveActivity;
@@ -703,20 +712,20 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		4A0394078CAD4B75AB60265F /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				95FDE0376E7C4AE2B76FEA89 /* Debug */,
-				B6BD20B641D442198406E068 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "nikcli" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C03665A6235A4244A1415BB5 /* Build configuration list for PBXNativeTarget "LiveActivity" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A62C0242738D4F35833C0EB6 /* Debug */,
+				BD155CEDBF4D435C95E2DF12 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cache-bust: 2026-01-31T00-22-00Z
+# Cache-bust: 2026-04-16T00-00-00Z
 set -euo pipefail
 APP=nikcli
 
@@ -18,23 +18,18 @@ Options:
     -h, --help              Display this help message
     -v, --version <version> Install a specific version (e.g., 1.0.180)
     -b, --binary <path>     Install from a local binary instead of downloading
-    -l, --local [dist-dir]  Install from local dist directory (auto-detects arch)
-                            Default dist dir: ./packages/nikcli/dist
         --no-modify-path    Don't modify shell config files (.zshrc, .bashrc, etc.)
 
 Examples:
     curl -fsSL https://nikcli.store/install | bash
-    curl -fsSL https://nikcli.store/install | bash -s -- --version 0.0.2
+    curl -fsSL https://nikcli.store/install | bash -s -- --version 1.5.0
     ./install --binary /path/to/nikcli
-    ./install --local
-    ./install --local /path/to/dist
 EOF
 }
 
 requested_version=${VERSION:-}
 no_modify_path=false
 binary_path=""
-local_dist_dir=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -60,16 +55,6 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        -l|--local)
-            if [[ -n "${2:-}" && "${2:-}" != -* ]]; then
-                local_dist_dir="$2"
-                shift 2
-            else
-                # Default: dist dir relative to this script
-                local_dist_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/packages/nikcli/dist"
-                shift
-            fi
-            ;;
         --no-modify-path)
             no_modify_path=true
             shift
@@ -80,26 +65,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-# Resolve --local to a binary path by detecting current OS/arch
-if [ -n "$local_dist_dir" ]; then
-    raw_os=$(uname -s)
-    case "$raw_os" in
-      Darwin*) _local_os="darwin" ;;
-      Linux*)  _local_os="linux" ;;
-      MINGW*|MSYS*|CYGWIN*) _local_os="windows" ;;
-      *) echo -e "${RED}Unsupported OS: $raw_os${NC}"; exit 1 ;;
-    esac
-    _local_arch=$(uname -m)
-    [[ "$_local_arch" == "aarch64" ]] && _local_arch="arm64"
-    [[ "$_local_arch" == "x86_64" ]] && _local_arch="x64"
-    binary_path="${local_dist_dir}/nikcli-${_local_os}-${_local_arch}/bin/nikcli"
-    if [ ! -f "$binary_path" ]; then
-        echo -e "${RED}Error: Local binary not found at ${binary_path}${NC}"
-        exit 1
-    fi
-    echo -e "${MUTED}Auto-detected local binary: ${NC}$binary_path"
-fi
 
 INSTALL_DIR=$HOME/.nikcli/bin
 mkdir -p "$INSTALL_DIR"
@@ -219,11 +184,8 @@ else
         url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${requested_version}/$filename"
         specific_version=$requested_version
 
-        # Verify the release exists before downloading (check GitHub - try with and without v)
+        # Verify the release exists before downloading (check GitHub)
         http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
-        if [ "$http_status" = "404" ]; then
-            http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/v${requested_version}")
-        fi
         if [ "$http_status" = "404" ]; then
             echo -e "${RED}Error: Release ${requested_version} not found${NC}"
             echo -e "${MUTED}Available releases: https://github.com/nikomatt69/nikcli/releases${NC}"
@@ -411,11 +373,6 @@ install_from_binary() {
     print_message info "\n${MUTED}Installing ${NC}nikcli ${MUTED}from: ${NC}$binary_path"
     cp "$binary_path" "${INSTALL_DIR}/nikcli"
     chmod 755 "${INSTALL_DIR}/nikcli"
-    if [ -f "/usr/local/bin/nikcli" ]; then
-        cp "$binary_path" "/usr/local/bin/nikcli"
-        chmod 755 "/usr/local/bin/nikcli"
-        print_message info "${MUTED}Also updated ${NC}/usr/local/bin/nikcli"
-    fi
 }
 
 if [ -n "$binary_path" ]; then

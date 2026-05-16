@@ -20,7 +20,7 @@ import { PermissionCard } from "@/components/PermissionCard"
 import { useActionSheetRef } from "@/components/BottomSheet"
 
 import { CommandPaletteSheet, type CommandPaletteItem } from "@/components/session/CommandPaletteSheet"
-import { ComposerPermissionBar } from "@/components/session/ComposerPermissionBar"
+import { ComposerApprovalBar } from "@/components/session/ComposerApprovalBar"
 import { SessionActionsSheet } from "@/components/session/SessionActionsSheet"
 import { AttachmentPickerSheet } from "@/components/session/AttachmentPickerSheet"
 import { SessionComposer } from "@/components/session/SessionComposer"
@@ -29,7 +29,12 @@ import { type ComposerTab } from "@/components/session/ComposerToolDrawer"
 import { SessionRenameSheet } from "@/components/session/SessionRenameSheet"
 import { PublishSheet } from "@/components/session/PublishSheet"
 import { SessionSummaryCard } from "@/components/session/SessionSummaryCard"
-import { SessionPreviewStrip, SessionPreviewSheet, type SessionPreview, type SessionProjectPanel } from "@/components/session/SessionPreviewStrip"
+import {
+  SessionPreviewStrip,
+  SessionPreviewSheet,
+  type SessionPreview,
+  type SessionProjectPanel,
+} from "@/components/session/SessionPreviewStrip"
 import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
@@ -53,6 +58,7 @@ import {
   type GitState,
   type MessageWithParts,
   type PromptStashEntry,
+  type QuestionRequest,
   type SessionDetail,
   type SessionStreamEvent,
   type ToolState,
@@ -186,7 +192,14 @@ function serverPreviewHostname(serverUrl: string | undefined): string | null {
 }
 
 /** Public tunnel hostnames — dev server exposed to the device, not generic docs. */
-const PREVIEW_TUNNEL_SUFFIXES = [".exp.direct", ".ngrok.io", ".ngrok-free.app", ".loca.lt", ".localtunnel.me", ".trycloudflare.com"]
+const PREVIEW_TUNNEL_SUFFIXES = [
+  ".exp.direct",
+  ".ngrok.io",
+  ".ngrok-free.app",
+  ".loca.lt",
+  ".localtunnel.me",
+  ".trycloudflare.com",
+]
 
 function isLikelyDevPreviewTunnel(hostname: string): boolean {
   const h = hostname.toLowerCase()
@@ -301,6 +314,7 @@ export default function SessionScreen() {
   const listRef = useRef<FlatList<MessageWithParts>>(null)
   const statusRef = useRef<SessionDetail["status"]>()
   const permissionIDsRef = useRef<Set<string>>(new Set())
+  const questionIDsRef = useRef<Set<string>>(new Set())
   const followTranscriptRef = useRef(true)
   const initialScrollDoneRef = useRef(false)
   const scrollRafRef = useRef<number | null>(null)
@@ -540,6 +554,26 @@ export default function SessionScreen() {
         permissionIDsRef.current.delete(event.properties.requestID)
       }
 
+      if (event.type === "question.asked") {
+        const requestID = event.properties.id
+        if (!questionIDsRef.current.has(requestID)) {
+          questionIDsRef.current.add(requestID)
+          void triggerHaptic("permission")
+          void sendLocalNotification({
+            kind: "permissions",
+            title: detail?.info.title || "Question",
+            body: event.properties.questions[0]?.question ?? "A question needs your response",
+            dedupeKey: `${sessionId}:question:${requestID}`,
+            href: sessionId ? `/sessions/${sessionId}` : undefined,
+            sessionID: sessionId,
+          })
+        }
+      }
+
+      if (event.type === "question.replied" || event.type === "question.rejected") {
+        questionIDsRef.current.delete(event.properties.requestID)
+      }
+
       if (event.type === "session.status") {
         statusRef.current = event.properties.status
       }
@@ -591,6 +625,13 @@ export default function SessionScreen() {
             permissions: current.permissions.filter((item) => item.id !== event.properties.requestID),
           }
         }
+        if (event.type === "question.asked") return { ...current, questions: [...current.questions, event.properties] }
+        if (event.type === "question.replied" || event.type === "question.rejected") {
+          return {
+            ...current,
+            questions: current.questions.filter((item) => item.id !== event.properties.requestID),
+          }
+        }
         return current
       })
     },
@@ -609,10 +650,7 @@ export default function SessionScreen() {
   const openSessionExplorer = useCallback(() => {
     if (!sessionId || !detail) return
     const dir =
-      detail.info.directory ??
-      detail.info.github?.worktree.directory ??
-      detail.info.github?.repositoryDirectory ??
-      ""
+      detail.info.directory ?? detail.info.github?.worktree.directory ?? detail.info.github?.repositoryDirectory ?? ""
     if (!dir) return
     const fallbackDirectory =
       detail.info.github?.worktree.directory && detail.info.github.worktree.directory !== dir
@@ -635,10 +673,7 @@ export default function SessionScreen() {
     const localPath = detail.info.directory ?? gh?.worktree.directory ?? ""
     const pathDetail = localPath && localPath !== workspacePrimary ? localPath : undefined
     const explorerDir =
-      detail.info.directory ??
-      detail.info.github?.worktree.directory ??
-      detail.info.github?.repositoryDirectory ??
-      ""
+      detail.info.directory ?? detail.info.github?.worktree.directory ?? detail.info.github?.repositoryDirectory ?? ""
     return {
       sessionTitle: detail.info.title || "Session",
       workspacePrimary,
@@ -1372,9 +1407,19 @@ export default function SessionScreen() {
         onToolSelect={insertSlashCommand}
       />
 
-      <ComposerPermissionBar
-        permissions={detail?.permissions ?? []}
-        onRespond={(id, response) => void respond(id, response)}
+      <ComposerApprovalBar
+        approvals={[...(detail?.permissions ?? []), ...(detail?.questions ?? [])]}
+        onPermissionRespond={(id, response) => void respond(id, response)}
+        onQuestionAnswer={(requestID, answers) => {
+          if (!client || !sessionId) return
+          void client.respondToQuestion(sessionId, requestID, answers)
+          void triggerHaptic("success")
+        }}
+        onQuestionReject={(requestID) => {
+          if (!client || !sessionId) return
+          void client.rejectQuestion(sessionId, requestID)
+          void triggerHaptic("error")
+        }}
       />
 
       <SessionComposer

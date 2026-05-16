@@ -28,6 +28,8 @@ mkdir -p \
   "$CTX/packages/plugin" \
   "$CTX/packages/companion" \
   "$CTX/packages/slack" \
+  "$CTX/packages/llm" \
+  "$CTX/packages/http-recorder" \
   "$CTX/github"
 
 # Root workspace files
@@ -48,6 +50,8 @@ cp "$ROOT/packages/remote/package.json" "$CTX/packages/remote/package.json"
 cp "$ROOT/packages/plugin/package.json" "$CTX/packages/plugin/package.json"
 cp "$ROOT/packages/companion/package.json" "$CTX/packages/companion/package.json"
 cp "$ROOT/packages/slack/package.json" "$CTX/packages/slack/package.json"
+cp "$ROOT/packages/llm/package.json" "$CTX/packages/llm/package.json"
+cp "$ROOT/packages/http-recorder/package.json" "$CTX/packages/http-recorder/package.json"
 cp "$ROOT/github/package.json" "$CTX/github/package.json"
 
 # Full source (excluding node_modules, dist, build artifacts)
@@ -76,6 +80,8 @@ eval rsync $RSYNC_OPTS "$ROOT/packages/remote/"   "$CTX/packages/remote/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/plugin/"   "$CTX/packages/plugin/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/companion/" "$CTX/packages/companion/"
 eval rsync $RSYNC_OPTS "$ROOT/packages/slack/"    "$CTX/packages/slack/"
+eval rsync $RSYNC_OPTS "$ROOT/packages/llm/"      "$CTX/packages/llm/"
+eval rsync $RSYNC_OPTS "$ROOT/packages/http-recorder/" "$CTX/packages/http-recorder/"
 eval rsync $RSYNC_OPTS "$ROOT/github/"            "$CTX/github/"
 
 rm -rf \
@@ -101,6 +107,10 @@ rm -rf \
   "$CTX/packages/companion/.turbo" \
   "$CTX/packages/slack/.cache" \
   "$CTX/packages/slack/.turbo" \
+  "$CTX/packages/llm/.cache" \
+  "$CTX/packages/llm/.turbo" \
+  "$CTX/packages/http-recorder/.cache" \
+  "$CTX/packages/http-recorder/.turbo" \
   "$CTX/github/.cache" \
   "$CTX/github/.turbo"
 

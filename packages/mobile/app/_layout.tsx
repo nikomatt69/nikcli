@@ -17,7 +17,7 @@ import {
 } from "@/lib/notifications"
 import { getAppPreferences } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
-import { palettes } from "@/lib/theme"
+import { ThemeProvider, useTheme } from "@/lib/theme"
 
 let pendingNotificationHref: string | null = null
 
@@ -142,7 +142,7 @@ function NotificationCoordinator() {
 }
 
 export default function RootLayout() {
-  const { colorScheme, setColorScheme } = useColorScheme()
+  const { setColorScheme } = useColorScheme()
   const hydratePreferences = useUIStore((state) => state.hydratePreferences)
   const themeMode = useUIStore((state) => state.themeMode)
 
@@ -157,7 +157,15 @@ export default function RootLayout() {
     setColorScheme(themeMode)
   }, [setColorScheme, themeMode])
 
-  const palette = colorScheme === "light" ? palettes.light : palettes.dark
+  return (
+    <ThemeProvider>
+      <RootLayoutInner />
+    </ThemeProvider>
+  )
+}
+
+function RootLayoutInner() {
+  const { colorScheme, palette } = useTheme()
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

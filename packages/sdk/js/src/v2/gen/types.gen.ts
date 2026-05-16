@@ -2964,6 +2964,7 @@ export type MobileSessionDetail = {
     parts: Array<Part>
   }>
   permissions: Array<PermissionRequest>
+  questions: Array<QuestionRequest>
 }
 
 export type MobileSessionCommandInput = {
