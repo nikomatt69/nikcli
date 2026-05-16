@@ -62,9 +62,11 @@ function runCommandForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, Command.Service>,
 ) {
-  return runPromiseWithLayer(
-    Command.defaultLayer,
-    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  return Effect.runPromise(
+    InstanceScope.with(
+      { directory: session.directory, workspaceID: session.workspaceID },
+      Effect.provide(effect, Command.defaultLayer),
+    ),
   )
 }
 
@@ -76,9 +78,11 @@ function runStatusForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, SessionStatus.Service>,
 ) {
-  return runPromiseWithLayer(
-    SessionStatus.defaultLayer,
-    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  return Effect.runPromise(
+    InstanceScope.with(
+      { directory: session.directory, workspaceID: session.workspaceID },
+      Effect.provide(effect, SessionStatus.defaultLayer),
+    ),
   )
 }
 
@@ -86,9 +90,11 @@ function runSessionPromptForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, SessionPrompt.Service>,
 ) {
-  return runPromiseWithLayer(
-    SessionPrompt.defaultLayer,
-    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  return Effect.runPromise(
+    InstanceScope.with(
+      { directory: session.directory, workspaceID: session.workspaceID },
+      Effect.provide(effect, SessionPrompt.defaultLayer),
+    ),
   )
 }
 
@@ -100,9 +106,11 @@ function runSessionForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, Session.Service>,
 ) {
-  return runPromiseWithLayer(
-    Session.defaultLayer,
-    InstanceScope.with({ directory: session.directory, workspaceID: session.workspaceID }, effect),
+  return Effect.runPromise(
+    InstanceScope.with(
+      { directory: session.directory, workspaceID: session.workspaceID },
+      Effect.provide(effect, Session.defaultLayer),
+    ),
   )
 }
 
@@ -123,7 +131,9 @@ function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
 }
 
 function runWorktreeForDirectory<A, E>(directory: string, effect: Effect.Effect<A, E, Worktree.Service>) {
-  return runPromiseWithLayer(Worktree.defaultLayer, InstanceScope.with({ directory }, effect))
+  return Effect.runPromise(
+    InstanceScope.with({ directory }, Effect.provide(effect, Worktree.defaultLayer)),
+  )
 }
 
 function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
