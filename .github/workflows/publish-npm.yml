@@ -1,0 +1,65 @@
+name: publish-npm
+run-name: "publish nikcli-ai@${{ github.ref_name }}"
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 1.5.0) — leave empty to auto-increment from npm"
+        required: false
+        type: string
+      channel:
+        description: "npm dist-tag"
+        required: false
+        default: "latest"
+        type: choice
+        options:
+          - latest
+          - dev
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.repository == 'nikomatt69/nikcli'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - run: git fetch --force --tags
+
+      - uses: ./.github/actions/setup-bun
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Determine version
+        id: version
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ] && [[ "${GITHUB_REF_NAME}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+.*) ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+          fi
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish nikcli-ai to npm
+        run: bun ./packages/nikcli/script/publish-npm.ts
+        env:
+          NIKCLI_VERSION: ${{ steps.version.outputs.value }}
+          NIKCLI_CHANNEL: ${{ inputs.channel || 'latest' }}
+          NPM_CONFIG_PROVENANCE: false
