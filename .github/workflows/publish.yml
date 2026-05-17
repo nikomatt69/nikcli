@@ -83,7 +83,6 @@ jobs:
       - name: Configure npm auth
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami >/dev/null
 
       - name: Setup Git Identity
         run: |
