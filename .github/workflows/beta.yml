@@ -31,6 +31,7 @@ jobs:
         run: bun i -g nikcli@latest || curl -fsSL https://nikcli.store/install | bash || true
 
       - name: Sync beta branch
+        if: hashFiles('script/beta.ts') != ''
         env:
           GH_TOKEN: ${{ steps.setup-git-committer.outputs.token }}
           NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}

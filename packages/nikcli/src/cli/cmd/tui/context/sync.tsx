@@ -125,9 +125,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       if (existing) clearTimeout(existing)
       const timer = setTimeout(() => {
         backgroundRefreshTimers.delete(sessionID)
-        void refreshBackgroundJobs(sessionID).catch((e) => {
-          console.error("Background refresh failed:", e)
-        })
+        void refreshBackgroundJobs(sessionID).catch(() => {})
       }, 75)
       backgroundRefreshTimers.set(sessionID, timer)
     }
@@ -383,7 +381,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "lsp.updated": {
-          sdk.client.lsp.status().then((x) => setStore("lsp", x.data!))
+          void sdk.client.lsp
+            .status()
+            .then((x) => setStore("lsp", x.data!))
+            .catch(() => {})
           break
         }
 

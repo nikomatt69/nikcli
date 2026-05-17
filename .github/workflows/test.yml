@@ -106,7 +106,7 @@ jobs:
       - name: Wait for nikcli server
         if: matrix.settings.name != 'windows'
         run: |
-          for i in {1..120}; do
+          for _ in {1..120}; do
             curl -fsS "http://127.0.0.1:4096/global/health" > /dev/null && exit 0
             sleep 1
           done

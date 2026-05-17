@@ -64,26 +64,30 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       sse?.abort()
       const ctrl = new AbortController()
       sse = ctrl
-      ;(async () => {
+      void (async () => {
         while (true) {
           if (abort.signal.aborted || ctrl.signal.aborted) break
+          try {
+            const events = await sdk.event.subscribe(
+              {},
+              {
+                signal: ctrl.signal,
+              },
+            )
 
-          const events = await sdk.event.subscribe(
-            {},
-            {
-              signal: ctrl.signal,
-            },
-          )
+            for await (const event of events.stream) {
+              if (ctrl.signal.aborted) break
+              handleEvent(event)
+            }
 
-          for await (const event of events.stream) {
-            if (ctrl.signal.aborted) break
-            handleEvent(event)
+            if (timer) clearTimeout(timer)
+            if (queue.length > 0) flush()
+          } catch {
+            if (ctrl.signal.aborted || abort.signal.aborted) break
+            await Bun.sleep(250)
           }
-
-          if (timer) clearTimeout(timer)
-          if (queue.length > 0) flush()
         }
-      })().catch(() => {})
+      })()
     }
 
     onMount(async () => {

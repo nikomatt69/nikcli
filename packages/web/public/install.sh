@@ -180,16 +180,24 @@ else
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
-        url_primary="https://nikcli.store/releases/download/${requested_version}/$filename"
-        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${requested_version}/$filename"
+        release_tag="v${requested_version}"
+        url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
+        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
         specific_version=$requested_version
 
-        # Verify the release exists before downloading (check GitHub)
-        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
+        # Verify the release exists; if v-prefixed tag is missing, try the bare version (older releases used 1.2.0..1.5.0 without v)
+        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${release_tag}")
         if [ "$http_status" = "404" ]; then
-            echo -e "${RED}Error: Release ${requested_version} not found${NC}"
-            echo -e "${MUTED}Available releases: https://github.com/nikomatt69/nikcli/releases${NC}"
-            exit 1
+            http_status_bare=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
+            if [ "$http_status_bare" = "200" ] || [ "$http_status_bare" = "302" ]; then
+                release_tag="${requested_version}"
+                url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
+                url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
+            else
+                echo -e "${RED}Error: Release ${requested_version} not found${NC}"
+                echo -e "${MUTED}Available releases: https://github.com/nikomatt69/nikcli/releases${NC}"
+                exit 1
+            fi
         fi
     fi
 fi

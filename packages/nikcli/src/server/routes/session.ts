@@ -655,10 +655,10 @@ export const SessionRoutes = lazy(() =>
         // Scope cancellation to the single delegation owned by this worker
         // session — cancelling "all related" records (parent + child + delegator)
         // belongs to explicit "stop-the-world" flows, not the per-session abort.
-        await Delegation.cancelOwnedBySessionID(sessionID)
-        await Monitor.cancelAll(sessionID)
         await runSessionPrompt(
           Effect.gen(function* () {
+            yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(sessionID))
+            yield* Effect.promise(() => Monitor.cancelAll(sessionID))
             const sessionPrompt = yield* SessionPrompt.Service
             yield* sessionPrompt.cancel(sessionID)
           }),

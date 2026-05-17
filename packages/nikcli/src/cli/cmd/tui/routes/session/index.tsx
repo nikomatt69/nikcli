@@ -226,8 +226,7 @@ export function Session() {
       .then(() => {
         if (scroll) scroll.scrollBy(100_000)
       })
-      .catch((e) => {
-        console.error(e)
+      .catch(() => {
         toast.show({
           message: `Session not found: ${route.sessionID}`,
           variant: "error",

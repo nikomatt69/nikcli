@@ -61,9 +61,14 @@ if (!Script.preview) {
   if (!branch) {
     throw new Error("Unable to determine branch for release push")
   }
-  // Use GITHUB_TOKEN (workflow token) for pushing — SST_GITHUB_TOKEN is a GitHub App
+  // Use GH_PUSH_TOKEN (workflow token) for pushing — SST_GITHUB_TOKEN is a GitHub App
   // token and lacks 'workflows' permission needed to push .yml files.
-  const pushToken = process.env.GITHUB_TOKEN || process.env.SST_GITHUB_TOKEN
+  // GITHUB_TOKEN env var from the workflow resolves to the GitHub App token value,
+  // so we must use a separate env var name (GH_PUSH_TOKEN) to avoid the conflict.
+  const pushToken =
+    process.env.GH_PUSH_TOKEN ||
+    process.env.GITHUB_TOKEN ||
+    process.env.SST_GITHUB_TOKEN
   await $`git remote set-url origin https://x-access-token:${pushToken}@github.com/nikomatt69/nikcli`
   await $`git fetch origin ${branch}`
   await $`git commit -am "release: v${Script.version}"`

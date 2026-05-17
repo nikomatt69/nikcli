@@ -1955,7 +1955,6 @@ export const MobileRoutes = lazy(() =>
             })
           }),
         ).catch((error) => {
-          const message = error instanceof Error ? error.message : String(error)
           void runStatusForSession(
             session,
             Effect.gen(function* () {
@@ -1963,6 +1962,8 @@ export const MobileRoutes = lazy(() =>
               return yield* status.set(sessionID, { type: "idle" })
             }),
           ).catch(() => undefined)
+          if (SessionPrompt.isUserInitiatedStop(error)) return
+          const message = error instanceof Error ? error.message : String(error)
           void Bus.publish(Session.Event.Error, {
             sessionID,
             error: { name: "UnknownError" as const, data: { message } },

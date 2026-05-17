@@ -62,35 +62,36 @@ function startEventStream(directory: string) {
     signal,
   })
 
-  ;(async () => {
+  void (async () => {
     while (!signal.aborted) {
-      const events = await Promise.resolve(
-        sdk.event.subscribe(
-          {},
-          {
-            signal,
-          },
-        ),
-      ).catch(() => undefined)
+      try {
+        const events = await Promise.resolve(
+          sdk.event.subscribe(
+            {},
+            {
+              signal,
+            },
+          ),
+        ).catch(() => undefined)
 
-      if (!events) {
-        await Bun.sleep(250)
-        continue
-      }
+        if (!events) {
+          await Bun.sleep(250)
+          continue
+        }
 
-      for await (const event of events.stream) {
-        Rpc.emit("event", { id, event: event as Event })
-      }
+        for await (const event of events.stream) {
+          Rpc.emit("event", { id, event: event as Event })
+        }
 
-      if (!signal.aborted) {
+        if (!signal.aborted) {
+          await Bun.sleep(250)
+        }
+      } catch {
+        if (signal.aborted) return
         await Bun.sleep(250)
       }
     }
-  })().catch((error) => {
-    Log.Default.error("event stream error", {
-      error: error instanceof Error ? error.message : error,
-    })
-  })
+  })()
 
   return id
 }

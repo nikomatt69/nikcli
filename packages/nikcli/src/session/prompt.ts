@@ -73,6 +73,11 @@ export namespace SessionPrompt {
     return e instanceof SessionCancelledError
   }
 
+  export function isUserInitiatedStop(e: unknown): boolean {
+    if (isCancelledError(e)) return true
+    return e instanceof Error && e.message === "All fibers interrupted without error"
+  }
+
   type PromptState = Record<
     string,
     {
@@ -563,7 +568,7 @@ export namespace SessionPrompt {
   const cancel = (() => {
     const log = Log.create({ service: "session.prompt" })
     return function cancel(sessionID: string) {
-      log.info("cancel", { sessionID })
+      log.debug("cancel", { sessionID })
       const s = state()
       const match = s[sessionID]
       if (!match) return
