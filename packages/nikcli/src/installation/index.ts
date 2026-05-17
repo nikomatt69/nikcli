@@ -200,6 +200,15 @@ export namespace Installation {
   export const CHANNEL = typeof NIKCLI_CHANNEL === "string" ? NIKCLI_CHANNEL : "local"
   export const USER_AGENT = `nikcli/${CHANNEL}/${VERSION}/${Flag.NIKCLI_CLIENT}`
 
+  export function getReleaseType(current: string, latest: string): "major" | "minor" | "patch" {
+    const parse = (v: string) => v.replace(/^v/, "").split(".").map(Number)
+    const [curMaj, curMin] = parse(current)
+    const [latMaj, latMin] = parse(latest)
+    if (latMaj > curMaj) return "major"
+    if (latMin > curMin) return "minor"
+    return "patch"
+  }
+
   async function latestImpl(installMethod?: Method) {
     const detectedMethod = installMethod || (await methodImpl())
 

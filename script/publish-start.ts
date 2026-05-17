@@ -57,11 +57,16 @@ process.chdir(dir)
 let output = `version=${Script.version}\n`
 
 if (!Script.preview) {
+  const branch = process.env.GITHUB_REF_NAME || (await $`git branch --show-current`.text().then((x) => x.trim()))
+  if (!branch) {
+    throw new Error("Unable to determine branch for release push")
+  }
+  await $`git fetch origin ${branch}`
   await $`git commit -am "release: v${Script.version}"`
+  await $`git add -A`
+  await $`git commit --amend --no-edit`
   await $`git tag v${Script.version}`
-  await $`git fetch origin`
-  await $`git cherry-pick HEAD..origin/dev`.nothrow()
-  await $`git push origin HEAD --tags --no-verify --force-with-lease`
+  await $`git push origin HEAD:${branch} v${Script.version}`
   await new Promise((resolve) => setTimeout(resolve, 5_000))
   await $`gh release create v${Script.version} -d --title "v${Script.version}" --notes ${notes.join("\n") || "No notable changes"} ./packages/nikcli/dist/*.zip ./packages/nikcli/dist/*.tar.gz`
   const release = await $`gh release view v${Script.version} --json id,tagName`.json()

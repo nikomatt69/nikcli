@@ -24,6 +24,8 @@ jobs:
   update-node-modules-hashes:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}
+    timeout-minutes: 45
     env:
       TITLE: node_modules hashes
 

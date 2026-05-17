@@ -88,10 +88,14 @@ if (!Script.preview) {
   const distDir = path.join(dir, "dist")
   for (const key of Object.keys(binaries)) {
     if (key.includes("linux")) {
-      await $`tar -czf ${key}.tar.gz ${key}`.cwd(distDir)
+      await $`tar --format=ustar --no-xattrs --exclude='._*' --exclude='.DS_Store' -czf ${key}.tar.gz ${key}`
+        .cwd(distDir)
+        .env({ ...process.env, COPYFILE_DISABLE: "1" })
     } else {
       const zipPath = path.join(distDir, `${key}.zip`)
-      await $`zip -rq ${zipPath} ${key}`.cwd(distDir)
+      await $`zip -Xrq ${zipPath} ${key} -x '*/._*' '*/.DS_Store'`
+        .cwd(distDir)
+        .env({ ...process.env, COPYFILE_DISABLE: "1" })
     }
   }
 

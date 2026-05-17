@@ -5,6 +5,10 @@ on:
     - cron: "0 */12 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: docs-update-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   LOOKBACK_HOURS: 4
 
@@ -12,6 +16,8 @@ jobs:
   update-docs:
     if: github.repository == 'nikomatt69/nikcli'
     runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 20
     permissions:
       id-token: write
       contents: write
@@ -43,11 +49,11 @@ jobs:
 
       - name: Run nikcli
         if: steps.commits.outputs.has_commits == 'true'
-        uses: sst/nikcli/github@latest
+        uses: nikomatt69/nikcli/github@latest
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         with:
-          model: nikcli/gpt-5.2
+          model: minimax-coding-plan/MiniMax-M2.7
           agent: docs
           prompt: |
             Review the following commits from the last ${{ env.LOOKBACK_HOURS }} hours and identify any new features that may need documentation.

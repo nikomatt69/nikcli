@@ -1,9 +1,6 @@
 name: nikcli-create-release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -47,15 +44,17 @@ jobs:
 
       - name: Create archives
         working-directory: packages/nikcli
+        env:
+          COPYFILE_DISABLE: "1"
         run: |
           DIST="$(pwd)/dist"
           for src in "$DIST"/*/; do
             name=$(basename "$src")
             if echo "$name" | grep -q "linux"; then
-              tar -czf "${DIST}/${name}.tar.gz" -C "$DIST" "$name"
+              tar --format=ustar --no-xattrs --exclude='._*' --exclude='.DS_Store' -czf "${DIST}/${name}.tar.gz" -C "$DIST" "$name"
               echo "created: ${name}.tar.gz"
             elif echo "$name" | grep -qE "windows|darwin"; then
-              (cd "$DIST" && zip -rq "${name}.zip" "$name")
+              (cd "$DIST" && zip -Xrq "${name}.zip" "$name" -x '*/._*' '*/.DS_Store')
               echo "created: ${name}.zip"
             fi
           done

@@ -5,10 +5,15 @@ import os from "os"
 
 const app = "nikcli"
 
-const data = path.join(xdgData!, app)
-const cache = path.join(xdgCache!, app)
-const config = path.join(xdgConfig!, app)
-const state = path.join(xdgState!, app)
+function xdgPath(value: string | undefined, fallback: string) {
+  return path.join(value || fallback, app)
+}
+
+const home = os.homedir()
+const data = xdgPath(xdgData, path.join(home, ".local", "share"))
+const cache = xdgPath(xdgCache, path.join(home, ".cache"))
+const config = xdgPath(xdgConfig, path.join(home, ".config"))
+const state = xdgPath(xdgState, path.join(home, ".local", "state"))
 
 function testPath(name: string, fallback: string) {
   return process.env.NIKCLI_TEST_HOME ? path.join(process.env.NIKCLI_TEST_HOME, name) : fallback
@@ -61,7 +66,6 @@ export namespace Global {
 
 export async function initialize() {
   // Run migration before setting up directories
-
 
   await Promise.all([
     fs.mkdir(Global.Path.data, { recursive: true }),

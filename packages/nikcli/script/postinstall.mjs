@@ -3,6 +3,7 @@
 import fs from "fs"
 import path from "path"
 import os from "os"
+import { execSync } from "child_process"
 import { fileURLToPath } from "url"
 import { createRequire } from "module"
 
@@ -10,7 +11,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(import.meta.url)
 
 function detectPlatformAndArch() {
-  // Map platform names
   let platform
   switch (os.platform()) {
     case "darwin":
@@ -27,7 +27,6 @@ function detectPlatformAndArch() {
       break
   }
 
-  // Map architecture names
   let arch
   switch (os.arch()) {
     case "x64":
@@ -35,9 +34,6 @@ function detectPlatformAndArch() {
       break
     case "arm64":
       arch = "arm64"
-      break
-    case "arm":
-      arch = "arm"
       break
     default:
       arch = os.arch()
@@ -47,79 +43,102 @@ function detectPlatformAndArch() {
   return { platform, arch }
 }
 
-function findBinary() {
-  const { platform, arch } = detectPlatformAndArch()
-  const packageName = `nikcli-${platform}-${arch}`
-  const binaryName = platform === "windows" ? "nikcli.exe" : "nikcli"
-
+function detectMusl() {
+  if (os.platform() !== "linux") return false
   try {
-    // Use require.resolve to find the package
+    const ldd = execSync("ldd --version 2>&1", { encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] })
+    if (ldd.toLowerCase().includes("musl")) return true
+  } catch {}
+  return fs.existsSync("/etc/alpine-release")
+}
+
+function detectBaseline() {
+  if (os.platform() === "linux") {
+    try {
+      const cpuinfo = fs.readFileSync("/proc/cpuinfo", "utf8")
+      return !cpuinfo.includes("avx2")
+    } catch {}
+    return false
+  }
+  if (os.platform() === "darwin") {
+    try {
+      const avx2 = execSync("sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0", { encoding: "utf8" }).trim()
+      return avx2 !== "1"
+    } catch {}
+  }
+  return false
+}
+
+function tryResolvePackage(packageName, binaryName) {
+  try {
     const packageJsonPath = require.resolve(`${packageName}/package.json`)
     const packageDir = path.dirname(packageJsonPath)
     const binaryPath = path.join(packageDir, "bin", binaryName)
-
-    if (!fs.existsSync(binaryPath)) {
-      throw new Error(`Binary not found at ${binaryPath}`)
-    }
-
-    return { binaryPath, binaryName }
-  } catch (error) {
-    throw new Error(`Could not find package ${packageName}: ${error.message}`)
+    if (!fs.existsSync(binaryPath)) return null
+    return binaryPath
+  } catch {
+    return null
   }
 }
 
+function findBinary() {
+  const { platform, arch } = detectPlatformAndArch()
+  const binaryName = platform === "windows" ? "nikcli.exe" : "nikcli"
+  const isMusl = platform === "linux" ? detectMusl() : false
+  const isBaseline = arch === "x64" ? detectBaseline() : false
+
+  // Try in order: most specific → least specific
+  const candidates = []
+
+  if (isBaseline && isMusl) candidates.push(`nikcli-${platform}-${arch}-baseline-musl`)
+  if (isBaseline && !isMusl) candidates.push(`nikcli-${platform}-${arch}-baseline`)
+  if (!isBaseline && isMusl) candidates.push(`nikcli-${platform}-${arch}-musl`)
+  candidates.push(`nikcli-${platform}-${arch}`)
+  // Final fallbacks (skip musl/baseline restriction)
+  if (isMusl) candidates.push(`nikcli-${platform}-${arch}`)
+  if (isBaseline) candidates.push(`nikcli-${platform}-${arch}`)
+
+  for (const name of candidates) {
+    const found = tryResolvePackage(name, binaryName)
+    if (found) {
+      console.log(`nikcli: resolved binary from ${name}`)
+      return { binaryPath: found, binaryName }
+    }
+  }
+
+  throw new Error(
+    `Could not find nikcli binary for ${platform}-${arch}${isMusl ? " (musl)" : ""}${isBaseline ? " (baseline)" : ""}.\n` +
+    `Tried: ${candidates.join(", ")}\n` +
+    `Install manually: https://nikcli.store/install`,
+  )
+}
+
 function prepareBinDirectory(binaryName) {
-  const binDir = path.join(__dirname, "bin")
+  const binDir = path.join(__dirname, "..", "bin")
   const targetPath = path.join(binDir, binaryName)
-
-  // Ensure bin directory exists
-  if (!fs.existsSync(binDir)) {
-    fs.mkdirSync(binDir, { recursive: true })
-  }
-
-  // Remove existing binary/symlink if it exists
-  if (fs.existsSync(targetPath)) {
-    fs.unlinkSync(targetPath)
-  }
-
+  if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true })
+  if (fs.existsSync(targetPath)) fs.unlinkSync(targetPath)
   return { binDir, targetPath }
 }
 
 function symlinkBinary(sourcePath, binaryName) {
   const { targetPath } = prepareBinDirectory(binaryName)
-
   fs.symlinkSync(sourcePath, targetPath)
-  console.log(`nikcli binary symlinked: ${targetPath} -> ${sourcePath}`)
-
-  // Verify the file exists after operation
-  if (!fs.existsSync(targetPath)) {
-    throw new Error(`Failed to symlink binary to ${targetPath}`)
-  }
+  if (!fs.existsSync(targetPath)) throw new Error(`Failed to symlink binary to ${targetPath}`)
+  console.log(`nikcli: ${targetPath} -> ${sourcePath}`)
 }
 
 async function main() {
-  try {
-    if (os.platform() === "win32") {
-      // On Windows, the .exe is already included in the package and bin field points to it
-      // No postinstall setup needed
-      console.log("Windows detected: binary setup not needed (using packaged .exe)")
-      return
-    }
-
-    // On non-Windows platforms, just verify the binary package exists
-    // Don't replace the wrapper script - it handles binary execution
-    const { binaryPath } = findBinary()
-    console.log(`Platform binary verified at: ${binaryPath}`)
-    console.log("Wrapper script will handle binary execution")
-  } catch (error) {
-    console.error("Failed to setup nikcli binary:", error.message)
-    process.exit(1)
+  if (os.platform() === "win32") {
+    console.log("nikcli: Windows detected, skipping postinstall symlink")
+    return
   }
+
+  const { binaryPath, binaryName } = findBinary()
+  symlinkBinary(binaryPath, binaryName)
 }
 
-try {
-  main()
-} catch (error) {
-  console.error("Postinstall script error:", error.message)
-  process.exit(0)
-}
+main().catch((error) => {
+  console.error("nikcli postinstall failed:", error.message)
+  process.exit(1)
+})

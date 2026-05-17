@@ -30,14 +30,21 @@ for (const name of dirs) {
   // Create tar.gz for Linux only — `<triplet>/bin/…` at archive root (matches install.sh + releases like 0.0.11)
   if (isLinux) {
     const tarPath = path.join(distPath, `${name}.tar.gz`)
-    await $`tar -czf ${tarPath} -C ${distPath} ${name}`
+    await $`tar --format=ustar --no-xattrs --exclude='._*' --exclude='.DS_Store' -czf ${tarPath} -C ${distPath} ${name}`.env(
+      {
+        ...process.env,
+        COPYFILE_DISABLE: "1",
+      },
+    )
     console.log(`created: ${name}.tar.gz`)
   }
 
   // Create zip for Windows and macOS
   if (isWindows || isMacOS) {
     const zipPath = path.join(distPath, `${name}.zip`)
-    await $`zip -rq ${zipPath} ${name}`.cwd(distPath)
+    await $`zip -Xrq ${zipPath} ${name} -x '*/._*' '*/.DS_Store'`
+      .cwd(distPath)
+      .env({ ...process.env, COPYFILE_DISABLE: "1" })
     console.log(`created: ${name}.zip`)
   }
 }

@@ -4,7 +4,12 @@ on:
   push:
     branches:
       - dev
+      - live-main
   workflow_dispatch:
+
+concurrency:
+  group: generate-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   generate:
@@ -26,7 +31,16 @@ jobs:
       - name: Generate
         run: ./script/generate.ts
 
+      - name: Verify live-main generated output
+        if: github.ref_name == 'live-main'
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "Generated SDK output differs on live-main; publish workflow will include it in the release commit."
+          fi
+
       - name: Commit and push
+        if: github.ref_name != 'live-main'
         run: |
           if [ -z "$(git status --porcelain)" ]; then
             echo "No changes to commit"

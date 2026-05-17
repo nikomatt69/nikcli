@@ -115,6 +115,7 @@ RUN mkdir -p /var/run/sshd /data /data/config /data/state && \
 
 ENV PORT=4096
 ENV XDG_DATA_HOME=/data
+ENV XDG_CACHE_HOME=/data/cache
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
 ENV NIKCLI_SERVER_USERNAME=nikcli
@@ -130,4 +131,4 @@ EXPOSE 4096 2222
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -s -o /dev/null "http://127.0.0.1:${PORT:-4096}/" || exit 1
 
-CMD ["sh", "-c", "mkdir -p /data/nikcli /data/config /data/state && if [ -n \"$NIKCLI_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json; fi && if [ -n \"$NIKCLI_CONNECTORS_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json; fi && exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]
+CMD ["sh", "-c", "mkdir -p /data/nikcli /data/cache /data/config /data/state && if [ -n \"$NIKCLI_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json; fi && if [ -n \"$NIKCLI_CONNECTORS_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json; fi && exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]

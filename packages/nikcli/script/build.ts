@@ -18,6 +18,7 @@ import { Script } from "@nikcli-ai/script"
 const singleFlag = process.argv.includes("--single")
 const baselineFlag = process.argv.includes("--baseline")
 const skipInstall = process.argv.includes("--skip-install")
+const sourcemapsFlag = process.argv.includes("--sourcemaps")
 
 const allTargets: {
   os: string
@@ -66,6 +67,10 @@ const allTargets: {
     os: "darwin",
     arch: "x64",
     avx2: false,
+  },
+  {
+    os: "win32",
+    arch: "arm64",
   },
   {
     os: "win32",
@@ -131,7 +136,7 @@ for (const item of targets) {
     conditions: ["browser"],
     tsconfig: "./tsconfig.json",
     plugins: [solidPlugin],
-    sourcemap: "external",
+    sourcemap: sourcemapsFlag ? "linked" : "none",
     compile: {
       autoloadBunfig: false,
       autoloadDotenv: false,

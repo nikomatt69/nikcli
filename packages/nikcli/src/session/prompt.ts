@@ -61,6 +61,18 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
+
+  class SessionCancelledError extends Error {
+    constructor() {
+      super("Session cancelled by user")
+      this.name = "SessionCancelledError"
+    }
+  }
+
+  function isCancelledError(e: unknown): boolean {
+    return e instanceof SessionCancelledError
+  }
+
   type PromptState = Record<
     string,
     {
@@ -328,7 +340,7 @@ export namespace SessionPrompt {
             for (const item of Object.values(data)) {
               item.abort.abort()
               for (const callback of item.callbacks) {
-                callback.reject()
+                callback.reject(new SessionCancelledError())
               }
             }
           }),
@@ -542,7 +554,7 @@ export namespace SessionPrompt {
     const match = s[sessionID]
     if (!match || match.abort !== controller) return
     for (const item of match.callbacks) {
-      item.reject()
+      item.reject(new SessionCancelledError())
     }
     delete s[sessionID]
     await setStatus(sessionID, { type: "idle" })
@@ -558,7 +570,7 @@ export namespace SessionPrompt {
       match.abort.abort()
       match.cancelling = true
       for (const item of match.callbacks) {
-        item.reject()
+        item.reject(new SessionCancelledError())
       }
       match.callbacks = []
       return
@@ -2454,13 +2466,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           const match = (yield* getServiceStateEffect())[sessionID]
           if (match) throw Session.BusyError.create(sessionID)
         }),
-      prompt: (input) => Effect.tryPromise(() => prompt(input)),
+      prompt: (input) =>
+        Effect.tryPromise(() => prompt(input)).pipe(
+          Effect.catchIf(isCancelledError, () => Effect.interrupt),
+        ),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
       cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
-      loop: (sessionID) => Effect.tryPromise(() => loop(sessionID)),
+      loop: (sessionID) =>
+        Effect.tryPromise(() => loop(sessionID)).pipe(
+          Effect.catchIf(isCancelledError, () => Effect.interrupt),
+        ),
       shell: (input) => Effect.tryPromise(() => shell(input)),
       command: (input) => Effect.tryPromise(() => command(input)),
     }),

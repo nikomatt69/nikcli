@@ -2,6 +2,20 @@ name: publish
 run-name: "${{ format('release {0}', inputs.bump) }}"
 
 on:
+  workflow_call:
+    inputs:
+      bump:
+        description: "Bump type"
+        required: false
+        type: string
+      version:
+        description: "Override version"
+        required: false
+        type: string
+      channel:
+        description: "Channel"
+        required: false
+        type: string
   push:
     branches:
       - dev
@@ -31,17 +45,14 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    if: github.repository == 'nikomatt69/nikcli'
+    if: >-
+      github.repository == 'nikomatt69/nikcli' &&
+      (github.event_name != 'push' ||
+      (!startsWith(github.event.head_commit.message, 'release: v') &&
+      !startsWith(github.event.head_commit.message, 'chore: generate') &&
+      !contains(github.event.head_commit.message, '[nikcli autofix]')))
     steps:
-      - name: Cancel other workflows for this commit
-        run: |
-          gh run list --commit ${{ github.sha }} --json databaseId,workflowName \
-            --jq '.[] | select(.workflowName != "publish") | .databaseId' \
-            | xargs -r -I{} gh run cancel {} || true
-        env:
-          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
-
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -51,7 +62,7 @@ jobs:
 
       - name: Install nikcli
         if: inputs.bump || inputs.version
-        run: bun i -g nikcli@latest || true
+        run: bun i -g nikcli-ai@latest || true
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -73,7 +84,7 @@ jobs:
       - name: Configure npm auth
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami
+          npm whoami >/dev/null
 
       - name: Setup Git Identity
         run: |
@@ -81,11 +92,15 @@ jobs:
           git config --global user.name "nikcli"
           git remote set-url origin https://x-access-token:${{ secrets.SST_GITHUB_TOKEN }}@github.com/${{ github.repository }}
 
+      - name: Generate SDK
+        run: ./script/generate.ts
+
       - name: Publish
         id: publish
         run: ./script/publish-start.ts
         env:
-          NIKCLI_BUMP: ${{ inputs.bump }}
+          NIKCLI_BUMP: ${{ inputs.bump || '' }}
+          NIKCLI_CHANNEL: ${{ inputs.channel || '' }}
           NIKCLI_VERSION: ${{ inputs.version }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
           GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
@@ -120,7 +135,7 @@ jobs:
             target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.settings.host }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ needs.publish.outputs.tag }}
@@ -223,7 +238,7 @@ jobs:
     if: always() && needs.publish.result == 'success' && needs.publish.outputs.tag
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ needs.publish.outputs.tag }}

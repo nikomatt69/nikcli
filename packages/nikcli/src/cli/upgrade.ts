@@ -78,8 +78,11 @@ export async function upgrade(): Promise<void> {
     return
   }
 
-  if (config.autoupdate === "notify") {
-    log.debug("Sending update notification", { version: latest })
+  const kind = Installation.getReleaseType(Installation.VERSION, latest)
+  log.debug("Release type", { kind, current: Installation.VERSION, latest })
+
+  if (config.autoupdate === "notify" || kind !== "patch") {
+    log.debug("Notifying update available (non-patch or notify mode)", { kind })
     await Bus.publish(Installation.Event.UpdateAvailable, { version: latest })
     return
   }

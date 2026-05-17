@@ -1,0 +1,207 @@
+name: ci-pipeline
+
+on:
+  push:
+    branches:
+      - live-main
+      - nikoemme-main
+      - dev
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-pipeline-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/live-main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Run validation
+        id: validate
+        shell: bash
+        run: |
+          set -o pipefail
+          bun run script/ci-validate.ts 2>&1 | tee ci-validation-output.txt
+
+      - name: Upload validation summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-validation-summary
+          path: tmp/ci-validation-summary.md
+          retention-days: 7
+          if-no-files-found: ignore
+
+  publish:
+    needs: validate
+    if: >-
+      needs.validate.result == 'success' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/live-main' &&
+      github.repository == 'nikomatt69/nikcli'
+    uses: ./.github/workflows/publish.yml
+    with:
+      bump: patch
+      channel: latest
+    secrets: inherit
+
+  railway-deploy:
+    needs: publish
+    if: >-
+      needs.publish.result == 'success' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/live-main' &&
+      github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI (silent)
+        run: curl -fsSL https://railway.com/install.sh | sh >/dev/null 2>&1
+        shell: bash
+
+      - name: Deploy to Railway (silent)
+        shell: bash
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          if [ -z "${RAILWAY_TOKEN:-}" ]; then
+            echo "✗ RAILWAY_TOKEN not configured — skipping deploy"
+            exit 0
+          fi
+          mkdir -p tmp
+          if ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
+            echo "✓ Railway deploy triggered"
+          else
+            echo "✗ Railway deploy failed (last 30 lines):"
+            tail -n 30 tmp/railway.log || true
+            exit 1
+          fi
+
+  autofix:
+    needs: validate
+    if: >-
+      needs.validate.result == 'failure' &&
+      github.repository == 'nikomatt69/nikcli' &&
+      (
+        github.event_name == 'push' ||
+        (github.event_name == 'pull_request' &&
+         github.event.pull_request.head.repo.full_name == github.repository)
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Check if commit should be skipped
+        id: skip-check
+        shell: bash
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message || github.event.pull_request.title || '' }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          if printf '%s' "$COMMIT_MSG" | grep -qE '^\[nikcli autofix\]|^release: v|^chore: generate|\[skip ci\]'; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping autofix: anti-loop pattern matched"
+            exit 0
+          fi
+          if [ "$ACTOR" = "github-actions[bot]" ] || [ "$ACTOR" = "nikcli-ci[bot]" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping autofix: bot actor"
+            exit 0
+          fi
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.skip-check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.SST_GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        if: steps.skip-check.outputs.skip != 'true'
+        uses: ./.github/actions/setup-bun
+
+      - name: Setup Git identity
+        if: steps.skip-check.outputs.skip != 'true'
+        run: |
+          git config --global user.email "nikcli-ci@users.noreply.github.com"
+          git config --global user.name "nikcli-ci[bot]"
+
+      - name: Run autofix
+        if: steps.skip-check.outputs.skip != 'true'
+        id: autofix
+        run: bun run script/ci-autofix.ts
+        env:
+          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
+          NIKCLI_AUTOFIX_MODEL: ${{ vars.NIKCLI_AUTOFIX_MODEL || 'minimax-coding-plan/MiniMax-M2.7' }}
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Push fix
+        if: steps.skip-check.outputs.skip != 'true' && steps.autofix.outcome == 'success'
+        shell: bash
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ! [[ "$REF_NAME" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "Refusing to push to unsafe ref name"
+            exit 1
+          fi
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "fix(ci): automated validation repair [nikcli autofix]"
+            git push origin "HEAD:$REF_NAME"
+          else
+            echo "No changes to push"
+          fi
+
+  report-failure:
+    needs: [validate, autofix]
+    if: >-
+      always() &&
+      needs.validate.result == 'failure' &&
+      github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Report failure
+        run: bun run script/ci-report-failure.ts
+        env:
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number || '' }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          NIKCLI_CI_FAILURE_MENTION: ${{ vars.NIKCLI_CI_FAILURE_MENTION || '@nikomatt69' }}
+          AUTOFIX_ATTEMPTED: ${{ needs.autofix.result }}

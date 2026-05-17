@@ -180,12 +180,13 @@ else
     else
         # Strip leading 'v' if present
         requested_version="${requested_version#v}"
-        url_primary="https://nikcli.store/releases/download/${requested_version}/$filename"
-        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${requested_version}/$filename"
+        release_tag="v${requested_version}"
+        url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
+        url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
         specific_version=$requested_version
 
         # Verify the release exists before downloading (check GitHub)
-        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
+        http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${release_tag}")
         if [ "$http_status" = "404" ]; then
             echo -e "${RED}Error: Release ${requested_version} not found${NC}"
             echo -e "${MUTED}Available releases: https://github.com/nikomatt69/nikcli/releases${NC}"
