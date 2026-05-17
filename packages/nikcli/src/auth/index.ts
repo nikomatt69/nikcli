@@ -60,7 +60,9 @@ export namespace Auth {
   export const WellKnownAuthResponse = zodObject(
     Schema.Struct({
       auth: Schema.Struct({
-        command: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(Schema.check(Schema.isMinLength(1))),
+        command: Schema.Array(Schema.String.pipe(Schema.check(Schema.isMinLength(1)))).pipe(
+          Schema.check(Schema.isMinLength(1)),
+        ),
         env: Schema.String.pipe(Schema.check(Schema.isPattern(/^[A-Z_][A-Z0-9_]*$/))),
       }),
     }),
@@ -261,7 +263,7 @@ export namespace Auth {
       }
       await fs.rename(tmp, file)
     } finally {
-      await fs.unlink(tmp).catch(() => { })
+      await fs.unlink(tmp).catch(() => {})
     }
   }
 
@@ -279,7 +281,7 @@ export namespace Auth {
       }
       await fs.rename(tmp, file)
     } finally {
-      await fs.unlink(tmp).catch(() => { })
+      await fs.unlink(tmp).catch(() => {})
     }
   }
 

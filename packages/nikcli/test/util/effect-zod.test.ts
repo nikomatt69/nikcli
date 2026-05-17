@@ -83,9 +83,9 @@ describe("effect-zod walker", () => {
   })
 
   it("identifier annotation maps to z.meta({ ref })", () => {
-    const s = zod(
-      Schema.Struct({ id: Schema.String }).annotate({ identifier: "Foo" }),
-    ) as z.ZodType & { meta: () => { ref: string } | undefined }
+    const s = zod(Schema.Struct({ id: Schema.String }).annotate({ identifier: "Foo" })) as z.ZodType & {
+      meta: () => { ref: string } | undefined
+    }
     const meta = (s as any).meta?.()
     expect(meta?.ref).toBe("Foo")
   })
@@ -121,16 +121,15 @@ describe("effect-zod walker", () => {
         name: Schema.String,
       }).annotate(zodObjectMode("passthrough")),
     )
-    expect(s.parse({ name: "x", extra: true } as unknown as { name: string })).toEqual(
-      { name: "x", extra: true } as unknown as { name: string },
-    )
+    expect(s.parse({ name: "x", extra: true } as unknown as { name: string })).toEqual({
+      name: "x",
+      extra: true,
+    } as unknown as { name: string })
   })
 
   it("zodOverride escape hatch replaces derivation", () => {
     const original = z.string().regex(/^[A-Z]+$/)
-    const s = zod(
-      Schema.String.annotate({ [ZodOverrideId]: () => original }),
-    )
+    const s = zod(Schema.String.annotate({ [ZodOverrideId]: () => original }))
     expect(s.safeParse("ABC").success).toBe(true)
     expect(s.safeParse("abc").success).toBe(false)
   })

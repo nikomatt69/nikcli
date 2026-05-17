@@ -40,7 +40,9 @@ export namespace ProviderHttpApi {
   export const Group = HttpApiGroup.make("provider")
     .add(HttpApiEndpoint.get("list", "/", { success: ListResponse }))
     .add(HttpApiEndpoint.get("auth", "/auth", { success: AuthMethods }))
-    .add(HttpApiEndpoint.post("api", "/:providerID/api", { params: ProviderPath, payload: ApiPayload, success: Success }))
+    .add(
+      HttpApiEndpoint.post("api", "/:providerID/api", { params: ProviderPath, payload: ApiPayload, success: Success }),
+    )
     .add(HttpApiEndpoint.delete("removeAuth", "/:providerID/auth", { params: ProviderPath, success: Success }))
     .prefix("/provider")
 
@@ -113,8 +115,5 @@ export namespace ProviderHttpApi {
     Auth.defaultLayer,
   )
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

@@ -139,7 +139,7 @@ export const MobileCommand = cmd({
             }
           }
 
-          await new Promise(() => { })
+          await new Promise(() => {})
 
           await server.stop()
         },
@@ -211,5 +211,5 @@ export const MobileCommand = cmd({
         },
       })
       .demandCommand(),
-  async handler() { },
+  async handler() {},
 })

@@ -46,17 +46,23 @@ export namespace Worktree {
     message: Schema.String,
   }) {}
 
-  export class NameGenerationFailedError extends Schema.TaggedErrorClass<NameGenerationFailedError>()("WorktreeNameGenerationFailedError", {
-    message: Schema.String,
-  }) {}
+  export class NameGenerationFailedError extends Schema.TaggedErrorClass<NameGenerationFailedError>()(
+    "WorktreeNameGenerationFailedError",
+    {
+      message: Schema.String,
+    },
+  ) {}
 
   export class CreateFailedError extends Schema.TaggedErrorClass<CreateFailedError>()("WorktreeCreateFailedError", {
     message: Schema.String,
   }) {}
 
-  export class StartCommandFailedError extends Schema.TaggedErrorClass<StartCommandFailedError>()("WorktreeStartCommandFailedError", {
-    message: Schema.String,
-  }) {}
+  export class StartCommandFailedError extends Schema.TaggedErrorClass<StartCommandFailedError>()(
+    "WorktreeStartCommandFailedError",
+    {
+      message: Schema.String,
+    },
+  ) {}
 
   export class RemoveFailedError extends Schema.TaggedErrorClass<RemoveFailedError>()("WorktreeRemoveFailedError", {
     message: Schema.String,
@@ -329,7 +335,11 @@ export namespace Worktree {
       })
   }
 
-  async function findWorktreeEntry(ctx: InstanceContext, directory: string, cwd?: string): Promise<WorktreeEntry | undefined> {
+  async function findWorktreeEntry(
+    ctx: InstanceContext,
+    directory: string,
+    cwd?: string,
+  ): Promise<WorktreeEntry | undefined> {
     const entries = await listWorktrees(ctx, cwd)
     const resolved = await canonicalPath(directory)
     for (const item of entries) {
@@ -357,7 +367,11 @@ export namespace Worktree {
     return ""
   }
 
-  async function candidate(ctx: InstanceContext, root: string, input?: { name?: string; branch?: string; branchPrefix?: string }) {
+  async function candidate(
+    ctx: InstanceContext,
+    root: string,
+    input?: { name?: string; branch?: string; branchPrefix?: string },
+  ) {
     for (const attempt of Array.from({ length: 26 }, (_, i) => i)) {
       const base = input?.name
       const name = base ? (attempt === 0 ? base : `${base}-${randomName()}`) : randomName()

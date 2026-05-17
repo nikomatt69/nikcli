@@ -37,9 +37,7 @@ export function listUserMessagePreviews(
   const list = (data.message[sessionId] ?? []).filter((m) => m.role === "user")
   const out: { messageId: string; preview: string; time: number }[] = []
   for (const m of list) {
-    const part = (data.part[m.id] ?? []).find(
-      (x): x is TextPart => x.type === "text" && !x.synthetic && !x.ignored,
-    )
+    const part = (data.part[m.id] ?? []).find((x): x is TextPart => x.type === "text" && !x.synthetic && !x.ignored)
     if (!part) continue
     out.push({
       messageId: m.id,

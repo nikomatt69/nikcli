@@ -44,8 +44,8 @@ export default function PrivacyPolicy() {
 
               <p>
                 As we continually work to improve our Services, we may need to change this Privacy Policy from time to
-                time. We will alert you of material changes by placing a notice on the Nikcli website, by sending you
-                an email and/or by some other means. Please note that if you've opted not to receive legal notice emails
+                time. We will alert you of material changes by placing a notice on the Nikcli website, by sending you an
+                email and/or by some other means. Please note that if you've opted not to receive legal notice emails
                 from us (or you haven't provided us with your email address), those legal notices will still govern your
                 use of the Services, and you are still responsible for reading and understanding them. If you use the
                 Services after any changes to the Privacy Policy have been posted, that means you agree to all of the

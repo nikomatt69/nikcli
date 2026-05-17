@@ -220,7 +220,9 @@ describe("concurrency safety", () => {
 
   it("publish.yml concurrency group includes version/bump (avoid clashing rapid bumps)", async () => {
     const yml = await read(".github/workflows/publish.yml")
-    expect(yml).toMatch(/concurrency:\s*\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}-\$\{\{\s*inputs\.version\s*\|\|\s*inputs\.bump\s*\}\}/)
+    expect(yml).toMatch(
+      /concurrency:\s*\$\{\{\s*github\.workflow\s*\}\}-\$\{\{\s*github\.ref\s*\}\}-\$\{\{\s*inputs\.version\s*\|\|\s*inputs\.bump\s*\}\}/,
+    )
   })
 })
 

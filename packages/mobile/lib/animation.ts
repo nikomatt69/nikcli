@@ -88,10 +88,7 @@ export type StaggerOptions = {
 /** List row / card entrance — pass `delayMs` as bare number or a full `{ delayMs }` object. */
 export function useStaggeredAnimation(itemCount: number, delayMs?: number): Animated.Value[]
 export function useStaggeredAnimation(itemCount: number, options?: StaggerOptions): Animated.Value[]
-export function useStaggeredAnimation(
-  itemCount: number,
-  optionsOrDelay?: StaggerOptions | number,
-): Animated.Value[] {
+export function useStaggeredAnimation(itemCount: number, optionsOrDelay?: StaggerOptions | number): Animated.Value[] {
   const resolved: StaggerOptions =
     typeof optionsOrDelay === "number" ? { delayMs: optionsOrDelay } : (optionsOrDelay ?? {})
   const delayMs = resolved.delayMs ?? 54

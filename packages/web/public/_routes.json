@@ -1,9 +1,5 @@
 {
   "version": 1,
-  "include": [
-    "/*"
-  ],
-  "exclude": [
-    "/_astro/*"
-  ]
+  "include": ["/*"],
+  "exclude": ["/_astro/*"]
 }

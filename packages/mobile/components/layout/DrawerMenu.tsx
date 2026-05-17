@@ -253,7 +253,7 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
                       accessibilityHint={tab.subtitle}
                       style={{
                         overflow: "hidden",
-                          borderRadius: 16,
+                        borderRadius: 16,
                         borderWidth: 1,
                         borderColor: active
                           ? isDark

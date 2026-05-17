@@ -324,8 +324,7 @@ export function VoiceMessageBubble({
                 style={{
                   width: 3,
                   height: `${value * 100}%`,
-                  backgroundColor:
-                    i / waveform.length < progress ? chat.voiceWaveformProgress : chat.voiceWaveform,
+                  backgroundColor: i / waveform.length < progress ? chat.voiceWaveformProgress : chat.voiceWaveform,
                   borderRadius: 2,
                   opacity: i / waveform.length < progress ? 1 : 0.4,
                 }}

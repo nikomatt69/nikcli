@@ -8,10 +8,10 @@ This document describes the complete deployment infrastructure for nikcli on Clo
 
 ### Workers
 
-| Worker         | Domain             | Status    | Environment Variables                                     |
-| -------------- | ------------------ | --------- | --------------------------------------------------------- |
-| `nikcli-slack` | slack.nikcli.store | ✅ Online | NODE_ENV, CF_REGION, WRANGLER_LOG_LEVEL                   |
-| `nikcli-web`   | nikcli.store       | ✅ Online | ASSETS binding (dist)                                     |
+| Worker         | Domain             | Status    | Environment Variables                   |
+| -------------- | ------------------ | --------- | --------------------------------------- |
+| `nikcli-slack` | slack.nikcli.store | ✅ Online | NODE_ENV, CF_REGION, WRANGLER_LOG_LEVEL |
+| `nikcli-web`   | nikcli.store       | ✅ Online | ASSETS binding (dist)                   |
 
 ### Pages
 

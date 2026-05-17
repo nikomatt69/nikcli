@@ -181,10 +181,7 @@ async function getAllSessions(): Promise<Session.Info[]> {
   return sessions
 }
 
-export async function aggregateSessionStats(
-  days?: number,
-  projectFilter?: string,
-): Promise<SessionStats> {
+export async function aggregateSessionStats(days?: number, projectFilter?: string): Promise<SessionStats> {
   const sessions = await getAllSessions()
   const MS_IN_DAY = 24 * 60 * 60 * 1000
 
@@ -204,15 +201,12 @@ export async function aggregateSessionStats(
     return days
   })()
 
-  let filteredSessions =
-    cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
+  let filteredSessions = cutoffTime > 0 ? sessions.filter((session) => session.time.updated >= cutoffTime) : sessions
 
   if (projectFilter !== undefined) {
     if (projectFilter === "") {
       const currentProject = await getCurrentProject()
-      filteredSessions = filteredSessions.filter(
-        (session) => session.projectID === currentProject.id,
-      )
+      filteredSessions = filteredSessions.filter((session) => session.projectID === currentProject.id)
     } else {
       filteredSessions = filteredSessions.filter((session) => session.projectID === projectFilter)
     }
@@ -250,9 +244,7 @@ export async function aggregateSessionStats(
   }
 
   if (filteredSessions.length > 1000) {
-    console.log(
-      `Large dataset detected (${filteredSessions.length} sessions). This may take a while...`,
-    )
+    console.log(`Large dataset detected (${filteredSessions.length} sessions). This may take a while...`)
   }
 
   if (filteredSessions.length === 0) {
@@ -424,11 +416,7 @@ export async function aggregateSessionStats(
   return stats
 }
 
-export function displayStats(
-  stats: SessionStats,
-  toolLimit?: number,
-  modelLimit?: number,
-): void {
+export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit?: number): void {
   const width = 56
 
   function renderRow(label: string, value: string): string {
@@ -456,9 +444,7 @@ export function displayStats(
   console.log(renderRow("Total Cost", `$${cost.toFixed(2)}`))
   console.log(renderRow("Avg Cost/Day", `$${costPerDay.toFixed(2)}`))
   console.log(renderRow("Avg Tokens/Session", formatNumber(Math.round(tokensPerSession))))
-  const medianTokensPerSession = Number.isFinite(stats.medianTokensPerSession)
-    ? stats.medianTokensPerSession
-    : 0
+  const medianTokensPerSession = Number.isFinite(stats.medianTokensPerSession) ? stats.medianTokensPerSession : 0
   console.log(renderRow("Median Tokens/Session", formatNumber(Math.round(medianTokensPerSession))))
   console.log(renderRow("Input", formatNumber(stats.totalTokens.input)))
   console.log(renderRow("Output", formatNumber(stats.totalTokens.output)))
