@@ -39,8 +39,7 @@ jobs:
 
           SYSTEMS="x86_64-linux aarch64-linux x86_64-darwin aarch64-darwin"
           PACKAGES="nikcli"
-          # TODO: move 'desktop' to PACKAGES when flake fully supports it
-          OPTIONAL_PACKAGES="desktop"
+          OPTIONAL_PACKAGES=""
 
           echo ""
           echo "=== Evaluating packages for all systems ==="
