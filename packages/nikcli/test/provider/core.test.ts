@@ -150,18 +150,12 @@ describe("ProviderTransform", () => {
   })
 
   it("error rewrites 403 for github-copilot", () => {
-    const msg = ProviderTransform.error(
-      "x-github-copilot",
-      apiError({ message: "nope", statusCode: 403 }),
-    )
+    const msg = ProviderTransform.error("x-github-copilot", apiError({ message: "nope", statusCode: 403 }))
     expect(msg).toContain("reauthenticate")
   })
 
   it("error appends help link for unsupported model on copilot", () => {
-    const msg = ProviderTransform.error(
-      "github-copilot",
-      apiError({ message: "The requested model is not supported" }),
-    )
+    const msg = ProviderTransform.error("github-copilot", apiError({ message: "The requested model is not supported" }))
     expect(msg).toContain("github.com/settings/copilot")
   })
 

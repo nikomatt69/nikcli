@@ -1,6 +1,5 @@
 ---
 description: "find issue(s) on github"
-
 ---
 
 Search through existing issues in nikomatt69/nikcli using the gh cli to find issues matching this query:

@@ -29,7 +29,15 @@ export function SessionTreeHeader(props: {
     >
       <box paddingLeft={2} paddingRight={2} paddingTop={1} paddingBottom={1} flexDirection="column" gap={0}>
         <box flexDirection="row" justifyContent="space-between" alignItems="center" width="100%" gap={1}>
-          <box flexDirection="row" gap={0} alignItems="baseline" flexGrow={1} flexShrink={1} minWidth={0} overflow="hidden">
+          <box
+            flexDirection="row"
+            gap={0}
+            alignItems="baseline"
+            flexGrow={1}
+            flexShrink={1}
+            minWidth={0}
+            overflow="hidden"
+          >
             <text fg={theme.textMuted} attributes={TextAttributes.DIM} wrapMode="none">
               Session
             </text>
@@ -84,7 +92,15 @@ export function SessionTreeHeader(props: {
           </box>
         </box>
         <Show when={props.currentSessionTitle}>
-          <box flexDirection="row" paddingTop={0} gap={1} alignItems="center" width="100%" minWidth={0} overflow="hidden">
+          <box
+            flexDirection="row"
+            paddingTop={0}
+            gap={1}
+            alignItems="center"
+            width="100%"
+            minWidth={0}
+            overflow="hidden"
+          >
             <text fg={theme.primary} attributes={TextAttributes.DIM} wrapMode="none">
               ▾
             </text>

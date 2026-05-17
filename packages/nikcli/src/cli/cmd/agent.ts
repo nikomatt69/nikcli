@@ -37,10 +37,7 @@ const AVAILABLE_TOOLS = [
   "todoread",
 ] as const
 
-function agentGenerate(input: {
-  description: string
-  model?: { providerID: string; modelID: string }
-}) {
+function agentGenerate(input: { description: string; model?: { providerID: string; modelID: string } }) {
   return runPromiseWithLayer(
     Agent.defaultLayer,
     withCurrentInstance(
@@ -178,9 +175,7 @@ const AgentCreateCommand = cmd({
 
       let selectedTools: string[]
       if (cliTools !== undefined) {
-        selectedTools = cliTools
-          ? cliTools.split(",").map((t) => t.trim())
-          : [...AVAILABLE_TOOLS]
+        selectedTools = cliTools ? cliTools.split(",").map((t) => t.trim()) : [...AVAILABLE_TOOLS]
       } else {
         const result = await prompts.multiselect({
           message: "Select tools to enable (Space to toggle)",

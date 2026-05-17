@@ -23,5 +23,4 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   SidebarFiles,
   SidebarFooter,
   PluginManager,
-  
 ]

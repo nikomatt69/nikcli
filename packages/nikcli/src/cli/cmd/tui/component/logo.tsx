@@ -26,7 +26,6 @@ const LOGO_RIGHT = [
   ` ╚═════╝╚══════╝╚═╝`,
 ]
 
-
 export function Logo() {
   const { theme } = useTheme()
 

@@ -511,7 +511,7 @@ export function ComposerApprovalBar(props: ApprovalBarProps) {
 
           {/* Action buttons based on type */}
           {currentType === "permission" ? (
-            <View style={{ flexDirection: "row", gap: 16, flexShrink: 0 }}> 
+            <View style={{ flexDirection: "row", gap: 16, flexShrink: 0 }}>
               {/* Reject */}
               <Pressable
                 onPress={() => handlePermissionRespond("reject")}

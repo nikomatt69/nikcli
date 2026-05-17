@@ -37,7 +37,9 @@ export namespace MDNS {
         try {
           bonjour.destroy()
         } catch (destroyErr) {
-          log.warn("mDNS destroy after publish failure", { error: destroyErr instanceof Error ? destroyErr.message : String(destroyErr) })
+          log.warn("mDNS destroy after publish failure", {
+            error: destroyErr instanceof Error ? destroyErr.message : String(destroyErr),
+          })
         }
       }
       bonjour = undefined

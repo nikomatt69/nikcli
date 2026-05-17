@@ -132,8 +132,7 @@ export const dict = {
     "Zen \uc0ac\uc6a9\uc744 \uad8c\uc7a5\ud558\uc9c0\ub9cc, Nikcli\ub294 OpenAI, Anthropic, xAI \ub4f1 \uc8fc\uc694 \ud504\ub85c\ubc14\uc774\ub354\uc640\ub3c4 \ud638\ud658\ub429\ub2c8\ub2e4.",
   "home.faq.a3.p4.beforeLocal": "\ub610\ud55c",
   "home.faq.a3.p4.localLink": "\ub85c\uceec \ubaa8\ub378\uc744 \uc5f0\uacb0\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4",
-  "home.faq.q4":
-    "\uae30\uc874 AI \uad6c\ub3c5\uc744 Nikcli\uc5d0\uc11c \uc0ac\uc6a9\ud560 \uc218 \uc788\ub098\uc694?",
+  "home.faq.q4": "\uae30\uc874 AI \uad6c\ub3c5\uc744 Nikcli\uc5d0\uc11c \uc0ac\uc6a9\ud560 \uc218 \uc788\ub098\uc694?",
   "home.faq.a4.p1":
     "\ub124. Nikcli\ub294 \uc8fc\uc694 \ud504\ub85c\ubc14\uc774\ub354\uc758 \uad6c\ub3c5\uc744 \uc9c0\uc6d0\ud569\ub2c8\ub2e4. Claude Pro/Max, ChatGPT Plus/Pro, GitHub Copilot\uc744 \uc0ac\uc6a9\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.",
   "home.faq.q5": "Nikcli\ub97c \ud130\ubbf8\ub110\uc5d0\uc11c\ub9cc \uc0ac\uc6a9\ud574\uc57c \ud558\ub098\uc694?",
@@ -310,8 +309,7 @@ export const dict = {
   "changelog.title": "Nikcli | \ubcc0\uacbd \ub0b4\uc5ed",
   "changelog.meta.description": "Nikcli \ub9b4\ub9ac\uc2a4 \ub178\ud2b8 \ubc0f \ubcc0\uacbd \ub0b4\uc5ed",
   "changelog.hero.title": "\ubcc0\uacbd \ub0b4\uc5ed",
-  "changelog.hero.subtitle":
-    "Nikcli\uc758 \uc0c8\ub85c\uc6b4 \uc5c5\ub370\uc774\ud2b8\uc640 \uac1c\uc120 \uc0ac\ud56d",
+  "changelog.hero.subtitle": "Nikcli\uc758 \uc0c8\ub85c\uc6b4 \uc5c5\ub370\uc774\ud2b8\uc640 \uac1c\uc120 \uc0ac\ud56d",
   "changelog.empty": "\ubcc0\uacbd \ub0b4\uc5ed\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4.",
   "changelog.viewJson": "JSON \ubcf4\uae30",
   "workspace.nav.zen": "선",

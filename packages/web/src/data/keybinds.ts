@@ -80,10 +80,26 @@ export const keybinds = [
   { key: "input_redo", default: "ctrl+.,super+shift+z", describe: "Redo in input" },
   { key: "input_word_forward", default: "alt+f,alt+right,ctrl+right", describe: "Move word forward in input" },
   { key: "input_word_backward", default: "alt+b,alt+left,ctrl+left", describe: "Move word backward in input" },
-  { key: "input_select_word_forward", default: "alt+shift+f,alt+shift+right", describe: "Select word forward in input" },
-  { key: "input_select_word_backward", default: "alt+shift+b,alt+shift+left", describe: "Select word backward in input" },
-  { key: "input_delete_word_forward", default: "alt+d,alt+delete,ctrl+delete", describe: "Delete word forward in input" },
-  { key: "input_delete_word_backward", default: "ctrl+w,ctrl+backspace,alt+backspace", describe: "Delete word backward in input" },
+  {
+    key: "input_select_word_forward",
+    default: "alt+shift+f,alt+shift+right",
+    describe: "Select word forward in input",
+  },
+  {
+    key: "input_select_word_backward",
+    default: "alt+shift+b,alt+shift+left",
+    describe: "Select word backward in input",
+  },
+  {
+    key: "input_delete_word_forward",
+    default: "alt+d,alt+delete,ctrl+delete",
+    describe: "Delete word forward in input",
+  },
+  {
+    key: "input_delete_word_backward",
+    default: "ctrl+w,ctrl+backspace,alt+backspace",
+    describe: "Delete word backward in input",
+  },
   { key: "history_previous", default: "up", describe: "Previous history item" },
   { key: "history_next", default: "down", describe: "Next history item" },
   { key: "session_child_cycle", default: "<leader>right", describe: "Next child session" },
@@ -92,4 +108,4 @@ export const keybinds = [
   { key: "terminal_suspend", default: "ctrl+z", describe: "Suspend terminal" },
   { key: "terminal_title_toggle", default: "none", describe: "Toggle terminal title" },
   { key: "tips_toggle", default: "<leader>h", describe: "Toggle tips on home screen" },
-] as const;
+] as const

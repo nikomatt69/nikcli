@@ -4,8 +4,8 @@ async function run() {
   const { server, session } = await createRemoteServer({
     port: 8080,
     host: "0.0.0.0",
-    enableTerminal: true
-  });
+    enableTerminal: true,
+  })
   console.log(`Access the terminal at: ${session.qrUrl}`)
 }
 

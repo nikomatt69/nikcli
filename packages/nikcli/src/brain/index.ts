@@ -480,10 +480,7 @@ async function buildSessionReviews(sessionIds: string[]) {
         const [session, messages] = await runSession(
           Effect.gen(function* () {
             const sessionService = yield* Session.Service
-            return yield* Effect.all([
-              sessionService.get(sessionID),
-              sessionService.messages({ sessionID, limit: 40 }),
-            ])
+            return yield* Effect.all([sessionService.get(sessionID), sessionService.messages({ sessionID, limit: 40 })])
           }),
         )
         const sections = messages.map(formatReviewMessage).filter(Boolean)
