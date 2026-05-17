@@ -132,3 +132,5 @@ jobs:
         env:
           NIKCLI_VERSION: ${{ needs.publish.outputs.version  }}
           GH_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}

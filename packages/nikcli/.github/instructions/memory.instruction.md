@@ -1079,6 +1079,7 @@ Changed files: `src/server/routes/tui.ts`, `src/session/prompt.ts`, `src/acp/age
 | 10  | `cli/cmd/tui/context/local.tsx`   | `ultrareview-reviewer` in `PRIMARY_AGENT_NAMES` but mode=subagent/hidden | Intentional (TUI selector UI only) |
 | 11  | `mobile/auth.ts:80-89`             | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time   | **Fix needed**  |
 | 12  | `server.ts:196-202`                | Token leaks in server logs via `c.req.path` (includes `?token=...`)    | **Fix needed**  |
+| 13  | Multiple sessions (2026-05-17)     | Confirmed via multi-agent analysis: server auth token leaks, storage structuredClone usage, Effect→Zod conversion, dual API layer (Hono + Effect HttpApiBridge), SDK generation workflow — all confirmed accurate | Known/Working   |
 
 ## Mobile IDE Backend Issues
 
@@ -1694,7 +1695,7 @@ Expo 52, React Native 0.76, NativeWind, lucide-react-native, expo-router, react-
 
 ### Known Issues (2026-05-15)
 
-- `ChatBubble.tsx` uses `import { Image } from "expo-image"` but `expo-image` was missing from `package.json` dependencies (fixed 2026-05-15: added `"expo-image": "~1.14.0"`)
+- `ChatBubble.tsx` uses `import { Image } from "expo-image"` — dependency was missing from `package.json` (fixed 2026-05-15: added `"expo-image": "~1.14.0"`). Note: `bun install` may timeout in Docker; run manually.
 - `_layout.tsx:31`: `settings` and `user` are registered tabs but filtered out of `AppTabBar`; navigating to them from header/drawer leaves no selected tab and `AppHeader` falls back to Sessions.
 - `SessionComposer.tsx:653`: stop button's `onPress` only triggers haptics; `onStop` prop is accepted but never destructured/wired. Also: attachment/model/MCP props are accepted but only `onAttach` is destructured.
 - `terminal/index.tsx:9,324`: imports `SafeAreaView` from React Native and adds top safe-area padding inside a screen that already has app chrome. Should use `View` and account only for bottom/keyboard safe area.
@@ -1989,10 +1990,26 @@ Central tracking document for v2 migration. Key epochs:
 
 Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode integration complete. APIError migration pending in test files.
 
-## Brain Pass (2026-05-16)
+## Brain Pass (2026-05-17)
 
 ### Signal Consolidated
 
-1. **Mobile: expo-image dependency** — `ChatBubble.tsx` uses `import { Image } from "expo-image"` but the package was missing from `package.json`. Fixed 2026-05-15 by adding `"expo-image": "~1.14.0"` (coherent with SDK 52 ecosystem). Note: `bun install` may timeout in Docker; run manually.
-2. **Docker build infrastructure** — Multi-stage `Dockerfile.serve` uses `oven/bun:1.3.14-debian`, builds nikcli binary, then resolves platform-specific deps via `bun install --os="*" --cpu="*"` for packages like `@opentui/solid`, `@effect/platform-bun`. 25+ plugin packages bundled.
-3. **Mobile known issues** — 8 issues documented, 1 new fix applied (`expo-image` added to the list).
+1. **Multi-agent analysis pattern** — 4 parallel background agents effectively used for codebase analysis: architecture + server/API + tools/agents + storage each run concurrently for comprehensive coverage. Delegator sessions synthesize worker results into final summaries.
+
+2. **Server/API dual-layer architecture** — Two API styles coexist: Hono Routes (`src/server/routes/*`) with Zod validation, and Effect HTTP API (`src/server/httpapi/*`) for type-safe SDK generation. TUI ↔ Server communication via SSE at `/event` (real-time updates) and control endpoints at `/tui/control/*` (append-prompt, publish, show-toast, select-session).
+
+3. **SDK generation workflow** — `bun dev generate > openapi.json` from nikcli → `@hey-api/openapi-ts` generates `NikcliClient` to `packages/sdk/js/src/v2/gen/`. SDK uses `http://localhost:4096` default base URL.
+
+4. **Storage `structuredClone` rationale** — `Storage.update()` uses `structuredClone` for draft copy (not JSON.parse/stringify) to handle circular references, preserve BigInt/Date/TypedArray objects, and prevent cache corruption from shared references.
+
+5. **Effect Schema → Zod conversion** — `src/util/effect-zod.ts` maps Effect schemas to Zod equivalents: `Schema.Struct` → `z.object`, `Schema.Array` → `z.array`, `Schema.Union` → `z.union`, etc. Enables Effect-based services to expose Zod-validated HTTP APIs.
+
+6. **Tool execution flow confirmed** — `resolveTools()` in `prompt.ts:1124` builds AI SDK tool wrappers. Tools support both Promise and Effect-based execution. Zod validation errors auto-formatted via `formatValidationError()`.
+
+7. **Storage TTL + transaction pattern** — 5-second TTL read-through cache; transactions use sorted lock acquisition to prevent deadlocks; `Cache.invalidate()` called on all writes/removes.
+
+### Date Reference Updates
+
+- "Session Fixes (2026-05-04)" section confirmed accurate
+- "Brain Pass (2026-05-16)" section confirmed accurate  
+- Today's date: 2026-05-17 (all date references in file are absolute, no relative dates to update)
