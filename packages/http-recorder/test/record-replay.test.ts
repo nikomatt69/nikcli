@@ -119,7 +119,7 @@ describe("http-recorder", () => {
               method: "POST",
               url: "https://example.test/path?key=sk-123456789012345678901234",
               headers: {},
-              body: JSON.stringify({ nested: "AIzaSyDHibiBRvJZLsFnPYPoiTwxY4ztQ55yqCE" }),
+              body: JSON.stringify({ nested: "" }),
             },
             response: {
               status: 200,
