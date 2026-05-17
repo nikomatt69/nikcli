@@ -14,8 +14,8 @@ beforeAll(async () => {
         state: () => undefined,
         list: () => Promise.resolve(),
         children: () => [],
-        expand: () => { },
-        collapse: () => { },
+        expand: () => {},
+        collapse: () => {},
       },
     }),
   }))

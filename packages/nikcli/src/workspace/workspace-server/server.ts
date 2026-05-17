@@ -21,11 +21,7 @@ export namespace WorkspaceServer {
 
         return WorkspaceContext.provide({
           workspaceID,
-          fn: () =>
-            withInstanceAsync(
-              { directory, workspaceID, init: InstanceBootstrap },
-              async () => next(),
-            ),
+          fn: () => withInstanceAsync({ directory, workspaceID, init: InstanceBootstrap }, async () => next()),
         })
       })
       .route("/", SessionRoutes())

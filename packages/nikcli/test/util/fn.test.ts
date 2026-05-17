@@ -57,7 +57,6 @@ describe("fn", () => {
       expect(result1.success).toBeTruthy()
       expect(result1.data?.name).toBe("123")
     })
-
   })
 
   describe("force method", () => {

@@ -55,7 +55,12 @@ export namespace ExperimentalHttpApi {
     .add(HttpApiEndpoint.get("tools", "/tool", { query: ToolQuery, success: ToolList }))
     .add(HttpApiEndpoint.post("worktreeCreate", "/worktree", { payload: WorktreeCreateInput, success: WorktreeInfo }))
     .add(HttpApiEndpoint.get("worktree", "/worktree", { success: WorktreeList }))
-    .add(HttpApiEndpoint.delete("worktreeRemove", "/worktree", { payload: WorktreeDirectoryInput, success: Schema.Boolean }))
+    .add(
+      HttpApiEndpoint.delete("worktreeRemove", "/worktree", {
+        payload: WorktreeDirectoryInput,
+        success: Schema.Boolean,
+      }),
+    )
     .add(
       HttpApiEndpoint.post("worktreeReset", "/worktree/reset", {
         payload: WorktreeDirectoryInput,
@@ -136,8 +141,5 @@ export namespace ExperimentalHttpApi {
     Worktree.defaultLayer,
   ) as Layer.Layer<ToolRegistry.Service | Project.Service | MCP.Service | Worktree.Service, never, never>
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

@@ -202,7 +202,11 @@ export namespace TuiConfig {
     )
   })
 
-  const load = Effect.fn("TuiConfig.load")(function* (paths: ConfigPaths.Interface, text: string, configFilepath: string) {
+  const load = Effect.fn("TuiConfig.load")(function* (
+    paths: ConfigPaths.Interface,
+    text: string,
+    configFilepath: string,
+  ) {
     const raw = yield* paths.parseText(text, configFilepath, "empty")
     if (!isRecord(raw)) return {}
 
