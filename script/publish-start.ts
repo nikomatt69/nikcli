@@ -71,6 +71,10 @@ if (!Script.preview) {
     process.env.SST_GITHUB_TOKEN
   await $`git remote set-url origin https://x-access-token:${pushToken}@github.com/nikomatt69/nikcli`
   await $`git fetch origin ${branch}`
+  // Drop any unintended modifications to workflow/action YAML — GitHub blocks
+  // GITHUB_TOKEN from pushing changes under .github/workflows/* by design.
+  // If prettier/format steps touched them, restore from index to keep the release push clean.
+  await $`git checkout -- .github/workflows .github/actions`.nothrow()
   await $`git commit -am "release: v${Script.version}"`
   await $`git add -A`
   await $`git commit --amend --no-edit`

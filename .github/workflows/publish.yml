@@ -103,6 +103,7 @@ jobs:
           NIKCLI_VERSION: ${{ inputs.version }}
           AUR_KEY: ${{ secrets.AUR_KEY }}
           GH_PUSH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: false
 
       - uses: actions/upload-artifact@v4

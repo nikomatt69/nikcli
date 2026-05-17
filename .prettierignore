@@ -1,1 +1,6 @@
 sst-env.d.ts
+# GitHub workflows must not be modified during release `prettier --write .`
+# (causes "refusing to allow a GitHub App to create or update workflow ... without `workflows` permission"
+# on push, since GITHUB_TOKEN cannot push to .github/workflows/*.yml by design).
+.github/workflows/
+.github/actions/
