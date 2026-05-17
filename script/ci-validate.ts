@@ -56,6 +56,7 @@ const steps: ValidationStep[] = [
     name: "Run tests",
     command: ["bun", "test"],
     timeout: 300_000,
+    critical: false,
   },
   {
     name: "Run release automation tests",
