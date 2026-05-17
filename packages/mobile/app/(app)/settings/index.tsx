@@ -101,6 +101,7 @@ const SETTINGS_SECTIONS: Array<{ id: SettingsSectionID; label: string }> = [
   { id: "skills", label: "Skills" },
   { id: "agents", label: "Agents" },
   { id: "tokens", label: "Tokens" },
+  { id: "plugins", label: "Plugins" },
   { id: "advanced", label: "Advanced" },
 ]
 
@@ -947,6 +948,16 @@ export default function SettingsScreen() {
                 title="Access Tokens"
                 description="Create and revoke long-lived mobile bearer tokens for this server connection."
                 badges={["Bearer auth"]}
+              />
+            </Link>
+          ) : null}
+          {visibleSettingsSections.plugins ? (
+            <Link href="/settings/plugins" asChild>
+              <SettingsNavCard
+                eyebrow="Plugins"
+                title="Codex, Cursor and Copilot"
+                description="Connect third-party AI plugin providers with API keys directly on the host."
+                badges={["Codex", "Cursor", "Copilot"]}
               />
             </Link>
           ) : null}

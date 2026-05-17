@@ -53,12 +53,14 @@ function McpPageInner() {
     setBusy(true)
     try {
       await studioApi.mcp.add(name, cfg)
+      window.posthog?.capture("mcp_server_added", { server_name: name, server_type: newType })
       setNewName("")
       setNewCommand("")
       setNewUrl("")
       setShowAdd(false)
       load()
     } catch (e) {
+      window.posthog?.captureException(e)
       setError(e instanceof Error ? e.message : "Add failed")
     } finally {
       setBusy(false)
@@ -69,6 +71,7 @@ function McpPageInner() {
     if (!confirm(`Remove MCP server "${name}"?`)) return
     try {
       await studioApi.mcp.delete(name)
+      window.posthog?.capture("mcp_server_removed", { server_name: name })
       load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Remove failed")

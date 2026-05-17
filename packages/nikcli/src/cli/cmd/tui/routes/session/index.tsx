@@ -1684,6 +1684,9 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
         <Match when={props.part.tool === "bash"}>
           <Bash {...toolprops} />
         </Match>
+        <Match when={props.part.tool === "exec_code"}>
+          <ExecCode {...toolprops} />
+        </Match>
         <Match when={props.part.tool === "glob"}>
           <Glob {...toolprops} />
         </Match>
@@ -1942,6 +1945,93 @@ function Bash(props: ToolProps<typeof BashTool>) {
       <Match when={true}>
         <InlineTool icon="$" pending="Writing command..." complete={props.input.command} part={props.part}>
           {props.input.command}
+        </InlineTool>
+      </Match>
+    </Switch>
+  )
+}
+
+function ExecCode(props: ToolProps<any>) {
+  const { theme, syntax } = useTheme()
+
+  const input = createMemo(() => (props.input ?? {}) as { code?: string; timeout?: number })
+  const meta = createMemo(() => (props.metadata ?? {}) as { success?: boolean; durationMs?: number })
+
+  const code = createMemo<string>(() => input().code ?? "")
+  const codeLines = createMemo(() => code().split("\n"))
+  const codeOverflow = createMemo(() => codeLines().length > 20)
+
+  const output = createMemo(() => stripAnsi((props.output ?? "").trim()))
+  const outputLines = createMemo(() => output().split("\n"))
+  const outputOverflow = createMemo(() => outputLines().length > 10)
+
+  const [expanded, setExpanded] = createSignal(false)
+  const overflow = createMemo(() => codeOverflow() || outputOverflow())
+
+  const limitedCode = createMemo(() => {
+    if (expanded() || !codeOverflow()) return code()
+    return [...codeLines().slice(0, 20), "…"].join("\n")
+  })
+
+  const limitedOutput = createMemo(() => {
+    if (expanded() || !outputOverflow()) return output()
+    return [...outputLines().slice(0, 10), "…"].join("\n")
+  })
+
+  const success = createMemo(() => meta().success !== false)
+  const duration = createMemo(() => meta().durationMs)
+  const accent = createMemo(() => (success() ? theme.success : theme.error))
+
+  const title = createMemo(() => {
+    const ms = duration() != null ? ` · ${duration()}ms` : ""
+    const icon = success() ? "✓" : "✗"
+    return `# Execute Code${ms} ${icon}`
+  })
+
+  const firstLine = createMemo(() => {
+    const first = code().split("\n")[0] ?? ""
+    return first.length > 60 ? first.slice(0, 60) + "…" : first
+  })
+
+  return (
+    <Switch>
+      <Match when={props.output !== undefined}>
+        <BlockTool
+          title={title()}
+          titleColor={accent()}
+          accentColor={accent()}
+          part={props.part}
+          onClick={overflow() ? () => setExpanded((prev) => !prev) : undefined}
+        >
+          <box gap={1}>
+            <line_number fg={theme.textMuted} minWidth={3} paddingRight={1}>
+              <code
+                conceal={false}
+                fg={theme.text}
+                filetype="typescript"
+                syntaxStyle={syntax()}
+                content={limitedCode()}
+              />
+            </line_number>
+            <Show when={output().length > 0}>
+              <text fg={theme.textMuted}>── output ──</text>
+              <text fg={success() ? theme.text : theme.error}>{limitedOutput()}</text>
+            </Show>
+            <Show when={overflow()}>
+              <text fg={theme.textMuted}>{expanded() ? "Click to collapse" : "Click to expand"}</text>
+            </Show>
+          </box>
+        </BlockTool>
+      </Match>
+      <Match when={true}>
+        <InlineTool
+          icon="⚡"
+          iconColor={theme.warning}
+          pending="Running code..."
+          complete={code()}
+          part={props.part}
+        >
+          exec_code {firstLine()}
         </InlineTool>
       </Match>
     </Switch>

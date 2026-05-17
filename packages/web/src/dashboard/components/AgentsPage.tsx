@@ -38,12 +38,14 @@ function AgentsPageInner() {
     setBusy(true)
     try {
       await studioApi.agents.create(newName.trim(), newDesc, newPrompt)
+      window.posthog?.capture("agent_created", { agent_name: newName.trim(), has_description: !!newDesc, has_prompt: !!newPrompt })
       setNewName("")
       setNewDesc("")
       setNewPrompt("")
       setShowCreate(false)
       load()
     } catch (e) {
+      window.posthog?.captureException(e)
       setError(e instanceof Error ? e.message : "Create failed")
     } finally {
       setBusy(false)

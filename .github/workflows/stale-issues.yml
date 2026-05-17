@@ -30,4 +30,4 @@ jobs:
             It will be closed in ${{ env.DAYS_BEFORE_CLOSE }} days if there's no new activity.
           remove-stale-when-updated: true
           exempt-issue-labels: "pinned,security,feature-request,on-hold"
-          start-date: "2025-12-27"
+          start-date: "2026-05-17"

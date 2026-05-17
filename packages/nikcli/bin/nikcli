@@ -44,7 +44,7 @@ let arch = archMap[os.arch()]
 if (!arch) {
   arch = os.arch()
 }
-const base = "nikcli-" + platform + "-" + arch
+const base = "nikcli-ai-" + platform + "-" + arch
 const binary = platform === "windows" ? "nikcli.exe" : "nikcli"
 
 function findBinary(startDir) {

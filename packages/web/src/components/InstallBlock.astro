@@ -157,6 +157,8 @@ const command = "curl -fsSL https://nikcli.store/install | bash";
         if (lbl) lbl.textContent = "Copied!";
         newBtn.classList.add("border-terminal-success/50", "text-terminal-success");
 
+        window.posthog?.capture("install_command_copied");
+
         setTimeout(() => {
           iconIdle?.classList.remove("hidden");
           iconOk?.classList.add("hidden");

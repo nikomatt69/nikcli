@@ -1,9 +1,9 @@
-name: deploy
+name: nikcli-site-deploy
 
 on:
   push:
     branches:
-      - dev
+      - live-main
       - production
   workflow_dispatch:
 
@@ -11,9 +11,11 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
   deploy:
+    if: github.repository == 'nikomatt69/nikcli'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - uses: ./.github/actions/setup-bun
 
@@ -21,7 +23,8 @@ jobs:
         with:
           node-version: "24"
 
-      - run: bun sst deploy --stage=${{ github.ref_name }}
+      - name: Deploy nikcli site with SST
+        run: bun sst deploy --stage=${{ github.ref_name }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

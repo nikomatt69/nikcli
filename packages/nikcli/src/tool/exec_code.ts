@@ -1,5 +1,5 @@
 import { Effect, Schema } from "effect"
-import { zod } from "@/util/effect-zod"
+import { zodObject } from "@/util/effect-zod"
 import { Tool } from "./tool"
 import { NativeExecutor } from "@/session/native-executor"
 import { Log } from "@/util/log"
@@ -16,6 +16,8 @@ const Parameters = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed(30)),
   ).annotate({ description: "Execution timeout in seconds (default: 30, max: 120)" }),
 })
+
+const ExecCodeParameters = zodObject(Parameters)
 
 const log = Log.create({ service: "tool.exec_code" })
 
@@ -34,7 +36,7 @@ const EXCLUDED = new Set([
   "speak",
 ])
 
-export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
+export const ExecCodeTool = Tool.define<typeof ExecCodeParameters, Tool.Metadata>("exec_code", async (initCtx) => {
   // Use ids() instead of tools() — tools() would call init() on every tool recursively
   const { ToolRegistry } = await import("./registry")
   const { runPromiseWithLayer } = await import("@/effect")
@@ -51,7 +53,7 @@ export const ExecCodeTool = Tool.define("exec_code", async (initCtx) => {
 
   return {
     description: `${DESCRIPTION}\n\nAvailable tools: ${availableNames}`,
-    parameters: zod(Parameters),
+    parameters: ExecCodeParameters,
 
     async execute({ code, timeout }, ctx) {
       const timeoutMs = Math.min((timeout ?? 30) * 1000, 120_000)

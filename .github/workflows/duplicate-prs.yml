@@ -48,7 +48,7 @@ jobs:
 
       - name: Check for duplicate PRs
         env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |

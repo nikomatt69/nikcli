@@ -3,10 +3,9 @@ name: typecheck
 on:
   push:
     branches:
-      - dev
       - live-main
   pull_request:
-    branches: [dev, live-main]
+    branches: [live-main]
   workflow_dispatch:
 
 jobs:

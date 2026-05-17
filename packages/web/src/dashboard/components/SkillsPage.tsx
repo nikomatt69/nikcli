@@ -64,12 +64,14 @@ function SkillsPageInner() {
     setBusy(true)
     try {
       await studioApi.skills.create(newName.trim(), newDesc, newContent)
+      window.posthog?.capture("skill_created", { skill_name: newName.trim() })
       setNewName("")
       setNewDesc("")
       setNewContent("")
       setShowCreate(false)
       load()
     } catch (e) {
+      window.posthog?.captureException(e)
       setError(e instanceof Error ? e.message : "Create failed")
     } finally {
       setBusy(false)
@@ -85,10 +87,12 @@ function SkillsPageInner() {
     setBusy(true)
     try {
       await studioApi.skills.importUrls(urls)
+      window.posthog?.capture("skills_bulk_imported", { count: urls.length })
       setBulkUrls("")
       setBulkImport(false)
       load()
     } catch (e) {
+      window.posthog?.captureException(e)
       setError(e instanceof Error ? e.message : "Import failed")
     } finally {
       setBusy(false)
@@ -99,6 +103,7 @@ function SkillsPageInner() {
     if (!confirm(`Delete skill "${name}"?`)) return
     try {
       await studioApi.skills.delete(name)
+      window.posthog?.capture("skill_deleted", { skill_name: name })
       load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Delete failed")

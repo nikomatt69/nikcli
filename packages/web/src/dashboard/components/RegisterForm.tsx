@@ -34,9 +34,11 @@ function RegisterFormInner() {
         body: JSON.stringify({ username, email, password }),
         serverUrl,
       })
+      window.posthog?.capture("user_signed_up", { username, email })
       await login(email, password)
       window.location.href = "/dashboard"
     } catch (err) {
+      window.posthog?.captureException(err)
       setError(getErrorMessage(err) || "Registration failed")
     } finally {
       setBusy(false)

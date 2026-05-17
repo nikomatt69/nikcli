@@ -27,7 +27,7 @@ describe("release automation", () => {
 
     expect(testWorkflow).toContain("- live-main")
     expect(typecheckWorkflow).toContain("- live-main")
-    expect(typecheckWorkflow).toContain("branches: [dev, live-main]")
+    expect(typecheckWorkflow).toContain("branches: [live-main]")
     expect(generateWorkflow).toContain("- live-main")
     expect(generateWorkflow).toContain("group: generate-${{ github.ref }}")
     expect(generateWorkflow).toContain("if: github.ref_name != 'live-main'")
@@ -49,7 +49,7 @@ describe("release automation", () => {
     expect(statsWorkflow).toContain("git pull --rebase --autostash")
     expect(nixWorkflow).toContain("continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}")
     expect(nixWorkflow).toContain("timeout-minutes: 45")
-    expect(nixDesktopWorkflow).toContain("branches: [dev, live-main]")
+    expect(nixDesktopWorkflow).toContain("branches: [live-main]")
   })
 
   it("keeps the automatic GitHub release path single-sourced", async () => {

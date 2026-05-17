@@ -6,15 +6,15 @@ on:
   workflow_dispatch:
     inputs:
       prompt:
-        description: 'Command for nikcli to execute'
+        description: "Command for nikcli to execute"
         required: true
         type: string
       channel:
-        description: 'Slack channel ID to reply to'
+        description: "Slack channel ID to reply to"
         required: false
         type: string
       thread_ts:
-        description: 'Slack thread TS to reply to'
+        description: "Slack thread TS to reply to"
         required: false
         type: string
 
@@ -25,7 +25,7 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,9 +33,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
+        uses: ./.github/actions/setup-bun
 
       - name: Install dependencies
         run: bun install
@@ -52,9 +50,4 @@ jobs:
           SLACK_THREAD_TS: ${{ github.event.inputs.thread_ts || github.event.client_payload.thread_ts }}
         run: |
           echo "Received command: $PROMPT"
-          # Here we would run the headless version of nikcli
-          # Currently nikcli is highly interactive. We need a wrapper script 
-          # that runs it autonomously and posts the final result back to Slack.
-          
-          # Placeholder for the actual autonomous execution:
-          bun run scripts/run-headless.ts "$PROMPT" "$SLACK_CHANNEL" "$SLACK_THREAD_TS"
+          bun run script/run-headless.ts "$PROMPT" "$SLACK_CHANNEL" "$SLACK_THREAD_TS"

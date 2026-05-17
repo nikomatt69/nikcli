@@ -112,7 +112,10 @@ function SessionsPageInner() {
       <div className="flex items-center justify-between">
         <p className="text-terminal-muted">Manage your AI sessions</p>
         <button
-          onClick={() => (window.location.href = "/dashboard/sessions")}
+          onClick={() => {
+            window.posthog?.capture("session_created")
+            window.location.href = "/dashboard/sessions"
+          }}
           className="flex items-center gap-2 rounded-xl bg-terminal-accent px-4 py-2 font-semibold text-white transition-colors hover:bg-terminal-accent/90"
         >
           <span>➕</span>

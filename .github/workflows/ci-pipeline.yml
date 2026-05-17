@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - live-main
-      - nikoemme-main
-      - dev
   pull_request:
   workflow_dispatch:
 
@@ -51,7 +49,7 @@ jobs:
       github.repository == 'nikomatt69/nikcli'
     uses: ./.github/workflows/publish.yml
     with:
-      bump: patch
+      bump: minor
       channel: latest
     secrets: inherit
 

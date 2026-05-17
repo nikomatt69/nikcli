@@ -71,6 +71,7 @@ const defaultVisibleSettingsSections: Record<SettingsSectionID, boolean> = {
   agents: true,
   tokens: true,
   routines: true,
+  plugins: true,
 }
 
 const defaultNotifications: NotificationPreferences = {

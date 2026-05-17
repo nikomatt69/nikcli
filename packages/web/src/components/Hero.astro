@@ -65,7 +65,8 @@
         >
           <a
             href="/docs#installation"
-            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
+            class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
+            data-cta-label="start_building"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
@@ -74,7 +75,8 @@
           </a>
           <a
             href="/docs"
-            class="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-all duration-150 hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
+            class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-all duration-150 hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
+            data-cta-label="documentation"
           >
             Documentation
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -245,4 +247,11 @@
 
     setTimeout(type, 900);
   }
+
+  // Track hero CTA clicks
+  document.querySelectorAll<HTMLAnchorElement>(".hero-cta").forEach((el) => {
+    el.addEventListener("click", () => {
+      window.posthog?.capture("hero_cta_clicked", { label: el.dataset.ctaLabel });
+    });
+  });
 </script>

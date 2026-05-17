@@ -90,13 +90,13 @@ function findBinary() {
   // Try in order: most specific → least specific
   const candidates = []
 
-  if (isBaseline && isMusl) candidates.push(`nikcli-${platform}-${arch}-baseline-musl`)
-  if (isBaseline && !isMusl) candidates.push(`nikcli-${platform}-${arch}-baseline`)
-  if (!isBaseline && isMusl) candidates.push(`nikcli-${platform}-${arch}-musl`)
-  candidates.push(`nikcli-${platform}-${arch}`)
+  if (isBaseline && isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-baseline-musl`)
+  if (isBaseline && !isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-baseline`)
+  if (!isBaseline && isMusl) candidates.push(`nikcli-ai-${platform}-${arch}-musl`)
+  candidates.push(`nikcli-ai-${platform}-${arch}`)
   // Final fallbacks (skip musl/baseline restriction)
-  if (isMusl) candidates.push(`nikcli-${platform}-${arch}`)
-  if (isBaseline) candidates.push(`nikcli-${platform}-${arch}`)
+  if (isMusl) candidates.push(`nikcli-ai-${platform}-${arch}`)
+  if (isBaseline) candidates.push(`nikcli-ai-${platform}-${arch}`)
 
   for (const name of candidates) {
     const found = tryResolvePackage(name, binaryName)
@@ -108,8 +108,8 @@ function findBinary() {
 
   throw new Error(
     `Could not find nikcli binary for ${platform}-${arch}${isMusl ? " (musl)" : ""}${isBaseline ? " (baseline)" : ""}.\n` +
-    `Tried: ${candidates.join(", ")}\n` +
-    `Install manually: https://nikcli.store/install`,
+      `Tried: ${candidates.join(", ")}\n` +
+      `Install manually: https://nikcli.store/install`,
   )
 }
 
