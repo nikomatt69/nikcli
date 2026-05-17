@@ -7,10 +7,10 @@ ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=${BUN_RUNTIME_TRANSPILER_CACHE_PATH}
 RUN apk add libgcc libstdc++
 
 FROM base AS build-amd64
-COPY dist/nikcli-linux-x64-baseline-musl/bin/nikcli /usr/local/bin/nikcli
+COPY dist/nikcli-ai-linux-x64-baseline-musl/bin/nikcli /usr/local/bin/nikcli
 
 FROM base AS build-arm64
-COPY dist/nikcli-linux-arm64-musl/bin/nikcli /usr/local/bin/nikcli
+COPY dist/nikcli-ai-linux-arm64-musl/bin/nikcli /usr/local/bin/nikcli
 
 ARG TARGETARCH
 FROM build-${TARGETARCH}
