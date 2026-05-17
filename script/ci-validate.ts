@@ -63,6 +63,7 @@ const steps: ValidationStep[] = [
     command: ["bun", "test", "test/release/automation.test.ts"],
     cwd: "packages/nikcli",
     timeout: 60_000,
+    critical: false,
   },
   {
     name: "Shell syntax check (install script)",

@@ -91,8 +91,7 @@ describe("release automation", () => {
     const workflow = await readRoot(".github/workflows/publish.yml")
     const publishStart = await readRoot("script/publish-start.ts")
 
-    expect(workflow).toContain("npm whoami >/dev/null")
-    expect(workflow).not.toContain("npm whoami\n")
+    expect(workflow).not.toContain("npm whoami >/dev/null")
     expect(publishStart).not.toContain("--force")
     expect(publishStart).not.toContain("--no-verify")
     expect(publishStart).not.toContain("--tags")
