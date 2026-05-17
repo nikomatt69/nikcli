@@ -11,6 +11,7 @@
 ### Client/Backend Mismatches (CRITICAL)
 
 Mobile client calls `/git/*` but backend defines endpoints under `/mobile/git/*`:
+
 - `GET /mobile/git/status` — returns `{ branch, staged[], unstaged[], untracked[], commitsAhead, commitsBehind, lastCommit? }`
 - `GET /mobile/git/diff` — returns `{ file, oldPath?, hunks, isBinary, additions, deletions }[]`
 - `GET /mobile/git/commits` — returns `{ sha, message, author: {name, email}, timestamp, filesCount, additions, deletions }[]`
@@ -60,6 +61,7 @@ ptyConnectUrl(id)      -> ws(s)://.../pty/:id/connect?token=...
 ### Connection Issues
 
 Terminal stuck in "Connecting..." when many agents running. Root causes:
+
 - Railway proxy doesn't handle WebSocket upgrades natively
 - Timeout too short (10s) under server load
 - No retry logic
@@ -75,19 +77,21 @@ Terminal stuck in "Connecting..." when many agents running. Root causes:
 ### WebSocket Auth Fix (2026-04-30)
 
 Fixed in `packages/nikcli/src/server/server.ts:161`:
+
 ```typescript
 const bearer = MobileAuth.bearer(c.req.raw) || c.req.query("token")
 ```
+
 Token now accepted from query parameter for WebSocket connections (cannot send custom headers in WS).
 
 ### WebSocket Auth Security Issues (Code Review 2026-04-30)
 
-| Priority | Issue | Fix |
-| -------- | ----- | --- |
-| CRITICAL | Token leaks in server logs via `c.req.path` (includes `?token=...`) | Strip query params: `c.req.path.split("?")[0]` |
-| CRITICAL | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time | Use `crypto.timingSafeEqual()` for hash comparison |
-| MEDIUM | Railway proxy logs full URLs including query params | Configure Railway to exclude sensitive query params |
-| MEDIUM | No CORS headers on WebSocket upgrade response | Add in `upgradeWebSocket` handler if cross-origin |
+| Priority | Issue                                                                 | Fix                                                 |
+| -------- | --------------------------------------------------------------------- | --------------------------------------------------- |
+| CRITICAL | Token leaks in server logs via `c.req.path` (includes `?token=...`)   | Strip query params: `c.req.path.split("?")[0]`      |
+| CRITICAL | Timing attack in `MobileAuth.verify()` — uses `===` not constant-time | Use `crypto.timingSafeEqual()` for hash comparison  |
+| MEDIUM   | Railway proxy logs full URLs including query params                   | Configure Railway to exclude sensitive query params |
+| MEDIUM   | No CORS headers on WebSocket upgrade response                         | Add in `upgradeWebSocket` handler if cross-origin   |
 
 ## Mobile Stack
 

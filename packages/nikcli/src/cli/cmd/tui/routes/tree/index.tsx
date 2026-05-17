@@ -40,9 +40,7 @@ export function SessionTree() {
   const mcpCount = createMemo(() => Object.values(sync.data.mcp).filter((x) => x.status === "connected").length)
   const mcpError = createMemo(() => Object.values(sync.data.mcp).some((x) => x.status === "failed"))
   const lspCount = createMemo(() => Object.keys(sync.data.lsp).length)
-  const statusLabelMaxChars = createMemo(() =>
-    Math.max(24, Math.min(120, Math.floor(dimensions().width * 0.28))),
-  )
+  const statusLabelMaxChars = createMemo(() => Math.max(24, Math.min(120, Math.floor(dimensions().width * 0.28))))
 
   const sessions = createMemo(() => {
     const all = sync.data.session
@@ -92,13 +90,7 @@ export function SessionTree() {
     return result
   })
   const rows = createMemo(() =>
-    flattenTreeRows(
-      visibleRoots(),
-      childrenByParent(),
-      open(),
-      messageTimelineOpen(),
-      sync.data,
-    ),
+    flattenTreeRows(visibleRoots(), childrenByParent(), open(), messageTimelineOpen(), sync.data),
   )
   const selectedRow = createMemo(() => rows()[selected()])
 
@@ -132,9 +124,7 @@ export function SessionTree() {
     const sessionID = routeData.sessionID
     if (!sessionID) return
     const list = rows()
-    const index = list.findIndex(
-      (row) => row.kind === "session" && row.session.id === sessionID,
-    )
+    const index = list.findIndex((row) => row.kind === "session" && row.session.id === sessionID)
     if (index >= 0) setSelected(index)
   })
 
@@ -317,9 +307,7 @@ export function SessionTree() {
       const row = selectedRow()
       if (!row) return
       if (row.kind === "user_message") {
-        const p = rows().findIndex(
-          (r) => r.kind === "session" && r.session.id === row.parentSession.id,
-        )
+        const p = rows().findIndex((r) => r.kind === "session" && r.session.id === row.parentSession.id)
         if (p >= 0) setSelected(p)
         return
       }
@@ -333,9 +321,7 @@ export function SessionTree() {
       }
       const parentID = row.session.parentID
       if (!parentID) return
-      const parentIndex = rows().findIndex(
-        (r) => r.kind === "session" && r.session.id === parentID,
-      )
+      const parentIndex = rows().findIndex((r) => r.kind === "session" && r.session.id === parentID)
       if (parentIndex >= 0) setSelected(parentIndex)
       return
     }
@@ -488,7 +474,14 @@ export function SessionTree() {
           </box>
         }
       >
-        <scrollbox flexGrow={1} paddingLeft={1} paddingRight={2} paddingTop={0} paddingBottom={1} scrollbarOptions={{ visible: false }}>
+        <scrollbox
+          flexGrow={1}
+          paddingLeft={1}
+          paddingRight={2}
+          paddingTop={0}
+          paddingBottom={1}
+          scrollbarOptions={{ visible: false }}
+        >
           <For each={rows()}>
             {(row, index) => {
               const isSelected = () => selected() === index()
@@ -516,7 +509,12 @@ export function SessionTree() {
                   paddingBottom={0}
                   onMouseDown={() => setSelected(index())}
                 >
-                  <box width={1} minWidth={1} backgroundColor={isSelected() ? theme.primary : undefined} flexShrink={0} />
+                  <box
+                    width={1}
+                    minWidth={1}
+                    backgroundColor={isSelected() ? theme.primary : undefined}
+                    flexShrink={0}
+                  />
                   <box
                     flexDirection="row"
                     flexGrow={1}
@@ -547,11 +545,7 @@ export function SessionTree() {
                             wrapMode="none"
                             minWidth={2}
                           >
-                            {row.hasChildren
-                              ? (row.messageTimelineOpen || row.childSessionsOpen
-                                  ? "▾"
-                                  : "▶")
-                              : "·"}
+                            {row.hasChildren ? (row.messageTimelineOpen || row.childSessionsOpen ? "▾" : "▶") : "·"}
                           </text>
                           <text
                             fg={isCurrent() ? theme.primary : theme.text}
@@ -571,16 +565,9 @@ export function SessionTree() {
                           alignItems="center"
                           paddingLeft={1}
                         >
-                          <Show when={row.session.summary}>
-                            {(summary) => <TreeChangeSummary parts={summary()} />}
-                          </Show>
+                          <Show when={row.session.summary}>{(summary) => <TreeChangeSummary parts={summary()} />}</Show>
                           <Show when={!row.session.summary}>
-                            <text
-                              fg={theme.textMuted}
-                              attributes={TextAttributes.DIM}
-                              minWidth={14}
-                              wrapMode="none"
-                            >
+                            <text fg={theme.textMuted} attributes={TextAttributes.DIM} minWidth={14} wrapMode="none">
                               —
                             </text>
                           </Show>
@@ -598,13 +585,7 @@ export function SessionTree() {
                                 { maxMessageChars: maxMsg() },
                               )
                               return (
-                                <text
-                                  fg={st.fg}
-                                  wrapMode="none"
-                                  attributes={st.attributes}
-                                  minWidth={0}
-                                  flexGrow={1}
-                                >
+                                <text fg={st.fg} wrapMode="none" attributes={st.attributes} minWidth={0} flexGrow={1}>
                                   {st.label}
                                 </text>
                               )
@@ -641,9 +622,7 @@ export function SessionTree() {
                             flexShrink={1}
                             minWidth={12}
                           >
-                            {row.preview.length > maxMsg()
-                              ? `${row.preview.slice(0, maxMsg() - 1)}…`
-                              : row.preview}
+                            {row.preview.length > maxMsg() ? `${row.preview.slice(0, maxMsg() - 1)}…` : row.preview}
                           </text>
                         </box>
                         <box
@@ -665,9 +644,7 @@ export function SessionTree() {
                               minWidth={0}
                               flexGrow={1}
                             >
-                              {row.preview.length > maxMsg()
-                                ? `${row.preview.slice(0, maxMsg() - 1)}…`
-                                : row.preview}
+                              {row.preview.length > maxMsg() ? `${row.preview.slice(0, maxMsg() - 1)}…` : row.preview}
                             </text>
                           </box>
                           <text fg={theme.textMuted} attributes={TextAttributes.DIM} minWidth={10} wrapMode="none">

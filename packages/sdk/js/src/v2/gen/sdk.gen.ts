@@ -174,6 +174,8 @@ import type {
   MobileSessionCreateErrors,
   MobileSessionCreateInput,
   MobileSessionCreateResponses,
+  MobileSessionDeleteErrors,
+  MobileSessionDeleteResponses,
   MobileSessionDetailErrors,
   MobileSessionDetailResponses,
   MobileSessionDiffResponses,
@@ -3977,6 +3979,42 @@ export class Session4 extends HeyApiClient {
         },
       },
     )
+  }
+
+  /**
+   * Delete mobile session
+   *
+   * Permanently delete a session and all associated data.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      MobileSessionDeleteResponses,
+      MobileSessionDeleteErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/session/{sessionID}",
+      ...options,
+      ...params,
+    })
   }
 
   /**

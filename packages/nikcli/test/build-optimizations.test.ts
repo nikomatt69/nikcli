@@ -3,8 +3,6 @@ import { readFileSync, existsSync } from "fs"
 import { resolve } from "path"
 
 describe("Build Optimizations", () => {
- 
-
   describe("Build output", () => {
     it("can check if dist exists", () => {
       const distPath = resolve(__dirname, "../dist")
@@ -23,7 +21,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     it("dialog-remote uses onMount for async iterator", () => {
       const filePath = resolve(__dirname, "../src/cli/cmd/tui/component/dialog-remote.tsx")
       const content = readFileSync(filePath, "utf-8")
- 
+
       expect(content).toContain("onMount")
       expect(content).not.toMatch(/createEffect\(\s*\(\s*\)\s*=>\s*\{[\s\S]*for await.*connection\.output/)
     })

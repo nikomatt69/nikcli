@@ -25,7 +25,7 @@ type WorkerFixtures = {
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
   directory: [
-    async ({ }, use) => {
+    async ({}, use) => {
       const directory = await getWorktree()
       await use(directory)
     },

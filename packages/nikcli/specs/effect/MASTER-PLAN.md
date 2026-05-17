@@ -29,13 +29,13 @@ Mechanical landings (across the migration window):
 
 Error trajectory:
 
-| Stage | TS errors |
-| --- | --- |
-| After `effect@4.0.0-beta.65` install | 3,265 |
-| After `Context.Tag` → `Context.Service` mass-edit | 1,743 |
-| After `Layer.scoped` → `Layer.effect` mass-rename | 1,771 *(slight uptick: new `R = never` constraint surfacing)* |
-| After `.annotations` → `.annotate` + `Schema.Literals` cleanup (`76bace9`) | small residual |
-| After `@effect/platform` purge + `effect-zod` tightening (`1decb20`) | **0** |
+| Stage                                                                      | TS errors                                                     |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| After `effect@4.0.0-beta.65` install                                       | 3,265                                                         |
+| After `Context.Tag` → `Context.Service` mass-edit                          | 1,743                                                         |
+| After `Layer.scoped` → `Layer.effect` mass-rename                          | 1,771 _(slight uptick: new `R = never` constraint surfacing)_ |
+| After `.annotations` → `.annotate` + `Schema.Literals` cleanup (`76bace9`) | small residual                                                |
+| After `@effect/platform` purge + `effect-zod` tightening (`1decb20`)       | **0**                                                         |
 
 Validation gates at completion:
 
@@ -109,9 +109,10 @@ Audit revealed 9 of 12 listed schema leaf files don't exist on this branch (the 
    - `AppRuntime.runPromise(Effect.gen(function* () { const ctx = yield* cache.get(directory); /* run init once if first time */; return yield* Effect.promise(() => contextProvide(ctx, fn)) }))`
 3. `Instance.dispose()` invalidates the key in the cache: `cache.invalidate(directory)`. Scope finalizer fires disposers automatically.
 4. `Instance.disposeAll()` becomes `cache.invalidateAll`.
-5. ALS-backed `Instance.directory/worktree/project` reads stay until Phase H. The cache replacement is *internal* — the Instance public API stays identical.
+5. ALS-backed `Instance.directory/worktree/project` reads stay until Phase H. The cache replacement is _internal_ — the Instance public API stays identical.
 
 Risks to validate before landing:
+
 - Concurrent `Instance.provide({directory: D, fn})` calls during boot must dedupe (ScopedCache handles this via fiber-join).
 - `Instance.dispose()` fired while boot is still in flight: verify ScopedCache.invalidate before lookup completes.
 - `init?` callback must run exactly once per directory across concurrent calls (ScopedCache's `lookup` runs once; `init` becomes part of it).
@@ -188,42 +189,42 @@ Remaining:
 
 Each phase has its own validation matrix. The minimum gate that applies to every phase:
 
-| Gate | Command |
-| --- | --- |
-| Typecheck | `bun run typecheck` |
-| Touched-area tests | `bun test test/<area>/*.test.ts` |
+| Gate                                             | Command                                                                                   |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Typecheck                                        | `bun run typecheck`                                                                       |
+| Touched-area tests                               | `bun test test/<area>/*.test.ts`                                                          |
 | SDK byte-identity (when schemas / routes change) | `bun packages/sdk/js/script/build.ts` then diff `packages/sdk/js/src/v2/gen/types.gen.ts` |
 
 Phase-specific gates are listed inline.
 
 ## Phase summary
 
-| Phase | Title | Touches | Risk | Blocks |
-| --- | --- | --- | --- | --- |
-| A1 | `Filesystem.*` → `AppFileSystem` in already-migrated services | `config/config.ts`, `provider/provider.ts` | low | B1 |
-| A2 | `Process.spawn` → `ChildProcessSpawner` | `format/formatter.ts`, `lsp/server.ts` | medium | — |
-| A3 | `util/lazy.ts` → `Effect.cached` (Effect call sites only) | misc | low | — |
-| A4 | `util/lock.ts` → Effect `Semaphore` (Effect call sites) | misc | low | — |
-| A5 | `util/flock.ts` → `Effect.repeat` + `addFinalizer` (Effect call sites) | misc | medium | — |
-| B1 | `config/config.ts` internal load via `ConfigPaths.Service` | config | low | — |
-| B2 | `env/index.ts` → `Env.Service` | env, provider | medium | — |
-| B3 | TUI config callers → `TuiConfig.Service` | `cli/cmd/tui/*` | low | — |
-| B4 | `migrate-tui-config.ts` decision: leave plain or effectify | tui | low | — |
-| P | Schema large surfaces (session domain, provider, route DTOs, config root, remaining namespaces) | many | high | J, K, L |
-| C | Tool internals cleanup (`read`, `bash`, `webfetch`, `ripgrep`, `patch`) | `tool/*`, `file/ripgrep.ts`, `patch/index.ts` | medium | J |
-| D1 | Route effectification (lighter routes) | `server/routes/{provider,mcp,file,experimental}.ts` | medium | F |
-| D2 | Route effectification (heavy routes) | `server/routes/{session,mobile,global}.ts`, `server/server.ts` | high | F |
-| E | Schema leaves migration (12 `src/*/schema.ts`) | leaf schemas | low | P |
-| F | Instance-context Phase 3 (entry boundaries) | `server/middleware.ts`, `cli/cmd/*`, tool execution | high | G |
-| G | Instance-context Phase 4 (replace promise boot cache) | `project/instance.ts` | high | H |
-| H | Instance-context Phase 5–6 (ALS shrink + delete legacy API) | `project/instance.ts`, `effect/instance-state.ts` | high | — |
-| I | `SyncEvent` and `Workspace` service shapes | `sync/index.ts`, `control-plane/workspace.ts` | medium | K |
-| J | Tool params schemas (16 files) | `tool/*.ts` | medium | L |
-| K | HttpApi: complete remaining bridge slices | `server/httpapi/*` | medium | L |
-| L | HttpApi: backend fork + OpenAPI source flip / SDK byte-identity | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high | N |
-| M | Special routes (event SSE, pty WS, tui control) | `server/event.ts`, `server/routes/pty.ts`, `server/routes/tui.ts` | high | N |
-| N | Hono deletion (group by group) | `server/routes/*.ts`, `server/server.ts` | high | — |
-| O | `packages/server` extraction | new package | high | last |
+| Phase | Title                                                                                           | Touches                                                                                                   | Risk   | Blocks  |
+| ----- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------ | ------- |
+| A1    | `Filesystem.*` → `AppFileSystem` in already-migrated services                                   | `config/config.ts`, `provider/provider.ts`                                                                | low    | B1      |
+| A2    | `Process.spawn` → `ChildProcessSpawner`                                                         | `format/formatter.ts`, `lsp/server.ts`                                                                    | medium | —       |
+| A3    | `util/lazy.ts` → `Effect.cached` (Effect call sites only)                                       | misc                                                                                                      | low    | —       |
+| A4    | `util/lock.ts` → Effect `Semaphore` (Effect call sites)                                         | misc                                                                                                      | low    | —       |
+| A5    | `util/flock.ts` → `Effect.repeat` + `addFinalizer` (Effect call sites)                          | misc                                                                                                      | medium | —       |
+| B1    | `config/config.ts` internal load via `ConfigPaths.Service`                                      | config                                                                                                    | low    | —       |
+| B2    | `env/index.ts` → `Env.Service`                                                                  | env, provider                                                                                             | medium | —       |
+| B3    | TUI config callers → `TuiConfig.Service`                                                        | `cli/cmd/tui/*`                                                                                           | low    | —       |
+| B4    | `migrate-tui-config.ts` decision: leave plain or effectify                                      | tui                                                                                                       | low    | —       |
+| P     | Schema large surfaces (session domain, provider, route DTOs, config root, remaining namespaces) | many                                                                                                      | high   | J, K, L |
+| C     | Tool internals cleanup (`read`, `bash`, `webfetch`, `ripgrep`, `patch`)                         | `tool/*`, `file/ripgrep.ts`, `patch/index.ts`                                                             | medium | J       |
+| D1    | Route effectification (lighter routes)                                                          | `server/routes/{provider,mcp,file,experimental}.ts`                                                       | medium | F       |
+| D2    | Route effectification (heavy routes)                                                            | `server/routes/{session,mobile,global}.ts`, `server/server.ts`                                            | high   | F       |
+| E     | Schema leaves migration (12 `src/*/schema.ts`)                                                  | leaf schemas                                                                                              | low    | P       |
+| F     | Instance-context Phase 3 (entry boundaries)                                                     | `server/middleware.ts`, `cli/cmd/*`, tool execution                                                       | high   | G       |
+| G     | Instance-context Phase 4 (replace promise boot cache)                                           | `project/instance.ts`                                                                                     | high   | H       |
+| H     | Instance-context Phase 5–6 (ALS shrink + delete legacy API)                                     | `project/instance.ts`, `effect/instance-state.ts`                                                         | high   | —       |
+| I     | `SyncEvent` and `Workspace` service shapes                                                      | `sync/index.ts`, `control-plane/workspace.ts`                                                             | medium | K       |
+| J     | Tool params schemas (16 files)                                                                  | `tool/*.ts`                                                                                               | medium | L       |
+| K     | HttpApi: complete remaining bridge slices                                                       | `server/httpapi/*`                                                                                        | medium | L       |
+| L     | HttpApi: backend fork + OpenAPI source flip / SDK byte-identity                                 | `server/backend.ts`, `server/httpapi/public.ts`, `cli/cmd/generate.ts`, `packages/sdk/js/script/build.ts` | high   | N       |
+| M     | Special routes (event SSE, pty WS, tui control)                                                 | `server/event.ts`, `server/routes/pty.ts`, `server/routes/tui.ts`                                         | high   | N       |
+| N     | Hono deletion (group by group)                                                                  | `server/routes/*.ts`, `server/server.ts`                                                                  | high   | —       |
+| O     | `packages/server` extraction                                                                    | new package                                                                                               | high   | last    |
 
 Current execution order from this point is **P → C → D2 → G → H → I → J → K → L → M → N → O**. Phase O is intentionally last; extracting `packages/server` before schemas, instance context, HttpApi parity, and SDK byte-identity are stable would create an extraction target that still churns. Phases can run in parallel only when their write sets do not overlap and the downstream SDK/OpenAPI contract stays byte-identical.
 
@@ -240,8 +241,8 @@ Mechanical replacement:
 const found = await Filesystem.findUp("nikcli.json", ctx.directory, ctx.worktree)
 
 // after
-const fs = yield* AppFileSystem.Service
-const found = yield* fs.findUp("nikcli.json", ctx.directory, ctx.worktree)
+const fs = yield * AppFileSystem.Service
+const found = yield * fs.findUp("nikcli.json", ctx.directory, ctx.worktree)
 ```
 
 Steps:

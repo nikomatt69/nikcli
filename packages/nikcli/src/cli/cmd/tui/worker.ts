@@ -127,12 +127,9 @@ export const rpc = {
     return { url: server.url.toString() }
   },
   async checkUpgrade(input: { directory: string }) {
-    await withInstanceAsync(
-      { directory: input.directory, init: InstanceBootstrap },
-      async () => {
-        await upgrade().catch(() => {})
-      },
-    )
+    await withInstanceAsync({ directory: input.directory, init: InstanceBootstrap }, async () => {
+      await upgrade().catch(() => {})
+    })
   },
   async reload() {
     await Instance.disposeAll()

@@ -54,7 +54,10 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
         const status = fileStatus(diff)
         const isExpanded = expandedFiles.has(diff.file)
         return (
-          <View key={`${diff.file}-${diffIndex}`} className="overflow-hidden rounded-[18px] border border-border bg-surface">
+          <View
+            key={`${diff.file}-${diffIndex}`}
+            className="overflow-hidden rounded-[18px] border border-border bg-surface"
+          >
             <Pressable
               className="flex-row items-center justify-between gap-3 border-b border-border px-3 py-2.5"
               hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
@@ -65,7 +68,9 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
               </Text>
               <View className="flex-row items-center gap-2">
                 <View className={`rounded-full border px-2 py-0.5 ${status.style}`}>
-                  <Text allowFontScaling={false} className="text-[10px] font-semibold">{status.label}</Text>
+                  <Text allowFontScaling={false} className="text-[10px] font-semibold">
+                    {status.label}
+                  </Text>
                 </View>
                 <Text allowFontScaling={false} className="text-xs text-soft">
                   +{diff.additions} / -{diff.deletions}

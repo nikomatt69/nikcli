@@ -1,9 +1,4 @@
-import {
-  HttpApi,
-  HttpApiBuilder,
-  HttpApiEndpoint,
-  HttpApiGroup,
-} from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Question } from "@/question"
 
@@ -87,14 +82,8 @@ export namespace QuestionHttpApi {
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "question", (builder) =>
-    builder
-      .handle("list", handlers.list)
-      .handle("reply", handlers.reply)
-      .handle("reject", handlers.reject),
+    builder.handle("list", handlers.list).handle("reply", handlers.reply).handle("reject", handlers.reject),
   )
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(Question.defaultLayer),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(Question.defaultLayer))
 }

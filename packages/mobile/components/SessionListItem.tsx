@@ -40,7 +40,13 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
   const scaleAnim = useRef(new Animated.Value(1)).current
 
   const handlePressIn = () => {
-    Animated.spring(scaleAnim, { toValue: 0.97, damping: 20, stiffness: 280, mass: 0.85, useNativeDriver: true }).start()
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      damping: 20,
+      stiffness: 280,
+      mass: 0.85,
+      useNativeDriver: true,
+    }).start()
   }
   const handlePressOut = () => {
     Animated.spring(scaleAnim, { toValue: 1, damping: 18, stiffness: 300, mass: 0.8, useNativeDriver: true }).start()
@@ -48,17 +54,29 @@ function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetR
 
   const iconBg =
     tone === "danger"
-      ? isDark ? "rgba(143,143,143,0.08)" : "rgba(239,68,68,0.10)"
+      ? isDark
+        ? "rgba(143,143,143,0.08)"
+        : "rgba(239,68,68,0.10)"
       : tone === "neutral"
-        ? isDark ? "rgba(148,163,184,0.09)" : "rgba(100,116,139,0.08)"
-        : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)"
+        ? isDark
+          ? "rgba(148,163,184,0.09)"
+          : "rgba(100,116,139,0.08)"
+        : isDark
+          ? "rgba(255,255,255,0.08)"
+          : "rgba(14,165,233,0.09)"
 
   const iconBorder =
     tone === "danger"
-      ? isDark ? "rgba(143,143,143,0.16)" : "rgba(239,68,68,0.22)"
+      ? isDark
+        ? "rgba(143,143,143,0.16)"
+        : "rgba(239,68,68,0.22)"
       : tone === "neutral"
-        ? isDark ? "rgba(148,163,184,0.18)" : "rgba(100,116,139,0.16)"
-        : isDark ? "rgba(255,255,255,0.12)" : "rgba(14,165,233,0.18)"
+        ? isDark
+          ? "rgba(148,163,184,0.18)"
+          : "rgba(100,116,139,0.16)"
+        : isDark
+          ? "rgba(255,255,255,0.12)"
+          : "rgba(14,165,233,0.18)"
 
   const labelColor = tone === "danger" ? palette.danger : palette.ink
 
@@ -136,10 +154,21 @@ function SessionListActionsSheet({ sheetRef, title, isBusy, onStop, onDelete, on
           paddingBottom: 16,
         }}
       >
-        <Text style={{ fontSize: 10, fontWeight: "700", letterSpacing: 1.8, color: palette.accent, textTransform: "uppercase" }}>
+        <Text
+          style={{
+            fontSize: 10,
+            fontWeight: "700",
+            letterSpacing: 1.8,
+            color: palette.accent,
+            textTransform: "uppercase",
+          }}
+        >
           Session actions
         </Text>
-        <Text style={{ fontSize: 17, fontWeight: "700", color: palette.ink, marginTop: 6, lineHeight: 24 }} numberOfLines={2}>
+        <Text
+          style={{ fontSize: 17, fontWeight: "700", color: palette.ink, marginTop: 6, lineHeight: 24 }}
+          numberOfLines={2}
+        >
           {title || "Untitled session"}
         </Text>
       </View>
