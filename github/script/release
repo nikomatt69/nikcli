@@ -13,25 +13,25 @@ done
 git fetch --force --tags
 latest_tag=$(git tag --sort=committerdate | grep -E '^github-v[0-9]+\.[0-9]+\.[0-9]+$' | tail -1)
 if [ -z "$latest_tag" ]; then
-    echo "No tags found"
-    exit 1
+    latest_tag="github-v0.0.0"
 fi
 
 echo "Latest tag: $latest_tag"
 
 # Split the tag into major, minor, and patch numbers
-IFS='.' read -ra VERSION <<< "$latest_tag"
+latest_version=${latest_tag#github-v}
+IFS='.' read -ra VERSION <<< "$latest_version"
 
 if [ "$minor" = true ]; then
     # Increment the minor version and reset patch to 0
     minor_number=${VERSION[1]}
     let "minor_number++"
-    new_version="${VERSION[0]}.$minor_number.0"
+    new_version="github-v${VERSION[0]}.$minor_number.0"
 else
     # Increment the patch version
     patch_number=${VERSION[2]}
     let "patch_number++"
-    new_version="${VERSION[0]}.${VERSION[1]}.$patch_number"
+    new_version="github-v${VERSION[0]}.${VERSION[1]}.$patch_number"
 fi
 
 echo "New version: $new_version"

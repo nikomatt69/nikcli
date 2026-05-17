@@ -27,14 +27,6 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
-      - name: Setup git committer
-        id: committer
-        if: vars.NIKCLI_APP_ID != ''
-        uses: ./.github/actions/setup-git-committer
-        with:
-          nikcli-app-id: ${{ vars.NIKCLI_APP_ID }}
-          nikcli-app-secret: ${{ secrets.NIKCLI_APP_SECRET }}
-
       - name: Generate
         run: ./script/generate.ts
 
@@ -53,10 +45,8 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          if [ "${{ steps.committer.outcome }}" != "success" ]; then
-            git config --local user.email "action@github.com"
-            git config --local user.name "GitHub Action"
-          fi
+          git config --local user.email "nikcli-ci@users.noreply.github.com"
+          git config --local user.name "nikcli-ci[bot]"
           git add -A
           git commit -m "chore: generate"
           git push origin HEAD:${{ github.ref_name }} --no-verify

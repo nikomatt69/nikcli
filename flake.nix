@@ -39,9 +39,9 @@
           nikcli = pkgs.callPackage ./nix/nikcli.nix {
             inherit node_modules;
           };
-          desktop = pkgs.callPackage ./nix/desktop.nix {
+          desktop = if builtins.pathExists ./nix/desktop.nix then pkgs.callPackage ./nix/desktop.nix {
             inherit nikcli;
-          };
+          } else nikcli;
           # nixpkgs cpu naming to bun cpu naming
           cpuMap = { x86_64 = "x64"; aarch64 = "arm64"; };
           # matrix of node_modules builds - these will always fail due to fakeHash usage

@@ -24,7 +24,7 @@ export interface Session {
   id: string
   status: string
   model?: string
-  messages: Message[] | any[]
+  messages: Message[]
   createdAt?: number
   updatedAt?: number
   cliSessionId?: string
@@ -66,32 +66,32 @@ export const store = createStore<AppState>((set, get) => ({
   input: "",
   sessions: [],
 
-  setSessionId: (id) => set({ sessionId: id }),
-  setWs: (ws) => set({ ws }),
-  setConnected: (connected) => set({ connected }),
+  setSessionId: (id: string | null) => set({ sessionId: id }),
+  setWs: (ws: WebSocket | null) => set({ ws }),
+  setConnected: (connected: boolean) => set({ connected }),
 
-  addMessage: (message) =>
-    set((state) => ({
+  addMessage: (message: Message) =>
+    set((state: AppState) => ({
       messages: [...state.messages, message],
     })),
 
-  setMessages: (messages) => set({ messages }),
+  setMessages: (messages: Message[]) => set({ messages }),
 
-  addPermission: (permission) =>
-    set((state) => ({
+  addPermission: (permission: PermissionRequest) =>
+    set((state: AppState) => ({
       pendingPermissions: [...state.pendingPermissions, permission],
     })),
 
-  removePermission: (requestId) =>
-    set((state) => ({
-      pendingPermissions: state.pendingPermissions.filter((p) => p.request_id !== requestId),
+  removePermission: (requestId: string) =>
+    set((state: AppState) => ({
+      pendingPermissions: state.pendingPermissions.filter((p: PermissionRequest) => p.request_id !== requestId),
     })),
 
-  setInput: (input) => set({ input }),
+  setInput: (input: string) => set({ input }),
 
-  setSessions: (sessions) => set({ sessions }),
+  setSessions: (sessions: Session[]) => set({ sessions }),
 
-  connect: (sessionId) => {
+  connect: (sessionId: string) => {
     const { ws: existingWs } = get()
     if (existingWs) {
       existingWs.close()
@@ -190,7 +190,7 @@ export const store = createStore<AppState>((set, get) => ({
     set({ sessionId: null, ws: null, connected: false, messages: [] })
   },
 
-  sendMessage: (content) => {
+  sendMessage: (content: string) => {
     const { ws, sessionId } = get()
     if (!ws || !sessionId || !ws.readyState) return
 
@@ -204,7 +204,7 @@ export const store = createStore<AppState>((set, get) => ({
     ws.send(JSON.stringify(msg))
   },
 
-  respondToPermission: (requestId, allowed) => {
+  respondToPermission: (requestId: string, allowed: boolean) => {
     const { ws } = get()
     if (!ws) return
 
@@ -242,7 +242,7 @@ export const store = createStore<AppState>((set, get) => ({
     try {
       await fetch(`/companion/api/sessions/${sessionId}`, { method: "DELETE" })
       const { sessions, sessionId: currentSession } = get()
-      set({ sessions: sessions.filter((s) => s.id !== sessionId) })
+      set({ sessions: sessions.filter((s: Session) => s.id !== sessionId) })
       if (currentSession === sessionId) {
         get().disconnect()
       }
@@ -256,7 +256,7 @@ export function useStore<T>(selector: (state: AppState) => T): T {
   const [state, setState] = useState<T>(() => selector(store.getState()))
 
   useEffect(() => {
-    const unsubscribe = store.subscribe((state) => {
+    const unsubscribe = store.subscribe((state: AppState) => {
       const newValue = selector(state)
       setState(newValue)
     })
@@ -268,5 +268,5 @@ export function useStore<T>(selector: (state: AppState) => T): T {
 
 export function useStoreSubscribe<T>(selector: (state: AppState) => T, callback: (value: T) => void) {
   callback(selector(store.getState()))
-  return store.subscribe((state) => callback(selector(state)))
+  return store.subscribe((state: AppState) => callback(selector(state)))
 }
