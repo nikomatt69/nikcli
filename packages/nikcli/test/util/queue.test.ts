@@ -47,7 +47,10 @@ describe("AsyncQueue", () => {
       const p = q.next()
       q.close()
       // Should resolve (with undefined) not hang
-      const result = await Promise.race([p.catch(() => "caught"), new Promise((r) => setTimeout(() => r("timeout"), 100))])
+      const result = await Promise.race([
+        p.catch(() => "caught"),
+        new Promise((r) => setTimeout(() => r("timeout"), 100)),
+      ])
       expect(result === "caught" || result === undefined).toBe(true)
     })
 
@@ -150,12 +153,16 @@ describe("work", () => {
   it("respects concurrency limit", async () => {
     let concurrent = 0
     let maxConcurrent = 0
-    await work(3, Array.from({ length: 20 }, (_, i) => i), async () => {
-      concurrent++
-      maxConcurrent = Math.max(maxConcurrent, concurrent)
-      await new Promise((r) => setTimeout(r, 1))
-      concurrent--
-    })
+    await work(
+      3,
+      Array.from({ length: 20 }, (_, i) => i),
+      async () => {
+        concurrent++
+        maxConcurrent = Math.max(maxConcurrent, concurrent)
+        await new Promise((r) => setTimeout(r, 1))
+        concurrent--
+      },
+    )
     expect(maxConcurrent).toBeLessThanOrEqual(3)
   })
 

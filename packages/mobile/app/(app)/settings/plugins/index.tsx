@@ -46,10 +46,7 @@ function PluginSection({
     >
       <View className="gap-3">
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip
-            label={connected ? "Connected" : "Not connected"}
-            tone={connected ? "good" : "warn"}
-          />
+          <InfoChip label={connected ? "Connected" : "Not connected"} tone={connected ? "good" : "warn"} />
         </View>
 
         {note ? (
@@ -162,9 +159,18 @@ export default function PluginsSettingsScreen() {
         description="Connect Codex, Cursor, and GitHub Copilot with API keys. Full OAuth flows for Cursor and Codex require the desktop app; Copilot API keys work directly from the host."
       >
         <View className="flex-row flex-wrap gap-2">
-          <InfoChip label={connected.has(CODEX_PROVIDER_ID) ? "Codex ready" : "Codex offline"} tone={connected.has(CODEX_PROVIDER_ID) ? "good" : "neutral"} />
-          <InfoChip label={connected.has(CURSOR_PROVIDER_ID) ? "Cursor ready" : "Cursor offline"} tone={connected.has(CURSOR_PROVIDER_ID) ? "good" : "neutral"} />
-          <InfoChip label={connected.has(COPILOT_PROVIDER_ID) ? "Copilot ready" : "Copilot offline"} tone={connected.has(COPILOT_PROVIDER_ID) ? "good" : "neutral"} />
+          <InfoChip
+            label={connected.has(CODEX_PROVIDER_ID) ? "Codex ready" : "Codex offline"}
+            tone={connected.has(CODEX_PROVIDER_ID) ? "good" : "neutral"}
+          />
+          <InfoChip
+            label={connected.has(CURSOR_PROVIDER_ID) ? "Cursor ready" : "Cursor offline"}
+            tone={connected.has(CURSOR_PROVIDER_ID) ? "good" : "neutral"}
+          />
+          <InfoChip
+            label={connected.has(COPILOT_PROVIDER_ID) ? "Copilot ready" : "Copilot offline"}
+            tone={connected.has(COPILOT_PROVIDER_ID) ? "good" : "neutral"}
+          />
         </View>
       </SurfaceCard>
 

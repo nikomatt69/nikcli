@@ -162,10 +162,7 @@ export function CommentInput(props: {
         return
       }
       // When the Kitty keyboard protocol (useKittyKeyboard) reports modifiers, these work.
-      if (
-        (evt.ctrl || evt.super) &&
-        (evt.name === "return" || evt.name === "enter")
-      ) {
+      if ((evt.ctrl || evt.super) && (evt.name === "return" || evt.name === "enter")) {
         evt.preventDefault()
         submit()
         return
@@ -280,8 +277,7 @@ export function CommentInput(props: {
         </box>
         <box flexDirection="row" gap={2} paddingLeft={2} paddingBottom={1} flexWrap="wrap">
           <text fg={theme.text}>
-            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"}{" "}
-            <span style={{ fg: theme.textMuted }}>save</span>
+            {process.platform === "darwin" ? "ctrl+s" : "ctrl+s"} <span style={{ fg: theme.textMuted }}>save</span>
           </text>
           <text fg={theme.textMuted} wrapMode="word">
             ({process.platform === "darwin" ? "cmd" : "ctrl"}+enter if terminal supports)

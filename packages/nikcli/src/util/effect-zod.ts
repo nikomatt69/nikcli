@@ -150,8 +150,7 @@ function readAnnotations(ast: AST | undefined): RefAnnotation {
   if (typeof sid === "string" || typeof sid === "symbol") {
     // SchemaId values are themselves symbols (e.g. `Symbol(effect/SchemaId/Int)`); normalize
     // to the symbol's description string so callers can switch on it.
-    out.schemaId =
-      typeof sid === "symbol" ? sid.description ?? sid : sid
+    out.schemaId = typeof sid === "symbol" ? (sid.description ?? sid) : sid
   }
   const override = annotations?.[ZodOverrideId]
   if (typeof override === "function") out.override = override as ZodOverrideFn
@@ -177,8 +176,7 @@ const KNOWN_SCHEMA_IDS: Record<string, (zod: z.ZodType, json: Record<string, unk
   // Effect schema id strings the walker understands. Detection runs against the description
   // of the symbol value stored under `Symbol(effect/annotation/SchemaId)`. Each entry maps
   // to the equivalent zod refinement so the JSON Schema output stays aligned.
-  "effect/SchemaId/Int": (zod, json) =>
-    refineNumber(zod, json, (n) => n.int()),
+  "effect/SchemaId/Int": (zod, json) => refineNumber(zod, json, (n) => n.int()),
   "effect/SchemaId/GreaterThan": (zod, json) =>
     refineNumber(zod, json, (n) => {
       const min = readNum(json, "exclusiveMinimum")
@@ -386,9 +384,7 @@ function walk(ast: AST): z.ZodType {
       if (tupleAst.rest.length === 0) {
         return finalize(z.tuple(items as [z.ZodType, ...z.ZodType[]]))
       }
-      return finalize(
-        z.tuple(items as [z.ZodType, ...z.ZodType[]]).rest(walk(tupleAst.rest[0])),
-      )
+      return finalize(z.tuple(items as [z.ZodType, ...z.ZodType[]]).rest(walk(tupleAst.rest[0])))
     }
     case "Objects": {
       const literalAst = ast as AST & {
@@ -550,18 +546,19 @@ export function withStatics<S extends object, Statics extends object>(
  * unknown>` staying intact when stripping `readonly`, so we ship a local copy
  * until the upstream fix lands.
  */
-export type DeepMutable<T> = T extends ReadonlyArray<infer U>
-  ? Array<DeepMutable<U>>
-  : T extends ReadonlyMap<infer K, infer V>
-    ? Map<DeepMutable<K>, DeepMutable<V>>
-    : T extends ReadonlySet<infer U>
-      ? Set<DeepMutable<U>>
-      : T extends Date
-        ? T
-        : T extends RegExp
+export type DeepMutable<T> =
+  T extends ReadonlyArray<infer U>
+    ? Array<DeepMutable<U>>
+    : T extends ReadonlyMap<infer K, infer V>
+      ? Map<DeepMutable<K>, DeepMutable<V>>
+      : T extends ReadonlySet<infer U>
+        ? Set<DeepMutable<U>>
+        : T extends Date
           ? T
-          : T extends Function
+          : T extends RegExp
             ? T
-            : T extends object
-              ? { -readonly [K in keyof T]: DeepMutable<T[K]> }
-              : T
+            : T extends Function
+              ? T
+              : T extends object
+                ? { -readonly [K in keyof T]: DeepMutable<T[K]> }
+                : T

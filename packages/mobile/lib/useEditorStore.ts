@@ -29,10 +29,7 @@ export const useEditorStore = create<EditorStore>((set) => ({
           ...state.openFiles,
           [file.absolute]: existing ?? { ...file, dirty: false },
         },
-        recentPaths: [
-          file.absolute,
-          ...state.recentPaths.filter((p) => p !== file.absolute),
-        ].slice(0, 10),
+        recentPaths: [file.absolute, ...state.recentPaths.filter((p) => p !== file.absolute)].slice(0, 10),
       }
     })
   },

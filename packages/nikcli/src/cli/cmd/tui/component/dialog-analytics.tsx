@@ -394,22 +394,8 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
         Token Breakdown
       </text>
       <box flexDirection="column" gap={0}>
-        <HBarPrecision
-          label="input"
-          value={tokens().input}
-          max={total()}
-          width={25}
-          color={viz().input}
-          showPct
-        />
-        <HBarPrecision
-          label="output"
-          value={tokens().output}
-          max={total()}
-          width={25}
-          color={viz().output}
-          showPct
-        />
+        <HBarPrecision label="input" value={tokens().input} max={total()} width={25} color={viz().input} showPct />
+        <HBarPrecision label="output" value={tokens().output} max={total()} width={25} color={viz().output} showPct />
         <HBarPrecision
           label="reasoning"
           value={tokens().reasoning}
@@ -441,12 +427,7 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           14-Day Token Trend
         </text>
-        <BrailleAreaChart
-          data={props.last14Days.map((d) => d.tokens)}
-          width={50}
-          height={4}
-          color={viz().input}
-        />
+        <BrailleAreaChart data={props.last14Days.map((d) => d.tokens)} width={50} height={4} color={viz().input} />
       </Show>
 
       {/* Efficiency Metrics */}

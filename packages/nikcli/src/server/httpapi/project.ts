@@ -74,14 +74,8 @@ export namespace ProjectHttpApi {
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "project", (builder) =>
-    builder
-      .handle("list", handlers.list)
-      .handle("current", handlers.current)
-      .handle("update", handlers.update),
+    builder.handle("list", handlers.list).handle("current", handlers.current).handle("update", handlers.update),
   )
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(Project.defaultLayer),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(Project.defaultLayer))
 }

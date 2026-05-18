@@ -211,23 +211,23 @@ Use raw Effect HTTP routes where `HttpApi` does not fit. The goal is deleting Ho
 
 ## Current Route Status
 
-| Area                      | Status       | Notes                                                                      |
-| ------------------------- | ------------ | -------------------------------------------------------------------------- |
-| `question`                | `bridged`     | `src/server/httpapi/question.ts` implements list/reply/reject; covered directly and through `test/server/httpapi-bridge.test.ts` |
-| `permission`              | `bridged`     | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts` |
-| `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open |
-| `config`                  | `bridged`     | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open |
-| `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch |
-| `file`                    | `bridged`     | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open |
-| `mcp`                     | `bridged`     | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle |
-| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found |
-| top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch |
-| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open |
+| Area                      | Status            | Notes                                                                                                                                                                                                                   |
+| ------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `question`                | `bridged`         | `src/server/httpapi/question.ts` implements list/reply/reject; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                        |
+| `permission`              | `bridged`         | `src/server/httpapi/permission.ts` implements list/reply; covered directly and through `test/server/httpapi-bridge.test.ts`                                                                                             |
+| `provider`                | `bridged` partial | `GET /provider`, `GET /provider/auth`, `POST /provider/:providerID/api`, and `DELETE /provider/:providerID/auth` are bridged; OAuth routes remain open                                                                  |
+| `config`                  | `bridged`         | `GET /config`, `PATCH /config`, and `GET /config/providers` are bridged; Hono deletion remains open                                                                                                                     |
+| `project`                 | `bridged` partial | `GET /project`, `GET /project/current`, and `PATCH /project/:projectID` are bridged; checklist item `POST /project/git/init` is not registered on this branch                                                           |
+| `file`                    | `bridged`         | read/search routes and `PUT /file/content` are bridged; Hono deletion remains open                                                                                                                                      |
+| `mcp`                     | `bridged`         | all management + OAuth routes bridged: status, add, startAuth, authCallback, authenticate, removeAuth, connect, disconnect, toggle                                                                                      |
+| `workspace`               | `bridged` partial | adaptor/list plus create/remove/restore/session-restore routes are bridged; `GET /experimental/workspace/status` is still unchecked because no matching Hono registration was found                                     |
+| top-level instance routes | `bridged` partial | `POST /instance/dispose`, `GET /path`, `GET /vcs`, `GET /command`, `GET /agent`, `GET /skill`, `GET /lsp`, and `GET /formatter` are bridged; `GET /vcs/diff` is not registered on this branch                           |
+| experimental JSON routes  | `bridged` partial | `tool/ids`, `tool`, `worktree` create/list/remove/reset, and `resource` routes are bridged; console routes and global session list remain open                                                                          |
 | `session`                 | `bridged` partial | create/update/delete/fork/abort/revert/unrevert/list/status/get/children/todo/diff/messages plus single-message and part JSON routes are bridged; prompt, share, init, summarize, shell, and command routes remain Hono |
-| `sync`                    | `not ported` | no current Effect `HttpApi` sync route exists                              |
-| `event`                   | `not ported` | current implementation uses Hono SSE                                       |
-| `pty`                     | `special`    | current implementation uses Hono websocket                                 |
-| `tui`                     | `special`    | current implementation is a Hono UI bridge                                 |
+| `sync`                    | `not ported`      | no current Effect `HttpApi` sync route exists                                                                                                                                                                           |
+| `event`                   | `not ported`      | current implementation uses Hono SSE                                                                                                                                                                                    |
+| `pty`                     | `special`         | current implementation uses Hono websocket                                                                                                                                                                              |
+| `tui`                     | `special`         | current implementation is a Hono UI bridge                                                                                                                                                                              |
 
 ## Full Route Checklist
 

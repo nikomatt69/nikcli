@@ -6383,6 +6383,42 @@ export type MobileSessionCreateResponses = {
 
 export type MobileSessionCreateResponse = MobileSessionCreateResponses[keyof MobileSessionCreateResponses]
 
+export type MobileSessionDeleteData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}"
+}
+
+export type MobileSessionDeleteErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileSessionDeleteError = MobileSessionDeleteErrors[keyof MobileSessionDeleteErrors]
+
+export type MobileSessionDeleteResponses = {
+  /**
+   * Session deleted
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionDeleteResponse = MobileSessionDeleteResponses[keyof MobileSessionDeleteResponses]
+
 export type MobileSessionDetailData = {
   body?: never
   path: {

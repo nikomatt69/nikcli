@@ -547,8 +547,7 @@ export namespace Patch {
           type: MaybeApplyPatchVerified.CorrectnessError,
           error: new Error(ApplyPatchError.ImplicitInvocation),
         }
-      } catch {
-      }
+      } catch {}
     }
 
     const result = maybeParseApplyPatch(argv)

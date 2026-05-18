@@ -36,12 +36,7 @@ type SessionSnapshot = {
   port?: number
 }
 
-const DEFAULT_TUNNEL_PROVIDERS: TunnelProvider[] = [
-  "localtunnel",
-  "cloudflared",
-  "ngrok",
-  "remotosh",
-]
+const DEFAULT_TUNNEL_PROVIDERS: TunnelProvider[] = ["localtunnel", "cloudflared", "ngrok", "remotosh"]
 
 export class RemoteService extends EventEmitter {
   private static instance: RemoteService
@@ -109,9 +104,7 @@ export class RemoteService extends EventEmitter {
     }
 
     if (this.sessionManager?.isActive()) {
-      const error = new Error(
-        'Session already active. Stop it first with "nikcli remote-control stop"',
-      )
+      const error = new Error('Session already active. Stop it first with "nikcli remote-control stop"')
       log.error("Failed to start session", { error: error.message })
       throw error
     }
@@ -127,39 +120,27 @@ export class RemoteService extends EventEmitter {
 
     this.sessionManager.on("status:change", (session: RemoteSession) => {
       log.debug("Session status changed", { sessionId: session.id, status: session.status })
-      void this.persistSession(session).catch((e) =>
-        log.error("Failed to persist session", { error: e }),
-      )
+      void this.persistSession(session).catch((e) => log.error("Failed to persist session", { error: e }))
       this.emit("session:status", session)
     })
 
-    this.sessionManager.on(
-      "device:connected",
-      (session: RemoteSession, device: { id: string }) => {
-        log.info("Device connected to session", {
-          sessionId: session.id,
-          deviceId: device.id,
-        })
-        void this.persistSession(session).catch((e) =>
-          log.error("Failed to persist session", { error: e }),
-        )
-        this.emit("device:connected", session, device)
-      },
-    )
+    this.sessionManager.on("device:connected", (session: RemoteSession, device: { id: string }) => {
+      log.info("Device connected to session", {
+        sessionId: session.id,
+        deviceId: device.id,
+      })
+      void this.persistSession(session).catch((e) => log.error("Failed to persist session", { error: e }))
+      this.emit("device:connected", session, device)
+    })
 
-    this.sessionManager.on(
-      "device:disconnected",
-      (session: RemoteSession, device: { id: string }) => {
-        log.info("Device disconnected from session", {
-          sessionId: session.id,
-          deviceId: device.id,
-        })
-        void this.persistSession(session).catch((e) =>
-          log.error("Failed to persist session", { error: e }),
-        )
-        this.emit("device:disconnected", session, device)
-      },
-    )
+    this.sessionManager.on("device:disconnected", (session: RemoteSession, device: { id: string }) => {
+      log.info("Device disconnected from session", {
+        sessionId: session.id,
+        deviceId: device.id,
+      })
+      void this.persistSession(session).catch((e) => log.error("Failed to persist session", { error: e }))
+      this.emit("device:disconnected", session, device)
+    })
 
     this.sessionManager.on("error", (error: Error) => {
       log.error("Session manager error", { error: error.message })
@@ -566,10 +547,7 @@ export class RemoteService extends EventEmitter {
     return url.toString()
   }
 
-  private hydratePersistedSession(
-    session: RemoteSessionPersistence,
-    snapshot?: SessionSnapshot,
-  ): RemoteSession {
+  private hydratePersistedSession(session: RemoteSessionPersistence, snapshot?: SessionSnapshot): RemoteSession {
     const startedAt = this.safeDate(snapshot?.startedAt ?? session.startedAt)
     const lastActivity = this.safeDate(snapshot?.lastActivity ?? session.lastActivity)
     const connectedCount = Math.max(0, snapshot?.connectedDevices ?? 0)
@@ -631,9 +609,7 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async fetchPersistedSessionSnapshot(
-    session: RemoteSessionPersistence,
-  ): Promise<SessionSnapshot | null> {
+  private async fetchPersistedSessionSnapshot(session: RemoteSessionPersistence): Promise<SessionSnapshot | null> {
     const token = this.extractTokenFromUrl(session.qrUrl)
     const headers = token
       ? {
@@ -688,8 +664,7 @@ export class RemoteService extends EventEmitter {
     const startedAt = typeof value.startedAt === "string" ? value.startedAt : undefined
     const lastActivity = typeof value.lastActivity === "string" ? value.lastActivity : undefined
     const portRaw = value.port
-    const port =
-      typeof portRaw === "number" && Number.isFinite(portRaw) ? Math.max(0, Math.floor(portRaw)) : undefined
+    const port = typeof portRaw === "number" && Number.isFinite(portRaw) ? Math.max(0, Math.floor(portRaw)) : undefined
 
     if (!status && !id && !name && connectedDevices === undefined) return null
 
@@ -704,10 +679,7 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async fetchJSON(
-    url: URL,
-    headers?: Record<string, string>,
-  ): Promise<unknown> {
+  private async fetchJSON(url: URL, headers?: Record<string, string>): Promise<unknown> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3500)
 
@@ -727,9 +699,7 @@ export class RemoteService extends EventEmitter {
     }
   }
 
-  private async readPersistedSession(
-    filePath: string,
-  ): Promise<RemoteSessionPersistence | null> {
+  private async readPersistedSession(filePath: string): Promise<RemoteSessionPersistence | null> {
     try {
       const data = await Bun.file(filePath).text()
       const parsed = JSON.parse(data)

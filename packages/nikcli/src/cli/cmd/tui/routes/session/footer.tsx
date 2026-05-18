@@ -46,15 +46,12 @@ export function Footer() {
     const refreshBrainStatus = async () => {
       try {
         const { getBrainConfig, readLastBrainAt, getSessionsCountSince } = await import("@/brain")
-        const { config, lastAt, count } = await withInstanceAsync(
-          { directory: instanceDirectory() },
-          async () => {
-            const config = await getBrainConfig()
-            const lastAt = await readLastBrainAt()
-            const count = await getSessionsCountSince(lastAt)
-            return { config, lastAt, count }
-          },
-        )
+        const { config, lastAt, count } = await withInstanceAsync({ directory: instanceDirectory() }, async () => {
+          const config = await getBrainConfig()
+          const lastAt = await readLastBrainAt()
+          const count = await getSessionsCountSince(lastAt)
+          return { config, lastAt, count }
+        })
         setBrainEnabled(config.enabled)
         setBrainLastAt(lastAt)
         setBrainSessionsPending(count)

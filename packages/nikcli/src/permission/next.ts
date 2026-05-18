@@ -350,5 +350,4 @@ export namespace PermissionNext {
       )
     }
   }
-
 }
