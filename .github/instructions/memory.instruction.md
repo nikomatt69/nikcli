@@ -494,8 +494,8 @@ Post-install: updates `/usr/local/bin/nikcli` if running as root on Unix.
 
 **Important**: `packages/web/install` (served at `/install`) lacks the `--local` flag and GitHub `v` prefix fallback that `public/install.sh` has. Align before future releases.
 
-Release archive naming: `nikcli-<target>.<ext>` (e.g., `nikcli-linux-x64.tar.gz`)
-GitHub release tag format: `X.Y.Z` (without `v` prefix — installer strips `v` internally)
+Release archive naming: `nikcli-ai-<target>.<ext>` (e.g., `nikcli-ai-linux-x64.tar.gz`) — prefix comes from `pkg.name` (`nikcli-ai`) in `packages/nikcli/package.json` and is used by `script/build.ts` for dist dir names, by `script/release-github.ts` for archive names, and must match the `ASSET_PREFIX` in both `install` and `packages/web/public/install.sh`.
+GitHub release tag format: `vX.Y.Z`; installer also accepts bare `X.Y.Z` as fallback for legacy tags.
 
 ## Workspace Catalog (shared dependency versions)
 

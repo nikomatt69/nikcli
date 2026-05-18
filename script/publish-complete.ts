@@ -9,6 +9,6 @@ if (!Script.preview) {
 
 await $`bun install`
 
-await $`gh release download --pattern "nikcli-linux-*64.tar.gz" --pattern "nikcli-darwin-*64.zip" -D dist`
+await $`gh release download --pattern "nikcli-ai-linux-*64.tar.gz" --pattern "nikcli-ai-darwin-*64.zip" -D dist`
 
 await import(`../packages/nikcli/script/publish-registries.ts`)

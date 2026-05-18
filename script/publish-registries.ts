@@ -4,10 +4,10 @@ import { Script } from "@nikcli-ai/script"
 
 if (!Script.preview) {
   // Calculate SHA values
-  const arm64Sha = await $`sha256sum ./dist/nikcli-linux-arm64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
-  const x64Sha = await $`sha256sum ./dist/nikcli-linux-x64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
-  const macX64Sha = await $`sha256sum ./dist/nikcli-darwin-x64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
-  const macArm64Sha = await $`sha256sum ./dist/nikcli-darwin-arm64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
+  const arm64Sha = await $`sha256sum ./dist/nikcli-ai-linux-arm64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
+  const x64Sha = await $`sha256sum ./dist/nikcli-ai-linux-x64.tar.gz | cut -d' ' -f1`.text().then((x) => x.trim())
+  const macX64Sha = await $`sha256sum ./dist/nikcli-ai-darwin-x64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
+  const macArm64Sha = await $`sha256sum ./dist/nikcli-ai-darwin-arm64.zip | cut -d' ' -f1`.text().then((x) => x.trim())
 
   // Homebrew formula
   const homebrewFormula = [
@@ -23,7 +23,7 @@ if (!Script.preview) {
     "",
     "  on_macos do",
     "    if Hardware::CPU.intel?",
-    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-darwin-x64.zip"`,
+    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-ai-darwin-x64.zip"`,
     `      sha256 "${macX64Sha}"`,
     "",
     "      def install",
@@ -31,7 +31,7 @@ if (!Script.preview) {
     "      end",
     "    end",
     "    if Hardware::CPU.arm?",
-    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-darwin-arm64.zip"`,
+    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-ai-darwin-arm64.zip"`,
     `      sha256 "${macArm64Sha}"`,
     "",
     "      def install",
@@ -42,14 +42,14 @@ if (!Script.preview) {
     "",
     "  on_linux do",
     "    if Hardware::CPU.intel? and Hardware::CPU.is_64_bit?",
-    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-linux-x64.tar.gz"`,
+    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-ai-linux-x64.tar.gz"`,
     `      sha256 "${x64Sha}"`,
     "      def install",
     '        bin.install "nikcli"',
     "      end",
     "    end",
     "    if Hardware::CPU.arm? and Hardware::CPU.is_64_bit?",
-    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-linux-arm64.tar.gz"`,
+    `      url "https://github.com/nikomatt69/nikcli/releases/download/v${Script.version}/nikcli-ai-linux-arm64.tar.gz"`,
     `      sha256 "${arm64Sha}"`,
     "      def install",
     '        bin.install "nikcli"',

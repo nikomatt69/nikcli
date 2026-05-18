@@ -3,27 +3,27 @@ import { $ } from "bun"
 export const SIDECAR_BINARIES: Array<{ rustTarget: string; ocBinary: string; assetExt: string }> = [
   {
     rustTarget: "aarch64-apple-darwin",
-    ocBinary: "nikcli-darwin-arm64",
+    ocBinary: "nikcli-ai-darwin-arm64",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-apple-darwin",
-    ocBinary: "nikcli-darwin-x64",
+    ocBinary: "nikcli-ai-darwin-x64",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-pc-windows-msvc",
-    ocBinary: "nikcli-windows-x64",
+    ocBinary: "nikcli-ai-windows-x64",
     assetExt: "zip",
   },
   {
     rustTarget: "x86_64-unknown-linux-gnu",
-    ocBinary: "nikcli-linux-x64",
+    ocBinary: "nikcli-ai-linux-x64",
     assetExt: "tar.gz",
   },
   {
     rustTarget: "aarch64-unknown-linux-gnu",
-    ocBinary: "nikcli-linux-arm64",
+    ocBinary: "nikcli-ai-linux-arm64",
     assetExt: "tar.gz",
   },
 ]

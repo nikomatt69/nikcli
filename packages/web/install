@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Cache-bust: 2026-04-16T00-00-00Z
+# Cache-bust: 2026-05-18T00-00-00Z
 set -euo pipefail
 APP=nikcli
+ASSET_PREFIX=nikcli-ai
 
 MUTED='\033[0;2m'
 RED='\033[0;31m'
@@ -152,7 +153,7 @@ else
       target="$target-musl"
     fi
 
-    filename="$APP-$target$archive_ext"
+    filename="$ASSET_PREFIX-$target$archive_ext"
 
 
     if [ "$os" = "linux" ]; then
@@ -364,7 +365,7 @@ download_and_install() {
 
     local extracted_binary="$tmp_dir/bin/$APP"
     if [ ! -f "$extracted_binary" ]; then
-        extracted_binary="$tmp_dir/$APP-$target/bin/$APP"
+        extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$APP"
     fi
     if [ ! -f "$extracted_binary" ]; then
         echo -e "${RED}Error: Binary not found in archive at expected path${NC}"
