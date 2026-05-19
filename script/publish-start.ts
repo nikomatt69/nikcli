@@ -74,7 +74,8 @@ if (!Script.preview) {
   // Drop any unintended modifications to workflow/action YAML — GitHub blocks
   // GITHUB_TOKEN from pushing changes under .github/workflows/* by design.
   // If prettier/format steps touched them, restore from index to keep the release push clean.
-  await $`git checkout -- .github/workflows .github/actions`.nothrow()
+  // Also restore install scripts to avoid triggering CI loops on those changes.
+  await $`git checkout -- .github/workflows .github/actions install packages/web/install`.nothrow()
   await $`git commit -am "release: v${Script.version}"`
   await $`git add -A`
   await $`git commit --amend --no-edit`

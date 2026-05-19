@@ -51,7 +51,11 @@ jobs:
       needs.validate.result == 'success' &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/live-main' &&
-      github.repository == 'nikomatt69/nikcli'
+      github.repository == 'nikomatt69/nikcli' &&
+      !startsWith(github.event.head_commit.message, 'release: v') &&
+      !startsWith(github.event.head_commit.message, 'chore: generate') &&
+      !startsWith(github.event.head_commit.message, 'chore: update') &&
+      !contains(github.event.head_commit.message, '[nikcli autofix]')
     uses: ./.github/workflows/publish.yml
     with:
       bump: minor

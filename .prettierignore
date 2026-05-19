@@ -4,3 +4,5 @@ sst-env.d.ts
 # on push, since GITHUB_TOKEN cannot push to .github/workflows/*.yml by design).
 .github/workflows/
 .github/actions/
+install
+packages/web/install
