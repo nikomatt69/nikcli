@@ -75,7 +75,7 @@ for (const [name] of Object.entries(binaries)) {
 
   // Only publish if the package is scoped or explicitly allowed
   // Skip platform-specific binary packages that aren't meant for npm
-  const isPublishable = !name.includes("linux-") && !name.includes("win32-") && !name.includes("darwin-")
+  const isPublishable = !name.includes("linux-") && !name.includes("windows-") && !name.includes("darwin-")
 
   if (isPublishable) {
     for (const tag of tags) {
