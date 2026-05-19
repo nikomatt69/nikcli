@@ -301,7 +301,6 @@ export function ComposerToolDrawer({
                 {tabs.map((tab) => {
                   const Icon = getIconComponent(tab)
                   const isActive = activeTab === tab
-                  
 
                   return (
                     <AnimatedTabButton
@@ -318,7 +317,6 @@ export function ComposerToolDrawer({
                       <Text style={{ fontSize: 11.5, fontWeight: "600", color: isActive ? "#fff" : palette.muted }}>
                         {TAB_LABELS[tab]}
                       </Text>
-                      
                     </AnimatedTabButton>
                   )
                 })}

@@ -72,8 +72,7 @@ export namespace AppFileSystem {
     Effect.gen(function* () {
       const raw = yield* PlatformFileSystem.FileSystem
 
-      const exists = (filepath: string) =>
-        raw.exists(filepath).pipe(Effect.catch(() => Effect.succeed(false)))
+      const exists = (filepath: string) => raw.exists(filepath).pipe(Effect.catch(() => Effect.succeed(false)))
 
       const isDir = (filepath: string) =>
         raw.stat(filepath).pipe(
@@ -82,9 +81,9 @@ export namespace AppFileSystem {
         )
 
       const readText = Effect.fn("AppFileSystem.readText")(function* (filepath: string) {
-        return yield* raw.readFileString(filepath).pipe(
-          Effect.mapError((cause) => new Error(`failed to read ${filepath}: ${cause.message}`, { cause })),
-        )
+        return yield* raw
+          .readFileString(filepath)
+          .pipe(Effect.mapError((cause) => new Error(`failed to read ${filepath}: ${cause.message}`, { cause })))
       })
 
       const readJson = Effect.fn("AppFileSystem.readJson")(function* <T>(filepath: string) {
@@ -98,9 +97,9 @@ export namespace AppFileSystem {
       const writeText = Effect.fn("AppFileSystem.writeText")(function* (filepath: string, data: string | Uint8Array) {
         yield* raw.makeDirectory(path.dirname(filepath), { recursive: true }).pipe(Effect.ignore)
         const payload = typeof data === "string" ? data : Buffer.from(data).toString("utf8")
-        yield* raw.writeFileString(filepath, payload).pipe(
-          Effect.mapError((cause) => new Error(`failed to write ${filepath}: ${cause.message}`, { cause })),
-        )
+        yield* raw
+          .writeFileString(filepath, payload)
+          .pipe(Effect.mapError((cause) => new Error(`failed to write ${filepath}: ${cause.message}`, { cause })))
       })
 
       const writeJson = Effect.fn("AppFileSystem.writeJson")(function* (filepath: string, data: unknown) {
@@ -131,11 +130,7 @@ export namespace AppFileSystem {
               if (yield* exists(search)) matches.push(search)
             }
             const next: string | null =
-              options.stop === current
-                ? null
-                : current === path.dirname(current)
-                  ? null
-                  : path.dirname(current)
+              options.stop === current ? null : current === path.dirname(current) ? null : path.dirname(current)
             return [matches, next] as const
           })
         }).pipe(Stream.flatMap((batch) => Stream.fromIterable(batch as string[])))

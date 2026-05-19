@@ -91,10 +91,16 @@ export namespace Account {
     poll(
       deviceCode: DeviceCode,
       options?: { serverUrl?: string; onPending?: () => void },
-    ): Effect.Effect<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }, unknown>
+    ): Effect.Effect<
+      { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
+      unknown
+    >
     loginFull(
       options?: LoginOptions & { onPending?: (userCode: UserCode) => void },
-    ): Effect.Effect<{ accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number }, unknown>
+    ): Effect.Effect<
+      { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
+      unknown
+    >
     token(accountID: AccountID): Effect.Effect<string, unknown>
     orgs(accountID: AccountID): Effect.Effect<Org[], unknown>
     active(): Effect.Effect<Info | undefined>

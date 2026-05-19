@@ -63,13 +63,29 @@ function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme
     return { Icon: Folder, color: isDark ? "#fbbf24" : "#d97706", label: "Directory" }
   }
   const ext = node.name.split(".").pop()?.toLowerCase() ?? ""
-  const codeExts = new Set(["ts", "tsx", "js", "jsx", "mjs", "cjs", "swift", "kt", "java", "go", "rs", "py", "rb", "php"])
+  const codeExts = new Set([
+    "ts",
+    "tsx",
+    "js",
+    "jsx",
+    "mjs",
+    "cjs",
+    "swift",
+    "kt",
+    "java",
+    "go",
+    "rs",
+    "py",
+    "rb",
+    "php",
+  ])
   const textExts = new Set(["md", "mdx", "txt", "log", "yml", "yaml", "toml", "ini", "env"])
   const imageExts = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "ico"])
   if (["json", "jsonc"].includes(ext)) return { Icon: FileJson, color: "#22c55e", label: "JSON" }
   if (["css", "scss", "sass", "less"].includes(ext)) return { Icon: Braces, color: "#0ea5e9", label: ext.toUpperCase() }
   if (["sql", "db", "sqlite"].includes(ext)) return { Icon: Database, color: "#a855f7", label: ext.toUpperCase() }
-  if (["lock", "plist"].includes(ext) || node.name === "package.json") return { Icon: Package, color: "#d97706", label: "Package" }
+  if (["lock", "plist"].includes(ext) || node.name === "package.json")
+    return { Icon: Package, color: "#d97706", label: "Package" }
   if (["config", "conf"].includes(ext) || node.name.includes("config")) {
     return { Icon: Settings, color: palette.muted, label: "Config" }
   }
@@ -393,7 +409,8 @@ export default function ExplorerScreen() {
 
   function openPath(filePath: string, absolutePath?: string, line?: number) {
     const resolvedAbsolute =
-      absolutePath ?? (filePath.startsWith("/") ? filePath : directory ? `${directory.replace(/\/$/, "")}/${filePath}` : filePath)
+      absolutePath ??
+      (filePath.startsWith("/") ? filePath : directory ? `${directory.replace(/\/$/, "")}/${filePath}` : filePath)
     router.push({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pathname: "/sessions/editor" as any,
@@ -600,7 +617,12 @@ export default function ExplorerScreen() {
           </View>
 
           <ChromeIconButton icon={Search} label="Search text in workspace" onPress={() => setSearchVisible(true)} />
-          <ChromeIconButton icon={RefreshCw} label="Refresh tree" onPress={() => void load(currentDir)} disabled={loading} />
+          <ChromeIconButton
+            icon={RefreshCw}
+            label="Refresh tree"
+            onPress={() => void load(currentDir)}
+            disabled={loading}
+          />
         </View>
 
         {/* File name search bar */}
@@ -643,8 +665,17 @@ export default function ExplorerScreen() {
           <ExplorerStat label="Open" value={expandedPaths.size} />
           <ExplorerStat label="Changed" value={changedCount} tone={changedCount > 0 ? "accent" : "neutral"} />
           <View style={{ flex: 1 }} />
-          <ChromeIconButton icon={Maximize2} label="Expand visible directories" onPress={() => void expandVisibleDirectories()} />
-          <ChromeIconButton icon={Minimize2} label="Collapse all directories" onPress={collapseAll} disabled={!expandedPaths.size} />
+          <ChromeIconButton
+            icon={Maximize2}
+            label="Expand visible directories"
+            onPress={() => void expandVisibleDirectories()}
+          />
+          <ChromeIconButton
+            icon={Minimize2}
+            label="Collapse all directories"
+            onPress={collapseAll}
+            disabled={!expandedPaths.size}
+          />
         </View>
       </View>
 

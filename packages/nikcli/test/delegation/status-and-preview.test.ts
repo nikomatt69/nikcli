@@ -30,15 +30,13 @@ describe("Delegation.Event.Completed", () => {
 
 describe("Delegation.outputPreview", () => {
   it("returns progressSummary when still running", () => {
-    expect(
-      Delegation.outputPreview({ status: "running", progressSummary: "working", resultSummary: "final" }),
-    ).toBe("working")
+    expect(Delegation.outputPreview({ status: "running", progressSummary: "working", resultSummary: "final" })).toBe(
+      "working",
+    )
   })
 
   it("prefers resultSummary when not running", () => {
-    expect(
-      Delegation.outputPreview({ status: "complete", progressSummary: "p", resultSummary: "r" }),
-    ).toBe("r")
+    expect(Delegation.outputPreview({ status: "complete", progressSummary: "p", resultSummary: "r" })).toBe("r")
   })
 
   it("falls back to progress when result missing", () => {

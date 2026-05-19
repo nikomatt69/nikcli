@@ -762,9 +762,7 @@ export namespace Provider {
     options: Schema.Record(Schema.String, Schema.Unknown),
     headers: Schema.Record(Schema.String, Schema.String),
     release_date: Schema.String,
-    variants: Schema.optional(
-      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
-    ),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
   }).annotate({ identifier: "Model" })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -1410,7 +1408,9 @@ export namespace Provider {
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
         log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
-        throw Object.assign(new InitError({ providerID: model.providerID }), { cause: new Error("Provider module missing create function") })
+        throw Object.assign(new InitError({ providerID: model.providerID }), {
+          cause: new Error("Provider module missing create function"),
+        })
       }
       const fn = mod[createKey]
       const loaded = fn({
@@ -1578,10 +1578,13 @@ export namespace Provider {
             return language as LanguageModelV2
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }
@@ -1625,10 +1628,13 @@ export namespace Provider {
             return image
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }

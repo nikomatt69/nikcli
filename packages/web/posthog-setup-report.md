@@ -5,20 +5,20 @@ The wizard has completed a deep integration of PostHog analytics into the nikcli
 
 Twelve custom events are tracked across 7 files, covering the full user journey from landing page intent to dashboard feature usage. User identification (via `posthog.identify`) fires on login and registration, and `posthog.reset()` is called on logout to clear the session. Error tracking via `posthog.captureException()` is added to all critical auth and CRUD failure paths.
 
-| Event | Description | File |
-|---|---|---|
-| `install_command_copied` | User copied the install command on the landing page | `src/components/InstallBlock.astro` |
-| `hero_cta_clicked` | User clicked Start Building or Documentation CTA | `src/components/Hero.astro` |
-| `user_signed_up` | User successfully registered a new account | `src/dashboard/components/RegisterForm.tsx` |
-| `user_signed_in` | User successfully logged in | `src/dashboard/auth/AuthContext.tsx` |
-| `user_signed_out` | User logged out of the dashboard | `src/dashboard/auth/AuthContext.tsx` |
-| `session_created` | User initiated a new AI session | `src/dashboard/components/SessionsPage.tsx` |
-| `agent_created` | User created a custom AI agent | `src/dashboard/components/AgentsPage.tsx` |
-| `skill_created` | User created a new skill prompt | `src/dashboard/components/SkillsPage.tsx` |
-| `skill_deleted` | User deleted a skill | `src/dashboard/components/SkillsPage.tsx` |
-| `skills_bulk_imported` | User imported skills from GitHub URLs | `src/dashboard/components/SkillsPage.tsx` |
-| `mcp_server_added` | User added a new MCP server integration | `src/dashboard/components/McpPage.tsx` |
-| `mcp_server_removed` | User removed an MCP server integration | `src/dashboard/components/McpPage.tsx` |
+| Event                    | Description                                         | File                                        |
+| ------------------------ | --------------------------------------------------- | ------------------------------------------- |
+| `install_command_copied` | User copied the install command on the landing page | `src/components/InstallBlock.astro`         |
+| `hero_cta_clicked`       | User clicked Start Building or Documentation CTA    | `src/components/Hero.astro`                 |
+| `user_signed_up`         | User successfully registered a new account          | `src/dashboard/components/RegisterForm.tsx` |
+| `user_signed_in`         | User successfully logged in                         | `src/dashboard/auth/AuthContext.tsx`        |
+| `user_signed_out`        | User logged out of the dashboard                    | `src/dashboard/auth/AuthContext.tsx`        |
+| `session_created`        | User initiated a new AI session                     | `src/dashboard/components/SessionsPage.tsx` |
+| `agent_created`          | User created a custom AI agent                      | `src/dashboard/components/AgentsPage.tsx`   |
+| `skill_created`          | User created a new skill prompt                     | `src/dashboard/components/SkillsPage.tsx`   |
+| `skill_deleted`          | User deleted a skill                                | `src/dashboard/components/SkillsPage.tsx`   |
+| `skills_bulk_imported`   | User imported skills from GitHub URLs               | `src/dashboard/components/SkillsPage.tsx`   |
+| `mcp_server_added`       | User added a new MCP server integration             | `src/dashboard/components/McpPage.tsx`      |
+| `mcp_server_removed`     | User removed an MCP server integration              | `src/dashboard/components/McpPage.tsx`      |
 
 ## Next steps
 

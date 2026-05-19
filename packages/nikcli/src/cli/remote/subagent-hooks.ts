@@ -117,9 +117,11 @@ export function getSubagentRemoteHooks(): SubagentRemoteHooks {
   return _hooks
 }
 
-export function attachRemoteHooksToAgentService(agentService: {
-  on(event: string, handler: (...args: unknown[]) => void): void
-} | null): void {
+export function attachRemoteHooksToAgentService(
+  agentService: {
+    on(event: string, handler: (...args: unknown[]) => void): void
+  } | null,
+): void {
   if (!agentService) {
     log.warn("No agent service provided to attach hooks")
     return
@@ -130,10 +132,7 @@ export function attachRemoteHooksToAgentService(agentService: {
 
   agentService.on("task_start", (task: unknown) => {
     const typedTask = task as { agentType?: string; task?: string; description?: string }
-    hooks.onStart(
-      typedTask.agentType ?? "agent",
-      typedTask.task ?? typedTask.description ?? "Task",
-    )
+    hooks.onStart(typedTask.agentType ?? "agent", typedTask.task ?? typedTask.description ?? "Task")
   })
 
   agentService.on("task_progress", (task: unknown, update: unknown) => {
@@ -165,10 +164,7 @@ export function attachRemoteHooksToAgentService(agentService: {
   agentService.on("task_error", (task: unknown, error: unknown) => {
     const typedTask = task as { agentType?: string }
     const errorMessage = error instanceof Error ? error.message : String(error ?? "Unknown error")
-    hooks.onError(
-      typedTask.agentType ?? "agent",
-      error instanceof Error ? error : new Error(errorMessage),
-    )
+    hooks.onError(typedTask.agentType ?? "agent", error instanceof Error ? error : new Error(errorMessage))
   })
 
   agentService.on("input_required", (task: unknown, prompt: unknown) => {

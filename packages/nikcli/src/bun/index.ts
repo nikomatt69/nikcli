@@ -8,7 +8,6 @@ import { createRequire } from "module"
 import { Lock } from "../util/lock"
 import { proxied } from "../util/network"
 
-
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
   const req = createRequire(import.meta.url)

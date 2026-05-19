@@ -857,10 +857,7 @@ export function mergeGlobalAnalytics(a: GlobalAnalytics, b: GlobalAnalytics): Gl
   }
 }
 
-function mergeDailyToolStats(
-  a: DailyAnalytics["tools"],
-  b: DailyAnalytics["tools"],
-): DailyAnalytics["tools"] {
+function mergeDailyToolStats(a: DailyAnalytics["tools"], b: DailyAnalytics["tools"]): DailyAnalytics["tools"] {
   const out: DailyAnalytics["tools"] = { ...a }
   for (const [name, row] of Object.entries(b)) {
     const ex = out[name]
@@ -895,10 +892,7 @@ function mergeDailyProviderStats(
   return out
 }
 
-function mergeDailyModelStats(
-  a: DailyAnalytics["models"],
-  b: DailyAnalytics["models"],
-): DailyAnalytics["models"] {
+function mergeDailyModelStats(a: DailyAnalytics["models"], b: DailyAnalytics["models"]): DailyAnalytics["models"] {
   const out: DailyAnalytics["models"] = { ...a }
   for (const [id, row] of Object.entries(b)) {
     const ex = out[id]
@@ -979,14 +973,15 @@ export async function loadPersistedAnalyticsFromDataRoot(dataRoot: string): Prom
   const globalRaw = await Bun.file(path.join(root, "global.json"))
     .json()
     .catch(() => null)
-  const global =
-    globalRaw && GlobalAnalytics.safeParse(globalRaw).success ? GlobalAnalytics.parse(globalRaw) : null
+  const global = globalRaw && GlobalAnalytics.safeParse(globalRaw).success ? GlobalAnalytics.parse(globalRaw) : null
 
   const daily: DailyAnalytics[] = []
   const dailyDir = path.join(root, "daily")
   try {
     for await (const file of new Bun.Glob("*.json").scan({ cwd: dailyDir, absolute: true })) {
-      const raw = await Bun.file(file).json().catch(() => null)
+      const raw = await Bun.file(file)
+        .json()
+        .catch(() => null)
       if (raw && DailyAnalytics.safeParse(raw).success) daily.push(DailyAnalytics.parse(raw))
     }
   } catch {
@@ -998,7 +993,9 @@ export async function loadPersistedAnalyticsFromDataRoot(dataRoot: string): Prom
   const sessionDir = path.join(root, "session")
   try {
     for await (const file of new Bun.Glob("*.json").scan({ cwd: sessionDir, absolute: true })) {
-      const raw = await Bun.file(file).json().catch(() => null)
+      const raw = await Bun.file(file)
+        .json()
+        .catch(() => null)
       if (raw && SessionAnalytics.safeParse(raw).success) sessions.push(SessionAnalytics.parse(raw))
     }
   } catch {

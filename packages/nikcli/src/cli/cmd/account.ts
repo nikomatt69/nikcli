@@ -54,9 +54,7 @@ export const AccountLoginCommand = cmd({
       )
 
       prompts.log.info(`Visit: ${loginResult.verificationUrl}`)
-      prompts.log.info(
-        `Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`,
-      )
+      prompts.log.info(`Enter code: ${UI.Style.TEXT_SUCCESS}${loginResult.userCode}${UI.Style.TEXT_NORMAL}`)
 
       spinner.start("Waiting for authorization...")
 
@@ -312,9 +310,7 @@ export const AccountOrgsCommand = cmd({
       const activeAccount = await runAccount(
         Effect.gen(function* () {
           const account = yield* Account.Service
-          return args.accountId
-            ? yield* account.get(args.accountId)
-            : yield* account.active()
+          return args.accountId ? yield* account.get(args.accountId) : yield* account.active()
         }),
       )
 
