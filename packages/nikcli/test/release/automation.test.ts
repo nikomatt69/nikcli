@@ -39,7 +39,6 @@ describe("release automation", () => {
     const docsWorkflow = await readRoot(".github/workflows/docs-update.yml")
     const statsWorkflow = await readRoot(".github/workflows/stats.yml")
     const nixWorkflow = await readRoot(".github/workflows/update-nix-hashes.yml")
-    const nixDesktopWorkflow = await readRoot(".github/workflows/nix-desktop.yml")
 
     expect(docsWorkflow).toContain("continue-on-error: true")
     expect(docsWorkflow).toContain("nikomatt69/nikcli/github@latest")
@@ -49,7 +48,6 @@ describe("release automation", () => {
     expect(statsWorkflow).toContain("git pull --rebase --autostash")
     expect(nixWorkflow).toContain("continue-on-error: ${{ github.event_name != 'workflow_dispatch' }}")
     expect(nixWorkflow).toContain("timeout-minutes: 45")
-    expect(nixDesktopWorkflow).toContain("branches: [live-main]")
   })
 
   it("keeps the automatic GitHub release path single-sourced", async () => {
@@ -120,6 +118,10 @@ describe("CI pipeline", () => {
     expect(pipeline).toContain("refs/heads/live-main")
     expect(pipeline).toContain("nikomatt69/nikcli")
     expect(pipeline).toContain("secrets: inherit")
+    expect(pipeline).toContain("!startsWith(github.event.head_commit.message, 'release: v')")
+    expect(pipeline).toContain("!startsWith(github.event.head_commit.message, 'chore: generate')")
+    expect(pipeline).toContain("!startsWith(github.event.head_commit.message, 'chore: update')")
+    expect(pipeline).toContain("[nikcli autofix]")
   })
 
   it("autofix only runs on trusted contexts and skips bot/release/generated commits", async () => {
