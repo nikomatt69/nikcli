@@ -52,6 +52,7 @@
 | `nikcli attach` | `attach.ts` | Open TUI against already-running server (`--dir`, `--session`) |
 | `nikcli mobile dev` | `mobile-dev.ts` | Expo, simulator, React Native commands |
 | `nikcli tui thread` | `tui/thread.ts` | Default TUI: resolves cwd, starts worker, RPC fetch + event streaming, renders TUI |
+| `nikcli goal` | `goal.ts` | Goal management (create, list, update, archive, clear) |
 | TUI plugin | `tui/plugin/` | Routes, slash commands, UI slots (app/sidebar/home areas) |
 
 ### Key Patterns
@@ -1135,7 +1136,22 @@ Token stored server-side in `${Global.Path.data}/connectors-auth.json`. If serve
 
 **SolidJS + OpenTUI** — `@opentui/solid` renders SolidJS JSX to terminal-native elements.
 
-**Entry point**: `src/cli/cmd/tui/app.tsx` — `tui()` calls `render(() => <App />, { targetFps: 45, useMouse: true, useKittyKeyboard: {}, exitOnCtrlC: false })`
+**Entry point**: `src/cli/cmd/tui/thread.ts` — creates worker, server, RPC client, then calls `tui()` in `app.tsx`.
+
+**Renderer pattern (aligned with OpenCode, 2026-05-19)**:
+```typescript
+import { createCliRenderer } from "@opentui/core"
+const renderer = await createCliRenderer(rendererConfig({ targetFps: 45 }))
+render(() => <App renderer={renderer} />, { renderer })
+// Use renderer.getPalette() + waitForThemeMode(1000) for theme detection
+// DO NOT use manual process.stdin.setRawMode() for color probing — breaks the TUI
+```
+
+**Raw-mode safety**: Color probes in `util/terminal.ts` save `isRaw` state and restore after; `app.tsx` probes run with raw mode preserved. OpenTUI owns raw mode — manual toggle during render causes double-ESC/exit crashes.
+
+**Exit path** (`context/exit.tsx`): promise-idempotent, calls `renderer.destroy()`, `worker.shutdown()`, `process.exit(1)` on error. Win32 guards (`win32InstallCtrlCGuard`, `win32DisableProcessedInput`) protect Ctrl+C and raw mode on Windows.
+
+**Thread shutdown** (`thread.ts`): `stop()` is idempotent with timeout on `client.call("shutdown")`, removes process listeners, calls `worker.terminate()`, uses `setTimeout(...).unref()` for fire-and-forget cleanup.
 
 **OpenTUI primitives**: `<box>` (flexbox container), `<text>` (styled text), `<span>` (inline text), `<scrollbox>` (scrollable), `<textarea>` (input), `<spinner>`, `<flex>`
 
@@ -1990,26 +2006,47 @@ Central tracking document for v2 migration. Key epochs:
 
 Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode integration complete. APIError migration pending in test files.
 
-## Brain Pass (2026-05-17)
+## Brain Pass (2026-05-19)
 
-### Signal Consolidated
+### TUI Shutdown & OpenCode Alignment
 
-1. **Multi-agent analysis pattern** — 4 parallel background agents effectively used for codebase analysis: architecture + server/API + tools/agents + storage each run concurrently for comprehensive coverage. Delegator sessions synthesize worker results into final summaries.
+**Bug fixed (2026-05-19)**: Raw-mode color probe in `app.tsx` and `util/terminal.ts` was forcing `process.stdin.setRawMode(false)` while OpenTUI was using raw mode, breaking the TUI on double-ESC or exit. Fix: save `isRaw` before probe and restore after, wrap cleanup in try/finally.
 
-2. **Server/API dual-layer architecture** — Two API styles coexist: Hono Routes (`src/server/routes/*`) with Zod validation, and Effect HTTP API (`src/server/httpapi/*`) for type-safe SDK generation. TUI ↔ Server communication via SSE at `/event` (real-time updates) and control endpoints at `/tui/control/*` (append-prompt, publish, show-toast, select-session).
+**OpenCode comparison findings** (`anomalyco/opencode`):
 
-3. **SDK generation workflow** — `bun dev generate > openapi.json` from nikcli → `@hey-api/openapi-ts` generates `NikcliClient` to `packages/sdk/js/src/v2/gen/`. SDK uses `http://localhost:4096` default base URL.
+| Aspect | OpenCode | Nikcli (before) | Nikcli (after) |
+|--------|----------|-----------------|----------------|
+| Color probe | `createCliRenderer()` → `getPalette()` + `waitForThemeMode()` | Manual `setRawMode` OSC queries | Aligned: uses `createCliRenderer`, `getPalette`, `waitForThemeMode` |
+| Windows raw mode | `win32.ts`: disable `ENABLE_PROCESSED_INPUT`, poll, flush buffer | None | Added `win32InstallCtrlCGuard()` in thread.ts |
+| Thread shutdown | `stop()` with `client.call("shutdown")` timeout → `worker.terminate()` | Simple shutdown | Aligned: timeout on shutdown, `worker.terminate()`, `setTimeout.unref()` |
+| Worker idempotency | Simple dispose | `shuttingDown` promise cached forever | Fixed: `shutdown()` now idempotent, resets `server` |
+| Event stream cleanup | No local stream map | Event streams not removed on failure | Fixed: abort + remove on stream error |
+| Exit path | Promise-idempotent, no error catch | Error handling present | Aligned: idempotent, error → exit(1) |
+| RPC error propagation | Only posts `rpc.result`; errors leave pending promise | `rpc.error` posted, error serialized | Nikcli stronger here — errors reject pending promises |
+| Keymap layer | `@opentui/keymap` with pending-sequence cleanup | Command/keybind provider | Gap: nikcli lacks equivalent keymap pending-sequence cleanup |
+| Teardown order | Keymap → plugins → audio → renderer.destroy() | Plugins + onCleanup | Aligned: full teardown sequence in exit.tsx |
 
-4. **Storage `structuredClone` rationale** — `Storage.update()` uses `structuredClone` for draft copy (not JSON.parse/stringify) to handle circular references, preserve BigInt/Date/TypedArray objects, and prevent cache corruption from shared references.
+**Key files changed (2026-05-19)**:
+- `src/cli/cmd/tui/app.tsx` — `createCliRenderer` + `getPalette`/`waitForThemeMode`, raw-mode protection
+- `src/cli/cmd/tui/thread.ts` — `stop()` idempotent with timeout + `worker.terminate()`, Win32 guards, process listener removal
+- `src/cli/cmd/tui/util/terminal.ts` — Raw-mode save/restore with anti double-resolve guard
+- `src/cli/cmd/tui/worker.ts` — Shutdown idempotency, event stream cleanup, `server` reset
+- `src/util/rpc.ts` — RPC errors propagate as rejection (already superior to OpenCode)
+- `src/cli/cmd/tui/context/exit.tsx` — Idempotent exit with error → exit(1)
 
-5. **Effect Schema → Zod conversion** — `src/util/effect-zod.ts` maps Effect schemas to Zod equivalents: `Schema.Struct` → `z.object`, `Schema.Array` → `z.array`, `Schema.Union` → `z.union`, etc. Enables Effect-based services to expose Zod-validated HTTP APIs.
+**Remaining gaps vs OpenCode**:
+1. Thread does not call `worker.terminate()` after `shutdown()` — added, but verify runtime behavior
+2. No `@opentui/keymap` integration for ESC pending-sequence cleanup
+3. No `waitForThemeMode` polling fallback in app.tsx for terminals that don't reply OSC 10/11
 
-6. **Tool execution flow confirmed** — `resolveTools()` in `prompt.ts:1124` builds AI SDK tool wrappers. Tools support both Promise and Effect-based execution. Zod validation errors auto-formatted via `formatValidationError()`.
+### Other Sessions (2026-05-19)
 
-7. **Storage TTL + transaction pattern** — 5-second TTL read-through cache; transactions use sorted lock acquisition to prevent deadlocks; `Cache.invalidate()` called on all writes/removes.
+- **Goal command** (`src/cli/cmd/goal.ts`) — New native CLI command for goal management. Added to CLI commands table.
+- **Skills search** — Tested `find-skills` skill with mobile development search. Found `vercel-react-native-skills` (121K installs) and `sleek-design-mobile-apps` (143.5K installs) from skills.sh leaderboard.
 
 ### Date Reference Updates
 
 - "Session Fixes (2026-05-04)" section confirmed accurate
-- "Brain Pass (2026-05-16)" section confirmed accurate  
-- Today's date: 2026-05-17 (all date references in file are absolute, no relative dates to update)
+- "Brain Pass (2026-05-16)" section confirmed accurate
+- "Brain Pass (2026-05-17)" section confirmed accurate
+- Today's date: 2026-05-19 (all date references in file are absolute)

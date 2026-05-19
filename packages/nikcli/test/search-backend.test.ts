@@ -119,7 +119,31 @@ describe("SearchBackend", () => {
     )
   })
 
-  it("benchmarks fff and the Bun fallback on the same fixture", async () => {
+  it("keeps ripgrep search results compatible with the Bun fallback when rg is installed", async () => {
+    await withProject(
+      {
+        "src/alpha.ts": "const value = 'needleOne'\n",
+        "src/beta.js": "const value = 'needleTwo'\n",
+        "src/nested/gamma.ts": "const value = 'needleThree'\n",
+      },
+      async (projectDir) => {
+        const input = {
+          cwd: projectDir,
+          pattern: "needle\\w+",
+          glob: ["**/*.ts"],
+        }
+        const actual = await SearchBackend.search({ ...input, prefer: "rg" })
+        if (actual.backend !== "rg") {
+          // ripgrep not installed in this environment - skip the comparison
+          return
+        }
+        const expected = await SearchBackend.search({ ...input, prefer: "bun" })
+        expect(comparableMatches(actual.matches)).toEqual(comparableMatches(expected.matches))
+      },
+    )
+  })
+
+  it("benchmarks fff, ripgrep, and the Bun fallback on the same fixture", async () => {
     const files: Record<string, string> = {}
     for (let index = 0; index < 40; index++) {
       files[`src/file-${index}.ts`] = `export const value${index} = "needle-${index}"\n`
@@ -136,10 +160,12 @@ describe("SearchBackend", () => {
         rounds: 3,
       })
 
-      console.log("\nSearchBackend benchmark (fff vs Bun fallback)")
+      console.log("\nSearchBackend benchmark (fff vs ripgrep vs Bun)")
       console.log(`  files fff:     ${formatSample(result.files.fff)}`)
+      console.log(`  files rg:      ${formatSample(result.files.rg)}`)
       console.log(`  files bun:     ${formatSample(result.files.bun)}`)
       console.log(`  grep fff:      ${formatSample(result.grep.fff)}`)
+      console.log(`  grep rg:       ${formatSample(result.grep.rg)}`)
       console.log(`  grep bun:      ${formatSample(result.grep.bun)}`)
 
       expect(result.files.bun.available).toBe(true)
@@ -147,6 +173,8 @@ describe("SearchBackend", () => {
       expect(result.grep.bun.count).toBe(40)
       if (result.files.fff) expect(result.files.fff.count).toBe(result.files.bun.count)
       if (result.grep.fff) expect(result.grep.fff.count).toBe(result.grep.bun.count)
+      if (result.files.rg) expect(result.files.rg.count).toBe(result.files.bun.count)
+      if (result.grep.rg) expect(result.grep.rg.count).toBe(result.grep.bun.count)
     })
   })
 })

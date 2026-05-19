@@ -64,28 +64,46 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
       sse?.abort()
       const ctrl = new AbortController()
       sse = ctrl
+      let backoff = 250
+      const maxBackoff = 5000
       void (async () => {
-        while (true) {
-          if (abort.signal.aborted || ctrl.signal.aborted) break
-          try {
-            const events = await sdk.event.subscribe(
-              {},
-              {
-                signal: ctrl.signal,
-              },
-            )
+        try {
+          while (true) {
+            if (abort.signal.aborted || ctrl.signal.aborted) break
+            try {
+              const events = await sdk.event.subscribe(
+                {},
+                {
+                  signal: ctrl.signal,
+                },
+              )
 
-            for await (const event of events.stream) {
-              if (ctrl.signal.aborted) break
-              handleEvent(event)
+              // successful connect → reset backoff
+              backoff = 250
+
+              for await (const event of events.stream) {
+                if (ctrl.signal.aborted) break
+                try {
+                  handleEvent(event)
+                } catch (handlerError) {
+                  console.error("[sse]", "handleEvent threw", handlerError)
+                }
+              }
+
+              if (timer) clearTimeout(timer)
+              if (queue.length > 0) flush()
+            } catch (loopError) {
+              if (ctrl.signal.aborted || abort.signal.aborted) break
+              console.warn("[sse]", "subscribe failed, retrying in", backoff, "ms",
+                loopError instanceof Error ? loopError.message : loopError)
+              await Bun.sleep(backoff)
+              backoff = Math.min(backoff * 2, maxBackoff)
             }
-
-            if (timer) clearTimeout(timer)
-            if (queue.length > 0) flush()
-          } catch {
-            if (ctrl.signal.aborted || abort.signal.aborted) break
-            await Bun.sleep(250)
           }
+        } catch (fatalError) {
+          // Should never happen — the outer try is a safety net so an
+          // unhandled rejection here can't crash the TUI process.
+          console.error("[sse]", "fatal loop error", fatalError)
         }
       })()
     }

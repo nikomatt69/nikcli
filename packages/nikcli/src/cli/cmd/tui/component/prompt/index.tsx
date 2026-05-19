@@ -167,6 +167,7 @@ export function Prompt(props: PromptProps) {
   let input: TextareaRenderable
   let anchor: BoxRenderable
   let autocomplete: AutocompleteRef
+  let interruptResetTimer: ReturnType<typeof setTimeout> | undefined
 
   const keybind = useKeybind()
   const local = useLocal()
@@ -741,6 +742,10 @@ export function Prompt(props: PromptProps) {
   }
 
   onCleanup(() => {
+    if (interruptResetTimer) {
+      clearTimeout(interruptResetTimer)
+      interruptResetTimer = undefined
+    }
     if (voiceAutoStopTimer) {
       clearTimeout(voiceAutoStopTimer)
       voiceAutoStopTimer = undefined
@@ -1037,9 +1042,11 @@ export function Prompt(props: PromptProps) {
         hidden: true,
         enabled: status().type !== "idle",
         onSelect: (dialog) => {
-          if (autocomplete.visible) return
-          if (!input.focused) return
-          // TODO: this should be its own command
+          // Guard refs - they may be undefined briefly during mount/unmount.
+          // Without these guards a TypeError escapes the keyboard handler and
+          // corrupts the terminal state when ESC is pressed during processing.
+          if ((autocomplete as AutocompleteRef | undefined)?.visible) return
+          if (!(input as TextareaRenderable | undefined)?.focused) return
           if (store.mode === "shell") {
             setStore("mode", "normal")
             return
@@ -1049,17 +1056,24 @@ export function Prompt(props: PromptProps) {
           const newCount = store.interrupt + 1
           setStore("interrupt", newCount)
 
-          setTimeout(() => {
-            setStore("interrupt", 0)
+          if (interruptResetTimer) clearTimeout(interruptResetTimer)
+          interruptResetTimer = setTimeout(() => {
+            interruptResetTimer = undefined
+            try {
+              setStore("interrupt", 0)
+            } catch {
+              // store may be disposed if the component unmounted; ignore
+            }
           }, 5000)
 
           if (newCount >= 2) {
-            void sdk.client.session
-              .abort({
-                sessionID: props.sessionID,
-              })
-              .catch(() => {})
+            const sessionID = props.sessionID
+            void sdk.client.session.abort({ sessionID }).catch(() => {})
             setStore("interrupt", 0)
+            if (interruptResetTimer) {
+              clearTimeout(interruptResetTimer)
+              interruptResetTimer = undefined
+            }
           }
           dialog.clear()
         },

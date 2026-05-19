@@ -183,7 +183,7 @@ export namespace Question {
           }),
         )
 
-        existing.reject(new RejectedError())
+        existing.reject(new RejectedError({}))
       })
 
       const list = Effect.fn("Question.list")(function* () {
@@ -202,9 +202,9 @@ export namespace Question {
 
   export const defaultLayer = layer
 
-  export class RejectedError extends Error {
-    constructor() {
-      super("The user dismissed this question")
+  export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("QuestionRejectedError", {}) {
+    override get message() {
+      return "The user dismissed this question"
     }
   }
 }

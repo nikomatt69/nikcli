@@ -44,7 +44,7 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
-import { Context, Effect, Layer, ScopedCache } from "effect"
+import { Context, Effect, Layer, ScopedCache, Schema } from "effect"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -62,15 +62,15 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
 
-  class SessionCancelledError extends Error {
-    constructor() {
-      super("Session cancelled by user")
-      this.name = "SessionCancelledError"
+  class SessionCancelledError extends Schema.TaggedErrorClass<SessionCancelledError>()("SessionCancelledError", {}) {
+    override get message() {
+      return "Session cancelled by user"
     }
   }
 
   function isCancelledError(e: unknown): boolean {
-    return e instanceof SessionCancelledError
+    if (e instanceof SessionCancelledError) return true
+    return (e as { _tag?: string } | undefined)?._tag === "SessionCancelledError"
   }
 
   export function isUserInitiatedStop(e: unknown): boolean {
@@ -330,10 +330,9 @@ export namespace SessionPrompt {
     return Effect.runPromise(withCurrentInstance(InstanceState.context))
   }
 
-  class StateCache extends Context.Service<
-    StateCache,
-    ScopedCache.ScopedCache<string, PromptState>
-  >()("SessionPrompt.StateCache") {}
+  class StateCache extends Context.Service<StateCache, ScopedCache.ScopedCache<string, PromptState>>()(
+    "SessionPrompt.StateCache",
+  ) {}
 
   const stateLayer = Layer.effect(
     StateCache,
@@ -345,7 +344,7 @@ export namespace SessionPrompt {
             for (const item of Object.values(data)) {
               item.abort.abort()
               for (const callback of item.callbacks) {
-                callback.reject(new SessionCancelledError())
+                callback.reject(new SessionCancelledError({}))
               }
             }
           }),
@@ -559,10 +558,13 @@ export namespace SessionPrompt {
     const match = s[sessionID]
     if (!match || match.abort !== controller) return
     for (const item of match.callbacks) {
-      item.reject(new SessionCancelledError())
+      item.reject(new SessionCancelledError({}))
     }
     delete s[sessionID]
     await setStatus(sessionID, { type: "idle" })
+    await sessionUpdate(sessionID, (draft) => {
+      draft.activeCommand = undefined
+    })
   }
 
   const cancel = (() => {
@@ -575,7 +577,7 @@ export namespace SessionPrompt {
       match.abort.abort()
       match.cancelling = true
       for (const item of match.callbacks) {
-        item.reject(new SessionCancelledError())
+        item.reject(new SessionCancelledError({}))
       }
       match.callbacks = []
       return
@@ -2339,6 +2341,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       }),
     )
 
+    await sessionUpdate(input.sessionID, (draft) => {
+      draft.activeCommand = input.command
+    })
+
+    await sessionUpdate(input.sessionID, (draft) => {
+      draft.title = `/${input.command}`
+    })
+
     const result = (await prompt({
       sessionID: input.sessionID,
       messageID: input.messageID,
@@ -2472,18 +2482,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           if (match) throw Session.BusyError.create(sessionID)
         }),
       prompt: (input) =>
-        Effect.tryPromise(() => prompt(input)).pipe(
-          Effect.catchIf(isCancelledError, () => Effect.interrupt),
-        ),
+        Effect.tryPromise(() => prompt(input)).pipe(Effect.catchIf(isCancelledError, () => Effect.interrupt)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
       cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
       loop: (sessionID) =>
-        Effect.tryPromise(() => loop(sessionID)).pipe(
-          Effect.catchIf(isCancelledError, () => Effect.interrupt),
-        ),
+        Effect.tryPromise(() => loop(sessionID)).pipe(Effect.catchIf(isCancelledError, () => Effect.interrupt)),
       shell: (input) => Effect.tryPromise(() => shell(input)),
       command: (input) => Effect.tryPromise(() => command(input)),
     }),

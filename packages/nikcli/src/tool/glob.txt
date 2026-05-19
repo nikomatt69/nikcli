@@ -1,6 +1,8 @@
-- Fast file pattern matching tool that uses fuzzy-first indexing and frecency ranking
+- Fast file pattern matching tool that works with any codebase size
 - Supports glob patterns like "**/*.js" or "src/**/*.ts"
-- Returns matching file paths prioritized by recent and relevant files
+- Uses fff/frecency when available and falls back to filesystem glob scanning
+- Returns absolute matching file paths, capped to the most relevant 100 results
 - Use this tool when you need to find files by name patterns
+- For broad patterns like "**/*", prefer passing a narrower path or pattern when possible
 - When you are doing an open-ended search that may require multiple rounds of globbing and grepping, use the Task tool instead
 - You have the capability to call multiple tools in a single response. It is always better to speculatively perform multiple searches as a batch that are potentially useful.

@@ -9,6 +9,7 @@ import ignore from "ignore"
 import { Log } from "../util/log"
 import { Filesystem } from "../util/filesystem"
 import { FFF } from "./fff"
+import { SearchBackend } from "./searchBackend"
 import fuzzysort from "fuzzysort"
 import { Global } from "../global"
 import { InstanceState } from "@/effect"
@@ -200,7 +201,16 @@ export namespace File {
 
         const set = new Set<string>()
         const fffFiles = await FFF.files({ cwd: ctx.directory, hidden: true, limit: 100000 })
-        const files = fffFiles ?? []
+        const files =
+          fffFiles ??
+          (
+            await SearchBackend.fileList({ cwd: ctx.directory, hidden: true, limit: 100000, prefer: "rg" }).catch(
+              (error) => {
+                log.warn("file cache ripgrep fallback failed", { error })
+                return SearchBackend.fileList({ cwd: ctx.directory, hidden: true, limit: 100000, prefer: "bun" })
+              },
+            )
+          ).files
         for (const file of files) {
           result.files.push(file)
           let current = file

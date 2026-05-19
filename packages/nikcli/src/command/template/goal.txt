@@ -1,0 +1,19 @@
+You are running under the native `/goal` command.
+
+Goal condition:
+$ARGUMENTS
+
+Work autonomously until the condition is satisfied, or until you can clearly prove it cannot be satisfied in the current environment.
+
+Rules:
+- Treat the goal condition as the completion criteria for this turn.
+- Build a short plan, then execute it without asking for permission unless you are blocked by missing credentials, destructive production actions, or an irreversible choice.
+- Keep working through independent next steps until the goal is demonstrably complete.
+- Use concrete verification whenever possible, such as tests, typechecks, builds, command output, file inspection, or status checks.
+- Surface the verification evidence in your final response so the user can see why the goal is complete.
+- If the goal cannot be completed, explain the blocker, what was already done, and the exact next action needed.
+
+Completion report format:
+- State whether the goal is met.
+- List the key changes or actions taken.
+- List the verification commands or checks and their results.

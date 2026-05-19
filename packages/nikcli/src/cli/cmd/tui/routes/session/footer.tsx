@@ -46,15 +46,12 @@ export function Footer() {
     const refreshBrainStatus = async () => {
       try {
         const { getBrainConfig, readLastBrainAt, getSessionsCountSince } = await import("@/brain")
-        const { config, lastAt, count } = await withInstanceAsync(
-          { directory: instanceDirectory() },
-          async () => {
-            const config = await getBrainConfig()
-            const lastAt = await readLastBrainAt()
-            const count = await getSessionsCountSince(lastAt)
-            return { config, lastAt, count }
-          },
-        )
+        const { config, lastAt, count } = await withInstanceAsync({ directory: instanceDirectory() }, async () => {
+          const config = await getBrainConfig()
+          const lastAt = await readLastBrainAt()
+          const count = await getSessionsCountSince(lastAt)
+          return { config, lastAt, count }
+        })
         setBrainEnabled(config.enabled)
         setBrainLastAt(lastAt)
         setBrainSessionsPending(count)
@@ -83,6 +80,12 @@ export function Footer() {
     return { hours, sessions: brainSessionsPending(), never: false }
   })
 
+  const activeCommand = createMemo(() => {
+    if (route.data.type !== "session") return undefined
+    const s = sync.session.get(route.data.sessionID)
+    return s?.activeCommand
+  })
+
   return (
     <box flexDirection="row" justifyContent="space-between" gap={1} flexShrink={0}>
       <text fg={theme.textMuted}>{directory()}</text>
@@ -107,6 +110,11 @@ export function Footer() {
                 {brainStatus()!.sessions > 0 && (
                   <span style={{ fg: theme.success }}> ({brainStatus()!.sessions} sessions)</span>
                 )}
+              </text>
+            </Show>
+            <Show when={activeCommand()}>
+              <text fg={theme.accent}>
+                <span style={{ fg: theme.accent }}>◉</span> /{activeCommand()}
               </text>
             </Show>
             <Show when={brainEnabled() === null}>

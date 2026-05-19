@@ -17,18 +17,29 @@ export namespace Terminal {
     foreground: RGBA | null
     colors: RGBA[]
   }> {
-    if (!process.stdin.isTTY) return { background: null, foreground: null, colors: [] }
+    if (!process.stdin.isTTY || typeof process.stdin.setRawMode !== "function") {
+      return { background: null, foreground: null, colors: [] }
+    }
 
     return new Promise((resolve) => {
       let background: RGBA | null = null
       let foreground: RGBA | null = null
       const paletteColors: RGBA[] = []
       let timeout: NodeJS.Timeout
+      const wasRaw = process.stdin.isRaw === true
+      let settled = false
 
       const cleanup = () => {
-        process.stdin.setRawMode(false)
+        process.stdin.setRawMode(wasRaw)
         process.stdin.removeListener("data", handler)
         clearTimeout(timeout)
+      }
+
+      const finish = (result: { background: RGBA | null; foreground: RGBA | null; colors: RGBA[] }) => {
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve(result)
       }
 
       const parseColor = (colorStr: string): RGBA | null => {
@@ -76,12 +87,11 @@ export namespace Terminal {
 
         // Return immediately if we have all 16 palette colors
         if (paletteColors.filter((c) => c !== undefined).length === 16) {
-          cleanup()
-          resolve({ background, foreground, colors: paletteColors })
+          finish({ background, foreground, colors: paletteColors })
         }
       }
 
-      process.stdin.setRawMode(true)
+      if (!wasRaw) process.stdin.setRawMode(true)
       process.stdin.on("data", handler)
 
       // Query background (OSC 11)
@@ -94,8 +104,7 @@ export namespace Terminal {
       }
 
       timeout = setTimeout(() => {
-        cleanup()
-        resolve({ background, foreground, colors: paletteColors })
+        finish({ background, foreground, colors: paletteColors })
       }, 1000)
     })
   }

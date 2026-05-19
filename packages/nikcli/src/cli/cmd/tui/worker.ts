@@ -2,7 +2,6 @@ import { Installation } from "@/installation"
 import { Server } from "@/server/server"
 import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
-import { withInstanceAsync } from "@/effect"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@/util/rpc"
 import { upgrade } from "@/cli/upgrade"
@@ -11,6 +10,9 @@ import { GlobalBus } from "@/bus/global"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import type { BunWebSocketData } from "hono/bun"
 import { Flag } from "@/flag/flag"
+import { Process } from "@/util/process"
+
+Process.ensureMetadata("worker")
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -39,6 +41,7 @@ GlobalBus.on("event", (event) => {
 })
 
 let server: Bun.Server<BunWebSocketData> | undefined
+let shuttingDown: Promise<void> | undefined
 
 const eventStreams = new Map<string, AbortController>()
 
@@ -62,36 +65,36 @@ function startEventStream(directory: string) {
     signal,
   })
 
-  void (async () => {
+  ;(async () => {
     while (!signal.aborted) {
-      try {
-        const events = await Promise.resolve(
-          sdk.event.subscribe(
-            {},
-            {
-              signal,
-            },
-          ),
-        ).catch(() => undefined)
+      const events = await Promise.resolve(
+        sdk.event.subscribe(
+          {},
+          {
+            signal,
+          },
+        ),
+      ).catch(() => undefined)
 
-        if (!events) {
-          await Bun.sleep(250)
-          continue
-        }
+      if (!events) {
+        await Bun.sleep(250)
+        continue
+      }
 
-        for await (const event of events.stream) {
-          Rpc.emit("event", { id, event: event as Event })
-        }
+      for await (const event of events.stream) {
+        Rpc.emit("event", { id, event: event as Event })
+      }
 
-        if (!signal.aborted) {
-          await Bun.sleep(250)
-        }
-      } catch {
-        if (signal.aborted) return
+      if (!signal.aborted) {
         await Bun.sleep(250)
       }
     }
-  })()
+  })().catch((error) => {
+    if (signal.aborted) return
+    Log.Default.error("event stream error", {
+      error: error instanceof Error ? error.message : error,
+    })
+  })
 
   return id
 }
@@ -122,17 +125,22 @@ export const rpc = {
     }
   },
   async server(input: { port: number; hostname: string; mdns?: boolean; cors?: string[] }) {
+    if (shuttingDown) {
+      await shuttingDown
+      shuttingDown = undefined
+    }
     if (server) await server.stop(true)
     server = Server.listen(input)
     return { url: server.url.toString() }
   },
   async checkUpgrade(input: { directory: string }) {
-    await withInstanceAsync(
-      { directory: input.directory, init: InstanceBootstrap },
-      async () => {
+    await Instance.provide({
+      directory: input.directory,
+      init: InstanceBootstrap,
+      fn: async () => {
         await upgrade().catch(() => {})
       },
-    )
+    })
   },
   async reload() {
     await Instance.disposeAll()
@@ -144,12 +152,20 @@ export const rpc = {
     stopEventStream(input.id)
   },
   async shutdown() {
-    Log.Default.info("worker shutting down")
-    for (const id of [...eventStreams.keys()]) {
-      stopEventStream(id)
-    }
-    await Instance.disposeAll()
-    if (server) server.stop(true)
+    const shutdown = (shuttingDown ??= (async () => {
+      Log.Default.info("worker shutting down")
+      for (const id of [...eventStreams.keys()]) {
+        stopEventStream(id)
+      }
+      await Instance.disposeAll()
+      if (server) {
+        const current = server
+        server = undefined
+        current.stop(true)
+      }
+    })())
+    await shutdown
+    if (shuttingDown === shutdown) shuttingDown = undefined
   },
 }
 

@@ -1,4 +1,5 @@
 import { render, useRenderer, useTerminalDimensions } from "@opentui/solid"
+import { createCliRenderer, type CliRendererConfig } from "@opentui/core"
 import { Clipboard } from "@tui/util/clipboard"
 import * as Sound from "@tui/util/sound"
 import { RouteProvider, useRoute } from "@tui/context/route"
@@ -80,65 +81,24 @@ import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
 
-async function getTerminalBackgroundColor(): Promise<"dark" | "light"> {
-  // can't set raw mode if not a TTY
-  if (!process.stdin.isTTY) return "dark"
-
-  return new Promise((resolve) => {
-    let timeout: NodeJS.Timeout
-
-    const cleanup = () => {
-      process.stdin.setRawMode(false)
-      process.stdin.removeListener("data", handler)
-      clearTimeout(timeout)
-    }
-
-    const handler = (data: Buffer) => {
-      const str = data.toString()
-      const match = str.match(/\x1b]11;([^\x07\x1b]+)/)
-      if (match) {
-        cleanup()
-        const color = match[1]
-        // Parse RGB values from color string
-        // Formats: rgb:RR/GG/BB or #RRGGBB or rgb(R,G,B)
-        let r = 0,
-          g = 0,
-          b = 0
-
-        if (color.startsWith("rgb:")) {
-          const parts = color.substring(4).split("/")
-          r = parseInt(parts[0], 16) >> 8 // Convert 16-bit to 8-bit
-          g = parseInt(parts[1], 16) >> 8 // Convert 16-bit to 8-bit
-          b = parseInt(parts[2], 16) >> 8 // Convert 16-bit to 8-bit
-        } else if (color.startsWith("#")) {
-          r = parseInt(color.substring(1, 3), 16)
-          g = parseInt(color.substring(3, 5), 16)
-          b = parseInt(color.substring(5, 7), 16)
-        } else if (color.startsWith("rgb(")) {
-          const parts = color.substring(4, color.length - 1).split(",")
-          r = parseInt(parts[0])
-          g = parseInt(parts[1])
-          b = parseInt(parts[2])
-        }
-
-        // Calculate luminance using relative luminance formula
-        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-        // Determine if dark or light based on luminance threshold
-        resolve(luminance > 0.5 ? "light" : "dark")
-      }
-    }
-
-    process.stdin.setRawMode(true)
-    process.stdin.on("data", handler)
-    process.stdout.write("\x1b]11;?\x07")
-
-    timeout = setTimeout(() => {
-      cleanup()
-      resolve("dark")
-    }, 1000)
-  })
+function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
+  return {
+    targetFps: 45,
+    gatherStats: false,
+    exitOnCtrlC: false,
+    useKittyKeyboard: {},
+    useMouse: tuiCfg.mouse ?? true,
+    consoleOptions: {
+      keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
+      onCopySelection: (text) => {
+        Clipboard.copy(text).catch((error) => {
+          console.error(`Failed to copy console selection to clipboard: ${error}`)
+        })
+      },
+    },
+  }
 }
 
 import type { EventSource } from "./context/sdk"
@@ -154,84 +114,72 @@ export function tui(input: {
 }) {
   // promise to prevent immediate exit
   return new Promise<void>(async (resolve) => {
-    const mode = await getTerminalBackgroundColor()
+    const unguard = win32InstallCtrlCGuard()
+    win32DisableProcessedInput()
     const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
+    const renderer = await createCliRenderer(rendererConfig(tuiCfg))
+    void renderer.getPalette({ size: 16 }).catch(() => undefined)
+    const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
     const onExit = async () => {
+      unguard?.()
       await input.onExit?.()
       resolve()
     }
 
-    render(
-      () => {
-        return (
-          <ErrorBoundary
-            fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
-          >
-            <ArgsProvider {...input.args}>
-              <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()}>
-                <ServerProvider startServer={input.startServer}>
-                  <KVProvider>
-                    <ToastProvider>
-                      <RouteProvider>
-                        <SDKProvider
-                          url={input.url}
-                          directory={input.directory}
-                          fetch={input.fetch}
-                          events={input.events}
-                        >
-                          <ProjectProvider>
-                            <SyncProvider>
-                              <AnalyticsProvider>
-                                <ThemeProvider mode={mode}>
-                                  <LocalProvider>
-                                    <KeybindProvider>
-                                      <PromptStashProvider>
-                                        <DialogProvider>
-                                          <CommandProvider>
-                                            <FrecencyProvider>
-                                              <PromptHistoryProvider>
-                                                <EditorContextProvider>
-                                                  <PromptRefProvider>
-                                                    <App />
-                                                  </PromptRefProvider>
-                                                </EditorContextProvider>
-                                              </PromptHistoryProvider>
-                                            </FrecencyProvider>
-                                          </CommandProvider>
-                                        </DialogProvider>
-                                      </PromptStashProvider>
-                                    </KeybindProvider>
-                                  </LocalProvider>
-                                </ThemeProvider>
-                              </AnalyticsProvider>
-                            </SyncProvider>
-                          </ProjectProvider>
-                        </SDKProvider>
-                      </RouteProvider>
-                    </ToastProvider>
-                  </KVProvider>
-                </ServerProvider>
-              </ExitProvider>
-            </ArgsProvider>
-          </ErrorBoundary>
-        )
-      },
-      {
-        targetFps: 45,
-        gatherStats: false,
-        exitOnCtrlC: false,
-        useKittyKeyboard: {},
-        useMouse: tuiCfg.mouse ?? true,
-        consoleOptions: {
-          keyBindings: [{ name: "y", ctrl: true, action: "copy-selection" }],
-          onCopySelection: (text) => {
-            Clipboard.copy(text).catch((error) => {
-              console.error(`Failed to copy console selection to clipboard: ${error}`)
-            })
-          },
-        },
-      },
-    )
+    await render(() => {
+      return (
+        <ErrorBoundary
+          fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
+        >
+          <ArgsProvider {...input.args}>
+            <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()}>
+              <ServerProvider startServer={input.startServer}>
+                <KVProvider>
+                  <ToastProvider>
+                    <RouteProvider>
+                      <SDKProvider
+                        url={input.url}
+                        directory={input.directory}
+                        fetch={input.fetch}
+                        events={input.events}
+                      >
+                        <ProjectProvider>
+                          <SyncProvider>
+                            <AnalyticsProvider>
+                              <ThemeProvider mode={mode}>
+                                <LocalProvider>
+                                  <KeybindProvider>
+                                    <PromptStashProvider>
+                                      <DialogProvider>
+                                        <CommandProvider>
+                                          <FrecencyProvider>
+                                            <PromptHistoryProvider>
+                                              <EditorContextProvider>
+                                                <PromptRefProvider>
+                                                  <App />
+                                                </PromptRefProvider>
+                                              </EditorContextProvider>
+                                            </PromptHistoryProvider>
+                                          </FrecencyProvider>
+                                        </CommandProvider>
+                                      </DialogProvider>
+                                    </PromptStashProvider>
+                                  </KeybindProvider>
+                                </LocalProvider>
+                              </ThemeProvider>
+                            </AnalyticsProvider>
+                          </SyncProvider>
+                        </ProjectProvider>
+                      </SDKProvider>
+                    </RouteProvider>
+                  </ToastProvider>
+                </KVProvider>
+              </ServerProvider>
+            </ExitProvider>
+          </ArgsProvider>
+        </ErrorBoundary>
+      )
+    })
   })
 }
 
@@ -309,7 +257,11 @@ function App() {
       })
       await TuiPluginRuntime.init(api)
       setPluginsReady(true)
-    })()
+    })().catch((error) => {
+      setOnboardingActive(false)
+      setPluginsReady(true)
+      toast.error(error)
+    })
   })
 
   onCleanup(() => {

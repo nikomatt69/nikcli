@@ -1,7 +1,7 @@
 import path from "path"
 import fs from "fs/promises"
 import crypto from "crypto"
-import { Context, Effect, Layer, Scope } from "effect"
+import { Context, Effect, Layer, Schema, Scope } from "effect"
 import {
   FileFinder,
   type FileItem,
@@ -27,16 +27,17 @@ export namespace FFF {
   // Error Types
   // ============================================
 
-  export class FFFError extends Error {
-    constructor(public readonly reason: string) {
-      super(reason)
-      this.name = "FFFError"
+  export class FFFError extends Schema.TaggedErrorClass<FFFError>()("FFFError", {
+    reason: Schema.String,
+  }) {
+    override get message() {
+      return this.reason
     }
   }
 
-  export class FFFNotReadyError extends FFFError {
-    constructor() {
-      super("FFF FileFinder is not ready")
+  export class FFFNotReadyError extends Schema.TaggedErrorClass<FFFNotReadyError>()("FFFNotReadyError", {}) {
+    override get message() {
+      return "FFF FileFinder is not ready"
     }
   }
 
@@ -64,16 +65,18 @@ export namespace FFF {
   // Service Interface
   // ============================================
 
+  export type AnyFFFError = FFFError | FFFNotReadyError
+
   export interface Interface {
     readonly available: Effect.Effect<boolean>
     readonly waitForScan: (timeoutMs?: number) => Effect.Effect<boolean>
-    readonly files: (input: FilesInput) => Effect.Effect<string[], FFFError>
-    readonly searchFiles: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
-    readonly searchDirs: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
-    readonly searchMixed: (query: string, opts?: SearchOptions) => Effect.Effect<string[], FFFError>
-    readonly grep: (query: string, opts?: GrepOptions) => Effect.Effect<GrepResult, FFFError>
-    readonly filesRich: (query: string, opts?: SearchOptions) => Effect.Effect<SearchResult, FFFError>
-    readonly mixed: (query: string, opts?: SearchOptions) => Effect.Effect<MixedSearchResult, FFFError>
+    readonly files: (input: FilesInput) => Effect.Effect<string[], AnyFFFError>
+    readonly searchFiles: (query: string, opts?: SearchOptions) => Effect.Effect<string[], AnyFFFError>
+    readonly searchDirs: (query: string, opts?: SearchOptions) => Effect.Effect<string[], AnyFFFError>
+    readonly searchMixed: (query: string, opts?: SearchOptions) => Effect.Effect<string[], AnyFFFError>
+    readonly grep: (query: string, opts?: GrepOptions) => Effect.Effect<GrepResult, AnyFFFError>
+    readonly filesRich: (query: string, opts?: SearchOptions) => Effect.Effect<SearchResult, AnyFFFError>
+    readonly mixed: (query: string, opts?: SearchOptions) => Effect.Effect<MixedSearchResult, AnyFFFError>
     readonly allowed: (input: AllowedInput) => Effect.Effect<boolean>
   }
 
@@ -232,7 +235,7 @@ export namespace FFF {
       const ctx = yield* instance
       const handle = yield* Effect.tryPromise({
         try: () => initializeHandle(ctx),
-        catch: (e) => new FFFError(e instanceof Error ? e.message : String(e)),
+        catch: (e) => new FFFError({ reason: e instanceof Error ? e.message : String(e) }),
       })
 
       if (!handle.available) {
@@ -254,7 +257,7 @@ export namespace FFF {
           Effect.gen(function* () {
             const prefix = yield* Effect.tryPromise({
               try: () => relativePrefix(input.cwd),
-              catch: (e) => new FFFError(e instanceof Error ? e.message : String(e)),
+              catch: (e) => new FFFError({ reason: e instanceof Error ? e.message : String(e) }),
             })
             if (prefix === undefined) return []
 
@@ -265,7 +268,7 @@ export namespace FFF {
               const page = finder.fileSearch("", { pageIndex, pageSize })
               if (!page.ok) {
                 log.warn("fileSearch failed", { query: "", error: page.error })
-                return yield* Effect.fail(new FFFError(`fileSearch failed: ${page.error}`))
+                return yield* Effect.fail(new FFFError({ reason: `fileSearch failed: ${page.error}` }))
               }
               if (finder.isScanning()) {
                 return yield* Effect.fail(new FFFNotReadyError())
@@ -294,7 +297,7 @@ export namespace FFF {
             const result = finder.fileSearch(query, opts)
             if (!result.ok) {
               log.warn("fileSearch failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`fileSearch failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `fileSearch failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())
@@ -307,7 +310,7 @@ export namespace FFF {
             const result = finder.directorySearch(query, opts)
             if (!result.ok) {
               log.warn("directorySearch failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`directorySearch failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `directorySearch failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())
@@ -320,7 +323,7 @@ export namespace FFF {
             const result = finder.mixedSearch(query, opts)
             if (!result.ok) {
               log.warn("mixedSearch failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`mixedSearch failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `mixedSearch failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())
@@ -333,7 +336,7 @@ export namespace FFF {
             const result = finder.grep(query, opts)
             if (!result.ok) {
               log.warn("grep failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`grep failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `grep failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())
@@ -346,7 +349,7 @@ export namespace FFF {
             const result = finder.fileSearch(query, opts)
             if (!result.ok) {
               log.warn("fileSearch (rich) failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`fileSearch failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `fileSearch failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())
@@ -359,7 +362,7 @@ export namespace FFF {
             const result = finder.mixedSearch(query, opts)
             if (!result.ok) {
               log.warn("mixedSearch (rich) failed", { query, error: result.error })
-              return yield* Effect.fail(new FFFError(`mixedSearch failed: ${result.error}`))
+              return yield* Effect.fail(new FFFError({ reason: `mixedSearch failed: ${result.error}` }))
             }
             if (finder.isScanning()) {
               return yield* Effect.fail(new FFFNotReadyError())

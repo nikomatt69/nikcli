@@ -1,5 +1,4 @@
 import { cmd } from "@/cli/cmd/cmd"
-import { tui } from "./app"
 import { Rpc } from "@/util/rpc"
 import { type rpc } from "./worker"
 import path from "path"
@@ -7,14 +6,33 @@ import { UI } from "@/cli/ui"
 import { iife } from "@/util/iife"
 import { Log } from "@/util/log"
 import { withNetworkOptions, resolveNetworkOptions } from "@/cli/network"
-import type { Event } from "@nikcli-ai/sdk/v2"
+import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
 import type { EventSource } from "./context/sdk"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { errorMessage } from "@/util/error"
+import { Process } from "@/util/process"
+import { Session } from "@/session"
 
 declare global {
   const NIKCLI_WORKER_PATH: string
 }
 
 type RpcClient = ReturnType<typeof Rpc.client<typeof rpc>>
+
+const WORKER_SHUTDOWN_TIMEOUT_MS = 5_000
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timeout: Timer | undefined
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms)
+      timeout.unref?.()
+    }),
+  ]).finally(() => {
+    if (timeout) clearTimeout(timeout)
+  })
+}
 
 function createWorkerFetch(client: RpcClient): typeof fetch {
   const fn = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
@@ -47,6 +65,40 @@ function createEventSource(client: RpcClient): EventSource {
       }
     },
   }
+}
+
+export function resolveThreadDirectory(project?: string, envPWD = process.env.PWD, cwd = process.cwd()) {
+  const root = path.resolve(envPWD ?? cwd)
+  if (!project) return path.resolve(cwd)
+  return path.resolve(path.isAbsolute(project) ? project : path.join(root, project))
+}
+
+export function createWorkerEnv(overrides: Record<string, string> = {}) {
+  return Process.sanitizedEnv({
+    [Process.ROLE_ENV]: "worker",
+    [Process.RUN_ID_ENV]: Process.ensureRunID(),
+    ...overrides,
+  })
+}
+
+export async function validateSession(input: {
+  url: string
+  sessionID?: string
+  directory?: string
+  fetch?: typeof fetch
+}) {
+  if (!input.sessionID) return
+
+  const parsed = Session.ID.safeParse(input.sessionID)
+  if (!parsed.success) {
+    throw new Error(`Invalid session ID: ${input.sessionID}`)
+  }
+
+  await createNikcliClient({
+    baseUrl: input.url,
+    directory: input.directory,
+    fetch: input.fetch,
+  }).session.get({ sessionID: parsed.data }, { throwOnError: true })
 }
 
 export const TuiThreadCommand = cmd({
@@ -82,9 +134,8 @@ export const TuiThreadCommand = cmd({
         describe: "agent to use",
       }),
   handler: async (args) => {
-    // Resolve relative paths against PWD to preserve behavior when using --cwd flag
-    const baseCwd = process.env.PWD ?? process.cwd()
-    const cwd = args.project ? path.resolve(baseCwd, args.project) : process.cwd()
+    // Resolve relative paths against PWD to preserve behavior when using --cwd flag.
+    const cwd = resolveThreadDirectory(args.project)
     const localWorker = new URL("./worker.ts", import.meta.url)
     const distWorker = new URL("./cli/cmd/tui/worker.js", import.meta.url)
     const workerPath = await iife(async () => {
@@ -100,23 +151,42 @@ export const TuiThreadCommand = cmd({
     }
 
     const worker = new Worker(workerPath, {
-      env: Object.fromEntries(
-        Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
-      ),
+      env: createWorkerEnv(),
     })
     worker.onerror = (e) => {
-      Log.Default.error(e)
+      Log.Default.error("worker error", {
+        message: e.message,
+        filename: e.filename,
+        lineno: e.lineno,
+        colno: e.colno,
+        error: e.error ? errorMessage(e.error) : undefined,
+      })
     }
     const client = Rpc.client<typeof rpc>(worker)
-    process.on("uncaughtException", (e) => {
-      Log.Default.error(e)
-    })
-    process.on("unhandledRejection", (e) => {
-      Log.Default.error(e)
-    })
-    process.on("SIGUSR2", async () => {
-      await client.call("reload", undefined)
-    })
+    const error = (e: unknown) => {
+      Log.Default.error("process error", { error: errorMessage(e) })
+    }
+    const reload = () => {
+      client.call("reload", undefined).catch((error) => {
+        Log.Default.warn("worker reload failed", { error: errorMessage(error) })
+      })
+    }
+    process.on("uncaughtException", error)
+    process.on("unhandledRejection", error)
+    process.on("SIGUSR2", reload)
+
+    let stopped = false
+    const stop = async () => {
+      if (stopped) return
+      stopped = true
+      process.off("uncaughtException", error)
+      process.off("unhandledRejection", error)
+      process.off("SIGUSR2", reload)
+      await withTimeout(client.call("shutdown", undefined), WORKER_SHUTDOWN_TIMEOUT_MS).catch((error) => {
+        Log.Default.warn("worker shutdown failed", { error: errorMessage(error) })
+      })
+      worker.terminate()
+    }
 
     // Mobile (and any nikcli-managed PTY) sets NIKCLI_TERMINAL=1 in env. Bun can still report
     // `stdin.isTTY === false` in that PTY, which would incorrectly take the "piped stdin" path
@@ -154,32 +224,56 @@ export const TuiThreadCommand = cmd({
       events = createEventSource(client)
     }
 
-    const tuiPromise = tui({
-      url,
-      fetch: customFetch,
-      events,
-      args: {
-        continue: args.continue,
+    try {
+      await validateSession({
+        url,
         sessionID: args.session,
-        agent: args.agent,
-        model: args.model,
-        prompt,
-      },
-      onExit: async () => {
-        await client.call("shutdown", undefined)
-      },
-      startServer: !shouldStartServer
-        ? async () => {
-            const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })
-            return result.url
-          }
-        : undefined,
-    })
+        directory: cwd,
+        fetch: customFetch,
+      })
+    } catch (error) {
+      UI.error(errorMessage(error))
+      process.exitCode = 1
+      await stop()
+      return
+    }
 
-    setTimeout(() => {
-      client.call("checkUpgrade", { directory: cwd }).catch(() => {})
-    }, 1000)
+    const unguard = win32InstallCtrlCGuard()
+    try {
+      win32DisableProcessedInput()
 
-    await tuiPromise
+      const { tui } = await import("./app")
+      const tuiPromise = tui({
+        url,
+        fetch: customFetch,
+        events,
+        args: {
+          continue: args.continue,
+          sessionID: args.session,
+          agent: args.agent,
+          model: args.model,
+          prompt,
+        },
+        onExit: stop,
+        startServer: !shouldStartServer
+          ? async () => {
+              const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })
+              return result.url
+            }
+          : undefined,
+      })
+
+      setTimeout(() => {
+        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
+      }, 1000).unref?.()
+
+      try {
+        await tuiPromise
+      } finally {
+        await stop()
+      }
+    } finally {
+      unguard?.()
+    }
   },
 })

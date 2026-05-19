@@ -3,13 +3,14 @@ import path from "path"
 import { minimatch } from "minimatch"
 import z from "zod"
 import { FFF } from "./fff"
+import { Ripgrep } from "./ripgrep"
 import { Instance } from "../project/instance"
 import { Log } from "@/util/log"
 
 export namespace SearchBackend {
   const log = Log.create({ service: "search.backend" })
 
-  export const Backend = z.enum(["fff", "bun"])
+  export const Backend = z.enum(["fff", "rg", "bun"])
   export type Backend = z.infer<typeof Backend>
 
   export const Match = z.object({
@@ -49,6 +50,9 @@ export namespace SearchBackend {
     glob?: string[]
     limit?: number
     follow?: boolean
+    hidden?: boolean
+    before?: number
+    after?: number
     prefer?: Backend
   }
 
@@ -79,10 +83,12 @@ export namespace SearchBackend {
     rounds: number
     files: {
       fff?: BenchmarkSample
+      rg?: BenchmarkSample
       bun: BenchmarkSample
     }
     grep: {
       fff?: BenchmarkSample
+      rg?: BenchmarkSample
       bun: BenchmarkSample
     }
   }
@@ -181,13 +187,40 @@ export namespace SearchBackend {
   }
 
   async function fffFileList(input: FilesInput): Promise<FileListResult | undefined> {
-    if (input.prefer === "bun") return undefined
+    if (input.prefer && input.prefer !== "fff") return undefined
     const files = await FFF.files(input).catch((error) => {
       log.warn("fff files failed", { error })
       return undefined
     })
     if (!files) return undefined
     return { backend: "fff", files }
+  }
+
+  async function rgFileList(input: FilesInput): Promise<FileListResult | undefined> {
+    if (input.prefer && input.prefer !== "rg") return undefined
+    const files = await Ripgrep.files({
+      cwd: input.cwd,
+      glob: input.glob,
+      hidden: input.hidden,
+      follow: input.follow,
+      maxDepth: input.maxDepth,
+      limit: input.limit,
+    }).catch((error) => {
+      log.warn("ripgrep files failed", { error })
+      return undefined
+    })
+    if (!files) return undefined
+    const filtered: string[] = []
+    for (const raw of files) {
+      const relative = normalizeRelative(raw)
+      if (isGitInternal(relative)) continue
+      if (input.hidden === false && hidden(relative)) continue
+      if (input.maxDepth !== undefined && depth(relative) > input.maxDepth) continue
+      if (!matchesGlobs(relative, input.glob)) continue
+      filtered.push(relative)
+      if (input.limit && filtered.length >= input.limit) break
+    }
+    return { backend: "rg", files: filtered }
   }
 
   async function bunFileList(input: FilesInput): Promise<FileListResult> {
@@ -215,7 +248,7 @@ export namespace SearchBackend {
   }
 
   async function fffSearch(input: SearchInput): Promise<SearchResult | undefined> {
-    if (input.prefer === "bun") return undefined
+    if (input.prefer && input.prefer !== "fff") return undefined
     if (input.follow === false) return undefined
     const prefix = await relativePrefix(input.cwd)
     if (prefix === undefined) return undefined
@@ -224,6 +257,8 @@ export namespace SearchBackend {
       mode: "regex",
       smartCase: false,
       maxMatchesPerFile: input.limit,
+      beforeContext: input.before,
+      afterContext: input.after,
     }).catch((error) => {
       log.warn("fff grep failed", { error })
       return undefined
@@ -238,6 +273,43 @@ export namespace SearchBackend {
       })
       .filter((item): item is Match => Boolean(item))
     return { backend: "fff", matches }
+  }
+
+  async function rgSearch(input: SearchInput): Promise<SearchResult | undefined> {
+    if (input.prefer && input.prefer !== "rg") return undefined
+    const matches = await Ripgrep.search({
+      cwd: input.cwd,
+      pattern: input.pattern,
+      glob: input.glob,
+      limit: input.limit,
+      follow: input.follow,
+      before: input.before,
+      after: input.after,
+      hidden: input.hidden,
+    }).catch((error) => {
+      log.warn("ripgrep search failed", { error })
+      return undefined
+    })
+    if (!matches) return undefined
+    const filtered: Match[] = []
+    for (const data of matches) {
+      const relative = normalizeRelative(data.path.text)
+      if (isGitInternal(relative)) continue
+      if (input.hidden === false && hidden(relative)) continue
+      if (!matchesGlobs(relative, input.glob)) continue
+      filtered.push({
+        path: { text: relative },
+        lines: { text: data.lines.text },
+        line_number: data.line_number,
+        absolute_offset: data.absolute_offset,
+        submatches: data.submatches.map((sub) => ({
+          match: { text: sub.match.text },
+          start: sub.start,
+          end: sub.end,
+        })),
+      })
+    }
+    return { backend: "rg", matches: filtered }
   }
 
   function compileRegex(pattern: string): RegExp | undefined {
@@ -302,8 +374,14 @@ export namespace SearchBackend {
   }
 
   export async function fileList(input: FilesInput): Promise<FileListResult> {
-    const fff = await fffFileList(input)
-    if (fff) return fff
+    if (input.prefer !== "rg" && input.prefer !== "bun") {
+      const fff = await fffFileList(input)
+      if (fff) return fff
+    }
+    if (input.prefer !== "bun") {
+      const rg = await rgFileList(input)
+      if (rg) return rg
+    }
     return bunFileList(input)
   }
 
@@ -313,8 +391,14 @@ export namespace SearchBackend {
   }
 
   export async function search(input: SearchInput): Promise<SearchResult> {
-    const fff = await fffSearch(input)
-    if (fff) return fff
+    if (input.prefer !== "rg" && input.prefer !== "bun") {
+      const fff = await fffSearch(input)
+      if (fff) return fff
+    }
+    if (input.prefer !== "bun") {
+      const rg = await rgSearch(input)
+      if (rg) return rg
+    }
     return bunSearch(input)
   }
 
@@ -459,6 +543,7 @@ export namespace SearchBackend {
   export async function benchmark(input: SearchInput & { rounds?: number }): Promise<BenchmarkResult> {
     const rounds = input.rounds ?? 5
     await waitForFFF(input)
+
     const bunFiles = await measure(
       async () => (await bunFileList({ cwd: input.cwd, glob: input.glob })).files.length,
       rounds,
@@ -469,20 +554,32 @@ export namespace SearchBackend {
       ? await measure(async () => (await fffFileList(fffFilesInput))?.files.length ?? 0, rounds)
       : undefined
 
+    const rgFilesInput = { cwd: input.cwd, glob: input.glob, hidden: false as const, prefer: "rg" as const }
+    const rgFilesProbe = await rgFileList(rgFilesInput)
+    const rgFiles = rgFilesProbe
+      ? await measure(async () => (await rgFileList(rgFilesInput))?.files.length ?? 0, rounds)
+      : undefined
+
     const bunGrep = await measure(async () => (await bunSearch({ ...input, prefer: "bun" })).matches.length, rounds)
     const fffGrepProbe = await fffSearch({ ...input, prefer: "fff" })
     const fffGrep = fffGrepProbe
       ? await measure(async () => (await fffSearch({ ...input, prefer: "fff" }))?.matches.length ?? 0, rounds)
+      : undefined
+    const rgGrepProbe = await rgSearch({ ...input, prefer: "rg" })
+    const rgGrep = rgGrepProbe
+      ? await measure(async () => (await rgSearch({ ...input, prefer: "rg" }))?.matches.length ?? 0, rounds)
       : undefined
 
     return {
       rounds,
       files: {
         fff: fffFiles,
+        rg: rgFiles,
         bun: bunFiles,
       },
       grep: {
         fff: fffGrep,
+        rg: rgGrep,
         bun: bunGrep,
       },
     }

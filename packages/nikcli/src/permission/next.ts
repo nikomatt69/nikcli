@@ -107,7 +107,7 @@ export namespace PermissionNext {
   type PendingEntry = {
     info: Request
     resolve: () => void
-    reject: (e: Error) => void
+    reject: (e: RejectedError | CorrectedError) => void
   }
 
   type State = {
@@ -183,7 +183,9 @@ export namespace PermissionNext {
           log.info("evaluated", { permission: request.permission, pattern, action: rule })
           if (rule.action === "deny") {
             return yield* Effect.fail(
-              new DeniedError(ruleset.filter((r: Rule) => Wildcard.match(request.permission, r.permission))),
+              new DeniedError({
+                ruleset: ruleset.filter((r: Rule) => Wildcard.match(request.permission, r.permission)),
+              }),
             )
           }
           if (rule.action === "ask") {
@@ -222,7 +224,7 @@ export namespace PermissionNext {
           }),
         )
         if (parsed.reply === "reject") {
-          existing.reject(parsed.message ? new CorrectedError(parsed.message) : new RejectedError())
+          existing.reject(parsed.message ? new CorrectedError({ feedback: parsed.message }) : new RejectedError({}))
           const sessionID = existing.info.sessionID
           for (const [id, pending] of Object.entries(s.pending)) {
             if (pending.info.sessionID === sessionID) {
@@ -234,7 +236,7 @@ export namespace PermissionNext {
                   reply: "reject",
                 }),
               )
-              pending.reject(new RejectedError())
+              pending.reject(new RejectedError({}))
             }
           }
           return
@@ -331,24 +333,25 @@ export namespace PermissionNext {
     return result
   }
 
-  export class RejectedError extends Error {
-    constructor() {
-      super(`The user rejected permission to use this specific tool call.`)
+  export class RejectedError extends Schema.TaggedErrorClass<RejectedError>()("PermissionRejectedError", {}) {
+    override get message() {
+      return "The user rejected permission to use this specific tool call."
     }
   }
 
-  export class CorrectedError extends Error {
-    constructor(message: string) {
-      super(`The user rejected permission to use this specific tool call with the following feedback: ${message}`)
+  export class CorrectedError extends Schema.TaggedErrorClass<CorrectedError>()("PermissionCorrectedError", {
+    feedback: Schema.String,
+  }) {
+    override get message() {
+      return `The user rejected permission to use this specific tool call with the following feedback: ${this.feedback}`
     }
   }
 
-  export class DeniedError extends Error {
-    constructor(public readonly ruleset: Ruleset) {
-      super(
-        `The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules ${JSON.stringify(ruleset)}`,
-      )
+  export class DeniedError extends Schema.TaggedErrorClass<DeniedError>()("PermissionDeniedError", {
+    ruleset: Schema.Any,
+  }) {
+    override get message() {
+      return `The user has specified a rule which prevents you from using this specific tool call. Here are some of the relevant rules ${JSON.stringify(this.ruleset)}`
     }
   }
-
 }

@@ -101,7 +101,7 @@ const ContentCommand = cmd({
 
 const BenchmarkCommand = cmd({
   command: "benchmark <pattern>",
-  describe: "benchmark fff vs bun search backends",
+  describe: "benchmark fff vs ripgrep vs bun search backends",
   builder: (yargs) =>
     yargs
       .positional("pattern", {
@@ -138,10 +138,12 @@ const BenchmarkCommand = cmd({
           "",
           "Files:",
           fmt("fff", result.files.fff),
+          fmt("rg", result.files.rg),
           fmt("bun", result.files.bun),
           "",
           "Grep:",
           fmt("fff", result.grep.fff),
+          fmt("rg", result.grep.rg),
           fmt("bun", result.grep.bun),
           "",
         ].join(EOL),

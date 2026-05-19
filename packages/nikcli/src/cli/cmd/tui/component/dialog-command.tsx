@@ -87,7 +87,11 @@ function init() {
       if (!isEnabled(option)) continue
       if (option.keybind && keybind.match(option.keybind, evt)) {
         evt.preventDefault()
-        option.onSelect?.(dialog)
+        try {
+          option.onSelect?.(dialog)
+        } catch (err) {
+          console.error("[command]", option.value, err instanceof Error ? err.message : err)
+        }
         return
       }
     }

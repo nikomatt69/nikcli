@@ -5,6 +5,7 @@ import { Identifier } from "../id/id"
 import PROMPT_INITIALIZE from "./template/initialize.txt"
 import PROMPT_REVIEW from "./template/review.txt"
 import PROMPT_ULTRAREVIEW from "./template/ultrareview.txt"
+import PROMPT_GOAL from "./template/goal.txt"
 import { MCP } from "../mcp"
 import { Connectors } from "../connectors"
 import { Skill } from "../skill"
@@ -56,6 +57,7 @@ export namespace Command {
     INIT: "init",
     REVIEW: "review",
     ULTRAREVIEW: "ultrareview",
+    GOAL: "goal",
   } as const
 
   function skillTemplate(skill: Skill.Info) {
@@ -134,6 +136,14 @@ export namespace Command {
               },
               subtask: true,
               hints: hints(PROMPT_ULTRAREVIEW),
+            },
+            [Default.GOAL]: {
+              name: Default.GOAL,
+              description: "work autonomously until a verifiable goal condition is met",
+              get template() {
+                return PROMPT_GOAL
+              },
+              hints: hints(PROMPT_GOAL),
             },
           }
 

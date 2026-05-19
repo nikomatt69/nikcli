@@ -41,6 +41,7 @@ import { AccountCommand } from "./cli/cmd/account"
 import { HeapCommand } from "./cli/cmd/heap"
 import { RoutineCommand } from "./cli/cmd/routine"
 import { UsageCommand } from "./cli/cmd/usage"
+import { GoalCommand } from "./cli/cmd/goal"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -100,6 +101,7 @@ const cli = yargs(hideBin(process.argv))
   .command(TuiThreadCommand)
   .command(AttachCommand)
   .command(RunCommand)
+  .command(GoalCommand)
   .command(GenerateCommand)
   .command(DebugCommand)
   .command(AuthCommand)

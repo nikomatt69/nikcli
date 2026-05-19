@@ -209,6 +209,7 @@ export namespace Session {
       github: GithubInfo.optional(),
       mobile: MobileInfo.optional(),
       title: z.string(),
+      activeCommand: z.string().optional(),
       version: z.string(),
       time: z.object({
         created: z.number(),

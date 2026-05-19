@@ -4,7 +4,7 @@ FROM alpine AS base
 # On ephemeral containers, the cache is not useful
 ARG BUN_RUNTIME_TRANSPILER_CACHE_PATH=0
 ENV BUN_RUNTIME_TRANSPILER_CACHE_PATH=${BUN_RUNTIME_TRANSPILER_CACHE_PATH}
-RUN apk add libgcc libstdc++
+RUN apk add libgcc libstdc++ ripgrep
 
 FROM base AS build-amd64
 COPY dist/nikcli-ai-linux-x64-baseline-musl/bin/nikcli /usr/local/bin/nikcli

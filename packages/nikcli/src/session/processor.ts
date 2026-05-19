@@ -401,7 +401,10 @@ export namespace SessionProcessor {
                       },
                     })
 
+                    const errTag = (value.error as { _tag?: string } | undefined)?._tag
                     if (
+                      errTag === "PermissionRejectedError" ||
+                      errTag === "QuestionRejectedError" ||
                       value.error instanceof PermissionNext.RejectedError ||
                       value.error instanceof Question.RejectedError
                     ) {

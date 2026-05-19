@@ -1,13 +1,132 @@
 #!/usr/bin/env bash
-# Cache-bust: 2026-05-18T00-00-00Z
+# Cache-bust: 2026-05-19T00-00-00Z
 set -euo pipefail
 APP=nikcli
 ASSET_PREFIX=nikcli-ai
 
-MUTED='\033[0;2m'
-RED='\033[0;31m'
-ORANGE='\033[38;5;214m'
-NC='\033[0m' # No Color
+# ────────────────────────────────────────────────────────────────────────────
+# Styling (opencode-style clack rails)
+# ────────────────────────────────────────────────────────────────────────────
+
+if [ -t 2 ]; then
+    TTY=true
+else
+    TTY=false
+fi
+
+if [ "$TTY" = "true" ] && [ -z "${NO_COLOR:-}" ]; then
+    DIM='\033[0;2m'
+    BOLD='\033[1m'
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[38;5;214m'
+    CYAN='\033[0;36m'
+    GRAY='\033[0;90m'
+    NC='\033[0m'
+else
+    DIM=''; BOLD=''; RED=''; GREEN=''; YELLOW=''; CYAN=''; GRAY=''; NC=''
+fi
+
+# Glyphs (use ASCII fallbacks if locale isn't UTF-8)
+case "${LANG:-}${LC_ALL:-}" in
+    *UTF-8*|*utf-8*|*UTF8*|*utf8*)
+        G_BAR='│'
+        G_TOP='┌'
+        G_BOT='└'
+        G_DOT='●'
+        G_OK='◇'
+        G_WARN='▲'
+        G_ERR='■'
+        ;;
+    *)
+        G_BAR='|'
+        G_TOP='+'
+        G_BOT='+'
+        G_DOT='o'
+        G_OK='*'
+        G_WARN='!'
+        G_ERR='x'
+        ;;
+esac
+
+# All UI goes to stderr so `curl | bash` keeps the rails visible.
+ui() { printf "%b\n" "$1" >&2; }
+
+logo() {
+    if [ "$TTY" != "true" ]; then return 0; fi
+    ui ""
+    ui "${GRAY}    ███╗   ██╗██╗██╗  ██╗ ██████╗██╗     ██╗${NC}"
+    ui "${GRAY}    ████╗  ██║██║██║ ██╔╝██╔════╝██║     ██║${NC}"
+    ui "${GRAY}    ██╔██╗ ██║██║█████╔╝ ██║     ██║     ██║${NC}"
+    ui "${GRAY}    ██║╚██╗██║██║██╔═██╗ ██║     ██║     ██║${NC}"
+    ui "${GRAY}    ██║ ╚████║██║██║  ██╗╚██████╗███████╗██║${NC}"
+    ui "${GRAY}    ╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝${NC}"
+    ui ""
+}
+
+intro() { ui "${GRAY}${G_TOP}${NC}  ${BOLD}$1${NC}"; ui "${GRAY}${G_BAR}${NC}"; }
+step()  { ui "${CYAN}${G_DOT}${NC}  $1"; ui "${GRAY}${G_BAR}${NC}"; }
+warn()  { ui "${YELLOW}${G_WARN}${NC}  $1"; ui "${GRAY}${G_BAR}${NC}"; }
+fail()  { ui "${RED}${G_ERR}${NC}  ${RED}$1${NC}"; ui "${GRAY}${G_BAR}${NC}"; }
+outro() { ui "${GRAY}${G_BOT}${NC}  ${BOLD}$1${NC}"; }
+
+# Spinner — animated frames printed on a single line, advances on the rail.
+SPINNER_PID=""
+spinner_start() {
+    local label="$1"
+    if [ "$TTY" != "true" ]; then
+        ui "${CYAN}${G_DOT}${NC}  $label"
+        ui "${GRAY}${G_BAR}${NC}"
+        return 0
+    fi
+    printf '\033[?25l' >&2
+    (
+        local frames='◐◓◑◒'
+        local i=0
+        while :; do
+            local c="${frames:$((i % 4)):1}"
+            printf '\r%b%s%b  %s ' "$CYAN" "$c" "$NC" "$label" >&2
+            i=$((i + 1))
+            sleep 0.1
+        done
+    ) &
+    SPINNER_PID=$!
+    disown "$SPINNER_PID" 2>/dev/null || true
+}
+
+spinner_stop() {
+    local status="$1"
+    local message="$2"
+    if [ -n "$SPINNER_PID" ] && kill -0 "$SPINNER_PID" 2>/dev/null; then
+        kill "$SPINNER_PID" 2>/dev/null || true
+        wait "$SPINNER_PID" 2>/dev/null || true
+    fi
+    SPINNER_PID=""
+    if [ "$TTY" = "true" ]; then
+        printf '\r\033[2K' >&2
+        printf '\033[?25h' >&2
+    fi
+    if [ "$status" = "ok" ]; then
+        ui "${GREEN}${G_OK}${NC}  $message"
+    else
+        ui "${RED}${G_ERR}${NC}  ${RED}$message${NC}"
+    fi
+    ui "${GRAY}${G_BAR}${NC}"
+}
+
+cleanup_on_exit() {
+    if [ -n "$SPINNER_PID" ] && kill -0 "$SPINNER_PID" 2>/dev/null; then
+        kill "$SPINNER_PID" 2>/dev/null || true
+    fi
+    if [ "$TTY" = "true" ]; then
+        printf '\033[?25h' >&2
+    fi
+}
+trap cleanup_on_exit EXIT INT TERM
+
+# ────────────────────────────────────────────────────────────────────────────
+# Usage & args
+# ────────────────────────────────────────────────────────────────────────────
 
 usage() {
     cat <<EOF
@@ -43,7 +162,7 @@ while [[ $# -gt 0 ]]; do
                 requested_version="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --version requires a version argument${NC}"
+                logo; intro "Install"; fail "--version requires a version argument"; outro "Aborted"
                 exit 1
             fi
             ;;
@@ -52,7 +171,7 @@ while [[ $# -gt 0 ]]; do
                 binary_path="$2"
                 shift 2
             else
-                echo -e "${RED}Error: --binary requires a path argument${NC}"
+                logo; intro "Install"; fail "--binary requires a path argument"; outro "Aborted"
                 exit 1
             fi
             ;;
@@ -61,22 +180,34 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo -e "${ORANGE}Warning: Unknown option '$1'${NC}" >&2
+            warn "Unknown option '$1'"
             shift
             ;;
     esac
 done
 
+# ────────────────────────────────────────────────────────────────────────────
+# Start the UI
+# ────────────────────────────────────────────────────────────────────────────
+
+logo
+intro "Install"
+
 INSTALL_DIR=$HOME/.nikcli/bin
 mkdir -p "$INSTALL_DIR"
 
-# If --binary is provided, skip all download/detection logic
+# ────────────────────────────────────────────────────────────────────────────
+# Platform detection / version resolution
+# ────────────────────────────────────────────────────────────────────────────
+
 if [ -n "$binary_path" ]; then
     if [ ! -f "$binary_path" ]; then
-        echo -e "${RED}Error: Binary not found at ${binary_path}${NC}"
+        fail "Binary not found at ${binary_path}"
+        outro "Aborted"
         exit 1
     fi
     specific_version="local"
+    step "Using local binary: ${BOLD}${binary_path}${NC}"
 else
     raw_os=$(uname -s)
     os=$(echo "$raw_os" | tr '[:upper:]' '[:lower:]')
@@ -106,7 +237,8 @@ else
       linux-x64|linux-arm64|darwin-x64|darwin-arm64|windows-x64)
         ;;
       *)
-        echo -e "${RED}Unsupported OS/Arch: $os/$arch${NC}"
+        fail "Unsupported OS/Arch: $os/$arch"
+        outro "Aborted"
         exit 1
         ;;
     esac
@@ -121,7 +253,6 @@ else
       if [ -f /etc/alpine-release ]; then
         is_musl=true
       fi
-
       if command -v ldd >/dev/null 2>&1; then
         if ldd --version 2>&1 | grep -qi musl; then
           is_musl=true
@@ -136,7 +267,6 @@ else
           needs_baseline=true
         fi
       fi
-
       if [ "$os" = "darwin" ]; then
         avx2=$(sysctl -n hw.optional.avx2_0 2>/dev/null || echo 0)
         if [ "$avx2" != "1" ]; then
@@ -155,38 +285,40 @@ else
 
     filename="$ASSET_PREFIX-$target$archive_ext"
 
-
     if [ "$os" = "linux" ]; then
         if ! command -v tar >/dev/null 2>&1; then
-             echo -e "${RED}Error: 'tar' is required but not installed.${NC}"
-             exit 1
+            fail "'tar' is required but not installed"
+            outro "Aborted"
+            exit 1
         fi
     else
         if ! command -v unzip >/dev/null 2>&1; then
-            echo -e "${RED}Error: 'unzip' is required but not installed.${NC}"
+            fail "'unzip' is required but not installed"
+            outro "Aborted"
             exit 1
         fi
     fi
 
+    step "Detected: ${BOLD}${os}${NC} ${DIM}(${arch})${NC}"
+
     if [ -z "$requested_version" ]; then
-        # Primary: nikcli.store, Fallback: GitHub
         url_primary="https://nikcli.store/releases/latest/download/$filename"
         url_fallback="https://github.com/nikomatt69/nikcli/releases/latest/download/$filename"
-        specific_version=$(curl -s https://api.github.com/repos/nikomatt69/nikcli/releases/latest | sed -E -n 's/.*"tag_name": *"v?([^"]*)".*/\1/p')
-
-        if [[ $? -ne 0 || -z "$specific_version" ]]; then
-            echo -e "${RED}Failed to fetch version information${NC}"
+        spinner_start "Resolving latest version"
+        specific_version=$(curl -s https://api.github.com/repos/nikomatt69/nikcli/releases/latest | sed -E -n 's/.*"tag_name": *"v?([^"]*)".*/\1/p' || true)
+        if [ -z "$specific_version" ]; then
+            spinner_stop err "Failed to fetch version information"
+            outro "Aborted"
             exit 1
         fi
+        spinner_stop ok "Latest version: ${BOLD}${specific_version}${NC}"
     else
-        # Strip leading 'v' if present
         requested_version="${requested_version#v}"
         release_tag="v${requested_version}"
         url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
         url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
         specific_version=$requested_version
 
-        # Verify the release exists; if v-prefixed tag is missing, try the bare version (older releases used 1.2.0..1.5.0 without v)
         http_status=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${release_tag}")
         if [ "$http_status" = "404" ]; then
             http_status_bare=$(curl -sI -o /dev/null -w "%{http_code}" "https://github.com/nikomatt69/nikcli/releases/tag/${requested_version}")
@@ -195,168 +327,67 @@ else
                 url_primary="https://nikcli.store/releases/download/${release_tag}/$filename"
                 url_fallback="https://github.com/nikomatt69/nikcli/releases/download/${release_tag}/$filename"
             else
-                echo -e "${RED}Error: Release ${requested_version} not found${NC}"
-                echo -e "${MUTED}Available releases: https://github.com/nikomatt69/nikcli/releases${NC}"
+                fail "Release ${requested_version} not found"
+                ui "${GRAY}${G_BAR}${NC}  ${DIM}See https://github.com/nikomatt69/nikcli/releases${NC}"
+                outro "Aborted"
                 exit 1
             fi
         fi
+        step "Target version: ${BOLD}${specific_version}${NC}"
     fi
 fi
 
-print_message() {
-    local level=$1
-    local message=$2
-    local color=""
-
-    case $level in
-        info) color="${NC}" ;;
-        warning) color="${NC}" ;;
-        error) color="${RED}" ;;
-    esac
-
-    echo -e "${color}${message}${NC}"
-}
+# ────────────────────────────────────────────────────────────────────────────
+# Already installed?
+# ────────────────────────────────────────────────────────────────────────────
 
 check_version() {
     if command -v nikcli >/dev/null 2>&1; then
-        nikcli_path=$(which nikcli)
-
-        ## Check the installed version
         installed_version=$(nikcli --version 2>/dev/null || echo "")
-
-        if [[ "$installed_version" != "$specific_version" ]]; then
-            print_message info "${MUTED}Installed version: ${NC}$installed_version."
-        else
-            print_message info "${MUTED}Version ${NC}$specific_version${MUTED} already installed"
+        if [[ -n "$installed_version" && "$installed_version" != "$specific_version" ]]; then
+            step "Currently installed: ${BOLD}${installed_version}${NC} ${DIM}→${NC} ${BOLD}${specific_version}${NC}"
+        elif [[ "$installed_version" == "$specific_version" ]]; then
+            step "Version ${BOLD}${specific_version}${NC} already installed"
+            outro "Done"
             exit 0
         fi
     fi
 }
 
-unbuffered_sed() {
-    if echo | sed -u -e "" >/dev/null 2>&1; then
-        sed -nu "$@"
-    elif echo | sed -l -e "" >/dev/null 2>&1; then
-        sed -nl "$@"
-    else
-        local pad="$(printf "\n%512s" "")"
-        sed -ne "s/$/\\${pad}/" "$@"
-    fi
-}
-
-print_progress() {
-    local bytes="$1"
-    local length="$2"
-    [ "$length" -gt 0 ] || return 0
-
-    local width=50
-    local percent=$(( bytes * 100 / length ))
-    [ "$percent" -gt 100 ] && percent=100
-    local on=$(( percent * width / 100 ))
-    local off=$(( width - on ))
-
-    local filled=$(printf "%*s" "$on" "")
-    filled=${filled// /■}
-    local empty=$(printf "%*s" "$off" "")
-    empty=${empty// /･}
-
-    printf "\r${ORANGE}%s%s %3d%%${NC}" "$filled" "$empty" "$percent" >&4
-}
-
-download_with_progress() {
-    local url="$1"
-    local output="$2"
-
-    if [ -t 2 ]; then
-        exec 4>&2
-    else
-        exec 4>/dev/null
-    fi
-
-    local tmp_dir=${TMPDIR:-/tmp}
-    local basename="${tmp_dir}/nikcli_install_$$"
-    local tracefile="${basename}.trace"
-
-    rm -f "$tracefile"
-    mkfifo "$tracefile"
-
-    # Hide cursor
-    printf "\033[?25l" >&4
-
-    trap "trap - RETURN; rm -f \"$tracefile\"; printf '\033[?25h' >&4; exec 4>&-" RETURN
-
-    (
-        curl --trace-ascii "$tracefile" -s -L -o "$output" "$url"
-    ) &
-    local curl_pid=$!
-
-    unbuffered_sed \
-        -e 'y/ACDEGHLNORTV/acdeghlnortv/' \
-        -e '/^0000: content-length:/p' \
-        -e '/^<= recv data/p' \
-        "$tracefile" | \
-    {
-        local length=0
-        local bytes=0
-
-        while IFS=" " read -r -a line; do
-            [ "${#line[@]}" -lt 2 ] && continue
-            local tag="${line[0]} ${line[1]}"
-
-            if [ "$tag" = "0000: content-length:" ]; then
-                length="${line[2]}"
-                length=$(echo "$length" | tr -d '\r')
-                bytes=0
-            elif [ "$tag" = "<= recv" ]; then
-                local size="${line[3]}"
-                bytes=$(( bytes + size ))
-                if [ "$length" -gt 0 ]; then
-                    print_progress "$bytes" "$length"
-                fi
-            fi
-        done
-    }
-
-    wait $curl_pid
-    local ret=$?
-    echo "" >&4
-    return $ret
-}
+# ────────────────────────────────────────────────────────────────────────────
+# Download & install
+# ────────────────────────────────────────────────────────────────────────────
 
 download_and_install() {
-    print_message info "\n${MUTED}Installing ${NC}nikcli ${MUTED}version: ${NC}$specific_version"
     local tmp_dir="${TMPDIR:-/tmp}/nikcli_install_$$"
     mkdir -p "$tmp_dir"
 
-    # Try nikcli.store first, fallback to GitHub
-    local download_url=""
     local download_success=false
+    spinner_start "Downloading ${APP} ${specific_version}"
 
-    # Try nikcli.store
     local http_code
-    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_primary")
+    http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_primary" 2>/dev/null || echo "000")
     if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
-        download_url="$url_primary"
         download_success=true
     fi
 
-    # Fallback to GitHub if nikcli.store failed
     if [ "$download_success" = false ]; then
-        print_message info "${MUTED}Downloading from GitHub (fallback)...${NC}"
         rm -f "$tmp_dir/$filename"
-        http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_fallback")
+        http_code=$(curl -sL -w "%{http_code}" -o "$tmp_dir/$filename" "$url_fallback" 2>/dev/null || echo "000")
         if [ "$http_code" = "200" ] && [ -s "$tmp_dir/$filename" ]; then
-            download_url="$url_fallback"
             download_success=true
         fi
     fi
 
     if [ "$download_success" = false ]; then
-        echo -e "${RED}Error: Failed to download nikcli${NC}"
+        spinner_stop err "Failed to download nikcli"
         rm -rf "$tmp_dir"
+        outro "Aborted"
         exit 1
     fi
+    spinner_stop ok "Downloaded ${DIM}${filename}${NC}"
 
+    spinner_start "Extracting archive"
     if [ "$os" = "linux" ]; then
         tar -xzf "$tmp_dir/$filename" -C "$tmp_dir"
     else
@@ -368,20 +399,23 @@ download_and_install() {
         extracted_binary="$tmp_dir/$ASSET_PREFIX-$target/bin/$APP"
     fi
     if [ ! -f "$extracted_binary" ]; then
-        echo -e "${RED}Error: Binary not found in archive at expected path${NC}"
+        spinner_stop err "Binary not found in archive at expected path"
         rm -rf "$tmp_dir"
+        outro "Aborted"
         exit 1
     fi
 
     mv "$extracted_binary" "$INSTALL_DIR/$APP"
     chmod 755 "${INSTALL_DIR}/$APP"
     rm -rf "$tmp_dir"
+    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
 }
 
 install_from_binary() {
-    print_message info "\n${MUTED}Installing ${NC}nikcli ${MUTED}from: ${NC}$binary_path"
+    spinner_start "Installing from local binary"
     cp "$binary_path" "${INSTALL_DIR}/nikcli"
     chmod 755 "${INSTALL_DIR}/nikcli"
+    spinner_stop ok "Installed to ${BOLD}${INSTALL_DIR}/${APP}${NC}"
 }
 
 if [ -n "$binary_path" ]; then
@@ -391,20 +425,22 @@ else
     download_and_install
 fi
 
+# ────────────────────────────────────────────────────────────────────────────
+# PATH
+# ────────────────────────────────────────────────────────────────────────────
 
 add_to_path() {
     local config_file=$1
     local command=$2
 
     if grep -Fxq "$command" "$config_file"; then
-        print_message info "Command already exists in $config_file, skipping write."
+        step "${APP} already on \$PATH in ${DIM}${config_file}${NC}"
     elif [[ -w $config_file ]]; then
         echo -e "\n# nikcli" >> "$config_file"
         echo "$command" >> "$config_file"
-        print_message info "${MUTED}Successfully added ${NC}nikcli ${MUTED}to \$PATH in ${NC}$config_file"
+        step "Added ${BOLD}${APP}${NC} to \$PATH in ${DIM}${config_file}${NC}"
     else
-        print_message warning "Manually add the directory to $config_file (or similar):"
-        print_message info "  $command"
+        warn "Manually add to ${config_file}:  ${command}"
     fi
 }
 
@@ -421,14 +457,10 @@ case $current_shell in
     bash)
         config_files="$HOME/.bashrc $HOME/.bash_profile $HOME/.profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
     ;;
-    ash)
-        config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
-    ;;
-    sh)
+    ash|sh)
         config_files="$HOME/.ashrc $HOME/.profile /etc/profile"
     ;;
     *)
-        # Default case if none of the above matches
         config_files="$HOME/.bashrc $HOME/.bash_profile $XDG_CONFIG_HOME/bash/.bashrc $XDG_CONFIG_HOME/bash/.bash_profile"
     ;;
 esac
@@ -443,47 +475,39 @@ if [[ "$no_modify_path" != "true" ]]; then
     done
 
     if [[ -z $config_file ]]; then
-        print_message warning "No config file found for $current_shell. You may need to manually add to PATH:"
-        print_message info "  export PATH=$INSTALL_DIR:\$PATH"
+        warn "No config file found for ${current_shell}. Add manually: export PATH=$INSTALL_DIR:\$PATH"
     elif [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
         case $current_shell in
             fish)
                 add_to_path "$config_file" "fish_add_path $INSTALL_DIR"
             ;;
-            zsh)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            bash)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            ash)
-                add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
-            ;;
-            sh)
+            zsh|bash|ash|sh)
                 add_to_path "$config_file" "export PATH=$INSTALL_DIR:\$PATH"
             ;;
             *)
                 export PATH=$INSTALL_DIR:$PATH
-                print_message warning "Manually add the directory to $config_file (or similar):"
-                print_message info "  export PATH=$INSTALL_DIR:\$PATH"
+                warn "Manually add to ${config_file}:  export PATH=$INSTALL_DIR:\$PATH"
             ;;
         esac
+    else
+        step "${BOLD}${INSTALL_DIR}${NC} already on \$PATH"
     fi
 fi
 
 if [ -n "${GITHUB_ACTIONS-}" ] && [ "${GITHUB_ACTIONS}" == "true" ]; then
-    echo "$INSTALL_DIR" >> $GITHUB_PATH
-    print_message info "Added $INSTALL_DIR to \$GITHUB_PATH"
+    echo "$INSTALL_DIR" >> "$GITHUB_PATH"
+    step "Added ${INSTALL_DIR} to \$GITHUB_PATH"
 fi
 
-echo -e ""
-echo -e ""
-echo -e ""
-echo -e "${MUTED}Nikcli includes free models, to start:${NC}"
-echo -e ""
-echo -e "cd <project>  ${MUTED}# Open directory${NC}"
-echo -e "nikcli      ${MUTED}# Run command${NC}"
-echo -e ""
-echo -e "${MUTED}For more information visit ${NC}https://nikcli.store/docs"
-echo -e ""
-echo -e ""
+# ────────────────────────────────────────────────────────────────────────────
+# Done
+# ────────────────────────────────────────────────────────────────────────────
+
+outro "${GREEN}${APP} ${specific_version} installed${NC}"
+ui ""
+ui "   ${DIM}Next steps${NC}"
+ui "   ${BOLD}cd${NC} <project>          ${DIM}# open your project${NC}"
+ui "   ${BOLD}${APP}${NC}                  ${DIM}# start nikcli${NC}"
+ui ""
+ui "   ${DIM}Docs: ${NC}${CYAN}https://nikcli.store/docs${NC}"
+ui ""
