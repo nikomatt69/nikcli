@@ -2,13 +2,13 @@
 
 ## URLs
 
-| Service | URL | Status |
-|---------|-----|--------|
-| Website | https://nikcli.store | ✅ |
-| Documentation | https://nikcli.store/docs | ✅ |
-| Web App | https://app.nikcli.store | ✅ |
-| Slack Bot | https://slack.nikcli.store | ✅ |
-| Slack Bot Health | https://slack.nikcli.store/health | ✅ |
+| Service          | URL                               | Status |
+| ---------------- | --------------------------------- | ------ |
+| Website          | https://nikcli.store              | ✅     |
+| Documentation    | https://nikcli.store/docs         | ✅     |
+| Web App          | https://app.nikcli.store          | ✅     |
+| Slack Bot        | https://slack.nikcli.store        | ✅     |
+| Slack Bot Health | https://slack.nikcli.store/health | ✅     |
 
 ## Quick Commands
 
@@ -16,7 +16,7 @@
 # Deploy Slack
 cd packages/slack && npx wrangler deploy src/worker.ts --name nikcli-slack --routes 'slack.nikcli.store/*'
 
-# Deploy Website  
+# Deploy Website
 cd packages/web && npm run build && npx wrangler deploy
 
 # Deploy Web App

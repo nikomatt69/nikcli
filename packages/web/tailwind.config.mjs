@@ -14,7 +14,10 @@ export default {
         "body-sm": ["var(--type-body-sm)", { lineHeight: "1.75" }],
         "body-md": ["var(--type-body-md)", { lineHeight: "1.75" }],
         "card-title": ["var(--type-card-title)", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
-        "panel-title": ["var(--type-panel-title)", { lineHeight: "1.12", letterSpacing: "-0.025em", fontWeight: "700" }],
+        "panel-title": [
+          "var(--type-panel-title)",
+          { lineHeight: "1.12", letterSpacing: "-0.025em", fontWeight: "700" },
+        ],
         "page-title": ["var(--type-page-title)", { lineHeight: "1.0", letterSpacing: "-0.035em", fontWeight: "800" }],
         "page-subtitle": ["var(--type-page-subtitle)", { lineHeight: "1.7", fontWeight: "400" }],
       },
@@ -57,7 +60,7 @@ export default {
       transitionTimingFunction: {
         "out-expo": "cubic-bezier(0.23, 1, 0.32, 1)",
         "in-out-expo": "cubic-bezier(0.77, 0, 0.175, 1)",
-        "drawer": "cubic-bezier(0.32, 0.72, 0, 1)",
+        drawer: "cubic-bezier(0.32, 0.72, 0, 1)",
       },
       animation: {
         cursor: "cursor 1s step-end infinite",

@@ -4,9 +4,7 @@ import { SessionRetry } from "@/session/retry"
 import { recordBenchmark } from "../benchmarks/runner"
 
 function apiError(message: string, responseHeaders?: Record<string, string>) {
-  return new MessageV2.APIError(
-    { message, isRetryable: true, statusCode: 429, responseHeaders },
-  )
+  return new MessageV2.APIError({ message, isRetryable: true, statusCode: 429, responseHeaders })
 }
 
 describe("SessionRetry benchmark", () => {

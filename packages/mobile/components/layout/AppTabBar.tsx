@@ -16,8 +16,9 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
     () =>
       state.routes
         .map((route, index) => ({ route, index, tab: APP_TABS.find((item) => item.route === route.name) }))
-        .filter((item): item is { route: (typeof state.routes)[number]; index: number; tab: (typeof APP_TABS)[number] } =>
-          Boolean(item.tab),
+        .filter(
+          (item): item is { route: (typeof state.routes)[number]; index: number; tab: (typeof APP_TABS)[number] } =>
+            Boolean(item.tab),
         ),
     [state.routes],
   )

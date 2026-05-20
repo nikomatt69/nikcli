@@ -117,7 +117,9 @@ export namespace FileHttpApi {
 
   export const Group = HttpApiGroup.make("file")
     .add(HttpApiEndpoint.get("findText", "/find", { query: TextSearchParams, success: Schema.Array(SearchMatch) }))
-    .add(HttpApiEndpoint.get("findFile", "/find/file", { query: FileSearchParams, success: Schema.Array(Schema.String) }))
+    .add(
+      HttpApiEndpoint.get("findFile", "/find/file", { query: FileSearchParams, success: Schema.Array(Schema.String) }),
+    )
     .add(
       HttpApiEndpoint.get("findSymbol", "/find/symbol", {
         query: SymbolSearchParams,
@@ -204,8 +206,5 @@ export namespace FileHttpApi {
 
   export const DependenciesLive = File.defaultLayer
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

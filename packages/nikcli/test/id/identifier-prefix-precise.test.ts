@@ -26,12 +26,7 @@ describe("Identifier.schema — every prefix accepts minimal valid and rejects w
       expect(Identifier.schema(k).parse(sample)).toBe(sample)
     })
     it(`${key}: rejects adjacent prefix (session vs message)`, () => {
-      const wrong =
-        k === "session"
-          ? "msg_xx"
-          : k === "message"
-            ? "ses_xx"
-            : `wrong_${sample}`
+      const wrong = k === "session" ? "msg_xx" : k === "message" ? "ses_xx" : `wrong_${sample}`
       expect(() => Identifier.schema(k).parse(wrong)).toThrow()
     })
   }

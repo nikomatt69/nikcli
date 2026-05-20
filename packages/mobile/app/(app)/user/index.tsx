@@ -138,37 +138,37 @@ function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number 
         }}
       />
       <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          alignItems: "center",
+          justifyContent: "center",
+          borderWidth: 2,
+          borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.35)",
+          backgroundColor: isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)",
+          overflow: "hidden",
+        }}
+      >
+        <AdaptiveBlur
+          tint={isDark ? "dark" : "light"}
+          intensity={40}
+          style={StyleSheet.absoluteFill}
+          fallbackColor={isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)"}
+        />
+        <Text
           style={{
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 2,
-            borderColor: isDark ? "rgba(255,255,255,0.18)" : "rgba(14,165,233,0.35)",
-            backgroundColor: isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)",
-            overflow: "hidden",
+            fontSize: size * 0.32,
+            fontWeight: "800",
+            color: palette.accentLight,
+            letterSpacing: 0.5,
+            zIndex: 1,
           }}
         >
-          <AdaptiveBlur
-            tint={isDark ? "dark" : "light"}
-            intensity={40}
-            style={StyleSheet.absoluteFill}
-            fallbackColor={isDark ? "rgba(14,165,233,0.18)" : "rgba(14,165,233,0.12)"}
-          />
-          <Text
-            style={{
-              fontSize: size * 0.32,
-              fontWeight: "800",
-              color: palette.accentLight,
-              letterSpacing: 0.5,
-              zIndex: 1,
-            }}
-          >
-            {initials(user)}
-          </Text>
-        </View>
-      </Pressable>
+          {initials(user)}
+        </Text>
+      </View>
+    </Pressable>
   )
 }
 
@@ -700,24 +700,17 @@ function UserRow({
           opacity: pressed ? 0.72 : 1,
         }}
       >
-          <Avatar user={user} size={38} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: palette.ink, letterSpacing: -0.1 }}>
-              {user.display_name || user.username}
-              {isSelf ? <Text style={{ fontSize: 11, fontWeight: "500", color: palette.muted }}> · you</Text> : null}
-            </Text>
-            <Text style={{ fontSize: 11, color: palette.soft }}>{user.email}</Text>
-          </View>
-          <InfoChip
-            label={user.role === "admin" ? "Admin" : "User"}
-            tone={user.role === "admin" ? "warn" : "neutral"}
-          />
-          {!isSelf &&
-            (expanded ? (
-              <ChevronUp size={14} color={palette.muted} />
-            ) : (
-              <ChevronDown size={14} color={palette.muted} />
-            ))}
+        <Avatar user={user} size={38} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: palette.ink, letterSpacing: -0.1 }}>
+            {user.display_name || user.username}
+            {isSelf ? <Text style={{ fontSize: 11, fontWeight: "500", color: palette.muted }}> · you</Text> : null}
+          </Text>
+          <Text style={{ fontSize: 11, color: palette.soft }}>{user.email}</Text>
+        </View>
+        <InfoChip label={user.role === "admin" ? "Admin" : "User"} tone={user.role === "admin" ? "warn" : "neutral"} />
+        {!isSelf &&
+          (expanded ? <ChevronUp size={14} color={palette.muted} /> : <ChevronDown size={14} color={palette.muted} />)}
       </View>
 
       {expanded && !isSelf && (
@@ -1145,9 +1138,7 @@ export default function UserScreen() {
               >
                 <LogOut size={15} color="#ef4444" strokeWidth={2.2} />
               </View>
-              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ef4444", letterSpacing: -0.1 }}>
-                Sign out
-              </Text>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: "#ef4444", letterSpacing: -0.1 }}>Sign out</Text>
             </View>
           </Pressable>
         </GlassCard>

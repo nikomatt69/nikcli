@@ -3684,6 +3684,89 @@ export type ConfigProvidersResponses = {
 
 export type ConfigProvidersResponse = ConfigProvidersResponses[keyof ConfigProvidersResponses]
 
+export type PostConfigMcpData = {
+  body?: {
+    name: string
+    config: McpLocalConfig | McpRemoteConfig
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/mcp"
+}
+
+export type PostConfigMcpResponses = {
+  200: unknown
+}
+
+export type DeleteConfigMcpNameData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/mcp/{name}"
+}
+
+export type DeleteConfigMcpNameResponses = {
+  200: unknown
+}
+
+export type PatchConfigMcpNameData = {
+  body?: {
+    [key: string]: unknown
+  }
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/mcp/{name}"
+}
+
+export type PatchConfigMcpNameResponses = {
+  200: unknown
+}
+
+export type PostConfigProfilesData = {
+  body?: {
+    name: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/profiles"
+}
+
+export type PostConfigProfilesResponses = {
+  200: unknown
+}
+
+export type PostConfigProfilesActivateNameData = {
+  body?: never
+  path: {
+    name: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/config/profiles/activate/{name}"
+}
+
+export type PostConfigProfilesActivateNameResponses = {
+  200: unknown
+}
+
 export type ToolIdsData = {
   body?: never
   path?: never

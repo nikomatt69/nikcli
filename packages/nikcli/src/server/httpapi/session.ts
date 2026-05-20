@@ -112,7 +112,13 @@ export namespace SessionHttpApi {
     .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo }))
     .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList }))
     .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList }))
-    .add(HttpApiEndpoint.get("diff", "/:sessionID/diff", { params: SessionIDPath, query: DiffQuery, success: FileDiffList }))
+    .add(
+      HttpApiEndpoint.get("diff", "/:sessionID/diff", {
+        params: SessionIDPath,
+        query: DiffQuery,
+        success: FileDiffList,
+      }),
+    )
     .add(
       HttpApiEndpoint.get("messages", "/:sessionID/message", {
         params: SessionIDPath,
@@ -120,9 +126,24 @@ export namespace SessionHttpApi {
         success: MessageList,
       }),
     )
-    .add(HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", { params: MessagePath, success: MessageWithParts }))
-    .add(HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", { params: MessagePath, success: BooleanResult }))
-    .add(HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", { params: PartPath, success: BooleanResult }))
+    .add(
+      HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", {
+        params: MessagePath,
+        success: MessageWithParts,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", {
+        params: MessagePath,
+        success: BooleanResult,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", {
+        params: PartPath,
+        success: BooleanResult,
+      }),
+    )
     .add(
       HttpApiEndpoint.patch("partUpdate", "/:sessionID/message/:messageID/part/:partID", {
         params: PartPath,
@@ -306,8 +327,5 @@ export namespace SessionHttpApi {
     never
   >
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }
