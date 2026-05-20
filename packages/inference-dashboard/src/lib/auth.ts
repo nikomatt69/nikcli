@@ -59,6 +59,27 @@ export async function verifyCredentials(
   return { id: row.id, email: row.email, name: row.name, plan: row.plan, createdAt: row.created_at }
 }
 
+export async function updateUserPassword(
+  env: RuntimeEnv,
+  input: { userId: string; currentPassword: string; nextPassword: string },
+): Promise<void> {
+  if (input.nextPassword.length < 8) throw new AuthError("Password must be at least 8 characters", 400)
+  if (input.currentPassword === input.nextPassword) throw new AuthError("New password must be different", 400)
+
+  const row = await env.DB.prepare("SELECT password_hash FROM users WHERE id = ?")
+    .bind(input.userId)
+    .first<{ password_hash: string }>()
+  if (!row) throw new AuthError("User not found", 404)
+
+  const ok = await bcrypt.compare(input.currentPassword, row.password_hash)
+  if (!ok) throw new AuthError("Current password is incorrect", 401)
+
+  const hash = await bcrypt.hash(input.nextPassword, 10)
+  await env.DB.prepare("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?")
+    .bind(hash, nowSec(), input.userId)
+    .run()
+}
+
 export async function createSession(
   env: RuntimeEnv,
   userId: string,

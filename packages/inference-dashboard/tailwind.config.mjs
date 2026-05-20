@@ -13,12 +13,12 @@ export default {
         eyebrow: ["var(--type-eyebrow)", { lineHeight: "1", letterSpacing: "0.2em", fontWeight: "700" }],
         "body-sm": ["var(--type-body-sm)", { lineHeight: "1.75" }],
         "body-md": ["var(--type-body-md)", { lineHeight: "1.75" }],
-        "card-title": ["var(--type-card-title)", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "card-title": ["var(--type-card-title)", { lineHeight: "1.15", letterSpacing: "0", fontWeight: "700" }],
         "panel-title": [
           "var(--type-panel-title)",
-          { lineHeight: "1.12", letterSpacing: "-0.025em", fontWeight: "700" },
+          { lineHeight: "1.12", letterSpacing: "0", fontWeight: "700" },
         ],
-        "page-title": ["var(--type-page-title)", { lineHeight: "1.0", letterSpacing: "-0.035em", fontWeight: "800" }],
+        "page-title": ["var(--type-page-title)", { lineHeight: "1.0", letterSpacing: "0", fontWeight: "800" }],
         "page-subtitle": ["var(--type-page-subtitle)", { lineHeight: "1.7", fontWeight: "400" }],
       },
       borderRadius: {
@@ -160,19 +160,19 @@ export default {
             h1: {
               fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "800",
-              letterSpacing: "-0.03em",
+              letterSpacing: "0",
             },
             h2: {
               fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "700",
-              letterSpacing: "-0.025em",
+              letterSpacing: "0",
               marginTop: "2em",
               marginBottom: "1em",
             },
             h3: {
               fontFamily: "'Syne', system-ui, sans-serif",
               fontWeight: "600",
-              letterSpacing: "-0.015em",
+              letterSpacing: "0",
               marginTop: "1.5em",
               marginBottom: "0.75em",
             },

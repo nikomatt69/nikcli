@@ -27,6 +27,9 @@ const envSchema = z.object({
   UPSTASH_REDIS_REST_URL: z.string().url().optional(),
   UPSTASH_REDIS_REST_TOKEN: z.string().optional(),
 
+  INFERENCE_DASHBOARD_URL: z.string().url().optional(),
+  GATEWAY_SHARED_SECRET: z.string().optional(),
+
   INFERENCE_CACHE_MAX: z.coerce.number().int().positive().default(5_000),
   INFERENCE_CACHE_TTL: z.coerce.number().int().positive().default(24 * 60 * 60),
 

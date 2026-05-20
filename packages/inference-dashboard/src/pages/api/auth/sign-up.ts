@@ -5,7 +5,7 @@ import { getEnv } from "../../../lib/env"
 import { issueApiKey } from "../../../lib/keys"
 
 const body = z.object({
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(8),
   name: z.string().min(1).max(80).optional(),
 })

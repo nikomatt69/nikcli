@@ -27,7 +27,7 @@ async function fetchKeys(): Promise<ApiKeyRow[]> {
 }
 
 function formatDate(unixSec: number | null): string {
-  if (!unixSec) return "—"
+  if (!unixSec) return "Not used"
   return new Date(unixSec * 1000).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "2-digit" })
 }
 
@@ -74,7 +74,7 @@ export default function ApiKeysPanel() {
     <div class="space-y-5">
       <Show when={createdKey()}>
         {(k) => (
-          <div class="rounded-xl border border-terminal-accent/40 bg-terminal-accent/10 p-5 shadow-soft">
+          <div class="rounded-[var(--radius-card)] border border-terminal-accent/40 bg-terminal-accent/10 p-5 shadow-soft">
             <div class="flex items-center gap-2 mb-2">
               <svg class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -86,19 +86,19 @@ export default function ApiKeysPanel() {
               </svg>
               <p class="text-sm font-semibold text-terminal-text">Your new API key — copy it now</p>
             </div>
-            <div class="flex items-center gap-2">
-              <code class="flex-1 break-all rounded-lg border border-terminal-border bg-terminal-code px-3.5 py-2.5 font-mono text-xs text-terminal-text">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <code class="flex-1 break-all rounded-[var(--radius-md)] border border-terminal-border bg-terminal-code px-3.5 py-2.5 font-mono text-xs text-terminal-text">
                 {k().plaintext}
               </code>
               <button
                 onClick={() => copy(k().plaintext)}
-                class="rounded-lg bg-terminal-accent px-4 py-2.5 text-xs font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+                class="app-button-primary text-xs"
               >
                 Copy
               </button>
               <button
                 onClick={() => setCreatedKey(null)}
-                class="rounded-lg border border-terminal-border bg-terminal-panel px-3 py-2 text-xs text-terminal-muted transition-all hover:bg-surface-hover"
+                class="app-button-secondary text-xs"
               >
                 Dismiss
               </button>
@@ -107,20 +107,19 @@ export default function ApiKeysPanel() {
         )}
       </Show>
 
-      <form onSubmit={onCreate} class="flex items-end gap-3">
+      <form onSubmit={onCreate} class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div class="flex-1">
-          <label class="block text-xs font-medium uppercase tracking-wider text-terminal-muted mb-1.5">Key name</label>
+          <label class="app-label mb-1.5">Key name</label>
           <input
-            placeholder="production-api"
             value={newName()}
             onInput={(e) => setNewName(e.currentTarget.value)}
-            class="w-full rounded-lg border border-terminal-border bg-terminal-panel px-3.5 py-2.5 text-sm text-terminal-text outline-none transition-all duration-150 focus:border-terminal-accent focus:ring-2 focus:ring-terminal-accent/20 placeholder:text-terminal-muted/50"
+            class="app-input"
           />
         </div>
         <button
           type="submit"
           disabled={creating()}
-          class="rounded-lg bg-terminal-accent px-5 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          class="app-button-primary"
         >
           {creating() ? (
             <>
@@ -145,14 +144,83 @@ export default function ApiKeysPanel() {
         </button>
       </form>
       {error() && (
-        <div class="rounded-lg border border-terminal-error/30 bg-terminal-error/10 px-4 py-3">
+        <div class="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3">
           <p class="text-sm text-terminal-error">{error()}</p>
         </div>
       )}
 
-      <div class="overflow-hidden rounded-xl border border-terminal-border">
-        <table class="w-full text-sm">
-          <thead class="bg-terminal-panel text-xs uppercase tracking-wider">
+      <div class="grid gap-3 md:hidden">
+        <Show
+          when={!keys.loading}
+          fallback={
+            <div class="app-mobile-card text-center text-sm text-terminal-muted">
+              <div class="flex items-center justify-center gap-2">
+                <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  ></path>
+                </svg>
+                Loading keys
+              </div>
+            </div>
+          }
+        >
+          <Show
+            when={(keys() ?? []).length > 0}
+            fallback={<div class="app-mobile-card text-center text-sm text-terminal-muted">No API keys yet. Create one above.</div>}
+          >
+            <For each={keys()}>
+              {(k) => (
+                <article class={`app-mobile-card space-y-3 ${k.revoked_at ? "opacity-50" : ""}`}>
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <p class="truncate text-sm font-semibold text-terminal-text">{k.name}</p>
+                      <p class="mt-1 font-mono text-xs text-terminal-muted">{k.prefix}</p>
+                    </div>
+                    <span
+                      class={`shrink-0 rounded-md px-2 py-0.5 text-xs font-medium ${
+                        k.tier === "free"
+                          ? "bg-terminal-accent/10 text-terminal-accent"
+                          : k.tier === "pro"
+                            ? "bg-terminal-success/10 text-terminal-success"
+                            : "bg-terminal-panel text-terminal-muted"
+                      }`}
+                    >
+                      {k.tier}
+                    </span>
+                  </div>
+                  <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <p class="app-label">Created</p>
+                      <p class="mt-1 text-terminal-text">{formatDate(k.created_at)}</p>
+                    </div>
+                    <div>
+                      <p class="app-label">Last used</p>
+                      <p class="mt-1 text-terminal-text">{formatDate(k.last_used_at)}</p>
+                    </div>
+                  </div>
+                  <div class="border-t border-terminal-border/50 pt-3">
+                    {k.revoked_at ? (
+                      <span class="text-xs text-terminal-muted/60">Revoked</span>
+                    ) : (
+                      <button onClick={() => onRevoke(k.id)} class="text-xs font-medium text-terminal-error hover:underline">
+                        Revoke
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )}
+            </For>
+          </Show>
+        </Show>
+      </div>
+
+      <div class="app-table-wrap hidden overflow-x-auto md:block">
+        <table class="w-full min-w-[720px] text-sm">
+          <thead class="bg-terminal-bg/70 text-xs uppercase tracking-wider">
             <tr>
               <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Name</th>
               <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Key</th>
@@ -206,7 +274,7 @@ export default function ApiKeysPanel() {
                       class={`transition-colors duration-100 hover:bg-surface-hover ${k.revoked_at ? "opacity-50" : ""}`}
                     >
                       <td class="px-4 py-3 font-medium text-terminal-text">{k.name}</td>
-                      <td class="px-4 py-3 font-mono text-xs text-terminal-muted">{k.prefix}…</td>
+                      <td class="px-4 py-3 font-mono text-xs text-terminal-muted">{k.prefix}</td>
                       <td class="px-4 py-3">
                         <span
                           class={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${

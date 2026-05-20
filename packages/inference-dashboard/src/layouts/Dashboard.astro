@@ -22,29 +22,36 @@ const navItems = [
 
 <Base title={title}>
   <Nav />
-  <div class="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[200px_1fr]">
-    <aside class="space-y-1 text-sm">
-      <p class="px-3 pb-2 text-xs uppercase tracking-wider text-terminal-muted">{user.email}</p>
+  <div class="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 md:grid-cols-[220px_1fr] md:gap-6 md:py-10">
+    <aside class="app-panel h-fit p-2 text-sm md:sticky md:top-24">
+      <div class="mb-2 rounded-[var(--radius-md)] border border-terminal-border/70 bg-terminal-bg/50 px-3 py-3">
+        <p class="truncate text-sm font-semibold text-terminal-text">{user.name ?? user.email.split("@")[0]}</p>
+        <p class="mt-0.5 truncate text-xs text-terminal-muted">{user.email}</p>
+      </div>
+      <nav class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0" aria-label="Dashboard sections">
       {
         navItems.map((item) => (
           <a
             href={item.href}
-            class={`block rounded-md px-3 py-1.5 ${active === item.id ? "bg-terminal-panel text-terminal-text" : "text-terminal-muted hover:bg-surface-hover hover:text-terminal-text"}`}
+            class={`flex min-h-10 shrink-0 items-center rounded-[var(--radius-md)] px-3 text-sm font-medium transition-colors md:w-full ${active === item.id ? "bg-terminal-accent/10 text-terminal-accent" : "text-terminal-muted hover:bg-surface-hover hover:text-terminal-text"}`}
           >
             {item.label}
           </a>
         ))
       }
-      <div class="my-3 h-px bg-terminal-border/50"></div>
-      <a href="/docs" class="block rounded-md px-3 py-1.5 text-terminal-muted hover:bg-surface-hover hover:text-terminal-text">
-        Docs ↗
-      </a>
-      <form action="/api/auth/sign-out" method="POST" class="mt-2">
-        <button type="submit" class="block w-full rounded-md px-3 py-1.5 text-left text-terminal-muted hover:bg-surface-hover hover:text-terminal-text">
+      </nav>
+      <div class="my-2 h-px bg-terminal-border/60"></div>
+      <div class="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0 md:pb-0">
+        <a href="/docs" class="flex min-h-10 shrink-0 items-center rounded-[var(--radius-md)] px-3 text-sm font-medium text-terminal-muted transition-colors hover:bg-surface-hover hover:text-terminal-text md:w-full">
+          Docs
+        </a>
+        <form action="/api/auth/sign-out" method="POST" class="shrink-0 md:w-full">
+          <button type="submit" class="flex min-h-10 w-full items-center rounded-[var(--radius-md)] px-3 text-left text-sm font-medium text-terminal-muted transition-colors hover:bg-surface-hover hover:text-terminal-text">
           Sign out
-        </button>
-      </form>
+          </button>
+        </form>
+      </div>
     </aside>
-    <main><slot /></main>
+    <main id="main-content" class="min-w-0"><slot /></main>
   </div>
 </Base>

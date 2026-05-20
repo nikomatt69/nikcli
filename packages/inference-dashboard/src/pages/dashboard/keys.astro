@@ -4,13 +4,18 @@ import ApiKeysPanel from "../../components/ApiKeysPanel"
 ---
 
 <Dashboard active="keys" title="API Keys · nikcli Inference">
-  <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-6 shadow-soft">
-    <h1 class="font-display text-2xl font-bold text-terminal-text tracking-tight">API Keys</h1>
-    <p class="mt-2 text-sm text-terminal-muted">
-      Use these as <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">Authorization: Bearer …</code> against
-      <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">https://inference.nikcli.store/v1</code>. We only show the full key once at creation.
-    </p>
-    <div class="mt-6">
+  <div class="app-page">
+    <div class="app-header">
+      <div>
+        <p class="app-kicker">Credentials</p>
+        <h1 class="app-title">API Keys</h1>
+        <p class="app-subtitle">
+          Use each key as <code class="app-code">Authorization: Bearer $NIKCLI_API_KEY</code> against
+          <code class="app-code">https://inference.nikcli.store/v1</code>. Full keys are only shown once.
+        </p>
+      </div>
+    </div>
+    <div class="app-panel app-panel-pad">
       <ApiKeysPanel client:load />
     </div>
   </div>

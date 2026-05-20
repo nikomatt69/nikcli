@@ -3,7 +3,7 @@ import { z } from "zod"
 import { AuthError, createSession, setSessionCookie, verifyCredentials } from "../../../lib/auth"
 import { getEnv } from "../../../lib/env"
 
-const body = z.object({ email: z.string().email(), password: z.string().min(1) })
+const body = z.object({ email: z.email(), password: z.string().min(1) })
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } })

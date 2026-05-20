@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro"
 import { z } from "zod"
-import { getCurrentUser } from "../../../lib/auth"
+import { AuthError, getCurrentUser, updateUserPassword } from "../../../lib/auth"
 import { getEnv } from "../../../lib/env"
 
 function json(data: unknown, status = 200) {
@@ -9,6 +9,8 @@ function json(data: unknown, status = 200) {
 
 const updateBody = z.object({
   name: z.string().min(1).max(80).optional(),
+  currentPassword: z.string().min(1).optional(),
+  nextPassword: z.string().min(8).optional(),
 })
 
 export const PATCH: APIRoute = async (ctx) => {
@@ -29,6 +31,22 @@ export const PATCH: APIRoute = async (ctx) => {
     await env.DB.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?")
       .bind(parsed.name.trim() || null, now, user.id)
       .run()
+  }
+
+  if (parsed.currentPassword !== undefined || parsed.nextPassword !== undefined) {
+    if (!parsed.currentPassword || !parsed.nextPassword) {
+      return json({ error: "Current password and new password are required" }, 400)
+    }
+    try {
+      await updateUserPassword(env, {
+        userId: user.id,
+        currentPassword: parsed.currentPassword,
+        nextPassword: parsed.nextPassword,
+      })
+    } catch (e) {
+      if (e instanceof AuthError) return json({ error: e.message }, e.status)
+      throw e
+    }
   }
 
   return json({ ok: true })

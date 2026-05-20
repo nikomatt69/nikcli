@@ -16,6 +16,9 @@ function McpPageInner() {
   const [newCommand, setNewCommand] = useState("")
   const [newUrl, setNewUrl] = useState("")
   const [busy, setBusy] = useState(false)
+  const [editingName, setEditingName] = useState<string | null>(null)
+  const [editCommand, setEditCommand] = useState("")
+  const [editUrl, setEditUrl] = useState("")
 
   const load = () => {
     if (!isConnected) {
@@ -36,7 +39,7 @@ function McpPageInner() {
 
   const toggle = async (name: string, server: McpServerConfig) => {
     try {
-      await studioApi.mcp.patch(name, { enabled: server.enabled === false ? true : false })
+      await studioApi.mcp.toggle(name, server.enabled === false ? true : false)
       load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Toggle failed")
@@ -78,12 +81,36 @@ function McpPageInner() {
     }
   }
 
+  const beginEdit = (name: string, server: McpServerConfig) => {
+    setEditingName(name)
+    setEditCommand(server.type === "local" ? (server.command ?? []).join(" ") : "")
+    setEditUrl(server.type === "remote" ? server.url : "")
+  }
+
+  const saveEdit = async (name: string, server: McpServerConfig) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const patch =
+        server.type === "remote"
+          ? { url: editUrl.trim() }
+          : { command: editCommand.trim().split(/\s+/).filter(Boolean) }
+      await studioApi.mcp.patch(name, patch as Partial<McpServerConfig>)
+      setEditingName(null)
+      load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Update failed")
+    } finally {
+      setBusy(false)
+    }
+  }
+
   if (!isConnected) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
         <div className="mb-4 text-4xl">🔒</div>
         <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings</p>
+        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings to manage this user's MCP servers.</p>
       </div>
     )
   }
@@ -92,11 +119,17 @@ function McpPageInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-terminal-muted">Manage MCP server integrations</p>
+      <div className="flex flex-col gap-4 border-b border-terminal-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">User MCP</p>
+          <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage MCP servers</h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
+            Add, edit, enable, disable, or remove MCP servers from the connected nikcli user configuration.
+          </p>
+        </div>
         <button
           onClick={() => setShowAdd(!showAdd)}
-          className="flex items-center gap-2 rounded-xl bg-terminal-accent px-4 py-2 font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+          className="flex items-center gap-2 rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
         >
           <span>{showAdd ? "Cancel" : "+ Add Server"}</span>
         </button>
@@ -109,7 +142,7 @@ function McpPageInner() {
       )}
 
       {showAdd && (
-        <div className="rounded-2xl border border-terminal-border bg-terminal-panel p-6 space-y-4">
+        <div className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-6 space-y-4">
           <h3 className="font-semibold text-terminal-text">New MCP Server</h3>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -118,7 +151,7 @@ function McpPageInner() {
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="my-mcp-server"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
               />
             </div>
             <div className="space-y-2">
@@ -126,7 +159,7 @@ function McpPageInner() {
               <select
                 value={newType}
                 onChange={(e) => setNewType(e.target.value as "local" | "remote")}
-                className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
               >
                 <option value="local">Local (command)</option>
                 <option value="remote">Remote (URL)</option>
@@ -140,7 +173,7 @@ function McpPageInner() {
                 value={newCommand}
                 onChange={(e) => setNewCommand(e.target.value)}
                 placeholder="npx -y @my/mcp-server"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 font-mono text-sm text-terminal-text focus:border-terminal-accent focus:outline-none"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-4 py-2.5 font-mono text-sm text-terminal-text focus:border-terminal-accent focus:outline-none"
               />
             </div>
           ) : (
@@ -150,14 +183,14 @@ function McpPageInner() {
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder="https://my-mcp.example.com/sse"
-                className="w-full rounded-xl border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
+                className="w-full rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-4 py-2.5 text-terminal-text focus:border-terminal-accent focus:outline-none"
               />
             </div>
           )}
           <button
             onClick={add}
             disabled={busy}
-            className="rounded-xl bg-terminal-accent px-6 py-2 font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+            className="rounded-[var(--radius-md)] bg-terminal-accent px-6 py-2 font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
           >
             {busy ? "Adding…" : "Add Server"}
           </button>
@@ -179,37 +212,61 @@ function McpPageInner() {
           {mcpEntries.map(([name, server]) => (
             <div
               key={name}
-              className="flex items-center justify-between rounded-2xl border border-terminal-border bg-terminal-panel px-5 py-4"
+              className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel px-5 py-4"
             >
-              <div className="flex items-center gap-4">
-                <div
-                  className={`h-2.5 w-2.5 rounded-full ${server.enabled !== false ? "bg-terminal-success" : "bg-terminal-muted"}`}
-                />
-                <div>
-                  <div className="font-semibold text-terminal-text">{name}</div>
-                  <div className="mt-0.5 font-mono text-xs text-terminal-muted">
-                    {server.type === "local" ? (server.command ?? []).join(" ") : (server.url ?? "")}
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${server.enabled !== false ? "bg-terminal-success" : "bg-terminal-muted"}`}
+                  />
+                  <div className="min-w-0">
+                    <div className="font-semibold text-terminal-text">{name}</div>
+                    {editingName === name ? (
+                      <input
+                        value={server.type === "local" ? editCommand : editUrl}
+                        onChange={(e) => (server.type === "local" ? setEditCommand(e.target.value) : setEditUrl(e.target.value))}
+                        className="mt-2 w-full min-w-[280px] rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-3 py-2 font-mono text-xs text-terminal-text outline-none focus:border-terminal-accent"
+                      />
+                    ) : (
+                      <div className="mt-0.5 truncate font-mono text-xs text-terminal-muted">
+                        {server.type === "local" ? (server.command ?? []).join(" ") : (server.url ?? "")}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${server.type === "remote" ? "bg-terminal-accent/10 text-terminal-accent" : "bg-terminal-border/50 text-terminal-muted"}`}
-                >
-                  {server.type}
-                </span>
-                <button
-                  onClick={() => toggle(name, server)}
-                  className="rounded-lg border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50"
-                >
-                  {server.enabled !== false ? "Disable" : "Enable"}
-                </button>
-                <button
-                  onClick={() => remove(name)}
-                  className="rounded-lg border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error transition-colors hover:bg-terminal-error/10"
-                >
-                  Remove
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${server.type === "remote" ? "bg-terminal-accent/10 text-terminal-accent" : "bg-terminal-border/50 text-terminal-muted"}`}
+                  >
+                    {server.type}
+                  </span>
+                  {editingName === name ? (
+                    <>
+                      <button onClick={() => saveEdit(name, server)} disabled={busy} className="rounded-[var(--radius-sm)] border border-terminal-accent/40 px-3 py-1.5 text-xs font-medium text-terminal-accent transition-colors hover:bg-terminal-accent/10">
+                        Save
+                      </button>
+                      <button onClick={() => setEditingName(null)} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50">
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={() => beginEdit(name, server)} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50">
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggle(name, server)}
+                    className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50"
+                  >
+                    {server.enabled !== false ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    onClick={() => remove(name)}
+                    className="rounded-[var(--radius-sm)] border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error transition-colors hover:bg-terminal-error/10"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
             </div>
           ))}

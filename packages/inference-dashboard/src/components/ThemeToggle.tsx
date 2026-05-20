@@ -27,7 +27,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggle}
-      class="flex items-center justify-center rounded-full border border-terminal-border/50 bg-terminal-panel/70 text-terminal-muted transition-all duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 active:scale-[0.94]"
+      class="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-terminal-border/50 bg-terminal-panel/70 text-terminal-muted transition-all duration-150 hover:border-terminal-accent/40 hover:text-terminal-accent hover:bg-terminal-accent/8 active:scale-[0.94]"
       title={`Switch to ${theme() === "dark" ? "light" : "dark"} mode`}
       aria-label={`Switch to ${theme() === "dark" ? "light" : "dark"} mode`}
       aria-pressed={theme() === "dark" ? "true" : "false"}

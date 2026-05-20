@@ -52,14 +52,11 @@ const features = [
 
   <!-- ─── Hero ─────────────────────────────────────────────── -->
   <section
+    id="main-content"
     class="relative isolate overflow-hidden min-h-[92vh] flex items-center pt-16 pb-10 md:pt-20 md:pb-16"
     aria-label="Hero"
   >
-    <!-- Ambient background glow -->
-    <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
-      <div class="absolute top-[-10%] left-[-5%] w-[700px] h-[500px] rounded-full bg-terminal-accent/8 dark:bg-terminal-accent/10 blur-[140px] animate-pulse-slow"></div>
-      <div class="absolute bottom-[-5%] right-[-5%] w-[500px] h-[400px] rounded-full bg-terminal-accent/5 dark:bg-terminal-accent/7 blur-[120px]"></div>
-    </div>
+    <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-px bg-terminal-accent/40" aria-hidden="true"></div>
 
     <div class="page-shell w-full">
       <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-10 xl:gap-16 items-center">
@@ -85,7 +82,7 @@ const features = [
 
           <!-- Headline -->
           <h1
-            class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] tracking-[-0.04em] text-[clamp(2.8rem,7vw,5.5rem)] mb-6 sm:mb-7"
+            class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] text-[clamp(2.8rem,7vw,5.5rem)] mb-6 sm:mb-7"
             style="animation-delay: 80ms"
           >
             One API.<br />
@@ -138,17 +135,17 @@ const features = [
             style="animation-delay: 320ms"
           >
             <div>
-              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">14+</div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none">14+</div>
               <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Providers</div>
             </div>
             <div class="w-px h-8 bg-terminal-border/60"></div>
             <div>
-              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">40+</div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none">40+</div>
               <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Models</div>
             </div>
             <div class="w-px h-8 bg-terminal-border/60"></div>
             <div>
-              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">Free</div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none">Free</div>
               <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">100K tokens/mo</div>
             </div>
           </div>
@@ -181,46 +178,44 @@ const features = [
             </div>
 
             <!-- Terminal body -->
-            <div class="min-h-[180px] overflow-x-auto bg-terminal-window-code p-5 font-mono text-[13px] leading-[1.8] sm:p-6 md:p-7 md:text-[14px]">
+            <div class="min-h-[180px] overflow-x-auto bg-terminal-window-code p-5 font-mono text-[12px] leading-[1.8] sm:p-6 sm:text-[13px] md:p-7 md:text-[14px]">
               <!-- Command line -->
               <div class="flex items-start gap-2.5 mb-3">
                 <span class="text-terminal-accent shrink-0 font-bold select-none mt-[2px]">$</span>
-                <div>
+                <div class="min-w-max">
                   <code class="text-terminal-window-text font-semibold whitespace-pre">{curlExample}</code>
                   <span class="animate-cursor inline-block w-[7px] h-[15px] bg-terminal-accent/80 align-middle ml-0.5 -mt-px rounded-[1px]" aria-hidden="true"></span>
                 </div>
               </div>
 
-              <!-- Simulated output lines -->
-              <div class="mt-4 space-y-1.5 text-[12px] border-t border-terminal-border/30 pt-4" aria-hidden="true">
+              <div class="mt-4 space-y-1.5 text-[12px] border-t border-terminal-border/30 pt-4">
                 <div class="flex items-center gap-2">
-                  <span class="text-terminal-accent/70 font-semibold">✓</span>
-                  <span class="text-terminal-muted/80">Connecting to model provider...</span>
+                  <span class="text-terminal-accent/70 font-semibold">POST</span>
+                  <span class="text-terminal-muted/80">/v1/chat/completions</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-terminal-accent/70 font-semibold">✓</span>
-                  <span class="text-terminal-muted/80">LSP initialized — 3 servers active</span>
+                  <span class="text-terminal-accent/70 font-semibold">Auth</span>
+                  <span class="text-terminal-muted/80">Bearer key generated in the dashboard</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="text-terminal-success/80 font-semibold">→</span>
-                  <span class="text-terminal-muted/80">Session <span class="text-terminal-accent font-semibold">ses_f9a2b</span> started · deepseek-v4-pro</span>
+                  <span class="text-terminal-success/80 font-semibold">Metered</span>
+                  <span class="text-terminal-muted/80">usage events appear on your Usage page</span>
                 </div>
               </div>
             </div>
 
             <!-- Bottom status bar -->
-            <div class="border-t border-terminal-window-border/60 bg-surface-hover/30 px-5 py-2 flex items-center justify-between">
-              <div class="flex items-center gap-3 font-mono text-[10.5px] text-terminal-muted/70">
+            <div class="border-t border-terminal-window-border/60 bg-surface-hover/30 px-4 py-2 sm:px-5">
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[10.5px] text-terminal-muted/70">
                 <span class="flex items-center gap-1">
                   <span class="w-1.5 h-1.5 rounded-full bg-terminal-success inline-block"></span>
-                  deepseek-v4-pro
+                  OpenAI-compatible
                 </span>
                 <span>·</span>
-                <span>R1</span>
+                <span>dashboard keys</span>
                 <span>·</span>
-                <span>cache hit</span>
+                <span>usage metering</span>
               </div>
-              <span class="font-mono text-[10.5px] text-terminal-muted/50">$0.00016</span>
             </div>
           </div>
 
@@ -247,7 +242,7 @@ const features = [
           </span>
         </div>
         <!-- Heading -->
-        <h2 class="font-display text-[clamp(1.75rem,4vw,3rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-terminal-text mb-4">
+        <h2 class="font-display text-[clamp(1.75rem,4vw,3rem)] font-extrabold leading-[1.05] text-terminal-text mb-4">
           Route once.<br class="hidden sm:block"/>
           <span class="text-terminal-muted font-semibold">Route cheapest.</span>
         </h2>
@@ -283,13 +278,13 @@ const features = [
             <!-- Content -->
             <div class={["relative z-10 p-6 sm:p-7", feature.size === "wide" ? "md:flex md:gap-8 md:items-start" : ""].join(" ")}>
               <!-- Icon -->
-              <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-200 group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
+              <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-200 group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" set:html={feature.icon} />
               </div>
 
               <div class={feature.size === "wide" ? "md:flex-1" : ""}>
                 <!-- Title -->
-                <h3 class="font-display text-[1.05rem] font-bold tracking-[-0.02em] text-terminal-text mb-2.5 transition-colors duration-150 group-hover:text-terminal-text">
+                <h3 class="font-display text-[1.05rem] font-bold text-terminal-text mb-2.5 transition-colors duration-150 group-hover:text-terminal-text">
                   {feature.title}
                 </h3>
 

@@ -39,30 +39,75 @@ function fmt(ts: number): string {
 ---
 
 <Dashboard active="usage" title="Usage · nikcli Inference">
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-display font-bold text-terminal-text">Usage</h1>
-      <p class="mt-1 text-sm text-terminal-muted">Per-call billing — what you pay, not what we paid upstream.</p>
+  <div class="app-page">
+    <div class="app-header">
+      <div>
+        <p class="app-kicker">Metering</p>
+        <h1 class="app-title">Usage</h1>
+        <p class="app-subtitle">Per-call billing with tokens, provider resolution, cache state, and cost for each request.</p>
+      </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-4">
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day spend</p>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="app-stat">
+        <p class="app-label">30-day spend</p>
         <p class="mt-2 text-2xl font-display font-bold text-terminal-text">${(totals?.billed ?? 0).toFixed(4)}</p>
       </div>
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day calls</p>
+      <div class="app-stat">
+        <p class="app-label">30-day calls</p>
         <p class="mt-2 text-2xl font-display font-bold text-terminal-text">{totals?.c ?? 0}</p>
       </div>
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day tokens</p>
+      <div class="app-stat">
+        <p class="app-label">30-day tokens</p>
         <p class="mt-2 text-2xl font-display font-bold text-terminal-text">{(totals?.tokens ?? 0).toLocaleString()}</p>
       </div>
     </div>
 
-    <div class="overflow-hidden rounded-[var(--radius-card)] border border-terminal-border shadow-soft">
-      <table class="w-full text-sm">
-        <thead class="bg-terminal-panel text-xs uppercase tracking-wider">
+    <div class="grid gap-3 md:hidden">
+      {rows.length === 0 ? (
+        <div class="app-mobile-card text-center text-sm text-terminal-muted">
+          No usage yet. Make a request against <code class="app-code">/v1/chat/completions</code>.
+        </div>
+      ) : (
+        rows.map((r) => (
+          <article class="app-mobile-card space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="truncate font-mono text-xs font-semibold text-terminal-text">{r.model}</p>
+                <p class="mt-1 text-xs text-terminal-muted">{fmt(r.created_at)}</p>
+              </div>
+              {r.cache ? (
+                <span class="shrink-0 rounded-md bg-terminal-success/10 px-2 py-0.5 text-xs font-medium text-terminal-success">
+                  {r.cache}
+                </span>
+              ) : null}
+            </div>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p class="app-label">Provider</p>
+                <p class="mt-1 truncate text-terminal-text">{r.provider ?? "Not reported"}</p>
+              </div>
+              <div>
+                <p class="app-label">Resolved model</p>
+                <p class="mt-1 truncate font-mono text-xs text-terminal-text">{r.resolved_model}</p>
+              </div>
+              <div>
+                <p class="app-label">Tokens</p>
+                <p class="mt-1 tabular-nums text-terminal-text">{(r.prompt_tokens + r.completion_tokens).toLocaleString()}</p>
+              </div>
+              <div>
+                <p class="app-label">Cost</p>
+                <p class="mt-1 tabular-nums text-terminal-text">${r.billed_usd.toFixed(6)}</p>
+              </div>
+            </div>
+          </article>
+        ))
+      )}
+    </div>
+
+    <div class="app-table-wrap hidden overflow-x-auto md:block">
+      <table class="w-full min-w-[760px] text-sm">
+        <thead class="bg-terminal-bg/70 text-xs uppercase tracking-wider">
           <tr>
             <th class="px-4 py-3 text-left font-semibold text-terminal-muted">When</th>
             <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Model</th>
@@ -75,9 +120,9 @@ function fmt(ts: number): string {
         <tbody class="divide-y divide-terminal-border/50">
           {rows.length === 0 ? (
             <tr>
-              <td colspan="6" class="px-4 py-10 text-center text-terminal-muted">
+              <td colspan="6" class="px-4 py-12 text-center text-terminal-muted">
                 No usage yet. Make a request against{" "}
-                <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">/v1/chat/completions</code>.
+                <code class="app-code">/v1/chat/completions</code>.
               </td>
             </tr>
           ) : (
@@ -85,7 +130,7 @@ function fmt(ts: number): string {
               <tr class="transition-colors duration-100 hover:bg-surface-hover">
                 <td class="px-4 py-3 text-terminal-muted">{fmt(r.created_at)}</td>
                 <td class="px-4 py-3 font-mono text-xs text-terminal-text">{r.model}</td>
-                <td class="px-4 py-3 text-terminal-muted">{r.provider ?? "—"}</td>
+                <td class="px-4 py-3 text-terminal-muted">{r.provider ?? "Not reported"}</td>
                 <td class="px-4 py-3 text-right tabular-nums text-terminal-text">{r.prompt_tokens + r.completion_tokens}</td>
                 <td class="px-4 py-3 text-right tabular-nums text-terminal-text">${r.billed_usd.toFixed(6)}</td>
                 <td class="px-4 py-3 text-terminal-muted">
@@ -93,7 +138,7 @@ function fmt(ts: number): string {
                     <span class="inline-flex items-center rounded-md bg-terminal-success/10 px-2 py-0.5 text-xs font-medium text-terminal-success">
                       {r.cache}
                     </span>
-                  ) : "—"}
+                  ) : "Not reported"}
                 </td>
               </tr>
             ))

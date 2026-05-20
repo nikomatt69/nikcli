@@ -27,12 +27,12 @@ export default function DeleteAccountSection() {
 
   if (deleted()) {
     return (
-      <div class="rounded-xl border border-terminal-error/30 bg-terminal-error/10 p-5">
+      <div class="rounded-[var(--radius-card)] border border-terminal-error/30 bg-terminal-error/10 p-5">
         <p class="text-sm font-medium text-terminal-error flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
           </svg>
-          Account deleted. Redirecting...
+          Account deleted. Redirecting
         </p>
       </div>
     )
@@ -40,12 +40,13 @@ export default function DeleteAccountSection() {
 
   if (!confirming()) {
     return (
-      <div class="rounded-xl border border-terminal-error/30 bg-terminal-error/5 p-5">
-        <h2 class="font-display font-semibold text-terminal-error">Danger zone</h2>
-        <p class="mt-2 text-sm text-terminal-muted">Permanently delete your account and all associated data.</p>
+      <div class="rounded-[var(--radius-card)] border border-terminal-error/30 bg-terminal-error/5 p-5">
+        <p class="app-kicker text-terminal-error">Danger zone</p>
+        <h2 class="mt-2 font-display text-xl font-semibold text-terminal-error">Delete account</h2>
+        <p class="mt-2 text-sm leading-6 text-terminal-muted">Permanently delete your account, API keys, and usage history.</p>
         <button
           onClick={() => setConfirming(true)}
-          class="mt-4 rounded-lg border border-terminal-error/40 bg-terminal-error/10 px-4 py-2 text-sm font-medium text-terminal-error transition-all hover:bg-terminal-error/20 active:scale-[0.98]"
+          class="app-button-danger mt-4"
         >
           Delete account
         </button>
@@ -54,21 +55,22 @@ export default function DeleteAccountSection() {
   }
 
   return (
-    <div class="rounded-xl border border-terminal-error bg-terminal-error/10 p-5 shadow-soft">
-      <h2 class="font-display font-semibold text-terminal-error">Confirm deletion</h2>
+    <div class="rounded-[var(--radius-card)] border border-terminal-error bg-terminal-error/10 p-5 shadow-soft">
+      <p class="app-kicker text-terminal-error">Confirm deletion</p>
+      <h2 class="mt-2 font-display text-xl font-semibold text-terminal-error">Delete everything</h2>
       <p class="mt-2 text-sm text-terminal-muted">
         This will permanently delete your account, all API keys, and usage history. This action cannot be undone.
       </p>
       {error() && (
-        <div class="mt-3 rounded-lg border border-terminal-error/30 bg-terminal-error/10 px-4 py-3">
+        <div class="mt-3 rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3">
           <p class="text-sm text-terminal-error">{error()}</p>
         </div>
       )}
-      <div class="mt-4 flex gap-3">
+      <div class="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           onClick={onDelete}
           disabled={loading()}
-          class="rounded-lg bg-terminal-error px-4 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50 flex items-center gap-2"
+          class="inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-terminal-error px-4 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-50"
         >
           {loading() ? (
             <>
@@ -88,7 +90,7 @@ export default function DeleteAccountSection() {
         </button>
         <button
           onClick={() => setConfirming(false)}
-          class="rounded-lg border border-terminal-border bg-terminal-panel px-4 py-2 text-sm text-terminal-text transition-all hover:bg-surface-hover active:scale-[0.98]"
+          class="app-button-secondary"
         >
           Cancel
         </button>

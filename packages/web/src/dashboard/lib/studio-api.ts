@@ -175,7 +175,7 @@ function handle401() {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken()
   try {
-    return await requestJson<T>(`/studio/api${path}`, {
+    return await requestJson<T>(path, {
       ...init,
       token,
     })
@@ -212,6 +212,31 @@ export type ProfileInfo = {
 }
 
 export type ProfilesData = { profiles: Record<string, ProfileInfo>; activeProfile: string }
+
+export type CloudSessionInfo = {
+  id: string
+  title: string
+  parentID?: string
+  directory?: string
+  time?: {
+    created: number
+    updated: number
+    archived?: number
+  }
+  messageCount?: number
+  messages?: number
+}
+
+export type CloudSessionStatus = {
+  status?: string
+  lastUpdate?: number
+  error?: string
+}
+
+export type CloudSessionCreateInput = {
+  title?: string
+  parentID?: string
+}
 
 export type SkillSummary = {
   name: string
@@ -258,6 +283,12 @@ export type GitHubStatus = { available: boolean; authenticated: boolean; usernam
 
 export type ConfigPathsData = { detected?: string; candidates: string[] }
 
+export type UserPatch = {
+  displayName?: string
+  password?: string
+  role?: "admin" | "user"
+}
+
 export const studioApi = {
   config: {
     get: () => request<NikcliConfig>("/config"),
@@ -266,16 +297,18 @@ export const studioApi = {
     paths: () => request<ConfigPathsData>("/config/paths"),
     providers: () => request<{ providers: Record<string, unknown> }>("/config/providers"),
     setProviderApiKey: (id: string, apiKey: string) =>
-      request<{ success: boolean }>(`/config/providers/${id}/api`, { method: "POST", ...json({ apiKey }) }),
+      request<{ success: boolean }>(`/provider/${id}/api`, { method: "POST", ...json({ apiKey }) }),
   },
 
   mcp: {
     add: (name: string, config: McpServerConfig) =>
-      request<{ success: boolean }>("/config/mcp", { method: "POST", ...json({ name, config }) }),
+      request<{ success: boolean }>("/mcp", { method: "POST", ...json({ name, config }) }),
     patch: (name: string, patch: Partial<McpServerConfig>) =>
       request<{ success: boolean }>(`/config/mcp/${encodeURIComponent(name)}`, { method: "PATCH", ...json(patch) }),
     delete: (name: string) =>
       request<{ success: boolean }>(`/config/mcp/${encodeURIComponent(name)}`, { method: "DELETE" }),
+    toggle: (name: string, enabled: boolean) =>
+      request<Record<string, unknown>>(`/mcp/${encodeURIComponent(name)}/toggle`, { method: "POST", ...json({ enabled }) }),
   },
 
   profiles: {
@@ -285,15 +318,32 @@ export const studioApi = {
       request<{ success: boolean }>(`/profiles/activate/${encodeURIComponent(name)}`, { method: "POST" }),
   },
 
+  sessions: {
+    list: (query: { roots?: boolean; limit?: number; search?: string } = {}) => {
+      const params = new URLSearchParams()
+      if (query.roots !== undefined) params.set("roots", String(query.roots))
+      if (query.limit !== undefined) params.set("limit", String(query.limit))
+      if (query.search) params.set("search", query.search)
+      const suffix = params.toString() ? `?${params.toString()}` : ""
+      return request<CloudSessionInfo[]>(`/session${suffix}`)
+    },
+    status: () => request<Record<string, CloudSessionStatus>>("/session/status"),
+    create: (input: CloudSessionCreateInput = {}) =>
+      request<CloudSessionInfo>("/session", { method: "POST", ...json(input) }),
+    update: (id: string, patch: { title?: string; time?: { archived?: number } }) =>
+      request<CloudSessionInfo>(`/session/${encodeURIComponent(id)}`, { method: "PATCH", ...json(patch) }),
+    delete: (id: string) => request<boolean>(`/session/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  },
+
   skills: {
-    list: () => request<SkillsData>("/skills"),
-    get: (name: string) => request<SkillDetail>(`/skills/${encodeURIComponent(name)}/content`),
+    list: async () => ({ skills: await request<SkillSummary[]>("/skill") }),
+    get: (name: string) => request<SkillDetail>(`/skill/${encodeURIComponent(name)}`),
     create: (name: string, description: string, content: string) =>
-      request<{ success: boolean }>("/skills", { method: "POST", ...json({ name, description, content }) }),
+      request<{ success: boolean }>("/skill", { method: "POST", ...json({ name, description, content }) }),
     update: (name: string, data: Partial<SkillDetail>) =>
-      request<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: "PUT", ...json(data) }),
+      request<{ success: boolean }>(`/skill/${encodeURIComponent(name)}`, { method: "PUT", ...json(data) }),
     delete: (name: string) =>
-      request<{ success: boolean }>(`/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
+      request<{ success: boolean }>(`/skill/${encodeURIComponent(name)}`, { method: "DELETE" }),
     importUrls: (urls: string[]) =>
       request<{ success: boolean; imported: number }>("/skills/import", { method: "POST", ...json({ urls }) }),
   },
@@ -308,13 +358,13 @@ export const studioApi = {
   },
 
   agents: {
-    list: () => request<AgentsData>("/agents"),
+    list: async () => ({ agents: await request<AgentInfo[]>("/agent") }),
     create: (name: string, description: string, prompt: string) =>
       request<{ success: boolean }>("/agents", { method: "POST", ...json({ name, description, prompt }) }),
   },
 
   commands: {
-    list: () => request<CommandsData>("/commands"),
+    list: async () => ({ commands: await request<CommandInfo[]>("/command") }),
   },
 
   auth: {
@@ -334,5 +384,14 @@ export const studioApi = {
   github: {
     status: () => request<GitHubStatus>("/github/status"),
     push: () => request<{ success: boolean }>("/github/sync/push", { method: "POST", ...json({}) }),
+  },
+
+  users: {
+    update: (id: string, patch: UserPatch) =>
+      request<{ id: string; username: string; email: string; display_name?: string | null; role: "admin" | "user" }>(
+        `/user/${encodeURIComponent(id)}`,
+        { method: "PATCH", ...json(patch) },
+      ),
+    delete: (id: string) => request<{ ok: boolean }>(`/user/${encodeURIComponent(id)}`, { method: "DELETE" }),
   },
 }

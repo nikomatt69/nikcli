@@ -25,43 +25,54 @@ const curlExample = `curl https://inference.nikcli.store/v1/chat/completions \\
 ---
 
 <Dashboard active="overview">
-  <div class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-display font-bold text-terminal-text">Welcome, {user.name ?? user.email.split("@")[0]}</h1>
-      <p class="mt-1 text-sm text-terminal-muted">Your nikcli inference account at a glance.</p>
+  <div class="app-page">
+    <div class="app-header">
+      <div>
+        <p class="app-kicker">Overview</p>
+        <h1 class="app-title">Welcome, {user.name ?? user.email.split("@")[0]}</h1>
+        <p class="app-subtitle">Your nikcli inference account at a glance.</p>
+      </div>
+      <a href="/dashboard/keys" class="app-button-primary w-full sm:w-fit">Create API key</a>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">Plan</p>
+      <div class="app-stat">
+        <p class="app-label">Plan</p>
         <p class="mt-2 text-3xl font-display font-bold text-terminal-text capitalize">{user.plan}</p>
+        <p class="mt-2 text-xs text-terminal-muted">Includes 100K free tokens monthly.</p>
       </div>
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">Active keys</p>
+      <div class="app-stat">
+        <p class="app-label">Active keys</p>
         <p class="mt-2 text-3xl font-display font-bold text-terminal-text">{keysCount?.c ?? 0}</p>
         <a href="/dashboard/keys" class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-terminal-accent hover:underline">
-          Manage →
+          Manage keys
         </a>
       </div>
-      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
-        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">Last 30 days</p>
+      <div class="app-stat">
+        <p class="app-label">Last 30 days</p>
         <p class="mt-2 text-3xl font-display font-bold text-terminal-text">${(usage?.billed_usd ?? 0).toFixed(4)}</p>
         <p class="mt-1 text-xs text-terminal-muted">{usage?.calls ?? 0} calls · {(usage?.tokens ?? 0).toLocaleString()} tokens</p>
       </div>
     </div>
 
-    <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-6 shadow-soft">
-      <h2 class="font-display font-semibold text-terminal-text">Quick start</h2>
-      <p class="mt-2 text-sm text-terminal-muted">Generate a key and drop the gateway URL into Cursor or the OpenAI SDK.</p>
-      <div class="mt-4 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-code p-4 overflow-x-auto">
-        <code class="font-mono text-[13px] text-terminal-text whitespace-pre">{curlExample}</code>
+    <div class="app-panel app-panel-pad">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p class="app-kicker">Quick start</p>
+          <h2 class="mt-2 font-display text-xl font-semibold text-terminal-text">Send your first request</h2>
+        </div>
+        <a href="/docs/quickstart" class="app-button-secondary w-fit">Full guide</a>
+      </div>
+      <p class="mt-2 text-sm text-terminal-muted">Generate a key and use the gateway URL with Cursor or the OpenAI SDK.</p>
+      <div class="mt-4 overflow-x-auto rounded-[var(--radius-md)] border border-terminal-border bg-terminal-code p-4">
+        <code class="block min-w-max font-mono text-[12px] text-terminal-text whitespace-pre sm:text-[13px]">{curlExample}</code>
       </div>
       <div class="mt-4 flex flex-wrap gap-4 text-sm">
         <a href="/docs/cursor" class="inline-flex items-center gap-1 font-medium text-terminal-accent hover:underline">
-          Use it in Cursor →
+          Use it in Cursor
         </a>
         <a href="/docs" class="inline-flex items-center gap-1 font-medium text-terminal-accent hover:underline">
-          All docs →
+          All docs
         </a>
       </div>
     </div>

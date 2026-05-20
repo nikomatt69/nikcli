@@ -6,18 +6,48 @@ import SignUpForm from "../components/SignUpForm"
 
 <Base title="Get a key · nikcli Inference">
   <Nav />
-  <main class="mx-auto max-w-sm px-6 py-24">
-    <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-8 shadow-soft">
-      <h1 class="font-display text-2xl font-bold text-terminal-text tracking-tight">Create an account</h1>
-      <p class="mt-2 text-sm text-terminal-muted">
-        You'll get a free API key with the default <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">free</code> tier. Upgrade later for higher limits.
+  <main id="main-content" class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 md:grid-cols-[1fr_430px] md:gap-8 md:py-20">
+    <section class="flex flex-col justify-between rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-panel/70 p-5 shadow-soft sm:p-8 md:min-h-[580px]">
+      <div>
+        <p class="app-kicker">Instant API access</p>
+        <h1 class="mt-4 max-w-2xl font-display text-[clamp(2.4rem,6vw,4.8rem)] font-extrabold leading-none text-terminal-text">
+          Create one key for every supported model.
+        </h1>
+        <p class="mt-5 max-w-xl text-base leading-7 text-terminal-muted">
+          Signup creates your account, starts the free tier, and issues the first API key in one flow.
+        </p>
+      </div>
+
+      <div class="mt-10 grid gap-3">
+        <div class="flex items-start gap-3 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg/50 p-4">
+          <span class="mt-1 h-2 w-2 rounded-full bg-terminal-success"></span>
+          <div>
+            <p class="text-sm font-semibold text-terminal-text">No credit card required</p>
+            <p class="mt-1 text-sm text-terminal-muted">Start with 100K free monthly tokens and upgrade when limits matter.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg/50 p-4">
+          <span class="mt-1 h-2 w-2 rounded-full bg-terminal-accent"></span>
+          <div>
+            <p class="text-sm font-semibold text-terminal-text">OpenAI-compatible by default</p>
+            <p class="mt-1 text-sm text-terminal-muted">Use the same SDK shape while nikcli handles provider routing.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-panel app-panel-pad self-center">
+      <p class="app-kicker">Free tier</p>
+      <h2 class="mt-3 font-display text-2xl font-bold text-terminal-text">Create an account</h2>
+      <p class="mt-2 text-sm leading-6 text-terminal-muted">
+        You will receive a <code class="app-code">free</code> tier key. The full key is shown once after signup.
       </p>
-      <div class="mt-6">
+      <div class="mt-7">
         <SignUpForm client:load />
       </div>
-      <p class="mt-6 text-sm text-terminal-muted text-center">
-        Already have one? <a href="/sign-in" class="text-terminal-accent hover:underline">Sign in</a>
+      <p class="mt-6 text-center text-sm text-terminal-muted">
+        Already have one? <a href="/sign-in" class="font-medium text-terminal-accent hover:underline">Sign in</a>
       </p>
-    </div>
+    </section>
   </main>
 </Base>
