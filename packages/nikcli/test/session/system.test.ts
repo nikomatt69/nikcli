@@ -61,9 +61,7 @@ describe("SystemPrompt", () => {
     })
 
     it("uses minimax line when api id includes MiniMax-M2.7", () => {
-      const result = SystemPrompt.provider(
-        makeModel({ api: { id: "MiniMax-M2.7", url: "x", npm: "y" } }),
-      )
+      const result = SystemPrompt.provider(makeModel({ api: { id: "MiniMax-M2.7", url: "x", npm: "y" } }))
       expect(result.length).toBeGreaterThan(0)
     })
 

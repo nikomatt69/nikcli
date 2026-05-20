@@ -639,7 +639,7 @@ export function SessionTurn(
                             data-slot="session-turn-collapsible-trigger-content"
                             variant="ghost"
                             size="small"
-                            onClick={props.onStepsExpandedToggle ?? (() => { })}
+                            onClick={props.onStepsExpandedToggle ?? (() => {})}
                             aria-expanded={props.stepsExpanded}
                           >
                             <Switch>

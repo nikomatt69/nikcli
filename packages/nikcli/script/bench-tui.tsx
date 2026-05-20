@@ -281,15 +281,12 @@ function App() {
     setState("running")
     setExitCode(undefined)
     const cmd =
-      USER_ARGS.length > 0
-        ? [process.execPath, "test", ...TEST_PATTERNS]
-        : [process.execPath, "run", "test:bench:run"]
+      USER_ARGS.length > 0 ? [process.execPath, "test", ...TEST_PATTERNS] : [process.execPath, "run", "test:bench:run"]
     setLogLines([cmd.slice(1).join(" ") + " ..."])
     await fs.mkdir(OUTPUT_DIR, { recursive: true })
 
     // use the most recent saved run as baseline so every new run shows a delta
-    const baselinePath =
-      process.env.NIKCLI_BENCHMARK_BASELINE_PATH ?? runs()[0]?.filePath
+    const baselinePath = process.env.NIKCLI_BENCHMARK_BASELINE_PATH ?? runs()[0]?.filePath
 
     const proc = Bun.spawn(cmd, {
       cwd: PKG_ROOT,

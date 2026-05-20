@@ -231,8 +231,7 @@ export const dict = {
     "No necesariamente, pero probablemente. Necesitaras una suscripcion de IA si quieres conectar Nikcli a un proveedor de pago, aunque puedes trabajar con",
   "download.faq.a3.localLink": "modelos locales",
   "download.faq.a3.afterLocal.beforeZen": "gratis. Aunque animamos a los usuarios a usar",
-  "download.faq.a3.afterZen":
-    ", Nikcli funciona con todos los proveedores populares como OpenAI, Anthropic, xAI, etc.",
+  "download.faq.a3.afterZen": ", Nikcli funciona con todos los proveedores populares como OpenAI, Anthropic, xAI, etc.",
 
   "download.faq.a5.p1": "Nikcli es 100% gratis.",
   "download.faq.a5.p2.beforeZen":

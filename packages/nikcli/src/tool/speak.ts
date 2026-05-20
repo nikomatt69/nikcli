@@ -260,7 +260,10 @@ export const SpeakTool = Tool.define("speak", {
         Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(1))),
       ).annotate({ description: "Voice similarity boost (0-1). Default: 0.75" }),
       speed: Schema.optional(
-        Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0.5)), Schema.check(Schema.isLessThanOrEqualTo(2))),
+        Schema.Number.pipe(
+          Schema.check(Schema.isGreaterThanOrEqualTo(0.5)),
+          Schema.check(Schema.isLessThanOrEqualTo(2)),
+        ),
       ).annotate({ description: "Speech speed multiplier (0.5-2). Default: 1.0" }),
       volume: Schema.optional(
         Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.check(Schema.isLessThanOrEqualTo(2))),
@@ -270,9 +273,9 @@ export const SpeakTool = Tool.define("speak", {
       outputFormat: Schema.optional(Schema.String).annotate({
         description: "TTS output format (provider-dependent default)",
       }),
-      timeoutMs: Schema.optional(
-        Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
-      ).annotate({ description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})` }),
+      timeoutMs: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))).annotate({
+        description: `Request timeout in milliseconds (default: ${DEFAULT_TIMEOUT_MS})`,
+      }),
     }),
   ),
   async execute(params, ctx) {

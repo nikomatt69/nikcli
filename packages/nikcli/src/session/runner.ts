@@ -175,7 +175,7 @@ export const make = <A, E = never>(
       })
       const exit = yield* Fiber.await(fiber)
       yield* finishShell(id, exit as Exit.Exit<A, E>)
-      return yield* (exit as Exit.Exit<A, E>)
+      return yield* exit as Exit.Exit<A, E>
     })
 
   const cancel: Effect.Effect<void> = Effect.gen(function* () {

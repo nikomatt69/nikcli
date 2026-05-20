@@ -60,7 +60,6 @@ describe("Token", () => {
         value: Token.estimate(texts[i++ % texts.length]!) as number,
         unit: "ms",
       })
- 
     })
   })
 })

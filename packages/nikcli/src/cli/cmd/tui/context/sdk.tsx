@@ -94,8 +94,13 @@ export const { use: useSDK, provider: SDKProvider } = createSimpleContext({
               if (queue.length > 0) flush()
             } catch (loopError) {
               if (ctrl.signal.aborted || abort.signal.aborted) break
-              console.warn("[sse]", "subscribe failed, retrying in", backoff, "ms",
-                loopError instanceof Error ? loopError.message : loopError)
+              console.warn(
+                "[sse]",
+                "subscribe failed, retrying in",
+                backoff,
+                "ms",
+                loopError instanceof Error ? loopError.message : loopError,
+              )
               await Bun.sleep(backoff)
               backoff = Math.min(backoff * 2, maxBackoff)
             }
