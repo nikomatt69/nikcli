@@ -52,19 +52,17 @@ const sections = [
                 {section.heading}
               </p>
               <ul class="space-y-1">
-                {
-                  section.items.map((item) => (
-                    <li>
-                      <a
-                        href={item.href}
-                        class="block rounded-lg px-3 py-2 text-[13.5px] text-terminal-muted transition-colors duration-100 hover:bg-surface-hover hover:text-terminal-text"
-                      >
-                        {item.label}
-                      </a>
-                    </li>
-                  )
-                )
-              }
+                {section.items.map((item) => (
+                  <li>
+                    <a
+                      href={item.href}
+                      class="block rounded-lg px-3 py-2 text-[13.5px] text-terminal-muted transition-colors duration-100 hover:bg-surface-hover hover:text-terminal-text"
+                    >
+                      {item.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))
         }
