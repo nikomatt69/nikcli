@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 import { HttpClientRequest } from "effect/unstable/http"
 import { LLM } from "../../src"
 import { LLMClient } from "../../src/route"
+import * as NikcliInference from "../../src/providers/nikcli-inference"
 import * as OpenAICompatible from "../../src/providers/openai-compatible"
 import * as OpenAICompatibleChat from "../../src/protocols/openai-compatible-chat"
 import { it } from "../lib/effect"
@@ -120,6 +121,15 @@ describe("OpenAI-compatible Chat route", () => {
         provider: "deepseek",
         route: "openai-compatible-chat",
         baseURL: "https://custom.deepseek.test/v1",
+      })
+
+      const nikcli = NikcliInference.model("kimi-k2.6", { apiKey: "test-key" })
+      expect(nikcli).toMatchObject({
+        id: "kimi-k2.6",
+        provider: "nikcli-inference",
+        route: "openai-compatible-chat",
+        baseURL: "https://inference.nikcli.store/v1",
+        apiKey: "test-key",
       })
     }),
   )

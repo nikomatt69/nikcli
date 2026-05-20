@@ -1,14 +1,17 @@
 /// <reference types="astro/client" />
 /// <reference types="@cloudflare/workers-types" />
 
-type RuntimeEnv = import("./lib/env").RuntimeEnv
-
 declare namespace App {
   interface Locals {
-    runtime: {
-      env: RuntimeEnv
-      ctx: ExecutionContext
-    }
+    [key: string]: unknown
+    // Cloudflare Pages bindings
+    DB: D1Database
+    ASSETS: Fetcher
+    INFERENCE_API_BASE?: string
+    SITE_URL?: string
+    SESSION_SECRET?: string
+    GATEWAY_SHARED_SECRET?: string
+    // Auth
     user?: import("./lib/auth").AuthUser | null
   }
 }

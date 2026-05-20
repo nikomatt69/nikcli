@@ -63,6 +63,8 @@ if (!Script.preview) {
 
   await $`rm -rf ./dist/homebrew-tap`
   await $`git clone https://${process.env["GITHUB_TOKEN"]}@github.com/sst/homebrew-tap.git ./dist/homebrew-tap`
+  await $`cd ./dist/homebrew-tap && git config user.email "github-actions[bot]@users.noreply.github.com"`
+  await $`cd ./dist/homebrew-tap && git config user.name "github-actions[bot]"`
   await Bun.file("./dist/homebrew-tap/nikcli.rb").write(homebrewFormula)
   await $`cd ./dist/homebrew-tap && git add nikcli.rb`
   await $`cd ./dist/homebrew-tap && git commit -m "Update to v${Script.version}"`

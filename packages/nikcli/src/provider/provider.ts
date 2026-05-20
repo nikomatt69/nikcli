@@ -56,6 +56,7 @@ import {
   XAI,
   OpenRouter,
   GitHubCopilot,
+  NikcliInference,
   OpenAICompatible,
 } from "@nikcli-ai/llm/providers"
 import { byProvider as providerProfiles } from "@nikcli-ai/llm/providers/openai-compatible-profile"
@@ -230,39 +231,112 @@ export namespace Provider {
     const apiKey =
       (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
 
-    // Probe /v1/models — single source of truth from the gateway.
-    const modelsRes = await fetch(`${baseURL}/models`, {
-      headers: { Authorization: `Bearer ${apiKey}` },
-      signal: AbortSignal.timeout(4000),
-    }).catch(() => undefined)
-    if (!modelsRes?.ok) return undefined
+    type InferenceModality = "text" | "audio" | "image" | "video" | "pdf"
+    type InferenceMetadata = {
+      name?: string
+      family?: string
+      attachment?: boolean
+      reasoning?: boolean
+      tool_call?: boolean
+      temperature?: boolean
+      knowledge?: string | null
+      release_date?: string | null
+      last_updated?: string | null
+      modalities?: {
+        input?: InferenceModality[]
+        output?: InferenceModality[]
+      }
+      open_weights?: boolean
+      limit?: {
+        context?: number
+        input?: number
+        output?: number
+      }
+      cost?: {
+        input?: number
+        output?: number
+        cache_read?: number
+        cache_write?: number
+        reasoning?: number
+        input_audio?: number
+        output_audio?: number
+      }
+    }
+    type InferenceModelEntry = {
+      id?: string
+      object?: string
+      created?: number
+      owned_by?: string
+      context_window?: number
+      params?: string
+      hf_id?: string
+      pricing?: { input?: number; output?: number }
+      thinking?: "native" | "optional" | null
+      variant_of?: string
+      alias_of?: string
+      meta?: InferenceMetadata | null
+      routes?: Array<{
+        provider?: string
+        upstreamModel?: string
+        input?: number
+        output?: number
+        estimated?: boolean
+        enabled?: boolean
+      }>
+    }
 
-    const listJson = (await modelsRes.json().catch(() => undefined)) as
-      | {
-          data?: Array<{
-            id: string
-            context_window?: number
-            params?: string
-            hf_id?: string
-            pricing?: { input?: number; output?: number }
-            thinking?: "native" | "optional" | null
-            variant_of?: string
-            alias_of?: string
-          }>
-        }
-      | undefined
-    const data = listJson?.data
-    if (!data || data.length === 0) return undefined
+    function byID(entries: InferenceModelEntry[], id?: string) {
+      if (!id) return undefined
+      return entries.find((entry) => entry.id === id)
+    }
 
-    const models: Record<string, Model> = {}
-    for (const m of data) {
-      if (!m.id) continue
-      models[m.id] = {
-        id: m.id,
+    function inheritedMeta(entry: InferenceModelEntry, entries: InferenceModelEntry[]) {
+      if (entry.meta) return entry.meta
+      return byID(entries, entry.variant_of)?.meta ?? byID(entries, entry.alias_of)?.meta ?? undefined
+    }
+
+    function includesModality(value: InferenceModality[] | undefined, modality: InferenceModality) {
+      return Array.isArray(value) && value.includes(modality)
+    }
+
+    function metadataFor(entry: InferenceModelEntry, meta: InferenceMetadata | null | undefined) {
+      return {
+        source: "nikcli-inference",
+        object: entry.object,
+        created: entry.created,
+        owned_by: entry.owned_by,
+        params: entry.params,
+        hf_id: entry.hf_id,
+        thinking: entry.thinking ?? null,
+        variant_of: entry.variant_of,
+        alias_of: entry.alias_of,
+        knowledge: meta?.knowledge ?? undefined,
+        last_updated: meta?.last_updated ?? undefined,
+        open_weights: meta?.open_weights,
+        cost: meta?.cost,
+        routes: entry.routes ?? [],
+      } satisfies Record<string, unknown>
+    }
+
+    function fromInferenceEntry(entry: InferenceModelEntry, entries: InferenceModelEntry[]): Model | undefined {
+      if (!entry.id) return undefined
+
+      const meta = inheritedMeta(entry, entries)
+      const limit = meta?.limit
+      const cost = meta?.cost
+      const modalities = meta?.modalities
+      const context = limit?.context ?? entry.context_window ?? 128_000
+      const output = limit?.output ?? Math.min(context, 8192)
+      const name = meta?.name ?? entry.id
+      const reasoning = meta?.reasoning ?? (entry.thinking === "native" || entry.id.includes(":thinking"))
+      const metadata = metadataFor(entry, meta)
+      const model: Model = {
+        id: entry.id,
         providerID: "nikcli-inference",
-        name: m.id,
+        name,
+        family: meta?.family,
         api: {
-          id: m.id,
+          id: entry.id,
           url: baseURL,
           npm: "@ai-sdk/openai-compatible",
         },
@@ -270,33 +344,61 @@ export namespace Provider {
         headers: {},
         options: {},
         cost: {
-          input: m.pricing?.input ?? 0,
-          output: m.pricing?.output ?? 0,
-          cache: { read: 0, write: 0 },
+          input: cost?.input ?? entry.pricing?.input ?? 0,
+          output: cost?.output ?? entry.pricing?.output ?? 0,
+          cache: { read: cost?.cache_read ?? 0, write: cost?.cache_write ?? 0 },
         },
         limit: {
-          context: m.context_window ?? 128_000,
-          output: Math.min(m.context_window ?? 128_000, 8192),
+          context,
+          input: limit?.input,
+          output,
         },
         capabilities: {
-          temperature: true,
-          // Native reasoning models always reason; `:thinking` variants reason on demand.
-          reasoning: m.thinking === "native" || m.id.endsWith(":thinking"),
-          attachment: false,
-          toolcall: true,
+          temperature: meta?.temperature ?? true,
+          reasoning,
+          attachment: meta?.attachment ?? includesModality(modalities?.input, "image"),
+          toolcall: meta?.tool_call ?? true,
           input: {
-            text: true,
-            audio: false,
-            image: m.id.includes("scout") || m.id.includes("maverick") || m.id.includes("kimi"),
-            video: false,
-            pdf: false,
+            text: includesModality(modalities?.input, "text") || !modalities?.input,
+            audio: includesModality(modalities?.input, "audio"),
+            image: includesModality(modalities?.input, "image"),
+            video: includesModality(modalities?.input, "video"),
+            pdf: includesModality(modalities?.input, "pdf"),
           },
-          output: { text: true, audio: false, image: false, video: false, pdf: false },
+          output: {
+            text: includesModality(modalities?.output, "text") || !modalities?.output,
+            audio: includesModality(modalities?.output, "audio"),
+            image: includesModality(modalities?.output, "image"),
+            video: includesModality(modalities?.output, "video"),
+            pdf: includesModality(modalities?.output, "pdf"),
+          },
           interleaved: false,
         },
-        release_date: "2026-01-01",
+        release_date: meta?.release_date ?? meta?.last_updated ?? "",
         variants: {},
+        metadata,
       }
+      model.variants = ProviderTransform.variants(model)
+      return model
+    }
+
+    // Probe /v1/models with routes because the inference gateway is the catalog source of truth.
+    const modelsRes = await fetch(`${baseURL}/models?routes=1`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => undefined)
+    if (!modelsRes?.ok) return undefined
+
+    const listJson = (await modelsRes.json().catch(() => undefined)) as
+      | { data?: InferenceModelEntry[] }
+      | undefined
+    const data = listJson?.data
+    if (!data || data.length === 0) return undefined
+
+    const models: Record<string, Model> = {}
+    for (const m of data) {
+      const model = fromInferenceEntry(m, data)
+      if (model) models[model.id] = model
     }
 
     return {
@@ -857,6 +959,7 @@ export namespace Provider {
     variants: Schema.optional(
       Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
     ),
+    metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   }).annotate({ identifier: "Model" })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -1128,6 +1231,11 @@ export namespace Provider {
         parsed.models[modelID] = parsedModel
       }
       database[providerID] = parsed
+      if (providers[providerID]) {
+        mergeProvider(providerID, {
+          models: parsed.models,
+        })
+      }
     }
 
     // load env
@@ -1619,6 +1727,9 @@ export namespace Provider {
 
         case "@ai-sdk/openai-compatible":
         default: {
+          if (providerID === "nikcli-inference") {
+            return NikcliInference.model(id, { baseURL, apiKey } as any)
+          }
           // Try to match against known OpenAI-compatible profiles
           const profile = providerProfiles[providerID]
           if (profile) {

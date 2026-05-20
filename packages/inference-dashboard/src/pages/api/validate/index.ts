@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro"
-import { getEnv } from "../../../lib/env"
-import { lookupKeyByPlaintext, touchKey } from "../../../lib/keys"
+import { lookupKeyByPlaintext } from "../../../lib/keys"
 
 /**
  * Internal endpoint called by the inference gateway to validate a customer
@@ -15,20 +14,28 @@ function json(data: unknown, status = 200) {
 }
 
 export const POST: APIRoute = async (ctx) => {
-  const env = getEnv(ctx) as unknown as { GATEWAY_SHARED_SECRET?: string; DB: D1Database }
+  const env = (ctx.locals as any).runtime?.env
+  const DB = env?.DB as D1Database | undefined
+  const GATEWAY_SHARED_SECRET = env?.GATEWAY_SHARED_SECRET as string | undefined
+
+  if (!GATEWAY_SHARED_SECRET) {
+    return json({ valid: false, error: "gateway_secret_not_configured" }, 500)
+  }
+
   const auth = ctx.request.headers.get("Authorization") ?? ""
-  const expected = env.GATEWAY_SHARED_SECRET
-  if (!expected || !auth.startsWith("Bearer ") || auth.slice(7) !== expected) {
+  if (!auth.startsWith("Bearer ") || auth.slice(7) !== GATEWAY_SHARED_SECRET) {
     return json({ valid: false, error: "forbidden" }, 403)
+  }
+
+  if (!DB) {
+    return json({ valid: false, error: "database_unavailable" }, 500)
   }
 
   const body = (await ctx.request.json().catch(() => ({}))) as { key?: string }
   if (!body.key) return json({ valid: false, error: "missing_key" }, 400)
 
-  const row = await lookupKeyByPlaintext(env as never, body.key)
+  const row = await lookupKeyByPlaintext({ DB }, body.key)
   if (!row) return json({ valid: false })
-
-  ctx.locals.runtime.ctx.waitUntil(touchKey(env as never, row.id))
 
   return json({
     valid: true,

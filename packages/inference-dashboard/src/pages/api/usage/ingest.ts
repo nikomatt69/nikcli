@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro"
 import { z } from "zod"
-import { getEnv } from "../../../lib/env"
 
 /**
  * Receives a usage event from the inference gateway. Shared-secret auth.
@@ -33,9 +32,16 @@ function id(byteLen = 16): string {
 }
 
 export const POST: APIRoute = async (ctx) => {
-  const env = getEnv(ctx) as unknown as { GATEWAY_SHARED_SECRET?: string; DB: D1Database }
+  const env = (ctx.locals as any).runtime?.env
+  const DB = env?.DB as D1Database | undefined
+  const GATEWAY_SHARED_SECRET = env?.GATEWAY_SHARED_SECRET as string | undefined
+
+  if (!GATEWAY_SHARED_SECRET) {
+    return json({ error: "gateway_secret_not_configured" }, 500)
+  }
+
   const auth = ctx.request.headers.get("Authorization") ?? ""
-  if (!env.GATEWAY_SHARED_SECRET || !auth.startsWith("Bearer ") || auth.slice(7) !== env.GATEWAY_SHARED_SECRET) {
+  if (!auth.startsWith("Bearer ") || auth.slice(7) !== GATEWAY_SHARED_SECRET) {
     return json({ error: "forbidden" }, 403)
   }
 
@@ -46,7 +52,11 @@ export const POST: APIRoute = async (ctx) => {
     return json({ error: "invalid_request", message: (e as Error).message }, 400)
   }
 
-  await env.DB.prepare(
+  if (!DB) {
+    return json({ error: "database_unavailable" }, 500)
+  }
+
+  await DB.prepare(
     `INSERT INTO usage_events
      (id, api_key_id, user_id, model, resolved_model, provider, upstream_model,
       prompt_tokens, completion_tokens, billed_usd, upstream_usd, saved_usd, cache, rid, created_at)

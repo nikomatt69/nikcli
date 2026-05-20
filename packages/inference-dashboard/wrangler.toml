@@ -7,6 +7,8 @@ compatibility_flags = ["nodejs_compat"]
 directory = "./dist"
 binding = "ASSETS"
 
+pages_build_output_dir = "./dist"
+
 # Create with: bun run d1:create
 # Then replace database_id below with the value printed.
 [[d1_databases]]

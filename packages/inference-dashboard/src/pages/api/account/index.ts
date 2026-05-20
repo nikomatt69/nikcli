@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro"
 import { z } from "zod"
-import { AuthError, getCurrentUser, updateUserPassword } from "../../../lib/auth"
-import { getEnv } from "../../../lib/env"
+import { AuthError, getSessionUser, readSessionCookie, updateUserPassword } from "../../../lib/auth"
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } })
@@ -13,8 +12,16 @@ const updateBody = z.object({
   nextPassword: z.string().min(8).optional(),
 })
 
+async function getUser(ctx: any) {
+  const env = (ctx.locals as any).runtime?.env
+  const DB = env?.DB as D1Database | undefined
+  if (!DB) return null
+  const sessionId = readSessionCookie(ctx.cookies)
+  return getSessionUser({ DB }, sessionId)
+}
+
 export const PATCH: APIRoute = async (ctx) => {
-  const user = await getCurrentUser(ctx)
+  const user = await getUser(ctx)
   if (!user) return json({ error: "unauthorized" }, 401)
 
   let parsed
@@ -24,11 +31,13 @@ export const PATCH: APIRoute = async (ctx) => {
     return json({ error: "invalid_request", message: (e as Error).message }, 400)
   }
 
-  const env = getEnv(ctx)
+  const env = (ctx.locals as any).runtime?.env
+  const DB = env?.DB as D1Database
+  if (!DB) return json({ error: "database_unavailable" }, 500)
   const now = Math.floor(Date.now() / 1000)
 
   if (parsed.name !== undefined) {
-    await env.DB.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?")
+    await DB.prepare("UPDATE users SET name = ?, updated_at = ? WHERE id = ?")
       .bind(parsed.name.trim() || null, now, user.id)
       .run()
   }
@@ -38,11 +47,14 @@ export const PATCH: APIRoute = async (ctx) => {
       return json({ error: "Current password and new password are required" }, 400)
     }
     try {
-      await updateUserPassword(env, {
-        userId: user.id,
-        currentPassword: parsed.currentPassword,
-        nextPassword: parsed.nextPassword,
-      })
+      await updateUserPassword(
+        { DB },
+        {
+          userId: user.id,
+          currentPassword: parsed.currentPassword,
+          nextPassword: parsed.nextPassword,
+        },
+      )
     } catch (e) {
       if (e instanceof AuthError) return json({ error: e.message }, e.status)
       throw e
@@ -53,16 +65,18 @@ export const PATCH: APIRoute = async (ctx) => {
 }
 
 export const DELETE: APIRoute = async (ctx) => {
-  const user = await getCurrentUser(ctx)
+  const user = await getUser(ctx)
   if (!user) return json({ error: "unauthorized" }, 401)
 
-  const env = getEnv(ctx)
+  const env = (ctx.locals as any).runtime?.env
+  const DB = env?.DB as D1Database
+  if (!DB) return json({ error: "database_unavailable" }, 500)
 
   // Delete cascade manually to avoid FK issues
-  await env.DB.prepare("DELETE FROM usage_events WHERE user_id = ?").bind(user.id).run()
-  await env.DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(user.id).run()
-  await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run()
-  await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id).run()
+  await DB.prepare("DELETE FROM usage_events WHERE user_id = ?").bind(user.id).run()
+  await DB.prepare("DELETE FROM api_keys WHERE user_id = ?").bind(user.id).run()
+  await DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run()
+  await DB.prepare("DELETE FROM users WHERE id = ?").bind(user.id).run()
 
   ctx.cookies.delete("nik_session", { path: "/" })
 
