@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/plugin-cad",
+  "version": "1.0.0",
+  "description": "Native CAD and metalworking tools for nikcli — SolidWorks, Fusion 360, HyperMILL, G-code, text-to-CAD",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "nikcli",
+    "cad",
+    "metalworking",
+    "solidworks",
+    "fusion360",
+    "hypermill",
+    "gcode",
+    "cnc",
+    "text-to-cad"
+  ],
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "exports": {
+      ".": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@nikcli-ai/plugin": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}
