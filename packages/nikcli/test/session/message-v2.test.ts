@@ -44,7 +44,7 @@ describe("MessageV2 schemas and helpers", () => {
 
   it("fromError maps AbortError to aborted shape", () => {
     const err = new DOMException("x", "AbortError")
-      const out = MessageV2.fromError(err, { providerID: "minimax-coding-plan" })
+    const out = MessageV2.fromError(err, { providerID: "minimax-coding-plan" })
     expect(out.name).toBe("MessageAbortedError")
   })
 

@@ -21,12 +21,7 @@ export {
 export { CachedProvider, UpstreamError } from "./providers/cached"
 export type { CachedChatOptions, CachedChatResult } from "./providers/cached"
 
-export {
-  ROUTES,
-  getRoutesForModel,
-  blendedCost,
-  type ProviderRoute,
-} from "./config/routing"
+export { ROUTES, getRoutesForModel, blendedCost, type ProviderRoute } from "./config/routing"
 export { loadEnv, resetEnvForTests, type Env } from "./config/env"
 export { CircuitBreaker, type CircuitState, type CircuitConfig } from "./health/circuit"
 

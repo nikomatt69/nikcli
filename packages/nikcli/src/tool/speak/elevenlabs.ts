@@ -134,8 +134,8 @@ export class ElevenLabsProvider implements TTSProvider {
       const rawDetail = parsedError.detail
       const errorDetail =
         rawDetail !== null && rawDetail !== undefined && typeof rawDetail === "object"
-          ? (rawDetail as any).message ?? JSON.stringify(rawDetail)
-          : rawDetail ?? parsedError.message ?? errorText
+          ? ((rawDetail as any).message ?? JSON.stringify(rawDetail))
+          : (rawDetail ?? parsedError.message ?? errorText)
 
       switch (response.status) {
         case 401:

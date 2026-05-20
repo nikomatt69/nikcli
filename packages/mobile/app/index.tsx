@@ -214,7 +214,8 @@ export default function ConnectScreen() {
         description="Set `NIKCLI_SERVER_PASSWORD` on Railway, deploy the hosted Nikcli server, then create a pairing token from that same server."
       >
         <Text className="font-mono text-sm leading-6 text-soft">
-          nikcli mobile serve --hostname 0.0.0.0 --port $PORT --public-url https://nikcli-mobile-production.up.railway.app
+          nikcli mobile serve --hostname 0.0.0.0 --port $PORT --public-url
+          https://nikcli-mobile-production.up.railway.app
         </Text>
         <Text className="mt-3 font-mono text-sm leading-6 text-soft">
           nikcli mobile pair --public-url https://nikcli-mobile-production.up.railway.app --name iphone --expiry-days 90

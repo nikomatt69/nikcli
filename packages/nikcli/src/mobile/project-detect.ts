@@ -55,7 +55,10 @@ async function workspaceGlobs(dir: string): Promise<string[]> {
       const text = await Bun.file(path.join(dir, "pnpm-workspace.yaml")).text()
       const matches = text.match(/^\s*-\s*['"]?([^'"#\n]+?)['"]?\s*$/gm) ?? []
       for (const m of matches) {
-        const g = m.replace(/^\s*-\s*['"]?/, "").replace(/['"]?\s*$/, "").trim()
+        const g = m
+          .replace(/^\s*-\s*['"]?/, "")
+          .replace(/['"]?\s*$/, "")
+          .trim()
         if (g) globs.push(g)
       }
     } catch {}
@@ -66,7 +69,7 @@ async function workspaceGlobs(dir: string): Promise<string[]> {
     const raw = Array.isArray(pkg.workspaces)
       ? (pkg.workspaces as string[])
       : Array.isArray((pkg.workspaces as Record<string, unknown>)?.packages)
-        ? ((pkg.workspaces as Record<string, string[]>).packages)
+        ? (pkg.workspaces as Record<string, string[]>).packages
         : []
     globs.push(...raw)
   }

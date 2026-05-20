@@ -273,11 +273,7 @@ function TimelineRenderer(props: { comp: TimelineItem }) {
               <text fg={iconColor(event.status)} flexShrink={0}>
                 {TIMELINE_ICON[event.status]}
               </text>
-              <text
-                fg={event.status === "active" ? theme.text : theme.textMuted}
-                wrapMode="word"
-                flexGrow={1}
-              >
+              <text fg={event.status === "active" ? theme.text : theme.textMuted} wrapMode="word" flexGrow={1}>
                 {event.label}
               </text>
               <Show when={event.time}>

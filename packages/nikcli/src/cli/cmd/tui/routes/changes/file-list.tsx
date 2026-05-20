@@ -120,8 +120,8 @@ export function FileList(props: {
             </box>
           </Show>
           <text fg={theme.text}>
-            <b>Modified Files</b>{" "}
-            ({filteredItems().length}{props.filterText ? `/${props.files.length}` : ""})
+            <b>Modified Files</b> ({filteredItems().length}
+            {props.filterText ? `/${props.files.length}` : ""})
           </text>
           <box height={1} />
           <Show

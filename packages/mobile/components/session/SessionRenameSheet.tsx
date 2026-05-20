@@ -53,12 +53,8 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
         >
           {/* Header */}
           <View className="border-b border-border px-5 pb-4 pt-6">
-            <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">
-              Rename session
-            </Text>
-            <Text className="mt-2 text-[22px] font-bold leading-[26px] tracking-tight text-ink">
-              Set a new title
-            </Text>
+            <Text className="text-[10px] font-bold uppercase tracking-[1.8px] text-accent">Rename session</Text>
+            <Text className="mt-2 text-[22px] font-bold leading-[26px] tracking-tight text-ink">Set a new title</Text>
             {currentTitle ? (
               <Text className="mt-1.5 text-[13px] leading-5 text-soft" numberOfLines={1}>
                 Current: {currentTitle}
@@ -68,9 +64,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
 
           {/* Input area */}
           <View className="px-5 pb-2 pt-5">
-            <Text className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-muted">
-              New title
-            </Text>
+            <Text className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.8px] text-muted">New title</Text>
 
             <View
               className="rounded-2xl px-4 py-3"
@@ -106,9 +100,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
               <Text className="text-[12px] leading-4 text-soft">
                 {title.length > 0 ? `${trimmed.length} characters` : "Start typing a title"}
               </Text>
-              <Text
-                className={`text-[12px] font-semibold leading-4 ${overLimit ? "text-danger" : "text-muted"}`}
-              >
+              <Text className={`text-[12px] font-semibold leading-4 ${overLimit ? "text-danger" : "text-muted"}`}>
                 {title.length}/{MAX_LENGTH}
               </Text>
             </View>
@@ -117,12 +109,7 @@ export function SessionRenameSheet({ visible, currentTitle, saving, onClose, onS
           {/* Actions */}
           <View className="flex-row gap-2.5 px-5 pb-7 pt-3">
             <View className="flex-1">
-              <ActionButton
-                label="Cancel"
-                variant="secondary"
-                onPress={onClose}
-                disabled={saving}
-              />
+              <ActionButton label="Cancel" variant="secondary" onPress={onClose} disabled={saving} />
             </View>
             <View className="flex-1">
               <ActionButton

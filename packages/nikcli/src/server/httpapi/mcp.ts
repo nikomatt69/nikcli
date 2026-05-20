@@ -139,13 +139,7 @@ export namespace McpHttpApi {
         }
         return yield* mcp.startAuth(params.name)
       }).pipe(Effect.orDie),
-    authCallback: ({
-      params,
-      payload,
-    }: {
-      params: { name: string }
-      payload: typeof AuthCallbackPayload.Type
-    }) =>
+    authCallback: ({ params, payload }: { params: { name: string }; payload: typeof AuthCallbackPayload.Type }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
         return yield* mcp.finishAuth(params.name, payload.code)
@@ -209,8 +203,5 @@ export namespace McpHttpApi {
     never
   >
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

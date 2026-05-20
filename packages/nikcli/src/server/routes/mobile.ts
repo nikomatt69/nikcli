@@ -131,9 +131,7 @@ function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
 }
 
 function runWorktreeForDirectory<A, E>(directory: string, effect: Effect.Effect<A, E, Worktree.Service>) {
-  return Effect.runPromise(
-    InstanceScope.with({ directory }, Effect.provide(effect, Worktree.defaultLayer)),
-  )
+  return Effect.runPromise(InstanceScope.with({ directory }, Effect.provide(effect, Worktree.defaultLayer)))
 }
 
 function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {

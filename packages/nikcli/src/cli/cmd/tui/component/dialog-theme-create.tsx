@@ -272,11 +272,20 @@ export function DialogThemeCreate() {
         success: { dark: store.colors.dark.success || "#7fc08f", light: store.colors.light.success || "#2f9e44" },
         info: { dark: store.colors.dark.info || "#58a6b8", light: store.colors.light.info || "#0b7285" },
 
-        text: { dark: store.colors.dark.text || `${darkPrefix}12`, light: store.colors.light.text || `${lightPrefix}12` },
-        textMuted: { dark: store.colors.dark.textMuted || `${darkPrefix}11`, light: store.colors.light.textMuted || `${lightPrefix}11` },
+        text: {
+          dark: store.colors.dark.text || `${darkPrefix}12`,
+          light: store.colors.light.text || `${lightPrefix}12`,
+        },
+        textMuted: {
+          dark: store.colors.dark.textMuted || `${darkPrefix}11`,
+          light: store.colors.light.textMuted || `${lightPrefix}11`,
+        },
         selectedListItemText: { dark: `${darkPrefix}1`, light: `${lightPrefix}1` },
 
-        background: { dark: store.colors.dark.background || `${darkPrefix}1`, light: store.colors.light.background || `${lightPrefix}1` },
+        background: {
+          dark: store.colors.dark.background || `${darkPrefix}1`,
+          light: store.colors.light.background || `${lightPrefix}1`,
+        },
         backgroundPanel: {
           dark: store.colors.dark.backgroundPanel || `${darkPrefix}2`,
           light: store.colors.light.backgroundPanel || `${lightPrefix}2`,
@@ -290,9 +299,18 @@ export function DialogThemeCreate() {
           light: store.colors.light.backgroundElement || `${lightPrefix}3`,
         },
 
-        borderSubtle: { dark: store.colors.dark.borderSubtle || `${darkPrefix}6`, light: store.colors.light.borderSubtle || `${lightPrefix}6` },
-        border: { dark: store.colors.dark.border || `${darkPrefix}7`, light: store.colors.light.border || `${lightPrefix}7` },
-        borderActive: { dark: store.colors.dark.borderActive || `${darkPrefix}8`, light: store.colors.light.borderActive || `${lightPrefix}8` },
+        borderSubtle: {
+          dark: store.colors.dark.borderSubtle || `${darkPrefix}6`,
+          light: store.colors.light.borderSubtle || `${lightPrefix}6`,
+        },
+        border: {
+          dark: store.colors.dark.border || `${darkPrefix}7`,
+          light: store.colors.light.border || `${lightPrefix}7`,
+        },
+        borderActive: {
+          dark: store.colors.dark.borderActive || `${darkPrefix}8`,
+          light: store.colors.light.borderActive || `${lightPrefix}8`,
+        },
 
         diffAdded: { dark: "#4fd6be", light: "#1a8d78" },
         diffRemoved: { dark: "#c53b53", light: "#b42338" },
@@ -606,7 +624,10 @@ export function DialogThemeCreate() {
                   }}
                 >
                   <box paddingLeft={1} gap={0}>
-                    <text fg={isSelected ? theme.primary : theme.text} attributes={isSelected ? TextAttributes.BOLD : undefined}>
+                    <text
+                      fg={isSelected ? theme.primary : theme.text}
+                      attributes={isSelected ? TextAttributes.BOLD : undefined}
+                    >
                       {item.label}
                     </text>
                     <box flexDirection="row" gap={0} alignItems="center" paddingTop={1}>
@@ -695,14 +716,23 @@ export function DialogThemeCreate() {
         </box>
 
         <box flexDirection="row" gap={1}>
-          <box paddingLeft={1} paddingRight={1} backgroundColor={theme.backgroundElement} onMouseUp={() => dialog.clear()}>
+          <box
+            paddingLeft={1}
+            paddingRight={1}
+            backgroundColor={theme.backgroundElement}
+            onMouseUp={() => dialog.clear()}
+          >
             <text fg={theme.textMuted}>Cancel</text>
           </box>
           <box
             paddingLeft={1}
             paddingRight={1}
             backgroundColor={
-              store.name && !store.saving ? (store.overwriteArmed ? theme.warning : theme.primary) : theme.backgroundElement
+              store.name && !store.saving
+                ? store.overwriteArmed
+                  ? theme.warning
+                  : theme.primary
+                : theme.backgroundElement
             }
             onMouseUp={() => store.name && !store.saving && handleSave()}
           >

@@ -8,7 +8,7 @@
   },
   "rules": {
     "typescript/no-base-to-string": "warn",
-      "require-yield": "off",
+    "require-yield": "off",
     "no-unassigned-vars": "off",
     "no-unused-expressions": "off",
     "no-control-regex": "off",

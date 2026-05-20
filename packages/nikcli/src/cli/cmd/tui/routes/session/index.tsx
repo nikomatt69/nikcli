@@ -159,9 +159,7 @@ export function Session() {
         .map((job) => job.workerSessionID)
         .filter((id): id is string => Boolean(id)),
     )
-    return sync.data.session
-      .filter((x) => workerIDs.has(x.id))
-      .toSorted((a, b) => a.time.created - b.time.created)
+    return sync.data.session.filter((x) => workerIDs.has(x.id)).toSorted((a, b) => a.time.created - b.time.created)
   })
   const messages = createMemo(() => sync.data.message[route.sessionID] ?? [])
   const messageCreatedAt = createMemo(() =>
@@ -2023,13 +2021,7 @@ function ExecCode(props: ToolProps<any>) {
         </BlockTool>
       </Match>
       <Match when={true}>
-        <InlineTool
-          icon="⚡"
-          iconColor={theme.warning}
-          pending="Running code..."
-          complete={code()}
-          part={props.part}
-        >
+        <InlineTool icon="⚡" iconColor={theme.warning} pending="Running code..." complete={code()} part={props.part}>
           exec_code {firstLine()}
         </InlineTool>
       </Match>
@@ -2756,7 +2748,10 @@ function Task(props: ToolProps<typeof TaskTool>) {
         <Show when={displaySummary()}>
           <text style={{ fg: theme.text }}>└ {displaySummary()}</text>
         </Show>
-        <Show when={childStatusLabel()} fallback={<text style={{ fg: theme.textMuted }}>└ starting background task</text>}>
+        <Show
+          when={childStatusLabel()}
+          fallback={<text style={{ fg: theme.textMuted }}>└ starting background task</text>}
+        >
           <text style={{ fg: theme.textMuted }}>└ {childStatusLabel()}</text>
         </Show>
         <Show when={backgroundJob()?.progressSummary && backgroundJob()?.progressSummary !== displaySummary()}>
