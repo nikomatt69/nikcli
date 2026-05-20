@@ -1,16 +1,8 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
-import {
-  MODELS,
-  MODEL_ALIASES,
-  MODEL_METADATA,
-  THINKING_SUPPORT,
-  resolveModelId,
-  type ModelId,
-  type ModelMetadata,
-} from "./types"
+import { MODELS, MODEL_ALIASES, THINKING_SUPPORT, resolveModelId, type ModelId } from "./types"
 import { calcCost, routedCostUsd, upstreamCostUsd } from "./middleware"
-import { getRateLimiter, recordUsage, validateKey, tierFor } from "./middleware/ratelimit"
+import { getRateLimiter, validateKey, tierFor } from "./middleware/ratelimit"
 import { validateChatBody } from "./middleware/validation"
 import { getLogger, requestId } from "./middleware/logger"
 import { CachedProvider, UpstreamError, RouterError } from "./providers/cached"
@@ -67,15 +59,12 @@ app.get("/v1/providers", (c) => {
 
 app.get("/v1/models", (c) => {
   const includeRoutes = c.req.query("routes") === "1"
-
-  /** Build extended model entry with full nikcli metadata */
-  const buildEntry = (id: string, info: (typeof MODELS)[ModelId], extra?: Record<string, unknown>) => {
-    const meta = MODEL_METADATA[id as ModelId]
+  const canonical = Object.entries(MODELS).map(([id, info]) => {
     const routes = getRoutesForModel(id as ModelId)
     const support = THINKING_SUPPORT[id as ModelId]
     return {
       id,
-      object: "model" as const,
+      object: "model",
       created: Date.now(),
       owned_by: info.provider,
       context_window: info.context,
@@ -83,24 +72,6 @@ app.get("/v1/models", (c) => {
       hf_id: info.hfId,
       pricing: { input: info.input, output: info.output },
       thinking: support ?? null,
-      // Extended nikcli metadata (matches ~/.cache/nikcli/models.json schema)
-      meta: meta
-        ? {
-            name: meta.name,
-            family: meta.family,
-            attachment: meta.attachment,
-            reasoning: meta.reasoning,
-            tool_call: meta.tool_call,
-            temperature: meta.temperature,
-            knowledge: meta.knowledge ?? null,
-            release_date: meta.release_date ?? null,
-            last_updated: meta.last_updated ?? null,
-            modalities: meta.modalities,
-            open_weights: meta.open_weights,
-            limit: meta.limit,
-            cost: meta.cost,
-          }
-        : null,
       routes: includeRoutes
         ? routes.map((r) => ({
             provider: r.provider,
@@ -111,35 +82,63 @@ app.get("/v1/models", (c) => {
             enabled: getRegistry().isEnabled(r.provider),
           }))
         : undefined,
-      ...extra,
     }
-  }
-
-  const canonical = Object.entries(MODELS).map(([id, info]) => buildEntry(id, info))
-
+  })
   const aliased = Object.entries(MODEL_ALIASES).map(([alias, target]) => {
     const info = MODELS[target]
-    return buildEntry(alias, info, { alias_of: target })
+    return {
+      id: alias,
+      object: "model",
+      created: Date.now(),
+      owned_by: info.provider,
+      context_window: info.context,
+      params: info.params,
+      hf_id: info.hfId,
+      pricing: { input: info.input, output: info.output },
+      alias_of: target,
+      thinking: THINKING_SUPPORT[target] ?? null,
+    }
   })
-
   // Emit `:thinking` variants for every model+alias that supports optional reasoning.
-  const variants: ReturnType<typeof buildEntry>[] = []
+  const variants: Array<Record<string, unknown>> = []
   for (const [id, info] of Object.entries(MODELS)) {
     if (THINKING_SUPPORT[id as ModelId] !== "optional") continue
-    variants.push(buildEntry(`${id}:thinking`, info, { variant_of: id }))
+    variants.push({
+      id: `${id}:thinking`,
+      object: "model",
+      created: Date.now(),
+      owned_by: info.provider,
+      context_window: info.context,
+      params: info.params,
+      hf_id: info.hfId,
+      pricing: { input: info.input, output: info.output },
+      variant_of: id,
+      thinking: "optional",
+    })
   }
   for (const [alias, target] of Object.entries(MODEL_ALIASES)) {
     if (THINKING_SUPPORT[target] !== "optional") continue
     const info = MODELS[target]
-    variants.push(buildEntry(`${alias}:thinking`, info, { alias_of: target, variant_of: alias }))
+    variants.push({
+      id: `${alias}:thinking`,
+      object: "model",
+      created: Date.now(),
+      owned_by: info.provider,
+      context_window: info.context,
+      params: info.params,
+      hf_id: info.hfId,
+      pricing: { input: info.input, output: info.output },
+      alias_of: target,
+      variant_of: alias,
+      thinking: "optional",
+    })
   }
-
   return c.json({ object: "list", data: [...canonical, ...aliased, ...variants] })
 })
 
 app.post("/v1/chat/completions", async (c) => {
   const rid = c.get("rid" as never) as string
-  const key = await validateKey(c.req.header("Authorization"))
+  const key = validateKey(c.req.header("Authorization"))
   if (!key) return c.json({ error: { message: "Unauthorized", type: "auth_error" } }, 401)
 
   const raw = await c.req.json()
@@ -160,7 +159,10 @@ app.post("/v1/chat/completions", async (c) => {
   const estimated = body.max_tokens ?? 1000
   const limit = await getRateLimiter().check(key, body.model, estimated)
   if (!limit.ok) {
-    return c.json({ error: { message: limit.reason ?? "rate limit exceeded", type: "rate_limit_exceeded" } }, 429)
+    return c.json(
+      { error: { message: limit.reason ?? "rate limit exceeded", type: "rate_limit_exceeded" } },
+      429,
+    )
   }
 
   try {
@@ -224,45 +226,16 @@ app.post("/v1/chat/completions", async (c) => {
       tier: tierFor(key),
     })
 
-    const usageRecorded = await recordUsage({
-      keyId: key.keyId,
-      userId: key.userId,
-      model: displayedModel,
-      resolvedModel,
-      provider: result.route?.provider ?? null,
-      upstreamModel: result.route?.upstreamModel ?? null,
-      promptTokens: inputTokens,
-      completionTokens: outputTokens,
-      billedUsd,
-      upstreamUsd,
-      savedUsd,
-      cache: result.cache,
-      rid,
-    }).catch((error) => {
-      log.warn("inference.usage_ingest_failed", {
-        rid,
-        keyId: key.keyId,
-        message: error instanceof Error ? error.message : String(error),
-      })
-      return false
-    })
-    if (!usageRecorded && key.source === "dashboard") {
-      log.warn("inference.usage_not_recorded", { rid, keyId: key.keyId })
-    }
-
     return c.json({
       ...result.body,
       model: displayedModel,
       nikcli: {
         resolvedModel: displayedModel !== resolvedModel ? resolvedModel : undefined,
-        thinking:
-          resolved.thinking || resolved.nativeReasoning
-            ? {
-                requested: resolved.thinking,
-                native: resolved.nativeReasoning,
-                effort: resolved.effort,
-              }
-            : undefined,
+        thinking: resolved.thinking || resolved.nativeReasoning ? {
+          requested: resolved.thinking,
+          native: resolved.nativeReasoning,
+          effort: resolved.effort,
+        } : undefined,
         provider: result.route?.provider ?? null,
         upstreamModel: result.route?.upstreamModel ?? null,
         cache: result.cache,

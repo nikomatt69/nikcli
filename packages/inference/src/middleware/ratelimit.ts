@@ -3,16 +3,6 @@ import { Redis } from "@upstash/redis"
 import { MODELS, TIER_LIMITS } from "../types"
 import { loadEnv } from "../config/env"
 
-type Tier = keyof typeof TIER_LIMITS
-
-export interface AuthenticatedKey {
-  key: string
-  keyId: string
-  userId: string
-  tier: Tier
-  source: "dashboard" | "legacy"
-}
-
 export interface RateLimitResult {
   ok: boolean
   limit: number
@@ -22,7 +12,7 @@ export interface RateLimitResult {
 }
 
 interface RateLimiter {
-  check(key: AuthenticatedKey | string, model: string, estimatedTokens: number): Promise<RateLimitResult>
+  check(key: string, model: string, estimatedTokens: number): Promise<RateLimitResult>
 }
 
 const apiKeys = new Map([
@@ -32,71 +22,30 @@ const apiKeys = new Map([
   ["nik-biz", "business"],
 ])
 
-export async function validateKey(auth: string | undefined): Promise<AuthenticatedKey | null> {
+export function validateKey(auth: string | undefined): string | null {
   if (!auth?.startsWith("Bearer ")) return null
   const key = auth.slice(7)
-  const env = loadEnv()
-
-  if (env.INFERENCE_DASHBOARD_URL && env.GATEWAY_SHARED_SECRET) {
-    return validateDashboardKey(env.INFERENCE_DASHBOARD_URL, env.GATEWAY_SHARED_SECRET, key)
-  }
-
-  const legacyTier = apiKeys.get(key)
-  if (!legacyTier || !isTier(legacyTier)) return null
-  return { key, keyId: key, userId: "local-dev", tier: legacyTier, source: "legacy" }
+  return apiKeys.has(key) ? key : null
 }
 
-export function tierFor(key: AuthenticatedKey | string): Tier | null {
-  if (typeof key !== "string") return key.tier
+export function tierFor(key: string): keyof typeof TIER_LIMITS | null {
   const t = apiKeys.get(key)
-  return isTier(t) ? t : null
-}
-
-export interface UsageEvent {
-  keyId: string
-  userId: string
-  model: string
-  resolvedModel: string
-  provider?: string | null
-  upstreamModel?: string | null
-  promptTokens: number
-  completionTokens: number
-  billedUsd: number
-  upstreamUsd: number
-  savedUsd: number
-  cache?: string | null
-  rid?: string | null
-}
-
-export async function recordUsage(event: UsageEvent): Promise<boolean> {
-  const env = loadEnv()
-  if (!env.INFERENCE_DASHBOARD_URL || !env.GATEWAY_SHARED_SECRET) return false
-
-  const response = await fetch(endpoint(env.INFERENCE_DASHBOARD_URL, "/api/usage/ingest"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${env.GATEWAY_SHARED_SECRET}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(event),
-  })
-  return response.ok
+  return (t as keyof typeof TIER_LIMITS | undefined) ?? null
 }
 
 class MemoryLimiter implements RateLimiter {
   private readonly usage = new Map<string, { req: number; tokens: number; day: number }>()
 
-  async check(key: AuthenticatedKey | string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
+  async check(key: string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
     const tier = tierFor(key)
     if (!tier) return { ok: false, limit: 0, remaining: 0, reset: 0, reason: "invalid api key" }
     const limits = TIER_LIMITS[tier]
 
     const today = Math.floor(Date.now() / 86_400_000)
-    const subject = rateLimitSubject(key)
-    let u = this.usage.get(subject)
+    let u = this.usage.get(key)
     if (!u || u.day !== today) {
       u = { req: 0, tokens: 0, day: today }
-      this.usage.set(subject, u)
+      this.usage.set(key, u)
     }
 
     if (u.req >= limits.reqPerDay) {
@@ -132,18 +81,17 @@ class UpstashLimiter implements RateLimiter {
     }
   }
 
-  async check(key: AuthenticatedKey | string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
+  async check(key: string, _model: string, estimatedTokens: number): Promise<RateLimitResult> {
     const tier = tierFor(key)
     if (!tier) return { ok: false, limit: 0, remaining: 0, reset: 0, reason: "invalid api key" }
     const limiter = this.perTier[tier]
-    const subject = rateLimitSubject(key)
-    const result = await limiter.limit(subject)
+    const result = await limiter.limit(key)
     if (!result.success) {
       return { ok: false, limit: result.limit, remaining: 0, reset: result.reset, reason: "daily request limit exceeded" }
     }
 
     // Token quota tracked separately with INCRBY + EXPIRE.
-    const tokenKey = `nikcli:tokens:${tier}:${subject}:${dayBucket()}`
+    const tokenKey = `nikcli:tokens:${tier}:${key}:${dayBucket()}`
     const limits = TIER_LIMITS[tier]
     const after = (await this.redis.incrby(tokenKey, estimatedTokens)) as number
     if (after === estimatedTokens) {
@@ -192,48 +140,4 @@ function dayBucket(): string {
 
 export function modelInfoFor(modelId: string) {
   return MODELS[modelId as keyof typeof MODELS]
-}
-
-async function validateDashboardKey(
-  dashboardUrl: string,
-  sharedSecret: string,
-  key: string,
-): Promise<AuthenticatedKey | null> {
-  const response = await fetch(endpoint(dashboardUrl, "/api/validate"), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${sharedSecret}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ key }),
-  }).catch(() => null)
-
-  if (!response?.ok) return null
-
-  const body = (await response.json().catch(() => null)) as {
-    valid?: boolean
-    tier?: string
-    userId?: string
-    keyId?: string
-  } | null
-  if (!body?.valid || !isTier(body.tier) || !body.userId || !body.keyId) return null
-  return {
-    key,
-    keyId: body.keyId,
-    userId: body.userId,
-    tier: body.tier,
-    source: "dashboard",
-  }
-}
-
-function endpoint(baseUrl: string, path: string): string {
-  return new URL(path, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString()
-}
-
-function isTier(value: unknown): value is Tier {
-  return typeof value === "string" && value in TIER_LIMITS
-}
-
-function rateLimitSubject(key: AuthenticatedKey | string): string {
-  return typeof key === "string" ? key : key.keyId
 }

@@ -965,10 +965,15 @@ export function Prompt(props: PromptProps) {
       () => props.sessionID,
       () => {
         setStore("placeholder", Math.floor(Math.random() * PLACEHOLDERS.length))
+        setStore("interrupt", 0)
       },
       { defer: true },
     ),
   )
+
+  createEffect(() => {
+    if (status().type === "idle") setStore("interrupt", 0)
+  })
 
   // Initialize agent/model/variant from last user message when session changes
   let syncedSessionID: string | undefined
@@ -1045,13 +1050,40 @@ export function Prompt(props: PromptProps) {
           // Guard refs - they may be undefined briefly during mount/unmount.
           // Without these guards a TypeError escapes the keyboard handler and
           // corrupts the terminal state when ESC is pressed during processing.
-          if ((autocomplete as AutocompleteRef | undefined)?.visible) return
-          if (!(input as TextareaRenderable | undefined)?.focused) return
-          if (store.mode === "shell") {
+          const guardAutocomplete = (autocomplete as AutocompleteRef | undefined)?.visible
+          const guardFocused = (input as TextareaRenderable | undefined)?.focused
+          const guardShell = store.mode === "shell"
+          const guardNoSession = !props.sessionID
+          const statusType = status().type
+          // #region agent log
+          fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+            body: JSON.stringify({
+              sessionId: "6f5e48",
+              hypothesisId: "B",
+              location: "prompt/index.tsx:onSelect",
+              message: "session.interrupt onSelect entered",
+              data: {
+                sessionID: props.sessionID,
+                statusType,
+                interruptCount: store.interrupt,
+                guardAutocomplete,
+                guardFocused,
+                guardShell,
+                guardNoSession,
+              },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+          if (guardAutocomplete) return
+          if (!guardFocused) return
+          if (guardShell) {
             setStore("mode", "normal")
             return
           }
-          if (!props.sessionID) return
+          if (guardNoSession) return
 
           const newCount = store.interrupt + 1
           setStore("interrupt", newCount)
@@ -1067,8 +1099,56 @@ export function Prompt(props: PromptProps) {
           }, 5000)
 
           if (newCount >= 2) {
+            if (!props.sessionID) return
             const sessionID = props.sessionID
-            void sdk.client.session.abort({ sessionID }).catch(() => {})
+            // #region agent log
+            fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+              body: JSON.stringify({
+                sessionId: "6f5e48",
+                hypothesisId: "C",
+                location: "prompt/index.tsx:abort",
+                message: "double ESC calling session.abort",
+                data: { sessionID, newCount },
+                timestamp: Date.now(),
+              }),
+            }).catch(() => {})
+            // #endregion
+            void sdk.client.session
+              .abort({ sessionID })
+              .then(() => {
+                // #region agent log
+                fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+                  body: JSON.stringify({
+                    sessionId: "6f5e48",
+                    hypothesisId: "C",
+                    location: "prompt/index.tsx:abort",
+                    message: "session.abort succeeded",
+                    data: { sessionID },
+                    timestamp: Date.now(),
+                  }),
+                }).catch(() => {})
+                // #endregion
+              })
+              .catch((err) => {
+                // #region agent log
+                fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+                  body: JSON.stringify({
+                    sessionId: "6f5e48",
+                    hypothesisId: "C",
+                    location: "prompt/index.tsx:abort",
+                    message: "session.abort failed",
+                    data: { sessionID, error: err instanceof Error ? err.message : String(err) },
+                    timestamp: Date.now(),
+                  }),
+                }).catch(() => {})
+                // #endregion
+              })
             setStore("interrupt", 0)
             if (interruptResetTimer) {
               clearTimeout(interruptResetTimer)
@@ -2053,9 +2133,6 @@ export function Prompt(props: PromptProps) {
                     </text>
                   </box>
                 </Show>
-                <text fg={theme.text}>
-                  esc <span style={{ fg: theme.textMuted }}>interrupt</span>
-                </text>
                 <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
                   <text fg={theme.warning}>·</text>
                   <text fg={theme.textMuted}>Sponsored:</text>

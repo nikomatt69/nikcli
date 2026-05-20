@@ -9,6 +9,7 @@
     "dev": "bun run --hot src/main.ts",
     "build": "bun build src/main.ts --outdir=dist --target=bun --minify",
     "start": "bun run dist/main.js",
+    "typecheck": "tsgo --noEmit",
     "test": "bun test"
   },
   "dependencies": {

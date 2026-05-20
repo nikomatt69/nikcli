@@ -32,7 +32,7 @@ SSH_KEY_NAME="${SSH_KEY_NAME:-nikcli-inference}"
 SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/nikcli_inference}"
 PKG_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
-hc() { hcloud --token "$HCLOUD_TOKEN" "$@"; }
+hc() { hcloud "$@"; }
 
 server_ip() {
   hc server describe "$SERVER_NAME" -o json 2>/dev/null | jq -r '.public_net.ipv4.ip // empty'

@@ -76,10 +76,27 @@ export namespace SessionRunState {
         })
 
       const cancel = (sessionID: string): Effect.Effect<void> =>
-        Effect.suspend(() => {
+        Effect.gen(function* () {
           const existing = runners.get(sessionID)
-          if (!existing) return Effect.void
-          return Effect.orDie(existing.cancel)
+          // #region agent log
+          fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+            body: JSON.stringify({
+              sessionId: "6f5e48",
+              hypothesisId: "F",
+              location: "run-state.ts:cancel",
+              message: "SessionRunState.cancel",
+              data: { sessionID, hasRunner: !!existing, runnerBusy: existing?.busy ?? null },
+              timestamp: Date.now(),
+            }),
+          }).catch(() => {})
+          // #endregion
+          if (!existing || !existing.busy) {
+            yield* status.set(sessionID, { type: "idle" })
+            return
+          }
+          yield* existing.cancel
         })
 
       const ensureRunning = <A, E>(

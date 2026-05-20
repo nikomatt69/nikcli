@@ -35,6 +35,7 @@ import type {
   ConnectorsAuthSetResponses,
   ConnectorsInvalidateResponses,
   ConnectorsStatusResponses,
+  DeleteConfigMcpNameResponses,
   EventSubscribeResponses,
   EventTuiCommandExecute,
   EventTuiPromptAppend,
@@ -194,6 +195,7 @@ import type {
   PartDeleteResponses,
   PartUpdateErrors,
   PartUpdateResponses,
+  PatchConfigMcpNameResponses,
   PatchUserIdResponses,
   PathGetResponses,
   PermissionListResponses,
@@ -202,6 +204,9 @@ import type {
   PermissionRespondErrors,
   PermissionRespondResponses,
   PermissionRuleset,
+  PostConfigMcpResponses,
+  PostConfigProfilesActivateNameResponses,
+  PostConfigProfilesResponses,
   PostUserLoginResponses,
   PostUserRegisterResponses,
   ProjectCurrentResponses,
@@ -7186,6 +7191,162 @@ export class NikcliClient extends HeyApiClient {
     const params = buildClientParams([parameters], [{ args: [{ in: "path", key: "shareID" }] }])
     return (options?.client ?? this.client).get<GetApiShareShareIdDataResponses, unknown, ThrowOnError>({
       url: "/api/share/{shareID}/data",
+      ...options,
+      ...params,
+    })
+  }
+
+  public postConfigMcp<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      config?: McpLocalConfig | McpRemoteConfig
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "config" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostConfigMcpResponses, unknown, ThrowOnError>({
+      url: "/config/mcp",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public deleteConfigMcpName<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<DeleteConfigMcpNameResponses, unknown, ThrowOnError>({
+      url: "/config/mcp/{name}",
+      ...options,
+      ...params,
+    })
+  }
+
+  public patchConfigMcpName<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+      body?: {
+        [key: string]: unknown
+      }
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<PatchConfigMcpNameResponses, unknown, ThrowOnError>({
+      url: "/config/mcp/{name}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public postConfigProfiles<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostConfigProfilesResponses, unknown, ThrowOnError>({
+      url: "/config/profiles",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  public postConfigProfilesActivateName<ThrowOnError extends boolean = false>(
+    parameters: {
+      name: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "name" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<PostConfigProfilesActivateNameResponses, unknown, ThrowOnError>({
+      url: "/config/profiles/activate/{name}",
       ...options,
       ...params,
     })

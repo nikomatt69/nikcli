@@ -4,7 +4,7 @@
 
 ### Monorepo Structure (`/Volumes/SSD/Projects/nikcli/`)
 
-24 packages managed with Bun workspaces + Turbo:
+24 packages managed with Bun workspaces + Turbo (35+ total including inference, console, cloud, enterprise, etc.):
 
 | Package | Purpose | Key Tech |
 |---------|---------|----------|
@@ -19,6 +19,12 @@
 | **ui** | Shared UI component library | SolidJS, Tailwind CSS |
 | **webrenderer** | WebView + native modules | Rust, WebGPU/3D |
 | **app** | Core app pages/components | SolidJS |
+| **inference** | Multi-provider inference routing | Bun, Drizzle/SQLite, Hono |
+| **inference-dashboard** | Inference service dashboard | Astro + SolidJS, Cloudflare Workers |
+| **console** | Console application | SolidJS |
+| **cloud** | Cloud infrastructure | Various |
+| **function** | Function service | Various |
+| **enterprise** | Enterprise features | Various |
 
 ### Core Structure
 
@@ -2006,6 +2012,159 @@ Central tracking document for v2 migration. Key epochs:
 
 Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode integration complete. APIError migration pending in test files.
 
+## Brain Pass (2026-05-20)
+
+### Inference Package (`packages/inference/`)
+
+Multi-provider inference routing engine with caching, health monitoring, and middleware pipeline.
+
+**Structure:**
+```
+packages/inference/
+├── src/
+│   ├── cache/          # Hash, store, request coalescing
+│   ├── config/         # Environment config + routing table
+│   ├── health/         # Circuit breaker pattern
+│   ├── middleware/     # Validation, logging, rate limiting
+│   ├── providers/      # Multi-provider routing engine
+│   │   ├── base.ts           # Base provider for local vLLM
+│   │   ├── cached.ts         # Caching provider wrapper
+│   │   ├── index.ts          # Provider exports
+│   │   ├── local.ts          # Local vLLM provider
+│   │   ├── openai-compat.ts  # Fireworks, OpenRouter, Groq, etc.
+│   │   ├── registry.ts       # Provider registry/directory
+│   │   └── router.ts        # Intelligent routing engine
+│   ├── types/          # Zod schemas + types
+│   ├── server.ts       # Main HTTP server (Hono)
+│   ├── index.ts        # Package exports
+│   └── main.ts         # Entry point
+├── deploy/             # Docker, cloudflared, deployment scripts
+└── test/               # Circuit, router, cached, registry tests
+```
+
+**Key patterns:**
+- Singleton initialization for DB and runtime
+- Onion/layered middleware architecture
+- Circuit breaker with half-open state for health checks
+- Two-tier cache: in-process LRU + D1 SQLite
+- Request coalescing to deduplicate concurrent identical requests
+- Margin model for router cost/latency optimization
+
+### Adding a New Inference Provider (2026-05-20)
+
+**3 files to modify — no code changes needed, registration is automatic:**
+
+**1. `packages/inference/src/providers/openai-compat.ts`** — Add `ProviderDefinition` entry:
+```typescript
+export const PROVIDER_DEFS = {
+  // ... existing ...
+  newprovider: {
+    name: "newprovider",
+    baseUrl: "https://api.newprovider.ai/v1",
+    envKey: "NEWPROVIDER_API_KEY",  // process.env key for API key
+    // Optional: add custom headers
+    headers: {
+      "HTTP-Referer": process.env.NEWPROVIDER_REFERRER ?? "https://nikcli.store",
+    },
+  },
+} as const satisfies Record<string, ProviderDefinition>
+```
+
+**2. `packages/inference/src/config/env.ts`** — Add optional API key env var to `envSchema`:
+```typescript
+NEWPROVIDER_API_KEY: z.string().optional(),
+NEWPROVIDER_REFERRER: z.string().optional(),
+```
+
+**3. `packages/inference/src/config/routing.ts`** — Add routes mapping canonical model IDs to the new provider:
+```typescript
+export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
+  "model-canonical-id": [
+    { provider: "newprovider", upstreamModel: "upstream/model-id", input: 0.5, output: 1.0 },
+    { provider: "openrouter", upstreamModel: "vendor/model-id", input: 0.7, output: 1.5 },
+  ],
+}
+```
+
+**Key points:**
+- Provider auto-enabled when `envKey` is present in `process.env` at boot
+- `ProviderName` type auto-derived from `PROVIDER_DEFS` keys
+- Pricing in routing.ts per (model, provider); mark speculative routes `estimated: true`
+- `OpenAICompatProvider` class handles all OpenAI-compatible endpoints via `/chat/completions`
+- Supports reasoning effort, tool calls, custom stop sequences, response format via options
+
+### Inference Dashboard (`packages/inference-dashboard/`)
+
+Astro + SolidJS dashboard for the inference service, deployed on Cloudflare Workers.
+
+**Tech stack:** Astro (SSR), SolidJS, Tailwind, Drizzle/SQLite (D1), Cloudflare Workers
+
+**Design system:** Aligned with `packages/web` — uses `terminal-*` prefixed Tailwind classes (`terminal-bg`, `terminal-accent`, `terminal-muted`, `terminal-border`, etc.), same CSS variables, fonts (Syne, JetBrains Mono, Space Grotesk), animations, and component patterns.
+
+**4 canonical design files (must stay identical to web package):**
+- `src/styles/global.css` — CSS variables, animations, scrollbar styles
+- `src/styles/docs.css` — Prose styles for documentation pages
+- `tailwind.config.mjs` — Terminal color classes, fonts, plugins
+- `astro.config.mjs` — Cloudflare adapter, SolidJS integration
+
+**Astro Cloudflare Pages binding access (2026-05-20):**
+- D1 and other bindings are in `ctx.locals.runtime.env.DB` (NOT `ctx.locals.DB`)
+- Pre-rendered pages: `ctx.locals.runtime.env` is `process.env`
+- API routes MUST have `export const prerender = false`
+
+**wrangler deploy vs pages deploy (2026-05-20):**
+- `wrangler pages deploy` does NOT properly bind D1/Secrets to API routes — bindings need manual Cloudflare Dashboard setup
+- `wrangler deploy` (Workers mode) correctly binds D1 via `wrangler.toml`
+- To use Workers mode: add `main = "_worker.js"` to wrangler.toml, create `.assetsignore` with `_worker.js`
+
+**API endpoints:**
+- `POST /api/auth/sign-up` — Creates account + API key
+- `POST /api/auth/sign-in` — Authenticates user
+- `POST /api/auth/sign-out` — Invalidates session
+- `GET /api/usage` — Returns usage data
+- `POST /api/usage/ingest` — Ingests usage events
+- `GET /api/validate` — Validates API key
+- `GET /api/keys` — Lists API keys
+- `POST /api/keys` — Creates new API key
+- `DELETE /api/keys/:id` — Revokes API key
+- `PATCH /api/account` — Updates account
+- `DELETE /api/account` — Deletes account
+
+**wrangler.toml bindings required:**
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "nikcli-inference"
+database_id = "<uuid>"
+
+[vars]
+INFERENCE_API_BASE = "https://inference.nikcli.store"
+SITE_URL = "https://nikcli.store"
+
+[secrets]
+GATEWAY_SHARED_SECRET = "..."
+SESSION_SECRET = "..."
+```
+
+### GitHub Actions CI Fix (2026-05-20)
+
+**File:** `packages/nikcli/script/publish-registries.ts`
+
+**Problem:** GitHub Actions runner has no Git user identity configured, causing `git commit` to fail:
+```
+fatal: empty ident name (for <runner@...>) not allowed
+```
+
+**Fix:** Added `git config` commands before git commit in homebrew-tap clone:
+```typescript
+await $`cd ./dist/homebrew-tap && git config user.email "github-actions[bot]@users.noreply.github.com"`
+await $`cd ./dist/homebrew-tap && git config user.name "github-actions[bot]"`
+```
+
+### TUI Exit Logo (TODO - 2026-05-20)
+
+User requested nikcli to display ASCII logo on terminal kill (like OpenCode does). Not yet implemented.
+
 ## Brain Pass (2026-05-19)
 
 ### TUI Shutdown & OpenCode Alignment
@@ -2044,9 +2203,4 @@ Current state: Multiple v1→v2 migrations in progress. Batch tool + plan mode i
 - **Goal command** (`src/cli/cmd/goal.ts`) — New native CLI command for goal management. Added to CLI commands table.
 - **Skills search** — Tested `find-skills` skill with mobile development search. Found `vercel-react-native-skills` (121K installs) and `sleek-design-mobile-apps` (143.5K installs) from skills.sh leaderboard.
 
-### Date Reference Updates
 
-- "Session Fixes (2026-05-04)" section confirmed accurate
-- "Brain Pass (2026-05-16)" section confirmed accurate
-- "Brain Pass (2026-05-17)" section confirmed accurate
-- Today's date: 2026-05-19 (all date references in file are absolute)

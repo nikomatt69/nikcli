@@ -652,6 +652,20 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
+        // #region agent log
+        fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+          body: JSON.stringify({
+            sessionId: "6f5e48",
+            hypothesisId: "C",
+            location: "session.ts:abort",
+            message: "POST abort endpoint hit",
+            data: { sessionID },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         // Scope cancellation to the single delegation owned by this worker
         // session — cancelling "all related" records (parent + child + delegator)
         // belongs to explicit "stop-the-world" flows, not the per-session abort.
@@ -663,6 +677,20 @@ export const SessionRoutes = lazy(() =>
             yield* sessionPrompt.cancel(sessionID)
           }),
         )
+        // #region agent log
+        fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
+          body: JSON.stringify({
+            sessionId: "6f5e48",
+            hypothesisId: "C",
+            location: "session.ts:abort:done",
+            message: "POST abort completed",
+            data: { sessionID },
+            timestamp: Date.now(),
+          }),
+        }).catch(() => {})
+        // #endregion
         return c.json(true)
       },
     )
