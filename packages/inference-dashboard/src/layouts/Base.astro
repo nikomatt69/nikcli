@@ -1,0 +1,59 @@
+---
+import "../styles/global.css"
+
+interface Props {
+  title?: string
+  description?: string
+}
+const { title = "nikcli Inference", description = "OpenAI-compatible inference gateway with cheapest-provider routing." } = Astro.props
+---
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" />
+    <script is:inline>
+      const initTheme = () => {
+        const stored = localStorage.getItem("theme");
+        const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const theme = stored || (prefersDark ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      };
+      initTheme();
+      document.addEventListener('astro:after-swap', initTheme);
+    </script>
+  </head>
+  <body class="min-h-screen bg-terminal-bg text-terminal-text antialiased font-sans flex flex-col">
+    <a class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 z-[100] px-5 py-2.5 bg-terminal-text text-terminal-bg font-semibold rounded-lg shadow-xl" href="#main-content">Skip to content</a>
+    <slot />
+    <footer class="border-t border-terminal-border/50 bg-terminal-panel/50 py-8 sm:py-10 mt-auto">
+      <div class="max-w-6xl mx-auto px-6 flex flex-col items-center justify-between gap-5 sm:flex-row">
+        <div class="flex items-center gap-2.5">
+          <div class="w-6 h-6 rounded-[6px] bg-terminal-accent/12 border border-terminal-accent/25 flex items-center justify-center" aria-hidden="true">
+            <svg viewBox="0 0 16 16" class="w-3.5 h-3.5 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
+              <path d="M9 12.5H13.5" />
+            </svg>
+          </div>
+          <span class="text-[13px] font-medium text-terminal-muted">
+            &copy; {new Date().getFullYear()} <span class="font-display font-bold text-terminal-text uppercase tracking-[0.06em] text-[12px]">nikcli</span>. MIT License.
+          </span>
+        </div>
+        <nav class="flex gap-5" aria-label="Footer">
+          <a href="https://github.com/nikomatt69/nikcli" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100" rel="noreferrer" target="_blank">GitHub</a>
+          <a href="/docs" class="text-[13px] font-medium text-terminal-muted hover:text-terminal-text transition-colors duration-100">Docs</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

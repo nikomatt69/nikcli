@@ -1,0 +1,54 @@
+---
+layout: ../../layouts/Doc.astro
+title: Cursor setup · nikcli Inference docs
+---
+
+# Cursor
+
+Cursor accepts any OpenAI-compatible endpoint. Configure once, use every model in the [catalog](/docs/models) including aliases and `:thinking` variants.
+
+## 1. Get your API key
+
+[Dashboard → API Keys](/dashboard/keys) → **Create key** → copy.
+
+```
+nik_live_xxxxxxxxxxxxxxxxx
+```
+
+## 2. Configure Cursor
+
+**Settings → Cursor Settings → Models**
+
+| Setting | Value |
+| --- | --- |
+| **Override OpenAI Base URL** | toggle ON |
+| **OpenAI Base URL** | `https://inference.nikcli.store/v1` |
+| **OpenAI API Key** | your `nik_live_…` |
+
+## 3. Add model names
+
+Scroll down to **Model Names** → **+ Add model** — add the ones you want:
+
+```
+nikseek
+nikcli-fast
+nikcli-coder
+nikcli-reason
+nikseek:thinking
+deepseek-v4-pro
+kimi-k2.6:thinking
+qwen-3.5-flash
+```
+
+Click **Verify** — Cursor pings the endpoint to confirm the key works.
+
+## 4. Pick the model in the chat
+
+Hit the model picker (`⌘/`) and type the model id. The full nikcli catalog will autocomplete.
+
+## Tips
+
+- **`:thinking` variants** show reasoning before the answer — great for code generation and architecture questions.
+- **`nikcli-fast`** is the right default for tab-complete and small edits.
+- **`nikseek`** beats stock GPT-4o on most coding tasks for ~1/5 the price.
+- The `nikcli-free` model is rate-limited but truly $0 — use it for non-critical scratch.

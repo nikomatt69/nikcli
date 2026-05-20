@@ -1,0 +1,410 @@
+---
+import Base from "../layouts/Base.astro"
+import Nav from "../components/Nav.astro"
+
+const curlExample = `curl https://inference.nikcli.store/v1/chat/completions \\
+  -H "Authorization: Bearer $NIKCLI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"nikseek","messages":[{"role":"user","content":"Hello"}]}'`
+
+const features = [
+  {
+    title: "14+ Providers, One Endpoint",
+    description: "Together AI, Fireworks, DeepInfra, Groq, Cerebras, SambaNova, Hyperbolic, Nebius, OpenRouter, DeepSeek, Mistral, Moonshot, Zhipu, and more.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>`,
+    size: "wide",
+  },
+  {
+    title: "Cheapest Route + Cache",
+    description: "Each call picks the cheapest healthy upstream. Deterministic responses are cached cross-region. Concurrent identical requests coalesce.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>`,
+    size: "normal",
+  },
+  {
+    title: "Native Reasoning Support",
+    description: "R1 / QwQ + :thinking variants for DeepSeek V4, Kimi K2.6, GLM 5.1, Qwen 3.5, MiniMax — available on demand.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469M19 22v-1a3.374 3.374 0 00-3.374-3.374"/>`,
+    size: "normal",
+  },
+  {
+    title: "OpenAI SDK Compatible",
+    description: "Drop-in replacement for Cursor, the official OpenAI SDK, or any HTTP client. Just swap the base URL.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>`,
+    size: "normal",
+  },
+  {
+    title: "Free Tier Included",
+    description: "100K free tokens per month on signup. No credit card required. Upgrade to pro for higher rate limits.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>`,
+    size: "normal",
+  },
+  {
+    title: "Transparent Billing",
+    description: "Per-call billing at cost-plus margins. You pay what we pay upstream — no markup. Detailed usage logs included.",
+    icon: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>`,
+    size: "wide",
+  },
+]
+---
+
+<Base>
+  <Nav />
+
+  <!-- ─── Hero ─────────────────────────────────────────────── -->
+  <section
+    class="relative isolate overflow-hidden min-h-[92vh] flex items-center pt-16 pb-10 md:pt-20 md:pb-16"
+    aria-label="Hero"
+  >
+    <!-- Ambient background glow -->
+    <div class="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+      <div class="absolute top-[-10%] left-[-5%] w-[700px] h-[500px] rounded-full bg-terminal-accent/8 dark:bg-terminal-accent/10 blur-[140px] animate-pulse-slow"></div>
+      <div class="absolute bottom-[-5%] right-[-5%] w-[500px] h-[400px] rounded-full bg-terminal-accent/5 dark:bg-terminal-accent/7 blur-[120px]"></div>
+    </div>
+
+    <div class="page-shell w-full">
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-10 xl:gap-16 items-center">
+
+        <!-- Left: Copy -->
+        <div class="flex flex-col items-start max-w-[640px]">
+
+          <!-- Badge -->
+          <a
+            href="/docs"
+            class="hero-anim mb-7 inline-flex items-center gap-2 rounded-full border border-terminal-border bg-terminal-panel/80 px-3 py-1.5 text-[12.5px] font-semibold text-terminal-muted transition-all duration-200 hover:border-terminal-accent/40 hover:text-terminal-text hover:bg-terminal-panel active:scale-[0.97] group"
+            style="animation-delay: 0ms"
+          >
+            <span class="relative flex h-2 w-2 shrink-0">
+              <span class="animate-ping-slow absolute inline-flex h-full w-full rounded-full bg-terminal-accent opacity-70"></span>
+              <span class="relative inline-flex h-2 w-2 rounded-full bg-terminal-accent"></span>
+            </span>
+            <span>OpenAI-compatible inference gateway</span>
+            <svg class="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+
+          <!-- Headline -->
+          <h1
+            class="hero-anim font-display font-extrabold text-terminal-text leading-[0.97] tracking-[-0.04em] text-[clamp(2.8rem,7vw,5.5rem)] mb-6 sm:mb-7"
+            style="animation-delay: 80ms"
+          >
+            One API.<br />
+            <span class="relative inline-block">
+              <span
+                class="bg-gradient-to-br from-terminal-accent via-blue-400 to-blue-300 dark:from-terminal-accent dark:via-blue-300 dark:to-sky-200 bg-clip-text text-transparent"
+              >Every open model.</span>
+            </span>
+          </h1>
+
+          <!-- Subheadline -->
+          <p
+            class="hero-anim mb-8 max-w-[480px] text-[clamp(1rem,1.5vw,1.15rem)] font-normal leading-[1.65] text-terminal-muted"
+            style="animation-delay: 160ms"
+          >
+            Route every request to the cheapest healthy upstream. Built-in caching,
+            request coalescing, and reasoning support — drop-in for Cursor, the OpenAI SDK,
+            or anything that speaks&nbsp;OpenAI.
+          </p>
+
+          <!-- CTAs -->
+          <div
+            class="hero-anim flex flex-col sm:flex-row items-start sm:items-center gap-3"
+            style="animation-delay: 240ms"
+          >
+            <a
+              href="/sign-up"
+              class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-terminal-accent text-terminal-bg text-[14px] font-bold tracking-[0.01em] transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 active:scale-[0.97] shadow-[0_4px_20px_-3px_rgb(var(--terminal-accent)/0.55)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 7h3a5 5 0 015 5 5 5 0 01-5 5h-3m-6 0H6a5 5 0 01-5-5 5 5 0 015-5h3"/>
+                <path d="M12 12v6"/>
+              </svg>
+              Get your API key
+            </a>
+            <a
+              href="/docs"
+              class="hero-cta inline-flex items-center justify-center gap-2 px-6 py-3 rounded-[10px] bg-transparent border border-terminal-border text-terminal-text text-[14px] font-semibold transition-all duration-150 hover:border-terminal-accent/50 hover:bg-surface-hover active:scale-[0.97]"
+            >
+              Read the docs
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 18l6-6-6-6"/>
+              </svg>
+            </a>
+          </div>
+
+          <!-- Stats row -->
+          <div
+            class="hero-anim mt-10 flex items-center gap-6 border-t border-terminal-border/50 pt-6"
+            style="animation-delay: 320ms"
+          >
+            <div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">14+</div>
+              <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Providers</div>
+            </div>
+            <div class="w-px h-8 bg-terminal-border/60"></div>
+            <div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">40+</div>
+              <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">Models</div>
+            </div>
+            <div class="w-px h-8 bg-terminal-border/60"></div>
+            <div>
+              <div class="font-display text-[1.35rem] font-bold text-terminal-text leading-none tracking-tight">Free</div>
+              <div class="text-[11.5px] font-medium text-terminal-muted mt-0.5 tracking-wide uppercase">100K tokens/mo</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Terminal window -->
+        <div
+          class="hero-anim w-full lg:w-[min(460px,50vw)] xl:w-[500px] shrink-0"
+          style="animation-delay: 120ms"
+        >
+          <div
+            id="hero-terminal"
+            class="group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-window-border bg-terminal-window-bg shadow-strong transition-transform duration-500 ease-out-expo"
+            style="transform: perspective(1100px) rotateY(-6deg) rotateX(1.5deg);"
+          >
+            <!-- Window chrome -->
+            <div class="flex items-center justify-between border-b border-terminal-window-border/70 bg-gradient-to-b from-surface-hover/50 to-terminal-window-bg px-4 py-3 sm:px-5">
+              <div class="flex gap-1.5" aria-hidden="true">
+                <div class="w-3 h-3 rounded-full bg-[#FF5F56] shadow-sm border border-black/8"></div>
+                <div class="w-3 h-3 rounded-full bg-[#FFBD2E] shadow-sm border border-black/8"></div>
+                <div class="w-3 h-3 rounded-full bg-[#27C93F] shadow-sm border border-black/8"></div>
+              </div>
+              <div class="hidden sm:flex items-center gap-2 rounded-md border border-terminal-border/25 bg-surface-active/40 px-3 py-1 font-mono text-[11px] font-medium text-terminal-muted">
+                <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                ~/projects
+              </div>
+              <div class="w-10" aria-hidden="true"></div>
+            </div>
+
+            <!-- Terminal body -->
+            <div class="min-h-[180px] overflow-x-auto bg-terminal-window-code p-5 font-mono text-[13px] leading-[1.8] sm:p-6 md:p-7 md:text-[14px]">
+              <!-- Command line -->
+              <div class="flex items-start gap-2.5 mb-3">
+                <span class="text-terminal-accent shrink-0 font-bold select-none mt-[2px]">$</span>
+                <div>
+                  <code class="text-terminal-window-text font-semibold whitespace-pre">{curlExample}</code>
+                  <span class="animate-cursor inline-block w-[7px] h-[15px] bg-terminal-accent/80 align-middle ml-0.5 -mt-px rounded-[1px]" aria-hidden="true"></span>
+                </div>
+              </div>
+
+              <!-- Simulated output lines -->
+              <div class="mt-4 space-y-1.5 text-[12px] border-t border-terminal-border/30 pt-4" aria-hidden="true">
+                <div class="flex items-center gap-2">
+                  <span class="text-terminal-accent/70 font-semibold">✓</span>
+                  <span class="text-terminal-muted/80">Connecting to model provider...</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-terminal-accent/70 font-semibold">✓</span>
+                  <span class="text-terminal-muted/80">LSP initialized — 3 servers active</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-terminal-success/80 font-semibold">→</span>
+                  <span class="text-terminal-muted/80">Session <span class="text-terminal-accent font-semibold">ses_f9a2b</span> started · deepseek-v4-pro</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom status bar -->
+            <div class="border-t border-terminal-window-border/60 bg-surface-hover/30 px-5 py-2 flex items-center justify-between">
+              <div class="flex items-center gap-3 font-mono text-[10.5px] text-terminal-muted/70">
+                <span class="flex items-center gap-1">
+                  <span class="w-1.5 h-1.5 rounded-full bg-terminal-success inline-block"></span>
+                  deepseek-v4-pro
+                </span>
+                <span>·</span>
+                <span>R1</span>
+                <span>·</span>
+                <span>cache hit</span>
+              </div>
+              <span class="font-mono text-[10.5px] text-terminal-muted/50">$0.00016</span>
+            </div>
+          </div>
+
+          <!-- Decorative shadow card behind terminal -->
+          <div
+            class="absolute -z-10 inset-4 rounded-[var(--radius-card)] bg-terminal-accent/8 blur-2xl"
+            aria-hidden="true"
+          ></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Features ────────────────────────────────────────────── -->
+  <section class="page-section relative border-t border-terminal-border/50" aria-label="Features">
+    <div class="page-shell">
+      <div class="mb-12 sm:mb-16 max-w-2xl">
+        <!-- Eyebrow -->
+        <div class="inline-flex items-center gap-2 mb-5">
+          <div class="h-px w-8 bg-terminal-accent" aria-hidden="true"></div>
+          <span class="font-mono text-eyebrow uppercase tracking-[0.2em] text-terminal-accent">
+            Capabilities
+          </span>
+        </div>
+        <!-- Heading -->
+        <h2 class="font-display text-[clamp(1.75rem,4vw,3rem)] font-extrabold leading-[1.05] tracking-[-0.03em] text-terminal-text mb-4">
+          Route once.<br class="hidden sm:block"/>
+          <span class="text-terminal-muted font-semibold">Route cheapest.</span>
+        </h2>
+        <p class="text-[clamp(0.95rem,1.5vw,1.05rem)] font-normal leading-[1.7] text-terminal-muted max-w-lg">
+          Drop-in replacement for OpenAI, Anthropic, or any OpenAI-compatible client. One key, every model.
+        </p>
+      </div>
+
+      <!-- Bento grid — asymmetric -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-5">
+        {features.map((feature, index) => (
+          <div
+            class={[
+              "feature-card group relative overflow-hidden rounded-[var(--radius-card)] border border-terminal-border/70 bg-terminal-panel transition-all duration-200",
+              feature.size === "wide" ? "lg:col-span-2" : "",
+            ].join(" ")}
+            style={`animation-delay: ${index * 60}ms`}
+          >
+            <!-- Amber reveal bar on left edge (clip-path technique) -->
+            <div
+              class="absolute left-0 top-4 bottom-4 w-[2.5px] rounded-full overflow-hidden"
+              aria-hidden="true"
+            >
+              <div class="h-full w-full bg-terminal-accent feature-bar" />
+            </div>
+
+            <!-- Hover bg gradient -->
+            <div
+              class="absolute inset-0 bg-gradient-to-br from-terminal-accent/4 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none -z-0"
+              aria-hidden="true"
+            />
+
+            <!-- Content -->
+            <div class={["relative z-10 p-6 sm:p-7", feature.size === "wide" ? "md:flex md:gap-8 md:items-start" : ""].join(" ")}>
+              <!-- Icon -->
+              <div class="mb-5 md:mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-terminal-border/60 bg-surface-active text-terminal-muted transition-all duration-200 group-hover:border-terminal-accent/40 group-hover:text-terminal-accent group-hover:bg-terminal-accent/8">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" set:html={feature.icon} />
+              </div>
+
+              <div class={feature.size === "wide" ? "md:flex-1" : ""}>
+                <!-- Title -->
+                <h3 class="font-display text-[1.05rem] font-bold tracking-[-0.02em] text-terminal-text mb-2.5 transition-colors duration-150 group-hover:text-terminal-text">
+                  {feature.title}
+                </h3>
+
+                <!-- Description -->
+                <p class="text-[14.5px] font-normal leading-[1.7] text-terminal-muted">
+                  {feature.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <style>
+    .hero-anim {
+      opacity: 0;
+      animation: slideUpFade 0.6s var(--ease-out-expo, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+    }
+
+    @keyframes slideUpFade {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      #hero-terminal:hover {
+        transform: perspective(1100px) rotateY(-2deg) rotateX(0.5deg) translateY(-4px) !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .hero-anim {
+        animation: none;
+        opacity: 1;
+      }
+      #hero-terminal {
+        transform: none !important;
+      }
+    }
+
+    /* ── Feature cards ── */
+    .feature-bar {
+      clip-path: inset(100% 0 0 0);
+      transition: clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    .feature-card:hover .feature-bar {
+      clip-path: inset(0 0 0 0);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .feature-card {
+        transition:
+          transform 200ms cubic-bezier(0.23, 1, 0.32, 1),
+          border-color 200ms ease,
+          box-shadow 200ms ease;
+      }
+
+      .feature-card:hover {
+        transform: translateY(-2px);
+        border-color: rgb(var(--terminal-border));
+        box-shadow: var(--shadow-strong);
+      }
+    }
+
+    .feature-card {
+      opacity: 0;
+      animation: cardSlideUpFade 0.55s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+      animation-play-state: paused;
+    }
+
+    .feature-card.is-visible {
+      animation-play-state: running;
+    }
+
+    @keyframes cardSlideUpFade {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .feature-card {
+        animation: none;
+        opacity: 1;
+      }
+      .feature-bar {
+        transition: none;
+      }
+    }
+  </style>
+
+  <script>
+    // Staggered feature card entrance on scroll
+    const initFeatures = () => {
+      const cards = document.querySelectorAll<HTMLElement>(".feature-card");
+      if (!cards.length) return;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              observer.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.12, rootMargin: "-40px" }
+      );
+
+      cards.forEach((card) => observer.observe(card));
+    };
+
+    initFeatures();
+    document.addEventListener("astro:page-load", initFeatures);
+  </script>
+</Base>

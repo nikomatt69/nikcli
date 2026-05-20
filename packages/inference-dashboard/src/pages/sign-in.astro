@@ -1,0 +1,21 @@
+---
+import Base from "../layouts/Base.astro"
+import Nav from "../components/Nav.astro"
+import SignInForm from "../components/SignInForm"
+---
+
+<Base title="Sign in · nikcli Inference">
+  <Nav />
+  <main class="mx-auto max-w-sm px-6 py-24">
+    <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-8 shadow-soft">
+      <h1 class="font-display text-2xl font-bold text-terminal-text tracking-tight">Sign in</h1>
+      <p class="mt-2 text-sm text-terminal-muted">to your nikcli inference account</p>
+      <div class="mt-6">
+        <SignInForm client:load />
+      </div>
+      <p class="mt-6 text-sm text-terminal-muted text-center">
+        No account? <a href="/sign-up" class="text-terminal-accent hover:underline">Get a key</a>
+      </p>
+    </div>
+  </main>
+</Base>

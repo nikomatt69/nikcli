@@ -1,0 +1,60 @@
+---
+import { getCurrentUser } from "../lib/auth"
+import ThemeToggle from "./ThemeToggle"
+const user = await getCurrentUser(Astro as any).catch(() => null)
+---
+
+<header class="sticky top-0 z-50 border-b border-terminal-border/50 bg-terminal-bg/80 backdrop-blur-xl backdrop-saturate-150">
+  <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+    <a href="/" class="flex items-center gap-2 group">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg border border-terminal-accent/20 bg-terminal-accent/10">
+        <svg viewBox="0 0 16 16" class="w-4 h-4 text-terminal-accent" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 11.5L6.5 7.5L2.5 3.5" />
+          <path d="M9 12.5H13.5" />
+        </svg>
+      </div>
+      <span class="font-display text-sm font-bold tracking-tight text-terminal-text">
+        nikcli<span class="text-terminal-muted">/</span><span class="text-terminal-accent">inference</span>
+      </span>
+    </a>
+    
+    <nav class="flex items-center gap-1">
+      <a href="/docs" class="rounded-lg px-3.5 py-2 text-sm font-medium text-terminal-muted transition-all duration-150 hover:bg-surface-hover hover:text-terminal-text">
+        Docs
+      </a>
+      <a href="/docs/models" class="rounded-lg px-3.5 py-2 text-sm font-medium text-terminal-muted transition-all duration-150 hover:bg-surface-hover hover:text-terminal-text">
+        Models
+      </a>
+      <a href="/docs/pricing" class="rounded-lg px-3.5 py-2 text-sm font-medium text-terminal-muted transition-all duration-150 hover:bg-surface-hover hover:text-terminal-text">
+        Pricing
+      </a>
+      
+      <div class="mx-2 h-5 w-px bg-terminal-border/50"></div>
+      
+      <ThemeToggle client:load />
+      
+      {
+        user ? (
+          <a href="/dashboard" class="ml-2 inline-flex items-center gap-2 rounded-lg bg-terminal-accent px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            Dashboard
+          </a>
+        ) : (
+          <>
+            <a href="/sign-in" class="rounded-lg px-3.5 py-2 text-sm font-medium text-terminal-muted transition-all duration-150 hover:bg-surface-hover hover:text-terminal-text">
+              Sign in
+            </a>
+            <a href="/sign-up" class="ml-1 inline-flex items-center gap-2 rounded-lg bg-terminal-accent px-4 py-2 text-sm font-semibold text-white transition-all duration-150 hover:opacity-90 active:scale-[0.98]">
+              Get a key
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
+          </>
+        )
+      }
+    </nav>
+  </div>
+</header>

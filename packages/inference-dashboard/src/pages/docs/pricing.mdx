@@ -1,0 +1,53 @@
+---
+layout: ../../layouts/Doc.astro
+title: Pricing · nikcli Inference docs
+---
+
+# Pricing
+
+Pricing is **per-token** at cost. We charge you exactly what upstream providers charge us — no markup on tokens.
+
+## Free tier
+
+| Feature           | Limit         |
+| ----------------- | ------------- |
+| API keys          | 3             |
+| Requests / minute | 20            |
+| Tokens / month    | 100K          |
+| Models            | All available |
+
+## Starter tier
+
+Coming soon — Stripe billing integration in progress.
+
+## Pro tier
+
+For high-volume users. Contact us for custom limits and pricing.
+
+## Enterprise
+
+- **Custom rate limits** — scale to millions of requests/day
+- **Dedicated support** — SLA, priority queue
+- **Custom models** — bring your own fine-tunes
+- **Invoice billing** — net-30 terms
+
+<a
+  href="mailto:enterprise@nikcli.store?subject=Enterprise Pricing Inquiry"
+  class="inline-block mt-4 rounded-md bg-primary px-4 py-2 text-primary-fg font-medium"
+>
+  Contact Sales →
+</a>
+
+## How billing works
+
+Every `/v1/chat/completions` call is metered. After the call completes, the inference gateway emits a `usage_event` to our billing endpoint. Your dashboard reflects actual spend based on:
+
+- **Prompt tokens** × input price for model
+- **Completion tokens** × output price for model
+- No charge for failed requests
+
+## Margin
+
+The gateway may charge less than upstream in aggregate — this shows as `nikcli.marginUsd` in responses. It's the difference between what upstream billed us and what you paid.
+
+You can see your margin savings in the [Usage dashboard](/dashboard/usage).

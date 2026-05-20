@@ -1,0 +1,87 @@
+---
+layout: ../../layouts/Doc.astro
+title: Caching & Coalescing · nikcli Inference docs
+---
+
+# Caching & Coalescing
+
+The gateway automatically optimizes your traffic through intelligent caching and request coalescing.
+
+## Response caching
+
+**Deterministic requests** — calls with `temperature=0` or an explicit `seed` — are cached by their request fingerprint.
+
+```bash
+# Cache hit example
+curl .../chat/completions \
+  -d '{"model":"nikseek","temperature":0,"messages":[{"role":"user","content":"What is 2+2?"}]}'
+```
+
+The response will include `nikcli.cache: "hit"` for cached responses:
+
+```json
+{
+  "choices": [{ "message": { "content": "4" } }],
+  "nikcli": {
+    "cache": "hit",
+    "provider": "openrouter",
+    "costUsd": 0
+  }
+}
+```
+
+### Cache behavior
+
+| Condition       | Behavior                           |
+| --------------- | ---------------------------------- |
+| `temperature=0` | Automatic cache lookup             |
+| Explicit `seed` | Guaranteed cache hit for same seed |
+| `temperature>0` | No caching (non-deterministic)     |
+| Default         | No caching                         |
+
+### Cache TTL
+
+Default cache TTL is **1 hour** for hits. You can tune this per-request:
+
+```json
+{
+  "model": "nikseek",
+  "temperature": 0,
+  "messages": [...],
+  "nikcli": {
+    "cache": true,
+    "cacheTtlSeconds": 7200
+  }
+}
+```
+
+## Request coalescing
+
+When **multiple identical requests** arrive simultaneously, the gateway coalesces them into a single upstream call.
+
+```
+Request A ──┐
+Request B ──┼──▶ Single upstream call ──▶ Response to A, B, C
+Request C ──┘
+```
+
+Coalescing kicks in for requests with identical:
+
+- Model
+- Messages
+- Temperature
+- `cacheTtlSeconds`
+
+## Viewing cache status
+
+Every response includes cache info in `nikcli`:
+
+| Value         | Meaning                                  |
+| ------------- | ---------------------------------------- |
+| `"miss"`      | Not cached, new upstream call            |
+| `"hit"`       | Served from cache                        |
+| `"coalesced"` | Shared upstream call with other requests |
+
+## Cache metrics
+
+See your cache hit rate in the [Usage dashboard](/dashboard/usage).

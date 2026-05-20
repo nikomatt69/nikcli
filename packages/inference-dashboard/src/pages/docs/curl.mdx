@@ -1,0 +1,50 @@
+---
+layout: ../../layouts/Doc.astro
+title: Plain HTTP / curl · nikcli Inference docs
+---
+
+# Plain HTTP
+
+## Chat completion
+
+```bash
+curl https://inference.nikcli.store/v1/chat/completions \
+  -H "Authorization: Bearer $NIKCLI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nikseek",
+    "messages": [{"role":"user","content":"Hello"}],
+    "temperature": 0
+  }'
+```
+
+## Streaming (SSE)
+
+```bash
+curl -N https://inference.nikcli.store/v1/chat/completions \
+  -H "Authorization: Bearer $NIKCLI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nikseek",
+    "stream": true,
+    "messages": [{"role":"user","content":"Stream a haiku"}]
+  }'
+```
+
+## List models
+
+```bash
+curl https://inference.nikcli.store/v1/models \
+  -H "Authorization: Bearer $NIKCLI_API_KEY"
+
+# Include upstream provider routes per model:
+curl 'https://inference.nikcli.store/v1/models?routes=1' \
+  -H "Authorization: Bearer $NIKCLI_API_KEY"
+```
+
+## Inspect health
+
+```bash
+curl https://inference.nikcli.store/health
+curl https://inference.nikcli.store/v1/providers
+```

@@ -1,0 +1,105 @@
+---
+import Dashboard from "../../layouts/Dashboard.astro"
+import { getCurrentUser } from "../../lib/auth"
+import { getEnv } from "../../lib/env"
+
+const user = await getCurrentUser(Astro as any).catch(() => null)
+if (!user) return Astro.redirect("/sign-in")
+const env = getEnv(Astro as any)
+
+interface Row {
+  created_at: number
+  model: string
+  resolved_model: string
+  provider: string | null
+  prompt_tokens: number
+  completion_tokens: number
+  billed_usd: number
+  cache: string | null
+}
+
+const recent = await env.DB.prepare(
+  `SELECT created_at, model, resolved_model, provider, prompt_tokens, completion_tokens, billed_usd, cache
+   FROM usage_events WHERE user_id = ? ORDER BY created_at DESC LIMIT 100`,
+)
+  .bind(user.id)
+  .all<Row>()
+const rows = recent.results ?? []
+
+const totals = await env.DB.prepare(
+  `SELECT COUNT(*) c, COALESCE(SUM(billed_usd), 0) billed, COALESCE(SUM(prompt_tokens + completion_tokens), 0) tokens
+   FROM usage_events WHERE user_id = ? AND created_at > unixepoch() - 30*86400`,
+)
+  .bind(user.id)
+  .first<{ c: number; billed: number; tokens: number }>()
+
+function fmt(ts: number): string {
+  return new Date(ts * 1000).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })
+}
+---
+
+<Dashboard active="usage" title="Usage · nikcli Inference">
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-display font-bold text-terminal-text">Usage</h1>
+      <p class="mt-1 text-sm text-terminal-muted">Per-call billing — what you pay, not what we paid upstream.</p>
+    </div>
+
+    <div class="grid grid-cols-3 gap-4">
+      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
+        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day spend</p>
+        <p class="mt-2 text-2xl font-display font-bold text-terminal-text">${(totals?.billed ?? 0).toFixed(4)}</p>
+      </div>
+      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
+        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day calls</p>
+        <p class="mt-2 text-2xl font-display font-bold text-terminal-text">{totals?.c ?? 0}</p>
+      </div>
+      <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5 shadow-soft">
+        <p class="text-[11px] font-medium uppercase tracking-wider text-terminal-muted">30-day tokens</p>
+        <p class="mt-2 text-2xl font-display font-bold text-terminal-text">{(totals?.tokens ?? 0).toLocaleString()}</p>
+      </div>
+    </div>
+
+    <div class="overflow-hidden rounded-[var(--radius-card)] border border-terminal-border shadow-soft">
+      <table class="w-full text-sm">
+        <thead class="bg-terminal-panel text-xs uppercase tracking-wider">
+          <tr>
+            <th class="px-4 py-3 text-left font-semibold text-terminal-muted">When</th>
+            <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Model</th>
+            <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Provider</th>
+            <th class="px-4 py-3 text-right font-semibold text-terminal-muted">Tokens</th>
+            <th class="px-4 py-3 text-right font-semibold text-terminal-muted">Cost (USD)</th>
+            <th class="px-4 py-3 text-left font-semibold text-terminal-muted">Cache</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-terminal-border/50">
+          {rows.length === 0 ? (
+            <tr>
+              <td colspan="6" class="px-4 py-10 text-center text-terminal-muted">
+                No usage yet. Make a request against{" "}
+                <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">/v1/chat/completions</code>.
+              </td>
+            </tr>
+          ) : (
+            rows.map((r) => (
+              <tr class="transition-colors duration-100 hover:bg-surface-hover">
+                <td class="px-4 py-3 text-terminal-muted">{fmt(r.created_at)}</td>
+                <td class="px-4 py-3 font-mono text-xs text-terminal-text">{r.model}</td>
+                <td class="px-4 py-3 text-terminal-muted">{r.provider ?? "—"}</td>
+                <td class="px-4 py-3 text-right tabular-nums text-terminal-text">{r.prompt_tokens + r.completion_tokens}</td>
+                <td class="px-4 py-3 text-right tabular-nums text-terminal-text">${r.billed_usd.toFixed(6)}</td>
+                <td class="px-4 py-3 text-terminal-muted">
+                  {r.cache ? (
+                    <span class="inline-flex items-center rounded-md bg-terminal-success/10 px-2 py-0.5 text-xs font-medium text-terminal-success">
+                      {r.cache}
+                    </span>
+                  ) : "—"}
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</Dashboard>

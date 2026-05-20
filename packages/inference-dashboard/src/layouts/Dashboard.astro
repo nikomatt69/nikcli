@@ -1,0 +1,50 @@
+---
+import Base from "./Base.astro"
+import Nav from "../components/Nav.astro"
+import { getCurrentUser } from "../lib/auth"
+
+const user = await getCurrentUser(Astro as any).catch(() => null)
+if (!user) return Astro.redirect("/sign-in")
+
+interface Props {
+  title?: string
+  active?: "overview" | "keys" | "usage" | "settings"
+}
+const { title = "Dashboard · nikcli Inference", active = "overview" } = Astro.props
+
+const navItems = [
+  { id: "overview", href: "/dashboard", label: "Overview" },
+  { id: "keys", href: "/dashboard/keys", label: "API Keys" },
+  { id: "usage", href: "/dashboard/usage", label: "Usage" },
+  { id: "settings", href: "/dashboard/settings", label: "Settings" },
+]
+---
+
+<Base title={title}>
+  <Nav />
+  <div class="mx-auto grid max-w-6xl gap-8 px-6 py-10 md:grid-cols-[200px_1fr]">
+    <aside class="space-y-1 text-sm">
+      <p class="px-3 pb-2 text-xs uppercase tracking-wider text-terminal-muted">{user.email}</p>
+      {
+        navItems.map((item) => (
+          <a
+            href={item.href}
+            class={`block rounded-md px-3 py-1.5 ${active === item.id ? "bg-terminal-panel text-terminal-text" : "text-terminal-muted hover:bg-surface-hover hover:text-terminal-text"}`}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+      <div class="my-3 h-px bg-terminal-border/50"></div>
+      <a href="/docs" class="block rounded-md px-3 py-1.5 text-terminal-muted hover:bg-surface-hover hover:text-terminal-text">
+        Docs ↗
+      </a>
+      <form action="/api/auth/sign-out" method="POST" class="mt-2">
+        <button type="submit" class="block w-full rounded-md px-3 py-1.5 text-left text-terminal-muted hover:bg-surface-hover hover:text-terminal-text">
+          Sign out
+        </button>
+      </form>
+    </aside>
+    <main><slot /></main>
+  </div>
+</Base>

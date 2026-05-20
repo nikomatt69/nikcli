@@ -220,6 +220,98 @@ export namespace Provider {
     }
   }
 
+  async function loadNikcliInferenceProvider(config: Config.Info): Promise<Info | undefined> {
+    const configured = config.provider?.["nikcli-inference"]
+    const baseURL = normalizeBaseURL(
+      (configured?.options?.baseURL as string | undefined) ??
+        Env.get("NIKCLI_INFERENCE_URL") ??
+        "https://inference.nikcli.store/v1",
+    )
+    const apiKey =
+      (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
+
+    // Probe /v1/models — single source of truth from the gateway.
+    const modelsRes = await fetch(`${baseURL}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(4000),
+    }).catch(() => undefined)
+    if (!modelsRes?.ok) return undefined
+
+    const listJson = (await modelsRes.json().catch(() => undefined)) as
+      | {
+          data?: Array<{
+            id: string
+            context_window?: number
+            params?: string
+            hf_id?: string
+            pricing?: { input?: number; output?: number }
+            thinking?: "native" | "optional" | null
+            variant_of?: string
+            alias_of?: string
+          }>
+        }
+      | undefined
+    const data = listJson?.data
+    if (!data || data.length === 0) return undefined
+
+    const models: Record<string, Model> = {}
+    for (const m of data) {
+      if (!m.id) continue
+      models[m.id] = {
+        id: m.id,
+        providerID: "nikcli-inference",
+        name: m.id,
+        api: {
+          id: m.id,
+          url: baseURL,
+          npm: "@ai-sdk/openai-compatible",
+        },
+        status: "active",
+        headers: {},
+        options: {},
+        cost: {
+          input: m.pricing?.input ?? 0,
+          output: m.pricing?.output ?? 0,
+          cache: { read: 0, write: 0 },
+        },
+        limit: {
+          context: m.context_window ?? 128_000,
+          output: Math.min(m.context_window ?? 128_000, 8192),
+        },
+        capabilities: {
+          temperature: true,
+          // Native reasoning models always reason; `:thinking` variants reason on demand.
+          reasoning: m.thinking === "native" || m.id.endsWith(":thinking"),
+          attachment: false,
+          toolcall: true,
+          input: {
+            text: true,
+            audio: false,
+            image: m.id.includes("scout") || m.id.includes("maverick") || m.id.includes("kimi"),
+            video: false,
+            pdf: false,
+          },
+          output: { text: true, audio: false, image: false, video: false, pdf: false },
+          interleaved: false,
+        },
+        release_date: "2026-01-01",
+        variants: {},
+      }
+    }
+
+    return {
+      id: "nikcli-inference",
+      name: configured?.name ?? "nikcli Inference Gateway",
+      source: "custom",
+      env: ["NIKCLI_INFERENCE_KEY"],
+      options: {
+        baseURL,
+        apiKey,
+      },
+      models,
+    }
+  }
+
   function isGpt5OrLater(modelID: string): boolean {
     const match = /^gpt-(\d+)/.exec(modelID)
     if (!match) {
@@ -917,6 +1009,13 @@ export namespace Provider {
     const ollama = await loadOllamaProvider(config).catch(() => undefined)
     if (ollama && isProviderAllowed(ollama.id)) {
       providers[ollama.id] = ollama
+    }
+
+    // Auto-detect the nikcli inference gateway (default: https://inference.nikcli.store/v1).
+    // Set NIKCLI_INFERENCE_KEY (or config.provider.nikcli-inference.options.apiKey) to enable.
+    const nikcliInference = await loadNikcliInferenceProvider(config).catch(() => undefined)
+    if (nikcliInference && isProviderAllowed(nikcliInference.id)) {
+      providers[nikcliInference.id] = nikcliInference
     }
 
     const configProviders = Object.entries(config.provider ?? {})

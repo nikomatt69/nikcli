@@ -1,0 +1,69 @@
+---
+layout: ../../layouts/Doc.astro
+title: Quickstart · nikcli Inference docs
+---
+
+# Quickstart
+
+## 1. Get a key
+
+[Sign up](/sign-up) → [Dashboard → API Keys](/dashboard/keys) → **Create key** → copy it (shown once).
+
+```
+export NIKCLI_API_KEY=nik_live_xxxxxxxxxxxxxxxxx
+```
+
+## 2. First request
+
+```bash
+curl https://inference.nikcli.store/v1/chat/completions \
+  -H "Authorization: Bearer $NIKCLI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nikseek",
+    "messages": [{"role":"user","content":"Hello"}]
+  }'
+```
+
+The response is OpenAI-compatible. We add a `nikcli` field with cost breakdown, the upstream route, and cache status:
+
+```json
+{
+  "id": "...",
+  "model": "nikseek",
+  "choices": [{"message": {"role":"assistant","content":"Hi"}}],
+  "usage": {"prompt_tokens":10,"completion_tokens":2},
+  "nikcli": {
+    "provider": "openrouter",
+    "upstreamModel": "deepseek/deepseek-v4-pro-20260423",
+    "cache": "miss",
+    "costUsd": 0.000164,
+    "upstreamCostUsd": 0.0000131,
+    "marginUsd": 0.000151,
+    "rid": "..."
+  }
+}
+```
+
+## 3. Model selection
+
+Pick by **alias** (recommended):
+
+| Alias            | Backed by              | Use it for                  |
+| ---------------- | ---------------------- | --------------------------- |
+| `nikcli-mini`    | Qwen 3.5 Flash         | Tiny tool calls / extraction |
+| `nikcli-fast`    | DeepSeek V4 Flash      | Cheap fast chat             |
+| `nikseek`        | DeepSeek V4 Pro        | Strong general reasoning    |
+| `nikcli-max`     | Kimi K2.6              | Top-quality chat            |
+| `nikcli-reason`  | DeepSeek R1            | Hard reasoning              |
+| `nikcli-coder`   | Devstral 2             | Code generation             |
+| `nikcli-vision`  | Llama 4 Scout          | Image-aware chat            |
+| `nikcli-free`    | MiniMax 2.5 free       | Zero-cost calls             |
+
+Append `:thinking` to enable chain-of-thought on hybrid models. See [Reasoning](/docs/thinking).
+
+## 4. Next
+
+- [Cursor →](/docs/cursor) drop it in your editor
+- [OpenAI SDK →](/docs/openai-sdk)
+- [All models →](/docs/models)

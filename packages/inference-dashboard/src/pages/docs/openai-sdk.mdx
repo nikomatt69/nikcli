@@ -1,0 +1,78 @@
+---
+layout: ../../layouts/Doc.astro
+title: OpenAI SDK · nikcli Inference docs
+---
+
+# OpenAI SDK
+
+The gateway speaks the OpenAI Chat Completions API. Point any OpenAI SDK at it.
+
+## Node / TypeScript
+
+```ts
+import OpenAI from "openai"
+
+const client = new OpenAI({
+  baseURL: "https://inference.nikcli.store/v1",
+  apiKey: process.env.NIKCLI_API_KEY!,
+})
+
+const completion = await client.chat.completions.create({
+  model: "nikseek",
+  messages: [{ role: "user", content: "Explain QUIC vs HTTP/2 briefly" }],
+})
+
+console.log(completion.choices[0].message.content)
+```
+
+## Python
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://inference.nikcli.store/v1",
+    api_key=os.environ["NIKCLI_API_KEY"],
+)
+
+resp = client.chat.completions.create(
+    model="nikcli-coder",
+    messages=[{"role": "user", "content": "Write me a Rust hello world"}],
+)
+print(resp.choices[0].message.content)
+```
+
+## Streaming
+
+```ts
+const stream = await client.chat.completions.create({
+  model: "nikseek",
+  stream: true,
+  messages: [{ role: "user", content: "Write a haiku about caches" }],
+})
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "")
+}
+```
+
+## Tool calls
+
+OpenAI tool calling works as-is — the gateway forwards `tools` and `tool_choice` to the upstream provider. Best with models that have `toolcall: true` in `/v1/models`.
+
+## Cache & reasoning hints
+
+Pass nikcli-specific options in `body.nikcli`:
+
+```ts
+const completion = await client.chat.completions.create({
+  model: "kimi-k2.6:thinking",
+  temperature: 0,
+  messages: [...],
+  // @ts-expect-error — extra field accepted by the gateway
+  nikcli: {
+    cache: true,             // opt-in caching even for non-deterministic calls
+    cacheTtlSeconds: 3600,
+    preferProvider: "openrouter",  // pin a provider
+  },
+})
+```

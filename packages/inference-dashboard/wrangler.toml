@@ -1,0 +1,20 @@
+name = "nikcli-inference-dashboard"
+main = "./dist/_worker.js/index.js"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+
+# Create with: bun run d1:create
+# Then replace database_id below with the value printed.
+[[d1_databases]]
+binding = "DB"
+database_name = "nikcli-inference"
+database_id = "5be2b87f-fc61-4642-a444-2f954430bbb6"
+migrations_dir = "./d1-migrations"
+
+[vars]
+INFERENCE_API_BASE = "https://inference.nikcli.store"
+SITE_URL = "https://nikcli.store"

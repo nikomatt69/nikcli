@@ -1,0 +1,83 @@
+---
+import Base from "./Base.astro"
+import Nav from "../components/Nav.astro"
+
+interface Props {
+  title?: string
+  description?: string
+}
+const { title = "Docs · nikcli Inference", description } = Astro.props
+
+const sections = [
+  {
+    heading: "Get started",
+    items: [
+      { href: "/docs", label: "Overview" },
+      { href: "/docs/quickstart", label: "Quickstart" },
+      { href: "/docs/keys", label: "API keys" },
+    ],
+  },
+  {
+    heading: "Integrations",
+    items: [
+      { href: "/docs/cursor", label: "Cursor" },
+      { href: "/docs/openai-sdk", label: "OpenAI SDK" },
+      { href: "/docs/ai-sdk", label: "Vercel AI SDK" },
+      { href: "/docs/curl", label: "Plain HTTP / curl" },
+    ],
+  },
+  {
+    heading: "Reference",
+    items: [
+      { href: "/docs/models", label: "Models" },
+      { href: "/docs/pricing", label: "Pricing" },
+      { href: "/docs/thinking", label: "Reasoning / :thinking" },
+      { href: "/docs/caching", label: "Caching & coalescing" },
+      { href: "/docs/errors", label: "Errors & status codes" },
+    ],
+  },
+]
+---
+
+<Base title={title} description={description}>
+  <Nav />
+  <div class="mx-auto grid max-w-6xl gap-10 px-6 py-10 md:grid-cols-[240px_1fr]">
+    <!-- Sidebar -->
+    <aside class="text-sm">
+      <nav class="sticky top-[calc(var(--topbar-height)+2rem)] space-y-6">
+        {
+          sections.map((section) => (
+            <div>
+              <p class="px-3 pb-3 font-display font-bold text-terminal-muted uppercase tracking-[0.12em] text-[10px]">
+                {section.heading}
+              </p>
+              <ul class="space-y-1">
+                {
+                  section.items.map((item) => (
+                    <li>
+                      <a
+                        href={item.href}
+                        class="block rounded-lg px-3 py-2 text-[13.5px] text-terminal-muted transition-colors duration-100 hover:bg-surface-hover hover:text-terminal-text"
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  )
+                )
+              }
+            </div>
+          ))
+        }
+      </nav>
+    </aside>
+
+    <!-- Main content -->
+    <main class="prose min-w-0">
+      <slot />
+    </main>
+  </div>
+</Base>
+
+<script>
+  import "../styles/docs.css"
+</script>

@@ -1,0 +1,54 @@
+---
+layout: ../../layouts/Doc.astro
+title: API Keys · nikcli Inference docs
+---
+
+# API Keys
+
+API keys authenticate your requests against the nikcli inference gateway. They follow the OpenAI convention.
+
+## Key format
+
+```
+nik_live_<base64-encoded-random-body>
+```
+
+Example: `nik_live_7x9K2mNpQrS4tUvWxYz8LmN3OpQrStUvWx`
+
+## Creating keys
+
+1. Sign up at [/sign-up](/sign-up)
+2. Go to [Dashboard → API Keys](/dashboard/keys)
+3. Click **Create key** and give it a name
+4. Copy the key immediately — it's **never shown again**
+
+## Key tiers
+
+| Tier       | Purpose                    |
+| ---------- | -------------------------- |
+| `free`     | Default tier for new users |
+| `starter`  | Higher rate limits         |
+| `pro`      | Production workloads       |
+| `business` | Enterprise-scale           |
+
+## Using keys
+
+Pass your key in the `Authorization` header:
+
+```bash
+curl https://inference.nikcli.store/v1/chat/completions \
+  -H "Authorization: Bearer $NIKCLI_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"nikseek","messages":[{"role":"user","content":"Hello"}]}'
+```
+
+## Key rotation
+
+Revoke old keys and create new ones regularly. There's no hard limit on total keys, but only `3` can be active on the free tier.
+
+## Security
+
+- Keys are hashed with SHA-256 before storage
+- Only the prefix (`nik_live_AbCd...`) is visible in the dashboard
+- The full plaintext is shown **once** at creation
+- Keys can be revoked instantly from the dashboard

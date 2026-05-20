@@ -1,0 +1,68 @@
+---
+layout: ../../layouts/Doc.astro
+title: Reasoning / :thinking · nikcli Inference docs
+---
+
+# Reasoning / `:thinking`
+
+Two flavors of reasoning are exposed:
+
+## 1. Native reasoning
+
+Models that always reason — `deepseek-r1`, `deepseek-r1-0528`, `deepseek-r1-distill-32b`, `qwq-32b`. The model returns a chain of thought in `choices[0].message.reasoning` followed by the final answer in `content`.
+
+You don&apos;t need to ask for it — just pick the model:
+
+```bash
+curl ...chat/completions \
+  -d '{"model":"deepseek-r1-0528","messages":[{"role":"user","content":"…"}]}'
+```
+
+## 2. Optional `:thinking` variant
+
+Hybrid models (DeepSeek V3/V4, Kimi K2.x, GLM 5.x, Qwen 3.5+, MiniMax 2.x) have reasoning OFF by default. Append `:thinking` to the model id to turn it on:
+
+```bash
+curl ...chat/completions \
+  -d '{"model":"nikseek:thinking","messages":[…]}'
+```
+
+Effort levels (only for `:thinking` variants):
+
+| Suffix | Effort | Use case |
+| --- | --- | --- |
+| `:thinking` | medium (default) | balanced |
+| `:thinking-low` | low | quick check |
+| `:thinking-high` | high | hard problem, long reasoning |
+
+```jsonc
+{
+  "model": "kimi-k2.6:thinking-high",
+  "messages": [...]
+}
+```
+
+## Response shape
+
+For reasoning calls, the gateway adds a `nikcli.thinking` block:
+
+```json
+{
+  "choices": [{
+    "message": {
+      "role": "assistant",
+      "content": "9",
+      "reasoning": "Need to compute 2+7 = 9. So the answer is 9."
+    }
+  }],
+  "nikcli": {
+    "thinking": { "requested": true, "native": false, "effort": "medium" },
+    "resolvedModel": "deepseek-v4-pro",
+    ...
+  }
+}
+```
+
+## Which models support what
+
+See [Models](/docs/models) — the `:thinking` column shows which are hybrid.

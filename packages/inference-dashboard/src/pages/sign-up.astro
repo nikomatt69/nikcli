@@ -1,0 +1,23 @@
+---
+import Base from "../layouts/Base.astro"
+import Nav from "../components/Nav.astro"
+import SignUpForm from "../components/SignUpForm"
+---
+
+<Base title="Get a key · nikcli Inference">
+  <Nav />
+  <main class="mx-auto max-w-sm px-6 py-24">
+    <div class="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-8 shadow-soft">
+      <h1 class="font-display text-2xl font-bold text-terminal-text tracking-tight">Create an account</h1>
+      <p class="mt-2 text-sm text-terminal-muted">
+        You'll get a free API key with the default <code class="font-mono bg-terminal-code px-1.5 py-0.5 rounded text-xs border border-terminal-border">free</code> tier. Upgrade later for higher limits.
+      </p>
+      <div class="mt-6">
+        <SignUpForm client:load />
+      </div>
+      <p class="mt-6 text-sm text-terminal-muted text-center">
+        Already have one? <a href="/sign-in" class="text-terminal-accent hover:underline">Sign in</a>
+      </p>
+    </div>
+  </main>
+</Base>

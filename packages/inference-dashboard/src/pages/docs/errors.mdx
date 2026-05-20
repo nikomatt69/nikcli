@@ -1,0 +1,126 @@
+---
+layout: ../../layouts/Doc.astro
+title: Errors & Status Codes · nikcli Inference docs
+---
+
+# Errors & Status Codes
+
+The gateway follows OpenAI-compatible error conventions with additional nikcli-specific codes.
+
+## HTTP Status Codes
+
+| Code  | Meaning                                   |
+| ----- | ----------------------------------------- |
+| `200` | Success                                   |
+| `400` | Bad request — invalid parameters          |
+| `401` | Unauthorized — invalid or missing API key |
+| `403` | Forbidden — key revoked or rate limited   |
+| `429` | Too many requests — rate limit exceeded   |
+| `500` | Internal error — upstream failure         |
+| `503` | Service unavailable — all providers down  |
+
+## Error Response Shape
+
+```json
+{
+  "error": {
+    "message": "Invalid API key",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key",
+    "param": null
+  }
+}
+```
+
+## Common Errors
+
+### `invalid_api_key` (401)
+
+Your API key is missing, malformed, or revoked.
+
+```bash
+curl https://inference.nikcli.store/v1/chat/completions \
+  -d '{"model":"nikseek","messages":[{...}]}'
+# Missing Authorization header
+```
+
+**Fix**: Check your key at [Dashboard → API Keys](/dashboard/keys)
+
+### `rate_limit_exceeded` (429)
+
+Too many requests. Back off and retry.
+
+```json
+{
+  "error": {
+    "message": "Rate limit exceeded",
+    "type": "rate_limit_error",
+    "code": "rate_limit_exceeded",
+    "retry_after": 5
+  }
+}
+```
+
+**Fix**: Implement exponential backoff, or [upgrade your tier](/docs/pricing) for higher limits.
+
+### `model_not_found` (404)
+
+The model identifier doesn't exist.
+
+```json
+{
+  "error": {
+    "message": "Model 'gpt-5' not found",
+    "type": "invalid_request_error",
+    "code": "model_not_found"
+  }
+}
+```
+
+**Fix**: Check [available models](/docs/models)
+
+### `context_length_exceeded` (400)
+
+Your prompt exceeds the model's context window.
+
+```json
+{
+  "error": {
+    "message": "This model's maximum context length is 128000 tokens",
+    "type": "invalid_request_error",
+    "code": "context_length_exceeded"
+  }
+}
+```
+
+**Fix**: Truncate your input or use a model with larger context.
+
+### `upstream_error` (502)
+
+The upstream provider returned an error.
+
+```json
+{
+  "error": {
+    "message": "Upstream provider error: timeout",
+    "type": "upstream_error",
+    "code": "upstream_timeout"
+  }
+}
+```
+
+**Fix**: Retry — the gateway will route to a different provider on retry.
+
+## nikcli-Specific Errors
+
+| Code                  | Meaning                                   |
+| --------------------- | ----------------------------------------- |
+| `circuit_open`        | Provider health circuit breaker triggered |
+| `no_healthy_provider` | All providers for model are unhealthy     |
+| `cache_write_failed`  | Cache write error (non-fatal)             |
+
+## Debugging Tips
+
+1. **Enable verbose logging** — check `X-Request-ID` header for correlation
+2. **Test upstream directly** — see `/v1/providers` for current health
+3. **Check dashboard** — [Usage page](/dashboard/usage) shows error breakdown

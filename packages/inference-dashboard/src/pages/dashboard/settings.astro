@@ -1,0 +1,68 @@
+---
+import Dashboard from "../../layouts/Dashboard.astro"
+import { getCurrentUser } from "../../lib/auth"
+import DeleteAccountSection from "../../components/DeleteAccountSection"
+
+const user = await getCurrentUser(Astro as any).catch(() => null)
+if (!user) return Astro.redirect("/sign-in")
+---
+
+<Dashboard active="settings" title="Settings · nikcli Inference">
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-display font-bold text-terminal-text">Settings</h1>
+    </div>
+
+    <section class="rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-soft">
+      <h2 class="font-display font-semibold text-terminal-text">Account</h2>
+      <dl class="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wider text-terminal-muted">Email</dt>
+          <dd class="mt-1 text-terminal-text">{user.email}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wider text-terminal-muted">Name</dt>
+          <dd class="mt-1 text-terminal-text">{user.name ?? "—"}</dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wider text-terminal-muted">Plan</dt>
+          <dd class="mt-1">
+            <span class="inline-flex items-center rounded-md bg-terminal-accent/10 px-2.5 py-1 text-xs font-semibold capitalize text-terminal-accent">
+              {user.plan}
+            </span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-xs font-medium uppercase tracking-wider text-terminal-muted">User ID</dt>
+          <dd class="mt-1 font-mono text-xs text-terminal-muted">{user.id}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="rounded-xl border border-terminal-border bg-terminal-panel p-6 shadow-soft">
+      <h2 class="font-display font-semibold text-terminal-text">Billing</h2>
+      <div class="mt-4 space-y-4">
+        {user.plan === "free" && (
+          <div class="rounded-lg border border-terminal-accent/30 bg-terminal-accent/5 p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <svg class="w-5 h-5 text-terminal-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <h3 class="font-semibold text-terminal-text">Upgrade to Enterprise</h3>
+            </div>
+            <p class="text-sm text-terminal-muted mb-3">Get higher rate limits, dedicated support, and custom pricing.</p>
+            <a href="mailto:enterprise@nikcli.store?subject=Enterprise Plan Inquiry" class="inline-flex items-center gap-2 rounded-lg bg-terminal-accent px-4 py-2 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98]">
+              Contact Sales
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </a>
+          </div>
+        )}
+        <p class="text-sm text-terminal-muted">Current usage is metered but free. Stripe billing coming soon.</p>
+      </div>
+    </section>
+
+    <DeleteAccountSection client:load />
+  </div>
+</Dashboard>

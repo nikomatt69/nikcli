@@ -1,0 +1,34 @@
+---
+layout: ../../layouts/Doc.astro
+title: Overview · nikcli Inference docs
+description: OpenAI-compatible inference gateway with cheapest-provider routing.
+---
+
+# nikcli Inference
+
+A single OpenAI-compatible HTTP endpoint that:
+
+- **Routes** each request to the cheapest healthy provider for the chosen model.
+- **Caches** deterministic responses (`temperature=0` or `seed` set) across all your traffic, cross-region.
+- **Coalesces** concurrent identical requests into one upstream call.
+- **Supports reasoning** natively (R1, QwQ) and via `:thinking` variants on hybrid models.
+
+Behind the scenes we currently route across 14 providers: Together, Fireworks, DeepInfra, Groq, Cerebras, SambaNova, Hyperbolic, Nebius, OpenRouter, DeepSeek, Mistral, Moonshot, Zhipu, and a self-hosted vLLM fallback.
+
+## Base URL
+
+```
+https://inference.nikcli.store/v1
+```
+
+## Authentication
+
+`Authorization: Bearer <your-key>` on every request. Create keys at [/dashboard/keys](/dashboard/keys).
+
+Keys start with `nik_live_`. The full plaintext is shown **only once** at creation — copy it immediately.
+
+## Next steps
+
+- [Quickstart](/docs/quickstart) — your first request
+- [Cursor setup](/docs/cursor) — drop-in for Cursor
+- [Models](/docs/models) — full catalog + aliases
