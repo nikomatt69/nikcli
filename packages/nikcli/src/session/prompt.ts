@@ -44,9 +44,8 @@ import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
-import { Context, Effect, Layer, ScopedCache, Schema } from "effect"
+import { Context, Effect, Layer, ScopedCache } from "effect"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
-import { SessionRunState } from "./run-state"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -62,27 +61,15 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
-
-  class SessionCancelledError extends Schema.TaggedErrorClass<SessionCancelledError>()("SessionCancelledError", {}) {
-    override get message() {
-      return "Session cancelled by user"
-    }
-  }
-
-  function isCancelledError(e: unknown): boolean {
-    if (e instanceof SessionCancelledError) return true
-    return (e as { _tag?: string } | undefined)?._tag === "SessionCancelledError"
-  }
-
-  export function isUserInitiatedStop(e: unknown): boolean {
-    if (isCancelledError(e)) return true
-    return e instanceof Error && e.message === "All fibers interrupted without error"
-  }
-
   type PromptState = Record<
     string,
     {
       abort: AbortController
+      cancelling?: boolean
+      callbacks: {
+        resolve(input: MessageV2.WithParts): void
+        reject(error?: Error): void
+      }[]
     }
   >
 
@@ -326,9 +313,10 @@ export namespace SessionPrompt {
     return Effect.runPromise(withCurrentInstance(InstanceState.context))
   }
 
-  class StateCache extends Context.Service<StateCache, ScopedCache.ScopedCache<string, PromptState>>()(
-    "SessionPrompt.StateCache",
-  ) {}
+  class StateCache extends Context.Service<
+    StateCache,
+    ScopedCache.ScopedCache<string, PromptState>
+  >()("SessionPrompt.StateCache") {}
 
   const stateLayer = Layer.effect(
     StateCache,
@@ -339,6 +327,9 @@ export namespace SessionPrompt {
           Effect.sync(() => {
             for (const item of Object.values(data)) {
               item.abort.abort()
+              for (const callback of item.callbacks) {
+                callback.reject()
+              }
             }
           }),
         )
@@ -362,50 +353,9 @@ export namespace SessionPrompt {
     return runtimeFor(stateLayer).runSync(withCurrentInstance(getStateEffect()))
   }
 
-  function runSessionRunState<A, E>(effect: Effect.Effect<A, E, SessionRunState.Service>) {
-    return runPromiseWithLayer(SessionRunState.defaultLayer, withCurrentInstance(effect))
-  }
-
-  async function lastAssistantMessage(sessionID: string) {
-    for await (const item of MessageV2.stream(sessionID)) {
-      if (item.info.role !== "user") return item
-    }
-    throw new Error("Impossible")
-  }
-
-  async function finalizeInterruptedAssistant(msg: MessageV2.Assistant) {
-    if (msg.time.completed) return
-    msg.error ??= MessageV2.fromError(new DOMException("Aborted", "AbortError"), {
-      providerID: msg.providerID,
-    })
-    msg.time.completed = Date.now()
-    await sessionUpdateMessage(msg)
-  }
-
-  async function finalizeIncompleteAssistants(sessionID: string) {
-    for await (const item of MessageV2.stream(sessionID)) {
-      if (item.info.role !== "assistant") continue
-      const assistant = item.info as MessageV2.Assistant
-      if (assistant.time.completed) continue
-      await finalizeInterruptedAssistant(assistant)
-      const parts = await MessageV2.parts(assistant.id)
-      for (const part of parts) {
-        if (part.type === "tool" && part.state.status === "running") {
-          await sessionUpdatePart({
-            ...part,
-            state: {
-              ...part.state,
-              status: "error",
-              error: "Tool execution aborted",
-              time: {
-                start: part.state.status === "running" ? part.state.time.start : Date.now(),
-                end: Date.now(),
-              },
-            },
-          } satisfies MessageV2.ToolPart)
-        }
-      }
-    }
+  function assertNotBusy(sessionID: string) {
+    const match = state()[sessionID]
+    if (match) throw new Session.BusyError({ sessionID, message: "Session is busy" })
   }
 
   export const PromptInput = z.object({
@@ -476,7 +426,7 @@ export namespace SessionPrompt {
   export type PromptInput = z.infer<typeof PromptInput>
 
   export interface Interface {
-    assertNotBusy(sessionID: string): Effect.Effect<void, Session.BusyError>
+    assertNotBusy(sessionID: string): Effect.Effect<void>
     prompt(input: PromptInput): Effect.Effect<Awaited<ReturnType<typeof prompt>>, unknown>
     resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], unknown>
     cancel(sessionID: string): Effect.Effect<void>
@@ -576,83 +526,56 @@ export namespace SessionPrompt {
     return resolvePromptPartsImpl(await currentContext(), template)
   }
 
+  function start(sessionID: string) {
+    const s = state()
+    if (s[sessionID]) return
+    const controller = new AbortController()
+    s[sessionID] = {
+      abort: controller,
+      callbacks: [],
+    }
+    return controller
+  }
+
   async function finish(sessionID: string, controller: AbortController) {
     const s = state()
     const match = s[sessionID]
-    // #region agent log
-    fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-      body: JSON.stringify({
-        sessionId: "6f5e48",
-        hypothesisId: "E",
-        location: "prompt.ts:finish",
-        message: "finish() called",
-        data: { sessionID, hasMatch: !!match, controllerMatch: match?.abort === controller },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
     if (!match || match.abort !== controller) return
+    for (const item of match.callbacks) {
+      item.reject()
+    }
     delete s[sessionID]
-    await sessionUpdate(sessionID, (draft) => {
-      draft.activeCommand = undefined
-    })
+    await setStatus(sessionID, { type: "idle" })
   }
 
   const cancel = (() => {
     const log = Log.create({ service: "session.prompt" })
-    return async function cancel(sessionID: string) {
-      log.debug("cancel", { sessionID })
+    return function cancel(sessionID: string) {
+      log.info("cancel", { sessionID })
       const s = state()
       const match = s[sessionID]
-      // #region agent log
-      fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-        body: JSON.stringify({
-          sessionId: "6f5e48",
-          hypothesisId: "F",
-          location: "prompt.ts:cancel",
-          message: "cancel() called",
-          data: { sessionID, hasMatch: !!match, aborted: match?.abort.signal.aborted ?? null },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-      if (match) match.abort.abort()
-      await runSessionRunState(
-        Effect.gen(function* () {
-          const runState = yield* SessionRunState.Service
-          yield* runState.cancel(sessionID)
-        }),
-      )
+      if (!match) return
+      match.abort.abort()
+      match.cancelling = true
+      for (const item of match.callbacks) {
+        item.reject()
+      }
+      match.callbacks = []
+      return
     }
   })()
 
-  const runLoop = fn(Identifier.schema("session"), async (sessionID) => {
-    const controller = new AbortController()
-    state()[sessionID] = { abort: controller }
+  const loop = fn(Identifier.schema("session"), async (sessionID) => {
+    const controller = start(sessionID)
+    if (!controller) {
+      return new Promise<MessageV2.WithParts>((resolve, reject) => {
+        const callbacks = state()[sessionID].callbacks
+        callbacks.push({ resolve, reject })
+      })
+    }
     const abort = controller.signal
 
-    await using _ = defer(async () => {
-      // #region agent log
-      fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-        body: JSON.stringify({
-          sessionId: "6f5e48",
-          hypothesisId: "E",
-          location: "prompt.ts:runLoop:defer",
-          message: "runLoop defer cleanup",
-          data: { sessionID, aborted: abort.aborted },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {})
-      // #endregion
-      if (abort.aborted) await finalizeIncompleteAssistants(sessionID)
-      await finish(sessionID, controller)
-    })
+    await using _ = defer(() => finish(sessionID, controller))
     const ctx = await currentContext()
 
     // Structured output state
@@ -666,23 +589,7 @@ export namespace SessionPrompt {
     while (true) {
       await setStatus(sessionID, { type: "busy" })
       log.info("loop", { step, sessionID })
-      if (abort.aborted) {
-        // #region agent log
-        fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-          body: JSON.stringify({
-            sessionId: "6f5e48",
-            hypothesisId: "D",
-            location: "prompt.ts:runLoop:abortBreak",
-            message: "runLoop abort break at loop top",
-            data: { sessionID, step },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
-        break
-      }
+      if (abort.aborted) break
       const session = await sessionGet(sessionID)
       let msgs = await MessageV2.filterCompacted(MessageV2.stream(sessionID))
 
@@ -981,34 +888,32 @@ export namespace SessionPrompt {
         session,
       })
 
-      const assistantMessage = (await sessionUpdateMessage({
-        id: Identifier.ascending("message"),
-        parentID: lastUser.id,
-        role: "assistant",
-        mode: agent.name,
-        agent: agent.name,
-        path: {
-          cwd: ctx.directory,
-          root: ctx.worktree,
-        },
-        cost: 0,
-        tokens: {
-          input: 0,
-          output: 0,
-          reasoning: 0,
-          cache: { read: 0, write: 0 },
-        },
-        modelID: model.id,
-        providerID: model.providerID,
-        time: {
-          created: Date.now(),
-        },
-        sessionID,
-      })) as MessageV2.Assistant
-
       const processor = SessionProcessor.create({
-        assistantMessage,
-        sessionID,
+        assistantMessage: (await sessionUpdateMessage({
+          id: Identifier.ascending("message"),
+          parentID: lastUser.id,
+          role: "assistant",
+          mode: agent.name,
+          agent: agent.name,
+          path: {
+            cwd: ctx.directory,
+            root: ctx.worktree,
+          },
+          cost: 0,
+          tokens: {
+            input: 0,
+            output: 0,
+            reasoning: 0,
+            cache: { read: 0, write: 0 },
+          },
+          modelID: model.id,
+          providerID: model.providerID,
+          time: {
+            created: Date.now(),
+          },
+          sessionID,
+        })) as MessageV2.Assistant,
+        sessionID: sessionID,
         model,
         abort,
       })
@@ -1180,20 +1085,15 @@ export namespace SessionPrompt {
         yield* compaction.prune({ sessionID })
       }),
     )
-    return lastAssistantMessage(sessionID)
-  })
-
-  const loop = fn(Identifier.schema("session"), async (sessionID) => {
-    return runSessionRunState(
-      Effect.gen(function* () {
-        const runState = yield* SessionRunState.Service
-        return yield* runState.ensureRunning(
-          sessionID,
-          Effect.promise(() => lastAssistantMessage(sessionID)),
-          Effect.promise(() => runLoop(sessionID)),
-        )
-      }),
-    )
+    for await (const item of MessageV2.stream(sessionID)) {
+      if (item.info.role === "user") continue
+      const queued = state()[sessionID]?.callbacks ?? []
+      for (const q of queued) {
+        q.resolve(item)
+      }
+      return item
+    }
+    throw new Error("Impossible")
   })
 
   async function lastModel(sessionID: string) {
@@ -2046,14 +1946,13 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     command: z.string(),
   })
   export type ShellInput = z.infer<typeof ShellInput>
-  const runShell = fn(ShellInput, async (input) => {
-    const controller = new AbortController()
-    state()[input.sessionID] = { abort: controller }
+  async function shell(input: ShellInput) {
+    const controller = start(input.sessionID)
+    if (!controller) {
+      throw new Session.BusyError({ sessionID: input.sessionID, message: "Session is busy" })
+    }
     const abort = controller.signal
-    await using _ = defer(async () => {
-      if (abort.aborted) await finalizeIncompleteAssistants(input.sessionID)
-      await finish(input.sessionID, controller)
-    })
+    await using _ = defer(() => finish(input.sessionID, controller))
     const ctx = await currentContext()
 
     const session = await sessionGet(input.sessionID)
@@ -2267,19 +2166,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       await sessionUpdatePart(part)
     }
     return { info: msg, parts: [part] }
-  })
-
-  async function shell(input: ShellInput) {
-    return runSessionRunState(
-      Effect.gen(function* () {
-        const runState = yield* SessionRunState.Service
-        return yield* runState.startShell(
-          input.sessionID,
-          Effect.promise(() => lastAssistantMessage(input.sessionID)),
-          Effect.promise(() => runShell(input)),
-        )
-      }),
-    )
   }
 
   export const CommandInput = z.object({
@@ -2436,14 +2322,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       }),
     )
 
-    await sessionUpdate(input.sessionID, (draft) => {
-      draft.activeCommand = input.command
-    })
-
-    await sessionUpdate(input.sessionID, (draft) => {
-      draft.title = `/${input.command}`
-    })
-
     const result = (await prompt({
       sessionID: input.sessionID,
       messageID: input.messageID,
@@ -2572,32 +2450,21 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     Service,
     Service.of({
       assertNotBusy: (sessionID) =>
-        Effect.tryPromise({
-          try: () =>
-            runSessionRunState(
-              Effect.gen(function* () {
-                const runState = yield* SessionRunState.Service
-                yield* runState.assertNotBusy(sessionID).pipe(
-                  Effect.catchTag("SessionBusyError", () => Effect.fail(Session.BusyError.create(sessionID))),
-                )
-              }),
-            ),
-          catch: (cause) =>
-            cause instanceof Session.BusyError ? cause : Session.BusyError.create(sessionID),
+        Effect.gen(function* () {
+          const match = (yield* getServiceStateEffect())[sessionID]
+          if (match) throw new Session.BusyError({ sessionID, message: "Session is busy" })
         }),
-      prompt: (input) =>
-        Effect.promise(() => prompt(input)).pipe(Effect.catchIf(isCancelledError, () => Effect.interrupt)),
+      prompt: (input) => Effect.tryPromise(() => prompt(input)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
-      cancel: (sessionID) => Effect.promise(() => cancel(sessionID)),
-      loop: (sessionID) =>
-        Effect.promise(() => loop(sessionID)).pipe(Effect.catchIf(isCancelledError, () => Effect.interrupt)),
+      cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
+      loop: (sessionID) => Effect.tryPromise(() => loop(sessionID)),
       shell: (input) => Effect.tryPromise(() => shell(input)),
       command: (input) => Effect.tryPromise(() => command(input)),
     }),
   )
 
-  export const defaultLayer = layer.pipe(Layer.provideMerge(SessionRunState.defaultLayer))
+  export const defaultLayer = layer
 }
