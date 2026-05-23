@@ -8,6 +8,7 @@ export type { TunnelProvider }
 export interface TunnelResult {
   url: string
   provider: TunnelProvider
+  close: () => Promise<void>
 }
 
 function killProcess(proc: ChildProcess | null) {
@@ -29,9 +30,7 @@ export class TunnelManager {
     this.provider = provider
 
     const cleanup = () => {
-      if (this.process && !this.process.killed) {
-        this.process.kill("SIGKILL")
-      }
+      killProcess(this.process)
     }
 
     process.on("exit", cleanup)
@@ -66,7 +65,7 @@ export class TunnelManager {
       this.tunnelInstance = null
     }
     if (this.process) {
-      this.process.kill()
+      killProcess(this.process)
       this.process = null
     }
     this.url = null
