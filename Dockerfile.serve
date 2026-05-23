@@ -61,11 +61,24 @@ NIKCLI="bun run --cwd /app/packages/nikcli --conditions=browser src/index.ts"\n\
 \n\
 mkdir -p /data/nikcli /data/cache /data/config /data/state\n\
 \n\
+# Generate Bearer token for web app if not exists\n\
+TOKEN_FILE=/data/nikcli/.dev-token\n\
+if [ ! -f "$TOKEN_FILE" ]; then\n\
+  TOKEN=$($NIKCLI mobile pair --public-url "http://${HOST_IP:-localhost}:${PORT:-4096}" --name "web-dev" 2>/dev/null | grep "^Token:" | awk "{print \$2}")\n\
+  if [ -n "$TOKEN" ]; then\n\
+    echo "$TOKEN" > "$TOKEN_FILE"\n\
+  fi\n\
+fi\n\
+\n\
 echo ""\n\
 echo "==================== ACCESSO ===================="\n\
-echo " Password:     nikcli / dev123"\n\
-echo " Web App:      https://nikcli.store/app/connect"\n\
-echo " Server (LAN): http://${HOST_IP:-192.168.1.19}:${PORT:-4096}"\n\
+echo " Password:     nikcli / dev123 (mobile/terminal)"\n\
+if [ -f "$TOKEN_FILE" ]; then\n\
+  DEEPLINK="nikcli://connect?server=http://${HOST_IP:-localhost}:${PORT:-4096}\&token=$(cat $TOKEN_FILE)"\n\
+  echo " Deep Link:   $DEEPLINK (web app)"\n\
+fi\n\
+echo " Server:      http://${HOST_IP:-192.168.1.19}:${PORT:-4096}"\n\
+echo " Web App:     https://nikcli.store/app/connect"\n\
 echo "=================================================="\n\
 echo ""\n\
 \n\
