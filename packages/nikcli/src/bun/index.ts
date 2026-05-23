@@ -70,7 +70,7 @@ export namespace BunProc {
       await Bun.write(pkgjson.name!, JSON.stringify(result, null, 2))
       return result
     })
-    if (parsed.dependencies[pkg] === version) return mod
+    if (parsed.dependencies[pkg] !== undefined && (version === "latest" || parsed.dependencies[pkg] === version)) return mod
 
     const proxied = !!(
       process.env.HTTP_PROXY ||
