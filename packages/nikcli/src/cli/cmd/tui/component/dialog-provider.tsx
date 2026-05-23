@@ -100,6 +100,16 @@ export function createDialogProviderOptions() {
                   />
                 ))
               }
+              if ((result.data?.method as string) === "auto-code") {
+                dialog.replace(() => (
+                  <AutoCodeMethod
+                    providerID={provider.id}
+                    title={method.label}
+                    index={index}
+                    authorization={result.data!}
+                  />
+                ))
+              }
             }
             if (method.type === "api") {
               return dialog.replace(() => <ApiMethod providerID={provider.id} title={method.label} />)
@@ -282,7 +292,7 @@ function AutoMethod(props: AutoMethodProps) {
       return
     }
     await sdk.client.instance.dispose()
-    await sync.refreshProviders()
+    await sync.bootstrap()
     dialog.replace(() => <DialogModel providerID={props.providerID} />)
   })
 
@@ -331,7 +341,7 @@ function CodeMethod(props: CodeMethodProps) {
         })
         if (!error) {
           await sdk.client.instance.dispose()
-          await sync.refreshProviders()
+          await sync.bootstrap()
           dialog.replace(() => <DialogModel providerID={props.providerID} />)
           return
         }
@@ -341,6 +351,61 @@ function CodeMethod(props: CodeMethodProps) {
         <box gap={1}>
           <text fg={theme.textMuted}>{props.authorization.instructions}</text>
           <Link href={props.authorization.url} fg={theme.primary} />
+          <Show when={error()}>
+            <text fg={theme.error}>Invalid code</text>
+          </Show>
+        </box>
+      )}
+    />
+  )
+}
+
+function AutoCodeMethod(props: CodeMethodProps) {
+  const { theme } = useTheme()
+  const sdk = useSDK()
+  const sync = useSync()
+  const dialog = useDialog()
+  const [error, setError] = createSignal(false)
+  const [complete, setComplete] = createSignal(false)
+
+  async function finish() {
+    if (complete()) return
+    setComplete(true)
+    await sdk.client.instance.dispose()
+    await sync.bootstrap()
+    dialog.replace(() => <DialogModel providerID={props.providerID} />)
+  }
+
+  onMount(async () => {
+    const { error } = await sdk.client.provider.oauth.callback({
+      providerID: props.providerID,
+      method: props.index,
+    })
+    if (!error) await finish()
+  })
+
+  return (
+    <DialogPrompt
+      title={props.title}
+      placeholder="Authorization code"
+      onConfirm={async (value) => {
+        if (!value) return
+        const { error } = await sdk.client.provider.oauth.callback({
+          providerID: props.providerID,
+          method: props.index,
+          code: value,
+        })
+        if (!error) {
+          await finish()
+          return
+        }
+        setError(true)
+      }}
+      description={() => (
+        <box gap={1}>
+          <text fg={theme.textMuted}>{props.authorization.instructions}</text>
+          <Link href={props.authorization.url} fg={theme.primary} />
+          <text fg={theme.textMuted}>Waiting for authorization, or paste the code shown by xAI.</text>
           <Show when={error()}>
             <text fg={theme.error}>Invalid code</text>
           </Show>
@@ -386,7 +451,7 @@ function ApiMethod(props: ApiMethodProps) {
           },
         })
         await sdk.client.instance.dispose()
-        await sync.refreshProviders()
+        await sync.bootstrap()
         dialog.replace(() => <DialogModel providerID={props.providerID} />)
       }}
     />

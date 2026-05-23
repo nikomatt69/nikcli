@@ -157,6 +157,26 @@ export type AuthOuathResult = { url: string; instructions: string } & (
           }
       >
     }
+  | {
+      method: "auto-code"
+      callback(code?: string): Promise<
+        | ({
+            type: "success"
+            provider?: string
+          } & (
+            | {
+                refresh: string
+                access: string
+                expires: number
+                accountId?: string
+              }
+            | { key: string }
+          ))
+        | {
+            type: "failed"
+          }
+      >
+    }
 )
 
 export interface Hooks {

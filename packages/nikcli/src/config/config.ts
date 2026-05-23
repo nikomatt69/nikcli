@@ -1134,6 +1134,33 @@ export namespace Config {
     })
   export type Image = z.infer<typeof Image>
 
+  export const Attachment = z
+    .object({
+      image: z
+        .object({
+          auto_resize: z
+            .boolean()
+            .optional()
+            .describe("Automatically downscale/re-encode images that exceed the configured limits"),
+          max_width: z.number().int().positive().optional().describe("Maximum image width in pixels"),
+          max_height: z.number().int().positive().optional().describe("Maximum image height in pixels"),
+          max_base64_bytes: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Maximum base64-encoded payload size in bytes"),
+        })
+        .strict()
+        .optional()
+        .describe("Image attachment normalization options"),
+    })
+    .strict()
+    .meta({
+      ref: "AttachmentConfig",
+    })
+  export type Attachment = z.infer<typeof Attachment>
+
   export const Speak = z
     .object({
       provider: z.string().optional().describe("TTS provider (e.g., elevenlabs, openrouter)"),
@@ -1449,6 +1476,7 @@ export namespace Config {
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),
       image: Image.optional().describe("Image generation configuration"),
+      attachment: Attachment.optional().describe("Attachment handling configuration"),
       speak: Speak.optional().describe("Text-to-speech configuration"),
       notifications: z
         .object({

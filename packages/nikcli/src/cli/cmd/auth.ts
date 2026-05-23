@@ -175,15 +175,21 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
       }
     }
 
-    if (authorize.method === "code") {
+    if (authorize.method === "code" || authorize.method === "auto-code") {
       const code = await prompts.text({
-        message: "Paste the authorization code here: ",
-        validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+        message:
+          authorize.method === "auto-code"
+            ? "Paste the authorization code if shown, or press Enter to wait: "
+            : "Paste the authorization code here: ",
+        validate: (x) => (authorize.method === "auto-code" || (x && x.length > 0) ? undefined : "Required"),
       })
       if (prompts.isCancel(code)) {
         throw new UI.CancelledError()
       }
-      const result = await authorize.callback(code)
+      const result =
+        authorize.method === "auto-code"
+          ? await authorize.callback(code || undefined)
+          : await authorize.callback(code)
       if (result.type === "failed") {
         prompts.log.error("Failed to authorize")
         log.error("OAuth code authorization failed", { provider })

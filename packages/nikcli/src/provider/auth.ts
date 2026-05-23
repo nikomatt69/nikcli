@@ -17,7 +17,7 @@ export namespace ProviderAuth {
 
   const AuthorizationSchema = Schema.Struct({
     url: Schema.String,
-    method: Schema.Literals(["auto", "code"]),
+    method: Schema.Literals(["auto", "code", "auto-code"]),
     instructions: Schema.String,
   }).annotate({ identifier: "ProviderAuthAuthorization" })
   export const Authorization = zodObject(AuthorizationSchema)
@@ -126,6 +126,10 @@ export namespace ProviderAuth {
 
         if (match.method === "auto") {
           result = yield* Effect.promise(() => match.callback())
+        }
+
+        if (match.method === "auto-code") {
+          result = yield* Effect.promise(() => match.callback(parsed.code))
         }
 
         if (result?.type === "success") {

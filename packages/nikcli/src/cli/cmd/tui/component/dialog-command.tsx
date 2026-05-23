@@ -84,24 +84,6 @@ function init() {
       }
     }
     for (const option of entries()) {
-      if (option.keybind && keybind.match(option.keybind, evt)) {
-        // #region agent log
-        if (option.value === "session.interrupt") {
-          fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-            body: JSON.stringify({
-              sessionId: "6f5e48",
-              hypothesisId: "A",
-              location: "dialog-command.tsx:keybind",
-              message: "session.interrupt keybind matched",
-              data: { enabled: isEnabled(option), evtName: evt.name, dialogStack: dialog.stack.length },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-        }
-        // #endregion
-      }
       if (!isEnabled(option)) continue
       if (option.keybind && keybind.match(option.keybind, evt)) {
         evt.preventDefault()

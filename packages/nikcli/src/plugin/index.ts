@@ -16,6 +16,7 @@ import { AsyncQueue } from "../util/queue"
 import { withTimeout } from "../util/timeout"
 import { CodexAuthPlugin } from "./codex"
 import { CopilotAuthPlugin } from "./github-copilot/copilot"
+import { XAIAuthPlugin } from "./xai"
 import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
@@ -679,6 +680,7 @@ export namespace Plugin {
     const internalPlugins: PluginInstance[] = [
       CodexAuthPlugin,
       CopilotAuthPlugin,
+      XAIAuthPlugin,
       CursorAuthPlugin,
       CloudflareWorkersAuthPlugin,
       CloudflareAIGatewayAuthPlugin,
