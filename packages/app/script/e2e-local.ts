@@ -83,7 +83,7 @@ const runnerEnv = {
   PLAYWRIGHT_PORT: String(webPort),
 } satisfies Record<string, string>
 
-const seed = Bun.spawn(["bun", "script/seed-e2e.ts"], {
+const seed = Bun.spawn([process.execPath, "script/seed-e2e.ts"], {
   cwd: nikcliDir,
   env: serverEnv,
   stdout: "inherit",
@@ -116,7 +116,7 @@ const result = await (async () => {
   try {
     await waitForHealth(`http://127.0.0.1:${serverPort}/global/health`)
 
-    const runner = Bun.spawn(["bun", "test:e2e", ...extraArgs], {
+    const runner = Bun.spawn([process.execPath, "test:e2e", ...extraArgs], {
       cwd: appDir,
       env: runnerEnv,
       stdout: "inherit",
