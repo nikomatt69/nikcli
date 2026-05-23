@@ -391,9 +391,7 @@ export default function TerminalScreen() {
 
   if (tabs.length === 0) {
     return (
-      <View
-        style={{ flex: 1, backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc" }}
-      >
+      <View style={{ flex: 1, backgroundColor: isDark ? "#0d0d0d" : "#f6f9fc" }}>
         <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 24, gap: 12 }}>
           {error && (
             <Pressable onPress={() => setError(null)}>
@@ -422,7 +420,7 @@ export default function TerminalScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: "#0d0d0d" }}>
       {/* Tab bar */}
-      <View style={{ }}>
+      <View style={{}}>
         <TabBar
           tabs={tabs}
           activeIndex={activeIndex}

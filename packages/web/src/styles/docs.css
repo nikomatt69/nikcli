@@ -35,7 +35,7 @@ html {
 .prose h2,
 .prose h3,
 .prose h4 {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: "Syne", system-ui, sans-serif;
   color: rgb(var(--terminal-text));
 }
 
@@ -62,8 +62,12 @@ html {
   font-weight: 500;
 }
 
-.prose blockquote p:first-of-type { margin-top: 0; }
-.prose blockquote p:last-of-type  { margin-bottom: 0; }
+.prose blockquote p:first-of-type {
+  margin-top: 0;
+}
+.prose blockquote p:last-of-type {
+  margin-bottom: 0;
+}
 
 /* ─────────────────────────────────────────────────────────────
    Code blocks
@@ -89,7 +93,7 @@ html {
   font-weight: inherit;
   color: inherit;
   font-size: inherit;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
   line-height: inherit;
 }
 
@@ -126,7 +130,9 @@ html {
   text-decoration-thickness: 1.5px;
   text-underline-offset: 4px;
   color: rgb(var(--terminal-text));
-  transition: color 120ms ease, text-decoration-color 120ms ease;
+  transition:
+    color 120ms ease,
+    text-decoration-color 120ms ease;
 }
 
 .prose a:hover {
@@ -166,7 +172,10 @@ html {
 }
 
 @media (min-width: 768px) {
-  .prose table { display: table; width: 100%; }
+  .prose table {
+    display: table;
+    width: 100%;
+  }
 }
 
 .prose thead {
@@ -175,7 +184,7 @@ html {
 
 .prose thead th {
   padding: var(--space-3) var(--space-5);
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: "Syne", system-ui, sans-serif;
   font-weight: 700;
   font-size: 12.5px;
   color: rgb(var(--terminal-text));

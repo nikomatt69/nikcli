@@ -1,5 +1,5 @@
-import { z } from "zod";
+import { z } from "zod"
 export function tool(input) {
-    return input;
+  return input
 }
-tool.schema = z;
+tool.schema = z

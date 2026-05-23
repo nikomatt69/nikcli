@@ -199,7 +199,10 @@ describe("Session HttpApi bridge", () => {
     expect(unreverted).toEqual(expect.objectContaining({ id: created.id }))
     expect(unreverted.revert).toBeUndefined()
 
-    const removedPart = (await remove(`/session/${created.id}/message/${messageID}/part/${partID}`, directory)) as boolean
+    const removedPart = (await remove(
+      `/session/${created.id}/message/${messageID}/part/${partID}`,
+      directory,
+    )) as boolean
     expect(removedPart).toBe(true)
 
     await writeStorage(["part", messageID, partID], part)

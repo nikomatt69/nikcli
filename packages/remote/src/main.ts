@@ -137,16 +137,20 @@ class TerminalApp {
       this.hiddenInput.focus()
     })
 
-    this.terminalContainer.addEventListener("touchstart", (e) => {
-      // Don't steal focus if touching interactive elements
-      if ((e.target as HTMLElement).closest(".qkey, #send-btn, #visible-input")) {
-        return
-      }
-      // Small delay to let any built-in focus behavior complete
-      setTimeout(() => {
-        this.hiddenInput.focus()
-      }, 10)
-    }, { passive: true })
+    this.terminalContainer.addEventListener(
+      "touchstart",
+      (e) => {
+        // Don't steal focus if touching interactive elements
+        if ((e.target as HTMLElement).closest(".qkey, #send-btn, #visible-input")) {
+          return
+        }
+        // Small delay to let any built-in focus behavior complete
+        setTimeout(() => {
+          this.hiddenInput.focus()
+        }, 10)
+      },
+      { passive: true },
+    )
 
     // Listen for focus/blur on hidden input to detect keyboard state
     this.hiddenInput.addEventListener("focus", () => {
@@ -454,9 +458,13 @@ class TerminalApp {
 
     if (this.visibleInput && this.sendBtn) {
       // Ensure input receives focus on touch
-      this.visibleInput.addEventListener("touchstart", (e) => {
-        e.stopPropagation()
-      }, { passive: true })
+      this.visibleInput.addEventListener(
+        "touchstart",
+        (e) => {
+          e.stopPropagation()
+        },
+        { passive: true },
+      )
 
       this.visibleInput.addEventListener("focus", () => {
         // On mobile, when input is focused, disable the hidden overlay

@@ -326,7 +326,7 @@ export const SortableWorkspace = (props: {
                   size="large"
                   onClick={(e: MouseEvent) => {
                     loadMore()
-                      ; (e.currentTarget as HTMLButtonElement).blur()
+                    ;(e.currentTarget as HTMLButtonElement).blur()
                   }}
                 >
                   {language.t("common.loadMore")}
@@ -397,7 +397,7 @@ export const LocalWorkspace = (props: {
               size="large"
               onClick={(e: MouseEvent) => {
                 loadMore()
-                  ; (e.currentTarget as HTMLButtonElement).blur()
+                ;(e.currentTarget as HTMLButtonElement).blur()
               }}
             >
               {language.t("common.loadMore")}

@@ -20,11 +20,7 @@ export abstract class BaseProvider {
   abstract apiKey: string
   abstract baseUrl: string
 
-  abstract chatCompletions(
-    model: string,
-    messages: ChatMessage[],
-    options?: ChatOptions,
-  ): Promise<Response>
+  abstract chatCompletions(model: string, messages: ChatMessage[], options?: ChatOptions): Promise<Response>
 
   async listModels(): Promise<string[]> {
     return []

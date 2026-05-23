@@ -60,9 +60,9 @@ export namespace SessionStatus {
           return InstanceState.get(cache).pipe(
             Effect.map(
               (statuses) =>
-              statuses[sessionID] ?? {
-                type: "idle" as const,
-              },
+                statuses[sessionID] ?? {
+                  type: "idle" as const,
+                },
             ),
           )
         },
@@ -70,30 +70,34 @@ export namespace SessionStatus {
           return InstanceState.get(cache)
         },
         set(sessionID, status) {
-          return InstanceState.get(cache).pipe(Effect.map((statuses) => {
-            Bus.publish(Event.Status, {
-              sessionID,
-              status,
-            })
-            if (status.type === "idle") {
-              // deprecated
-              Bus.publish(Event.Idle, {
+          return InstanceState.get(cache).pipe(
+            Effect.map((statuses) => {
+              Bus.publish(Event.Status, {
                 sessionID,
+                status,
               })
-              delete statuses[sessionID]
-              return
-            }
-            statuses[sessionID] = status
-          }))
+              if (status.type === "idle") {
+                // deprecated
+                Bus.publish(Event.Idle, {
+                  sessionID,
+                })
+                delete statuses[sessionID]
+                return
+              }
+              statuses[sessionID] = status
+            }),
+          )
         },
         hydrate(sessionID, status) {
-          return InstanceState.get(cache).pipe(Effect.map((statuses) => {
-            if (status.type === "idle") {
-              delete statuses[sessionID]
-              return
-            }
-            statuses[sessionID] = status
-          }))
+          return InstanceState.get(cache).pipe(
+            Effect.map((statuses) => {
+              if (status.type === "idle") {
+                delete statuses[sessionID]
+                return
+              }
+              statuses[sessionID] = status
+            }),
+          )
         },
       })
     }),

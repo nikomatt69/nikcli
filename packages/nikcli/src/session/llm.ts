@@ -570,8 +570,13 @@ export namespace LLM {
       messages,
       tools,
       generation: hasGen ? generation : undefined,
-      http: httpOptions, 
-      toolChoice: input.toolChoice === "required" ? ToolChoice.make("any") : input.toolChoice === "none" ? ToolChoice.make("none") : undefined,     
+      http: httpOptions,
+      toolChoice:
+        input.toolChoice === "required"
+          ? ToolChoice.make("any")
+          : input.toolChoice === "none"
+            ? ToolChoice.make("none")
+            : undefined,
     })
   }
 }

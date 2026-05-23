@@ -302,7 +302,6 @@ export function SessionComposer({
       <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: "transparent" }} />
 
       {/* Status banner — glass pill, animated slide-down */}
-      
 
       {/* Slash autocomplete — animated fade + slide up */}
       {showSlash && (

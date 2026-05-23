@@ -8,7 +8,6 @@ import { createRequire } from "module"
 import { Lock } from "../util/lock"
 import { proxied } from "../util/network"
 
-
 export namespace BunProc {
   const log = Log.create({ service: "bun" })
   const req = createRequire(import.meta.url)
@@ -70,7 +69,8 @@ export namespace BunProc {
       await Bun.write(pkgjson.name!, JSON.stringify(result, null, 2))
       return result
     })
-    if (parsed.dependencies[pkg] !== undefined && (version === "latest" || parsed.dependencies[pkg] === version)) return mod
+    if (parsed.dependencies[pkg] !== undefined && (version === "latest" || parsed.dependencies[pkg] === version))
+      return mod
 
     const proxied = !!(
       process.env.HTTP_PROXY ||

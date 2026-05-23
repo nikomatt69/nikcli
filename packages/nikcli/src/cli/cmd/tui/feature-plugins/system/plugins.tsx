@@ -6,9 +6,7 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { Show, createEffect, createMemo, createSignal } from "solid-js"
 import { PLUGIN_CATALOG } from "./plugin-catalog"
 
-type PluginRowValue =
-  | { kind: "installed"; id: string }
-  | { kind: "catalog"; pkg: string }
+type PluginRowValue = { kind: "installed"; id: string } | { kind: "catalog"; pkg: string }
 
 const id = "internal:plugin-manager"
 const key = Keybind.parse("space").at(0)
@@ -198,15 +196,17 @@ function View(props: { api: TuiPluginApi }) {
       })
       .map((item) => installedRow(props.api, item, size().width))
 
-    const catalogRows = PLUGIN_CATALOG
-      .filter((entry) => !loaded.some((p) => p.spec === entry.pkg || p.id === entry.pkg))
-      .map((entry): DialogSelectOption<PluginRowValue> => ({
+    const catalogRows = PLUGIN_CATALOG.filter(
+      (entry) => !loaded.some((p) => p.spec === entry.pkg || p.id === entry.pkg),
+    ).map(
+      (entry): DialogSelectOption<PluginRowValue> => ({
         title: entry.name,
         value: { kind: "catalog", pkg: entry.pkg },
         category: "Catalog",
         description: entry.description,
         footer: <span style={{ fg: props.api.theme.current.textMuted }}>not installed</span>,
-      }))
+      }),
+    )
 
     return [...installedRows, ...catalogRows]
   })

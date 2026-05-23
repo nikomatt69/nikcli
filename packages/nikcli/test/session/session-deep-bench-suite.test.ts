@@ -59,7 +59,12 @@ function listStatus() {
   )
 }
 
-function createApiError(message: string, responseHeaders?: Record<string, string>, responseBody?: string, isRetryable = true) {
+function createApiError(
+  message: string,
+  responseHeaders?: Record<string, string>,
+  responseBody?: string,
+  isRetryable = true,
+) {
   return new MessageV2.APIError({
     message,
     isRetryable,
@@ -69,7 +74,11 @@ function createApiError(message: string, responseHeaders?: Record<string, string
   })
 }
 
-function createProviderModel(npm: string, id: string, costs: { input: number; output: number; cacheRead?: number; cacheWrite?: number }) {
+function createProviderModel(
+  npm: string,
+  id: string,
+  costs: { input: number; output: number; cacheRead?: number; cacheWrite?: number },
+) {
   return {
     api: {
       npm,
@@ -106,7 +115,12 @@ function createProviderModel(npm: string, id: string, costs: { input: number; ou
   }
 }
 
-function createMessageV2User(id: string, text: string, extraParts: MessageV2.Part[] = [], ignoredText = false): MessageV2.WithParts {
+function createMessageV2User(
+  id: string,
+  text: string,
+  extraParts: MessageV2.Part[] = [],
+  ignoredText = false,
+): MessageV2.WithParts {
   const msg = {
     id,
     sessionID: "session-v2-deep",
@@ -259,8 +273,12 @@ describe("Session status subsystem", () => {
         })
       }
       const snapshot = await listStatus()
-      const busy = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-") && snapshot[id]?.type === "busy").length
-      const retry = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-") && snapshot[id]?.type === "retry").length
+      const busy = Object.keys(snapshot).filter(
+        (id) => id.startsWith("aggregate-") && snapshot[id]?.type === "busy",
+      ).length
+      const retry = Object.keys(snapshot).filter(
+        (id) => id.startsWith("aggregate-") && snapshot[id]?.type === "retry",
+      ).length
       const known = Object.keys(snapshot).filter((id) => id.startsWith("aggregate-")).length
 
       expect(known).toBe(8)
@@ -346,22 +364,22 @@ describe("Session retry helpers", () => {
       label: "free usage",
     },
     {
-      input: createApiError("{\"type\":\"error\",\"error\":{\"type\":\"too_many_requests\"}}"),
+      input: createApiError('{"type":"error","error":{"type":"too_many_requests"}}'),
       expected: "Too Many Requests",
       label: "too many requests",
     },
     {
-      input: createApiError("{\"error\":{\"message\":\"no_kv_space\",\"code\":\"server_error\"}}"),
+      input: createApiError('{"error":{"message":"no_kv_space","code":"server_error"}}'),
       expected: "Provider Server Error",
       label: "provider server",
     },
     {
-      input: createApiError("{\"code\":\"rate_limit_exhausted\"}"),
+      input: createApiError('{"code":"rate_limit_exhausted"}'),
       expected: "Provider is overloaded",
       label: "rate limit exhausted",
     },
     {
-      input: createApiError("{\"error\":{\"message\":\"server_error\"}}"),
+      input: createApiError('{"error":{"message":"server_error"}}'),
       expected: "Provider Server Error",
       label: "server_error",
     },
@@ -379,12 +397,14 @@ describe("Session retry helpers", () => {
   it("benchmarks retry delay and retryable parsing", () => {
     const retryErrors = [
       createApiError("Overloaded"),
-      createApiError("{\"type\":\"error\",\"error\":{\"type\":\"too_many_requests\"}"),
+      createApiError('{"type":"error","error":{"type":"too_many_requests"}'),
       createApiError("FreeUsageLimitError"),
       createApiError("random non-json"),
       new Error("generic error"),
-      { data: { message: "{\"error\":{\"code\":\"exhausted\"}}" } },
-    ].map((input) => (typeof (input as { toObject?: () => unknown }).toObject === "function" ? input : (input as never)))
+      { data: { message: '{"error":{"code":"exhausted"}}' } },
+    ].map((input) =>
+      typeof (input as { toObject?: () => unknown }).toObject === "function" ? input : (input as never),
+    )
 
     const iterations = 4_000
     const startDelay = performance.now()
@@ -396,7 +416,7 @@ describe("Session retry helpers", () => {
 
     const startRetry = performance.now()
     for (const error of retryErrors) {
-          SessionRetry.retryable(error as never)
+      SessionRetry.retryable(error as never)
     }
     const elapsedRetry = performance.now() - startRetry
 
@@ -638,7 +658,9 @@ describe("Message schema and converter suite", () => {
   })
 
   it("benchmarks Message.Info parsing", () => {
-    const sample = messageSchemaCases.filter((item) => item.valid && item.parse === Message.Info.parse).map((item) => item.value)
+    const sample = messageSchemaCases
+      .filter((item) => item.valid && item.parse === Message.Info.parse)
+      .map((item) => item.value)
     const iterations = 3_000
     const start = performance.now()
     let count = 0
@@ -677,9 +699,12 @@ describe("Message schema and converter suite", () => {
     expect(decoded.time).toBe(time)
   })
 
-  it.each(cursorCases.map((item) => `${item.id}-${item.time}`))("cursor decode failures for corrupted tokens #%s", (token) => {
-    expect(() => MessageV2.cursor.decode(token)).toThrow()
-  })
+  it.each(cursorCases.map((item) => `${item.id}-${item.time}`))(
+    "cursor decode failures for corrupted tokens #%s",
+    (token) => {
+      expect(() => MessageV2.cursor.decode(token)).toThrow()
+    },
+  )
 
   it("benchmarks cursor encode/decode", () => {
     const iterations = 10_000
@@ -783,7 +808,18 @@ describe("MessageV2 toModelMessages and error conversion", () => {
   it.each([
     {
       label: "user ignored text should be filtered",
-      messages: [createMessageV2User("user-ignored", "visible", [{ id: "x", sessionID: "session-v2-deep", messageID: "user-ignored", type: "text", text: "hidden", ignored: true }])],
+      messages: [
+        createMessageV2User("user-ignored", "visible", [
+          {
+            id: "x",
+            sessionID: "session-v2-deep",
+            messageID: "user-ignored",
+            type: "text",
+            text: "hidden",
+            ignored: true,
+          },
+        ]),
+      ],
       model: openAIModel as never,
       expected: 1,
       hasVisual: false,
@@ -932,26 +968,22 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     {
       label: "assistant with compaction text marker",
       messages: [
-        createMessageV2Assistant(
-          "assistant-comp",
-          "user-comp",
-          [
-            {
-              id: "comp-1",
-              sessionID: "session-v2-deep",
-              messageID: "assistant-comp",
-              type: "text",
-              text: "before",
-            },
-            {
-              id: "comp-2",
-              sessionID: "session-v2-deep",
-              messageID: "assistant-comp",
-              type: "compaction",
-              auto: false,
-            },
-          ] as MessageV2.Part[],
-        ),
+        createMessageV2Assistant("assistant-comp", "user-comp", [
+          {
+            id: "comp-1",
+            sessionID: "session-v2-deep",
+            messageID: "assistant-comp",
+            type: "text",
+            text: "before",
+          },
+          {
+            id: "comp-2",
+            sessionID: "session-v2-deep",
+            messageID: "assistant-comp",
+            type: "compaction",
+            auto: false,
+          },
+        ] as MessageV2.Part[]),
       ],
       model: openAIModel as never,
       expected: 1,
@@ -975,12 +1007,22 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     },
   ])("toModelMessages: $label", ({ label: _label, messages, model, expected, hasVisual }) => {
     if (_label === "assistant with error is skipped") {
-      ;(messages[0].info as unknown as MessageV2.Assistant).error = { name: "MessageOutputLengthError" as const, data: {} as Record<string, never> }
+      ;(messages[0].info as unknown as MessageV2.Assistant).error = {
+        name: "MessageOutputLengthError" as const,
+        data: {} as Record<string, never>,
+      }
     }
     const converted = MessageV2.toModelMessages(messages as unknown as MessageV2.WithParts[], model as never)
     expect(converted.length).toBe(expected)
     if (hasVisual) {
-      expect(converted.some((message) => message.role === "user" && Array.isArray((message as unknown as { content: unknown[] }).content) && (message as unknown as { content: Array<{ type: string }> }).content.some((part) => part.type === "file"))).toBe(true)
+      expect(
+        converted.some(
+          (message) =>
+            message.role === "user" &&
+            Array.isArray((message as unknown as { content: unknown[] }).content) &&
+            (message as unknown as { content: Array<{ type: string }> }).content.some((part) => part.type === "file"),
+        ),
+      ).toBe(true)
     }
   })
 
@@ -993,15 +1035,20 @@ describe("MessageV2 toModelMessages and error conversion", () => {
   it("filters compacted user streams", async () => {
     const compactingStream = MessageV2.filterCompacted(
       (async function* () {
-        yield createMessageV2Assistant("assistant-done", "user-first", [
-          {
-            id: "assistant-done-text",
-            sessionID: "session-v2-deep",
-            messageID: "assistant-done",
-            type: "text",
-            text: "done",
-          },
-        ], { summary: true, finish: "finish" })
+        yield createMessageV2Assistant(
+          "assistant-done",
+          "user-first",
+          [
+            {
+              id: "assistant-done-text",
+              sessionID: "session-v2-deep",
+              messageID: "assistant-done",
+              type: "text",
+              text: "done",
+            },
+          ],
+          { summary: true, finish: "finish" },
+        )
         yield createMessageV2User("user-first", "old summary", [
           {
             id: "compaction",
@@ -1035,15 +1082,20 @@ describe("MessageV2 toModelMessages and error conversion", () => {
     const baselineMessages = [
       createMessageV2User("bench-user", "hello", []),
       ...toolMessages,
-      createMessageV2Assistant("bench-summary", "bench-user", [
-        {
-          id: "bench-summary-text",
-          sessionID: "session-v2-deep",
-          messageID: "bench-summary",
-          type: "text",
-          text: "ok",
-        },
-      ], { summary: true, finish: "done" }),
+      createMessageV2Assistant(
+        "bench-summary",
+        "bench-user",
+        [
+          {
+            id: "bench-summary-text",
+            sessionID: "session-v2-deep",
+            messageID: "bench-summary",
+            type: "text",
+            text: "ok",
+          },
+        ],
+        { summary: true, finish: "done" },
+      ),
     ]
 
     const toModelIterations = 400
@@ -1105,7 +1157,12 @@ describe("MessageV2 toModelMessages and error conversion", () => {
 describe("Session usage and ids", () => {
   const usageCases = [
     {
-      model: createProviderModel("@ai-sdk/anthropic", "claude-3", { input: 5, output: 10, cacheRead: 2, cacheWrite: 1 }),
+      model: createProviderModel("@ai-sdk/anthropic", "claude-3", {
+        input: 5,
+        output: 10,
+        cacheRead: 2,
+        cacheWrite: 1,
+      }),
       usage: {
         inputTokens: 120,
         outputTokens: 40,
@@ -1137,7 +1194,12 @@ describe("Session usage and ids", () => {
       label: "openai",
     },
     {
-      model: createProviderModel("@ai-sdk/amazon-bedrock", "sonnet", { input: 3, output: 7, cacheRead: 0, cacheWrite: 0 }),
+      model: createProviderModel("@ai-sdk/amazon-bedrock", "sonnet", {
+        input: 3,
+        output: 7,
+        cacheRead: 0,
+        cacheWrite: 0,
+      }),
       usage: {
         inputTokens: 90,
         outputTokens: 20,
@@ -1155,7 +1217,12 @@ describe("Session usage and ids", () => {
       label: "bedrock",
     },
     {
-      model: createProviderModel("@ai-sdk/google", "gemini-3-pro", { input: 9, output: 9, cacheRead: 1, cacheWrite: 2 }),
+      model: createProviderModel("@ai-sdk/google", "gemini-3-pro", {
+        input: 9,
+        output: 9,
+        cacheRead: 1,
+        cacheWrite: 2,
+      }),
       usage: {
         inputTokens: 500,
         outputTokens: 100,
@@ -1230,7 +1297,7 @@ describe("Session usage and ids", () => {
         inputTokens: 10 + (i % 9),
         outputTokens: 2 + (i % 3),
         reasoningTokens: 1,
-        totalTokens: 20 + i % 10,
+        totalTokens: 20 + (i % 10),
       }
       const result = Session.getUsage({
         model: model as never,

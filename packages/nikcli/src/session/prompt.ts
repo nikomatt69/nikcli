@@ -313,10 +313,9 @@ export namespace SessionPrompt {
     return Effect.runPromise(withCurrentInstance(InstanceState.context))
   }
 
-  class StateCache extends Context.Service<
-    StateCache,
-    ScopedCache.ScopedCache<string, PromptState>
-  >()("SessionPrompt.StateCache") {}
+  class StateCache extends Context.Service<StateCache, ScopedCache.ScopedCache<string, PromptState>>()(
+    "SessionPrompt.StateCache",
+  ) {}
 
   const stateLayer = Layer.effect(
     StateCache,

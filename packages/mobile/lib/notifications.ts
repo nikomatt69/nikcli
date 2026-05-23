@@ -208,11 +208,7 @@ const LIVE_ACTIVITY_PRESENTATION: Record<
   LiveActivityStartTone,
   Pick<
     LiveActivity.LiveActivityConfig,
-    | "backgroundColor"
-    | "titleColor"
-    | "subtitleColor"
-    | "progressViewTint"
-    | "progressViewLabelColor"
+    "backgroundColor" | "titleColor" | "subtitleColor" | "progressViewTint" | "progressViewLabelColor"
   >
 > = {
   attention: {
