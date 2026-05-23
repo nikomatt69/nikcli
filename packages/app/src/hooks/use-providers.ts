@@ -18,7 +18,7 @@ export function useProviders() {
   })
   const connected = createMemo(() => providers().all.filter((p) => providers().connected.includes(p.id)))
   const paid = createMemo(() =>
-    connected().filter((p) => p.id !== "nikcli" || Object.values(p.models).find((m) => m.cost?.input)),
+    connected().filter((p) => Object.values(p.models).some((m) => !m.cost || m.cost.input > 0 || m.cost.output > 0)),
   )
   const popular = createMemo(() => providers().all.filter((p) => popularProviders.includes(p.id)))
   return {

@@ -227,8 +227,7 @@ export namespace Provider {
         Env.get("NIKCLI_INFERENCE_URL") ??
         "https://inference.nikcli.store/v1",
     )
-    const apiKey =
-      (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
+    const apiKey = (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
 
     // Probe /v1/models — single source of truth from the gateway.
     const modelsRes = await fetch(`${baseURL}/models`, {
@@ -854,9 +853,7 @@ export namespace Provider {
     options: Schema.Record(Schema.String, Schema.Unknown),
     headers: Schema.Record(Schema.String, Schema.String),
     release_date: Schema.String,
-    variants: Schema.optional(
-      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
-    ),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
   }).annotate({ identifier: "Model" })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -1509,7 +1506,9 @@ export namespace Provider {
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
         log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
-        throw Object.assign(new InitError({ providerID: model.providerID }), { cause: new Error("Provider module missing create function") })
+        throw Object.assign(new InitError({ providerID: model.providerID }), {
+          cause: new Error("Provider module missing create function"),
+        })
       }
       const fn = mod[createKey]
       const loaded = fn({
@@ -1677,10 +1676,13 @@ export namespace Provider {
             return language as LanguageModelV2
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }
@@ -1724,10 +1726,13 @@ export namespace Provider {
             return image
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }
@@ -1748,12 +1753,22 @@ export namespace Provider {
       const getSmallModel: Interface["getSmallModel"] = Effect.fn("Provider.getSmallModel")(function* (providerID) {
         const ctx = yield* InstanceState.context
         const cfg = yield* Effect.promise(() => configGet(ctx))
+        const s = yield* getState()
+
+        // If small_model is explicitly configured, use it
         if (cfg.small_model) {
           const parsed = parseModel(cfg.small_model)
           return yield* getModelEffect(parsed.providerID, parsed.modelID)
         }
 
-        const s = yield* getState()
+        // If the main model is free (cost = 0), use it for small tasks too
+        if (cfg.model) {
+          const parsed = parseModel(cfg.model)
+          if (isModelFree(s, parsed.providerID, parsed.modelID)) {
+            return yield* getModelEffect(parsed.providerID, parsed.modelID)
+          }
+        }
+
         const provider = s.providers[providerID]
         if (provider) {
           let priority = [
@@ -1857,6 +1872,18 @@ export namespace Provider {
 
   // Hardcoded default model — used when config.model is not set
   const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M2.7"
+
+  /**
+   * Check if a model is free (cost = 0 for both input and output).
+   */
+  function isModelFree(s: State, providerID: string, modelID: string): boolean {
+    const provider = s.providers[providerID]
+    if (!provider) return false
+    const model = provider.models[modelID]
+    if (!model) return false
+    const cost = model.cost
+    return cost !== undefined && cost.input === 0 && cost.output === 0
+  }
 
   export function parseModel(model: string) {
     const [providerID, ...rest] = model.split("/")
