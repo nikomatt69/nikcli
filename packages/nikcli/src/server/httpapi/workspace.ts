@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect"
 import { Workspace } from "@/workspace"
@@ -63,6 +63,11 @@ export namespace WorkspaceHttpApi {
     sessions: Schema.Array(Schema.String),
     events: Schema.Array(Schema.Unknown),
   }).annotate({ identifier: "WorkspaceSessionRestore" })
+  const WarpPayload = Schema.Struct({
+    id: Schema.NullOr(Schema.String),
+    sessionID: Schema.String,
+    timeoutMs: Schema.optional(Schema.Number),
+  }).annotate({ identifier: "WorkspaceWarpInput" })
 
   export const Group = HttpApiGroup.make("workspace")
     .add(HttpApiEndpoint.get("adaptors", "/adaptor", { success: Schema.Array(AdaptorInfo) }))
@@ -87,6 +92,12 @@ export namespace WorkspaceHttpApi {
         params: SessionRestorePath,
         query: RestoreQuery,
         success: SessionRestorePayload,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.post("warp", "/warp", {
+        payload: WarpPayload,
+        success: HttpApiSchema.NoContent,
       }),
     )
     .prefix("/experimental/workspace")
@@ -147,6 +158,14 @@ export namespace WorkspaceHttpApi {
         Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
         Effect.orDie,
       ),
+    warp: ({ payload }: { payload: typeof WarpPayload.Type }) =>
+      Effect.promise(() =>
+        Workspace.sessionWarp({
+          workspaceID: payload.id,
+          sessionID: payload.sessionID,
+          timeoutMs: payload.timeoutMs ?? 30_000,
+        }),
+      ).pipe(Effect.asVoid, Effect.orDie),
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "workspace", (builder) =>
@@ -156,7 +175,8 @@ export namespace WorkspaceHttpApi {
       .handle("list", () => handlers.list())
       .handle("remove", (request) => handlers.remove(request))
       .handle("restore", (request) => handlers.restore(request))
-      .handle("sessionRestore", (request) => handlers.sessionRestore(request)),
+      .handle("sessionRestore", (request) => handlers.sessionRestore(request))
+      .handle("warp", (request) => handlers.warp(request)),
   )
 
   export const layer = ApiLive.pipe(Layer.provide(HandlersLive))

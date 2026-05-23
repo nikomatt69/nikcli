@@ -167,6 +167,81 @@ export const WorkspaceRoutes = lazy(() =>
         )
       },
     )
+    .post(
+      "/warp",
+      describeRoute({
+        summary: "Warp session into workspace",
+        description: "Move a session to a target workspace, or detach it back to the local project.",
+        operationId: "experimental.workspace.warp",
+        responses: {
+          204: {
+            description: "Session warped",
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          id: z.union([Workspace.Info.shape.id, z.null()]),
+          sessionID: Identifier.schema("session"),
+          timeoutMs: z.number().int().positive().optional(),
+        }),
+      ),
+      async (c) => {
+        const body = c.req.valid("json")
+        await Workspace.sessionWarp({
+          sessionID: body.sessionID,
+          workspaceID: body.id,
+          timeoutMs: body.timeoutMs ?? 30_000,
+        })
+        return c.body(null, 204)
+      },
+    )
+    .post(
+      "/session/:sessionID/warp",
+      describeRoute({
+        summary: "Warp session between workspaces",
+        description:
+          "Move a session to another workspace, or detach it back to the local project by passing workspaceID: null.",
+        operationId: "experimental.workspace.session.warp",
+        responses: {
+          200: {
+            description: "Session warped",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    sessionID: Identifier.schema("session"),
+                    workspaceID: z.string().nullable(),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: Identifier.schema("session") })),
+      validator(
+        "json",
+        z.object({
+          workspaceID: z.union([Workspace.Info.shape.id, z.null()]),
+          timeoutMs: z.number().int().positive().optional(),
+        }),
+      ),
+      async (c) => {
+        const { sessionID } = c.req.valid("param")
+        const body = c.req.valid("json")
+        return c.json(
+          await Workspace.sessionWarp({
+            sessionID,
+            workspaceID: body.workspaceID,
+            timeoutMs: body.timeoutMs ?? 30_000,
+          }),
+        )
+      },
+    )
     .get(
       "/",
       describeRoute({

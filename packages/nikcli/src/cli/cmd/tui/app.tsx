@@ -41,6 +41,7 @@ import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
 import { DialogSkills } from "@tui/component/dialog-skills"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
+import { DialogSessionWarp } from "@tui/component/dialog-session-warp"
 import { DialogWorkspaceList } from "@tui/component/dialog-workspace-list"
 import { DialogVariant } from "@tui/component/dialog-variant"
 import { KeybindProvider, useKeybind } from "@tui/context/keybind"
@@ -51,6 +52,7 @@ import { Changes } from "@tui/routes/changes"
 import { SessionTree } from "@tui/routes/tree"
 import { GitGraph } from "@tui/routes/git-graph"
 import { GitHubPanel } from "@tui/routes/github"
+import { Workspace } from "@tui/routes/workspace"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
@@ -181,6 +183,23 @@ export function tui(input: {
       )
     })
   })
+}
+
+function LegacyRedirect(props: {
+  tab: "tree" | "changes" | "graph" | "github"
+  sessionID?: string
+  workspaceID?: string
+}) {
+  const route = useRoute()
+  onMount(() => {
+    route.navigate({
+      type: "workspace",
+      tab: props.tab,
+      sessionID: props.sessionID,
+      workspaceID: props.workspaceID,
+    })
+  })
+  return null
 }
 
 function App() {
@@ -323,6 +342,11 @@ function App() {
           renderer.setTerminalTitle("Nikcli | GitHub")
           return
         }
+
+        if (state.type === "workspace") {
+          renderer.setTerminalTitle("Nikcli | Workspace")
+          return
+        }
       },
       { defer: true },
     ),
@@ -415,6 +439,21 @@ function App() {
       },
     },
     {
+      title: "Warp session",
+      value: "workspace.warp",
+      category: "Workspace",
+      enabled: route.data.type === "session" && Flag.NIKCLI_EXPERIMENTAL_WORKSPACES_TUI,
+      slash: {
+        name: "warp",
+      },
+      onSelect: () => {
+        const data = route.data
+        if (data.type !== "session") return
+        const sessionID = data.sessionID
+        dialog.replace(() => <DialogSessionWarp sessionID={sessionID} />)
+      },
+    },
+    {
       title: "New session",
       suggested: route.data.type === "session",
       value: "session.new",
@@ -441,38 +480,42 @@ function App() {
       },
     },
     {
-      title: "View changes",
-      value: "changes.open",
-      category: "Session",
-      suggested: route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0,
-      enabled: route.data.type === "session",
+      title: "Workspace panel (sessions · changes · graph · github)",
+      value: "workspace.open",
+      category: "Git",
+      suggested: true,
       slash: {
-        name: "changes",
-      },
-      onSelect: () => {
-        if (route.data.type === "session") {
-          route.navigate({
-            type: "changes",
-            sessionID: route.data.sessionID,
-            workspaceID: route.data.workspaceID ?? sync.session.get(route.data.sessionID)?.workspaceID,
-          })
-        }
-        dialog.clear()
-      },
-    },
-    {
-      title: "Session tree",
-      value: "tree.open",
-      category: "Session",
-      suggested: route.data.type === "session",
-      enabled: route.data.type === "session",
-      slash: {
-        name: "tree",
+        name: "workspace",
+        aliases: ["ws", "panel"],
       },
       onSelect: () => {
         const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
+        const hasDiff =
+          route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0
         route.navigate({
-          type: "tree",
+          type: "workspace",
+          tab: hasDiff ? "changes" : "tree",
+          sessionID,
+          workspaceID: sessionID
+            ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
+            : route.data.workspaceID,
+        })
+        dialog.clear()
+      },
+    },
+    // Hidden helpers so existing /changes /tree /graph /github slash commands still work
+    // but don't clutter the command palette suggestion list.
+    {
+      title: "Open changes tab",
+      value: "workspace.tab.changes",
+      category: "Git",
+      hidden: true,
+      slash: { name: "changes" },
+      onSelect: () => {
+        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
+        route.navigate({
+          type: "workspace",
+          tab: "changes",
           sessionID,
           workspaceID: sessionID
             ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
@@ -482,18 +525,16 @@ function App() {
       },
     },
     {
-      title: "Commit graph",
-      value: "git.graph.open",
+      title: "Open sessions tab",
+      value: "workspace.tab.tree",
       category: "Git",
-      suggested: true,
-      slash: {
-        name: "graph",
-        aliases: ["gitgraph", "commits"],
-      },
+      hidden: true,
+      slash: { name: "tree" },
       onSelect: () => {
         const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
         route.navigate({
-          type: "git-graph",
+          type: "workspace",
+          tab: "tree",
           sessionID,
           workspaceID: sessionID
             ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
@@ -503,18 +544,35 @@ function App() {
       },
     },
     {
-      title: "GitHub panel",
-      value: "github.panel.open",
+      title: "Open commit graph tab",
+      value: "workspace.tab.graph",
       category: "Git",
-      suggested: true,
-      slash: {
-        name: "github",
-        aliases: ["gh"],
-      },
+      hidden: true,
+      slash: { name: "graph", aliases: ["gitgraph", "commits"] },
       onSelect: () => {
         const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
         route.navigate({
-          type: "github",
+          type: "workspace",
+          tab: "graph",
+          sessionID,
+          workspaceID: sessionID
+            ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
+            : route.data.workspaceID,
+        })
+        dialog.clear()
+      },
+    },
+    {
+      title: "Open GitHub tab",
+      value: "workspace.tab.github",
+      category: "Git",
+      hidden: true,
+      slash: { name: "github", aliases: ["gh"] },
+      onSelect: () => {
+        const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
+        route.navigate({
+          type: "workspace",
+          tab: "github",
           sessionID,
           workspaceID: sessionID
             ? (route.data.workspaceID ?? sync.session.get(sessionID)?.workspaceID)
@@ -1096,17 +1154,20 @@ function App() {
         <Match when={route.data.type === "session"}>
           <Session />
         </Match>
-        <Match when={route.data.type === "changes"}>
-          <Changes />
+        <Match when={route.data.type === "changes" && route.data}>
+          {(data) => <LegacyRedirect tab="changes" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
         </Match>
-        <Match when={route.data.type === "tree"}>
-          <SessionTree />
+        <Match when={route.data.type === "tree" && route.data}>
+          {(data) => <LegacyRedirect tab="tree" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
         </Match>
-        <Match when={route.data.type === "git-graph"}>
-          <GitGraph />
+        <Match when={route.data.type === "git-graph" && route.data}>
+          {(data) => <LegacyRedirect tab="graph" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
         </Match>
-        <Match when={route.data.type === "github"}>
-          <GitHubPanel />
+        <Match when={route.data.type === "github" && route.data}>
+          {(data) => <LegacyRedirect tab="github" sessionID={data().sessionID} workspaceID={data().workspaceID} />}
+        </Match>
+        <Match when={route.data.type === "workspace"}>
+          <Workspace />
         </Match>
         <Match when={route.data.type === "plugin" && route.data}>
           {(data) => {

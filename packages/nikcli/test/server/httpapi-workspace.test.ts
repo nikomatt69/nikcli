@@ -60,7 +60,13 @@ async function request(pathname: string, directory: string, params: Record<strin
   return response.json()
 }
 
-async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown) {
+async function jsonRequest(
+  method: string,
+  pathname: string,
+  directory: string,
+  body?: unknown,
+  expectedStatus = 200,
+) {
   process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)
@@ -73,14 +79,17 @@ async function jsonRequest(method: string, pathname: string, directory: string, 
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
   )
-  if (response.status !== 200) {
-    throw new Error(`Expected ${method} ${pathname} to return 200, got ${response.status}: ${await response.text()}`)
+  if (response.status !== expectedStatus) {
+    throw new Error(
+      `Expected ${method} ${pathname} to return ${expectedStatus}, got ${response.status}: ${await response.text()}`,
+    )
   }
+  if (expectedStatus === 204) return null
   return response.json()
 }
 
-async function post(pathname: string, directory: string, body?: unknown) {
-  return jsonRequest("POST", pathname, directory, body)
+async function post(pathname: string, directory: string, body?: unknown, expectedStatus = 200) {
+  return jsonRequest("POST", pathname, directory, body, expectedStatus)
 }
 
 async function remove(pathname: string, directory: string) {
@@ -157,6 +166,15 @@ describe("Workspace HttpApi bridge", () => {
       sessions: [session.id],
       events: [],
     })
+
+    expect(HttpApiBridge.supports("/experimental/workspace/warp", "POST")).toBe(true)
+    await post("/experimental/workspace/warp", directory, { id: null, sessionID: session.id }, 204)
+    const detached = (await request(`/session/${session.id}`, directory)) as { workspaceID?: string }
+    expect(detached.workspaceID).toBeUndefined()
+
+    await post("/experimental/workspace/warp", directory, { id: workspaceID, sessionID: session.id }, 204)
+    const warped = (await request(`/session/${session.id}`, directory)) as { workspaceID?: string }
+    expect(warped.workspaceID).toBe(workspaceID)
 
     expect(HttpApiBridge.supports(`/experimental/workspace/${workspaceID}`, "DELETE")).toBe(true)
     const removed = (await remove(`/experimental/workspace/${workspaceID}`, directory)) as { id: string } | null

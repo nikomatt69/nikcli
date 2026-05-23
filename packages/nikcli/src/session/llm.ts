@@ -3,11 +3,14 @@ import { Installation } from "@/installation"
 import { Provider } from "@/provider/provider"
 import { Log } from "@/util/log"
 import {
+  convertToModelMessages,
+  modelMessageSchema,
   wrapLanguageModel,
   type ModelMessage,
   type StreamTextResult,
   type Tool,
   type ToolSet,
+  type UIMessage,
   extractReasoningMiddleware,
   tool,
   jsonSchema,
@@ -115,6 +118,68 @@ export namespace LLM {
   }
 
   export type StreamOutput = StreamTextResult<ToolSet, unknown>
+
+  function isModelMessage(message: unknown): message is ModelMessage {
+    return modelMessageSchema.safeParse(message).success
+  }
+
+  function isUIMessage(message: unknown): message is UIMessage {
+    if (!message || typeof message !== "object") return false
+    const candidate = message as { role?: unknown; parts?: unknown }
+    return (
+      (candidate.role === "user" || candidate.role === "assistant") &&
+      Array.isArray(candidate.parts)
+    )
+  }
+
+  function uiToolOutput(output: unknown) {
+    if (typeof output === "string") return { type: "text" as const, value: output }
+    return { type: "json" as const, value: output as never }
+  }
+
+  function uiMessageTools(messages: UIMessage[]) {
+    const tools: Record<string, { toModelOutput(output: unknown): ReturnType<typeof uiToolOutput> }> = {}
+    for (const message of messages) {
+      for (const part of message.parts) {
+        if (!part.type.startsWith("tool-")) continue
+        tools[part.type.slice("tool-".length)] = { toModelOutput: uiToolOutput }
+      }
+    }
+    return tools
+  }
+
+  export function normalizeStreamMessages(messages: unknown[]): ModelMessage[] {
+    const result: ModelMessage[] = []
+    let uiRun: UIMessage[] = []
+
+    const flushUIRun = () => {
+      if (uiRun.length === 0) return
+      result.push(
+        ...convertToModelMessages(uiRun, {
+          // @ts-expect-error convertToModelMessages only needs each matching tool's toModelOutput.
+          tools: uiMessageTools(uiRun),
+        }),
+      )
+      uiRun = []
+    }
+
+    for (const message of messages) {
+      if (isModelMessage(message)) {
+        flushUIRun()
+        result.push(message)
+        continue
+      }
+      if (isUIMessage(message)) {
+        uiRun.push(message)
+        continue
+      }
+      flushUIRun()
+      result.push(message as ModelMessage)
+    }
+
+    flushUIRun()
+    return result
+  }
 
   export async function stream(input: StreamInput) {
     const l = log
@@ -292,6 +357,23 @@ export namespace LLM {
       })
     }
 
+    const messages = normalizeStreamMessages([
+      ...(isCodex
+        ? [
+            {
+              role: "user",
+              content: system.join("\n\n"),
+            } as ModelMessage,
+          ]
+        : system.map(
+            (x): ModelMessage => ({
+              role: "system",
+              content: x,
+            }),
+          )),
+      ...input.messages,
+    ])
+
     const result = LLMCore.stream({
       onError(error) {
         l.error("stream error", {
@@ -337,22 +419,7 @@ export namespace LLM {
         isCodex,
         input.model.headers,
       ),
-      messages: [
-        ...(isCodex
-          ? [
-              {
-                role: "user",
-                content: system.join("\n\n"),
-              } as ModelMessage,
-            ]
-          : system.map(
-              (x): ModelMessage => ({
-                role: "system",
-                content: x,
-              }),
-            )),
-        ...input.messages,
-      ],
+      messages,
       model: wrapLanguageModel({
         model: language,
         middleware: [

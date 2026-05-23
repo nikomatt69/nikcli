@@ -8,6 +8,7 @@ import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
+import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
 import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
@@ -27,6 +28,10 @@ function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
 
 function storageRead<T>(key: string[]) {
@@ -190,6 +195,39 @@ export namespace Workspace {
   function syncDirectory(space: Info) {
     if (space.config.type === "worktree") return
     return space.config.directory
+  }
+
+  function eventSessionID(event: { properties?: any }) {
+    const properties = event.properties
+    if (!properties || typeof properties !== "object") return
+    if (typeof properties.sessionID === "string") return properties.sessionID
+    if (typeof properties.info?.id === "string" && properties.info.id.startsWith("ses")) return properties.info.id
+    if (typeof properties.info?.sessionID === "string") return properties.info.sessionID
+    if (typeof properties.part?.sessionID === "string") return properties.part.sessionID
+  }
+
+  function eventWorkspaceID(event: { properties?: any }) {
+    const workspaceID = event.properties?.info?.workspaceID
+    return typeof workspaceID === "string" ? workspaceID : undefined
+  }
+
+  async function acceptsWorkspaceEvent(workspaceID: string, event: { type?: string; properties?: any }) {
+    if (!event?.type || event.type === "server.heartbeat") return false
+    const declaredWorkspaceID = eventWorkspaceID(event)
+    if (declaredWorkspaceID && declaredWorkspaceID !== workspaceID) return false
+
+    const sessionID = eventSessionID(event)
+    if (!sessionID) return true
+
+    const session = await runSession(
+      Effect.gen(function* () {
+        const sessions = yield* Session.Service
+        return yield* sessions.getAnyProject(sessionID)
+      }),
+    ).catch(() => undefined)
+
+    if (!session) return declaredWorkspaceID === undefined || declaredWorkspaceID === workspaceID
+    return session.workspaceID === workspaceID
   }
 
   async function mirrorWorkspaceEvent(space: Info, event: { type?: string; properties?: any }) {
@@ -399,18 +437,29 @@ export namespace Workspace {
         setStatus(space.id, "connected")
         await parseSSE(res.body, stop, (event) => {
           const payload = event as { type?: string; properties?: any }
-          rememberWorkspaceEvent(space.id, payload)
-          void mirrorWorkspaceEvent(space, payload).catch((error) => {
-            log.warn("workspace event mirror failed", {
-              workspaceID: space.id,
-              error,
-              type: payload?.type,
+          void acceptsWorkspaceEvent(space.id, payload)
+            .then((accepted) => {
+              if (!accepted) return
+              rememberWorkspaceEvent(space.id, payload)
+              void mirrorWorkspaceEvent(space, payload).catch((error) => {
+                log.warn("workspace event mirror failed", {
+                  workspaceID: space.id,
+                  error,
+                  type: payload?.type,
+                })
+              })
+              GlobalBus.emit("event", {
+                directory: space.id,
+                payload,
+              })
             })
-          })
-          GlobalBus.emit("event", {
-            directory: space.id,
-            payload,
-          })
+            .catch((error) => {
+              log.warn("workspace event ownership check failed", {
+                workspaceID: space.id,
+                error,
+                type: payload?.type,
+              })
+            })
         })
         if (!stop.aborted) setStatus(space.id, "disconnected")
         await Bun.sleep(250)
@@ -512,4 +561,101 @@ export namespace Workspace {
       }
     },
   )
+
+  /**
+   * Move a session between workspaces, or detach it back to the local project.
+   * Pass `workspaceID: null` to clear the session's workspaceID.
+   */
+  export const sessionWarp = fn(
+    z.object({
+      sessionID: Identifier.schema("session"),
+      workspaceID: z.union([Identifier.schema("workspace"), z.null()]),
+      timeoutMs: z.number().int().positive().default(30_000),
+      signal: z.any().optional(),
+    }),
+    async ({ sessionID, workspaceID, timeoutMs, signal }) => {
+      const current = await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          return yield* session.getAnyProject(sessionID)
+        }),
+      )
+
+      if (current.workspaceID) {
+        const previous = await get(current.workspaceID)
+        if (previous?.config.type !== "worktree") {
+          if (previous) {
+            await restore({ workspaceID: previous.id, timeoutMs, signal }).catch((error) => {
+              log.warn("session warp final source sync failed", {
+                workspaceID: previous.id,
+                sessionID,
+                error,
+              })
+            })
+          } else {
+            await runSessionPrompt(
+              Effect.gen(function* () {
+                const prompt = yield* SessionPrompt.Service
+                yield* prompt.cancel(sessionID)
+              }),
+            )
+          }
+        } else {
+          await runSessionPrompt(
+            Effect.gen(function* () {
+              const prompt = yield* SessionPrompt.Service
+              yield* prompt.cancel(sessionID)
+            }),
+          )
+        }
+      } else {
+        await runSessionPrompt(
+          Effect.gen(function* () {
+            const prompt = yield* SessionPrompt.Service
+            yield* prompt.cancel(sessionID)
+          }),
+        )
+      }
+
+      const target = workspaceID
+        ? await restore({ workspaceID, timeoutMs, signal }).then(() => targetWorkspace(workspaceID))
+        : undefined
+
+      await runSession(
+        Effect.gen(function* () {
+          const session = yield* Session.Service
+          yield* session.update(sessionID, (draft) => {
+            draft.workspaceID = workspaceID ?? undefined
+          })
+        }),
+      )
+
+      if (workspaceID && target?.type === "remote") {
+        const headers = new Headers(target.headers)
+        headers.set("content-type", "application/json")
+        headers.set("x-nikcli-workspace", workspaceID)
+        const response = await fetch(new URL("/sync/steal", target.url), {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ sessionID }),
+          signal,
+        })
+        if (!response.ok) {
+          const body = await response.text().catch(() => "")
+          throw new Error(`Failed to warp session into workspace ${workspaceID}: HTTP ${response.status} ${body}`)
+        }
+      }
+
+      return {
+        sessionID,
+        workspaceID: workspaceID ?? null,
+      }
+    },
+  )
+
+  async function targetWorkspace(workspaceID: string) {
+    const info = await get(workspaceID)
+    if (!info) throw new Storage.NotFoundError({ message: `Workspace not found: ${workspaceID}` })
+    return Workspace.target(info.id)
+  }
 }

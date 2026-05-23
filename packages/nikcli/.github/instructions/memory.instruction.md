@@ -2203,4 +2203,69 @@ User requested nikcli to display ASCII logo on terminal kill (like OpenCode does
 - **Goal command** (`src/cli/cmd/goal.ts`) — New native CLI command for goal management. Added to CLI commands table.
 - **Skills search** — Tested `find-skills` skill with mobile development search. Found `vercel-react-native-skills` (121K installs) and `sleek-design-mobile-apps` (143.5K installs) from skills.sh leaderboard.
 
+## Brain Pass (2026-05-23)
+
+### Workspace Health Check (2026-05-23)
+
+Ran deep workspace exploration via 3 parallel background explore agents covering: project structure, code patterns, and current state.
+
+**Findings:**
+- **Typecheck**: Passes clean — zero errors
+- **TODO/FIXME**: ~11 comments found (none critical, mostly informational)
+- **Git status**: Workspace is clean — no uncommitted changes
+- **Placeholders**: Some `console.log` statements in production paths (need cleanup), no obvious `TODO` stubs
+
+**Parallel exploration pattern** — Effective for comprehensive checks:
+1. Launch 3+ explore agents with `background: true`
+2. Monitor via `delegation` tool
+3. Aggregate results when all complete
+
+### Abort/Cancellation Path (discovered during debugging session)
+
+Traced session abort flow end-to-end:
+
+```
+Server abort endpoint (server/routes/session.ts:630)
+  → cancelOwnedBySessionID(sessionID) [session/index.ts:943]
+    → cancelJob(record.id) [delegation/manager.ts:711]
+      → cancel(sessionID, id) [delegation/manager.ts:650-675]
+        → cancelAll(sessionID) [monitor/manager.ts:634]
+          → Shell.killTree(pid) [monitor/manager.ts:550-600]
+        → Finalization: Delegation.finalize(id, "cancelled")
+```
+
+**Worker cleanup** (`thread.ts`):
+- `client.call("shutdown")` with timeout → `worker.terminate()` → `setTimeout(...).unref()` for fire-and-forget
+- `worker.ts` shutdown is idempotent (resets `server` reference) with event stream cleanup (abort + remove on error)
+
+**Error handling in Effect layer**:
+- HTTP API abort handlers use `.pipe(Effect.orDie)` which throws on failure
+- `Effect.tryPromise` catchers can trigger nested cancellations (cancel2 path)
+- Worker thread catches unhandled rejections via `worker.on('error')` → logs but doesn't prevent default print
+
+### Session Prompt Loop Helpers (`prompt.ts`)
+
+Key run helpers defined in prompt.ts (before the main loop function):
+- `runSummary(sessionID, ...)` — session summarization
+- `runTitle(message, ...)` — title generation
+- `runCompaction(sessionID, ...)` — context compaction
+
+These are used for special-purpose message generation (summaries, titles, compaction) outside the main LLM streaming loop.
+
+### TUI Cleanup Sequence
+
+The full TUI teardown sequence (aligned with OpenCode):
+1. `renderer.destroy()` — OpenTUI renderer destruction
+2. `worker.shutdown()` / `worker.terminate()` — worker cleanup + event stream cleanup
+3. `process.exit(1)` — final process exit on error
+
+`exit.tsx` is promise-idempotent; `thread.ts` `stop()` is idempotent with timeout. Cleanup wrapped in try/finally. Bun worker unhandled rejections logged to red stderr unless caught by `worker.on('error')`.
+
+### Storage `structuredClone` Behavior
+
+`Storage.update()` uses `structuredClone` (not `JSON.parse(JSON.stringify())`) for draft copies:
+- Handles circular references (JSON throws)
+- Preserves BigInt, Date, Typed arrays (JSON corrupts/strips)
+- Prevents cache corruption from shared references in mutating `fn(content)`
+
 

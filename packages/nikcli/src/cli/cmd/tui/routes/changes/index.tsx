@@ -15,6 +15,8 @@ import { useDialog } from "@tui/ui/dialog"
 import { Identifier } from "@/id/id"
 import { LANGUAGE_EXTENSIONS } from "@/lsp/language"
 import { FileList, order } from "./file-list"
+import { FileTree } from "./file-tree"
+import { ChangesHelp } from "./help"
 import {
   CommentDisplay,
   CommentInput,
@@ -70,6 +72,8 @@ export function Changes() {
   const dialog = useDialog()
   const [wrap, setWrap] = kv.signal<"word" | "none">("changes_diff_wrap_mode", "word")
   const [viewMode, setViewMode] = kv.signal<"unified" | "split">("changes_diff_view_mode", "unified")
+  const [treeMode, setTreeMode] = kv.signal<"tree" | "flat">("changes_files_mode", "tree")
+  const [reviewed, setReviewed] = createSignal<ReadonlySet<string>>(new Set<string>())
   const [filterText, setFilterText] = createSignal("")
   const [filterActive, setFilterActive] = createSignal(false)
   const [reviewPanelOpen, setReviewPanelOpen] = createSignal(true)
@@ -393,6 +397,42 @@ export function Changes() {
       setReviewPanelOpen((open) => !open)
       return
     }
+    if (evt.name === "b" && !evt.ctrl && !evt.meta && !evt.super) {
+      evt.preventDefault()
+      setTreeMode((prev) => (prev === "tree" ? "flat" : "tree"))
+      return
+    }
+    if (evt.name === "m" && !evt.ctrl && !evt.meta && !evt.super) {
+      evt.preventDefault()
+      const file = selectedFile()
+      if (!file) return
+      setReviewed((prev) => {
+        const next = new Set(prev)
+        if (next.has(file.file)) next.delete(file.file)
+        else next.add(file.file)
+        return next
+      })
+      return
+    }
+    if (evt.name === "]" && !evt.ctrl && !evt.meta && !evt.super) {
+      evt.preventDefault()
+      const total = ordered().length
+      if (total === 0) return
+      setStore("selectedFile", (store.selectedFile + 1) % total)
+      return
+    }
+    if (evt.name === "[" && !evt.ctrl && !evt.meta && !evt.super) {
+      evt.preventDefault()
+      const total = ordered().length
+      if (total === 0) return
+      setStore("selectedFile", (store.selectedFile - 1 + total) % total)
+      return
+    }
+    if (evt.name === "?" && !evt.ctrl && !evt.meta && !evt.super) {
+      evt.preventDefault()
+      dialog.replace(() => <ChangesHelp />)
+      return
+    }
     if (evt.name === "g" && !evt.ctrl && !evt.meta && !evt.super) {
       evt.preventDefault()
       selectLine(0)
@@ -483,19 +523,39 @@ export function Changes() {
       />
       <box flexGrow={1} flexDirection="row">
         <Show when={store.pane === "list"}>
-          <FileList
-            files={ordered()}
-            selected={store.selectedFile}
-            comments={commentCounts()}
-            onSelect={(index) => setStore("selectedFile", index)}
-            onSwitch={() => setStore("pane", "diff")}
-            width={SIDE_BAR_WIDTH}
-            focused={store.pane === "list"}
-            filterText={filterText()}
-            filterActive={filterActive()}
-            onFilterChange={(text) => setFilterText(text)}
-            onFilterDeactivate={() => setFilterActive(false)}
-          />
+          <Show
+            when={treeMode() === "tree"}
+            fallback={
+              <FileList
+                files={ordered()}
+                selected={store.selectedFile}
+                comments={commentCounts()}
+                onSelect={(index) => setStore("selectedFile", index)}
+                onSwitch={() => setStore("pane", "diff")}
+                width={SIDE_BAR_WIDTH}
+                focused={store.pane === "list"}
+                filterText={filterText()}
+                filterActive={filterActive()}
+                onFilterChange={(text) => setFilterText(text)}
+                onFilterDeactivate={() => setFilterActive(false)}
+              />
+            }
+          >
+            <FileTree
+              files={ordered()}
+              selected={store.selectedFile}
+              comments={commentCounts()}
+              onSelect={(index) => setStore("selectedFile", index)}
+              onSwitch={() => setStore("pane", "diff")}
+              width={SIDE_BAR_WIDTH}
+              focused={store.pane === "list"}
+              filterText={filterText()}
+              filterActive={filterActive()}
+              onFilterChange={(text) => setFilterText(text)}
+              onFilterDeactivate={() => setFilterActive(false)}
+              reviewed={reviewed()}
+            />
+          </Show>
         </Show>
 
         <Show

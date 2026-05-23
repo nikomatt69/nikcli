@@ -1,6 +1,6 @@
 import { Instance } from "@/project/instance"
-import { Effect, Layer, ManagedRuntime } from "effect"
-import { locallyInstance, type InstanceContext } from "./instance-ref"
+import { Effect, Layer, ManagedRuntime, Option } from "effect"
+import { InstanceRef, locallyInstance, type InstanceContext } from "./instance-ref"
 
 export const sharedMemoMap = Effect.runSync(Layer.makeMemoMap)
 const runtimes = new WeakMap<Layer.Layer<any, any, never>, ManagedRuntime.ManagedRuntime<any, any>>()
@@ -35,12 +35,18 @@ export function runPromiseExitWithLayer<A, E, R, LE>(
 }
 
 export function withCurrentInstance<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  const ctx: InstanceContext = {
-    directory: Instance.directory,
-    worktree: Instance.worktree,
-    project: Instance.project,
-  }
-  return locallyInstance(ctx, effect)
+  return Effect.gen(function* () {
+    const fiberCtx = yield* Effect.serviceOption(InstanceRef)
+    if (Option.isSome(fiberCtx)) {
+      return yield* effect
+    }
+    const ctx: InstanceContext = {
+      directory: Instance.directory,
+      worktree: Instance.worktree,
+      project: Instance.project,
+    }
+    return yield* locallyInstance(ctx, effect)
+  }) as Effect.Effect<A, E, R>
 }
 
 export function runPromise<A, E>(effect: Effect.Effect<A, E, never>): Promise<A> {

@@ -2056,6 +2056,33 @@ export type ImageConfig = {
 }
 
 /**
+ * Attachment handling configuration
+ */
+export type AttachmentConfig = {
+  /**
+   * Image attachment normalization options
+   */
+  image?: {
+    /**
+     * Automatically downscale/re-encode images that exceed the configured limits
+     */
+    auto_resize?: boolean
+    /**
+     * Maximum image width in pixels
+     */
+    max_width?: number
+    /**
+     * Maximum image height in pixels
+     */
+    max_height?: number
+    /**
+     * Maximum base64-encoded payload size in bytes
+     */
+    max_base64_bytes?: number
+  }
+}
+
+/**
  * Text-to-speech configuration
  */
 export type SpeakConfig = {
@@ -2361,6 +2388,7 @@ export type Config = {
   }
   rag?: RagConfig
   image?: ImageConfig
+  attachment?: AttachmentConfig
   speak?: SpeakConfig
   /**
    * Notification settings for various events
@@ -2758,7 +2786,7 @@ export type ProviderAuthMethod = {
 
 export type ProviderAuthAuthorization = {
   url: string
-  method: "auto" | "code"
+  method: "auto" | "code" | "auto-code"
   instructions: string
 }
 
@@ -4081,6 +4109,85 @@ export type ExperimentalWorkspaceSessionRestoreResponses = {
 
 export type ExperimentalWorkspaceSessionRestoreResponse =
   ExperimentalWorkspaceSessionRestoreResponses[keyof ExperimentalWorkspaceSessionRestoreResponses]
+
+export type ExperimentalWorkspaceWarpData = {
+  body?: {
+    id: string | null
+    sessionID: string
+    timeoutMs?: number
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/warp"
+}
+
+export type ExperimentalWorkspaceWarpErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ExperimentalWorkspaceWarpError = ExperimentalWorkspaceWarpErrors[keyof ExperimentalWorkspaceWarpErrors]
+
+export type ExperimentalWorkspaceWarpResponses = {
+  /**
+   * Session warped
+   */
+  204: void
+}
+
+export type ExperimentalWorkspaceWarpResponse =
+  ExperimentalWorkspaceWarpResponses[keyof ExperimentalWorkspaceWarpResponses]
+
+export type ExperimentalWorkspaceSessionWarpData = {
+  body?: {
+    workspaceID: string | null
+    timeoutMs?: number
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/session/{sessionID}/warp"
+}
+
+export type ExperimentalWorkspaceSessionWarpErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ExperimentalWorkspaceSessionWarpError =
+  ExperimentalWorkspaceSessionWarpErrors[keyof ExperimentalWorkspaceSessionWarpErrors]
+
+export type ExperimentalWorkspaceSessionWarpResponses = {
+  /**
+   * Session warped
+   */
+  200: {
+    sessionID: string
+    workspaceID: string | null
+  }
+}
+
+export type ExperimentalWorkspaceSessionWarpResponse =
+  ExperimentalWorkspaceSessionWarpResponses[keyof ExperimentalWorkspaceSessionWarpResponses]
 
 export type ExperimentalWorkspaceListData = {
   body?: never

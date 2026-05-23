@@ -112,7 +112,8 @@ export namespace PublicHttpApi {
       .handle("list", () => WorkspaceHttpApi.handlers.list())
       .handle("remove", (request) => WorkspaceHttpApi.handlers.remove(request))
       .handle("restore", (request) => WorkspaceHttpApi.handlers.restore(request))
-      .handle("sessionRestore", (request) => WorkspaceHttpApi.handlers.sessionRestore(request)),
+      .handle("sessionRestore", (request) => WorkspaceHttpApi.handlers.sessionRestore(request))
+      .handle("warp", (request) => WorkspaceHttpApi.handlers.warp(request)),
   )
 
   const ProviderHandlersLive = HttpApiBuilder.group(Api, "provider", (handlers) =>

@@ -68,6 +68,7 @@ export namespace HttpApiBridge {
     ["POST", /^\/experimental\/workspace\/[^/]+$/],
     ["POST", /^\/experimental\/workspace\/[^/]+\/restore$/],
     ["POST", /^\/experimental\/workspace\/[^/]+\/session\/[^/]+\/restore$/],
+    ["POST", /^\/experimental\/workspace\/warp$/],
     ["POST", /^\/permission\/[^/]+\/reply$/],
     ["POST", /^\/provider\/[^/]+\/api$/],
     ["POST", /^\/question\/[^/]+\/reject$/],

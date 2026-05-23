@@ -52,6 +52,10 @@ import type {
   ExperimentalWorkspaceRestoreResponses,
   ExperimentalWorkspaceSessionRestoreErrors,
   ExperimentalWorkspaceSessionRestoreResponses,
+  ExperimentalWorkspaceSessionWarpErrors,
+  ExperimentalWorkspaceSessionWarpResponses,
+  ExperimentalWorkspaceWarpErrors,
+  ExperimentalWorkspaceWarpResponses,
   FileListResponses,
   FilePartInput,
   FilePartSource,
@@ -1120,6 +1124,51 @@ export class Session extends HeyApiClient {
       ...params,
     })
   }
+
+  /**
+   * Warp session between workspaces
+   *
+   * Move a session to another workspace, or detach it back to the local project by passing workspaceID: null.
+   */
+  public warp<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      workspaceID?: string | null
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "workspaceID" },
+            { in: "body", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalWorkspaceSessionWarpResponses,
+      ExperimentalWorkspaceSessionWarpErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/workspace/session/{sessionID}/warp",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
 }
 
 export class Workspace extends HeyApiClient {
@@ -1254,6 +1303,51 @@ export class Workspace extends HeyApiClient {
       url: "/experimental/workspace/{id}/restore",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Warp session into workspace
+   *
+   * Move a session to a target workspace, or detach it back to the local project.
+   */
+  public warp<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      id?: string | null
+      sessionID?: string
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "id" },
+            { in: "body", key: "sessionID" },
+            { in: "body", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalWorkspaceWarpResponses,
+      ExperimentalWorkspaceWarpErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/workspace/warp",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

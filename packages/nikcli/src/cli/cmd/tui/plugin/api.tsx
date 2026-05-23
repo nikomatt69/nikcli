@@ -87,13 +87,17 @@ function routeNavigate(
   if (name === "changes") {
     const sessionID = params?.sessionID
     if (typeof sessionID !== "string") return
-    route.navigate({ type: "changes", sessionID })
+    route.navigate({ type: "workspace", tab: "changes", sessionID })
     return
   }
 
   if (name === "tree") {
     const sessionID = params?.sessionID
-    route.navigate({ type: "tree", sessionID: typeof sessionID === "string" ? sessionID : undefined })
+    route.navigate({
+      type: "workspace",
+      tab: "tree",
+      sessionID: typeof sessionID === "string" ? sessionID : undefined,
+    })
     return
   }
 
@@ -108,7 +112,7 @@ function routeNavigate(
       ? sync.session.get(sessionID)?.workspaceID ??
         (route.data.type === "session" ? route.data.workspaceID : undefined)
       : route.data.workspaceID
-    route.navigate({ type: "git-graph", sessionID, workspaceID })
+    route.navigate({ type: "workspace", tab: "graph", sessionID, workspaceID })
     return
   }
 
@@ -123,7 +127,7 @@ function routeNavigate(
       ? sync.session.get(sessionID)?.workspaceID ??
         (route.data.type === "session" ? route.data.workspaceID : undefined)
       : route.data.workspaceID
-    route.navigate({ type: "github", sessionID, workspaceID })
+    route.navigate({ type: "workspace", tab: "github", sessionID, workspaceID })
     return
   }
 
@@ -169,6 +173,17 @@ function routeCurrent(route: ReturnType<typeof useRoute>): TuiPluginApi["route"]
     return {
       name: "github",
       params: route.data.sessionID ? { sessionID: route.data.sessionID } : undefined,
+    }
+  }
+
+  if (route.data.type === "workspace") {
+    return {
+      name: "workspace",
+      params: {
+        tab: route.data.tab,
+        sessionID: route.data.sessionID,
+        workspaceID: route.data.workspaceID,
+      },
     }
   }
 

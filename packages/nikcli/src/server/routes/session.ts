@@ -24,7 +24,7 @@ import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
 import { Effect } from "effect"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "server" })
 
@@ -60,8 +60,20 @@ function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
   return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
 }
 
+function captureInstanceContext(): InstanceContext {
+  return {
+    directory: Instance.directory,
+    worktree: Instance.worktree,
+    project: Instance.project,
+  }
+}
+
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runSessionPromptWithContext<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+  return runPromiseWithLayer(SessionPrompt.defaultLayer, locallyInstance(ctx, effect))
 }
 
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
@@ -1130,10 +1142,12 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         c.status(200)
         c.header("Content-Type", "application/json")
+        const sessionID = c.req.valid("param").sessionID
+        const body = c.req.valid("json")
+        const ctx = captureInstanceContext()
         return stream(c, async (stream) => {
-          const sessionID = c.req.valid("param").sessionID
-          const body = c.req.valid("json")
-          const msg = await runSessionPrompt(
+          const msg = await runSessionPromptWithContext(
+            ctx,
             Effect.gen(function* () {
               const sessionPrompt = yield* SessionPrompt.Service
               return yield* sessionPrompt.prompt({ ...body, sessionID })
@@ -1167,10 +1181,12 @@ export const SessionRoutes = lazy(() =>
       async (c) => {
         c.status(204)
         c.header("Content-Type", "application/json")
+        const sessionID = c.req.valid("param").sessionID
+        const body = c.req.valid("json")
+        const ctx = captureInstanceContext()
         return stream(c, async () => {
-          const sessionID = c.req.valid("param").sessionID
-          const body = c.req.valid("json")
-          void runSessionPrompt(
+          void runSessionPromptWithContext(
+            ctx,
             Effect.gen(function* () {
               const sessionPrompt = yield* SessionPrompt.Service
               return yield* sessionPrompt.prompt({ ...body, sessionID })

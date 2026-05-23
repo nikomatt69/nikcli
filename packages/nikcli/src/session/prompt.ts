@@ -45,6 +45,7 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { Context, Effect, Layer, ScopedCache } from "effect"
+import { Instance } from "@/project/instance"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
@@ -72,6 +73,12 @@ export namespace SessionPrompt {
       }[]
     }
   >
+
+  export function isUserInitiatedStop(error: unknown) {
+    if (error === undefined) return true
+    if (error instanceof DOMException && error.name === "AbortError") return true
+    return error instanceof Error && error.name === "AbortError"
+  }
 
   function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
     return runPromiseWithLayer(
@@ -311,6 +318,17 @@ export namespace SessionPrompt {
 
   function currentContext(): Promise<InstanceContext> {
     return Effect.runPromise(withCurrentInstance(InstanceState.context))
+  }
+
+  function runInInstanceContext<A>(ctx: InstanceContext, fn: () => Promise<A>): Effect.Effect<A, Error> {
+    return Effect.tryPromise({
+      try: async () => await Instance.provide({ directory: ctx.directory, fn }),
+      catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+    })
+  }
+
+  function withInstanceContext<A>(fn: () => Promise<A>): Effect.Effect<A, Error> {
+    return InstanceState.context.pipe(Effect.flatMap((ctx) => runInInstanceContext(ctx, fn)))
   }
 
   class StateCache extends Context.Service<
@@ -2454,15 +2472,15 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           const match = (yield* getServiceStateEffect())[sessionID]
           if (match) throw new Session.BusyError({ sessionID, message: "Session is busy" })
         }),
-      prompt: (input) => Effect.tryPromise(() => prompt(input)),
+      prompt: (input) => withInstanceContext(() => prompt(input)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
       cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
-      loop: (sessionID) => Effect.tryPromise(() => loop(sessionID)),
-      shell: (input) => Effect.tryPromise(() => shell(input)),
-      command: (input) => Effect.tryPromise(() => command(input)),
+      loop: (sessionID) => withInstanceContext(() => loop(sessionID)),
+      shell: (input) => withInstanceContext(() => shell(input)),
+      command: (input) => withInstanceContext(() => command(input)),
     }),
   )
 
