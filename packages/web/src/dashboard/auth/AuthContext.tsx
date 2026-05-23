@@ -107,7 +107,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         saveSession(data.token, data.user)
         setUser(data.user)
         setToken(data.token)
-        window.posthog?.identify(data.user.id, { email: data.user.email, username: data.user.username, role: data.user.role })
+        window.posthog?.identify(data.user.id, {
+          email: data.user.email,
+          username: data.user.username,
+          role: data.user.role,
+        })
         window.posthog?.capture("user_signed_in", { role: data.user.role })
       } catch (err) {
         window.posthog?.captureException(err)

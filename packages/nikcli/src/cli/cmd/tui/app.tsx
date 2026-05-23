@@ -490,8 +490,7 @@ function App() {
       },
       onSelect: () => {
         const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
-        const hasDiff =
-          route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0
+        const hasDiff = route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0
         route.navigate({
           type: "workspace",
           tab: hasDiff ? "changes" : "tree",

@@ -140,16 +140,22 @@ export namespace Server {
             return c.json({ name: err._tag, data: { message: err.message } }, { status: 404 })
           if (err instanceof Provider.ModelNotFoundError)
             return c.json(
-              { name: err._tag, data: { providerID: err.providerID, modelID: err.modelID, suggestions: err.suggestions } },
+              {
+                name: err._tag,
+                data: { providerID: err.providerID, modelID: err.modelID, suggestions: err.suggestions },
+              },
               { status: 400 },
             )
           if (err instanceof Error && err.name.startsWith("Worktree"))
             return c.json({ name: err.name, data: { message: err.message } }, { status: 400 })
           if (err instanceof HTTPException) return err.getResponse()
           const message = err instanceof Error && err.stack ? err.stack : err.toString()
-          return c.json({ name: "Unknown" as const, data: { message } }, {
-            status: 500,
-          })
+          return c.json(
+            { name: "Unknown" as const, data: { message } },
+            {
+              status: 500,
+            },
+          )
         })
         .get("/s/:shareID", validator("param", z.object({ shareID: z.string() })), async (c) => {
           const { shareID } = c.req.valid("param")

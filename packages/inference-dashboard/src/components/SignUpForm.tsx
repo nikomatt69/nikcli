@@ -84,24 +84,15 @@ export default function SignUpForm() {
             <code class="flex-1 break-all rounded-[var(--radius-md)] border border-terminal-border bg-terminal-code px-3.5 py-2.5 font-mono text-xs text-terminal-text">
               {createdKey()!.plaintext}
             </code>
-            <button
-              onClick={() => copy(createdKey()!.plaintext)}
-              class="app-button-primary text-xs"
-            >
+            <button onClick={() => copy(createdKey()!.plaintext)} class="app-button-primary text-xs">
               Copy
             </button>
           </div>
           <div class="mt-5 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="/dashboard"
-              class="app-button-primary flex-1"
-            >
+            <a href="/dashboard" class="app-button-primary flex-1">
               Go to Dashboard
             </a>
-            <a
-              href="/docs/quickstart"
-              class="app-button-secondary"
-            >
+            <a href="/docs/quickstart" class="app-button-secondary">
               Read Docs
             </a>
           </div>
@@ -161,12 +152,27 @@ export default function SignUpForm() {
                 {showPassword() ? (
                   <>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.6 10.6A2 2 0 0012 14a2 2 0 001.4-.6" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.9 4.2A10.6 10.6 0 0112 4c5 0 9 4 10 8a11.7 11.7 0 01-3 4.8M6.6 6.6A11.8 11.8 0 002 12c1 4 5 8 10 8a10.8 10.8 0 005.4-1.5" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M10.6 10.6A2 2 0 0012 14a2 2 0 001.4-.6"
+                    />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M9.9 4.2A10.6 10.6 0 0112 4c5 0 9 4 10 8a11.7 11.7 0 01-3 4.8M6.6 6.6A11.8 11.8 0 002 12c1 4 5 8 10 8a10.8 10.8 0 005.4-1.5"
+                    />
                   </>
                 ) : (
                   <>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"
+                    />
                     <circle cx="12" cy="12" r="3" stroke-width="2" />
                   </>
                 )}
@@ -189,7 +195,9 @@ export default function SignUpForm() {
                 />
               ))}
             </div>
-            <span class="text-left text-xs font-medium text-terminal-muted sm:min-w-[8rem] sm:text-right">{passwordLabel()}</span>
+            <span class="text-left text-xs font-medium text-terminal-muted sm:min-w-[8rem] sm:text-right">
+              {passwordLabel()}
+            </span>
           </div>
         </div>
         {error() && (
@@ -197,11 +205,7 @@ export default function SignUpForm() {
             <p class="text-sm text-terminal-error">{error()}</p>
           </div>
         )}
-        <button
-          type="submit"
-          disabled={loading()}
-          class="app-button-primary w-full"
-        >
+        <button type="submit" disabled={loading()} class="app-button-primary w-full">
           {loading() ? "Creating account…" : "Create account + get API key"}
         </button>
       </form>

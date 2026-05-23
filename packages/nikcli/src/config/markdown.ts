@@ -67,10 +67,13 @@ export namespace ConfigMarkdown {
       const md = matter(template)
       return md
     } catch (err) {
-      throw Object.assign(new FrontmatterError({
-        path: filePath,
-        message: `${filePath}: Failed to parse YAML frontmatter: ${err instanceof Error ? err.message : String(err)}`,
-      }), { cause: err })
+      throw Object.assign(
+        new FrontmatterError({
+          path: filePath,
+          message: `${filePath}: Failed to parse YAML frontmatter: ${err instanceof Error ? err.message : String(err)}`,
+        }),
+        { cause: err },
+      )
     }
   }
 

@@ -23,7 +23,10 @@ function nowSec(): number {
   return Math.floor(Date.now() / 1000)
 }
 
-export async function createUser(env: RuntimeEnv, input: { email: string; password: string; name?: string }): Promise<AuthUser> {
+export async function createUser(
+  env: RuntimeEnv,
+  input: { email: string; password: string; name?: string },
+): Promise<AuthUser> {
   const email = input.email.toLowerCase().trim()
   if (!email.includes("@")) throw new AuthError("Invalid email", 400)
   if (input.password.length < 8) throw new AuthError("Password must be at least 8 characters", 400)
@@ -48,11 +51,16 @@ export async function verifyCredentials(
   input: { email: string; password: string },
 ): Promise<AuthUser> {
   const email = input.email.toLowerCase().trim()
-  const row = await env.DB.prepare(
-    "SELECT id, email, name, plan, password_hash, created_at FROM users WHERE email = ?",
-  )
+  const row = await env.DB.prepare("SELECT id, email, name, plan, password_hash, created_at FROM users WHERE email = ?")
     .bind(email)
-    .first<{ id: string; email: string; name: string | null; plan: string; password_hash: string; created_at: number }>()
+    .first<{
+      id: string
+      email: string
+      name: string | null
+      plan: string
+      password_hash: string
+      created_at: number
+    }>()
   if (!row) throw new AuthError("Invalid email or password", 401)
   const ok = await bcrypt.compare(input.password, row.password_hash)
   if (!ok) throw new AuthError("Invalid email or password", 401)
@@ -142,7 +150,10 @@ export async function getCurrentUser(ctx: APIContext): Promise<AuthUser | null> 
 }
 
 export class AuthError extends Error {
-  constructor(message: string, public readonly status: number = 400) {
+  constructor(
+    message: string,
+    public readonly status: number = 400,
+  ) {
     super(message)
     this.name = "AuthError"
   }

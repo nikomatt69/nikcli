@@ -3,25 +3,25 @@ import type { AgentPart, FileAttachmentPart, ImageAttachmentPart, Prompt } from 
 
 type Inline =
   | {
-    type: "file"
-    start: number
-    end: number
-    value: string
-    path: string
-    selection?: {
-      startLine: number
-      endLine: number
-      startChar: number
-      endChar: number
+      type: "file"
+      start: number
+      end: number
+      value: string
+      path: string
+      selection?: {
+        startLine: number
+        endLine: number
+        startChar: number
+        endChar: number
+      }
     }
-  }
   | {
-    type: "agent"
-    start: number
-    end: number
-    value: string
-    name: string
-  }
+      type: "agent"
+      start: number
+      end: number
+      value: string
+      name: string
+    }
 
 function selectionFromFileUrl(url: string): Extract<Inline, { type: "file" }>["selection"] {
   const queryIndex = url.indexOf("?")

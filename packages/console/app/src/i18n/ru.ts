@@ -136,8 +136,7 @@ export const dict = {
   "home.faq.q1": "\u0427\u0442\u043e \u0442\u0430\u043a\u043e\u0435 Nikcli?",
   "home.faq.a1":
     "Nikcli \u2014 \u043e\u043f\u0435\u043d\u0441\u043e\u0443\u0440\u0441\u043d\u044b\u0439 \u0430\u0433\u0435\u043d\u0442, \u043a\u043e\u0442\u043e\u0440\u044b\u0439 \u043f\u043e\u043c\u043e\u0433\u0430\u0435\u0442 \u043f\u0438\u0441\u0430\u0442\u044c \u0438 \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u043a\u043e\u0434 \u0441 \u043b\u044e\u0431\u043e\u0439 AI-\u043c\u043e\u0434\u0435\u043b\u044c\u044e. \u0414\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u043a\u0430\u043a \u0442\u0435\u0440\u043c\u0438\u043d\u0430\u043b, \u0434\u0435\u0441\u043a\u0442\u043e\u043f\u043d\u043e\u0435 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u0438\u043b\u0438 \u0440\u0430\u0441\u0448\u0438\u0440\u0435\u043d\u0438\u0435 IDE.",
-  "home.faq.q2":
-    "\u041a\u0430\u043a \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c\u0441\u044f Nikcli?",
+  "home.faq.q2": "\u041a\u0430\u043a \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c\u0441\u044f Nikcli?",
   "home.faq.a2.before":
     "\u041f\u0440\u043e\u0449\u0435 \u0432\u0441\u0435\u0433\u043e \u043d\u0430\u0447\u0430\u0442\u044c \u0441",
   "home.faq.a2.link": "\u0438\u043d\u0442\u0440\u043e",
@@ -531,8 +530,7 @@ export const dict = {
   "workspace.black.subscription.useBalance": "Используйте доступный баланс после достижения лимитов использования.",
   "workspace.black.waitlist.title": "Список ожидания",
   "workspace.black.waitlist.joined": "Вы находитесь в списке ожидания плана Nikcli Black за ${{plan}} в месяц.",
-  "workspace.black.waitlist.ready":
-    "Мы готовы зарегистрировать вас в плане Nikcli Black стоимостью ${{plan}} в месяц.",
+  "workspace.black.waitlist.ready": "Мы готовы зарегистрировать вас в плане Nikcli Black стоимостью ${{plan}} в месяц.",
   "workspace.black.waitlist.leave": "Покинуть список ожидания",
   "workspace.black.waitlist.leaving": "Уход...",
   "workspace.black.waitlist.left": "Левый",

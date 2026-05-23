@@ -141,13 +141,7 @@ export namespace WorkspaceHttpApi {
         Effect.map((result) => ({ ...result, events: result.events ?? [], sessions: result.sessions ?? [] })),
         Effect.orDie,
       ),
-    sessionRestore: ({
-      params,
-      query,
-    }: {
-      params: typeof SessionRestorePath.Type
-      query: typeof RestoreQuery.Type
-    }) =>
+    sessionRestore: ({ params, query }: { params: typeof SessionRestorePath.Type; query: typeof RestoreQuery.Type }) =>
       Effect.promise(() =>
         Workspace.sessionRestore({
           workspaceID: params.id,

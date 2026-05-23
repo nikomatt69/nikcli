@@ -64,8 +64,8 @@ export namespace LSPClient {
     connection.onRequest("workspace/configuration", async () => {
       return [input.server.initialization ?? {}]
     })
-    connection.onRequest("client/registerCapability", async () => { })
-    connection.onRequest("client/unregisterCapability", async () => { })
+    connection.onRequest("client/registerCapability", async () => {})
+    connection.onRequest("client/unregisterCapability", async () => {})
     connection.onRequest("workspace/workspaceFolders", async () => [
       {
         name: "workspace",
@@ -220,7 +220,7 @@ export namespace LSPClient {
           }),
           3000,
         )
-          .catch(() => { })
+          .catch(() => {})
           .finally(() => {
             if (debounceTimer) clearTimeout(debounceTimer)
             unsub?.()

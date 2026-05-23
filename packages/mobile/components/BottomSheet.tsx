@@ -117,10 +117,7 @@ export const ActionSheet = React.forwardRef<
             fallbackColor={isDark ? "rgba(0,0,0,0.72)" : "rgba(15,23,42,0.20)"}
           />
           <View
-            style={[
-              StyleSheet.absoluteFill,
-              { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(15,23,42,0.16)" },
-            ]}
+            style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(0,0,0,0.62)" : "rgba(15,23,42,0.16)" }]}
           />
         </Animated.View>
 
@@ -136,7 +133,7 @@ export const ActionSheet = React.forwardRef<
             borderTopLeftRadius: 28,
             borderTopRightRadius: 28,
             shadowColor: palette.shadow,
-            shadowOpacity: isDark ? 0.50 : 0.18,
+            shadowOpacity: isDark ? 0.5 : 0.18,
             shadowRadius: 24,
             shadowOffset: { width: 0, height: -8 },
             elevation: 24,
@@ -144,10 +141,7 @@ export const ActionSheet = React.forwardRef<
         >
           {/* Glass fill — clipped to border radius */}
           <View
-            style={[
-              StyleSheet.absoluteFill,
-              { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" },
-            ]}
+            style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: "hidden" }]}
             pointerEvents="none"
           >
             <AdaptiveBlur

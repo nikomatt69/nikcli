@@ -54,10 +54,10 @@ export namespace Snapshot {
             skipInitialRun: true,
           })
         }),
-      cleanup: () =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => cleanupImpl(ctx)))),
+      cleanup: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => cleanupImpl(ctx)))),
       track: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => trackImpl(ctx)))),
-      patch: (hash) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => patchImpl(ctx, hash)))),
+      patch: (hash) =>
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => patchImpl(ctx, hash)))),
       restore: (snapshot) =>
         InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => restoreImpl(ctx, snapshot)))),
       revert: (patches) =>
@@ -218,7 +218,14 @@ export namespace Snapshot {
     if (files.length === 0) return
 
     const result = await Git.run(
-      snapshotArgs(ctx, git, ["rm", "--cached", "-f", "--ignore-unmatch", "--pathspec-from-file=-", "--pathspec-file-nul"]),
+      snapshotArgs(ctx, git, [
+        "rm",
+        "--cached",
+        "-f",
+        "--ignore-unmatch",
+        "--pathspec-from-file=-",
+        "--pathspec-file-nul",
+      ]),
       {
         cwd: ctx.worktree,
         stdin: nulBuffer(files),
@@ -236,10 +243,13 @@ export namespace Snapshot {
   async function stageFiles(ctx: InstanceContext, git: string, files: string[]) {
     if (files.length === 0) return
 
-    const result = await Git.run(snapshotArgs(ctx, git, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"]), {
-      cwd: ctx.worktree,
-      stdin: nulBuffer(files),
-    })
+    const result = await Git.run(
+      snapshotArgs(ctx, git, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"]),
+      {
+        cwd: ctx.worktree,
+        stdin: nulBuffer(files),
+      },
+    )
 
     if (result.exitCode !== 0) {
       log.warn("failed to add snapshot files", {
@@ -261,7 +271,10 @@ export namespace Snapshot {
     }
 
     const ignored = await ignoredFiles(ctx, candidates.all)
-    const large = await largeFiles(ctx, candidates.all.filter((file) => !ignored.has(file)))
+    const large = await largeFiles(
+      ctx,
+      candidates.all.filter((file) => !ignored.has(file)),
+    )
     const excluded = new Set([...ignored, ...large])
 
     if (excluded.size > 0) {
@@ -474,7 +487,7 @@ export namespace Snapshot {
 
           if (checkout.exitCode !== 0) {
             for (const file of group) {
-                await revertOne(ctx, git, hash, file)
+              await revertOne(ctx, git, hash, file)
             }
             continue
           }

@@ -49,7 +49,13 @@ class MemoryLimiter implements RateLimiter {
     }
 
     if (u.req >= limits.reqPerDay) {
-      return { ok: false, limit: limits.reqPerDay, remaining: 0, reset: nextDayMs(), reason: "daily request limit exceeded" }
+      return {
+        ok: false,
+        limit: limits.reqPerDay,
+        remaining: 0,
+        reset: nextDayMs(),
+        reason: "daily request limit exceeded",
+      }
     }
     if (u.tokens + estimatedTokens > limits.tokensPerDay) {
       return {
@@ -74,10 +80,30 @@ class UpstashLimiter implements RateLimiter {
   constructor(url: string, token: string) {
     this.redis = new Redis({ url, token })
     this.perTier = {
-      free: new Ratelimit({ redis: this.redis, limiter: Ratelimit.fixedWindow(TIER_LIMITS.free.reqPerDay, "86400 s"), prefix: "nikcli:rl:free", analytics: true }),
-      starter: new Ratelimit({ redis: this.redis, limiter: Ratelimit.fixedWindow(TIER_LIMITS.starter.reqPerDay, "86400 s"), prefix: "nikcli:rl:starter", analytics: true }),
-      pro: new Ratelimit({ redis: this.redis, limiter: Ratelimit.fixedWindow(TIER_LIMITS.pro.reqPerDay, "86400 s"), prefix: "nikcli:rl:pro", analytics: true }),
-      business: new Ratelimit({ redis: this.redis, limiter: Ratelimit.fixedWindow(TIER_LIMITS.business.reqPerDay, "86400 s"), prefix: "nikcli:rl:biz", analytics: true }),
+      free: new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.fixedWindow(TIER_LIMITS.free.reqPerDay, "86400 s"),
+        prefix: "nikcli:rl:free",
+        analytics: true,
+      }),
+      starter: new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.fixedWindow(TIER_LIMITS.starter.reqPerDay, "86400 s"),
+        prefix: "nikcli:rl:starter",
+        analytics: true,
+      }),
+      pro: new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.fixedWindow(TIER_LIMITS.pro.reqPerDay, "86400 s"),
+        prefix: "nikcli:rl:pro",
+        analytics: true,
+      }),
+      business: new Ratelimit({
+        redis: this.redis,
+        limiter: Ratelimit.fixedWindow(TIER_LIMITS.business.reqPerDay, "86400 s"),
+        prefix: "nikcli:rl:biz",
+        analytics: true,
+      }),
     }
   }
 
@@ -87,7 +113,13 @@ class UpstashLimiter implements RateLimiter {
     const limiter = this.perTier[tier]
     const result = await limiter.limit(key)
     if (!result.success) {
-      return { ok: false, limit: result.limit, remaining: 0, reset: result.reset, reason: "daily request limit exceeded" }
+      return {
+        ok: false,
+        limit: result.limit,
+        remaining: 0,
+        reset: result.reset,
+        reason: "daily request limit exceeded",
+      }
     }
 
     // Token quota tracked separately with INCRBY + EXPIRE.

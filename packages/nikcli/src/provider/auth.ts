@@ -180,5 +180,8 @@ export namespace ProviderAuth {
   export class OauthCodeMissing extends Schema.TaggedErrorClass<OauthCodeMissing>()("ProviderAuthOauthCodeMissing", {
     providerID: Schema.String,
   }) {}
-  export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFailed>()("ProviderAuthOauthCallbackFailed", {}) {}
+  export class OauthCallbackFailed extends Schema.TaggedErrorClass<OauthCallbackFailed>()(
+    "ProviderAuthOauthCallbackFailed",
+    {},
+  ) {}
 }
