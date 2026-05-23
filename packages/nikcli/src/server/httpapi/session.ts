@@ -21,7 +21,7 @@ export namespace SessionHttpApi {
   )
 
   function cleanJSON<T>(obj: T): T {
-    return obj === undefined ? undefined : JSON.parse(JSON.stringify(obj))
+    return obj === undefined ? (undefined as T) : JSON.parse(JSON.stringify(obj))
   }
 
   const ListQuery = Schema.Struct({

@@ -565,6 +565,17 @@ export namespace SessionPrompt {
     }
   })()
 
+  /**
+   * True when a prompt rejection was caused by the user cancelling the run
+   * (via `cancel`) rather than a real failure. Cancellation aborts the inflight
+   * request — surfacing as a DOMException `AbortError` — and rejects any queued
+   * duplicate-prompt callbacks with no error.
+   */
+  export function isUserInitiatedStop(error: unknown): boolean {
+    if (error === undefined || error === null) return true
+    return error instanceof DOMException && error.name === "AbortError"
+  }
+
   const loop = fn(Identifier.schema("session"), async (sessionID) => {
     const controller = start(sessionID)
     if (!controller) {
