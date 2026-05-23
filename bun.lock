@@ -347,6 +347,7 @@
         "@nikcli-ai/util": "workspace:*",
         "@tsconfig/bun": "catalog:",
         "@types/bun": "catalog:",
+        "@typescript/native-preview": "catalog:",
       },
     },
     "packages/inference-dashboard": {

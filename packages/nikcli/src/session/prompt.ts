@@ -2446,6 +2446,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     return bytes.toString()
   }
 
+  export function isUserInitiatedStop(error: unknown): boolean {
+    if (error instanceof DOMException && error.name === "AbortError") return true
+    if (MessageV2.AbortedError.isInstance(error)) return true
+    return false
+  }
+
   export const layer = Layer.succeed(
     Service,
     Service.of({
