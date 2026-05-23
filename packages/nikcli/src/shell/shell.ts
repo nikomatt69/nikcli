@@ -9,7 +9,7 @@ export namespace Shell {
   const POWERSHELL_MARKERS: RegExp[] = [
     /\$\w+\s*=/,
     /\$env:/i,
-    /\$(?:\w+|{[^}]+})/,
+    /\$(?:PSVersionTable|profile|true|false|null|args|input|Matches)\b/i,
     /\b(Get|Set|New|Copy|Move|Rename|Remove|Test|Select|Where|ForEach|Sort)-[A-Za-z]+\b/i,
     /\b(ForEach-Object|Where-Object|ForEach|Where)\b/i,
     /\b(ErrorAction|WhatIf|Confirm|Verbose|InformationAction)\b/i,
