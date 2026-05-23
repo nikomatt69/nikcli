@@ -20,6 +20,10 @@ export namespace SessionHttpApi {
     }),
   )
 
+  function cleanJSON<T>(obj: T): T {
+    return obj === undefined ? undefined : JSON.parse(JSON.stringify(obj))
+  }
+
   const ListQuery = Schema.Struct({
     directory: Schema.optional(Schema.String),
     roots: Schema.optional(BooleanFromString),
@@ -153,7 +157,8 @@ export namespace SessionHttpApi {
           return true
         })
         filtered.sort((a, b) => b.time.updated - a.time.updated)
-        return query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
+        const result = query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
+        return result.map(cleanJSON)
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {
@@ -163,7 +168,7 @@ export namespace SessionHttpApi {
     create: ({ payload }: { payload: typeof CreatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.create(payload as Session.CreateInput)
+        return cleanJSON(yield* session.create(payload as Session.CreateInput))
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -174,19 +179,21 @@ export namespace SessionHttpApi {
     update: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof UpdatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.update(
-          params.sessionID,
-          (draft) => {
-            if (payload.title !== undefined) draft.title = payload.title
-            if (payload.time?.archived !== undefined) draft.time.archived = payload.time.archived
-          },
-          { touch: false },
+        return cleanJSON(
+          yield* session.update(
+            params.sessionID,
+            (draft) => {
+              if (payload.title !== undefined) draft.title = payload.title
+              if (payload.time?.archived !== undefined) draft.time.archived = payload.time.archived
+            },
+            { touch: false },
+          )
         )
       }).pipe(Effect.orDie),
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
+        return cleanJSON(yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID }))
       }).pipe(Effect.orDie),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -209,12 +216,12 @@ export namespace SessionHttpApi {
     get: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.get(params.sessionID)
+        return cleanJSON(yield* session.get(params.sessionID))
       }).pipe(Effect.orDie),
     children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.children(params.sessionID)
+        return (yield* session.children(params.sessionID)).map(cleanJSON)
       }).pipe(Effect.orDie),
     todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {

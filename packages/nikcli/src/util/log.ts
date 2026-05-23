@@ -84,17 +84,21 @@ export namespace Log {
   }
 
   async function cleanup(dir: string) {
-    const glob = new Bun.Glob("????-??-??T??????.log")
-    const files = await Array.fromAsync(
-      glob.scan({
-        cwd: dir,
-        absolute: true,
-      }),
-    )
-    if (files.length <= 5) return
+    try {
+      const glob = new Bun.Glob("????-??-??T??????.log")
+      const files = await Array.fromAsync(
+        glob.scan({
+          cwd: dir,
+          absolute: true,
+        }),
+      )
+      if (files.length <= 5) return
 
-    const filesToDelete = files.slice(0, -10)
-    await Promise.all(filesToDelete.map((file) => fs.unlink(file).catch(() => {})))
+      const filesToDelete = files.slice(0, -10)
+      await Promise.all(filesToDelete.map((file) => fs.unlink(file).catch(() => {})))
+    } catch (e) {
+      // Ignore background cleanup errors (e.g. if the directory is deleted during tests)
+    }
   }
 
   function formatError(error: Error, depth = 0): string {
