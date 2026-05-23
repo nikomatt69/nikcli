@@ -604,13 +604,17 @@ export namespace Monitor {
     if (record.pid) {
       try {
         if (process.platform === "win32") {
-          process.kill(record.pid, "SIGTERM")
+          spawn("taskkill", ["/pid", String(record.pid), "/f", "/t"], { stdio: "ignore" })
         } else {
           process.kill(-record.pid, "SIGTERM")
         }
       } catch {
         try {
-          process.kill(record.pid, "SIGTERM")
+          if (process.platform === "win32") {
+            spawn("taskkill", ["/pid", String(record.pid), "/f", "/t"], { stdio: "ignore" })
+          } else {
+            process.kill(record.pid, "SIGTERM")
+          }
         } catch {}
       }
     }

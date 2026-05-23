@@ -8,8 +8,7 @@
  *   NIKCLI_CHANNEL=latest bun script/publish-packages.ts
  */
 
-import { $ } from "bun"
-import { writeFileSync, existsSync } from "fs"
+import { readdirSync, writeFileSync, existsSync, rmSync } from "fs"
 import { join } from "path"
 
 const root = new URL("..", import.meta.url).pathname
@@ -17,7 +16,7 @@ process.chdir(root)
 
 const channel = await (async () => {
   if (process.env["NIKCLI_CHANNEL"]) return process.env["NIKCLI_CHANNEL"]
-  const branch = await $`git branch --show-current`.text().then((x) => x.trim())
+  const branch = Bun.spawnSync(["git", "branch", "--show-current"], { stdout: "pipe" }).stdout.toString().trim()
   return branch === "main" ? "latest" : branch
 })()
 
@@ -55,18 +54,19 @@ async function publishWithDistExports(pkgDir: string, srcPrefix = "./src/", dist
   }
 
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2))
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm"
   try {
-    const pack = Bun.spawnSync(["bun", "pm", "pack"], { cwd: pkgDir, stdout: "pipe", stderr: "pipe" })
+    const pack = Bun.spawnSync([process.execPath, "pm", "pack"], { cwd: pkgDir, stdout: "pipe", stderr: "pipe" })
     if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
 
-    const tgz = (await $`ls ${pkgDir}/*.tgz`.text()).trim().split("\n").pop()!
-    const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+    const tgz = readdirSync(pkgDir).find((f) => f.endsWith(".tgz"))!
+    const publish = Bun.spawnSync([npmCmd, "publish", tgz, "--tag", channel, "--access", "public"], {
       cwd: pkgDir,
       stdout: "pipe",
       stderr: "pipe",
     })
     const stderr = publish.stderr.toString()
-    Bun.spawnSync(["rm", "-f", tgz], { cwd: pkgDir })
+    rmSync(join(pkgDir, tgz))
     if (publish.exitCode !== 0) {
       if (stderr.includes("E409") || stderr.includes("You cannot publish over the previously published versions"))
         return
@@ -80,15 +80,16 @@ async function publishWithDistExports(pkgDir: string, srcPrefix = "./src/", dist
 // Helper: publish source package as-is (no dist needed)
 async function publishSource(pkgDir: string) {
   process.env["NPM_CONFIG_TAG"] = channel
-  const pack = Bun.spawnSync(["bun", "pm", "pack"], { cwd: pkgDir, stdout: "pipe", stderr: "pipe" })
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm"
+  const pack = Bun.spawnSync([process.execPath, "pm", "pack"], { cwd: pkgDir, stdout: "pipe", stderr: "pipe" })
   if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
-  const tgz = (await $`ls ${pkgDir}/*.tgz`.text()).trim().split("\n").pop()!
-  const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+  const tgz = readdirSync(pkgDir).find((f) => f.endsWith(".tgz"))!
+  const publish = Bun.spawnSync([npmCmd, "publish", tgz, "--tag", channel, "--access", "public"], {
     cwd: pkgDir,
     stdout: "pipe",
     stderr: "pipe",
   })
-  Bun.spawnSync(["rm", "-f", tgz], { cwd: pkgDir })
+  rmSync(join(pkgDir, tgz))
   const stderr = publish.stderr.toString()
   if (publish.exitCode !== 0 && stderr.includes("npm error")) {
     throw new Error(stderr.split("\n").find((l) => l.includes("npm error")) ?? "publish failed")
@@ -106,7 +107,7 @@ await run("@nikcli-ai/plugin", async () => {
 // ── @nikcli-ai/plugin-* (10 plugins) ─────────────────────────────────────────
 await run("@nikcli-ai/plugin-* (10 plugins)", async () => {
   const dir = join(root, "packages/plugin")
-  const res = Bun.spawnSync(["bun", "run", "publish:plugins"], {
+  const res = Bun.spawnSync([process.execPath, "run", "publish:plugins"], {
     cwd: dir,
     stdout: "pipe",
     stderr: "pipe",
@@ -121,15 +122,16 @@ await run("@nikcli-ai/sdk", async () => {
   if (!existsSync(distDir)) throw new Error("no dist — run packages/sdk/js/script/build.ts first")
 
   // publishConfig.directory = "dist" → bun pm pack publishes from dist/
-  const pack = Bun.spawnSync(["bun", "pm", "pack"], { cwd: dir, stdout: "pipe", stderr: "pipe" })
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm"
+  const pack = Bun.spawnSync([process.execPath, "pm", "pack"], { cwd: dir, stdout: "pipe", stderr: "pipe" })
   if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
-  const tgz = (await $`ls ${dir}/*.tgz`.text()).trim().split("\n").pop()!
-  const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+  const tgz = readdirSync(dir).find((f) => f.endsWith(".tgz"))!
+  const publish = Bun.spawnSync([npmCmd, "publish", tgz, "--tag", channel, "--access", "public"], {
     cwd: dir,
     stdout: "pipe",
     stderr: "pipe",
   })
-  Bun.spawnSync(["rm", "-f", tgz], { cwd: dir })
+  rmSync(join(dir, tgz))
   const stderr = publish.stderr.toString()
   if (publish.exitCode !== 0 && stderr.includes("npm error")) {
     throw new Error(stderr.split("\n").find((l) => l.includes("npm error")) ?? "publish failed")

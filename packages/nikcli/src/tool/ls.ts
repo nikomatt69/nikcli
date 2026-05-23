@@ -71,7 +71,7 @@ export const ListTool = Tool.define("list", {
 
     for (const file of files) {
       const dir = path.dirname(file)
-      const parts = dir === "." ? [] : dir.split("/")
+      const parts = dir === "." ? [] : dir.replaceAll("\\", "/").split("/")
 
       for (let i = 0; i <= parts.length; i++) {
         const dirPath = i === 0 ? "." : parts.slice(0, i).join("/")

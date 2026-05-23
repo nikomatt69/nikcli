@@ -1,8 +1,9 @@
+import { tmpdir } from "os"
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from "fs"
 import { join } from "path"
 import type { Session } from "./session-types.js"
 
-const SESSIONS_DIR = join(process.env.TMPDIR || "/tmp", "nikcli-sessions")
+const SESSIONS_DIR = join(process.env.TMPDIR || tmpdir(), "nikcli-sessions")
 
 function ensureDir() {
   if (!existsSync(SESSIONS_DIR)) {

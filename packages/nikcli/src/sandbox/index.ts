@@ -1,3 +1,4 @@
+import { spawn } from "child_process"
 import { Context, Effect, Layer, Schema } from "effect"
 import path from "path"
 import fs from "fs/promises"
@@ -149,26 +150,30 @@ export namespace Sandbox {
               writer.end()
             }
 
+            const killProc = () => {
+              if (process.platform === "win32") {
+                spawn("taskkill", ["/pid", String(proc.pid), "/f", "/t"], { stdio: "ignore" })
+              } else {
+                try { proc.kill("SIGTERM") } catch {}
+              }
+            }
+            const hardKillProc = () => {
+              if (process.platform === "win32") {
+                spawn("taskkill", ["/pid", String(proc.pid), "/f", "/t"], { stdio: "ignore" })
+              } else {
+                try { proc.kill("SIGKILL") } catch {}
+              }
+            }
+
             const timeoutMs = input.timeoutMs ?? 60_000
             let timedOut = false
             const timer = setTimeout(() => {
               timedOut = true
-              try {
-                proc.kill("SIGTERM")
-              } catch {}
-              // Hard-kill 2s after SIGTERM if still alive.
-              setTimeout(() => {
-                try {
-                  proc.kill("SIGKILL")
-                } catch {}
-              }, 2_000)
+              killProc()
+              setTimeout(hardKillProc, 2_000)
             }, timeoutMs)
 
-            const onAbort = () => {
-              try {
-                proc.kill("SIGTERM")
-              } catch {}
-            }
+            const onAbort = () => { killProc() }
             input.signal?.addEventListener("abort", onAbort, { once: true })
 
             try {

@@ -88,7 +88,7 @@ async function main() {
 
   // Step 1: Run validation to reproduce the failure
   console.log("▸ Running validation to reproduce failure...")
-  const validateProc = Bun.spawn(["bun", "run", "script/ci-validate.ts"], {
+  const validateProc = Bun.spawn([process.execPath, "run", "script/ci-validate.ts"], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, TERM: "dumb", CI: "true" },
@@ -112,11 +112,9 @@ async function main() {
 
   // Step 2: Install nikcli
   console.log("▸ Installing nikcli...")
-  const installProc = Bun.spawn(["bash", "-c", "curl -fsSL https://nikcli.store/install | bash"], {
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, TERM: "dumb" },
-  })
+  const installProc = process.platform === "win32"
+    ? Bun.spawn(["powershell.exe", "-NoProfile", "-Command", "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri https://nikcli.store/install -UseBasicParsing | Invoke-Expression}"], { stdout: "pipe", stderr: "pipe", env: { ...process.env, TERM: "dumb" } })
+    : Bun.spawn(["bash", "-c", "curl -fsSL https://nikcli.store/install | bash"], { stdout: "pipe", stderr: "pipe", env: { ...process.env, TERM: "dumb" } })
   const installExit = await installProc.exited
   if (installExit !== 0) {
     const installErr = await new Response(installProc.stderr).text()
@@ -166,7 +164,7 @@ async function main() {
 
   // Step 4: Re-run validation after attempted fix
   console.log("\n▸ Running validation after autofix attempt...")
-  const revalidateProc = Bun.spawn(["bun", "run", "script/ci-validate.ts"], {
+  const revalidateProc = Bun.spawn([process.execPath, "run", "script/ci-validate.ts"], {
     stdout: "pipe",
     stderr: "pipe",
     env: { ...process.env, TERM: "dumb", CI: "true" },

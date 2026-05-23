@@ -246,9 +246,22 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
 }
 
 async function getShellConfigFile(): Promise<string | null> {
-  const shell = path.basename(process.env.SHELL || "bash")
   const home = os.homedir()
   const xdgConfig = process.env.XDG_CONFIG_HOME || path.join(home, ".config")
+
+  if (process.platform === "win32") {
+    const psProfile = path.join(home, "Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1")
+    const ps7Profile = path.join(home, "Documents", "PowerShell", "Microsoft.PowerShell_profile.ps1")
+    for (const file of [psProfile, ps7Profile]) {
+      const exists = await fs.access(file).then(() => true).catch(() => false)
+      if (!exists) continue
+      const content = await Bun.file(file).text().catch(() => "")
+      if (content.includes("nikcli")) return file
+    }
+    return null
+  }
+
+  const shell = path.basename(process.env.SHELL || "bash")
 
   const configFiles: Record<string, string[]> = {
     fish: [path.join(xdgConfig, "fish", "config.fish")],

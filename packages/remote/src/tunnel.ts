@@ -8,8 +8,27 @@ export type { TunnelProvider }
 export interface TunnelResult {
   url: string
   provider: TunnelProvider
-  close: () => Promise<void>
 }
+
+function killProcess(proc: ChildProcess | null) {
+  if (!proc || proc.killed) return
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/pid", String(proc.pid), "/f", "/t"], { stdio: "ignore" })
+  } else {
+    proc.kill("SIGKILL")
+  }
+}
+
+export class TunnelManager {
+  private process: ChildProcess | null = null
+  private tunnelInstance: any = null
+
+  constructor(provider: TunnelProvider) {
+    this.provider = provider
+
+    const cleanup = () => {
+      killProcess(this.process)
+    }
 
 export async function createTunnel(port: number, provider: TunnelProvider = "cloudflared"): Promise<TunnelResult> {
   const manager = new TunnelManager(provider)
@@ -270,7 +289,7 @@ export class TunnelManager {
 
 export async function checkTunnelAvailability(provider: TunnelProvider): Promise<boolean> {
   try {
-    const { execSync } = await import("node:child_process")
+    const { spawnSync } = await import("node:child_process")
 
     switch (provider) {
       case "localtunnel":
@@ -278,18 +297,18 @@ export async function checkTunnelAvailability(provider: TunnelProvider): Promise
           await import("localtunnel")
           return true
         } catch {
-          execSync("npx localtunnel --version", { stdio: "pipe" })
+          spawnSync("npx", ["localtunnel", "--version"], { stdio: "pipe" })
           return true
         }
       case "cloudflared":
-        execSync("cloudflared --version", { stdio: "pipe" })
+        spawnSync("cloudflared", ["--version"], { stdio: "pipe" })
         return true
       case "ngrok":
-        execSync("ngrok version", { stdio: "pipe" })
+        spawnSync("ngrok", ["version"], { stdio: "pipe" })
         return true
       case "remotosh":
         try {
-          execSync("remoto --version", { stdio: "pipe" })
+          spawnSync("remoto", ["--version"], { stdio: "pipe" })
           return true
         } catch {
           return false

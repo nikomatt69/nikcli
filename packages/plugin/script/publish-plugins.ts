@@ -2,7 +2,6 @@
 import { readdirSync, writeFileSync, rmSync, existsSync } from "fs"
 import { join, dirname } from "path"
 import { fileURLToPath } from "url"
-import { $ } from "bun"
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
 const pluginsDir = join(scriptDir, "..", "plugins")
@@ -10,7 +9,7 @@ const pluginsDir = join(scriptDir, "..", "plugins")
 // Determine publish tag from branch / env
 const channel = await (async () => {
   if (process.env["NIKCLI_CHANNEL"]) return process.env["NIKCLI_CHANNEL"]
-  const branch = await $`git branch --show-current`.text().then((x) => x.trim())
+  const branch = Bun.spawnSync(["git", "branch", "--show-current"], { stdout: "pipe" }).stdout.toString().trim()
   return branch === "main" ? "latest" : branch
 })()
 
@@ -46,9 +45,10 @@ for (const plugin of plugins) {
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
 
   process.stdout.write(`  ${plugin.padEnd(30)}`)
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm"
   try {
     // Pack and publish from within the plugin dir
-    const pack = Bun.spawnSync(["bun", "pm", "pack"], {
+    const pack = Bun.spawnSync([process.execPath, "pm", "pack"], {
       cwd: pluginDir,
       stdout: "pipe",
       stderr: "pipe",
@@ -61,7 +61,7 @@ for (const plugin of plugins) {
     const tgz = readdirSync(pluginDir).find((f) => f.endsWith(".tgz"))
     if (!tgz) throw new Error("No .tgz found after pack")
 
-    const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+    const publish = Bun.spawnSync([npmCmd, "publish", tgz, "--tag", channel, "--access", "public"], {
       cwd: pluginDir,
       stdout: "pipe",
       stderr: "pipe",

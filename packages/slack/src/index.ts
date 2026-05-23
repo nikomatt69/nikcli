@@ -1,3 +1,5 @@
+import { tmpdir } from "os"
+import { join } from "path"
 import { App, type SayFn } from "@slack/bolt"
 import {
   createNikcli,
@@ -110,7 +112,7 @@ const WHISPER_ENDPOINT =
     : "https://api.openai.com/v1/audio/transcriptions"
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
 const WHISPER_LANGUAGE = process.env.WHISPER_LANGUAGE
-const SESSIONS_FILE = process.env.SESSIONS_FILE ?? "/tmp/slack-sessions.json"
+const SESSIONS_FILE = process.env.SESSIONS_FILE ?? join(tmpdir(), "slack-sessions.json")
 const PROCESSING_FILES = new Set<string>()
 const AUDIO_EXTENSIONS = [".mp3", ".ogg", ".wav", ".m4a", ".webm", ".mp4", ".flac", ".aac"]
 

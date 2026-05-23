@@ -761,8 +761,8 @@ export class RemoteService extends EventEmitter {
 
   private async checkRemotoshAvailable(): Promise<boolean> {
     try {
-      const { execSync } = await import("node:child_process")
-      execSync("remoto --version", { stdio: "pipe", timeout: 10000 })
+      const { spawnSync } = await import("node:child_process")
+      spawnSync("remoto", ["--version"], { stdio: "pipe", timeout: 10000 })
       log.debug("Remotosh is available")
       return true
     } catch {
