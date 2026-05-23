@@ -1,27 +1,24 @@
-FROM oven/bun:1.3.14-debian AS base
+FROM oven/bun:1.3.14-debian
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    bash git libgcc-s1 libstdc++6 openssh-server curl ca-certificates patchelf \
+    bash git curl ca-certificates libgcc-s1 libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
-
-# Linuxbrew/Homebrew is useful for agent workflows that assume `brew` exists.
-# Install it without the interactive installer so Docker builds stay deterministic.
-ENV HOMEBREW_PREFIX=/home/linuxbrew/.linuxbrew
-ENV HOMEBREW_CELLAR=/home/linuxbrew/.linuxbrew/Cellar
-ENV HOMEBREW_REPOSITORY=/home/linuxbrew/.linuxbrew/Homebrew
-ENV PATH=/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH
-RUN mkdir -p /home/linuxbrew/.linuxbrew && \
-    git clone --depth=1 https://github.com/Homebrew/brew /home/linuxbrew/.linuxbrew/Homebrew && \
-    mkdir -p /home/linuxbrew/.linuxbrew/bin /home/linuxbrew/.linuxbrew/etc /home/linuxbrew/.linuxbrew/include /home/linuxbrew/.linuxbrew/lib /home/linuxbrew/.linuxbrew/sbin /home/linuxbrew/.linuxbrew/share /home/linuxbrew/.linuxbrew/var/homebrew && \
-    ln -s /home/linuxbrew/.linuxbrew/Homebrew/bin/brew /home/linuxbrew/.linuxbrew/bin/brew && \
-    brew --version
 
 WORKDIR /app
 
-FROM base AS build
-
-COPY package.json bun.lock /app/
+COPY package.json bun.lock ./
 COPY patches /app/patches
+COPY github/package.json /app/github/
+RUN mkdir -p /app/packages && \
+    for dir in \
+      app cloud companion console/app console/core console/function \
+      console/mail console/resource desktop enterprise function \
+      http-recorder inference inference-dashboard llm mobile nikcli \
+      plugin remote remote/web-client script sdk/js slack ui util \
+      web webrenderer companion/ui \
+    ; do \
+      mkdir -p "/app/packages/$dir"; \
+    done
 COPY packages/nikcli/package.json /app/packages/nikcli/
 COPY packages/script/package.json /app/packages/script/
 COPY packages/util/package.json /app/packages/util/
@@ -32,86 +29,48 @@ COPY packages/companion/package.json /app/packages/companion/
 COPY packages/slack/package.json /app/packages/slack/
 COPY packages/llm/package.json /app/packages/llm/
 COPY packages/http-recorder/package.json /app/packages/http-recorder/
-COPY github/package.json /app/github/
+COPY packages/app/package.json /app/packages/app/
+COPY packages/cloud/package.json /app/packages/cloud/
+COPY packages/console/app/package.json /app/packages/console/app/
+COPY packages/console/core/package.json /app/packages/console/core/
+COPY packages/console/function/package.json /app/packages/console/function/
+COPY packages/console/mail/package.json /app/packages/console/mail/
+COPY packages/console/resource/package.json /app/packages/console/resource/
+COPY packages/enterprise/package.json /app/packages/enterprise/
+COPY packages/ui/package.json /app/packages/ui/
+COPY packages/web/package.json /app/packages/web/
+COPY packages/desktop/package.json /app/packages/desktop/
+COPY packages/function/package.json /app/packages/function/
+COPY packages/mobile/package.json /app/packages/mobile/
+COPY packages/webrenderer/package.json /app/packages/webrenderer/
+COPY packages/inference/package.json /app/packages/inference/
+COPY packages/inference-dashboard/package.json /app/packages/inference-dashboard/
+COPY packages/companion/ui/package.json /app/packages/companion/ui/
+COPY packages/remote/web-client/package.json /app/packages/remote/web-client/
 
-# Stub package.json for workspace packages not built in this image
-RUN set -e; \
-    for entry in \
-      "packages/app:@nikcli-ai/app" \
-      "packages/cloud:@nikcli-ai/cloud" \
-      "packages/companion/ui:@nikcli-ai/companion-ui" \
-      "packages/console/app:@nikcli-ai/console-app" \
-      "packages/console/core:@nikcli-ai/console-core" \
-      "packages/console/function:@nikcli-ai/console-function" \
-      "packages/console/mail:@nikcli-ai/console-mail" \
-      "packages/console/resource:@nikcli-ai/console-resource" \
-      "packages/desktop:@nikcli-ai/desktop" \
-      "packages/enterprise:@nikcli-ai/enterprise" \
-      "packages/function:@nikcli-ai/function" \
-      "packages/mobile:@nikcli-ai/mobile" \
-      "packages/plugin/plugins/agent-memory:@nikcli-ai/plugin-agent-memory" \
-      "packages/plugin/plugins/background-agents:@nikcli-ai/plugin-background-agents" \
-      "packages/plugin/plugins/background:@nikcli-ai/plugin-background" \
-      "packages/plugin/plugins/context-analysis:@nikcli-ai/plugin-context-analysis" \
-      "packages/plugin/plugins/direnv:@nikcli-ai/plugin-direnv" \
-      "packages/plugin/plugins/dynamic-context-pruning:@nikcli-ai/plugin-dynamic-context-pruning" \
-      "packages/plugin/plugins/envsitter-guard:@nikcli-ai/plugin-envsitter-guard" \
-      "packages/plugin/plugins/handoff:@nikcli-ai/plugin-handoff" \
-      "packages/plugin/plugins/safety-net:@nikcli-ai/plugin-safety-net" \
-      "packages/plugin/plugins/smart-title:@nikcli-ai/plugin-smart-title" \
-      "packages/remote/web-client:@nikcli-ai/remote-client" \
-      "packages/ui:@nikcli-ai/ui" \
-      "packages/web:@nikcli-ai/web" \
-      "packages/webrenderer:@opentui/webrenderer" \
-    ; do \
-      dir="${entry%%:*}"; name="${entry##*:}"; \
-      mkdir -p "/app/$dir" && \
-      printf '{"name":"%s","version":"0.0.0","private":true}\n' "$name" > "/app/$dir/package.json"; \
-    done
+RUN bun install
 
-RUN cd /app && bun install
+COPY . .
 
-COPY packages/nikcli /app/packages/nikcli
-COPY packages/script /app/packages/script
-COPY packages/util /app/packages/util
-COPY packages/sdk/js /app/packages/sdk/js
-COPY packages/remote /app/packages/remote
-COPY packages/plugin /app/packages/plugin
-COPY packages/companion /app/packages/companion
-COPY packages/slack /app/packages/slack
-COPY packages/llm /app/packages/llm
-COPY packages/http-recorder /app/packages/http-recorder
-COPY github /app/github
+RUN mkdir -p /data /data/nikcli /data/cache /data/config /data/state
 
-ENV NIKCLI_CHANNEL=latest
-ENV NIKCLI_VERSION=1.5.0
-RUN cd /app && bun install --os="*" --cpu="*" @opentui/solid@0.1.95 @effect/platform-bun@4.0.0-beta.65
-RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install
-
-FROM base AS runtime
-
-COPY --from=build /app/packages/nikcli/dist /tmp/nikcli-dist
-
-ARG TARGETARCH
-ENV LD_PATH=/app/lib
-RUN mkdir -p /app/lib && \
-    if [ "$TARGETARCH" = "arm64" ]; then \
-        cp /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
-        cp $(ldd /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli 2>/dev/null | grep ld-linux | awk '{print $3}') /app/lib/ 2>/dev/null || true; \
-    else \
-        cp /tmp/nikcli-dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
-        cp /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /app/lib/ 2>/dev/null || cp /lib64/ld-linux-x86-64.so.2 /app/lib/ 2>/dev/null || true; \
-    fi && \
-    chmod +x /usr/local/bin/nikcli && \
-    [ -f /app/lib/ld-linux-x86-64.so.2 ] && patchelf --set-interpreter /app/lib/ld-linux-x86-64.so.2 /usr/local/bin/nikcli 2>/dev/null || true && \
-    rm -rf /tmp/nikcli-dist
-
-ENV LD_LIBRARY_PATH=/app/lib
-
-RUN mkdir -p /var/run/sshd /data /data/config /data/state && \
-    ssh-keygen -A && \
-    chmod 0755 /var/run/sshd && \
-    chmod 0644 /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ed25519_key
+# Entrypoint: print access info, then start serve
+RUN printf '#!/bin/bash\n\
+\n\
+NIKCLI="bun run --cwd /app/packages/nikcli --conditions=browser src/index.ts"\n\
+\n\
+mkdir -p /data/nikcli /data/cache /data/config /data/state\n\
+\n\
+echo ""\n\
+echo "==================== ACCESSO ===================="\n\
+echo " Password:     nikcli / dev123"\n\
+echo " Web App:      https://nikcli.store/app/connect"\n\
+echo " Server (LAN): http://${HOST_IP:-192.168.1.19}:${PORT:-4096}"\n\
+echo "=================================================="\n\
+echo ""\n\
+\n\
+exec $NIKCLI mobile serve --hostname 0.0.0.0 --port ${PORT:-4096}\n\
+' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 ENV PORT=4096
 ENV XDG_DATA_HOME=/data
@@ -119,16 +78,11 @@ ENV XDG_CACHE_HOME=/data/cache
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
 ENV NIKCLI_SERVER_USERNAME=nikcli
-ENV NIKCLI_SERVER_SSH_ENABLED=true
-ENV NIKCLI_SERVER_SSH_PORT=2222
-ENV NIKCLI_SERVER_SSH_HOST=0.0.0.0
-ENV NIKCLI_TERMINAL=1
-# Comma-separated list of extra origins to allow for CORS (e.g. your web domain)
-# Set NIKCLI_SERVER_CORS_ORIGINS=https://yourdomain.com in Railway environment variables
+ENV NIKCLI_SERVER_PASSWORD=dev123
 
-EXPOSE 4096 2222
+EXPOSE 4096
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -s -o /dev/null "http://127.0.0.1:${PORT:-4096}/" || exit 1
 
-CMD ["sh", "-c", "mkdir -p /data/nikcli /data/cache /data/config /data/state && if [ -n \"$NIKCLI_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_AUTH_JSON\" | base64 -d > /data/nikcli/auth.json; fi && if [ -n \"$NIKCLI_CONNECTORS_AUTH_JSON\" ]; then printf '%s' \"$NIKCLI_CONNECTORS_AUTH_JSON\" | base64 -d > /data/nikcli/connectors-auth.json; fi && exec nikcli mobile serve --hostname 0.0.0.0 --port ${PORT:-4096} --pair --public-url https://${RAILWAY_PUBLIC_DOMAIN:-nikcli-mobile-production.up.railway.app}"]
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]

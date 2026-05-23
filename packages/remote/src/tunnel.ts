@@ -20,27 +20,6 @@ function killProcess(proc: ChildProcess | null) {
 }
 
 export class TunnelManager {
-  private process: ChildProcess | null = null
-  private tunnelInstance: any = null
-
-  constructor(provider: TunnelProvider) {
-    this.provider = provider
-
-    const cleanup = () => {
-      killProcess(this.process)
-    }
-
-export async function createTunnel(port: number, provider: TunnelProvider = "cloudflared"): Promise<TunnelResult> {
-  const manager = new TunnelManager(provider)
-  const url = await manager.create(port)
-  return {
-    url,
-    provider,
-    close: () => manager.close(),
-  }
-}
-
-export class TunnelManager {
   private provider: TunnelProvider
   private process: ChildProcess | null = null
   private url: string | null = null
@@ -284,6 +263,16 @@ export class TunnelManager {
         }
       })
     })
+  }
+}
+
+export async function createTunnel(port: number, provider: TunnelProvider = "cloudflared"): Promise<TunnelResult> {
+  const manager = new TunnelManager(provider)
+  const url = await manager.create(port)
+  return {
+    url,
+    provider,
+    close: () => manager.close(),
   }
 }
 
