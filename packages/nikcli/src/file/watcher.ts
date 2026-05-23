@@ -15,6 +15,9 @@ import { Flag } from "@/flag/flag"
 import { readdir } from "fs/promises"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Context, Effect, Layer } from "effect"
+import { createRequire } from "module"
+
+const require = createRequire(import.meta.url)
 
 const SUBSCRIBE_TIMEOUT_MS = 10_000
 
