@@ -47,6 +47,7 @@ import { Truncate } from "@/tool/truncation"
 import { Context, Effect, Layer, ScopedCache } from "effect"
 import { Instance } from "@/project/instance"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
+import { errorMessage } from "@/util/error"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
 
@@ -77,6 +78,7 @@ export namespace SessionPrompt {
   export function isUserInitiatedStop(error: unknown) {
     if (error === undefined) return true
     if (error instanceof DOMException && error.name === "AbortError") return true
+    if (errorMessage(error) === "RunnerCancelled") return true
     return error instanceof Error && error.name === "AbortError"
   }
 
@@ -331,10 +333,9 @@ export namespace SessionPrompt {
     return InstanceState.context.pipe(Effect.flatMap((ctx) => runInInstanceContext(ctx, fn)))
   }
 
-  class StateCache extends Context.Service<
-    StateCache,
-    ScopedCache.ScopedCache<string, PromptState>
-  >()("SessionPrompt.StateCache") {}
+  class StateCache extends Context.Service<StateCache, ScopedCache.ScopedCache<string, PromptState>>()(
+    "SessionPrompt.StateCache",
+  ) {}
 
   const stateLayer = Layer.effect(
     StateCache,
@@ -559,9 +560,11 @@ export namespace SessionPrompt {
     const s = state()
     const match = s[sessionID]
     if (!match || match.abort !== controller) return
+    match.cancelling = true
     for (const item of match.callbacks) {
       item.reject()
     }
+    match.callbacks = []
     delete s[sessionID]
     await setStatus(sessionID, { type: "idle" })
   }

@@ -188,6 +188,18 @@ export const TuiThreadCommand = cmd({
       worker.terminate()
     }
 
+    const restart = async () => {
+      await stop()
+      process.exitCode = 0
+      // Re-exec the current process with the same arguments
+      Bun.spawn([process.execPath, ...process.argv.slice(1)], {
+        stdio: ["inherit", "inherit", "inherit"],
+        env: process.env,
+        detached: true,
+      })
+      process.exit(0)
+    }
+
     // Mobile (and any nikcli-managed PTY) sets NIKCLI_TERMINAL=1 in env. Bun can still report
     // `stdin.isTTY === false` in that PTY, which would incorrectly take the "piped stdin" path
     // below and block forever on `Bun.stdin.text()` — so the OpenTUI renderer never starts.
@@ -245,6 +257,7 @@ export const TuiThreadCommand = cmd({
       const { tui } = await import("./app")
       const tuiPromise = tui({
         url,
+        directory: cwd,
         fetch: customFetch,
         events,
         args: {
@@ -255,6 +268,10 @@ export const TuiThreadCommand = cmd({
           prompt,
         },
         onExit: stop,
+        onRestart: restart,
+        upgradeNow: async (method: string, version: string) => {
+          await client.call("upgradeNow", { directory: cwd, method, version })
+        },
         startServer: !shouldStartServer
           ? async () => {
               const result = await client.call("server", { port: 0, hostname: "127.0.0.1" })

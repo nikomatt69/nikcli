@@ -58,9 +58,9 @@ export namespace SessionRunState {
         const existing = runners.get(sessionID)
         if (existing) return existing
         const runner = makeRunner<unknown, unknown>(scope, {
-          onIdle: status.set(sessionID, { type: "idle" }).pipe(
-            Effect.tap(() => Effect.sync(() => runners.delete(sessionID))),
-          ),
+          onIdle: status
+            .set(sessionID, { type: "idle" })
+            .pipe(Effect.tap(() => Effect.sync(() => runners.delete(sessionID)))),
           onBusy: status.set(sessionID, { type: "busy", since: Date.now() } as any),
           onInterrupt,
         })
@@ -78,20 +78,6 @@ export namespace SessionRunState {
       const cancel = (sessionID: string): Effect.Effect<void> =>
         Effect.gen(function* () {
           const existing = runners.get(sessionID)
-          // #region agent log
-          fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-            body: JSON.stringify({
-              sessionId: "6f5e48",
-              hypothesisId: "F",
-              location: "run-state.ts:cancel",
-              message: "SessionRunState.cancel",
-              data: { sessionID, hasRunner: !!existing, runnerBusy: existing?.busy ?? null },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
           if (!existing || !existing.busy) {
             yield* status.set(sessionID, { type: "idle" })
             return
@@ -116,11 +102,13 @@ export namespace SessionRunState {
       ): Effect.Effect<A, E | BusyError> =>
         Effect.suspend(() => {
           const runner = get(sessionID, onInterrupt as Effect.Effect<unknown>)
-          return runner.startShell(work as Effect.Effect<unknown, unknown>).pipe(
-            Effect.mapError((e: unknown) =>
-              (e as { _tag?: string })?._tag === "RunnerBusy" ? new BusyError({ sessionID }) : (e as E),
-            ),
-          ) as Effect.Effect<A, E | BusyError>
+          return runner
+            .startShell(work as Effect.Effect<unknown, unknown>)
+            .pipe(
+              Effect.mapError((e: unknown) =>
+                (e as { _tag?: string })?._tag === "RunnerBusy" ? new BusyError({ sessionID }) : (e as E),
+              ),
+            ) as Effect.Effect<A, E | BusyError>
         })
 
       return Service.of({

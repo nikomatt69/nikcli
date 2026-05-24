@@ -1047,36 +1047,10 @@ export function Prompt(props: PromptProps) {
         hidden: true,
         enabled: status().type !== "idle",
         onSelect: (dialog) => {
-          // Guard refs - they may be undefined briefly during mount/unmount.
-          // Without these guards a TypeError escapes the keyboard handler and
-          // corrupts the terminal state when ESC is pressed during processing.
           const guardAutocomplete = (autocomplete as AutocompleteRef | undefined)?.visible
           const guardFocused = (input as TextareaRenderable | undefined)?.focused
           const guardShell = store.mode === "shell"
           const guardNoSession = !props.sessionID
-          const statusType = status().type
-          // #region agent log
-          fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-            body: JSON.stringify({
-              sessionId: "6f5e48",
-              hypothesisId: "B",
-              location: "prompt/index.tsx:onSelect",
-              message: "session.interrupt onSelect entered",
-              data: {
-                sessionID: props.sessionID,
-                statusType,
-                interruptCount: store.interrupt,
-                guardAutocomplete,
-                guardFocused,
-                guardShell,
-                guardNoSession,
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {})
-          // #endregion
           if (guardAutocomplete) return
           if (!guardFocused) return
           if (guardShell) {
@@ -1101,54 +1075,7 @@ export function Prompt(props: PromptProps) {
           if (newCount >= 2) {
             if (!props.sessionID) return
             const sessionID = props.sessionID
-            // #region agent log
-            fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-              body: JSON.stringify({
-                sessionId: "6f5e48",
-                hypothesisId: "C",
-                location: "prompt/index.tsx:abort",
-                message: "double ESC calling session.abort",
-                data: { sessionID, newCount },
-                timestamp: Date.now(),
-              }),
-            }).catch(() => {})
-            // #endregion
-            void sdk.client.session
-              .abort({ sessionID })
-              .then(() => {
-                // #region agent log
-                fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-                  body: JSON.stringify({
-                    sessionId: "6f5e48",
-                    hypothesisId: "C",
-                    location: "prompt/index.tsx:abort",
-                    message: "session.abort succeeded",
-                    data: { sessionID },
-                    timestamp: Date.now(),
-                  }),
-                }).catch(() => {})
-                // #endregion
-              })
-              .catch((err) => {
-                // #region agent log
-                fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-                  body: JSON.stringify({
-                    sessionId: "6f5e48",
-                    hypothesisId: "C",
-                    location: "prompt/index.tsx:abort",
-                    message: "session.abort failed",
-                    data: { sessionID, error: err instanceof Error ? err.message : String(err) },
-                    timestamp: Date.now(),
-                  }),
-                }).catch(() => {})
-                // #endregion
-              })
+            void sdk.client.session.abort({ sessionID }).catch(() => {})
             setStore("interrupt", 0)
             if (interruptResetTimer) {
               clearTimeout(interruptResetTimer)
@@ -1619,7 +1546,7 @@ export function Prompt(props: PromptProps) {
       }, 50)
     input.clear()
   }
-  const exit = useExit()
+  const { exit } = useExit()
 
   function pasteText(text: string, virtualText: string) {
     const currentOffset = input.visualCursor.offset

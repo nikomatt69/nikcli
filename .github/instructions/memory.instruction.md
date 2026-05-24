@@ -1,21 +1,14 @@
 # nikcli Project Memory
 
+**Last updated**: 2026-05-24
+
 ## Overview
-
-**nikcli** is an AI-powered development CLI tool (v1.2.0) — an autonomous coding agent with TUI, server mode, multi-agent system, 40+ tools, and 20+ AI provider support.
-
-- **Repository**: https://github.com/nikomatt69/nikcli
-- **Default branch**: `dev`
-- **License**: MIT
-- **Package manager**: Bun 1.3.12 (ESM throughout)
-
-## Technology Stack
 
 ### Core
 
-- **Bun** (v1.3.12–1.3.13) — runtime, package manager
+- **Bun** (v1.3.x) — runtime, package manager
 - **TypeScript** 5.8/5.9 — primary language (also `tsgo` for typecheck)
-- **Turborepo** 2.5.6 — monorepo orchestration
+- **Turborepo** — monorepo orchestration
 - **Zod** 4.1.8 — validation (with `.meta()` for OpenAPI refs)
 
 ### Frontend
@@ -118,6 +111,42 @@
 - Binary shim (`bin/nikcli`) locates platform package binary and forwards argv
 - Default command is TUI (registered as `$0 [project]` in `src/cli/cmd/tui/thread.ts:52`) — invoking `nikcli` with no subcommand lands there
 - Even local CLI execution goes through internal server API: `run` builds SDK client whose `fetch` points at `Server.App().fetch()` in `src/cli/cmd/run.ts:533`
+- Uses `Installation.VERSION` (injected at build time via `NIKCLI_VERSION` env var) for `--version` flag
+
+### CLI Startup & Auto-Upgrade Flow
+
+**Entry chain:**
+1. `src/index.ts` → yargs parses args → calls TUI command `src/cli/cmd/tui/thread.ts`
+2. `thread.ts` → spawns worker process → mounts TUI via `render(...).mount()`
+3. Worker sends `checkUpgrade` RPC call 1 second after TUI startup (`thread.ts:266-268`):
+   ```ts
+   setTimeout(() => { client.call("checkUpgrade", { directory: cwd }).catch(() => {}) }, 1000).unref?.()
+   ```
+4. Worker `checkUpgrade` → calls `upgrade()` from `src/cli/upgrade.ts`
+
+**`upgrade()` function (`src/cli/upgrade.ts`):**
+1. Load global config (skip if no config)
+2. Detect install method via `Installation.method()` (npm, brew, curl, etc. — `"unknown"` skips)
+3. Fetch latest version via `Installation.latest(method)`
+4. If already at latest → skip
+5. If `autoupdate === false` or `NIKCLI_DISABLE_AUTOUPDATE=1` → skip
+6. Determine release kind (major/minor/patch) via `Installation.getReleaseType(current, latest)`
+7. If `autoupdate === "notify"` OR non-patch → publish `UpdateAvailable` event only (TUI shows toast/dialog)
+8. If patch + autoupdate enabled → auto-upgrade silently, publish `Updated` event
+
+**TUI upgrade dialog (`src/cli/cmd/tui/app.tsx`):**
+- Listens for `installation.update-available` event via `Bus.subscribe()`
+- Shows `DialogConfirm` with version info, "Update & Restart" / "Later" buttons
+- If "Update & Restart": calls `upgradeNow()` from props → worker RPC → `Installation.upgrade()` → `Bus.publish(Updated)` → restart
+- Listens for `installation.updated` event for restart confirmation toast
+
+**Installation module (`src/installation/index.ts`):**
+- `Installation.VERSION` — injected at build time (`NIKCLI_VERSION` env var), fallback `"local"`
+- `Installation.CHANNEL` — injected at build time (`NIKCLI_CHANNEL` env var), fallback `"local"`
+- Effect Service with methods: `info()`, `method()`, `latest(method)`, `upgrade(method, target)`
+- `methodImpl()`: detects install method by checking `process.execPath` and running package manager commands
+- `method()` returns: `"bun"` | `"npm"` | `"pnpm"` | `"yarn"` | `"brew"` | `"curl"` | `"choco"` | `"scoop"` | `"unknown"`
+- `upgradeImpl()`: handles upgrade per method — for `"brew"` uses `brew upgrade <formula>` with `HOMEBREW_NO_AUTO_UPDATE=1`
 
 ### CLI Commands (32 commands)
 
@@ -165,36 +194,16 @@ Custom agents from `nikcli.json` config extend/override built-ins.
 ### Session System (`src/session/`)
 
 - `Session.Info` Zod schema: id, slug, projectID, directory, parentID, workspaceID, share, github, title, version, time, permission, skills, revert
-- **MessageV2**: `{ type: "text" | "reasoning" | "tool" | "file" | "step-start" | "step-finish" | "snapshot" | "patch" | "agent" | "retry" | "compaction" | "subtask" }`
+- **MessageV2**: `{ type: "text" | "reasoning" | "tool" | "file" | "step-start" | "step-finish" | "snapshot" | "patch" | "agent" | "retry" | "compaction" | "subtask" }` — with optional `usage` (input/total/cached), `finish_reason`, `model_id`, `cost` fields on each message
 - **SessionProcessor** (`processor.ts`): doom loop detection (threshold: 3), compaction check, permission deny handling, retry logic
-- **LLM streaming** (`llm.ts`): full stream with reasoning-start/delta/end, text-delta, tool-call, tool-result, error, finish
+- **LLM streaming** (`llm.ts`): full stream with reasoning-start/delta/end, text-delta, tool-call, tool-result, error, finish; `looksLikeUIMessage()` + `repairMessage()` for malformed UI-shaped messages (fixes `AI_InvalidPromptError`); drops unrecoverable messages with warning
 - **ShareNext** (`share-next.ts`): syncs session data to enterprise endpoint (`s.nikcli.store`), with local fallback
 - **SessionPrompt** (`prompt.ts`): system prompts per provider (anthropic, gemini, qwen, beast, copilot-gpt-5, etc.)
 - **SessionCompaction** (`compaction.ts`): auto-compaction based on token usage
 - **SessionSummary** (`summary.ts`): session summarization
 - **Todo** (`todo.ts`): todo list management (used for plan tracking)
+- **Usage** (`usage.ts`): aggregates token usage and cost from session messages (input/total/cached), calculates cost from provider pricing
 - Events: `session.created`, `session.updated`, `session.deleted`, `session.diff`, `session.error`
-
-### Provider System (`src/provider/provider.ts`)
-
-- `Provider.Info` and `Provider.Model` types
-- 17+ providers with direct imports (not dynamic loading)
-- Ollama auto-discovery: probes `http://127.0.0.1:11434/v1/models`, configurable `OLLAMA_BASE_URL` and `OLLAMA_API_KEY`
-- `Provider.parseModel("providerID/modelID")` — parses model strings
-- `Provider.sort(models)` — sorts by capability/recency
-- Cost calculation with cache-aware pricing, over-200K multiplier support
-- `ProviderTransform` for provider-specific options (e.g., OpenAI store/instructions)
-
-**Model Listing / Refresh (`src/provider/models.ts`):**
-
-- `nikcli models --refresh` calls `ModelsDev.refresh()` which fetches `${NIKCLI_MODELS_URL}/api.json` (default: `https://models.dev`) and writes to `Global.Path.cache/models.json`
-- Cache can be disabled with `NIKCLI_DISABLE_MODELS_FETCH`; overridden via `NIKCLI_MODELS_URL` or `MODELS_DEV_API_JSON`
-- `ModelsDev.get()` opportunistically refreshes in background, reads cache, falls back to embedded macro data
-- Background refresh runs hourly via `setInterval(...).unref()`
-- Local MiniMax patches injected via `ModelsDev.patch()` into `minimax`, `minimax-cn`, `minimax-coding-plan`, `minimax-cn-coding-plan`, `openrouter`
-- Cursor injected via `cursorModelsDevProvider()` (not in models.dev catalog)
-- Provider activation/filters apply: config gating (`disabled_providers`/`enabled_providers`), nikcli.json overrides, env vars, stored auth, plugin loaders, model-level blacklist/whitelist
-- Final exclusions: `gpt-5-chat-latest`, `alpha` (unless `NIKCLI_ENABLE_EXPERIMENTAL_MODELS`), `deprecated`, disabled variants, empty providers
 
 ### Config System (`src/config/config.ts`)
 

@@ -57,8 +57,10 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
 import { DialogAlert } from "./ui/dialog-alert"
+import { DialogConfirm } from "./ui/dialog-confirm"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
+import { Usage } from "./util/usage"
 import { Session as SessionApi } from "@/session"
 import { TuiEvent } from "./event"
 import { KVProvider, useKV } from "./context/kv"
@@ -112,6 +114,8 @@ export function tui(input: {
   fetch?: typeof fetch
   events?: EventSource
   onExit?: () => Promise<void>
+  onRestart?: () => Promise<void>
+  upgradeNow?: (method: string, version: string) => Promise<void>
   startServer?: () => Promise<string>
 }) {
   // promise to prevent immediate exit
@@ -134,7 +138,7 @@ export function tui(input: {
           fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
         >
           <ArgsProvider {...input.args}>
-            <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()}>
+            <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()} onRestart={input.onRestart}>
               <ServerProvider startServer={input.startServer}>
                 <KVProvider>
                   <ToastProvider>
@@ -158,7 +162,7 @@ export function tui(input: {
                                             <PromptHistoryProvider>
                                               <EditorContextProvider>
                                                 <PromptRefProvider>
-                                                  <App />
+                                                  <App upgradeNow={input.upgradeNow} />
                                                 </PromptRefProvider>
                                               </EditorContextProvider>
                                             </PromptHistoryProvider>
@@ -202,7 +206,23 @@ function LegacyRedirect(props: {
   return null
 }
 
-function App() {
+const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+
+function formatDuration(ms: number) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const hours = Math.floor(total / 3600)
+  const minutes = Math.floor((total % 3600) / 60)
+  const seconds = total % 60
+  if (hours > 0) return `${hours}h ${minutes}m`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function sessionIDFromRoute(route: ReturnType<typeof useRoute>["data"]) {
+  return "sessionID" in route ? route.sessionID : undefined
+}
+
+function App(props: { upgradeNow?: (method: string, version: string) => Promise<void> }) {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
@@ -216,7 +236,7 @@ function App() {
   const themeCtx = useTheme()
   const { theme, mode, setMode } = themeCtx
   const sync = useSync()
-  const exit = useExit()
+  const { exit, restart, setSummary } = useExit()
   const promptRef = usePromptRef()
   const keybind = useKeybind()
 
@@ -226,6 +246,63 @@ function App() {
   const bump = () => setPluginRouteKey((k) => k + 1)
   const [pluginsReady, setPluginsReady] = createSignal(false)
   const [onboardingActive, setOnboardingActive] = createSignal(false)
+
+  setSummary(() => {
+    const sessionID = sessionIDFromRoute(route.data)
+    if (!sessionID) return
+    const session = sync.session.get(sessionID)
+    const messages = sync.data.message[sessionID] ?? []
+    const usage = Usage.fromMessages(messages, sync.data.provider)
+    const totals = messages.reduce(
+      (acc, message) => {
+        if (message.role !== "assistant") return acc
+        const tokens =
+          message.tokens.total && message.tokens.total > 0
+            ? message.tokens.total
+            : message.tokens.input +
+              message.tokens.output +
+              message.tokens.reasoning +
+              message.tokens.cache.read +
+              message.tokens.cache.write
+        acc.tokens += tokens
+        acc.input += message.tokens.input
+        acc.output += message.tokens.output
+        acc.reasoning += message.tokens.reasoning
+        acc.cost += message.cost
+        return acc
+      },
+      { tokens: 0, input: 0, output: 0, reasoning: 0, cost: 0 },
+    )
+    const title = session?.title && !SessionApi.isDefaultTitle(session.title) ? session.title : "Untitled session"
+    const duration = session ? formatDuration(Date.now() - session.time.created) : undefined
+    const context = usage.model?.contextLimit
+      ? `${Usage.formatTokens(usage.tokens)} / ${Usage.formatTokens(usage.model.contextLimit)} (${Usage.formatPct(usage.tokens, usage.model.contextLimit)})`
+      : Usage.formatTokens(usage.tokens)
+    const model = usage.model ? `${usage.model.providerID}/${usage.model.modelID}` : "—"
+    const resume = `nikcli --session ${sessionID}`
+
+    return [
+      "",
+      "   _   _ _ _        _ _",
+      "  | \ | (_) | _____| (_)",
+      "  |  \| | | |/ / __| | |",
+      "  | |\  | |   < (__| | |",
+      "  |_| \_|_|_|\_\\___|_|_|",
+      "",
+      `  Session  ${title}`,
+      `  Resume   ${resume}`,
+      duration ? `  Time     ${duration}` : undefined,
+      `  Model    ${model}`,
+      totals.tokens > 0
+        ? `  Tokens   ${Usage.formatTokens(totals.tokens)} total (${Usage.formatTokens(totals.input)} in, ${Usage.formatTokens(totals.output)} out${totals.reasoning > 0 ? `, ${Usage.formatTokens(totals.reasoning)} reasoning` : ""})`
+        : undefined,
+      `  Context  ${context}`,
+      totals.cost > 0 ? `  Cost     ${money.format(totals.cost)}` : undefined,
+      "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+  })
 
   onMount(() => {
     void (async () => {
@@ -490,8 +567,7 @@ function App() {
       },
       onSelect: () => {
         const sessionID = route.data.type === "session" ? route.data.sessionID : undefined
-        const hasDiff =
-          route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0
+        const hasDiff = route.data.type === "session" && (sync.data.session_diff[route.data.sessionID]?.length ?? 0) > 0
         route.navigate({
           type: "workspace",
           tab: hasDiff ? "changes" : "tree",
@@ -1102,13 +1178,68 @@ function App() {
           duration: 5000,
         })
       }),
-      sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
+      sdk.event.on(Installation.Event.UpdateAvailable.type, async (evt) => {
+        const version = evt.properties.version
+        const method = (evt.properties as { method?: Installation.Method }).method
+        const currentVersion = Installation.VERSION
+
+        // Friendly method name for display
+        const methodLabel = method
+          ? method === "brew"
+            ? "Homebrew"
+            : method === "npm" || method === "yarn" || method === "pnpm" || method === "bun"
+              ? method.toUpperCase()
+              : method === "curl"
+                ? "curl"
+                : method === "choco"
+                  ? "Chocolatey"
+                  : method === "scoop"
+                    ? "Scoop"
+                    : method
+          : undefined
+
+        const upgradeHint = methodLabel ? `Will upgrade via ${methodLabel}.` : ""
+
+        const confirmed = await DialogConfirm.show(
+          dialog,
+          "Update Available",
+          `Nikcli v${version} is available (you have v${currentVersion}). ${upgradeHint}\n\nUpgrade now? The CLI will restart after updating.`,
+          "confirm",
+        )
+
+        if (!confirmed) return
+
+        // Show a spinner while upgrading
         toast.show({
           variant: "info",
-          title: "Update Available",
-          message: `Nikcli v${evt.properties.version} is available. Run 'nikcli upgrade' to update manually.`,
-          duration: 10000,
+          title: "Upgrading...",
+          message: `Upgrading to v${version}...`,
+          duration: 120_000,
         })
+
+        try {
+          if (!props.upgradeNow) throw new Error("upgrade helper unavailable")
+          if (!method) throw new Error("installation method unavailable")
+          await props.upgradeNow(method, version)
+
+          toast.show({
+            variant: "success",
+            title: "Upgraded!",
+            message: `Nikcli v${version} installed. Restarting...`,
+            duration: 5_000,
+          })
+
+          // Give the toast a moment to render, then restart
+          await Bun.sleep(1500)
+          await restart()
+        } catch (error) {
+          toast.show({
+            variant: "error",
+            title: "Upgrade Failed",
+            message: `Failed to upgrade: ${error instanceof Error ? error.message : String(error)}. Try running 'nikcli upgrade' manually.`,
+            duration: 10_000,
+          })
+        }
       }),
       sdk.event.on("permission.asked", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined

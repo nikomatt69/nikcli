@@ -4,10 +4,22 @@ import { FormatError, FormatUnknownError } from "@/cli/error"
 
 export const { use: useExit, provider: ExitProvider } = createSimpleContext({
   name: "Exit",
-  init: (input: { onExit?: () => Promise<void>; onBeforeExit?: () => Promise<void> }) => {
+  init: (input: {
+    onExit?: () => Promise<void>
+    onBeforeExit?: () => Promise<void>
+    onRestart?: () => Promise<void>
+  }) => {
     const renderer = useRenderer()
     let exiting = false
-    return async (reason?: any) => {
+    let summary: (() => string | undefined) | undefined
+
+    const writeSummary = () => {
+      const text = summary?.()
+      if (!text) return
+      process.stdout.write(text + "\n")
+    }
+
+    const exit = async (reason?: any) => {
       if (exiting) return
       exiting = true
 
@@ -24,6 +36,7 @@ export const { use: useExit, provider: ExitProvider } = createSimpleContext({
       try {
         renderer.setTerminalTitle("")
         renderer.destroy()
+        if (!reason) writeSummary()
       } catch (error) {
         errors.push(error)
         exitCode = 1
@@ -44,6 +57,40 @@ export const { use: useExit, provider: ExitProvider } = createSimpleContext({
       }
 
       process.exit(exitCode)
+    }
+
+    const restart = async () => {
+      if (exiting) return
+      exiting = true
+
+      try {
+        await input.onBeforeExit?.()
+      } catch {
+        // best effort
+      }
+
+      try {
+        renderer.setTerminalTitle("")
+        renderer.destroy()
+      } catch {
+        // best effort
+      }
+
+      try {
+        await input.onExit?.()
+      } catch {
+        // best effort
+      }
+
+      await input.onRestart?.()
+    }
+
+    return {
+      exit,
+      restart,
+      setSummary(fn: (() => string | undefined) | undefined) {
+        summary = fn
+      },
     }
   },
 })

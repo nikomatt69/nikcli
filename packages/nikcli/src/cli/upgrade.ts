@@ -18,6 +18,11 @@ function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>): Promise<A
   return runPromiseWithLayer(Config.defaultLayer, effect)
 }
 
+/**
+ * Checks for available updates and publishes an event so the TUI can
+ * show an interactive upgrade dialog. The actual upgrade is triggered
+ * by the user from the dialog (see upgradeNow).
+ */
 export async function upgrade(): Promise<void> {
   log.debug("Starting upgrade check")
 
@@ -33,6 +38,11 @@ export async function upgrade(): Promise<void> {
 
   if (config === null) {
     log.debug("Skipping upgrade - no config available")
+    return
+  }
+
+  if (config.autoupdate === false || Flag.NIKCLI_DISABLE_AUTOUPDATE) {
+    log.debug("Auto-update disabled in config")
     return
   }
 
@@ -71,32 +81,26 @@ export async function upgrade(): Promise<void> {
     return
   }
 
-  log.info("Update available", { current: Installation.VERSION, latest })
+  log.info("Update available", { current: Installation.VERSION, latest, method })
 
-  if (config.autoupdate === false || Flag.NIKCLI_DISABLE_AUTOUPDATE) {
-    log.debug("Auto-update disabled in config")
-    return
-  }
+  // Always notify the TUI — the dialog handles the user choice
+  await Bus.publish(Installation.Event.UpdateAvailable, { version: latest, method })
+}
 
-  const kind = Installation.getReleaseType(Installation.VERSION, latest)
-  log.debug("Release type", { kind, current: Installation.VERSION, latest })
+/**
+ * Performs the actual upgrade for the given method and version.
+ * Called from the TUI dialog after the user confirms.
+ */
+export async function upgradeNow(method: InstallationMethod, version: string): Promise<void> {
+  log.info("Upgrading", { method, version })
 
-  if (config.autoupdate === "notify" || kind !== "patch") {
-    log.debug("Notifying update available (non-patch or notify mode)", { kind })
-    await Bus.publish(Installation.Event.UpdateAvailable, { version: latest })
-    return
-  }
+  await runInstallation(
+    Effect.gen(function* () {
+      const installation = yield* Installation.Service
+      return yield* installation.upgrade(method, version)
+    }),
+  )
 
-  try {
-    await runInstallation(
-      Effect.gen(function* () {
-        const installation = yield* Installation.Service
-        return yield* installation.upgrade(method, latest)
-      }),
-    )
-    log.info("Upgrade completed", { version: latest })
-    await Bus.publish(Installation.Event.Updated, { version: latest })
-  } catch (error) {
-    log.error("Upgrade failed", { error, version: latest })
-  }
+  log.info("Upgrade completed", { version })
+  await Bus.publish(Installation.Event.Updated, { version })
 }

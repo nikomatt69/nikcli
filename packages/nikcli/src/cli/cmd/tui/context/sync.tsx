@@ -395,7 +395,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       }
     })
 
-    const exit = useExit()
+    const { exit } = useExit()
     const args = useArgs()
 
     async function refreshProviders() {

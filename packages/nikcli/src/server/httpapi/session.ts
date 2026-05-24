@@ -1,5 +1,5 @@
 import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
-import { Effect, Layer, Schema, SchemaGetter } from "effect"
+import { Cause, Effect, Layer, Schema, SchemaGetter } from "effect"
 import { Delegation } from "@/delegation/manager"
 import { InstanceState } from "@/effect"
 import { Monitor } from "@/monitor/manager"
@@ -112,7 +112,13 @@ export namespace SessionHttpApi {
     .add(HttpApiEndpoint.post("unrevert", "/:sessionID/unrevert", { params: SessionIDPath, success: SessionInfo }))
     .add(HttpApiEndpoint.get("children", "/:sessionID/children", { params: SessionIDPath, success: SessionList }))
     .add(HttpApiEndpoint.get("todo", "/:sessionID/todo", { params: SessionIDPath, success: TodoList }))
-    .add(HttpApiEndpoint.get("diff", "/:sessionID/diff", { params: SessionIDPath, query: DiffQuery, success: FileDiffList }))
+    .add(
+      HttpApiEndpoint.get("diff", "/:sessionID/diff", {
+        params: SessionIDPath,
+        query: DiffQuery,
+        success: FileDiffList,
+      }),
+    )
     .add(
       HttpApiEndpoint.get("messages", "/:sessionID/message", {
         params: SessionIDPath,
@@ -120,9 +126,24 @@ export namespace SessionHttpApi {
         success: MessageList,
       }),
     )
-    .add(HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", { params: MessagePath, success: MessageWithParts }))
-    .add(HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", { params: MessagePath, success: BooleanResult }))
-    .add(HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", { params: PartPath, success: BooleanResult }))
+    .add(
+      HttpApiEndpoint.get("message", "/:sessionID/message/:messageID", {
+        params: MessagePath,
+        success: MessageWithParts,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("messageRemove", "/:sessionID/message/:messageID", {
+        params: MessagePath,
+        success: BooleanResult,
+      }),
+    )
+    .add(
+      HttpApiEndpoint.delete("partRemove", "/:sessionID/message/:messageID/part/:partID", {
+        params: PartPath,
+        success: BooleanResult,
+      }),
+    )
     .add(
       HttpApiEndpoint.patch("partUpdate", "/:sessionID/message/:messageID/part/:partID", {
         params: PartPath,
@@ -190,10 +211,12 @@ export namespace SessionHttpApi {
       }).pipe(Effect.orDie),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
-        yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(params.sessionID))
-        yield* Effect.promise(() => Monitor.cancelAll(params.sessionID))
-        const sessionPrompt = yield* SessionPrompt.Service
-        yield* sessionPrompt.cancel(params.sessionID)
+        yield* Effect.gen(function* () {
+          yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(params.sessionID))
+          yield* Effect.promise(() => Monitor.cancelAll(params.sessionID))
+          const sessionPrompt = yield* SessionPrompt.Service
+          yield* sessionPrompt.cancel(params.sessionID)
+        }).pipe(Effect.catchCauseIf(Cause.hasInterruptsOnly, () => Effect.void))
         return true
       }).pipe(Effect.orDie),
     revert: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof RevertPayload.Type }) =>
@@ -306,8 +329,5 @@ export namespace SessionHttpApi {
     never
   >
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

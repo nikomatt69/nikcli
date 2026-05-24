@@ -4,7 +4,7 @@ import { Log } from "@/util/log"
 import { Instance } from "@/project/instance"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Rpc } from "@/util/rpc"
-import { upgrade } from "@/cli/upgrade"
+import { upgrade, upgradeNow } from "@/cli/upgrade"
 import { Config } from "@/config/config"
 import { GlobalBus } from "@/bus/global"
 import { createNikcliClient, type Event } from "@nikcli-ai/sdk/v2"
@@ -139,6 +139,15 @@ export const rpc = {
       init: InstanceBootstrap,
       fn: async () => {
         await upgrade().catch(() => {})
+      },
+    })
+  },
+  async upgradeNow(input: { directory: string; method: string; version: string }) {
+    await Instance.provide({
+      directory: input.directory,
+      init: InstanceBootstrap,
+      fn: async () => {
+        await upgradeNow(input.method as Installation.Method, input.version)
       },
     })
   },

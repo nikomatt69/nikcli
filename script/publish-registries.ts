@@ -6,7 +6,7 @@ import fs from "fs"
 import path from "path"
 
 if (!Script.preview) {
-  const version = Script.version.split("-")[0]
+  const version = Script.version
   const distDir = path.resolve("./dist")
 
   console.log("=== publishing homebrew formula ===\n")

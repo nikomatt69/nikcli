@@ -23,7 +23,7 @@ import { Instance } from "@/project/instance"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
-import { Effect } from "effect"
+import { Cause, Effect, Exit } from "effect"
 import { locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "server" })
@@ -70,6 +70,13 @@ function captureInstanceContext(): InstanceContext {
 
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+async function runSessionPromptAbort(effect: Effect.Effect<void, unknown, SessionPrompt.Service>) {
+  const exit = await runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(Effect.exit(effect)))
+  if (Exit.isSuccess(exit)) return
+  if (Cause.hasInterruptsOnly(exit.cause)) return
+  throw Cause.squash(exit.cause)
 }
 
 function runSessionPromptWithContext<A, E>(ctx: InstanceContext, effect: Effect.Effect<A, E, SessionPrompt.Service>) {
@@ -664,24 +671,7 @@ export const SessionRoutes = lazy(() =>
       ),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        // #region agent log
-        fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-          body: JSON.stringify({
-            sessionId: "6f5e48",
-            hypothesisId: "C",
-            location: "session.ts:abort",
-            message: "POST abort endpoint hit",
-            data: { sessionID },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
-        // Scope cancellation to the single delegation owned by this worker
-        // session — cancelling "all related" records (parent + child + delegator)
-        // belongs to explicit "stop-the-world" flows, not the per-session abort.
-        await runSessionPrompt(
+        await runSessionPromptAbort(
           Effect.gen(function* () {
             yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(sessionID))
             yield* Effect.promise(() => Monitor.cancelAll(sessionID))
@@ -689,20 +679,6 @@ export const SessionRoutes = lazy(() =>
             yield* sessionPrompt.cancel(sessionID)
           }),
         )
-        // #region agent log
-        fetch("http://127.0.0.1:7277/ingest/227b1678-8a05-4b91-821f-52cd5d34ede2", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6f5e48" },
-          body: JSON.stringify({
-            sessionId: "6f5e48",
-            hypothesisId: "C",
-            location: "session.ts:abort:done",
-            message: "POST abort completed",
-            data: { sessionID },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {})
-        // #endregion
         return c.json(true)
       },
     )

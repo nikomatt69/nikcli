@@ -29,6 +29,7 @@ export namespace Installation {
       "installation.update-available",
       z.object({
         version: z.string(),
+        method: z.string().optional(),
       }),
     ),
   }
@@ -142,7 +143,8 @@ export namespace Installation {
     if (tapFormula.includes("nikcli")) return "nikomatt69/tap/nikcli"
     const coreFormula = await $`brew list --formula nikcli`.throws(false).quiet().text()
     if (coreFormula.includes("nikcli")) return "nikcli"
-    return "nikcli"
+    // Default to the tap formula since nikcli is distributed via tap, not core Homebrew
+    return "nikomatt69/tap/nikcli"
   }
 
   async function upgradeImpl(method: Method, target: string) {
@@ -156,6 +158,9 @@ export namespace Installation {
         break
       case "npm":
         cmd = $`npm install -g nikcli-ai@${target}`
+        break
+      case "yarn":
+        cmd = $`yarn global add nikcli-ai@${target}`
         break
       case "pnpm":
         cmd = $`pnpm install -g nikcli-ai@${target}`
