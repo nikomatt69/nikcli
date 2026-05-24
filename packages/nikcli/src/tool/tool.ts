@@ -74,10 +74,7 @@ export namespace Tool {
   export interface AuthoredDef<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
     description: string
     parameters: Parameters
-    execute(
-      args: z.infer<Parameters>,
-      ctx: Context,
-    ): Promise<Result<M>> | Effect.Effect<Result<M>, Error>
+    execute(args: z.infer<Parameters>, ctx: Context): Promise<Result<M>> | Effect.Effect<Result<M>, Error>
     formatValidationError?(error: z.ZodError): string
   }
 

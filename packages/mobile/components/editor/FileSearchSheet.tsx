@@ -455,7 +455,10 @@ export function FileSearchSheet(props: {
                         </View>
                         <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
                           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: palette.ink, fontWeight: "700" }}>
+                            <Text
+                              numberOfLines={1}
+                              style={{ flex: 1, fontSize: 13, color: palette.ink, fontWeight: "700" }}
+                            >
                               {fileName(item.file)}
                             </Text>
                             <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>

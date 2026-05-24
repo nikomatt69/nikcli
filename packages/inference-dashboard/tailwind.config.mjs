@@ -14,10 +14,7 @@ export default {
         "body-sm": ["var(--type-body-sm)", { lineHeight: "1.75" }],
         "body-md": ["var(--type-body-md)", { lineHeight: "1.75" }],
         "card-title": ["var(--type-card-title)", { lineHeight: "1.15", letterSpacing: "0", fontWeight: "700" }],
-        "panel-title": [
-          "var(--type-panel-title)",
-          { lineHeight: "1.12", letterSpacing: "0", fontWeight: "700" },
-        ],
+        "panel-title": ["var(--type-panel-title)", { lineHeight: "1.12", letterSpacing: "0", fontWeight: "700" }],
         "page-title": ["var(--type-page-title)", { lineHeight: "1.0", letterSpacing: "0", fontWeight: "800" }],
         "page-subtitle": ["var(--type-page-subtitle)", { lineHeight: "1.7", fontWeight: "400" }],
       },

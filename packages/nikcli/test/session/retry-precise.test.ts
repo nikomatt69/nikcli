@@ -61,18 +61,15 @@ describe("SessionRetry.delay precise (headers)", () => {
     })
     expect(SessionRetry.delay(3, e)).toBe(8_000)
   })
-
 })
 
 describe("SessionRetry.retryable precise strings", () => {
   it("FreeUsageLimitError in message returns exact credit URL line", () => {
     const e = apiErr({
-      message: 'prefix FreeUsageLimitError suffix',
+      message: "prefix FreeUsageLimitError suffix",
       isRetryable: true,
     })
-    expect(SessionRetry.retryable(e.toObject())).toBe(
-      "Free usage exceeded, add credits https://nikcli.store/zen",
-    )
+    expect(SessionRetry.retryable(e.toObject())).toBe("Free usage exceeded, add credits https://nikcli.store/zen")
   })
 
   it("FreeUsageLimitError in responseBody only", () => {

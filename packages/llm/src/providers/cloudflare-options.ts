@@ -36,9 +36,7 @@ export const cloudflareDefaultOptions = (modelID: string): ProviderOptions | und
   return undefined
 }
 
-export const withCloudflareOptions = <
-  Options extends { readonly providerOptions?: CloudflareProviderOptionsInput },
->(
+export const withCloudflareOptions = <Options extends { readonly providerOptions?: CloudflareProviderOptionsInput }>(
   modelID: string,
   options: Options,
 ): Options & { readonly id: string; readonly providerOptions?: ProviderOptions } => {

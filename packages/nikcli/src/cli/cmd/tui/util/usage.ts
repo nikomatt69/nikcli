@@ -31,9 +31,7 @@ export namespace Usage {
 
   function lastAssistant(messages: Message[] | undefined): AssistantMessage | undefined {
     if (!messages) return undefined
-    return messages.findLast(
-      (item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0,
-    )
+    return messages.findLast((item): item is AssistantMessage => item.role === "assistant" && item.tokens.output > 0)
   }
 
   function sumCost(messages: Message[] | undefined): number {
@@ -67,8 +65,7 @@ export namespace Usage {
     }
 
     const t = last.tokens
-    const tokens =
-      t.total && t.total > 0 ? t.total : t.input + t.output + t.reasoning + t.cache.read + t.cache.write
+    const tokens = t.total && t.total > 0 ? t.total : t.input + t.output + t.reasoning + t.cache.read + t.cache.write
 
     const model = resolveModel(providers, last.providerID, last.modelID)
 

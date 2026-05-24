@@ -25,7 +25,9 @@ export const ERRORS = {
     content: {
       "application/json": {
         schema: resolver(
-          z.object({ name: z.literal("NotFoundError"), data: z.object({ message: z.string() }) }).meta({ ref: "NotFoundError" }),
+          z
+            .object({ name: z.literal("NotFoundError"), data: z.object({ message: z.string() }) })
+            .meta({ ref: "NotFoundError" }),
         ),
       },
     },

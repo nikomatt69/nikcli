@@ -207,7 +207,11 @@ export function Changes() {
     setReviewPanelOpen(true)
   }
 
-  function openCommentDialogForRow(row: DiffRow, editingKey: string | undefined, initial?: { text: string; type: CommentType }) {
+  function openCommentDialogForRow(
+    row: DiffRow,
+    editingKey: string | undefined,
+    initial?: { text: string; type: CommentType },
+  ) {
     renderer.currentFocusedRenderable?.blur()
     dialog.replace(
       () => (

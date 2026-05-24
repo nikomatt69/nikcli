@@ -60,8 +60,7 @@ export function renderHtmlCompare(baselineJson: string, currentJson: string): st
     const k = keyOf(s)
     const b = baseMap.get(k)
     const ratio = b && b.durationMs > 0 ? (s.durationMs / b.durationMs - 1) * 100 : null
-    const ratioCell =
-      ratio === null ? "—" : `${ratio >= 0 ? "+" : ""}${ratio.toFixed(1)}% vs baseline`
+    const ratioCell = ratio === null ? "—" : `${ratio >= 0 ? "+" : ""}${ratio.toFixed(1)}% vs baseline`
     rows.push(`<tr>
   <td>${escapeHtml(s.suite)}</td>
   <td>${escapeHtml(s.name)}</td>
@@ -101,9 +100,5 @@ ${rows.join("\n")}
 }
 
 function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }

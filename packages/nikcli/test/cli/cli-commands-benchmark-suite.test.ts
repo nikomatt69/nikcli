@@ -102,8 +102,18 @@ function isCommandLike(value: unknown): value is CommandLike {
   const candidate = value as Record<string, unknown>
   if (typeof candidate.command !== "string") return false
   if (!candidate.command.trim()) return false
-  if (candidate.describe !== undefined && typeof candidate.describe !== "string" && typeof candidate.describe !== "function") return false
-  if (candidate.builder !== undefined && typeof candidate.builder !== "object" && typeof candidate.builder !== "function") return false
+  if (
+    candidate.describe !== undefined &&
+    typeof candidate.describe !== "string" &&
+    typeof candidate.describe !== "function"
+  )
+    return false
+  if (
+    candidate.builder !== undefined &&
+    typeof candidate.builder !== "object" &&
+    typeof candidate.builder !== "function"
+  )
+    return false
   if (candidate.handler !== undefined && typeof candidate.handler !== "function") return false
   if (candidate.aliases !== undefined && !Array.isArray(candidate.aliases)) return false
   return true
@@ -198,7 +208,8 @@ describe("CLI command suite", () => {
       if (command.aliases) checksum += command.aliases.length
       if (typeof command.describe === "string") checksum += command.describe.length
       if (typeof command.describe === "function") checksum += command.describe().length
-      if (typeof command.builder === "object" && command.builder !== null) checksum += Object.keys(command.builder).length
+      if (typeof command.builder === "object" && command.builder !== null)
+        checksum += Object.keys(command.builder).length
       if (typeof command.handler === "function") checksum += 1
     }
 
@@ -224,18 +235,19 @@ describe("CLI command suite", () => {
   it.each(modulesSummary)("visual + performance bench for module %s", ({ modulePath, commandExports }) => {
     const iterations = 3_000
     const lines = commandExports.map((item) => `${item.exportName} => ${item.command.command}`)
-    const visual = lines.length > 0
-      ? [
-        `# Module ${modulePath}`,
-        `Commands: ${commandExports.length}`,
-        "",
-        ...lines,
-        "",
-        "## Snapshot score",
-        `line count: ${lines.length}`,
-        `iterations: ${iterations}`,
-      ].join("\n")
-      : `# Module ${modulePath}\nNo command exports discovered`
+    const visual =
+      lines.length > 0
+        ? [
+            `# Module ${modulePath}`,
+            `Commands: ${commandExports.length}`,
+            "",
+            ...lines,
+            "",
+            "## Snapshot score",
+            `line count: ${lines.length}`,
+            `iterations: ${iterations}`,
+          ].join("\n")
+        : `# Module ${modulePath}\nNo command exports discovered`
 
     let score = 0
     const start = performance.now()
@@ -408,4 +420,3 @@ describe("CLI command suite", () => {
 })
 
 afterAll(() => flushBenchmarkRun())
-

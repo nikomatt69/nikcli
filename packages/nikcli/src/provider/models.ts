@@ -159,9 +159,7 @@ export namespace ModelsDev {
     options: Schema.Record(Schema.String, Schema.Unknown),
     headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
     provider: Schema.optional(Schema.Struct({ npm: Schema.String, api: Schema.String })),
-    variants: Schema.optional(
-      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
-    ),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
   })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -182,7 +180,7 @@ export namespace ModelsDev {
       refresh()
     }
     const file = Bun.file(filepath)
-    const result = await file.json().catch(() => { })
+    const result = await file.json().catch(() => {})
     if (result) return patch(result as Record<string, Provider>)
     if (typeof data === "function" && !Flag.NIKCLI_DISABLE_MODELS_FETCH) {
       try {

@@ -1,6 +1,3 @@
 {
-  "plugin": [
-    "opencode-gemini-auth@latest",
-    "opencode-antigravity-auth@latest"
-  ]
+  "plugin": ["opencode-gemini-auth@latest", "opencode-antigravity-auth@latest"],
 }

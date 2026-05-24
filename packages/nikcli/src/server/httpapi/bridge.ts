@@ -95,7 +95,9 @@ export namespace HttpApiBridge {
 
   export function supports(pathname: string, method = "GET") {
     const normalizedMethod = method.toUpperCase()
-    return implementedRoutes.some(([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname))
+    return implementedRoutes.some(
+      ([routeMethod, pattern]) => routeMethod === normalizedMethod && pattern.test(pathname),
+    )
   }
 
   export function handle(request: Request) {

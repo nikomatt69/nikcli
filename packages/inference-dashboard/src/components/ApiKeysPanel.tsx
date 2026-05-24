@@ -90,16 +90,10 @@ export default function ApiKeysPanel() {
               <code class="flex-1 break-all rounded-[var(--radius-md)] border border-terminal-border bg-terminal-code px-3.5 py-2.5 font-mono text-xs text-terminal-text">
                 {k().plaintext}
               </code>
-              <button
-                onClick={() => copy(k().plaintext)}
-                class="app-button-primary text-xs"
-              >
+              <button onClick={() => copy(k().plaintext)} class="app-button-primary text-xs">
                 Copy
               </button>
-              <button
-                onClick={() => setCreatedKey(null)}
-                class="app-button-secondary text-xs"
-              >
+              <button onClick={() => setCreatedKey(null)} class="app-button-secondary text-xs">
                 Dismiss
               </button>
             </div>
@@ -110,17 +104,9 @@ export default function ApiKeysPanel() {
       <form onSubmit={onCreate} class="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div class="flex-1">
           <label class="app-label mb-1.5">Key name</label>
-          <input
-            value={newName()}
-            onInput={(e) => setNewName(e.currentTarget.value)}
-            class="app-input"
-          />
+          <input value={newName()} onInput={(e) => setNewName(e.currentTarget.value)} class="app-input" />
         </div>
-        <button
-          type="submit"
-          disabled={creating()}
-          class="app-button-primary"
-        >
+        <button type="submit" disabled={creating()} class="app-button-primary">
           {creating() ? (
             <>
               <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -170,7 +156,11 @@ export default function ApiKeysPanel() {
         >
           <Show
             when={(keys() ?? []).length > 0}
-            fallback={<div class="app-mobile-card text-center text-sm text-terminal-muted">No API keys yet. Create one above.</div>}
+            fallback={
+              <div class="app-mobile-card text-center text-sm text-terminal-muted">
+                No API keys yet. Create one above.
+              </div>
+            }
           >
             <For each={keys()}>
               {(k) => (
@@ -206,7 +196,10 @@ export default function ApiKeysPanel() {
                     {k.revoked_at ? (
                       <span class="text-xs text-terminal-muted/60">Revoked</span>
                     ) : (
-                      <button onClick={() => onRevoke(k.id)} class="text-xs font-medium text-terminal-error hover:underline">
+                      <button
+                        onClick={() => onRevoke(k.id)}
+                        class="text-xs font-medium text-terminal-error hover:underline"
+                      >
                         Revoke
                       </button>
                     )}

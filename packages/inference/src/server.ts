@@ -159,10 +159,7 @@ app.post("/v1/chat/completions", async (c) => {
   const estimated = body.max_tokens ?? 1000
   const limit = await getRateLimiter().check(key, body.model, estimated)
   if (!limit.ok) {
-    return c.json(
-      { error: { message: limit.reason ?? "rate limit exceeded", type: "rate_limit_exceeded" } },
-      429,
-    )
+    return c.json({ error: { message: limit.reason ?? "rate limit exceeded", type: "rate_limit_exceeded" } }, 429)
   }
 
   try {
@@ -231,11 +228,14 @@ app.post("/v1/chat/completions", async (c) => {
       model: displayedModel,
       nikcli: {
         resolvedModel: displayedModel !== resolvedModel ? resolvedModel : undefined,
-        thinking: resolved.thinking || resolved.nativeReasoning ? {
-          requested: resolved.thinking,
-          native: resolved.nativeReasoning,
-          effort: resolved.effort,
-        } : undefined,
+        thinking:
+          resolved.thinking || resolved.nativeReasoning
+            ? {
+                requested: resolved.thinking,
+                native: resolved.nativeReasoning,
+                effort: resolved.effort,
+              }
+            : undefined,
         provider: result.route?.provider ?? null,
         upstreamModel: result.route?.upstreamModel ?? null,
         cache: result.cache,

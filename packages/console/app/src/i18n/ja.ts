@@ -316,8 +316,7 @@ export const dict = {
     "Nikcli \u30d6\u30e9\u30f3\u30c9\u3092\u6271\u3046\u305f\u3081\u306e\u30ea\u30bd\u30fc\u30b9\u3068\u7d20\u6750\u3067\u3059\u3002",
   "brand.downloadAll": "\u3059\u3079\u3066\u306e\u7d20\u6750\u3092\u30c0\u30a6\u30f3\u30ed\u30fc\u30c9",
   "changelog.title": "Nikcli | \u5909\u66f4\u5c65\u6b74",
-  "changelog.meta.description":
-    "Nikcli \u306e\u30ea\u30ea\u30fc\u30b9\u30ce\u30fc\u30c8\u3068\u5909\u66f4\u5c65\u6b74",
+  "changelog.meta.description": "Nikcli \u306e\u30ea\u30ea\u30fc\u30b9\u30ce\u30fc\u30c8\u3068\u5909\u66f4\u5c65\u6b74",
   "changelog.hero.title": "\u5909\u66f4\u5c65\u6b74",
   "changelog.hero.subtitle": "Nikcli \u306e\u66f4\u65b0\u3068\u6539\u5584",
   "changelog.empty": "\u5909\u66f4\u5c65\u6b74\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002",
@@ -493,8 +492,7 @@ export const dict = {
   "workspace.black.subscription.resetsIn": "でリセットします",
   "workspace.black.subscription.useBalance": "利用限度額に達したら利用可能な残高を使い切る",
   "workspace.black.waitlist.title": "順番待ちリスト",
-  "workspace.black.waitlist.joined":
-    "あなたは、月額 ${{plan}} Nikcli ブラック プランの待機リストに登録されています。",
+  "workspace.black.waitlist.joined": "あなたは、月額 ${{plan}} Nikcli ブラック プランの待機リストに登録されています。",
   "workspace.black.waitlist.ready": "月額 ${{plan}} の Nikcli ブラック プランに登録する準備ができました。",
   "workspace.black.waitlist.leave": "順番待ちリストを残す",
   "workspace.black.waitlist.leaving": "出発中...",

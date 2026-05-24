@@ -132,7 +132,10 @@ export namespace SessionSummary {
           return []
         })
 
-      async function summarizeSession(ctx: InstanceContext, input: { sessionID: string; messages: MessageV2.WithParts[] }) {
+      async function summarizeSession(
+        ctx: InstanceContext,
+        input: { sessionID: string; messages: MessageV2.WithParts[] },
+      ) {
         const files = new Set(
           input.messages
             .flatMap((x) => x.parts)
@@ -163,7 +166,10 @@ export namespace SessionSummary {
         })
       }
 
-      async function summarizeMessage(ctx: InstanceContext, input: { messageID: string; messages: MessageV2.WithParts[] }) {
+      async function summarizeMessage(
+        ctx: InstanceContext,
+        input: { messageID: string; messages: MessageV2.WithParts[] },
+      ) {
         const anchor = input.messages.find((message) => message.info.id === input.messageID)
         if (!anchor) return
         const rootID = anchor.info.role === "assistant" ? anchor.info.parentID : anchor.info.id
