@@ -547,6 +547,13 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")
           return session.data
         },
+        async refreshDiff(sessionID: string) {
+          if (!sessionID) return []
+          const diff = await sdk.client.session.diff({ sessionID })
+          const files = diff.data ?? []
+          setStore("session_diff", sessionID, files)
+          return files
+        },
       },
       background: {
         list(sessionID: string) {

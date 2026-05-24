@@ -474,7 +474,20 @@ export function Changes() {
 
   onMount(() => {
     renderer.currentFocusedRenderable?.blur()
+    if (routeData.sessionID) {
+      void sync.session.refreshDiff(routeData.sessionID)
+    }
   })
+
+  createEffect(
+    on(
+      () => routeData.sessionID,
+      (sessionID) => {
+        if (sessionID) void sync.session.refreshDiff(sessionID)
+      },
+      { defer: true },
+    ),
+  )
 
   // Only react to the selected file, not to dialog.stack — otherwise opening the comment
   // dialog updates the stack, retriggers this effect, and dialog.clear() closes it immediately.

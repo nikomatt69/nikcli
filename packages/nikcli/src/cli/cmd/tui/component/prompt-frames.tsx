@@ -19,7 +19,7 @@ import { dismissBackground, getBackgroundDismissed } from "../util/background"
 import { Locale } from "@/util/locale"
 
 // Job item type from sync.background
-type JobItem = {
+export type JobItem = {
   rootDelegationID: string
   parentSessionID: string
   title: string

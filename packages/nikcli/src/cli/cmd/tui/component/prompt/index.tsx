@@ -55,9 +55,8 @@ import path from "path"
 import { Auth } from "@/auth"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
-import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
 import { friendlyErrorMessage } from "../../util/error-message"
-import { PromptFrames } from "../prompt-frames"
+import { PromptJobsInlineCompact } from "../prompt-jobs-inline"
 import { getMonitorsSorted, type MonitorInfo } from "../../util/monitor-helpers"
 
 export type PromptProps = {
@@ -774,22 +773,11 @@ export function Prompt(props: PromptProps) {
   })
 
   const backgroundedSubtaskCount = createMemo(() => backgroundJobs().length)
-  const activeBackgroundedSubtaskCount = createMemo(
-    () => backgroundJobs().filter((job) => job.status === "running" || job.status === "synthesizing").length,
-  )
-  const backgroundJobsLabel = createMemo(() => {
-    const total = backgroundedSubtaskCount()
-    const active = activeBackgroundedSubtaskCount()
-    if (active > 0 && active !== total) return `${active}/${total}`
-    return String(total)
-  })
-
   // Monitors data for prompt frames
   const monitors = createMemo(() => {
     if (!props.sessionID) return [] as MonitorInfo[]
     return getMonitorsSorted(sync, props.sessionID)
   })
-  const activeMonitorsCount = createMemo(() => monitors().filter((m) => m.status === "running").length)
 
   // Combined count for prompt frames visibility
   const totalBgItems = createMemo(() => backgroundJobs().length + monitors().length)
@@ -797,7 +785,7 @@ export function Prompt(props: PromptProps) {
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
     void sync.background.sync(props.sessionID)
-    dialog.replace(() => <DialogBgAgents sessionID={props.sessionID!} onOpenMonitor={() => {}} />)
+    command.trigger("session.bg_agents")
   }
 
   // Surface completion with a toast, but do not steal focus from the user.
@@ -2058,19 +2046,14 @@ export function Prompt(props: PromptProps) {
           <Show
             when={status().type !== "idle"}
             fallback={
-              <box flexDirection="row" gap={2} flexGrow={1}>
-                <Show when={props.sessionID && backgroundedSubtaskCount() > 0}>
-                  <box
-                    onMouseUp={() => openBackgroundSubtasks()}
-                    backgroundColor={theme.primary}
-                    paddingLeft={1}
-                    paddingRight={1}
-                    flexShrink={0}
-                  >
-                    <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundJobsLabel()}</span> jobs
-                    </text>
-                  </box>
+              <box flexDirection="row" gap={2} flexGrow={1} alignItems="center">
+                <Show when={props.sessionID && totalBgItems() > 0}>
+                  <PromptJobsInlineCompact
+                    sessionID={props.sessionID ?? ""}
+                    jobs={backgroundJobs()}
+                    monitors={monitors()}
+                    onOpenBgAgents={() => openBackgroundSubtasks()}
+                  />
                 </Show>
                 <Show when={sponsoredTip() && kv.get("show_sponsored", true)}>
                   <text fg={theme.warning}>·</text>
@@ -2158,19 +2141,14 @@ export function Prompt(props: PromptProps) {
                   })()}
                 </box>
               </box>
-              <box flexDirection="row" gap={2} flexGrow={1}>
-                <Show when={props.sessionID && backgroundedSubtaskCount() > 0}>
-                  <box
-                    onMouseUp={() => openBackgroundSubtasks()}
-                    backgroundColor={theme.primary}
-                    paddingLeft={1}
-                    paddingRight={1}
-                    flexShrink={0}
-                  >
-                    <text fg={theme.background}>
-                      <span style={{ bold: true }}>{backgroundJobsLabel()}</span> jobs
-                    </text>
-                  </box>
+              <box flexDirection="row" gap={2} flexGrow={1} alignItems="center">
+                <Show when={props.sessionID && totalBgItems() > 0}>
+                  <PromptJobsInlineCompact
+                    sessionID={props.sessionID ?? ""}
+                    jobs={backgroundJobs()}
+                    monitors={monitors()}
+                    onOpenBgAgents={() => openBackgroundSubtasks()}
+                  />
                 </Show>
                 <text fg={store.interrupt > 0 ? theme.primary : theme.text}>
                   esc{" "}
@@ -2280,30 +2258,6 @@ export function Prompt(props: PromptProps) {
             </box>
           </Show>
         </box>
-        {/* Prompt Frames - Jobs and Monitors display */}
-        <Show when={props.sessionID && totalBgItems() > 0}>
-          <PromptFrames
-            sessionID={props.sessionID ?? ""}
-            jobs={backgroundJobs()}
-            onOpenMonitor={(monitor) => {
-              // Open monitor in the bg-agents dialog
-              const sessionID = props.sessionID ?? ""
-              dialog.replace(() => (
-                <DialogBgAgents
-                  sessionID={sessionID}
-                  onOpenMonitor={(monitorID, title, command, status, logPath) => {
-                    // This will be handled by dialog-bg-agents
-                    void monitorID
-                    void title
-                    void command
-                    void status
-                    void logPath
-                  }}
-                />
-              ))
-            }}
-          />
-        </Show>
       </box>
     </>
   )

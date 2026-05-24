@@ -123,10 +123,13 @@ export namespace ShareNext {
     return configGet().then((x) => x.enterprise?.url ?? "https://s.nikcli.store")
   }
 
-  const disabled = process.env["NIKCLI_DISABLE_SHARE"] === "true" || process.env["NIKCLI_DISABLE_SHARE"] === "1"
+  function isDisabled() {
+    const value = process.env["NIKCLI_DISABLE_SHARE"]
+    return value === "true" || value === "1"
+  }
 
   async function initImpl() {
-    if (disabled) return
+    if (isDisabled()) return
     Bus.subscribe(Session.Event.Updated, async (evt) => {
       await sync(evt.properties.info.id, [
         {
@@ -379,7 +382,7 @@ export namespace ShareNext {
   }
 
   async function createImpl(sessionID: string, input?: { baseUrl?: string }) {
-    if (disabled) {
+    if (isDisabled()) {
       throw new Error("Sharing is disabled by NIKCLI_DISABLE_SHARE")
     }
 
@@ -417,7 +420,7 @@ export namespace ShareNext {
 
   const queue = new Map<string, { timeout: NodeJS.Timeout; data: Map<string, Data> }>()
   async function sync(sessionID: string, data: Data[]) {
-    if (disabled) return
+    if (isDisabled()) return
 
     const existing = queue.get(sessionID)
     if (existing) {
@@ -448,7 +451,7 @@ export namespace ShareNext {
   }
 
   async function removeImpl(sessionID: string) {
-    if (disabled) return
+    if (isDisabled()) return
 
     log.info("removing share", { sessionID })
 

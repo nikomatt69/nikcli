@@ -431,7 +431,7 @@ export function Session() {
               dialog.replace(
                 () => (
                   <DialogMonitorLog
-                    sessionID={route.sessionID}
+                    sessionID={backgroundSessionID}
                     monitorID={monitorID}
                     title={title}
                     command={command}

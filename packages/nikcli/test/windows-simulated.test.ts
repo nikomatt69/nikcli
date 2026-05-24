@@ -41,6 +41,29 @@ interface SimEnv {
   arch?: "x64" | "arm64"
 }
 
+/** Parent test runner env vars that override Global.Path and must not leak into sim subprocesses. */
+const TEST_ISOLATION_ENV_KEYS = [
+  "NIKCLI_TEST_HOME",
+  "NIKCLI_DATA_DIR",
+  "XDG_DATA_HOME",
+  "XDG_CACHE_HOME",
+  "XDG_CONFIG_HOME",
+  "XDG_STATE_HOME",
+] as const
+
+function buildSubprocessEnv(sim: SimEnv): Record<string, string | undefined> {
+  const env: Record<string, string | undefined> = { ...process.env }
+  for (const key of TEST_ISOLATION_ENV_KEYS) {
+    delete env[key]
+  }
+  if (sim.env) {
+    for (const [key, value] of Object.entries(sim.env)) {
+      env[key] = value
+    }
+  }
+  return env
+}
+
 /**
  * Runs `body` as a Bun subprocess after patching process.platform and env.
  * Returns stdout (trimmed). Throws if the subprocess exits non-zero.
@@ -71,7 +94,7 @@ ${envPatches}
     cwd: ROOT,
     stdout: "pipe",
     stderr: "pipe",
-    env: { ...process.env },
+    env: buildSubprocessEnv(sim),
   })
   const [stdout, stderr] = await Promise.all([
     new Response(proc.stdout).text(),

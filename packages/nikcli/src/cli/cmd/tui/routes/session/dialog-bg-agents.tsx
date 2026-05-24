@@ -1,4 +1,4 @@
-import { createMemo } from "solid-js"
+import { createMemo, onMount } from "solid-js"
 import { useRoute } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { useKV } from "@tui/context/kv"
@@ -8,6 +8,7 @@ import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useTheme } from "@tui/context/theme"
 import { useLocal } from "@tui/context/local"
 import { Keybind } from "@/util/keybind"
+import { Locale } from "@/util/locale"
 import { Spinner } from "../../component/spinner"
 import { dismissBackground, getBackgroundDismissed } from "../../util/background"
 
@@ -67,6 +68,24 @@ function isActiveStatus(status: string) {
   return status === "running" || status === "synthesizing"
 }
 
+function statusSymbol(status: string) {
+  switch (status) {
+    case "running":
+    case "synthesizing":
+      return "●"
+    case "complete":
+      return "✓"
+    case "timeout":
+      return "!"
+    case "cancelled":
+      return "-"
+    case "error":
+      return "×"
+    default:
+      return "○"
+  }
+}
+
 export function DialogBgAgents(props: {
   sessionID: string
   onOpenMonitor: (monitorID: string, title: string, command: string, status: string, logPath?: string) => void
@@ -80,6 +99,11 @@ export function DialogBgAgents(props: {
   const { theme } = useTheme()
 
   const dismissed = createMemo(() => getBackgroundDismissed(kv, props.sessionID))
+
+  // Force sync when dialog opens to ensure we have all message parts (including monitors)
+  onMount(() => {
+    void sync.session.sync(props.sessionID, { full: true })
+  })
 
   function dismissJob(delegationID: string) {
     dismissBackground(kv, props.sessionID, delegationID)
@@ -134,11 +158,18 @@ export function DialogBgAgents(props: {
       if (hiddenA !== hiddenB) return hiddenA ? 1 : -1
       return b.updatedAt - a.updatedAt
     })
+    const visibleJobs = jobs.filter((job) => !dismissed().has(job.rootDelegationID))
+    const activeJobCount = visibleJobs.filter((job) => isActiveStatus(job.status)).length
+    const inactiveJobCount = visibleJobs.length - activeJobCount
+    const monitorCount = monitors().length
+    const activeMonitorCount = monitors().filter((monitor) => monitor.status === "running").length
 
-    for (const job of jobs) {
-      if (dismissed().has(job.rootDelegationID)) continue
+    for (const job of visibleJobs) {
       const active = isActiveStatus(job.status)
       const color = local.agent.color(job.agent)
+      const category = active
+        ? `Active Background Jobs (${activeJobCount})`
+        : `Background Jobs (${inactiveJobCount})`
       out.push({
         title: job.title,
         value: {
@@ -150,24 +181,41 @@ export function DialogBgAgents(props: {
           workerSessionID: job.workerSessionID,
           delegatorSessionID: job.delegatorSessionID,
         } satisfies BgOption,
-        description: jobStatusLabel(job.status),
-        category: active ? "Active Background Jobs" : "Background Jobs",
-        footer: `@${job.agent}`,
-        gutter: active ? <Spinner /> : <text fg={color ?? theme.textMuted}>@{job.agent.slice(0, 8)}</text>,
+        description: `${jobStatusLabel(job.status)} · open session`,
+        category,
+        footer: `@${Locale.truncateMiddle(job.agent, 18)}`,
+        gutter: active ? (
+          <box flexDirection="row" gap={1}>
+            <Spinner />
+            <text fg={color ?? theme.accent}>@</text>
+          </box>
+        ) : (
+          <text fg={color ?? theme.textMuted}>{statusSymbol(job.status)}</text>
+        ),
       })
     }
 
     for (const mon of monitors()) {
       const isRunning = mon.status === "running"
       const statusColor =
-        mon.status === "complete" ? theme.success : mon.status === "running" ? theme.text : theme.error
+        mon.status === "complete"
+          ? theme.success
+          : mon.status === "running"
+            ? theme.accent
+            : mon.status === "cancelled"
+              ? theme.textMuted
+              : theme.error
+      const category =
+        activeMonitorCount > 0 && activeMonitorCount !== monitorCount
+          ? `Monitors (${activeMonitorCount}/${monitorCount} running)`
+          : `Monitors (${monitorCount})`
       out.push({
         title: mon.title,
         value: mon satisfies BgOption,
-        description: monitorStatusLabel(mon.status, mon.exitCode),
-        category: "Monitors",
-        footer: mon.command ? mon.command.slice(0, 40) : undefined,
-        gutter: isRunning ? <Spinner /> : <text fg={statusColor}>◌</text>,
+        description: `${monitorStatusLabel(mon.status, mon.exitCode)} · open logs`,
+        category,
+        footer: mon.command ? Locale.truncateMiddle(mon.command, 40) : undefined,
+        gutter: isRunning ? <Spinner /> : <text fg={statusColor}>{statusSymbol(mon.status)}</text>,
       })
     }
 
@@ -179,6 +227,7 @@ export function DialogBgAgents(props: {
   return (
     <DialogSelect
       title="Background Agents"
+      placeholder="Search jobs, monitors, agents"
       skipFilter={!hasAgents()}
       options={options()}
       onSelect={(opt) => {
