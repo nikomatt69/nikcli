@@ -106,6 +106,7 @@ function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
 }
 
 import type { EventSource } from "./context/sdk"
+import { Logo } from "./component/logo"
 
 export function tui(input: {
   url: string
@@ -281,13 +282,16 @@ function App(props: { upgradeNow?: (method: string, version: string) => Promise<
     const model = usage.model ? `${usage.model.providerID}/${usage.model.modelID}` : "—"
     const resume = `nikcli --session ${sessionID}`
 
+    const asciiLogo = `
+███╗   ██╗██╗██╗  ██╗ ██████╗██╗     ██╗
+████╗  ██║██║██║ ██╔╝██╔════╝██║     ██║
+██╔██╗ ██║██║█████╔╝ ██║     ██║     ██║
+██║╚██╗██║██║██╔═██╗ ██║     ██║     ██║
+██║ ╚████║██║██║  ██╗╚██████╗███████╗██║
+╚═╝  ╚═══╝╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝`
+
     return [
-      "",
-      "   _   _ _ _        _ _",
-      "  | \ | (_) | _____| (_)",
-      "  |  \| | | |/ / __| | |",
-      "  | |\  | |   < (__| | |",
-      "  |_| \_|_|_|\_\\___|_|_|",
+      `${asciiLogo}`,
       "",
       `  Session  ${title}`,
       `  Resume   ${resume}`,
@@ -298,7 +302,7 @@ function App(props: { upgradeNow?: (method: string, version: string) => Promise<
         : undefined,
       `  Context  ${context}`,
       totals.cost > 0 ? `  Cost     ${money.format(totals.cost)}` : undefined,
-      "",
+      "\n",
     ]
       .filter(Boolean)
       .join("\n")
