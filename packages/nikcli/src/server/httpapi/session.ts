@@ -81,6 +81,12 @@ export namespace SessionHttpApi {
   const MessageWithParts = Schema.Unknown.annotate({ identifier: "MessageWithParts" })
   const MessagePart = Schema.Unknown.annotate({ identifier: "MessagePart" })
 
+  // Session/message objects often carry `undefined` properties (parentID, workspaceID, ...).
+  // Effect HttpApi rejects those when encoding `Schema.Unknown` because `undefined` is not a
+  // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
+  // dropping undefined keys without changing the schema contract for callers.
+  const jsonSafe = <T>(value: T): unknown => JSON.parse(JSON.stringify(value ?? null))
+
   export const Group = HttpApiGroup.make("session")
     .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))
     .add(HttpApiEndpoint.post("create", "/", { payload: CreatePayload, success: SessionInfo }))
@@ -174,7 +180,8 @@ export namespace SessionHttpApi {
           return true
         })
         filtered.sort((a, b) => b.time.updated - a.time.updated)
-        return query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
+        const limited = query.limit !== undefined ? filtered.slice(0, query.limit) : filtered
+        return jsonSafe(limited)
       }).pipe(Effect.orDie),
     status: () =>
       Effect.gen(function* () {
@@ -184,7 +191,8 @@ export namespace SessionHttpApi {
     create: ({ payload }: { payload: typeof CreatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.create(payload as Session.CreateInput)
+        const created = yield* session.create(payload as Session.CreateInput)
+        return jsonSafe(created)
       }).pipe(Effect.orDie),
     remove: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -195,7 +203,7 @@ export namespace SessionHttpApi {
     update: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof UpdatePayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.update(
+        const updated = yield* session.update(
           params.sessionID,
           (draft) => {
             if (payload.title !== undefined) draft.title = payload.title
@@ -203,11 +211,13 @@ export namespace SessionHttpApi {
           },
           { touch: false },
         )
+        return jsonSafe(updated)
       }).pipe(Effect.orDie),
     fork: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof ForkPayload.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
+        const forked = yield* session.fork({ sessionID: params.sessionID, messageID: payload.messageID })
+        return jsonSafe(forked)
       }).pipe(Effect.orDie),
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -222,22 +232,26 @@ export namespace SessionHttpApi {
     revert: ({ params, payload }: { params: typeof SessionIDPath.Type; payload: typeof RevertPayload.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        return yield* revert.revert({ sessionID: params.sessionID, ...payload })
+        const reverted = yield* revert.revert({ sessionID: params.sessionID, ...payload })
+        return jsonSafe(reverted)
       }).pipe(Effect.orDie),
     unrevert: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const revert = yield* SessionRevert.Service
-        return yield* revert.unrevert({ sessionID: params.sessionID })
+        const reverted = yield* revert.unrevert({ sessionID: params.sessionID })
+        return jsonSafe(reverted)
       }).pipe(Effect.orDie),
     get: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.get(params.sessionID)
+        const info = yield* session.get(params.sessionID)
+        return jsonSafe(info)
       }).pipe(Effect.orDie),
     children: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.children(params.sessionID)
+        const children = yield* session.children(params.sessionID)
+        return jsonSafe(children)
       }).pipe(Effect.orDie),
     todo: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
@@ -252,13 +266,15 @@ export namespace SessionHttpApi {
     messages: ({ params, query }: { params: typeof SessionIDPath.Type; query: typeof MessagesQuery.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
-        return yield* session.messages({ sessionID: params.sessionID, limit: query.limit })
+        const msgs = yield* session.messages({ sessionID: params.sessionID, limit: query.limit })
+        return jsonSafe(msgs)
       }).pipe(Effect.orDie),
     message: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {
         const session = yield* Session.Service
         yield* session.get(params.sessionID)
-        return yield* Effect.promise(() => MessageV2.get(params))
+        const msg = yield* Effect.promise(() => MessageV2.get(params))
+        return jsonSafe(msg)
       }).pipe(Effect.orDie),
     messageRemove: ({ params }: { params: typeof MessagePath.Type }) =>
       Effect.gen(function* () {

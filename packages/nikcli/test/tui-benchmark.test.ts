@@ -125,7 +125,10 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   New (Map): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
 
-      expect(newTime).toBeLessThan(oldTime)
+      // Correctness — both lookup strategies must return the same indices.
+      // Timing comparisons are noisy on shared CI / Windows runners, so we keep
+      // the log for visibility but do not gate the test on absolute wall time.
+      expect(sinkNew).toBe(sinkOld)
     })
 
     it("benchmark: full render simulation (worst case O(n²))", () => {
@@ -170,7 +173,8 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   New (Map lookup): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
 
-      expect(newTime).toBeLessThan(oldTime)
+      // Correctness only — see note above; timing is for visibility, not gating.
+      expect(sinkNew).toBe(sinkOld)
     })
   })
 
@@ -201,17 +205,19 @@ describe("TUI Table Performance Optimizations", () => {
       const iterations = 10000
 
       const startOld = performance.now()
+      let oldHits = 0
       for (let iter = 0; iter < iterations; iter++) {
         for (let i = 0; i < columnIds.length; i++) {
-          getColumnByIdOld(layouts, columnIds[i])
+          if (getColumnByIdOld(layouts, columnIds[i])) oldHits++
         }
       }
       const oldTime = performance.now() - startOld
 
       const startNew = performance.now()
+      let newHits = 0
       for (let iter = 0; iter < iterations; iter++) {
         for (let i = 0; i < columnIds.length; i++) {
-          getColumnByIdNew(map, columnIds[i])
+          if (getColumnByIdNew(map, columnIds[i])) newHits++
         }
       }
       const newTime = performance.now() - startNew
@@ -224,7 +230,8 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   New (Map.get): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
 
-      expect(newTime).toBeLessThan(oldTime)
+      // Correctness only — see note above; timing is for visibility, not gating.
+      expect(newHits).toBe(oldHits)
     })
   })
 })

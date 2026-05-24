@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { flushBenchmarkRun, recordBenchmark, recordVisualArtifact } from "../benchmarks/runner"
 import { Identifier } from "@/id/id"
 import { Instance } from "@/project/instance"
@@ -402,6 +402,14 @@ describe("Session module registry matrix", () => {
 })
 
 describe("Session retry matrix", () => {
+  let randomSpy: ReturnType<typeof spyOn>
+  beforeEach(() => {
+    randomSpy = spyOn(Math, "random").mockReturnValue(0)
+  })
+  afterEach(() => {
+    randomSpy.mockRestore()
+  })
+
   const delayCases = [
     ...Array.from({ length: 18 }, (_, attempt) => ({
       attempt: attempt + 1,

@@ -1047,9 +1047,29 @@ export namespace Provider {
         return
       }
       const match = database[providerID]
-      if (!match) return
-      // @ts-expect-error
-      providers[providerID] = mergeDeep(match, provider)
+      if (match) {
+        // @ts-expect-error
+        providers[providerID] = mergeDeep(match, provider)
+        return
+      }
+      // Provider doesn't exist in ModelsDev - create a default entry with available info
+      // This allows dynamically loaded providers (e.g., nikcli-inference, ollama) and
+      // provider configs without models.json entries to still be visible and functional
+      const configProvider = configProviders.find(([id]) => id === providerID)?.[1]
+      if (!configProvider && !provider.key) return // Nothing to add, skip
+
+      providers[providerID] = {
+        id: providerID,
+        name: configProvider?.name ?? providerID,
+        source: provider.source ?? "api",
+        env: configProvider?.env ?? [],
+        options: {
+          ...(configProvider?.options ?? {}),
+          ...(provider.options ?? {}),
+        },
+        models: {},
+        ...provider,
+      }
     }
 
     // extend database from config

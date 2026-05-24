@@ -73,6 +73,11 @@ afterAll(async () => {
   await fs.rm(testHome, { recursive: true, force: true })
 })
 
+// Higher timeout: this flow exercises real storage + polling for finalize/cancel and
+// can take well over the default 5s when other test files contend for the same Bun
+// worker pool. Keeping it generous prevents flake without masking actual hangs.
+const FLOW_TIMEOUT_MS = 30_000
+
 describe("delegation flow", () => {
   it("supports delegation list, count, read, cancel, and session scoping", async () => {
     await withProject(async () => {
@@ -143,7 +148,7 @@ describe("delegation flow", () => {
       expect(cancelledRead.output).toContain("**Status:** cancelled")
       expect(cancelledRead.output).toContain("**Error:** Cancelled")
     })
-  })
+  }, FLOW_TIMEOUT_MS)
 
   it("reports delegator status, progress, summary, and access checks", async () => {
     await withProject(async () => {

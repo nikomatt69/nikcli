@@ -10,10 +10,23 @@ function xdgPath(value: string | undefined, fallback: string) {
 }
 
 const home = os.homedir()
-const data = xdgPath(xdgData, path.join(home, ".local", "share"))
-const cache = xdgPath(xdgCache, path.join(home, ".cache"))
-const config = xdgPath(xdgConfig, path.join(home, ".config"))
-const state = xdgPath(xdgState, path.join(home, ".local", "state"))
+
+// Windows fallbacks use platform-native locations when XDG env vars are absent.
+// xdg-basedir already honors APPDATA/LOCALAPPDATA on Windows when set, but if those
+// are missing we still want Windows-appropriate paths instead of POSIX dotfile dirs.
+const isWindows = process.platform === "win32"
+const winLocalAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local")
+const winRoamingAppData = process.env.APPDATA || path.join(home, "AppData", "Roaming")
+
+const dataFallback = isWindows ? winLocalAppData : path.join(home, ".local", "share")
+const cacheFallback = isWindows ? path.join(winLocalAppData, "Cache") : path.join(home, ".cache")
+const configFallback = isWindows ? winRoamingAppData : path.join(home, ".config")
+const stateFallback = isWindows ? path.join(winLocalAppData, "State") : path.join(home, ".local", "state")
+
+const data = xdgPath(xdgData, dataFallback)
+const cache = xdgPath(xdgCache, cacheFallback)
+const config = xdgPath(xdgConfig, configFallback)
+const state = xdgPath(xdgState, stateFallback)
 
 function testPath(name: string, fallback: string) {
   return process.env.NIKCLI_TEST_HOME ? path.join(process.env.NIKCLI_TEST_HOME, name) : fallback

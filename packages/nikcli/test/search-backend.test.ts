@@ -35,22 +35,35 @@ async function withProject<T>(files: Record<string, string>, fn: (projectDir: st
 type SearchMatch = Awaited<ReturnType<typeof SearchBackend.search>>["matches"][number]
 type BenchmarkSample = Awaited<ReturnType<typeof SearchBackend.benchmark>>["files"]["bun"]
 
-async function waitForFffFiles(input: Parameters<typeof SearchBackend.fileList>[0]) {
-  for (let i = 0; i < 40; i++) {
-    const result = await SearchBackend.fileList({ ...input, prefer: "fff" })
-    if (result.backend === "fff") return result
+// fff builds its index lazily; the first hit may return backend="fff" with stale
+// or empty results. Poll until both the backend matches AND we have at least one
+// hit (or until expectedHits is reached) so downstream equality checks are stable.
+async function waitForFffFiles(
+  input: Parameters<typeof SearchBackend.fileList>[0],
+  opts: { expectedHits?: number } = {},
+) {
+  const target = opts.expectedHits ?? 1
+  let last = await SearchBackend.fileList({ ...input, prefer: "fff" })
+  for (let i = 0; i < 200; i++) {
+    if (last.backend === "fff" && last.files.length >= target) return last
     await Bun.sleep(25)
+    last = await SearchBackend.fileList({ ...input, prefer: "fff" })
   }
-  return SearchBackend.fileList({ ...input, prefer: "fff" })
+  return last
 }
 
-async function waitForFffSearch(input: Parameters<typeof SearchBackend.search>[0]) {
-  for (let i = 0; i < 40; i++) {
-    const result = await SearchBackend.search({ ...input, prefer: "fff" })
-    if (result.backend === "fff") return result
+async function waitForFffSearch(
+  input: Parameters<typeof SearchBackend.search>[0],
+  opts: { expectedHits?: number } = {},
+) {
+  const target = opts.expectedHits ?? 1
+  let last = await SearchBackend.search({ ...input, prefer: "fff" })
+  for (let i = 0; i < 200; i++) {
+    if (last.backend === "fff" && last.matches.length >= target) return last
     await Bun.sleep(25)
+    last = await SearchBackend.search({ ...input, prefer: "fff" })
   }
-  return SearchBackend.search({ ...input, prefer: "fff" })
+  return last
 }
 
 function comparableMatches(matches: SearchMatch[]) {
@@ -90,8 +103,11 @@ describe("SearchBackend", () => {
       },
       async (projectDir) => {
         const glob = ["**/*.ts"]
-        const actual = await waitForFffFiles({ cwd: projectDir, glob, hidden: false })
         const expected = await SearchBackend.fileList({ cwd: projectDir, glob, hidden: false, prefer: "bun" })
+        const actual = await waitForFffFiles(
+          { cwd: projectDir, glob, hidden: false },
+          { expectedHits: expected.files.length },
+        )
 
         expect(actual.files.toSorted()).toEqual(expected.files.toSorted())
       },
@@ -111,8 +127,8 @@ describe("SearchBackend", () => {
           pattern: "needle\\w+",
           glob: ["**/*.ts"],
         }
-        const actual = await waitForFffSearch(input)
         const expected = await SearchBackend.search({ ...input, prefer: "bun" })
+        const actual = await waitForFffSearch(input, { expectedHits: expected.matches.length })
 
         expect(comparableMatches(actual.matches)).toEqual(comparableMatches(expected.matches))
       },

@@ -43,19 +43,15 @@ describe("fn", () => {
 
       const wrapped = fn(schema, (input) => input.name)
 
-      // Test with wrong type
-      const result1 =
-        wrapped.schema.safeParse?.({ name: 123 }) ??
-        (() => {
-          try {
-            wrapped({ name: "123" } as unknown as z.infer<typeof schema>)
-            return true
-          } catch {
-            return false
-          }
-        })()
-      expect(result1.success).toBeTruthy()
-      expect(result1.data?.name).toBe("123")
+      // Wrong type → schema.parse throws inside the wrapped call
+      expect(() => wrapped({ name: 123 } as unknown as z.infer<typeof schema>)).toThrow()
+
+      // safeParse reports the failure cleanly without throwing
+      const parsed = wrapped.schema.safeParse({ name: 123 })
+      expect(parsed.success).toBe(false)
+
+      // A well-formed input still succeeds
+      expect(wrapped({ name: "ok" })).toBe("ok")
     })
 
   })

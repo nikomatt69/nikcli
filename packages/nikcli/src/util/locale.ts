@@ -59,19 +59,21 @@ export namespace Locale {
     return `${days}d ${hours}h`
   }
 
-  export function truncate(str: string, len: number): string {
-    if (str.length <= len) return str
-    return str.slice(0, len - 1) + "…"
+  export function truncate(str: string | unknown, len: number): string {
+    const s = String(str ?? "")
+    if (s.length <= len) return s
+    return s.slice(0, len - 1) + "…"
   }
 
-  export function truncateMiddle(str: string, maxLength: number = 35): string {
-    if (str.length <= maxLength) return str
+  export function truncateMiddle(str: string | unknown, maxLength: number = 35): string {
+    const s = String(str ?? "")
+    if (s.length <= maxLength) return s
 
     const ellipsis = "…"
     const keepStart = Math.ceil((maxLength - ellipsis.length) / 2)
     const keepEnd = Math.floor((maxLength - ellipsis.length) / 2)
 
-    return str.slice(0, keepStart) + ellipsis + str.slice(-keepEnd)
+    return s.slice(0, keepStart) + ellipsis + s.slice(-keepEnd)
   }
 
   export function pluralize(count: number, singular: string, plural: string): string {

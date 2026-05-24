@@ -48,7 +48,10 @@ async function resolveRelativeInstruction(instruction: string, ctx: InstanceCont
   return Filesystem.findUp(instruction, Flag.NIKCLI_CONFIG_DIR, Flag.NIKCLI_CONFIG_DIR).catch(() => [])
 }
 
-export async function collectSystemPaths(ctx: InstanceContext, config: Config.Info): Promise<{
+export async function collectSystemPaths(
+  ctx: InstanceContext,
+  config: Config.Info,
+): Promise<{
   paths: Set<string>
   urls: string[]
 }> {
@@ -140,13 +143,14 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
   Effect.gen(function* () {
     const configSvc = yield* Config.Service
 
-    const state = new Map<string, Set<string>>()
+    // Track which instruction files have already been attached for a given assistant message
+    const claims = new Map<string, Set<string>>()
 
     const createService = () => {
       const svc: Interface = {
         clear: (messageID) =>
           Effect.sync(() => {
-            state.delete(messageID)
+            claims.delete(messageID)
           }),
 
         systemPaths: () =>
@@ -160,12 +164,13 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
         system: () =>
           Effect.gen(function* () {
             const { paths, urls } = yield* svc.systemPaths()
+            // Increase concurrency: 8 for files, 4 for URLs (from opencode pattern)
             const [fileContents, urlContents] = yield* Effect.all(
               [
                 Effect.tryPromise(() => readInstructionContents(paths)),
                 Effect.tryPromise(() => fetchInstructionUrls(urls)),
               ],
-              { concurrency: 2 },
+              { concurrency: 8 },
             )
             return [...fileContents, ...urlContents]
           }),
@@ -182,23 +187,58 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
 
         resolve: (messages, filepath, messageID) =>
           Effect.gen(function* () {
+            const ctx = yield* InstanceState.context
             const msgPaths = extractReadPaths(messages)
-            const loaded = state.get(messageID) ?? new Set()
-            const pending: { filepath: string; content: string }[] = []
+            const sysPaths = yield* svc.systemPaths()
+            const root = path.resolve(ctx.directory)
+            const results: { filepath: string; content: string }[] = []
 
+            // Get or create claims set for this messageID
+            let messageClaims = claims.get(messageID)
+            if (!messageClaims) {
+              messageClaims = new Set()
+              claims.set(messageID, messageClaims)
+            }
+
+            // First, process paths from messages (from read tool metadata)
             for (const p of msgPaths) {
-              if (loaded.has(p)) continue
-              loaded.add(p)
+              if (messageClaims.has(p)) continue
+              messageClaims.add(p)
               const content = yield* Effect.tryPromise(() =>
-                Bun.file(p).text().catch(() => ""),
+                Bun.file(p)
+                  .text()
+                  .catch(() => ""),
               )
               if (content) {
-                pending.push({ filepath: p, content })
+                results.push({ filepath: p, content: `Instructions from: ${p}\n${content}` })
               }
             }
 
-            state.set(messageID, loaded)
-            return pending
+            // Walk upward from the file being read and attach nearby instruction files (opencode pattern)
+            const target = path.resolve(filepath)
+            let current = path.dirname(target)
+
+            while (current.startsWith(root) && current !== root) {
+              const found = yield* svc.find(current)
+              if (!found || found === target || sysPaths.paths.has(found) || messageClaims.has(found)) {
+                current = path.dirname(current)
+                continue
+              }
+
+              messageClaims.add(found)
+              const content = yield* Effect.tryPromise(() =>
+                Bun.file(found)
+                  .text()
+                  .catch(() => ""),
+              )
+              if (content) {
+                results.push({ filepath: found, content: `Instructions from: ${found}\n${content}` })
+              }
+
+              current = path.dirname(current)
+            }
+
+            return results
           }),
       }
       return svc

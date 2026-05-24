@@ -1,7 +1,7 @@
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
-import { afterAll, afterEach, describe, expect, it } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { Instance } from "@/project/instance"
 import { Message } from "@/session/message"
 import { MessageV2 } from "@/session/message-v2"
@@ -308,6 +308,14 @@ describe("Session status subsystem", () => {
 })
 
 describe("Session retry helpers", () => {
+  let randomSpy: ReturnType<typeof spyOn>
+  beforeEach(() => {
+    randomSpy = spyOn(Math, "random").mockReturnValue(0)
+  })
+  afterEach(() => {
+    randomSpy.mockRestore()
+  })
+
   const delayCases = [
     { attempt: 1, expected: 2_000 },
     { attempt: 2, expected: 4_000 },

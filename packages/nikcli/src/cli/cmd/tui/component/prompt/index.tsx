@@ -57,6 +57,8 @@ import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 import { DialogBgAgents } from "../../routes/session/dialog-bg-agents.tsx"
 import { friendlyErrorMessage } from "../../util/error-message"
+import { PromptFrames } from "../prompt-frames"
+import { getMonitorsSorted, type MonitorInfo } from "../../util/monitor-helpers"
 
 export type PromptProps = {
   sessionID?: string
@@ -781,6 +783,16 @@ export function Prompt(props: PromptProps) {
     if (active > 0 && active !== total) return `${active}/${total}`
     return String(total)
   })
+
+  // Monitors data for prompt frames
+  const monitors = createMemo(() => {
+    if (!props.sessionID) return [] as MonitorInfo[]
+    return getMonitorsSorted(sync, props.sessionID)
+  })
+  const activeMonitorsCount = createMemo(() => monitors().filter((m) => m.status === "running").length)
+
+  // Combined count for prompt frames visibility
+  const totalBgItems = createMemo(() => backgroundJobs().length + monitors().length)
 
   function openBackgroundSubtasks() {
     if (!props.sessionID) return
@@ -2268,6 +2280,30 @@ export function Prompt(props: PromptProps) {
             </box>
           </Show>
         </box>
+        {/* Prompt Frames - Jobs and Monitors display */}
+        <Show when={props.sessionID && totalBgItems() > 0}>
+          <PromptFrames
+            sessionID={props.sessionID ?? ""}
+            jobs={backgroundJobs()}
+            onOpenMonitor={(monitor) => {
+              // Open monitor in the bg-agents dialog
+              const sessionID = props.sessionID ?? ""
+              dialog.replace(() => (
+                <DialogBgAgents
+                  sessionID={sessionID}
+                  onOpenMonitor={(monitorID, title, command, status, logPath) => {
+                    // This will be handled by dialog-bg-agents
+                    void monitorID
+                    void title
+                    void command
+                    void status
+                    void logPath
+                  }}
+                />
+              ))
+            }}
+          />
+        </Show>
       </box>
     </>
   )

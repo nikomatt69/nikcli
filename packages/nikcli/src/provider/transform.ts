@@ -183,6 +183,34 @@ export namespace ProviderTransform {
       })
     }
 
+    // ── nikcli-inference / OpenAI-Compatible Providers ──────────────────────
+    // The nikcli-inference gateway and some OAI-compatible providers expect
+    // string content, not array content, for user/system messages.
+    if (
+      model.providerID === "nikcli-inference" ||
+      model.providerID === "ollama" ||
+      (model.api.npm === "@ai-sdk/openai-compatible" &&
+        !model.api.id.toLowerCase().includes("deepseek") &&
+        !model.api.id.toLowerCase().includes("mistral") &&
+        !model.api.id.toLowerCase().includes("devstral"))
+    ) {
+      msgs = msgs.map((msg) => {
+        if (!Array.isArray(msg.content)) return msg
+
+        // Skip assistant messages (they may contain tool calls)
+        if (msg.role === "assistant") return msg
+
+        // Convert array to string for user/system messages
+        const text = msg.content
+          .filter((p) => p.type === "text")
+          .map((p) => (p as any).text ?? "")
+          .join("\n")
+          .trim()
+
+        return { ...msg, content: text || " " } as ModelMessage
+      })
+    }
+
     if (
       typeof model.capabilities.interleaved === "object" &&
       model.capabilities.interleaved.field &&

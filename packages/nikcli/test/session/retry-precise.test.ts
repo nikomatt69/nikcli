@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionRetry } from "@/session/retry"
 
@@ -7,6 +7,14 @@ function apiErr(input: ConstructorParameters<typeof MessageV2.APIError>[0]) {
 }
 
 describe("SessionRetry.delay precise table (no API error)", () => {
+  let randomSpy: ReturnType<typeof spyOn>
+  beforeEach(() => {
+    randomSpy = spyOn(Math, "random").mockReturnValue(0)
+  })
+  afterEach(() => {
+    randomSpy.mockRestore()
+  })
+
   const expected: Record<number, number> = {
     1: 2_000,
     2: 4_000,
@@ -26,6 +34,14 @@ describe("SessionRetry.delay precise table (no API error)", () => {
 })
 
 describe("SessionRetry.delay precise (headers)", () => {
+  let randomSpy: ReturnType<typeof spyOn>
+  beforeEach(() => {
+    randomSpy = spyOn(Math, "random").mockReturnValue(0)
+  })
+  afterEach(() => {
+    randomSpy.mockRestore()
+  })
+
   it("retry-after-ms wins with exact float string", () => {
     const e = apiErr({
       message: "x",

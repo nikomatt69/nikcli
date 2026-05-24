@@ -216,7 +216,11 @@ export namespace Worktree {
       list() {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => listImpl(ctx))
+          return yield* Effect.tryPromise({
+            try: () => listImpl(ctx),
+            // Preserve typed worktree errors instead of being wrapped in Effect's UnknownError
+            catch: (error) => error,
+          })
         })
       },
     }),

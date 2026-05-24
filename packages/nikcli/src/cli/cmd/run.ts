@@ -6,6 +6,7 @@ import { Flag } from "../../flag/flag"
 import { bootstrap } from "../bootstrap"
 import { Command } from "../../command"
 import { EOL } from "os"
+import { pathToFileURL } from "url"
 import { select } from "@clack/prompts"
 import { createNikcliClient, type NikcliClient } from "@nikcli-ai/sdk/v2"
 import { Server } from "../../server/server"
@@ -417,7 +418,7 @@ export const RunCommand = cmd({
 
           fileParts.push({
             type: "file",
-            url: `file://${resolvedPath}`,
+            url: pathToFileURL(resolvedPath).href,
             filename: path.basename(resolvedPath),
             mime,
           })

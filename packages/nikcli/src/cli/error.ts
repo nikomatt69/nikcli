@@ -66,7 +66,7 @@ export function FormatError(input: unknown): string | undefined {
   }
 
   if (input instanceof UI.CancelledError) {
-    return undefined
+    return ""
   }
 
   return undefined

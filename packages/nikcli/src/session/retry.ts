@@ -34,6 +34,9 @@ export namespace SessionRetry {
   }
 
   export function delay(attempt: number, error?: MessageV2.APIError) {
+    // Calculate base delay with exponential backoff
+    const baseDelay = RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1)
+
     if (error) {
       const headers = error.responseHeaders
       if (headers) {
@@ -57,11 +60,15 @@ export namespace SessionRetry {
           }
         }
 
-        return RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1)
+        // Add 10% jitter to prevent thundering herd
+        const jitter = baseDelay * Math.random() * 0.1
+        return Math.min(baseDelay + jitter, RETRY_MAX_DELAY_NO_HEADERS)
       }
     }
 
-    return Math.min(RETRY_INITIAL_DELAY * Math.pow(RETRY_BACKOFF_FACTOR, attempt - 1), RETRY_MAX_DELAY_NO_HEADERS)
+    // Add 10% jitter to prevent thundering herd
+    const jitter = baseDelay * Math.random() * 0.1
+    return Math.min(baseDelay + jitter, RETRY_MAX_DELAY_NO_HEADERS)
   }
 
   function mapJsonRetryMessage(message: string): string | undefined {
@@ -91,7 +98,9 @@ export namespace SessionRetry {
 
   export function retryable(error: { name: string; data?: Record<string, unknown> }) {
     if (MessageV2.APIError.isInstance(error)) {
-      if (!error.data.isRetryable) return undefined
+      const status = error.data.statusCode
+      // 5xx errors are transient server failures - always retry them even if not marked retryable
+      if (!error.data.isRetryable && !(status !== undefined && status >= 500)) return undefined
       if (
         error.data.responseBody?.includes("FreeUsageLimitError") ||
         error.data.message.includes("FreeUsageLimitError")

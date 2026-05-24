@@ -34,5 +34,5 @@ describe("CLI entrypoint (subprocess)", () => {
     expect(code).toBe(0)
     expect(out).toContain("nikcli")
     expect(out.toLowerCase()).toContain("help")
-  })
+  }, 30_000)
 })

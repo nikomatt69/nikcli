@@ -218,7 +218,10 @@ describe("ProviderTransform", () => {
 
   it("options sets store false for openai and copilot", () => {
     const o1 = ProviderTransform.options({
-      model: makeModel(),
+      model: makeModel({
+        providerID: "openai",
+        api: { id: "gpt-4", url: "https://api.openai.com", npm: "@ai-sdk/openai" },
+      }),
       sessionID: "s1",
     })
     expect(o1["store"]).toBe(false)

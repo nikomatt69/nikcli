@@ -69,7 +69,7 @@ describe("ConfigPaths", () => {
     it("throws InvalidError when file reference is missing", async () => {
       const cfg = path.join(testDir, "main.jsonc")
       await expect(ConfigPaths.parseText(`{ "msg": "{file:nope.txt}" }`, cfg)).rejects.toMatchObject({
-        name: "ConfigInvalidError",
+        _tag: "ConfigPathsInvalidError",
       })
     })
 
@@ -82,7 +82,7 @@ describe("ConfigPaths", () => {
     it("throws JsonError on invalid JSON after substitution", async () => {
       const cfg = path.join(testDir, "bad.jsonc")
       await expect(ConfigPaths.parseText(`{ not json`, cfg)).rejects.toMatchObject({
-        name: "ConfigJsonError",
+        _tag: "ConfigPathsJsonError",
       })
     })
   })

@@ -126,10 +126,7 @@ export namespace LLM {
   function isUIMessage(message: unknown): message is UIMessage {
     if (!message || typeof message !== "object") return false
     const candidate = message as { role?: unknown; parts?: unknown }
-    return (
-      (candidate.role === "user" || candidate.role === "assistant") &&
-      Array.isArray(candidate.parts)
-    )
+    return (candidate.role === "user" || candidate.role === "assistant") && Array.isArray(candidate.parts)
   }
 
   // Some messages reach `normalizeStreamMessages` shaped like UIMessages but
@@ -220,8 +217,7 @@ export namespace LLM {
       // by repairing the role to user.
       if (looksLikeUIMessage(message)) {
         const candidate = message as { role?: unknown; parts: UIMessage["parts"] }
-        const role: UIMessage["role"] =
-          candidate.role === "assistant" ? "assistant" : "user"
+        const role: UIMessage["role"] = candidate.role === "assistant" ? "assistant" : "user"
         uiRun.push({ ...(message as object), role } as UIMessage)
         continue
       }
@@ -583,7 +579,9 @@ export namespace LLM {
               ? msg.content
                 ? [{ type: "text" as const, text: msg.content }]
                 : []
-              : msg.content.map(toLLMContentPart).filter((p): p is ContentPart => p !== undefined)
+              : Array.isArray(msg.content)
+                ? msg.content.map(toLLMContentPart).filter((p): p is ContentPart => p !== undefined)
+                : []
           if (parts.length > 0) result.push(LLMMessage.user(parts))
           break
         }
@@ -700,8 +698,13 @@ export namespace LLM {
       messages,
       tools,
       generation: hasGen ? generation : undefined,
-      http: httpOptions, 
-      toolChoice: input.toolChoice === "required" ? ToolChoice.make("any") : input.toolChoice === "none" ? ToolChoice.make("none") : undefined,     
+      http: httpOptions,
+      toolChoice:
+        input.toolChoice === "required"
+          ? ToolChoice.make("any")
+          : input.toolChoice === "none"
+            ? ToolChoice.make("none")
+            : undefined,
     })
   }
 }

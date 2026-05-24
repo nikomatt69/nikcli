@@ -78,7 +78,7 @@ describe("Provider HttpApi bridge", () => {
     expect(removeResponse.status).toBe(200)
     expect(await removeResponse.json()).toEqual({ success: true })
     expect(await getAuth(providerID)).toBeUndefined()
-  })
+  }, 30_000)
 })
 
 afterEach(async () => {

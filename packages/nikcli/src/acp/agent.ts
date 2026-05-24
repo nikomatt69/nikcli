@@ -33,6 +33,7 @@ import { LoadAPIKeyError } from "ai"
 import type { Event, NikcliClient, SessionMessageResponse } from "@nikcli-ai/sdk/v2"
 import { applyPatch } from "diff"
 import { Effect } from "effect"
+import { pathToFileURL, fileURLToPath } from "url"
 import { InstanceScope, runPromiseWithLayer } from "@/effect"
 
 function defaultAgentForDirectory(directory: string) {
@@ -1284,8 +1285,14 @@ export namespace ACP {
   ): { type: "file"; url: string; filename: string; mime: string } | { type: "text"; text: string } {
     try {
       if (uri.startsWith("file://")) {
-        const path = uri.slice(7)
-        const name = path.split("/").pop() || path
+        const resolved = (() => {
+          try {
+            return fileURLToPath(uri)
+          } catch {
+            return uri.slice(7)
+          }
+        })()
+        const name = resolved.split(/[\\/]/).pop() || resolved
         return {
           type: "file",
           url: uri,
@@ -1295,12 +1302,12 @@ export namespace ACP {
       }
       if (uri.startsWith("zed://")) {
         const url = new URL(uri)
-        const path = url.searchParams.get("path")
-        if (path) {
-          const name = path.split("/").pop() || path
+        const filePath = url.searchParams.get("path")
+        if (filePath) {
+          const name = filePath.split(/[\\/]/).pop() || filePath
           return {
             type: "file",
-            url: `file://${path}`,
+            url: pathToFileURL(filePath).href,
             filename: name,
             mime: "text/plain",
           }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test"
 import { MessageV2 } from "@/session/message-v2"
 import { SessionRetry } from "@/session/retry"
 
@@ -8,6 +8,15 @@ function apiError(input: ConstructorParameters<typeof MessageV2.APIError>[0]) {
 
 describe("SessionRetry", () => {
   describe("delay", () => {
+    let randomSpy: ReturnType<typeof spyOn>
+    beforeEach(() => {
+      // Pin Math.random for deterministic jitter assertions (10% jitter * 0 = 0)
+      randomSpy = spyOn(Math, "random").mockReturnValue(0)
+    })
+    afterEach(() => {
+      randomSpy.mockRestore()
+    })
+
     it("caps exponential backoff without headers", () => {
       expect(SessionRetry.delay(1)).toBe(2_000)
       expect(SessionRetry.delay(5)).toBe(30_000)
@@ -33,12 +42,31 @@ describe("SessionRetry", () => {
       })
       expect(SessionRetry.delay(2, err)).toBe(4_000)
     })
+
+    it("adds up to 10% jitter to base delay", () => {
+      randomSpy.mockReturnValue(1)
+      // attempt 1: base 2000 + (2000 * 1 * 0.1) = 2200
+      expect(SessionRetry.delay(1)).toBe(2_200)
+      // attempt 2: base 4000 + (4000 * 1 * 0.1) = 4400
+      expect(SessionRetry.delay(2)).toBe(4_400)
+    })
+
+    it("clamps jittered delay to RETRY_MAX_DELAY_NO_HEADERS", () => {
+      randomSpy.mockReturnValue(1)
+      // attempt 5 base = 32000 → capped at 30000 even with jitter
+      expect(SessionRetry.delay(5)).toBe(30_000)
+    })
   })
 
   describe("retryable", () => {
     it("returns undefined when API error is not retryable", () => {
-      const err = apiError({ message: "nope", isRetryable: false, statusCode: 500 })
+      const err = apiError({ message: "nope", isRetryable: false, statusCode: 400 })
       expect(SessionRetry.retryable(err.toObject())).toBeUndefined()
+    })
+
+    it("auto-retries 5xx server errors even when not marked retryable", () => {
+      const err = apiError({ message: "server boom", isRetryable: false, statusCode: 503 })
+      expect(SessionRetry.retryable(err.toObject())).toBe("server boom")
     })
 
     it("classifies JSON rate limit inside API error message", () => {

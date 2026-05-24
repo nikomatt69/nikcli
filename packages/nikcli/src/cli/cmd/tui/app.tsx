@@ -85,7 +85,8 @@ import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
-import { win32DisableProcessedInput, win32InstallCtrlCGuard } from "./win32"
+import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
+import { Terminal } from "./util/terminal"
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
   return {
@@ -366,6 +367,12 @@ function App(props: { upgradeNow?: (method: string, version: string) => Promise<
 
   onCleanup(() => {
     void TuiPluginRuntime.dispose()
+    // Reset terminal state on exit
+    if (process.platform === "win32") {
+      win32FlushInputBuffer()
+    }
+    // Ensure terminal cursor is visible and attributes are reset
+    process.stdout.write("\x1b[?25h\x1b[0m")
   })
 
   // Wire up console copy-to-clipboard via opentui's onCopySelection callback

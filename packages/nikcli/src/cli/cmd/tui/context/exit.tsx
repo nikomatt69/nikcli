@@ -1,6 +1,7 @@
 import { useRenderer } from "@opentui/solid"
 import { createSimpleContext } from "./helper"
 import { FormatError, FormatUnknownError } from "@/cli/error"
+import { win32FlushInputBuffer } from "../win32"
 
 export const { use: useExit, provider: ExitProvider } = createSimpleContext({
   name: "Exit",
@@ -37,6 +38,11 @@ export const { use: useExit, provider: ExitProvider } = createSimpleContext({
         renderer.setTerminalTitle("")
         renderer.destroy()
         if (!reason) writeSummary()
+        // Reset terminal state on all platforms
+        if (process.platform === "win32") {
+          win32FlushInputBuffer()
+        }
+        process.stdout.write("\x1b[?25h\x1b[0m")
       } catch (error) {
         errors.push(error)
         exitCode = 1
@@ -72,6 +78,11 @@ export const { use: useExit, provider: ExitProvider } = createSimpleContext({
       try {
         renderer.setTerminalTitle("")
         renderer.destroy()
+        // Reset terminal state on all platforms
+        if (process.platform === "win32") {
+          win32FlushInputBuffer()
+        }
+        process.stdout.write("\x1b[?25h\x1b[0m")
       } catch {
         // best effort
       }
