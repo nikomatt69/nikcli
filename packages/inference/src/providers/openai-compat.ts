@@ -131,9 +131,15 @@ export class OpenAICompatProvider extends BaseProvider {
       extra?: Record<string, unknown>
     } = {},
   ): Promise<Response> {
+    // Convert array content to string format for providers that expect string content
+    const convertedMessages = messages.map((msg) => ({
+      ...msg,
+      content: BaseProvider.contentToString(msg.content),
+    }))
+
     const body: Record<string, unknown> = {
       model,
-      messages,
+      messages: convertedMessages,
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens ?? 4096,
       stream: options.stream ?? false,

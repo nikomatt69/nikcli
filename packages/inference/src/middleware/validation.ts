@@ -1,8 +1,29 @@
 import { z } from "zod"
 
+// Content part types for array content
+const textPartSchema = z.object({
+  type: z.literal("text"),
+  text: z.string(),
+})
+
+const imagePartSchema = z.object({
+  type: z.literal("image"),
+  image: z.union([z.string(), z.instanceof(URL)]),
+})
+
+const filePartSchema = z.object({
+  type: z.literal("file"),
+  data: z.string(),
+  mediaType: z.string().optional(),
+  filename: z.string().optional(),
+})
+
+const contentPartSchema = z.union([textPartSchema, imagePartSchema, filePartSchema])
+
 const messageSchema = z.object({
   role: z.enum(["system", "user", "assistant", "tool"]),
-  content: z.string(),
+  // Accept both string content and array content (AI SDK format)
+  content: z.union([z.string(), z.array(contentPartSchema)]),
   name: z.string().optional(),
   tool_call_id: z.string().optional(),
 })
@@ -41,7 +62,9 @@ export const chatCompletionsSchema = z.object({
 
 export type ChatCompletionsBody = z.infer<typeof chatCompletionsSchema>
 
-export function validateChatBody(input: unknown): { ok: true; data: ChatCompletionsBody } | { ok: false; error: string } {
+export function validateChatBody(
+  input: unknown,
+): { ok: true; data: ChatCompletionsBody } | { ok: false; error: string } {
   const result = chatCompletionsSchema.safeParse(input)
   if (result.success) return { ok: true, data: result.data }
   return {

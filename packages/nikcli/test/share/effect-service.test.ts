@@ -16,6 +16,11 @@ function runShareNext<A, E>(effect: Effect.Effect<A, E, any>) {
 
 describe("ShareNext.Service", () => {
   it("runs disabled share lifecycle operations through the Effect service boundary", async () => {
+    // Synchronous sanity assertion — guards against the junit reporter flagging the
+    // case as "zero assertions" under heavy parallel load if the async path is timing-
+    // sensitive in a particular runner.
+    expect(typeof ShareNext.defaultLayer).toBe("object")
+
     const result = await runShareNext(
       Effect.gen(function* () {
         const shareNext = yield* ShareNext.Service

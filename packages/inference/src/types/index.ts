@@ -403,9 +403,30 @@ export const MARKUP = 0.25 // 25% margin
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool"
-  content: string
+  content: string | ContentPart[]
   name?: string
+  tool_call_id?: string
 }
+
+// Content part types for AI SDK compatibility
+export interface TextPart {
+  type: "text"
+  text: string
+}
+
+export interface ImagePart {
+  type: "image"
+  image: string | URL
+}
+
+export interface FilePart {
+  type: "file"
+  data: string
+  mediaType?: string
+  filename?: string
+}
+
+export type ContentPart = TextPart | ImagePart | FilePart
 
 export interface CompletionRequest {
   model: string

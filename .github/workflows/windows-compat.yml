@@ -1,0 +1,185 @@
+name: windows-compat
+
+# Runtime parity check on real Windows hardware (windows-latest runner =
+# Windows Server 2022, PowerShell 5.1 + pwsh 7). Runs on every PR + push to
+# live-main, on a weekly schedule (catches Bun/Windows regressions), and on
+# manual dispatch. Mirrors what packages/nikcli/script/windows-smoke.ps1 does
+# locally on the maintainer's VMs.
+
+on:
+  push:
+    branches:
+      - live-main
+    paths:
+      - "packages/nikcli/**"
+      - "packages/sdk/js/**"
+      - "packages/util/**"
+      - ".github/workflows/windows-compat.yml"
+  pull_request:
+    paths:
+      - "packages/nikcli/**"
+      - "packages/sdk/js/**"
+      - "packages/util/**"
+      - ".github/workflows/windows-compat.yml"
+  schedule:
+    - cron: "0 4 * * 1" # Monday 04:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: windows-compat-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/live-main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        shell: [pwsh, cmd]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: packages/nikcli
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Environment
+        shell: pwsh
+        run: |
+          Write-Host "OS:    $([System.Environment]::OSVersion.VersionString)"
+          Write-Host "Arch:  $env:PROCESSOR_ARCHITECTURE"
+          Write-Host "Shell matrix value: ${{ matrix.shell }}"
+          Write-Host "bun:   $(& bun --version)"
+          Write-Host "pwsh:  $($PSVersionTable.PSVersion)"
+
+      # --- typecheck + unit suites that exercise the Windows fixes ---
+
+      - name: typecheck
+        shell: pwsh
+        run: bun run typecheck
+
+      - name: tests — double-ESC interrupt state machine
+        shell: pwsh
+        run: bun test test/tui/util/double-esc.test.ts
+
+      - name: tests — session (retry jitter, prompt resolution)
+        shell: pwsh
+        run: bun test test/session
+
+      - name: tests — config + worktree (Effect TaggedError tags)
+        shell: pwsh
+        run: bun test test/config test/worktree
+
+      - name: tests — util (filesystem, lock, wildcard)
+        shell: pwsh
+        run: bun test test/util
+
+      # --- Windows-specific runtime invariants ---
+
+      - name: invariant — pathToFileURL roundtrip with drive letters
+        shell: pwsh
+        run: |
+          $script = @'
+          import { pathToFileURL, fileURLToPath } from "node:url"
+          const win = "C:\\Users\\test\\foo.txt"
+          const url = pathToFileURL(win).href
+          if (!url.startsWith("file:///C:/")) { console.error("bad url:", url); process.exit(1) }
+          const back = fileURLToPath(url)
+          if (back.toLowerCase() !== win.toLowerCase()) { console.error("roundtrip mismatch:", back); process.exit(1) }
+          console.log("file URL roundtrip ok:", url, "<->", back)
+          '@
+          $tmp = "$env:RUNNER_TEMP\file-url-check.mjs"
+          Set-Content -Path $tmp -Value $script -Encoding UTF8
+          & bun $tmp
+
+      - name: invariant — Global.Path resolves to Windows AppData
+        shell: pwsh
+        run: |
+          $script = @'
+          import { Global } from "@/global"
+          const data = Global.Path.data
+          const cfg = Global.Path.config
+          console.log("data:", data, "config:", cfg)
+          const drive = /^[A-Za-z]:[\\/]/
+          if (!drive.test(data)) { console.error("data is not a Windows drive:", data); process.exit(1) }
+          if (data.includes("/.local/share/")) { console.error("XDG POSIX fallback leaked:", data); process.exit(1) }
+          console.log("Global.Path Windows fallback ok")
+          '@
+          $tmp = "$env:RUNNER_TEMP\global-path-check.ts"
+          Set-Content -Path $tmp -Value $script -Encoding UTF8
+          & bun --conditions=browser $tmp
+
+      - name: invariant — Shell.preferred / Shell.select on Windows
+        shell: pwsh
+        run: |
+          $script = @'
+          import { Shell } from "@/shell/shell"
+          const pref = Shell.preferred().toLowerCase()
+          console.log("preferred:", pref)
+          const ok = pref.endsWith("cmd.exe") || pref.endsWith("powershell.exe") || pref.endsWith("pwsh.exe") || pref.endsWith("bash.exe")
+          if (!ok) { console.error("unexpected shell:", pref); process.exit(1) }
+          const psSel = Shell.select("$env:PATH | ForEach-Object { $_ }")
+          console.log("PowerShell-marker selected:", psSel)
+          console.log("Shell helpers ok")
+          '@
+          $tmp = "$env:RUNNER_TEMP\shell-check.ts"
+          Set-Content -Path $tmp -Value $script -Encoding UTF8
+          & bun --conditions=browser $tmp
+
+      # --- Build + execute the native Windows binary ---
+
+      - name: Build single-target Windows binary
+        shell: pwsh
+        run: bun run script/build.ts --single
+
+      - name: Built nikcli.exe --help exits 0 and prints 'nikcli'
+        shell: pwsh
+        run: |
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "x64" }
+          $bin = ".\dist\nikcli-ai-windows-$arch\bin\nikcli.exe"
+          if (-not (Test-Path $bin)) { throw "missing binary: $bin" }
+          $size = [math]::Round((Get-Item $bin).Length / 1MB, 1)
+          Write-Host "built: $bin ($size MB)"
+          $out = & $bin --help 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "--help exited $LASTEXITCODE`n$out" }
+          if ($out -notmatch "nikcli") { throw "--help output missing 'nikcli'`n$out" }
+          Write-Host "nikcli.exe --help ok ($((($out | Out-String).Length)) chars)"
+
+      - name: Built nikcli.exe --version exits 0
+        shell: pwsh
+        run: |
+          $arch = if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { "arm64" } else { "x64" }
+          $bin = ".\dist\nikcli-ai-windows-$arch\bin\nikcli.exe"
+          $out = & $bin --version 2>&1
+          if ($LASTEXITCODE -ne 0) { throw "--version exited $LASTEXITCODE`n$out" }
+          Write-Host "version: $out"
+
+      # --- cmd.exe leg: same binary, classic shell, no PowerShell ---
+
+      - name: Re-run binary smoke from cmd.exe
+        if: matrix.shell == 'cmd'
+        shell: cmd
+        run: |
+          set ARCH=x64
+          if "%PROCESSOR_ARCHITECTURE%"=="ARM64" set ARCH=arm64
+          dist\nikcli-ai-windows-%ARCH%\bin\nikcli.exe --help > nul
+          if errorlevel 1 (echo --help failed under cmd.exe & exit /b 1)
+          dist\nikcli-ai-windows-%ARCH%\bin\nikcli.exe --version
+          if errorlevel 1 (echo --version failed under cmd.exe & exit /b 1)
+          echo cmd.exe execution ok
+
+      - name: Upload binary on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nikcli-windows-${{ matrix.shell }}-failed
+          path: packages/nikcli/dist/nikcli-ai-windows-*/bin/nikcli.exe
+          if-no-files-found: ignore
+          retention-days: 7

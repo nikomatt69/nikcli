@@ -85,7 +85,8 @@ export namespace SessionHttpApi {
   // Effect HttpApi rejects those when encoding `Schema.Unknown` because `undefined` is not a
   // valid JSON value. Round-tripping through JSON.stringify normalizes the payload by
   // dropping undefined keys without changing the schema contract for callers.
-  const jsonSafe = <T>(value: T): unknown => JSON.parse(JSON.stringify(value ?? null))
+  // Returning `T` keeps handler signatures inferable for HttpApi.
+  const jsonSafe = <T>(value: T): T => JSON.parse(JSON.stringify(value ?? null)) as T
 
   export const Group = HttpApiGroup.make("session")
     .add(HttpApiEndpoint.get("list", "/", { query: ListQuery, success: SessionList }))

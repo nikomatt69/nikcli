@@ -1,4 +1,4 @@
-import type { ChatMessage } from "../types"
+import type { ChatMessage, ContentPart } from "../types"
 
 export interface ChatOptions {
   temperature?: number
@@ -20,11 +20,7 @@ export abstract class BaseProvider {
   abstract apiKey: string
   abstract baseUrl: string
 
-  abstract chatCompletions(
-    model: string,
-    messages: ChatMessage[],
-    options?: ChatOptions,
-  ): Promise<Response>
+  abstract chatCompletions(model: string, messages: ChatMessage[], options?: ChatOptions): Promise<Response>
 
   async listModels(): Promise<string[]> {
     return []
@@ -43,6 +39,21 @@ export abstract class BaseProvider {
         ...options.headers,
       },
     })
+  }
+
+  /**
+   * Convert array content to string format for providers that don't support array content.
+   * Extracts text from text parts and joins them.
+   */
+  protected static contentToString(content: string | ContentPart[]): string {
+    if (typeof content === "string") return content
+    if (!Array.isArray(content)) return " "
+    const text = content
+      .filter((p) => p.type === "text")
+      .map((p) => (p as { type: "text"; text: string }).text)
+      .join("\n")
+      .trim()
+    return text || " "
   }
 }
 

@@ -192,7 +192,7 @@ export function PromptFrames(props: PromptFramesProps) {
             <text fg={theme.text} attributes={TextAttributes.BOLD}>
               Jobs
             </text>
-            <text fg={theme.textMuted}> ({visibleJobs().length})</text>
+            <text fg={theme.textMuted}>{` (${visibleJobs().length})`}</text>
           </box>
           <text fg={theme.textMuted}>·</text>
           <box onMouseUp={() => setMonitorsCollapsed(!monitorsCollapsed())}>
@@ -200,12 +200,13 @@ export function PromptFrames(props: PromptFramesProps) {
             <text fg={theme.text} attributes={TextAttributes.BOLD}>
               Monitors
             </text>
-            <text fg={theme.textMuted}> ({monitors().length})</text>
+            <text fg={theme.textMuted}>{` (${monitors().length})`}</text>
           </box>
         </box>
         <text fg={theme.textMuted}>
           <Show when={activeCount() > 0}>
-            <text fg={theme.accent}>{activeCount()}</text> active ·{" "}
+            <text fg={theme.accent}>{String(activeCount())}</text>
+            <text fg={theme.textMuted}>{" active · "}</text>
           </Show>
           <text fg={theme.textMuted}>click to open</text>
         </text>
@@ -271,7 +272,7 @@ export function PromptFrames(props: PromptFramesProps) {
                   <text fg={theme.textMuted}>{Locale.truncateMiddle(monitor.command, 30)}</text>
                   <text fg={getStatusColor(monitor.status)}>{formatMonitorStatus(monitor.status)}</text>
                   <Show when={monitor.exitCode !== undefined}>
-                    <text fg={theme.textMuted}>({monitor.exitCode})</text>
+                    <text fg={theme.textMuted}>{`(${monitor.exitCode})`}</text>
                   </Show>
                 </box>
               )

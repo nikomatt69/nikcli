@@ -5,28 +5,25 @@ import os from "os"
 
 const app = "nikcli"
 
-function xdgPath(value: string | undefined, fallback: string) {
-  return path.join(value || fallback, app)
-}
-
 const home = os.homedir()
 
-// Windows fallbacks use platform-native locations when XDG env vars are absent.
-// xdg-basedir already honors APPDATA/LOCALAPPDATA on Windows when set, but if those
-// are missing we still want Windows-appropriate paths instead of POSIX dotfile dirs.
+// xdg-basedir@5 is POSIX-only — it always returns dotfile paths under $HOME
+// (e.g. C:\Users\nik\.local\share on Windows). On Windows we must ignore those
+// values and use the platform-native AppData layout instead. macOS and Linux
+// keep the upstream XDG behavior unchanged.
 const isWindows = process.platform === "win32"
 const winLocalAppData = process.env.LOCALAPPDATA || path.join(home, "AppData", "Local")
 const winRoamingAppData = process.env.APPDATA || path.join(home, "AppData", "Roaming")
 
-const dataFallback = isWindows ? winLocalAppData : path.join(home, ".local", "share")
-const cacheFallback = isWindows ? path.join(winLocalAppData, "Cache") : path.join(home, ".cache")
-const configFallback = isWindows ? winRoamingAppData : path.join(home, ".config")
-const stateFallback = isWindows ? path.join(winLocalAppData, "State") : path.join(home, ".local", "state")
+function xdgPath(xdgValue: string | undefined, posixFallback: string, windowsRoot: string) {
+  const base = isWindows ? windowsRoot : xdgValue || posixFallback
+  return path.join(base, app)
+}
 
-const data = xdgPath(xdgData, dataFallback)
-const cache = xdgPath(xdgCache, cacheFallback)
-const config = xdgPath(xdgConfig, configFallback)
-const state = xdgPath(xdgState, stateFallback)
+const data = xdgPath(xdgData, path.join(home, ".local", "share"), winLocalAppData)
+const cache = xdgPath(xdgCache, path.join(home, ".cache"), path.join(winLocalAppData, "Cache"))
+const config = xdgPath(xdgConfig, path.join(home, ".config"), winRoamingAppData)
+const state = xdgPath(xdgState, path.join(home, ".local", "state"), path.join(winLocalAppData, "State"))
 
 function testPath(name: string, fallback: string) {
   return process.env.NIKCLI_TEST_HOME ? path.join(process.env.NIKCLI_TEST_HOME, name) : fallback
