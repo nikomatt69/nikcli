@@ -27,7 +27,13 @@ for (const plugin of plugins) {
   if (result.exitCode !== 0) {
     console.log("✗ FAILED")
     const stderr = result.stderr.toString().trim()
-    if (stderr) console.error(stderr.split("\n").map((l) => `    ${l}`).join("\n"))
+    if (stderr)
+      console.error(
+        stderr
+          .split("\n")
+          .map((l) => `    ${l}`)
+          .join("\n"),
+      )
     failed++
   } else {
     console.log("✓")

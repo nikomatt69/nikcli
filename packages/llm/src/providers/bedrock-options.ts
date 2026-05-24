@@ -96,9 +96,7 @@ export const bedrockDefaultOptions = (
   return undefined
 }
 
-export const withBedrockOptions = <
-  Options extends { readonly providerOptions?: BedrockProviderOptionsInput },
->(
+export const withBedrockOptions = <Options extends { readonly providerOptions?: BedrockProviderOptionsInput }>(
   modelID: string,
   options: Options,
   defaults: { readonly variant?: BedrockVariant } = {},

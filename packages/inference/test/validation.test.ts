@@ -43,9 +43,7 @@ describe("validateChatBody", () => {
     const r = validateChatBody({
       model: "kimi-k2.6",
       messages: [{ role: "user", content: "hi" }],
-      tools: [
-        { type: "function", function: { name: "search", parameters: { type: "object" } } },
-      ],
+      tools: [{ type: "function", function: { name: "search", parameters: { type: "object" } } }],
     })
     expect(r.ok).toBe(true)
   })

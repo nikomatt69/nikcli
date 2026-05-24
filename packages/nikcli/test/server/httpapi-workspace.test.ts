@@ -60,13 +60,7 @@ async function request(pathname: string, directory: string, params: Record<strin
   return response.json()
 }
 
-async function jsonRequest(
-  method: string,
-  pathname: string,
-  directory: string,
-  body?: unknown,
-  expectedStatus = 200,
-) {
+async function jsonRequest(method: string, pathname: string, directory: string, body?: unknown, expectedStatus = 200) {
   process.env.NIKCLI_EXPERIMENTAL_HTTPAPI = "1"
   const url = new URL(pathname, "http://nikcli.local")
   url.searchParams.set("directory", directory)

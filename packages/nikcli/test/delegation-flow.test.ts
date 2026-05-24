@@ -178,7 +178,10 @@ describe("delegation flow", () => {
       expect(summary.output).toContain("Final synthesized result for parent session")
       expect(summary.output).toContain('Use `delegation(action="read", delegationId="')
 
-      const outsider = await tool.executeAsync({ action: "status", delegationId: delegation.id }, createContext("ses_other"))
+      const outsider = await tool.executeAsync(
+        { action: "status", delegationId: delegation.id },
+        createContext("ses_other"),
+      )
       expect(outsider.title).toBe("Delegator (not found)")
     })
   })

@@ -239,8 +239,7 @@ export const dict = {
     "Wszelkie dodatkowe koszty wynikaja z Twojej subskrypcji u dostawcy modeli. Nikcli dziala z kazdym dostawca modeli, ale polecamy korzystac z",
   "download.faq.a5.p2.afterZen": ".",
 
-  "download.faq.a6.p1":
-    "Twoje dane i informacje sa przechowywane tylko gdy tworzysz linki do udostepniania w Nikcli.",
+  "download.faq.a6.p1": "Twoje dane i informacje sa przechowywane tylko gdy tworzysz linki do udostepniania w Nikcli.",
   "download.faq.a6.p2.beforeShare": "Dowiedz sie wiecej o",
   "download.faq.a6.shareLink": "stronach udostepniania",
 

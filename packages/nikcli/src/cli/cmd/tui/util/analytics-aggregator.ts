@@ -793,10 +793,7 @@ function historicalDailyToDayStats(hd: HistoricalDailyData): DayStats {
   }
 }
 
-function mergeDayModelRows(
-  a: DayStats["models"][number][],
-  b: DayStats["models"][number][],
-): DayStats["models"] {
+function mergeDayModelRows(a: DayStats["models"][number][], b: DayStats["models"][number][]): DayStats["models"] {
   const m = new Map<string, { modelKey: string; tokens: number; cost: number; messages: number }>()
   for (const row of a) {
     m.set(row.modelKey, { ...row })
@@ -1136,7 +1133,9 @@ export function augmentAggregatedStatsFromPersistedSessions(
   const sortedDays = Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date))
   const filledDays = fillDailyRange(sortedDays.length > 0 ? sortedDays : stats.days, 90)
 
-  const mergedModelsMap = new Map<string, ModelStats>(stats.models.map((m) => [m.key, { ...m, tokens: { ...m.tokens } }]))
+  const mergedModelsMap = new Map<string, ModelStats>(
+    stats.models.map((m) => [m.key, { ...m, tokens: { ...m.tokens } }]),
+  )
   for (const [k, agg] of modelAgg) {
     const ex = mergedModelsMap.get(k)
     if (!ex) {

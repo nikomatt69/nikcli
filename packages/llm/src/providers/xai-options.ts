@@ -29,9 +29,7 @@ export const grokDefaultOptions = (modelID: string): ProviderOptions | undefined
 export const xaiDefaultOptions = (modelID: string): ProviderOptions | undefined =>
   mergeProviderOptions(openAIDefaultOptions(modelID, { textVerbosity: false }), grokDefaultOptions(modelID))
 
-export const withXAIOptions = <
-  Options extends { readonly providerOptions?: XAIProviderOptionsInput },
->(
+export const withXAIOptions = <Options extends { readonly providerOptions?: XAIProviderOptionsInput }>(
   modelID: string,
   options: Options,
 ): Options & { readonly id: string; readonly providerOptions?: ProviderOptions } => {

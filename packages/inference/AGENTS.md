@@ -36,8 +36,8 @@ State is **in-memory by default** and **upgrades transparently** when Upstash en
 
 Margin per call ≈ `MODELS[id].price × (1 + MARKUP) − routed-upstream-cost − cache-hit-savings`. Every layer below pushes the right-hand subtractors toward zero.
 
-1. **Cheapest-provider routing.** `src/config/routing.ts` holds per-model upstream prices for every supported provider. The router picks the cheapest *healthy* route via `blendedCost(route)` (weights output 3× input — agent traffic is output-heavy). Customer price is fixed by `MODELS[id]`; the delta is gross margin.
-2. **Circuit-broken failover.** `src/health/circuit.ts` opens a per-provider breaker after 5 consecutive failures, recovers via half-open probes. Bad providers are skipped silently — no user-visible 503 unless *all* providers fail.
+1. **Cheapest-provider routing.** `src/config/routing.ts` holds per-model upstream prices for every supported provider. The router picks the cheapest _healthy_ route via `blendedCost(route)` (weights output 3× input — agent traffic is output-heavy). Customer price is fixed by `MODELS[id]`; the delta is gross margin.
+2. **Circuit-broken failover.** `src/health/circuit.ts` opens a per-provider breaker after 5 consecutive failures, recovers via half-open probes. Bad providers are skipped silently — no user-visible 503 unless _all_ providers fail.
 3. **Content-hash response cache.** `src/cache/hash.ts` + `store.ts`. Key = SHA-256 over `{model, messages, tools, tool_choice, temperature, top_p, max_tokens, response_format, stop, seed}`. Default policy: cache only on `temperature === 0` or `seed` set. Override per request with `body.nikcli.cache: true` to opt-in for higher temperatures.
 4. **In-flight coalescing.** `src/cache/coalesce.ts`. Concurrent identical requests share one upstream Promise — first one pays, the rest return `cache: "coalesced"`.
 5. **vLLM prefix caching** (when routing to `local`). Server-side flag `--enable-prefix-caching`. We don't reorder messages; we keep stable prefix (system + tool schemas) first. `prefixCacheable: true` surfaces when this should hit.
@@ -70,33 +70,33 @@ Response envelope:
 
 `src/providers/openai-compat.ts` defines a single `OpenAICompatProvider` class plus the catalog. A provider auto-enables iff its env key is present:
 
-| Name        | Env key                | Base URL                                          | Strength                       |
-| ----------- | ---------------------- | ------------------------------------------------- | ------------------------------ |
-| local       | `LOCAL_API_KEY`        | `VLLM_BASE_URL` (default `localhost:8000`)        | Self-hosted, prefix caching    |
-| together    | `TOGETHER_API_KEY`     | `api.together.xyz/v1`                             | Broad catalog, turbo variants  |
-| fireworks   | `FIREWORKS_API_KEY`    | `api.fireworks.ai/inference/v1`                   | Latency-tuned, fp8 / fp16      |
-| deepinfra   | `DEEPINFRA_API_KEY`    | `api.deepinfra.com/v1/openai`                     | Cheapest on many open models   |
-| groq        | `GROQ_API_KEY`         | `api.groq.com/openai/v1`                          | Fastest for Llama family       |
-| cerebras    | `CEREBRAS_API_KEY`     | `api.cerebras.ai/v1`                              | Ultra-low latency Llama        |
-| sambanova   | `SAMBANOVA_API_KEY`    | `api.sambanova.ai/v1`                             | Fast Llama 3.x                 |
-| hyperbolic  | `HYPERBOLIC_API_KEY`   | `api.hyperbolic.xyz/v1`                           | Cheap DeepSeek / Llama / Qwen  |
-| nebius      | `NEBIUS_API_KEY`       | `api.studio.nebius.ai/v1`                         | Often cheapest for Llama/Qwen  |
-| openrouter  | `OPENROUTER_API_KEY`   | `openrouter.ai/api/v1`                            | Catch-all, dynamic routing     |
-| deepseek    | `DEEPSEEK_API_KEY`     | `api.deepseek.com/v1`                             | Native V3 / R1 cheapest        |
-| mistral     | `MISTRAL_API_KEY`      | `api.mistral.ai/v1`                               | Native Mistral / Devstral      |
-| moonshot    | `MOONSHOT_API_KEY`     | `api.moonshot.cn/v1`                              | Native Kimi K2                 |
-| zhipu       | `ZHIPU_API_KEY`        | `open.bigmodel.cn/api/paas/v4`                    | Native GLM                     |
+| Name       | Env key              | Base URL                                   | Strength                      |
+| ---------- | -------------------- | ------------------------------------------ | ----------------------------- |
+| local      | `LOCAL_API_KEY`      | `VLLM_BASE_URL` (default `localhost:8000`) | Self-hosted, prefix caching   |
+| together   | `TOGETHER_API_KEY`   | `api.together.xyz/v1`                      | Broad catalog, turbo variants |
+| fireworks  | `FIREWORKS_API_KEY`  | `api.fireworks.ai/inference/v1`            | Latency-tuned, fp8 / fp16     |
+| deepinfra  | `DEEPINFRA_API_KEY`  | `api.deepinfra.com/v1/openai`              | Cheapest on many open models  |
+| groq       | `GROQ_API_KEY`       | `api.groq.com/openai/v1`                   | Fastest for Llama family      |
+| cerebras   | `CEREBRAS_API_KEY`   | `api.cerebras.ai/v1`                       | Ultra-low latency Llama       |
+| sambanova  | `SAMBANOVA_API_KEY`  | `api.sambanova.ai/v1`                      | Fast Llama 3.x                |
+| hyperbolic | `HYPERBOLIC_API_KEY` | `api.hyperbolic.xyz/v1`                    | Cheap DeepSeek / Llama / Qwen |
+| nebius     | `NEBIUS_API_KEY`     | `api.studio.nebius.ai/v1`                  | Often cheapest for Llama/Qwen |
+| openrouter | `OPENROUTER_API_KEY` | `openrouter.ai/api/v1`                     | Catch-all, dynamic routing    |
+| deepseek   | `DEEPSEEK_API_KEY`   | `api.deepseek.com/v1`                      | Native V3 / R1 cheapest       |
+| mistral    | `MISTRAL_API_KEY`    | `api.mistral.ai/v1`                        | Native Mistral / Devstral     |
+| moonshot   | `MOONSHOT_API_KEY`   | `api.moonshot.cn/v1`                       | Native Kimi K2                |
+| zhipu      | `ZHIPU_API_KEY`      | `open.bigmodel.cn/api/paas/v4`             | Native GLM                    |
 
 OpenRouter also reads `OPENROUTER_REFERRER` and `OPENROUTER_APP_NAME` (used for OpenRouter's referrer policy).
 
 ## API
 
-| Method | Path                    | Auth   | Description                                            |
-| ------ | ----------------------- | ------ | ------------------------------------------------------ |
-| GET    | `/health`               | none   | Status, version, providers, circuit breakers, cache    |
-| GET    | `/v1/providers`         | none   | Provider catalog with enabled status                   |
-| GET    | `/v1/models`            | none   | All `MODELS`; `?routes=1` includes upstream candidates |
-| POST   | `/v1/chat/completions`  | Bearer | OpenAI-compatible chat, SSE supported                  |
+| Method | Path                   | Auth   | Description                                            |
+| ------ | ---------------------- | ------ | ------------------------------------------------------ |
+| GET    | `/health`              | none   | Status, version, providers, circuit breakers, cache    |
+| GET    | `/v1/providers`        | none   | Provider catalog with enabled status                   |
+| GET    | `/v1/models`           | none   | All `MODELS`; `?routes=1` includes upstream candidates |
+| POST   | `/v1/chat/completions` | Bearer | OpenAI-compatible chat, SSE supported                  |
 
 Per-request controls inside the body (all optional):
 
@@ -128,21 +128,21 @@ Per-request controls inside the body (all optional):
 
 Validated by `src/config/env.ts` (Zod). Missing required vars throw at boot.
 
-| Var                          | Default                       | Notes                                  |
-| ---------------------------- | ----------------------------- | -------------------------------------- |
-| `NODE_ENV`                   | `development`                 | `development`, `production`, `test`    |
-| `PORT`                       | `3000`                        |                                        |
-| `HOST`                       | `0.0.0.0`                     |                                        |
-| `LOG_LEVEL`                  | `info`                        | `debug` / `info` / `warn` / `error`    |
-| `VLLM_BASE_URL`              | `http://localhost:8000/v1`    | Local fallback                         |
-| `LOCAL_API_KEY`              | `local-dev-key`               | Local fallback                         |
-| `<PROVIDER>_API_KEY`         | —                             | See provider table; auto-enables       |
-| `UPSTASH_REDIS_REST_URL`     | —                             | Enables L2 cache + distributed limits  |
-| `UPSTASH_REDIS_REST_TOKEN`   | —                             | "                                      |
-| `INFERENCE_CACHE_MAX`        | `5000`                        | L1 LRU max entries                     |
-| `INFERENCE_CACHE_TTL`        | `86400` (24h)                 | Default cache TTL seconds              |
-| `ALLOW_ESTIMATED_ROUTES`     | `false`                       | Global fallback for unverified routes  |
-| `STRIPE_SECRET_KEY`          | —                             | Declared, not wired up                 |
+| Var                        | Default                    | Notes                                 |
+| -------------------------- | -------------------------- | ------------------------------------- |
+| `NODE_ENV`                 | `development`              | `development`, `production`, `test`   |
+| `PORT`                     | `3000`                     |                                       |
+| `HOST`                     | `0.0.0.0`                  |                                       |
+| `LOG_LEVEL`                | `info`                     | `debug` / `info` / `warn` / `error`   |
+| `VLLM_BASE_URL`            | `http://localhost:8000/v1` | Local fallback                        |
+| `LOCAL_API_KEY`            | `local-dev-key`            | Local fallback                        |
+| `<PROVIDER>_API_KEY`       | —                          | See provider table; auto-enables      |
+| `UPSTASH_REDIS_REST_URL`   | —                          | Enables L2 cache + distributed limits |
+| `UPSTASH_REDIS_REST_TOKEN` | —                          | "                                     |
+| `INFERENCE_CACHE_MAX`      | `5000`                     | L1 LRU max entries                    |
+| `INFERENCE_CACHE_TTL`      | `86400` (24h)              | Default cache TTL seconds             |
+| `ALLOW_ESTIMATED_ROUTES`   | `false`                    | Global fallback for unverified routes |
+| `STRIPE_SECRET_KEY`        | —                          | Declared, not wired up                |
 
 See `.env.example` for the full template.
 

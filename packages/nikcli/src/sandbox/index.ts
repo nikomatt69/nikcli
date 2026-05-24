@@ -76,16 +76,7 @@ export namespace Sandbox {
    * Anything else (TOKENS, KEYS, etc.) is stripped to prevent credential leaks
    * into untrusted command invocations.
    */
-  export const SAFE_ENV_PASSTHROUGH = [
-    "PATH",
-    "HOME",
-    "LANG",
-    "LC_ALL",
-    "TERM",
-    "USER",
-    "TMPDIR",
-    "SHELL",
-  ] as const
+  export const SAFE_ENV_PASSTHROUGH = ["PATH", "HOME", "LANG", "LC_ALL", "TERM", "USER", "TMPDIR", "SHELL"] as const
 
   /**
    * Public env scrubber — usable from non-Effect code (Bus.subscribe handlers,

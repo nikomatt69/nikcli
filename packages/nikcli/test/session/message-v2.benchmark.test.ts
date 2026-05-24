@@ -6,7 +6,7 @@ import { recordBenchmark } from "../benchmarks/runner"
 describe("MessageV2 benchmark", () => {
   it("records toModelMessages for repeated user turns", () => {
     const model = {
-      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" }, 
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
       id: "MiniMax-M2.7",
       cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
     } as Parameters<typeof MessageV2.toModelMessages>[1]

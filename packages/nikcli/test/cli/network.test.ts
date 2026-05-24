@@ -41,7 +41,7 @@ describe("resolveNetworkOptions", () => {
     process.argv = ["bun", "cli"]
     const r = await resolveNetworkOptions({
       port: 0,
-      hostname: "127.0.0.1" as unknown as string    ,
+      hostname: "127.0.0.1" as unknown as string,
       mdns: false,
       cors: [],
     })
