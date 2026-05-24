@@ -141,7 +141,11 @@ export namespace Message {
             completed: z.number().optional(),
           }),
           error: z
-            .discriminatedUnion("name", [AuthError.Schema, z.object({ name: z.literal("UnknownError"), data: z.object({ message: z.string() }) }), OutputLengthError.Schema])
+            .discriminatedUnion("name", [
+              AuthError.Schema,
+              z.object({ name: z.literal("UnknownError"), data: z.object({ message: z.string() }) }),
+              OutputLengthError.Schema,
+            ])
             .optional(),
           sessionID: z.string(),
           tool: z.record(

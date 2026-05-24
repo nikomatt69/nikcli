@@ -38,9 +38,13 @@ export const DialogLogin = {
         dialog.clear()
         return user
       } catch (err: any) {
-        await DialogPrompt.show(dialog, `Registration failed: ${err?.message ?? "Unknown error"}. Press Enter to retry.`, {
-          placeholder: "Press Enter",
-        })
+        await DialogPrompt.show(
+          dialog,
+          `Registration failed: ${err?.message ?? "Unknown error"}. Press Enter to retry.`,
+          {
+            placeholder: "Press Enter",
+          },
+        )
         return DialogLogin.run(dialog)
       }
     } else {

@@ -29,7 +29,14 @@ export const POST: APIRoute = async (context) => {
   const raw = await env.USERS.get(`id:${userId}`)
   if (!raw) return json({ error: "Invalid credentials" }, 401)
 
-  const stored = JSON.parse(raw) as { id: string; username: string; email: string; passwordHash: string; role: string; displayName?: string }
+  const stored = JSON.parse(raw) as {
+    id: string
+    username: string
+    email: string
+    passwordHash: string
+    role: string
+    displayName?: string
+  }
   const valid = await bcrypt.compare(password, stored.passwordHash)
   if (!valid) return json({ error: "Invalid credentials" }, 401)
 

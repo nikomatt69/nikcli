@@ -41,10 +41,13 @@ function storageRead<T>(key: string[]) {
 
 export namespace MessageV2 {
   export class OutputLengthError extends Schema.TaggedErrorClass<OutputLengthError>()("MessageOutputLengthError", {}) {}
-  export class ContextOverflowError extends Schema.TaggedErrorClass<ContextOverflowError>()("MessageContextOverflowError", {
-    message: Schema.String,
-    responseBody: Schema.optional(Schema.String),
-  }) {}
+  export class ContextOverflowError extends Schema.TaggedErrorClass<ContextOverflowError>()(
+    "MessageContextOverflowError",
+    {
+      message: Schema.String,
+      responseBody: Schema.optional(Schema.String),
+    },
+  ) {}
   export class AbortedError extends Schema.TaggedErrorClass<AbortedError>()("MessageAbortedError", {
     message: Schema.String,
   }) {
@@ -60,7 +63,10 @@ export namespace MessageV2 {
     retries: Schema.Number,
   }) {
     static readonly Schema = z
-      .object({ name: z.literal("StructuredOutputError"), data: z.object({ message: z.string(), retries: z.number() }) })
+      .object({
+        name: z.literal("StructuredOutputError"),
+        data: z.object({ message: z.string(), retries: z.number() }),
+      })
       .meta({ ref: "StructuredOutputError" })
     static isInstance(error: unknown): error is z.infer<typeof StructuredOutputError.Schema> {
       return typeof error === "object" && error !== null && (error as any).name === "StructuredOutputError"
@@ -100,10 +106,7 @@ export namespace MessageV2 {
       .meta({ ref: "APIError" })
     static isInstance(error: unknown): error is z.infer<typeof APIError.Schema> {
       return (
-        typeof error === "object" &&
-        error !== null &&
-        (error as any).name === "APIError" &&
-        "data" in (error as any)
+        typeof error === "object" && error !== null && (error as any).name === "APIError" && "data" in (error as any)
       )
     }
     toObject() {
@@ -120,7 +123,6 @@ export namespace MessageV2 {
       }
     }
   }
-
 
   export const OutputFormatText = z
     .object({
@@ -470,9 +472,18 @@ export namespace MessageV2 {
     error: z
       .discriminatedUnion("name", [
         AuthError.Schema,
-        z.object({ name: z.literal("UnknownError"), data: z.object({ message: z.string() }) }).meta({ ref: "UnknownError" }),
-        z.object({ name: z.literal("MessageOutputLengthError"), data: z.object({}) }).meta({ ref: "MessageOutputLengthError" }),
-        z.object({ name: z.literal("MessageContextOverflowError"), data: z.object({ message: z.string(), responseBody: z.string().optional() }) }).meta({ ref: "MessageContextOverflowError" }),
+        z
+          .object({ name: z.literal("UnknownError"), data: z.object({ message: z.string() }) })
+          .meta({ ref: "UnknownError" }),
+        z
+          .object({ name: z.literal("MessageOutputLengthError"), data: z.object({}) })
+          .meta({ ref: "MessageOutputLengthError" }),
+        z
+          .object({
+            name: z.literal("MessageContextOverflowError"),
+            data: z.object({ message: z.string(), responseBody: z.string().optional() }),
+          })
+          .meta({ ref: "MessageContextOverflowError" }),
         AbortedError.Schema,
         StructuredOutputError.Schema,
         APIError.Schema,

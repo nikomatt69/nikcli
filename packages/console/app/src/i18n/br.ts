@@ -74,8 +74,7 @@ export const dict = {
   "home.install.ariaLabel": "Opcoes de instalacao",
 
   "home.what.title": "O que e Nikcli?",
-  "home.what.body":
-    "Nikcli e um agente de codigo aberto que ajuda voce a escrever codigo no terminal, IDE ou desktop.",
+  "home.what.body": "Nikcli e um agente de codigo aberto que ajuda voce a escrever codigo no terminal, IDE ou desktop.",
   "home.what.lsp.title": "LSP habilitado",
   "home.what.lsp.body": "Carrega automaticamente os LSPs certos para o LLM",
   "home.what.multiSession.title": "Multi-sessao",
@@ -231,16 +230,14 @@ export const dict = {
     "Nao necessariamente, mas provavelmente. Voce vai precisar de uma assinatura de IA se quiser conectar o Nikcli a um provedor pago, embora possa trabalhar com",
   "download.faq.a3.localLink": "modelos locais",
   "download.faq.a3.afterLocal.beforeZen": "de graca. Embora encorajemos os usuarios a usar",
-  "download.faq.a3.afterZen":
-    ", o Nikcli funciona com todos os provedores populares como OpenAI, Anthropic, xAI etc.",
+  "download.faq.a3.afterZen": ", o Nikcli funciona com todos os provedores populares como OpenAI, Anthropic, xAI etc.",
 
   "download.faq.a5.p1": "Nikcli e 100% gratuito para usar.",
   "download.faq.a5.p2.beforeZen":
     "Qualquer custo adicional vira da sua assinatura de um provedor de modelos. Embora o Nikcli funcione com qualquer provedor de modelos, recomendamos usar",
   "download.faq.a5.p2.afterZen": ".",
 
-  "download.faq.a6.p1":
-    "Seus dados e informacoes so sao armazenados quando voce cria links compartilhaveis no Nikcli.",
+  "download.faq.a6.p1": "Seus dados e informacoes so sao armazenados quando voce cria links compartilhaveis no Nikcli.",
   "download.faq.a6.p2.beforeShare": "Saiba mais sobre",
   "download.faq.a6.shareLink": "paginas de compartilhamento",
 

@@ -6,14 +6,14 @@ Goal: every provider in `packages/llm/src/providers/` exposes a typed, reasoning
 
 The protocol layer already reads `providerOptions[<key>]` for:
 
-| Protocol | Key | Knobs consumed |
-|---|---|---|
-| `openai-responses` | `openai` | store, promptCacheKey, reasoningEffort, reasoningSummary, includeEncryptedReasoning, textVerbosity |
-| `openai-chat` | `openai` | store, reasoningEffort (no verbosity field) |
-| `anthropic-messages` | `anthropic` | `thinking.{type:"enabled", budgetTokens}` |
-| `gemini` | `gemini` | `thinkingConfig.{thinkingBudget, includeThoughts}` |
-| `openrouter` | `openrouter` | usage, reasoning, promptCacheKey |
-| `bedrock-converse` | `bedrock` | passthrough → `additionalModelRequestFields` (needs new wiring) |
+| Protocol             | Key          | Knobs consumed                                                                                     |
+| -------------------- | ------------ | -------------------------------------------------------------------------------------------------- |
+| `openai-responses`   | `openai`     | store, promptCacheKey, reasoningEffort, reasoningSummary, includeEncryptedReasoning, textVerbosity |
+| `openai-chat`        | `openai`     | store, reasoningEffort (no verbosity field)                                                        |
+| `anthropic-messages` | `anthropic`  | `thinking.{type:"enabled", budgetTokens}`                                                          |
+| `gemini`             | `gemini`     | `thinkingConfig.{thinkingBudget, includeThoughts}`                                                 |
+| `openrouter`         | `openrouter` | usage, reasoning, promptCacheKey                                                                   |
+| `bedrock-converse`   | `bedrock`    | passthrough → `additionalModelRequestFields` (needs new wiring)                                    |
 
 Option modules therefore just produce a `ProviderOptions` map keyed by those names. Merge happens via `mergeProviderOptions`.
 
@@ -39,12 +39,14 @@ Each module exports:
 ## Per-model default tables
 
 ### Anthropic (`anthropic-options.ts`)
+
 - `claude-opus-4-7*`, `claude-opus-4-6*`, `claude-sonnet-4-6*` → `{ thinking: { type: "enabled", budgetTokens: 16000 } }` (medium default; user can override or `withAnthropicVariants(modelID, "max")` for 31999).
 - `claude-opus-4-5*` → `{ thinking: { type: "enabled", budgetTokens: 16000 } }`.
 - Older claude (`claude-3-*`, `claude-3-5-*`, `claude-3-7-*`) → no thinking.
 - Exposed `AnthropicVariants` = `{ low: 4000, medium: 16000, high: 24000, max: 31999 }`.
 
 ### Google (`google-options.ts`)
+
 - `gemini-2.5-pro*` → `{ thinkingConfig: { includeThoughts: true, thinkingBudget: 16000 } }`. Max budget cap 32768.
 - `gemini-2.5-flash*` → `{ thinkingConfig: { includeThoughts: true, thinkingBudget: 8000 } }`. Max budget cap 24576.
 - `gemini-2.0-flash-thinking*` → `{ thinkingConfig: { includeThoughts: true } }`.
@@ -52,11 +54,13 @@ Each module exports:
 - Older gemini → no thinking.
 
 ### xAI (`xai-options.ts`)
+
 - `grok-3-mini*` → `{ openai: { reasoningEffort: "medium" } }` (xAI routes through OpenAI Responses + Compatible Chat protocols, so it reads from the `openai` key).
 - `grok-4*` → defaults to OpenAI semantics; uses `gpt5DefaultOptions`-style for `reasoningEffort: "medium"`.
 - Non-mini grok-3 / grok-2 → none.
 
 ### OpenRouter (`openrouter-options.ts`)
+
 - Pattern-detected sub-provider:
   - `openai/gpt-5*` → `{ openrouter: { reasoning: { effort: "medium" } } }`
   - `anthropic/claude-*4.*:thinking` or `:reasoning` → `{ openrouter: { reasoning: { effort: "high" } } }`
@@ -65,6 +69,7 @@ Each module exports:
   - All → ` { openrouter: { usage: true } }` so token usage is included.
 
 ### Amazon Bedrock (`bedrock-options.ts`)
+
 - `anthropic.claude-opus-4-7*` → adaptive `{ bedrock: { reasoningConfig: { type: "adaptive", maxReasoningEffort: "medium", display: "summarized" } } }`.
 - `anthropic.claude-opus-4-6*`, `anthropic.claude-sonnet-4-6*`, `*claude-sonnet-4-5*` → adaptive `{ maxReasoningEffort: "medium" }`.
 - `anthropic.claude-3-7-sonnet*` → `{ reasoningConfig: { type: "enabled", budgetTokens: 16000 } }`.
@@ -72,11 +77,13 @@ Each module exports:
 - Other (non-anthropic, non-nova) → none.
 
 ### Cloudflare AI Gateway (`cloudflare-options.ts`)
+
 - `openai/gpt-5*` → `{ openai: { reasoningEffort: "medium", reasoningSummary: "auto" } }`.
 - `anthropic/claude-*4*` → `{ anthropic: { thinking: { type: "enabled", budgetTokens: 16000 } } }`.
 - `google/gemini-2.5*` → `{ gemini: { thinkingConfig: { includeThoughts: true, thinkingBudget: 8000 } } }`.
 
 ### GitHub Copilot (`copilot-options.ts`)
+
 - Layered on top of `openAIDefaultOptions(modelID)`:
   - `claude-*` on copilot → `{ openai: { reasoningEffort: "medium" } }` (no summary / encrypted).
   - `gemini*` on copilot → none (copilot doesn't expose reasoning for gemini).

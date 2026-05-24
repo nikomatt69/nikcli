@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/app",
-  "version": "0.0.8",
+  "version": "1.23.0",
   "description": "",
   "type": "module",
   "exports": {

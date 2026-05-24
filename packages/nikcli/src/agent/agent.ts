@@ -54,26 +54,26 @@ export namespace Agent {
   })
 
   const InfoSchema = Schema.Struct({
-      name: Schema.String,
-      description: Schema.optional(Schema.String),
-      mode: Schema.Literals(["subagent", "primary", "all"]),
-      native: Schema.optional(Schema.Boolean),
-      hidden: Schema.optional(Schema.Boolean),
-      topP: Schema.optional(Schema.Number),
-      temperature: Schema.optional(Schema.Number),
-      color: Schema.optional(Schema.String),
-      permission: Schema.mutable(Schema.Array(PermissionNext.RuleSchema)),
-      model: Schema.optional(ModelRefSchema),
-      advisor: Schema.optional(
-        Schema.Struct({
-          model: ModelRefSchema,
-          maxUses: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
-        }),
-      ),
-      variant: Schema.optional(Schema.String),
-      prompt: Schema.optional(Schema.String),
-      options: Schema.Record(Schema.String, Schema.Unknown),
-      steps: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+    name: Schema.String,
+    description: Schema.optional(Schema.String),
+    mode: Schema.Literals(["subagent", "primary", "all"]),
+    native: Schema.optional(Schema.Boolean),
+    hidden: Schema.optional(Schema.Boolean),
+    topP: Schema.optional(Schema.Number),
+    temperature: Schema.optional(Schema.Number),
+    color: Schema.optional(Schema.String),
+    permission: Schema.mutable(Schema.Array(PermissionNext.RuleSchema)),
+    model: Schema.optional(ModelRefSchema),
+    advisor: Schema.optional(
+      Schema.Struct({
+        model: ModelRefSchema,
+        maxUses: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+      }),
+    ),
+    variant: Schema.optional(Schema.String),
+    prompt: Schema.optional(Schema.String),
+    options: Schema.Record(Schema.String, Schema.Unknown),
+    steps: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
   }).annotate({ identifier: "Agent" })
   export const Info = zodObject(InfoSchema)
   export type Info = DeepMutable<Schema.Schema.Type<typeof InfoSchema>>
@@ -81,7 +81,18 @@ export namespace Agent {
   export const SUBAGENT_TOOLSETS: Record<string, string[]> = {
     "fast-explore": ["read", "grep", "glob", "list", "tree"],
     planner: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch"],
-    scout: ["read", "grep", "glob", "list", "tree", "websearch", "codesearch", "webfetch", "repo_clone", "repo_overview"],
+    scout: [
+      "read",
+      "grep",
+      "glob",
+      "list",
+      "tree",
+      "websearch",
+      "codesearch",
+      "webfetch",
+      "repo_clone",
+      "repo_overview",
+    ],
     general: [],
     explore: ["read", "grep", "glob", "list", "bash", "webfetch", "websearch", "codesearch"],
     researcher: [

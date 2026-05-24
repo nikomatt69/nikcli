@@ -41,7 +41,9 @@ export const chatCompletionsSchema = z.object({
 
 export type ChatCompletionsBody = z.infer<typeof chatCompletionsSchema>
 
-export function validateChatBody(input: unknown): { ok: true; data: ChatCompletionsBody } | { ok: false; error: string } {
+export function validateChatBody(
+  input: unknown,
+): { ok: true; data: ChatCompletionsBody } | { ok: false; error: string } {
   const result = chatCompletionsSchema.safeParse(input)
   if (result.success) return { ok: true, data: result.data }
   return {

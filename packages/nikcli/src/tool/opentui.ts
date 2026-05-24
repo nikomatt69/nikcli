@@ -41,8 +41,7 @@ const KeyValueComponent = Schema.Struct({
       key: Schema.String,
       value: Schema.String,
       status: Schema.optional(Schema.Literals(["default", "success", "warning", "error", "info"])).annotate({
-        description:
-          "Colour-codes the value: success=green, warning=yellow, error=red, info=blue, default=text",
+        description: "Colour-codes the value: success=green, warning=yellow, error=red, info=blue, default=text",
       }),
     }),
   ),
@@ -54,8 +53,12 @@ const ProgressBarsComponent = Schema.Struct({
   items: Schema.Array(
     Schema.Struct({
       label: Schema.String,
-      value: Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({ description: "Current value" }),
-      max: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({ description: "Maximum value (100% mark)" }),
+      value: Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
+        description: "Current value",
+      }),
+      max: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))).annotate({
+        description: "Maximum value (100% mark)",
+      }),
       unit: Schema.optional(Schema.String),
     }),
   ),
@@ -68,12 +71,12 @@ const TextComponent = Schema.Struct({
   type: Schema.Literal("text"),
   title: Schema.optional(Schema.String),
   content: Schema.String.annotate({ description: "Plain or markdown-lite text content" }),
-  style: Schema.optional(
-    Schema.Literals(["default", "info", "success", "warning", "error", "code", "muted"]),
-  ).annotate({
-    description:
-      "Semantic colour: info=blue, success=green, warning=yellow, error=red, code=monospace block, muted=subdued",
-  }),
+  style: Schema.optional(Schema.Literals(["default", "info", "success", "warning", "error", "code", "muted"])).annotate(
+    {
+      description:
+        "Semantic colour: info=blue, success=green, warning=yellow, error=red, code=monospace block, muted=subdued",
+    },
+  ),
 })
 
 const TimelineComponent = Schema.Struct({
