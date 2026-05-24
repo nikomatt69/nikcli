@@ -69,18 +69,18 @@ This plan **does not** duplicate opencode's `feature-plugins/system/` plugin pat
 
 ## Best ideas worth importing from opencode
 
-| Idea | Source | Why it's worth taking |
-|---|---|---|
-| Pluggable **diff sources** (`git`, `last-turn`, …) | #28476 | Lets one component handle session, working-tree, commit, PR. |
-| Collapsible **file tree** with directory chains (`src/cli/cmd/tui`) | #28476 + #28512 | Much better than flat list when patches span dozens of files. |
-| **Single-patch mode** (`s` key) | #28476 | Cuts noise when reviewing one file at a time; pairs well with `n`/`p`. |
-| `n` / `p` to **jump between files** in the patches pane | #28476 / #28896 | Faster than scrolling; preserves vertical position context. |
-| **Mark-reviewed** state per file | #28476 | Visually fade or strike completed files; helps long reviews. |
-| **KV-persisted** view prefs (view, file-tree visible, single-patch) | #28476 | Settings stick across sessions — nikcli's `changes` already does this for 2 keys. |
-| **Return route** param | #28676 / #28903 | Closing diff lands you exactly where you came from (session, git-graph, github PR). |
-| **Empty-state** copy + helper hints | #28878 | Friendlier than a blank pane. |
-| **Focus first file** on open | #28513 | One less keypress to start reviewing. |
-| **Help dialog** with current keybinds | #28476 | Discovery without a separate page. |
+| Idea                                                                | Source          | Why it's worth taking                                                               |
+| ------------------------------------------------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| Pluggable **diff sources** (`git`, `last-turn`, …)                  | #28476          | Lets one component handle session, working-tree, commit, PR.                        |
+| Collapsible **file tree** with directory chains (`src/cli/cmd/tui`) | #28476 + #28512 | Much better than flat list when patches span dozens of files.                       |
+| **Single-patch mode** (`s` key)                                     | #28476          | Cuts noise when reviewing one file at a time; pairs well with `n`/`p`.              |
+| `n` / `p` to **jump between files** in the patches pane             | #28476 / #28896 | Faster than scrolling; preserves vertical position context.                         |
+| **Mark-reviewed** state per file                                    | #28476          | Visually fade or strike completed files; helps long reviews.                        |
+| **KV-persisted** view prefs (view, file-tree visible, single-patch) | #28476          | Settings stick across sessions — nikcli's `changes` already does this for 2 keys.   |
+| **Return route** param                                              | #28676 / #28903 | Closing diff lands you exactly where you came from (session, git-graph, github PR). |
+| **Empty-state** copy + helper hints                                 | #28878          | Friendlier than a blank pane.                                                       |
+| **Focus first file** on open                                        | #28513          | One less keypress to start reviewing.                                               |
+| **Help dialog** with current keybinds                               | #28476          | Discovery without a separate page.                                                  |
 
 Ideas to **skip**:
 
@@ -98,13 +98,13 @@ New route: `diff` with params:
 
 ```ts
 type DiffSource =
-  | { kind: "session"; sessionID: string; messageID?: string }    // replaces /changes
-  | { kind: "working-tree"; directory?: string }                  // new
-  | { kind: "commit"; hash: string; directory?: string }          // entered from git-graph
-  | { kind: "pr"; number: number; repo: string }                  // entered from github
+  | { kind: "session"; sessionID: string; messageID?: string } // replaces /changes
+  | { kind: "working-tree"; directory?: string } // new
+  | { kind: "commit"; hash: string; directory?: string } // entered from git-graph
+  | { kind: "pr"; number: number; repo: string } // entered from github
 type DiffRouteParams = {
   source: DiffSource
-  returnRoute?: TuiRouteCurrent   // borrowed from opencode #28676
+  returnRoute?: TuiRouteCurrent // borrowed from opencode #28676
 }
 ```
 
@@ -171,12 +171,12 @@ Migration: read both old and new keys on startup; write new only.
 
 ### Entry points
 
-| Where | Action | Lands on |
-|---|---|---|
-| Session view, message with diff | open changes (existing) | `diff` route, `source.kind=session`, `returnRoute=session` |
-| `git-graph`, press Enter on commit | new shortcut | `diff` route, `source.kind=commit`, `returnRoute=git-graph` |
-| `github`, press Enter on PR | new shortcut | `diff` route, `source.kind=pr`, `returnRoute=github` |
-| Command palette / `:diff` | new command | `diff` route, `source.kind=working-tree`, `returnRoute=<previous>` |
+| Where                              | Action                  | Lands on                                                           |
+| ---------------------------------- | ----------------------- | ------------------------------------------------------------------ |
+| Session view, message with diff    | open changes (existing) | `diff` route, `source.kind=session`, `returnRoute=session`         |
+| `git-graph`, press Enter on commit | new shortcut            | `diff` route, `source.kind=commit`, `returnRoute=git-graph`        |
+| `github`, press Enter on PR        | new shortcut            | `diff` route, `source.kind=pr`, `returnRoute=github`               |
+| Command palette / `:diff`          | new command             | `diff` route, `source.kind=working-tree`, `returnRoute=<previous>` |
 
 Closing (`esc`/`q`) honors `returnRoute` (opencode #28903 behavior).
 

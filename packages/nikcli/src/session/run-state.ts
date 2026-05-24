@@ -58,9 +58,9 @@ export namespace SessionRunState {
         const existing = runners.get(sessionID)
         if (existing) return existing
         const runner = makeRunner<unknown, unknown>(scope, {
-          onIdle: status.set(sessionID, { type: "idle" }).pipe(
-            Effect.tap(() => Effect.sync(() => runners.delete(sessionID))),
-          ),
+          onIdle: status
+            .set(sessionID, { type: "idle" })
+            .pipe(Effect.tap(() => Effect.sync(() => runners.delete(sessionID)))),
           onBusy: status.set(sessionID, { type: "busy", since: Date.now() } as any),
           onInterrupt,
         })
@@ -116,11 +116,13 @@ export namespace SessionRunState {
       ): Effect.Effect<A, E | BusyError> =>
         Effect.suspend(() => {
           const runner = get(sessionID, onInterrupt as Effect.Effect<unknown>)
-          return runner.startShell(work as Effect.Effect<unknown, unknown>).pipe(
-            Effect.mapError((e: unknown) =>
-              (e as { _tag?: string })?._tag === "RunnerBusy" ? new BusyError({ sessionID }) : (e as E),
-            ),
-          ) as Effect.Effect<A, E | BusyError>
+          return runner
+            .startShell(work as Effect.Effect<unknown, unknown>)
+            .pipe(
+              Effect.mapError((e: unknown) =>
+                (e as { _tag?: string })?._tag === "RunnerBusy" ? new BusyError({ sessionID }) : (e as E),
+              ),
+            ) as Effect.Effect<A, E | BusyError>
         })
 
       return Service.of({

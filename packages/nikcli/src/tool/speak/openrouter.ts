@@ -42,11 +42,20 @@ function buildWavBuffer(pcmData: Uint8Array, sampleRate = 24000, channels = 1, b
   const view = new DataView(buffer)
 
   // RIFF
-  view.setUint8(0, 0x52); view.setUint8(1, 0x49); view.setUint8(2, 0x46); view.setUint8(3, 0x46)
+  view.setUint8(0, 0x52)
+  view.setUint8(1, 0x49)
+  view.setUint8(2, 0x46)
+  view.setUint8(3, 0x46)
   view.setUint32(4, 36 + dataSize, true)
-  view.setUint8(8, 0x57); view.setUint8(9, 0x41); view.setUint8(10, 0x56); view.setUint8(11, 0x45)
+  view.setUint8(8, 0x57)
+  view.setUint8(9, 0x41)
+  view.setUint8(10, 0x56)
+  view.setUint8(11, 0x45)
   // fmt
-  view.setUint8(12, 0x66); view.setUint8(13, 0x6d); view.setUint8(14, 0x74); view.setUint8(15, 0x20)
+  view.setUint8(12, 0x66)
+  view.setUint8(13, 0x6d)
+  view.setUint8(14, 0x74)
+  view.setUint8(15, 0x20)
   view.setUint32(16, 16, true)
   view.setUint16(20, 1, true)
   view.setUint16(22, channels, true)
@@ -55,7 +64,10 @@ function buildWavBuffer(pcmData: Uint8Array, sampleRate = 24000, channels = 1, b
   view.setUint16(32, (channels * bitsPerSample) / 8, true)
   view.setUint16(34, bitsPerSample, true)
   // data
-  view.setUint8(36, 0x64); view.setUint8(37, 0x61); view.setUint8(38, 0x74); view.setUint8(39, 0x61)
+  view.setUint8(36, 0x64)
+  view.setUint8(37, 0x61)
+  view.setUint8(38, 0x74)
+  view.setUint8(39, 0x61)
   view.setUint32(40, dataSize, true)
 
   new Uint8Array(buffer, 44).set(pcmData)

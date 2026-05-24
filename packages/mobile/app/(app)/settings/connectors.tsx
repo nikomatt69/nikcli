@@ -20,11 +20,29 @@ type ConnectorDef = {
 const KNOWN_CONNECTORS: ConnectorDef[] = [
   { name: "figma", label: "Figma", credentialType: "apiKey", credentialLabel: "API Key", placeholder: "figd_..." },
   { name: "slack", label: "Slack", credentialType: "botToken", credentialLabel: "Bot Token", placeholder: "xoxb-..." },
-  { name: "discord", label: "Discord", credentialType: "botToken", credentialLabel: "Bot Token", placeholder: "Bot token" },
-  { name: "teams", label: "Microsoft Teams", credentialType: "token", credentialLabel: "Token", placeholder: "Bearer token" },
+  {
+    name: "discord",
+    label: "Discord",
+    credentialType: "botToken",
+    credentialLabel: "Bot Token",
+    placeholder: "Bot token",
+  },
+  {
+    name: "teams",
+    label: "Microsoft Teams",
+    credentialType: "token",
+    credentialLabel: "Token",
+    placeholder: "Bearer token",
+  },
   { name: "linear", label: "Linear", credentialType: "apiKey", credentialLabel: "API Key", placeholder: "lin_api_..." },
   { name: "lovable", label: "Lovable", credentialType: "apiKey", credentialLabel: "API Key", placeholder: "API key" },
-  { name: "gchat", label: "Google Chat", credentialType: "token", credentialLabel: "Token", placeholder: "OAuth token" },
+  {
+    name: "gchat",
+    label: "Google Chat",
+    credentialType: "token",
+    credentialLabel: "Token",
+    placeholder: "OAuth token",
+  },
 ]
 
 function connectorTone(status?: ConnectorStatus): "good" | "warn" | "neutral" {
@@ -37,10 +55,14 @@ function connectorTone(status?: ConnectorStatus): "good" | "warn" | "neutral" {
 function connectorLabel(status?: ConnectorStatus) {
   if (!status) return "Unknown"
   switch (status.status) {
-    case "connected": return "Connected"
-    case "disabled": return "Disabled"
-    case "needs_auth": return "Needs auth"
-    case "failed": return "Failed"
+    case "connected":
+      return "Connected"
+    case "disabled":
+      return "Disabled"
+    case "needs_auth":
+      return "Needs auth"
+    case "failed":
+      return "Failed"
   }
 }
 
@@ -126,7 +148,10 @@ export default function ConnectorsSettingsScreen() {
       >
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={`${KNOWN_CONNECTORS.length} connectors`} tone="accent" />
-          <InfoChip label={`${Object.values(statuses).filter((s) => s.status === "connected").length} connected`} tone="good" />
+          <InfoChip
+            label={`${Object.values(statuses).filter((s) => s.status === "connected").length} connected`}
+            tone="good"
+          />
         </View>
       </SurfaceCard>
 
@@ -161,9 +186,7 @@ export default function ConnectorsSettingsScreen() {
                     <View className="flex-row flex-wrap gap-2">
                       <InfoChip label={connector.name} tone="accent" />
                       <InfoChip label={connectorLabel(status)} tone={connectorTone(status)} />
-                      {status?.status === "failed" ? (
-                        <InfoChip label={status.error} tone="warn" />
-                      ) : null}
+                      {status?.status === "failed" ? <InfoChip label={status.error} tone="warn" /> : null}
                     </View>
                     <TextField
                       label={connector.credentialLabel}

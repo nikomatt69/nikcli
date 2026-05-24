@@ -63,7 +63,9 @@ function ProfilesPageInner() {
     return (
       <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
         <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings to manage user profiles.</p>
+        <p className="mt-2 text-sm text-terminal-muted">
+          Configure server connection in Settings to manage user profiles.
+        </p>
       </div>
     )
   }
@@ -74,10 +76,13 @@ function ProfilesPageInner() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-terminal-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">Profiles</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
+            Profiles
+          </p>
           <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage configuration profiles</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
-            Save and switch isolated nikcli configurations, including MCP servers, providers, plugins, and model defaults.
+            Save and switch isolated nikcli configurations, including MCP servers, providers, plugins, and model
+            defaults.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -125,7 +130,9 @@ function ProfilesPageInner() {
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div>
                     <div className="font-semibold text-terminal-text">{name}</div>
-                    <div className="mt-1 text-xs text-terminal-muted">{active ? "Currently active" : "Saved config snapshot"}</div>
+                    <div className="mt-1 text-xs text-terminal-muted">
+                      {active ? "Currently active" : "Saved config snapshot"}
+                    </div>
                   </div>
                   {active && (
                     <span className="rounded-full bg-terminal-accent/10 px-2.5 py-1 text-xs font-medium text-terminal-accent">

@@ -126,10 +126,7 @@ export namespace LLM {
   function isUIMessage(message: unknown): message is UIMessage {
     if (!message || typeof message !== "object") return false
     const candidate = message as { role?: unknown; parts?: unknown }
-    return (
-      (candidate.role === "user" || candidate.role === "assistant") &&
-      Array.isArray(candidate.parts)
-    )
+    return (candidate.role === "user" || candidate.role === "assistant") && Array.isArray(candidate.parts)
   }
 
   function uiToolOutput(output: unknown) {
@@ -637,8 +634,13 @@ export namespace LLM {
       messages,
       tools,
       generation: hasGen ? generation : undefined,
-      http: httpOptions, 
-      toolChoice: input.toolChoice === "required" ? ToolChoice.make("any") : input.toolChoice === "none" ? ToolChoice.make("none") : undefined,     
+      http: httpOptions,
+      toolChoice:
+        input.toolChoice === "required"
+          ? ToolChoice.make("any")
+          : input.toolChoice === "none"
+            ? ToolChoice.make("none")
+            : undefined,
     })
   }
 }

@@ -52,7 +52,9 @@ function assertProfileName(name: string) {
 function profileInfo(config: any) {
   return {
     mcpCount: Object.keys(config?.mcp ?? {}).length,
-    plugins: Array.isArray(config?.plugin) ? config.plugin.map((item: unknown) => String(Array.isArray(item) ? item[0] : item)) : [],
+    plugins: Array.isArray(config?.plugin)
+      ? config.plugin.map((item: unknown) => String(Array.isArray(item) ? item[0] : item))
+      : [],
     providerCount: Object.keys(config?.provider ?? {}).length,
   }
 }
@@ -197,24 +199,23 @@ export const ConfigRoutes = lazy(() =>
         return c.json({ success: true })
       },
     )
-    .delete(
-      "/mcp/:name",
-      validator("param", z.object({ name: z.string().min(1) })),
-      async (c) => {
-        const { name } = c.req.valid("param")
-        const current = await runConfig(
-          Effect.gen(function* () {
-            const service = yield* Config.Service
-            return yield* service.get()
-          }),
-        )
-        const nextMcp = { ...(current.mcp ?? {}) }
-        if (!(name in nextMcp)) return c.json({ error: "MCP server not found" }, 404)
-        delete nextMcp[name]
-        await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify({ ...current, mcp: nextMcp }, null, 2))
-        return c.json({ success: true })
-      },
-    )
+    .delete("/mcp/:name", validator("param", z.object({ name: z.string().min(1) })), async (c) => {
+      const { name } = c.req.valid("param")
+      const current = await runConfig(
+        Effect.gen(function* () {
+          const service = yield* Config.Service
+          return yield* service.get()
+        }),
+      )
+      const nextMcp = { ...(current.mcp ?? {}) }
+      if (!(name in nextMcp)) return c.json({ error: "MCP server not found" }, 404)
+      delete nextMcp[name]
+      await Bun.write(
+        path.join(Instance.directory, "nikcli.json"),
+        JSON.stringify({ ...current, mcp: nextMcp }, null, 2),
+      )
+      return c.json({ success: true })
+    })
     .get("/profiles", async (c) => {
       await ensureProfileDir()
       const current = await runConfig(
@@ -229,7 +230,9 @@ export const ConfigRoutes = lazy(() =>
       for (const entry of await fs.readdir(profileDir(), { withFileTypes: true }).catch(() => [])) {
         if (!entry.isFile() || !entry.name.endsWith(".json")) continue
         const name = entry.name.slice(0, -".json".length)
-        const raw = await Bun.file(path.join(profileDir(), entry.name)).json().catch(() => undefined)
+        const raw = await Bun.file(path.join(profileDir(), entry.name))
+          .json()
+          .catch(() => undefined)
         profiles[name] = profileInfo(raw)
       }
       const activeProfile = await Bun.file(activeProfilePath())
@@ -238,42 +241,34 @@ export const ConfigRoutes = lazy(() =>
         .catch(() => "default")
       return c.json({ profiles, activeProfile: profiles[activeProfile] ? activeProfile : "default" })
     })
-    .post(
-      "/profiles",
-      validator("json", z.object({ name: z.string().min(1) })),
-      async (c) => {
-        await ensureProfileDir()
-        const name = assertProfileName(c.req.valid("json").name)
-        const target = profilePath(name)
-        if (await Bun.file(target).exists()) return c.json({ error: "Profile already exists" }, 409)
-        const current = await runConfig(
-          Effect.gen(function* () {
-            const service = yield* Config.Service
-            return yield* service.get()
-          }),
-        )
-        await Bun.write(target, JSON.stringify(current, null, 2))
+    .post("/profiles", validator("json", z.object({ name: z.string().min(1) })), async (c) => {
+      await ensureProfileDir()
+      const name = assertProfileName(c.req.valid("json").name)
+      const target = profilePath(name)
+      if (await Bun.file(target).exists()) return c.json({ error: "Profile already exists" }, 409)
+      const current = await runConfig(
+        Effect.gen(function* () {
+          const service = yield* Config.Service
+          return yield* service.get()
+        }),
+      )
+      await Bun.write(target, JSON.stringify(current, null, 2))
+      return c.json({ success: true })
+    })
+    .post("/profiles/activate/:name", validator("param", z.object({ name: z.string().min(1) })), async (c) => {
+      await ensureProfileDir()
+      const requested = c.req.valid("param").name.trim()
+      if (requested === "default") {
+        await fs.rm(activeProfilePath(), { force: true })
         return c.json({ success: true })
-      },
-    )
-    .post(
-      "/profiles/activate/:name",
-      validator("param", z.object({ name: z.string().min(1) })),
-      async (c) => {
-        await ensureProfileDir()
-        const requested = c.req.valid("param").name.trim()
-        if (requested === "default") {
-          await fs.rm(activeProfilePath(), { force: true })
-          return c.json({ success: true })
-        }
-        const name = assertProfileName(requested)
-        const target = profilePath(name)
-        const file = Bun.file(target)
-        if (!(await file.exists())) return c.json({ error: "Profile not found" }, 404)
-        const config = await file.json()
-        await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify(config, null, 2))
-        await Bun.write(activeProfilePath(), name)
-        return c.json({ success: true })
-      },
-    ),
+      }
+      const name = assertProfileName(requested)
+      const target = profilePath(name)
+      const file = Bun.file(target)
+      if (!(await file.exists())) return c.json({ error: "Profile not found" }, 404)
+      const config = await file.json()
+      await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify(config, null, 2))
+      await Bun.write(activeProfilePath(), name)
+      return c.json({ success: true })
+    }),
 )

@@ -86,7 +86,7 @@ export function createPromptSubmit(input: PromptSubmitInput) {
       .abort({
         sessionID,
       })
-      .catch(() => { })
+      .catch(() => {})
   }
 
   const restoreCommentItems = (items: CommentItem[]) => {

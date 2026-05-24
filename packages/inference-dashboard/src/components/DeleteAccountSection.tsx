@@ -43,11 +43,10 @@ export default function DeleteAccountSection() {
       <div class="rounded-[var(--radius-card)] border border-terminal-error/30 bg-terminal-error/5 p-5">
         <p class="app-kicker text-terminal-error">Danger zone</p>
         <h2 class="mt-2 font-display text-xl font-semibold text-terminal-error">Delete account</h2>
-        <p class="mt-2 text-sm leading-6 text-terminal-muted">Permanently delete your account, API keys, and usage history.</p>
-        <button
-          onClick={() => setConfirming(true)}
-          class="app-button-danger mt-4"
-        >
+        <p class="mt-2 text-sm leading-6 text-terminal-muted">
+          Permanently delete your account, API keys, and usage history.
+        </p>
+        <button onClick={() => setConfirming(true)} class="app-button-danger mt-4">
           Delete account
         </button>
       </div>
@@ -88,10 +87,7 @@ export default function DeleteAccountSection() {
             "Yes, delete everything"
           )}
         </button>
-        <button
-          onClick={() => setConfirming(false)}
-          class="app-button-secondary"
-        >
+        <button onClick={() => setConfirming(false)} class="app-button-secondary">
           Cancel
         </button>
       </div>

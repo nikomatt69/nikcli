@@ -1,6 +1,6 @@
 {
   "name": "@nikcli-ai/util",
-  "version": "0.0.14",
+  "version": "1.22.0",
   "private": true,
   "type": "module",
   "license": "MIT",

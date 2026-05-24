@@ -32,16 +32,8 @@
       "icons/dev/icon.ico"
     ],
     "active": true,
-    "targets": [
-      "deb",
-      "rpm",
-      "dmg",
-      "nsis",
-      "app"
-    ],
-    "externalBin": [
-      "sidecars/nikcli-cli"
-    ],
+    "targets": ["deb", "rpm", "dmg", "nsis", "app"],
+    "externalBin": ["sidecars/nikcli-cli"],
     "linux": {
       "rpm": {
         "compression": {
@@ -63,9 +55,7 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": [
-          "nikcli"
-        ]
+        "schemes": ["nikcli"]
       }
     }
   }
