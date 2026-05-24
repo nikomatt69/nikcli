@@ -215,13 +215,20 @@ export namespace Installation {
     if (detectedMethod === "brew") {
       const formula = await getBrewFormula()
       if (formula === "nikcli") {
-        return fetch("https://formulae.brew.sh/api/formula/nikcli.json")
-          .then((res) => {
+        // Core Homebrew formula — check brew.sh API
+        try {
+          const data: any = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").then((res) => {
             if (!res.ok) throw new Error(res.statusText)
             return res.json()
           })
-          .then((data: any) => data.versions.stable)
+          return data.versions.stable
+        } catch {
+          // Core formula not found on brew.sh — fall through to GitHub releases
+          log.info("brew core formula not found on brew.sh, falling back to GitHub releases")
+        }
       }
+      // Tap formula (nikomatt69/tap/nikcli) — always check GitHub releases
+      // since the tap just mirrors GitHub release assets
     }
 
     if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {

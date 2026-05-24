@@ -97,6 +97,51 @@ describe("release automation", () => {
     expect(publishStart).toContain("git fetch origin ${branch}")
     expect(publishStart).toContain("git push origin HEAD:${branch} v${Script.version}")
   })
+
+  it("publishes homebrew formula to the correct tap repository with proper checksums", async () => {
+    const registriesScript = await readRoot("packages/nikcli/script/publish-registries.ts")
+
+    // Must push to nikomatt69/homebrew-tap (not sst/homebrew-tap)
+    expect(registriesScript).toContain("nikomatt69/homebrew-tap")
+
+    // Must compute SHA256 checksums for each platform
+    expect(registriesScript).toContain("sha256")
+
+    // Must reference the correct GitHub release URLs
+    expect(registriesScript).toContain("github.com/nikomatt69/nikcli/releases/download")
+
+    // Must cover all four platform combos
+    expect(registriesScript).toContain("darwin-x64")
+    expect(registriesScript).toContain("darwin-arm64")
+    expect(registriesScript).toContain("linux-x64")
+    expect(registriesScript).toContain("linux-arm64")
+
+    // Must use the correct archive naming convention (zip for macOS, tar.gz for Linux)
+    expect(registriesScript).toContain("darwin-arm64.zip")
+    expect(registriesScript).toContain("darwin-x64.zip")
+    expect(registriesScript).toContain("linux-x64.tar.gz")
+    expect(registriesScript).toContain("linux-arm64.tar.gz")
+
+    // Must commit with a version-tagged message
+    expect(registriesScript).toContain("nikcli v${Script.version}")
+
+    // Must NOT reference the old sst org
+    expect(registriesScript).not.toContain("sst/homebrew-tap")
+  })
+
+  it("publish-complete downloads release archives before updating registries", async () => {
+    const completeScript = await readRoot("script/publish-complete.ts")
+
+    // Must download archives from the GitHub release
+    expect(completeScript).toContain("gh release download")
+
+    // Must download the archive patterns needed for the homebrew formula
+    expect(completeScript).toContain("nikcli-ai-linux")
+    expect(completeScript).toContain("nikcli-ai-darwin")
+
+    // Must import the registries script
+    expect(completeScript).toContain("publish-registries")
+  })
 })
 
 describe("CI pipeline", () => {
