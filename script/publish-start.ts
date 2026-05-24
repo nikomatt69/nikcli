@@ -65,10 +65,7 @@ if (!Script.preview) {
   // token and lacks 'workflows' permission needed to push .yml files.
   // GITHUB_TOKEN env var from the workflow resolves to the GitHub App token value,
   // so we must use a separate env var name (GH_PUSH_TOKEN) to avoid the conflict.
-  const pushToken =
-    process.env.GH_PUSH_TOKEN ||
-    process.env.GITHUB_TOKEN ||
-    process.env.SST_GITHUB_TOKEN
+  const pushToken = process.env.GH_PUSH_TOKEN || process.env.GITHUB_TOKEN || process.env.SST_GITHUB_TOKEN
   await $`git remote set-url origin https://x-access-token:${pushToken}@github.com/nikomatt69/nikcli`
   await $`git fetch origin ${branch}`
   // Drop any unintended modifications to workflow/action YAML — GitHub blocks

@@ -79,9 +79,7 @@ export function DialogSettingsBrain() {
     rollback: () => void,
   ) => {
     try {
-      await withInstanceAsync({ directory: instanceDirectory() }, () =>
-        configUpdate({ experimental: patch as any }),
-      )
+      await withInstanceAsync({ directory: instanceDirectory() }, () => configUpdate({ experimental: patch as any }))
       toast.show({ message: success, variant: "success" })
       dialog.clear()
     } catch (error) {

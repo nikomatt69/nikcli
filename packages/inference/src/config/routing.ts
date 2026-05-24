@@ -96,12 +96,27 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
     { provider: "deepinfra", upstreamModel: "meta-llama/Llama-4-Scout-17B-16E-Instruct", input: 0.08, output: 0.3 },
     { provider: "openrouter", upstreamModel: "meta-llama/llama-4-scout", input: 0.15, output: 0.5 },
     { provider: "together", upstreamModel: "meta-llama/Llama-4-Scout-17B-16E-Instruct", input: 0.18, output: 0.59 },
-    { provider: "fireworks", upstreamModel: "accounts/fireworks/models/llama4-scout-instruct-basic", input: 0.15, output: 0.6 },
+    {
+      provider: "fireworks",
+      upstreamModel: "accounts/fireworks/models/llama4-scout-instruct-basic",
+      input: 0.15,
+      output: 0.6,
+    },
   ],
   "llama-4-maverick": [
     { provider: "deepinfra", upstreamModel: "meta-llama/Llama-4-Maverick-17B-128E-Instruct", input: 0.2, output: 0.6 },
-    { provider: "together", upstreamModel: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8", input: 0.27, output: 0.85 },
-    { provider: "fireworks", upstreamModel: "accounts/fireworks/models/llama4-maverick-instruct-basic", input: 0.22, output: 0.88 },
+    {
+      provider: "together",
+      upstreamModel: "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
+      input: 0.27,
+      output: 0.85,
+    },
+    {
+      provider: "fireworks",
+      upstreamModel: "accounts/fireworks/models/llama4-maverick-instruct-basic",
+      input: 0.22,
+      output: 0.88,
+    },
     { provider: "openrouter", upstreamModel: "meta-llama/llama-4-maverick", input: 0.27, output: 0.85 },
   ],
   "llama-3.3-70b": [
@@ -113,7 +128,12 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
     { provider: "cerebras", upstreamModel: "llama-3.3-70b", input: 0.85, output: 1.2 },
     { provider: "sambanova", upstreamModel: "Meta-Llama-3.3-70B-Instruct", input: 0.6, output: 1.2 },
     { provider: "together", upstreamModel: "meta-llama/Llama-3.3-70B-Instruct-Turbo", input: 0.88, output: 0.88 },
-    { provider: "fireworks", upstreamModel: "accounts/fireworks/models/llama-v3p3-70b-instruct", input: 0.9, output: 0.9 },
+    {
+      provider: "fireworks",
+      upstreamModel: "accounts/fireworks/models/llama-v3p3-70b-instruct",
+      input: 0.9,
+      output: 0.9,
+    },
   ],
   "mistral-medium-3.5": [
     { provider: "mistral", upstreamModel: "mistral-medium-latest", input: 0.4, output: 2.0 },
@@ -139,7 +159,13 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "phi-4-mini": [
     { provider: "deepinfra", upstreamModel: "microsoft/Phi-4-mini-instruct", input: 0.07, output: 0.14 },
     { provider: "nebius", upstreamModel: "microsoft/Phi-4-mini-instruct", input: 0.1, output: 0.2 },
-    { provider: "openrouter", upstreamModel: "microsoft/phi-4-mini-instruct", input: 0.1, output: 0.2, estimated: true },
+    {
+      provider: "openrouter",
+      upstreamModel: "microsoft/phi-4-mini-instruct",
+      input: 0.1,
+      output: 0.2,
+      estimated: true,
+    },
   ],
   "phi-4": [
     { provider: "deepinfra", upstreamModel: "microsoft/phi-4", input: 0.07, output: 0.14 },
@@ -149,9 +175,7 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "minimax-m2.7": [
     { provider: "openrouter", upstreamModel: "minimax/minimax-m2.7-20260318", input: 0.28, output: 1.2 },
   ],
-  "minimax-m2": [
-    { provider: "openrouter", upstreamModel: "minimax/minimax-m2", input: 0.255, output: 1.0 },
-  ],
+  "minimax-m2": [{ provider: "openrouter", upstreamModel: "minimax/minimax-m2", input: 0.255, output: 1.0 }],
 
   // ============ Latest OpenRouter-only models (verified IDs) ============
   "deepseek-v4-flash": [
@@ -160,9 +184,7 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "deepseek-v4-flash-free": [
     { provider: "openrouter", upstreamModel: "deepseek/deepseek-v4-flash:free", input: 0, output: 0 },
   ],
-  "deepseek-v3.2": [
-    { provider: "openrouter", upstreamModel: "deepseek/deepseek-v3.2", input: 0.252, output: 0.378 },
-  ],
+  "deepseek-v3.2": [{ provider: "openrouter", upstreamModel: "deepseek/deepseek-v3.2", input: 0.252, output: 0.378 }],
   "deepseek-r1-0528": [
     { provider: "openrouter", upstreamModel: "deepseek/deepseek-r1-0528", input: 0.5, output: 2.15 },
   ],
@@ -172,15 +194,9 @@ export const ROUTES: Partial<Record<ModelId, ProviderRoute[]>> = {
   "qwen-3.5-flash": [
     { provider: "openrouter", upstreamModel: "qwen/qwen3.5-flash-20260224", input: 0.065, output: 0.26 },
   ],
-  "glm-5.1-free": [
-    { provider: "openrouter", upstreamModel: "z-ai/glm-5.1-20260406", input: 0, output: 0 },
-  ],
-  "minimax-2.5": [
-    { provider: "openrouter", upstreamModel: "minimax/minimax-m2.5", input: 0.15, output: 1.15 },
-  ],
-  "minimax-2.5-free": [
-    { provider: "openrouter", upstreamModel: "minimax/minimax-m2.5:free", input: 0, output: 0 },
-  ],
+  "glm-5.1-free": [{ provider: "openrouter", upstreamModel: "z-ai/glm-5.1-20260406", input: 0, output: 0 }],
+  "minimax-2.5": [{ provider: "openrouter", upstreamModel: "minimax/minimax-m2.5", input: 0.15, output: 1.15 }],
+  "minimax-2.5-free": [{ provider: "openrouter", upstreamModel: "minimax/minimax-m2.5:free", input: 0, output: 0 }],
 }
 
 /**

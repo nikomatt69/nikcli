@@ -291,11 +291,7 @@ describe("Session module registry matrix", () => {
   it.each(moduleImports)("records module export scan for $modulePath", ({ modulePath, module }) => {
     const exports = module ? Object.keys(module).sort() : []
     const lines = exports.map((name) => `- ${name}`)
-    const visual = [
-      `# Session Module ${modulePath}`,
-      `Export count: ${exports.length}`,
-      ...lines,
-    ].join("\n")
+    const visual = [`# Session Module ${modulePath}`, `Export count: ${exports.length}`, ...lines].join("\n")
     const start = performance.now()
     let score = exports.length
     for (let i = 0; i < 2_000; i += 1) {
@@ -429,19 +425,19 @@ describe("Session retry matrix", () => {
     },
     { message: "FreeUsageLimitError", expected: "Free usage exceeded, add credits https://nikcli.store/zen" },
     {
-      message: "{\"type\":\"error\",\"error\":{\"type\":\"too_many_requests\"}}",
+      message: '{"type":"error","error":{"type":"too_many_requests"}}',
       expected: "Too Many Requests",
     },
     {
-      message: "{\"error\":{\"message\":\"no_kv_space\",\"code\":\"server_error\"}}",
+      message: '{"error":{"message":"no_kv_space","code":"server_error"}}',
       expected: "Provider Server Error",
     },
     {
-      message: "{\"code\":\"rate_limit_exhausted\"}",
+      message: '{"code":"rate_limit_exhausted"}',
       expected: "Provider is overloaded",
     },
     {
-      message: "{\"error\":{\"message\":\"resource unavailable\"}}",
+      message: '{"error":{"message":"resource unavailable"}}',
       expected: "Provider Server Error",
     },
     {
@@ -454,15 +450,20 @@ describe("Session retry matrix", () => {
     expect(SessionRetry.delay(attempt)).toBe(expected)
   })
 
-  it.each(delayCases)(
-    "delay keeps header precedence for $label",
-    ({ attempt }) => {
-      const headered = SessionRetry.delay(attempt, new MessageV2.APIError({ message: "x", isRetryable: true, statusCode: 429, responseHeaders: {
-        "retry-after-ms": "1500",
-      } } as never))
-      expect(headered).toBe(1_500)
-    },
-  )
+  it.each(delayCases)("delay keeps header precedence for $label", ({ attempt }) => {
+    const headered = SessionRetry.delay(
+      attempt,
+      new MessageV2.APIError({
+        message: "x",
+        isRetryable: true,
+        statusCode: 429,
+        responseHeaders: {
+          "retry-after-ms": "1500",
+        },
+      } as never),
+    )
+    expect(headered).toBe(1_500)
+  })
 
   it.each([...retryableCases])("maps retryable reason for $message", ({ message, expected }) => {
     const result = SessionRetry.retryable(
@@ -477,7 +478,10 @@ describe("Session retry matrix", () => {
     const headers = { "retry-after-ms": "333" }
     let checksum = 0
     for (let i = 1; i <= iterations; i += 1) {
-      const ms = SessionRetry.delay(i, new MessageV2.APIError({ message: "Overloaded", isRetryable: true, responseHeaders: headers, statusCode: 429 }))
+      const ms = SessionRetry.delay(
+        i,
+        new MessageV2.APIError({ message: "Overloaded", isRetryable: true, responseHeaders: headers, statusCode: 429 }),
+      )
       checksum += ms
     }
     const elapsed = performance.now() - start
@@ -507,8 +511,16 @@ describe("Session compaction matrix", () => {
   } as never
 
   const compactTokens = [
-    { label: "under-capacity", tokens: { total: 1_000, input: 500, output: 200, reasoning: 100, cache: { read: 0, write: 0 } }, expected: false },
-    { label: "over-capacity", tokens: { total: 100_000, input: 50_000, output: 40_000, reasoning: 10_000, cache: { read: 0, write: 0 } }, expected: true },
+    {
+      label: "under-capacity",
+      tokens: { total: 1_000, input: 500, output: 200, reasoning: 100, cache: { read: 0, write: 0 } },
+      expected: false,
+    },
+    {
+      label: "over-capacity",
+      tokens: { total: 100_000, input: 50_000, output: 40_000, reasoning: 10_000, cache: { read: 0, write: 0 } },
+      expected: true,
+    },
   ]
 
   it.each(compactTokens)("compaction overflow check $label", async ({ tokens, expected }) => {
@@ -626,10 +638,21 @@ describe("Legacy Message schemas", () => {
     { label: "reasoning", value: { type: "reasoning", text: "think" }, valid: true },
     { label: "file", value: { type: "file", mediaType: "text/plain", url: "file:///tmp/a.txt" }, valid: true },
     { label: "source-url", value: { type: "source-url", sourceId: "id", url: "https://example.com" }, valid: true },
-    { label: "tool", value: { type: "tool-invocation", toolInvocation: { state: "call", toolCallId: "id", toolName: "tool", args: {} } }, valid: true },
+    {
+      label: "tool",
+      value: {
+        type: "tool-invocation",
+        toolInvocation: { state: "call", toolCallId: "id", toolName: "tool", args: {} },
+      },
+      valid: true,
+    },
     { label: "step-start", value: { type: "step-start" }, valid: true },
     { label: "missing-type", value: { text: "nope" }, valid: false },
-    { label: "invalid-tool", value: { type: "tool-invocation", toolInvocation: { state: "invalid", x: 1 } }, valid: false },
+    {
+      label: "invalid-tool",
+      value: { type: "tool-invocation", toolInvocation: { state: "invalid", x: 1 } },
+      valid: false,
+    },
     { label: "invalid-text", value: { type: "text", text: 1 }, valid: false },
     { label: "invalid-file", value: { type: "file", mediaType: 1, url: "x" }, valid: false },
     { label: "invalid-step", value: { type: "step-start", extra: true }, valid: true },
@@ -640,7 +663,7 @@ describe("Legacy Message schemas", () => {
     expect(result.success).toBe(valid)
   })
 
-  it.each(Array.from({ length: 30 }, (_, index) => ({ label: `schema-${index}` , index })))(
+  it.each(Array.from({ length: 30 }, (_, index) => ({ label: `schema-${index}`, index })))(
     "legacy Message roundtrip stress $label",
     ({ index }) => {
       const value =
@@ -655,14 +678,17 @@ describe("Legacy Message schemas", () => {
           time: { created: Date.now() },
           sessionID: "s",
           tool: {},
-          assistant: index % 2 === 0 ? undefined : {
-            system: [],
-            modelID: "m",
-            providerID: "p",
-            path: { cwd: "/", root: "/" },
-            cost: 0,
-            tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
-          },
+          assistant:
+            index % 2 === 0
+              ? undefined
+              : {
+                  system: [],
+                  modelID: "m",
+                  providerID: "p",
+                  path: { cwd: "/", root: "/" },
+                  cost: 0,
+                  tokens: { input: 1, output: 1, reasoning: 0, cache: { read: 0, write: 0 } },
+                },
         },
       } as never)
       expect(payload.parts).toHaveLength(1)
@@ -671,7 +697,10 @@ describe("Legacy Message schemas", () => {
 })
 
 describe("MessageV2 conversion and cursor matrix", () => {
-  const cursorCases = Array.from({ length: 20 }, (_, index) => ({ id: `cursor-${index}`, time: Date.now() - index * 10 }))
+  const cursorCases = Array.from({ length: 20 }, (_, index) => ({
+    id: `cursor-${index}`,
+    time: Date.now() - index * 10,
+  }))
 
   it.each(cursorCases)("cursor roundtrip for $id", ({ id, time }) => {
     const encoded = MessageV2.cursor.encode({ id, time })
@@ -691,7 +720,7 @@ describe("MessageV2 conversion and cursor matrix", () => {
       part.messageID = assistant.info.id
     })
     const model = {
-      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },   
+      api: { npm: "@ai-sdk/anthropic", id: "minimax-coding-plan" },
       id: "MiniMax-M2.7",
       cost: { input: 1, output: 1, cache: { read: 0, write: 0 } },
     } as never
@@ -814,28 +843,31 @@ describe("Session persistence matrix", () => {
     })
   })
 
-  it.each(Array.from({ length: 18 }, (_, index) => `remove-loop-${index}`))("removes messages for %s", async (label) => {
-    await withProject(async () => {
-      const session = await createSession()
-      const user = createUserMessage(session.id, label)
-      user.parts[0].messageID = user.info.id
-      await updateMessage(user.info)
-      await updatePart(user.parts[0])
+  it.each(Array.from({ length: 18 }, (_, index) => `remove-loop-${index}`))(
+    "removes messages for %s",
+    async (label) => {
+      await withProject(async () => {
+        const session = await createSession()
+        const user = createUserMessage(session.id, label)
+        user.parts[0].messageID = user.info.id
+        await updateMessage(user.info)
+        await updatePart(user.parts[0])
 
-      const assistant = createAssistantMessage(session.id, user.info.id, false, {
-        cwd: Instance.directory,
-        root: Instance.worktree,
+        const assistant = createAssistantMessage(session.id, user.info.id, false, {
+          cwd: Instance.directory,
+          root: Instance.worktree,
+        })
+        assistant.info.id = Identifier.ascending("message")
+        assistant.parts[0].messageID = assistant.info.id
+        await updateMessage(assistant.info)
+        await updatePart(assistant.parts[0])
+
+        await removeMessage({ sessionID: session.id, messageID: user.info.id })
+        const remaining = await listMessages(session.id)
+        expect(remaining.every((msg) => msg.info.id !== user.info.id)).toBe(true)
       })
-      assistant.info.id = Identifier.ascending("message")
-      assistant.parts[0].messageID = assistant.info.id
-      await updateMessage(assistant.info)
-      await updatePart(assistant.parts[0])
-
-      await removeMessage({ sessionID: session.id, messageID: user.info.id })
-      const remaining = await listMessages(session.id)
-      expect(remaining.every((msg) => msg.info.id !== user.info.id)).toBe(true)
-    })
-  })
+    },
+  )
 })
 
 afterEach(async () => {

@@ -135,11 +135,9 @@ export function recordVisualArtifact(input: {
   const count = store.visuals.filter(
     (item) => item.suite === input.suite && item.module === input.module && item.scenario === input.scenario,
   ).length
-  const filename =
-    `${sanitizeSlug(input.suite)}__${sanitizeSlug(input.module)}__${sanitizeSlug(input.scenario)}__${String(count + 1).padStart(
-      4,
-      "0",
-    )}.${extension}`
+  const filename = `${sanitizeSlug(input.suite)}__${sanitizeSlug(input.module)}__${sanitizeSlug(input.scenario)}__${String(
+    count + 1,
+  ).padStart(4, "0")}.${extension}`
 
   store.visuals.push({
     suite: input.suite,
@@ -166,9 +164,7 @@ function renderRows(records: BenchmarkRecord[]) {
   const rows = sorted.map((record) => {
     const normalizedMs = record.unit === "ms" ? Math.round((record.value / maxMs) * 180) : 20
     const value = `${record.value.toFixed(2)} ${record.unit}`
-    const perIteration = record.valuePerIteration
-      ? `${record.valuePerIteration.toFixed(4)} ${record.unit}/iter`
-      : "n/a"
+    const perIteration = record.valuePerIteration ? `${record.valuePerIteration.toFixed(4)} ${record.unit}/iter` : "n/a"
     return `<tr>
       ${renderCell(record.timestamp)}
       ${renderCell(record.suite)}
@@ -410,4 +406,3 @@ export async function flushBenchmarkRun() {
   store.flushingPromise = promise
   await promise
 }
-

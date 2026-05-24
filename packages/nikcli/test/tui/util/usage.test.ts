@@ -202,7 +202,7 @@ describe("Usage.fromMessages", () => {
           role: "assistant",
           tokens: { input: 100, output: 50, reasoning: 0, cache: { read: 0, write: 0 }, total: 150 },
           cost: 0.01,
-            providerID: "minimax-coding-plan",
+          providerID: "minimax-coding-plan",
           modelID: "MiniMax-M2.7",
         },
       ]

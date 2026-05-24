@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Figtree:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap");
 @import "@fontsource/jetbrains-mono";
 @tailwind base;
 @tailwind components;
@@ -83,7 +83,8 @@
 
   /* Shadows */
   --shadow-soft: 0 2px 16px -2px rgb(var(--terminal-shadow) / 0.08), 0 1px 3px rgb(var(--terminal-shadow) / 0.04);
-  --shadow-strong: 0 12px 40px -6px rgb(var(--terminal-shadow) / 0.14), 0 4px 12px -2px rgb(var(--terminal-shadow) / 0.06);
+  --shadow-strong:
+    0 12px 40px -6px rgb(var(--terminal-shadow) / 0.14), 0 4px 12px -2px rgb(var(--terminal-shadow) / 0.06);
   --shadow-glow: 0 0 48px -8px rgb(var(--terminal-accent) / 0.3);
 
   /* Easing curves (Emil Kowalski compliant) */
@@ -148,7 +149,7 @@ html {
 body {
   min-width: 320px;
   min-height: 100dvh;
-  font-family: 'Figtree', system-ui, sans-serif;
+  font-family: "Figtree", system-ui, sans-serif;
   background-color: rgb(var(--terminal-bg));
   /* Graph-paper grid + depth gradients */
   background-image:
@@ -156,7 +157,11 @@ body {
     linear-gradient(90deg, rgb(var(--terminal-border) / 0.35) 1px, transparent 1px),
     radial-gradient(ellipse 1400px 900px at 8% -15%, rgb(var(--wash-color) / var(--wash-1)), transparent 65%),
     radial-gradient(ellipse 900px 600px at 95% 5%, rgb(var(--terminal-accent) / 0.05), transparent 55%);
-  background-size: 48px 48px, 48px 48px, 100%, 100%;
+  background-size:
+    48px 48px,
+    48px 48px,
+    100%,
+    100%;
   color: rgb(var(--terminal-text));
   font-size: var(--text-base);
   line-height: 1.6;
@@ -207,12 +212,12 @@ select {
 ───────────────────────────────────────────────────────────── */
 
 .font-display {
-  font-family: 'Syne', system-ui, sans-serif;
+  font-family: "Syne", system-ui, sans-serif;
 }
 
 code,
 pre {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -279,8 +284,13 @@ select:focus-visible {
 ───────────────────────────────────────────────────────────── */
 
 @keyframes cursor {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 @keyframes slideUpFade {
@@ -295,32 +305,59 @@ select:focus-visible {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes pulseGlow {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 
 @keyframes ping {
-  75%, 100% { transform: scale(2); opacity: 0; }
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
 }
 
 @keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100vh); }
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
 }
 
 @keyframes revealRight {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0 0% 0 0); }
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0% 0 0);
+  }
 }
 
 .animate-cursor {

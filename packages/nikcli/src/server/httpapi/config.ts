@@ -73,16 +73,10 @@ export namespace ConfigHttpApi {
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "config", (builder) =>
-    builder
-      .handle("get", handlers.get)
-      .handle("update", handlers.update)
-      .handle("providers", handlers.providers),
+    builder.handle("get", handlers.get).handle("update", handlers.update).handle("providers", handlers.providers),
   )
 
   export const DependenciesLive = Layer.mergeAll(Config.defaultLayer, Provider.defaultLayer)
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

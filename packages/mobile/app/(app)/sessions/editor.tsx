@@ -16,7 +16,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { CaseSensitive, Undo2, WrapText } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import * as SecureStore from "expo-secure-store"
-import { ArrowLeft, Check, ChevronDown, ChevronUp, Copy, Eye, FileSearch, Pencil, Save, Search, X } from "lucide-react-native"
+import {
+  ArrowLeft,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Eye,
+  FileSearch,
+  Pencil,
+  Save,
+  Search,
+  X,
+} from "lucide-react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { ActionSheet, ActionSheetDivider, ActionSheetItem, useActionSheetRef } from "@/components/BottomSheet"
 import { SkeletonBox } from "@/components/Skeleton"

@@ -392,13 +392,13 @@ function Button(props: {
       className={cn(
         "inline-flex items-center justify-center rounded-2xl border px-4 py-3 text-sm font-semibold transition duration-150",
         variant === "primary" &&
-        "border-terminal-accent/20 bg-terminal-accent text-white shadow-glow hover:bg-terminal-accent/90 disabled:bg-terminal-accent/40",
+          "border-terminal-accent/20 bg-terminal-accent text-white shadow-glow hover:bg-terminal-accent/90 disabled:bg-terminal-accent/40",
         variant === "secondary" &&
-        "border-terminal-border bg-terminal-panel text-terminal-text hover:bg-surface-hover disabled:opacity-50",
+          "border-terminal-border bg-terminal-panel text-terminal-text hover:bg-surface-hover disabled:opacity-50",
         variant === "ghost" &&
-        "border-transparent bg-transparent text-terminal-muted hover:border-terminal-border hover:text-terminal-text",
+          "border-transparent bg-transparent text-terminal-muted hover:border-terminal-border hover:text-terminal-text",
         variant === "danger" &&
-        "border-terminal-error/20 bg-terminal-error/10 text-terminal-error hover:bg-terminal-error/15 disabled:opacity-50",
+          "border-terminal-error/20 bg-terminal-error/10 text-terminal-error hover:bg-terminal-error/15 disabled:opacity-50",
         disabled && "cursor-not-allowed opacity-60",
         props.className,
       )}
@@ -1308,9 +1308,9 @@ function SessionScreen(props: { sessionId: string; navigate(path: string): void 
     () =>
       config?.modelProviderID && config?.modelID
         ? {
-          providerID: config.modelProviderID,
-          modelID: config.modelID,
-        }
+            providerID: config.modelProviderID,
+            modelID: config.modelID,
+          }
         : undefined,
     [config?.modelID, config?.modelProviderID],
   )

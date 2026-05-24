@@ -144,9 +144,10 @@ function BottomNavbar() {
           const textBlock = firstUserMessage.message.content.find((c: any) => c.type === "text" || c.text)
           content = textBlock?.text || textBlock?.content || ""
         } else if (firstUserMessage.content) {
-          content = typeof firstUserMessage.content === "string"
-            ? firstUserMessage.content
-            : firstUserMessage.content[0]?.text || ""
+          content =
+            typeof firstUserMessage.content === "string"
+              ? firstUserMessage.content
+              : firstUserMessage.content[0]?.text || ""
         }
 
         if (content && content.trim()) {
@@ -184,9 +185,7 @@ function BottomNavbar() {
                 <span className="session-name">{formatSessionName(session)}</span>
               </button>
             ))}
-            {sessions.length === 0 && (
-              <div className="sessions-empty">No sessions available</div>
-            )}
+            {sessions.length === 0 && <div className="sessions-empty">No sessions available</div>}
           </div>
         </div>
       )}
@@ -233,15 +232,15 @@ export function App() {
     )
   }
 
-  return (<>
-    <div className="app">
-      <main className="main">
-        <PermissionBanner />
-        <ChatView />
-      </main>
-
-    </div>
-    <BottomNavbar />
-  </>
+  return (
+    <>
+      <div className="app">
+        <main className="main">
+          <PermissionBanner />
+          <ChatView />
+        </main>
+      </div>
+      <BottomNavbar />
+    </>
   )
 }

@@ -31,7 +31,10 @@ export function DialogAdvisorModel(props: { agentName: string }) {
                 })
                 .then(({ error }) => {
                   if (error) {
-                    toast.show({ message: `Failed to clear advisor: ${(error as any).message ?? error}`, variant: "error" })
+                    toast.show({
+                      message: `Failed to clear advisor: ${(error as any).message ?? error}`,
+                      variant: "error",
+                    })
                     return
                   }
                   toast.show({ message: "Advisor cleared", variant: "success" })
@@ -92,11 +95,5 @@ export function DialogAdvisorModel(props: { agentName: string }) {
     return a ? `${a.providerID}/${a.modelID}` : undefined
   })
 
-  return (
-    <DialogSelect
-      title={`Set advisor · ${props.agentName}`}
-      current={current()}
-      options={options()}
-    />
-  )
+  return <DialogSelect title={`Set advisor · ${props.agentName}`} current={current()} options={options()} />
 }

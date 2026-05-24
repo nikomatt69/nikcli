@@ -84,7 +84,10 @@ export function ComposerPermissionBar(props: {
       >
         {/* Inner tint */}
         <View
-          style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "rgba(255,180,0,0.04)" : "rgba(217,119,6,0.04)" }]}
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: isDark ? "rgba(255,180,0,0.04)" : "rgba(217,119,6,0.04)" },
+          ]}
           pointerEvents="none"
         />
 
@@ -151,7 +154,11 @@ export function ComposerPermissionBar(props: {
                   padding: 6,
                 })}
               >
-                <ChevronLeft size={16} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
+                <ChevronLeft
+                  size={16}
+                  color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
+                  strokeWidth={2.2}
+                />
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -164,7 +171,11 @@ export function ComposerPermissionBar(props: {
                   padding: 6,
                 })}
               >
-                <ChevronRight size={16} color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"} strokeWidth={2.2} />
+                <ChevronRight
+                  size={16}
+                  color={isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)"}
+                  strokeWidth={2.2}
+                />
               </Pressable>
             </View>
           )}

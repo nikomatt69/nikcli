@@ -26,17 +26,11 @@ export namespace WorkspaceServer {
 
       return WorkspaceContext.provide({
         workspaceID,
-        fn: () =>
-          withInstanceAsync(
-            { directory, workspaceID, init: InstanceBootstrap },
-            async () => next(),
-          ),
+        fn: () => withInstanceAsync({ directory, workspaceID, init: InstanceBootstrap }, async () => next()),
       })
     }
 
-    const session = new Hono()
-      .use("*", withWorkspace)
-      .route("/", SessionRoutes())
+    const session = new Hono().use("*", withWorkspace).route("/", SessionRoutes())
 
     const sync = new Hono().use("*", withWorkspace).post("/steal", async (c) => {
       const workspaceID = WorkspaceContext.workspaceID

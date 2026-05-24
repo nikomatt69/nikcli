@@ -80,6 +80,8 @@ describe("copilot SDK smoke", () => {
     expect(mapOpenAIResponseFinishReason({ finishReason: "max_output_tokens", hasFunctionCall: false })).toBe("length")
     expect(mapOpenAIResponseFinishReason({ finishReason: null, hasFunctionCall: true })).toBe("tool-calls")
     expect(mapOpenAIResponseFinishReason({ finishReason: null, hasFunctionCall: false })).toBe("stop")
-    expect(mapOpenAIResponseFinishReason({ finishReason: "content_filter", hasFunctionCall: false })).toBe("content-filter")
+    expect(mapOpenAIResponseFinishReason({ finishReason: "content_filter", hasFunctionCall: false })).toBe(
+      "content-filter",
+    )
   })
 })

@@ -79,76 +79,80 @@ afterAll(async () => {
 const FLOW_TIMEOUT_MS = 30_000
 
 describe("delegation flow", () => {
-  it("supports delegation list, count, read, cancel, and session scoping", async () => {
-    await withProject(async () => {
-      const parentSessionID = uniqueSessionID("ses_parent_a")
-      const otherSessionID = uniqueSessionID("ses_parent_b")
-      const tool = await DelegationTool.init()
-      const running = await Delegation.create({
-        parentSessionID,
-        agent: "explore",
-        prompt: "Inspect delegation state",
-        source: "task",
+  it(
+    "supports delegation list, count, read, cancel, and session scoping",
+    async () => {
+      await withProject(async () => {
+        const parentSessionID = uniqueSessionID("ses_parent_a")
+        const otherSessionID = uniqueSessionID("ses_parent_b")
+        const tool = await DelegationTool.init()
+        const running = await Delegation.create({
+          parentSessionID,
+          agent: "explore",
+          prompt: "Inspect delegation state",
+          source: "task",
+        })
+        const completed = await Delegation.create({
+          parentSessionID,
+          agent: "advisor:MiniMax-M2.5",
+          prompt: "Give guidance",
+          source: "advisor",
+        })
+        // Use BackgroundRun directly so no timers/heartbeats are registered in Delegation
+        const foreign = await BackgroundRun.create({
+          parentSessionID: otherSessionID,
+          agent: "explore",
+          prompt: "Foreign delegation",
+          source: "task",
+        })
+
+        await Delegation.finalize(completed.id, "complete", "Advisor recommendation")
+
+        const ctx = createContext(parentSessionID)
+        let countOutput = ""
+        for (let i = 0; i < 20; i++) {
+          const count = await tool.executeAsync({ action: "count" }, ctx)
+          countOutput = count.output
+          if (countOutput.includes("1 delegation(s)")) break
+          await sleep(50)
+        }
+        expect(countOutput).toContain("1 delegation(s)")
+
+        const list = await tool.executeAsync({ action: "list" }, ctx)
+        expect(list.output).toContain(running.id)
+        expect(list.output).toContain(completed.id)
+        expect(list.output).not.toContain(foreign.id)
+
+        const denied = await tool.executeAsync({ action: "list", parentSessionId: otherSessionID }, ctx)
+        expect(denied.title).toBe("Delegation access denied")
+
+        const read = await tool.executeAsync({ action: "read", delegationId: completed.id }, ctx)
+        expect(read.output).toContain("Advisor recommendation")
+        expect(read.output).toContain("**Status:** complete")
+
+        const notFound = await tool.executeAsync({ action: "read", delegationId: foreign.id }, ctx)
+        expect(notFound.title).toBe("Delegation not found")
+
+        const cancelled = await tool.executeAsync({ action: "cancel", delegationId: running.id }, ctx)
+        expect(cancelled.output).toBe(`Cancelled delegation ${running.id}.`)
+
+        // Poll until cancellation finalizes (scheduleForcedFinalize fires after 1000ms)
+        let cancelledStatus: string = ""
+        for (let i = 0; i < 20; i++) {
+          await sleep(100)
+          const inspected = await Delegation.inspect(running.id)
+          cancelledStatus = inspected?.status ?? ""
+          if (cancelledStatus === "cancelled") break
+        }
+        expect(cancelledStatus).toBe("cancelled")
+
+        const cancelledRead = await tool.executeAsync({ action: "read", delegationId: running.id }, ctx)
+        expect(cancelledRead.output).toContain("**Status:** cancelled")
+        expect(cancelledRead.output).toContain("**Error:** Cancelled")
       })
-      const completed = await Delegation.create({
-        parentSessionID,
-        agent: "advisor:MiniMax-M2.5",
-        prompt: "Give guidance",
-        source: "advisor",
-      })
-      // Use BackgroundRun directly so no timers/heartbeats are registered in Delegation
-      const foreign = await BackgroundRun.create({
-        parentSessionID: otherSessionID,
-        agent: "explore",
-        prompt: "Foreign delegation",
-        source: "task",
-      })
-
-      await Delegation.finalize(completed.id, "complete", "Advisor recommendation")
-
-      const ctx = createContext(parentSessionID)
-      let countOutput = ""
-      for (let i = 0; i < 20; i++) {
-        const count = await tool.executeAsync({ action: "count" }, ctx)
-        countOutput = count.output
-        if (countOutput.includes("1 delegation(s)")) break
-        await sleep(50)
-      }
-      expect(countOutput).toContain("1 delegation(s)")
-
-      const list = await tool.executeAsync({ action: "list" }, ctx)
-      expect(list.output).toContain(running.id)
-      expect(list.output).toContain(completed.id)
-      expect(list.output).not.toContain(foreign.id)
-
-      const denied = await tool.executeAsync({ action: "list", parentSessionId: otherSessionID }, ctx)
-      expect(denied.title).toBe("Delegation access denied")
-
-      const read = await tool.executeAsync({ action: "read", delegationId: completed.id }, ctx)
-      expect(read.output).toContain("Advisor recommendation")
-      expect(read.output).toContain("**Status:** complete")
-
-      const notFound = await tool.executeAsync({ action: "read", delegationId: foreign.id }, ctx)
-      expect(notFound.title).toBe("Delegation not found")
-
-      const cancelled = await tool.executeAsync({ action: "cancel", delegationId: running.id }, ctx)
-      expect(cancelled.output).toBe(`Cancelled delegation ${running.id}.`)
-
-      // Poll until cancellation finalizes (scheduleForcedFinalize fires after 1000ms)
-      let cancelledStatus: string = ""
-      for (let i = 0; i < 20; i++) {
-        await sleep(100)
-        const inspected = await Delegation.inspect(running.id)
-        cancelledStatus = inspected?.status ?? ""
-        if (cancelledStatus === "cancelled") break
-      }
-      expect(cancelledStatus).toBe("cancelled")
-
-      const cancelledRead = await tool.executeAsync({ action: "read", delegationId: running.id }, ctx)
-      expect(cancelledRead.output).toContain("**Status:** cancelled")
-      expect(cancelledRead.output).toContain("**Error:** Cancelled")
-    })
-  }, FLOW_TIMEOUT_MS)
+    },
+    FLOW_TIMEOUT_MS,
+  )
 
   it("reports delegator status, progress, summary, and access checks", async () => {
     await withProject(async () => {
@@ -183,7 +187,10 @@ describe("delegation flow", () => {
       expect(summary.output).toContain("Final synthesized result for parent session")
       expect(summary.output).toContain('Use `delegation(action="read", delegationId="')
 
-      const outsider = await tool.executeAsync({ action: "status", delegationId: delegation.id }, createContext("ses_other"))
+      const outsider = await tool.executeAsync(
+        { action: "status", delegationId: delegation.id },
+        createContext("ses_other"),
+      )
       expect(outsider.title).toBe("Delegator (not found)")
     })
   })
