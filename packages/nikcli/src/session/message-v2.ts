@@ -723,10 +723,32 @@ export namespace MessageV2 {
               })
           }
           if (part.type === "reasoning") {
+            // When the destination model differs from the one that produced
+            // the reasoning, drop the reasoning shape entirely and pass the
+            // raw text as a plain text part. This avoids two failure modes
+            // observed across providers when reasoning blocks are forwarded
+            // to incompatible backends (e.g. anthropic/bedrock/glm reasoning
+            // sent into an OpenAI-shaped chat endpoint):
+            //   1. The receiving provider rejects reasoning content blocks
+            //      it didn't emit (e.g. AI_InvalidPromptError on openrouter
+            //      glm-4.5 / deepseek when the prior turn was anthropic).
+            //   2. Reasoning provider-metadata refers to a signature the
+            //      receiving model can't validate.
+            // Inspired by opencode PR #25303 (bedrock reasoning) — same
+            // pattern applies to all cross-model forwarding.
+            if (differentModel) {
+              if (part.text.trim().length > 0) {
+                assistantMessage.parts.push({
+                  type: "text",
+                  text: part.text,
+                })
+              }
+              continue
+            }
             assistantMessage.parts.push({
               type: "reasoning",
               text: part.text,
-              ...(differentModel ? {} : { providerMetadata: part.metadata }),
+              providerMetadata: part.metadata,
             })
           }
         }

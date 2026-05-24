@@ -164,7 +164,30 @@ export namespace ProviderTransform {
       return result
     }
 
-    if (typeof model.capabilities.interleaved === "object" && model.capabilities.interleaved.field) {
+    // DeepSeek requires all assistant messages to carry a reasoning part, even
+    // when the reasoning content is empty.
+    if (model.api.id.toLowerCase().includes("deepseek")) {
+      msgs = msgs.map((msg) => {
+        if (msg.role !== "assistant") return msg
+        if (Array.isArray(msg.content)) {
+          if (msg.content.some((part) => part.type === "reasoning")) return msg
+          return { ...msg, content: [...msg.content, { type: "reasoning", text: "" }] }
+        }
+        return {
+          ...msg,
+          content: [
+            ...(msg.content ? [{ type: "text" as const, text: msg.content }] : []),
+            { type: "reasoning" as const, text: "" },
+          ],
+        }
+      })
+    }
+
+    if (
+      typeof model.capabilities.interleaved === "object" &&
+      model.capabilities.interleaved.field &&
+      model.api.npm !== "@openrouter/ai-sdk-provider"
+    ) {
       const field = model.capabilities.interleaved.field
       return msgs.map((msg) => {
         if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -174,24 +197,16 @@ export namespace ProviderTransform {
           // Filter out reasoning parts from content
           const filteredContent = msg.content.filter((part: any) => part.type !== "reasoning")
 
-          // Include reasoning_content | reasoning_details directly on the message for all assistant messages
-          if (reasoningText) {
-            return {
-              ...msg,
-              content: filteredContent,
-              providerOptions: {
-                ...msg.providerOptions,
-                openaiCompatible: {
-                  ...(msg.providerOptions as any)?.openaiCompatible,
-                  [field]: reasoningText,
-                },
-              },
-            }
-          }
-
           return {
             ...msg,
             content: filteredContent,
+            providerOptions: {
+              ...msg.providerOptions,
+              openaiCompatible: {
+                ...(msg.providerOptions as any)?.openaiCompatible,
+                [field]: reasoningText,
+              },
+            },
           }
         }
 
@@ -361,6 +376,51 @@ export namespace ProviderTransform {
 
   const WIDELY_SUPPORTED_EFFORTS = ["low", "medium", "high"]
   const OPENAI_EFFORTS = ["none", "minimal", ...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
+  const OPENAI_GPT5_1_EFFORTS = ["none", ...WIDELY_SUPPORTED_EFFORTS]
+  const OPENAI_GPT5_2_PLUS_EFFORTS = [...OPENAI_GPT5_1_EFFORTS, "xhigh"]
+  const OPENAI_GPT5_PRO_EFFORTS = ["high"]
+  const OPENAI_GPT5_PRO_2_PLUS_EFFORTS = ["medium", "high", "xhigh"]
+  const OPENAI_GPT5_CHAT_EFFORTS = ["medium"]
+  const OPENAI_GPT5_CODEX_XHIGH_EFFORTS = [...WIDELY_SUPPORTED_EFFORTS, "xhigh"]
+  const OPENAI_GPT5_CODEX_3_PLUS_EFFORTS = ["none", ...OPENAI_GPT5_CODEX_XHIGH_EFFORTS]
+
+  const GPT5_FAMILY_RE = /(?:^|\/)gpt-5(?:[.-]|$)/
+  const GPT5_VERSION_RE = /(?:^|\/)gpt-5[.-](\d+)(?:[.-]|$)/
+  const GPT5_PRO_RE = /(?:^|\/)gpt-5[.-]?pro(?:[.-]|$)/
+  const GPT5_VERSIONED_PRO_RE = /(?:^|\/)gpt-5[.-]\d+[.-]pro(?:[.-]|$)/
+
+  function gpt5Version(apiId: string) {
+    return Number(GPT5_VERSION_RE.exec(apiId)?.[1]) || undefined
+  }
+
+  function versionedGpt5ReasoningEfforts(apiId: string) {
+    if (GPT5_VERSIONED_PRO_RE.test(apiId)) return OPENAI_GPT5_PRO_2_PLUS_EFFORTS
+    const version = gpt5Version(apiId)
+    if (version === undefined) return undefined
+    if (version === 1) return OPENAI_GPT5_1_EFFORTS
+    return OPENAI_GPT5_2_PLUS_EFFORTS
+  }
+
+  function gpt5CodexReasoningEfforts(apiId: string) {
+    if (!GPT5_FAMILY_RE.test(apiId) || !apiId.includes("codex")) return undefined
+    const version = gpt5Version(apiId)
+    if (version !== undefined && version >= 3) return OPENAI_GPT5_CODEX_3_PLUS_EFFORTS
+    if (apiId.includes("codex-max") || (version !== undefined && version >= 2)) return OPENAI_GPT5_CODEX_XHIGH_EFFORTS
+    return WIDELY_SUPPORTED_EFFORTS
+  }
+
+  function gpt5ChatReasoningEfforts(apiId: string) {
+    if (!GPT5_FAMILY_RE.test(apiId) || !apiId.includes("-chat")) return undefined
+    return gpt5Version(apiId) === undefined ? [] : OPENAI_GPT5_CHAT_EFFORTS
+  }
+
+  function openaiCompatibleReasoningEfforts(id: string) {
+    const apiId = id.toLowerCase()
+    const chatEfforts = gpt5ChatReasoningEfforts(apiId)
+    if (chatEfforts) return chatEfforts
+    if (GPT5_PRO_RE.test(apiId)) return OPENAI_GPT5_PRO_EFFORTS
+    return gpt5CodexReasoningEfforts(apiId) ?? versionedGpt5ReasoningEfforts(apiId) ?? OPENAI_EFFORTS
+  }
 
   function anthropicAdaptiveEfforts(apiId: string): string[] | null {
     const id = apiId.toLowerCase()
@@ -381,14 +441,23 @@ export namespace ProviderTransform {
 
     const id = model.id.toLowerCase()
     const adaptiveEfforts = anthropicAdaptiveEfforts(model.api.id)
+    // Per opencode PR #24157 — only exclude *known-variantless* deepseek models
+    // from variant emission. Newer ones (deepseek-v4, etc.) want variants
+    // including `max` (PR #24163).
     if (
-      id.includes("deepseek") ||
+      id.includes("deepseek-chat") ||
+      id.includes("deepseek-reasoner") ||
+      id.includes("deepseek-r1") ||
+      id.includes("deepseek-v3") ||
       id.includes("minimax") ||
-      id.includes("glm") ||
+      // GLM models on direct providers don't accept reasoning_effort — but
+      // they DO via OpenRouter (handled below). Exclude only when the npm is
+      // not openrouter.
+      (id.includes("glm") && model.api.npm !== "@openrouter/ai-sdk-provider") ||
       id.includes("mistral") ||
-      id.includes("kimi") ||
+      (id.includes("kimi") && model.api.npm !== "@openrouter/ai-sdk-provider") ||
       // models.dev sometimes reports kimi-k2.5 as k2p5
-      id.includes("k2p5")
+      (id.includes("k2p5") && model.api.npm !== "@openrouter/ai-sdk-provider")
     )
       return {}
 
@@ -408,9 +477,68 @@ export namespace ProviderTransform {
     if (id.includes("grok")) return {}
 
     switch (model.api.npm) {
-      case "@openrouter/ai-sdk-provider":
-        if (!model.id.includes("gpt") && !model.id.includes("gemini-3")) return {}
-        return Object.fromEntries(OPENAI_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
+      case "@openrouter/ai-sdk-provider": {
+        // Per opencode PR diffs from rekram1-node — OpenRouter exposes
+        // reasoning effort for a much broader set of upstreams than just
+        // OpenAI/Gemini-3. We pattern-match each known family and emit the
+        // tier set the upstream actually accepts.
+        const orId = id
+
+        // Claude-on-OpenRouter (anthropic/claude-* or :thinking suffix).
+        if (orId.includes("claude")) {
+          // claude-4.x uses adaptive thinking efforts when available.
+          if (adaptiveEfforts) {
+            return Object.fromEntries(adaptiveEfforts.map((effort) => [effort, { reasoning: { effort } }]))
+          }
+          return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        // DeepSeek-on-OpenRouter — v4+ accepts `max`.
+        if (orId.includes("deepseek")) {
+          const efforts = [...WIDELY_SUPPORTED_EFFORTS]
+          if (orId.includes("v4") || orId.includes("v3.1") || orId.includes("r1")) {
+            efforts.push("max")
+          }
+          return Object.fromEntries(efforts.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        // GLM / Z.AI on OpenRouter.
+        if (orId.includes("glm") || orId.includes("z-ai")) {
+          return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        // Kimi (Moonshot) on OpenRouter.
+        if (orId.includes("kimi") || orId.includes("moonshot") || orId.includes("k2p5")) {
+          return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        // Grok-3-mini / grok-4 on OpenRouter use the `reasoning.effort`
+        // passthrough (handled earlier for direct xAI). Other grok models
+        // expose no reasoning surface.
+        if (orId.includes("grok")) {
+          if (orId.includes("grok-3-mini") || orId.includes("grok-4")) {
+            return {
+              low: { reasoning: { effort: "low" } },
+              medium: { reasoning: { effort: "medium" } },
+              high: { reasoning: { effort: "high" } },
+            }
+          }
+          return {}
+        }
+
+        // OpenAI GPT/o-series via OpenRouter — full OpenAI tier set.
+        if (orId.includes("gpt") || orId.startsWith("openai/")) {
+          const efforts = openaiCompatibleReasoningEfforts(orId)
+          return Object.fromEntries(efforts.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        // Gemini-3 (and gemini-2.5 reasoning variants) via OpenRouter.
+        if (orId.includes("gemini-3") || orId.includes("gemini-2.5")) {
+          return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoning: { effort } }]))
+        }
+
+        return {}
+      }
 
       // Note: gateway reasoningEffort conflicts with max_tokens
       case "@ai-sdk/gateway":
@@ -463,8 +591,15 @@ export namespace ProviderTransform {
       // https://v5.ai-sdk.dev/providers/ai-sdk-providers/xai
       case "@ai-sdk/deepinfra":
       // https://v5.ai-sdk.dev/providers/ai-sdk-providers/deepinfra
-      case "@ai-sdk/openai-compatible":
-        return Object.fromEntries(WIDELY_SUPPORTED_EFFORTS.map((effort) => [effort, { reasoningEffort: effort }]))
+      case "@ai-sdk/openai-compatible": {
+        // Per opencode PR #24163 — deepseek-v4 accepts `max` on top of
+        // low/medium/high. Other openai-compatible upstreams don't.
+        const efforts = [...WIDELY_SUPPORTED_EFFORTS]
+        if (model.api.id.includes("deepseek-v4")) {
+          efforts.push("max")
+        }
+        return Object.fromEntries(efforts.map((effort) => [effort, { reasoningEffort: effort }]))
+      }
 
       case "@ai-sdk/azure":
         // https://v5.ai-sdk.dev/providers/ai-sdk-providers/azure
@@ -774,37 +909,28 @@ export namespace ProviderTransform {
       result["promptCacheKey"] = input.sessionID
     }
 
+    if (input.model.providerID === "openrouter") {
+      result["prompt_cache_key"] = input.sessionID
+    }
+
     return result
   }
 
   export function smallOptions(model: Provider.Model) {
+    const small = Object.values(model.variants ?? {})[0] ?? {}
     if (
       model.providerID === "openai" ||
       model.api.npm === "@ai-sdk/openai" ||
       model.api.npm === "@ai-sdk/github-copilot"
     ) {
-      if (model.api.id.includes("gpt-5")) {
-        if (model.api.id.includes("5.")) {
-          return { store: false, reasoningEffort: "low" }
-        }
-        return { store: false, reasoningEffort: "minimal" }
-      }
-      return { store: false }
-    }
-    if (model.providerID === "google") {
-      // gemini-3 uses thinkingLevel, gemini-2.5 uses thinkingBudget
-      if (model.api.id.includes("gemini-3")) {
-        return { thinkingConfig: { thinkingLevel: "minimal" } }
-      }
-      return { thinkingConfig: { thinkingBudget: 0 } }
+      return mergeDeep({ store: false }, small)
     }
     if (model.providerID === "openrouter") {
-      if (model.api.id.includes("google")) {
+      if (Object.keys(small).length === 0 && model.api.id.includes("google")) {
         return { reasoning: { enabled: false } }
       }
-      return { reasoningEffort: "minimal" }
     }
-    return {}
+    return small
   }
 
   export function providerOptions(model: Provider.Model, options: { [x: string]: any }) {

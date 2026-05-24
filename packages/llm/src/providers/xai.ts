@@ -6,12 +6,16 @@ import { ProviderID, type ModelID } from "../schema"
 import * as OpenAICompatibleProfiles from "./openai-compatible-profile"
 import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
+import { withXAIOptions, type XAIProviderOptionsInput } from "./xai-options"
+
+export type { XAIOptionsInput, XAIProviderOptionsInput } from "./xai-options"
 
 export const id = ProviderID.make("xai")
 
-export type ModelOptions = Omit<RouteModelInput, "id" | "apiKey" | "auth" | "baseURL"> &
+export type ModelOptions = Omit<RouteModelInput, "id" | "apiKey" | "auth" | "baseURL" | "providerOptions"> &
   ProviderAuthOption<"optional"> & {
     readonly baseURL?: string
+    readonly providerOptions?: XAIProviderOptionsInput
   }
 
 export const routes = [OpenAIResponses.route, OpenAICompatibleChat.route]
@@ -23,23 +27,25 @@ const auth = (options: ProviderAuthOption<"optional">) => AuthOptions.bearer(opt
 
 export const responses = (modelID: string | ModelID, options: ModelOptions = {}) => {
   const { apiKey: _, ...rest } = options
-  return responsesModel({
-    ...rest,
-    auth: auth(options),
-    id: modelID,
-    baseURL: options.baseURL ?? OpenAICompatibleProfiles.profiles.xai.baseURL,
-  })
+  return responsesModel(
+    withXAIOptions(String(modelID), {
+      ...rest,
+      auth: auth(options),
+      baseURL: options.baseURL ?? OpenAICompatibleProfiles.profiles.xai.baseURL,
+    }),
+  )
 }
 
 export const chat = (modelID: string | ModelID, options: ModelOptions = {}) => {
   const { apiKey: _, ...rest } = options
-  return chatModel({
-    ...rest,
-    auth: auth(options),
-    id: modelID,
-    provider: id,
-    baseURL: options.baseURL ?? OpenAICompatibleProfiles.profiles.xai.baseURL,
-  })
+  return chatModel(
+    withXAIOptions(String(modelID), {
+      ...rest,
+      auth: auth(options),
+      provider: id,
+      baseURL: options.baseURL ?? OpenAICompatibleProfiles.profiles.xai.baseURL,
+    }),
+  )
 }
 
 export const provider = Provider.make({

@@ -132,6 +132,48 @@ export namespace LLM {
     )
   }
 
+  // Some messages reach `normalizeStreamMessages` shaped like UIMessages but
+  // with roles outside `user`/`assistant` (e.g. a `system` carrying a `parts`
+  // array, or an empty role). These slip past both `isModelMessage` and
+  // `isUIMessage`, so the legacy cast pushed them straight to streamText and
+  // triggered `AI_InvalidPromptError`. `looksLikeUIMessage` widens detection
+  // so the normalizer can repair them.
+  function looksLikeUIMessage(message: unknown): boolean {
+    if (!message || typeof message !== "object") return false
+    const candidate = message as { parts?: unknown; content?: unknown }
+    return Array.isArray(candidate.parts) && candidate.content === undefined
+  }
+
+  // Best-effort repair: collapse a malformed UI-shaped message into a single
+  // string-content ModelMessage by concatenating any `text`/`reasoning` parts.
+  // Returns undefined when there's nothing salvageable so the caller can drop
+  // the message instead of forwarding garbage to the model.
+  function repairMessage(message: unknown): ModelMessage | undefined {
+    if (!message || typeof message !== "object") return undefined
+    const candidate = message as {
+      role?: unknown
+      parts?: ReadonlyArray<{ type?: unknown; text?: unknown }>
+      content?: unknown
+    }
+    const role =
+      candidate.role === "user" || candidate.role === "assistant" || candidate.role === "system"
+        ? candidate.role
+        : "user"
+    if (Array.isArray(candidate.parts)) {
+      const text = candidate.parts
+        .filter((p) => (p?.type === "text" || p?.type === "reasoning") && typeof p?.text === "string")
+        .map((p) => p.text as string)
+        .join("")
+        .trim()
+      if (text.length === 0) return undefined
+      return { role, content: text } as ModelMessage
+    }
+    if (typeof candidate.content === "string" && candidate.content.length > 0) {
+      return { role, content: candidate.content } as ModelMessage
+    }
+    return undefined
+  }
+
   function uiToolOutput(output: unknown) {
     if (typeof output === "string") return { type: "text" as const, value: output }
     return { type: "json" as const, value: output as never }
@@ -173,8 +215,29 @@ export namespace LLM {
         uiRun.push(message)
         continue
       }
-      flushUIRun()
-      result.push(message as ModelMessage)
+      // Widened: anything UI-shaped (has `parts`) that isn't strictly a
+      // UIMessage gets routed through the same convertToModelMessages path
+      // by repairing the role to user.
+      if (looksLikeUIMessage(message)) {
+        const candidate = message as { role?: unknown; parts: UIMessage["parts"] }
+        const role: UIMessage["role"] =
+          candidate.role === "assistant" ? "assistant" : "user"
+        uiRun.push({ ...(message as object), role } as UIMessage)
+        continue
+      }
+      // Last resort: try to recover a plain string-content ModelMessage from
+      // arbitrary garbage. If that fails, drop the message with a warning so
+      // it never reaches streamText (where it would throw the opaque
+      // AI_InvalidPromptError).
+      const repaired = repairMessage(message)
+      if (repaired) {
+        flushUIRun()
+        result.push(repaired)
+        continue
+      }
+      log.warn("dropping malformed message before streamText", {
+        snapshot: JSON.stringify(message).slice(0, 200),
+      })
     }
 
     flushUIRun()

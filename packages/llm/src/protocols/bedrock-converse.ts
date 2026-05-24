@@ -326,9 +326,20 @@ const lowerMessages = Effect.fn("BedrockConverse.lowerMessages")(function* (requ
 const lowerSystem = (system: ReadonlyArray<LLMRequest["system"][number]>): BedrockSystemBlock[] =>
   system.flatMap((part) => textWithCache(part.text, part.cache))
 
+const bedrockOptions = (request: LLMRequest) => {
+  const bedrock = request.providerOptions?.bedrock
+  if (!ProviderShared.isRecord(bedrock)) return undefined
+  const fields: Record<string, unknown> = {}
+  if (ProviderShared.isRecord(bedrock.reasoningConfig)) fields.reasoningConfig = bedrock.reasoningConfig
+  const passthrough = bedrock.additionalModelRequestFields
+  if (ProviderShared.isRecord(passthrough)) Object.assign(fields, passthrough)
+  return Object.keys(fields).length === 0 ? undefined : fields
+}
+
 const fromRequest = Effect.fn("BedrockConverse.fromRequest")(function* (request: LLMRequest) {
   const toolChoice = request.toolChoice ? yield* lowerToolChoice(request.toolChoice) : undefined
   const generation = request.generation
+  const additionalModelRequestFields = bedrockOptions(request)
   return {
     modelId: request.model.id,
     messages: yield* lowerMessages(request),
@@ -349,6 +360,7 @@ const fromRequest = Effect.fn("BedrockConverse.fromRequest")(function* (request:
       request.tools.length > 0 && request.toolChoice?.type !== "none"
         ? { tools: request.tools.map(lowerTool), toolChoice }
         : undefined,
+    ...(additionalModelRequestFields ? { additionalModelRequestFields } : {}),
   }
 })
 

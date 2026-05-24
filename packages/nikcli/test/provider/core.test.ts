@@ -149,19 +149,70 @@ describe("ProviderTransform", () => {
     expect(ProviderTransform.providerOptions(m, { foo: 1 })).toEqual({ copilot: { foo: 1 } })
   })
 
+  it("emits OpenRouter reasoning variants for GPT and Claude families", () => {
+    const gpt = makeModel({
+      id: "openai/gpt-5.2",
+      providerID: "openrouter",
+      api: { id: "openai/gpt-5.2", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+    })
+    expect(Object.keys(ProviderTransform.variants(gpt))).toEqual(["none", "low", "medium", "high", "xhigh"])
+
+    const claude = makeModel({
+      id: "anthropic/claude-sonnet-4.5",
+      providerID: "openrouter",
+      api: {
+        id: "anthropic/claude-sonnet-4.5",
+        url: "https://openrouter.ai/api/v1",
+        npm: "@openrouter/ai-sdk-provider",
+      },
+    })
+    expect(ProviderTransform.variants(claude).medium).toEqual({ reasoning: { effort: "medium" } })
+  })
+
+  it("smallOptions relies on the first configured variant", () => {
+    const model = makeModel({
+      providerID: "openrouter",
+      api: { id: "openai/gpt-5.2", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+      variants: {
+        low: { reasoning: { effort: "low" } },
+        high: { reasoning: { effort: "high" } },
+      },
+    })
+    expect(ProviderTransform.smallOptions(model)).toEqual({ reasoning: { effort: "low" } })
+  })
+
+  it("preserves OpenRouter reasoning details in message content", () => {
+    const model = makeModel({
+      providerID: "openrouter",
+      api: { id: "deepseek/deepseek-v4", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+      capabilities: {
+        ...makeModel().capabilities,
+        interleaved: { field: "reasoning_details" },
+      },
+    })
+    const msgs: ModelMessage[] = [
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "reasoning",
+            text: "thinking",
+            providerOptions: { openrouter: { reasoning_details: [{ type: "reasoning.text", text: "thinking" }] } },
+          },
+          { type: "text", text: "answer" },
+        ],
+      },
+    ]
+    expect(ProviderTransform.message(msgs, model, {})).toEqual(msgs)
+  })
+
   it("error rewrites 403 for github-copilot", () => {
-    const msg = ProviderTransform.error(
-      "x-github-copilot",
-      apiError({ message: "nope", statusCode: 403 }),
-    )
+    const msg = ProviderTransform.error("x-github-copilot", apiError({ message: "nope", statusCode: 403 }))
     expect(msg).toContain("reauthenticate")
   })
 
   it("error appends help link for unsupported model on copilot", () => {
-    const msg = ProviderTransform.error(
-      "github-copilot",
-      apiError({ message: "The requested model is not supported" }),
-    )
+    const msg = ProviderTransform.error("github-copilot", apiError({ message: "The requested model is not supported" }))
     expect(msg).toContain("github.com/settings/copilot")
   })
 

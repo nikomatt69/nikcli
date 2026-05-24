@@ -3,39 +3,48 @@ import { ProviderID, type ModelID } from "../schema"
 import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import type { OpenAICompatibleChatModelInput } from "../protocols/openai-compatible-chat"
 import { profiles, type OpenAICompatibleProfile } from "./openai-compatible-profile"
+import {
+  withOpenAICompatibleOptions,
+  type OpenAICompatibleProviderOptionsInput,
+} from "./openai-compatible-options"
+
+export type { OpenAICompatibleProviderOptionsInput } from "./openai-compatible-options"
 
 export const id = ProviderID.make("openai-compatible")
 
-export type ModelOptions = Omit<OpenAICompatibleChatModelInput, "id" | "provider"> & {
+export type ModelOptions = Omit<OpenAICompatibleChatModelInput, "id" | "provider" | "providerOptions"> & {
   readonly provider: string
+  readonly providerOptions?: OpenAICompatibleProviderOptionsInput
 }
 
 type GenericModelOptions = Omit<ModelOptions, "provider"> & {
   readonly provider?: string
 }
 
-export type FamilyModelOptions = Omit<OpenAICompatibleChatModelInput, "id" | "provider" | "baseURL"> & {
+export type FamilyModelOptions = Omit<
+  OpenAICompatibleChatModelInput,
+  "id" | "provider" | "baseURL" | "providerOptions"
+> & {
   readonly baseURL?: string
+  readonly providerOptions?: OpenAICompatibleProviderOptionsInput
 }
 
 export const routes = [OpenAICompatibleChat.route]
 
-export const model = (id: string | ModelID, options: ModelOptions) => {
+export const model = (modelID: string | ModelID, options: ModelOptions) => {
   return OpenAICompatibleChat.model({
-    ...options,
-    id,
+    ...withOpenAICompatibleOptions(String(modelID), options, { profile: options.provider }),
     provider: ProviderID.make(options.provider),
   })
 }
 
 export const profileModel = (
   profile: OpenAICompatibleProfile,
-  id: string | ModelID,
+  modelID: string | ModelID,
   options: FamilyModelOptions = {},
 ) =>
   OpenAICompatibleChat.model({
-    ...options,
-    id,
+    ...withOpenAICompatibleOptions(String(modelID), options, { profile: profile.provider }),
     provider: profile.provider,
     baseURL: options.baseURL ?? profile.baseURL,
   })

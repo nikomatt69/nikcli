@@ -6,6 +6,9 @@ import { Auth } from "../route/auth"
 import { AuthOptions, type AtLeastOne, type ProviderAuthOption } from "../route/auth-options"
 import { Route } from "../route/client"
 import { ProviderID, type ModelID } from "../schema"
+import { withCloudflareOptions, type CloudflareProviderOptionsInput } from "./cloudflare-options"
+
+export type { CloudflareProviderOptionsInput } from "./cloudflare-options"
 
 export const aiGatewayID = ProviderID.make("cloudflare-ai-gateway")
 export const workersAIID = ProviderID.make("cloudflare-workers-ai")
@@ -23,10 +26,11 @@ type GatewayURL = AtLeastOne<{
 }
 
 export type AIGatewayOptions = GatewayURL &
-  Omit<ModelInput, "id" | "provider" | "route" | "baseURL" | "apiKey" | "auth"> &
+  Omit<ModelInput, "id" | "provider" | "route" | "baseURL" | "apiKey" | "auth" | "providerOptions"> &
   ProviderAuthOption<"optional"> & {
     /** Cloudflare AI Gateway authentication token. Sent as `cf-aig-authorization`. */
     readonly gatewayApiKey?: CloudflareSecret
+    readonly providerOptions?: CloudflareProviderOptionsInput
   }
 
 type AIGatewayInput = AIGatewayOptions & Pick<ModelInput, "id">
@@ -37,8 +41,10 @@ type WorkersAIURL = AtLeastOne<{
 }>
 
 export type WorkersAIOptions = WorkersAIURL &
-  Omit<ModelInput, "id" | "provider" | "route" | "baseURL" | "apiKey" | "auth"> &
-  ProviderAuthOption<"optional">
+  Omit<ModelInput, "id" | "provider" | "route" | "baseURL" | "apiKey" | "auth" | "providerOptions"> &
+  ProviderAuthOption<"optional"> & {
+    readonly providerOptions?: CloudflareProviderOptionsInput
+  }
 
 type WorkersAIInput = WorkersAIOptions & Pick<ModelInput, "id">
 
@@ -123,10 +129,10 @@ const workersAIModel = Route.model<WorkersAIInput>(
 )
 
 export const aiGateway = (modelID: string | ModelID, options: AIGatewayOptions) =>
-  aiGatewayModel({ ...options, id: modelID })
+  aiGatewayModel({ ...withCloudflareOptions(String(modelID), options) })
 
 export const workersAI = (modelID: string | ModelID, options: WorkersAIOptions) =>
-  workersAIModel({ ...options, id: modelID })
+  workersAIModel({ ...withCloudflareOptions(String(modelID), options) })
 
 export const model = aiGateway
 

@@ -87,6 +87,8 @@ export namespace ProviderHttpApi {
         const providerAuth = yield* ProviderAuth.Service
         yield* providerAuth.api({ providerID: params.providerID, key: payload.key })
         yield* Effect.promise(() => Instance.dispose())
+        const provider = yield* Provider.Service
+        yield* Effect.ignore(provider.refresh())
         return { success: true as const }
       }).pipe(Effect.orDie),
     removeAuth: ({ params }: { params: { providerID: string } }) =>
@@ -94,6 +96,8 @@ export namespace ProviderHttpApi {
         const auth = yield* Auth.Service
         yield* auth.remove(params.providerID)
         yield* Effect.promise(() => Instance.dispose())
+        const provider = yield* Provider.Service
+        yield* Effect.ignore(provider.refresh())
         return { success: true as const }
       }).pipe(Effect.orDie),
   }

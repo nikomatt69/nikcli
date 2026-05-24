@@ -113,6 +113,26 @@ export const ConfigRoutes = lazy(() =>
             yield* service.update(config)
           }),
         )
+        // Config writes that touch `disabled_providers`, `enabled_providers`,
+        // `provider`, or `model` must invalidate the Provider state cache so
+        // the next listing reflects them without a CLI restart.
+        if (
+          "disabled_providers" in config ||
+          "enabled_providers" in config ||
+          "provider" in config ||
+          "model" in config
+        ) {
+          await runProvider(
+            Effect.gen(function* () {
+              const provider = yield* Provider.Service
+              yield* Effect.ignore(provider.refresh())
+            }),
+          ).catch((err) =>
+            log.warn("provider cache refresh after config update failed", {
+              error: err instanceof Error ? err.message : String(err),
+            }),
+          )
+        }
         return c.json(config)
       },
     )

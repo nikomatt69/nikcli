@@ -13,7 +13,7 @@ import { Env } from "../env"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
-import { Context, Effect, Layer, Schema } from "effect"
+import { Context, Effect, Layer, Schema, ScopedCache } from "effect"
 import {
   InstanceState,
   locallyInstance,
@@ -227,8 +227,7 @@ export namespace Provider {
         Env.get("NIKCLI_INFERENCE_URL") ??
         "https://inference.nikcli.store/v1",
     )
-    const apiKey =
-      (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
+    const apiKey = (configured?.options?.apiKey as string | undefined) ?? Env.get("NIKCLI_INFERENCE_KEY") ?? "nik-pro"
 
     // Probe /v1/models — single source of truth from the gateway.
     const modelsRes = await fetch(`${baseURL}/models`, {
@@ -854,9 +853,7 @@ export namespace Provider {
     options: Schema.Record(Schema.String, Schema.Unknown),
     headers: Schema.Record(Schema.String, Schema.String),
     release_date: Schema.String,
-    variants: Schema.optional(
-      Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
-    ),
+    variants: Schema.optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown))),
   }).annotate({ identifier: "Model" })
   export const Model = zodObject(ModelSchema)
   export type Model = DeepMutable<Schema.Schema.Type<typeof ModelSchema>>
@@ -976,6 +973,14 @@ export namespace Provider {
     ): Effect.Effect<{ providerID: string; modelID: string } | undefined, unknown>
     getSmallModel(providerID: string): Effect.Effect<Model | undefined, unknown>
     defaultModel(): Effect.Effect<{ providerID: string; modelID: string }, unknown>
+    /**
+     * Invalidate the cached provider state for the current instance directory.
+     * Call this after writes that change auth or `config.provider.*` so the
+     * next `list()` / `getProvider()` / `getModel()` rebuilds the state from
+     * the new auth + config. Without this, a freshly-connected provider stays
+     * invisible until the process restarts.
+     */
+    refresh(): Effect.Effect<void, unknown>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Provider.Service") {}
@@ -1061,6 +1066,13 @@ export namespace Provider {
 
       for (const [modelID, model] of Object.entries(provider.models ?? {})) {
         const existingModel = parsed.models[model.id ?? modelID]
+        const apiID = model.id ?? existingModel?.api.id ?? modelID
+        const apiNpm =
+          model.provider?.npm ??
+          provider.npm ??
+          existingModel?.api.npm ??
+          modelsDev[providerID]?.npm ??
+          "@ai-sdk/openai-compatible"
         const name = iife(() => {
           if (model.name) return model.name
           if (model.id && model.id !== modelID) return modelID
@@ -1069,13 +1081,8 @@ export namespace Provider {
         const parsedModel: Model = {
           id: modelID,
           api: {
-            id: model.id ?? existingModel?.api.id ?? modelID,
-            npm:
-              model.provider?.npm ??
-              provider.npm ??
-              existingModel?.api.npm ??
-              modelsDev[providerID]?.npm ??
-              "@ai-sdk/openai-compatible",
+            id: apiID,
+            npm: apiNpm,
             url: model.provider?.api ?? provider?.api ?? existingModel?.api.url ?? modelsDev[providerID]?.api,
           },
           status: model.status ?? existingModel?.status ?? "active",
@@ -1100,7 +1107,12 @@ export namespace Provider {
               video: model.modalities?.output?.includes("video") ?? existingModel?.capabilities.output.video ?? false,
               pdf: model.modalities?.output?.includes("pdf") ?? existingModel?.capabilities.output.pdf ?? false,
             },
-            interleaved: model.interleaved ?? false,
+            interleaved:
+              model.interleaved ??
+              existingModel?.capabilities.interleaved ??
+              (!existingModel && apiNpm === "@ai-sdk/openai-compatible" && apiID.includes("deepseek")
+                ? { field: "reasoning_content" }
+                : false),
           },
           cost: {
             input: model?.cost?.input ?? existingModel?.cost?.input ?? 0,
@@ -1509,7 +1521,9 @@ export namespace Provider {
       const createKey = Object.keys(mod).find((key) => key.startsWith("create"))
       if (!createKey) {
         log.error("No create function found in provider module", { npm: model.api.npm, keys: Object.keys(mod) })
-        throw Object.assign(new InitError({ providerID: model.providerID }), { cause: new Error("Provider module missing create function") })
+        throw Object.assign(new InitError({ providerID: model.providerID }), {
+          cause: new Error("Provider module missing create function"),
+        })
       }
       const fn = mod[createKey]
       const loaded = fn({
@@ -1677,10 +1691,13 @@ export namespace Provider {
             return language as LanguageModelV2
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }
@@ -1724,10 +1741,13 @@ export namespace Provider {
             return image
           } catch (e) {
             if (e instanceof NoSuchModelError) {
-              throw Object.assign(new ModelNotFoundError({
-                modelID: model.id,
-                providerID: model.providerID,
-              }), { cause: e })
+              throw Object.assign(
+                new ModelNotFoundError({
+                  modelID: model.id,
+                  providerID: model.providerID,
+                }),
+                { cause: e },
+              )
             }
             throw e
           }
@@ -1756,22 +1776,13 @@ export namespace Provider {
         const s = yield* getState()
         const provider = s.providers[providerID]
         if (provider) {
-          let priority = [
-            "claude-haiku-4-5",
-            "claude-haiku-4.5",
-            "3-5-haiku",
-            "3.5-haiku",
-            "gemini-3-flash",
-            "gemini-2.5-flash",
-            "gpt-5-nano",
-          ]
-          if (providerID.startsWith("nikcli")) priority = ["gpt-5.4-mini"]
-          if (providerID.startsWith("github-copilot")) priority = ["gpt-5-mini", "claude-haiku-4.5", ...priority]
-          for (const item of priority) {
-            for (const model of Object.keys(provider.models)) {
-              if (model.includes(item)) return yield* getModelEffect(providerID, model)
-            }
-          }
+          if (providerID.startsWith("nikcli"))
+            if (providerID.startsWith("github-copilot"))
+              for (const item of priority) {
+                for (const model of Object.keys(provider.models)) {
+                  if (model.includes(item)) return yield* getModelEffect(providerID, model)
+                }
+              }
         }
 
         const nikcliProvider = s.providers["nikcli"]
@@ -1804,7 +1815,7 @@ export namespace Provider {
             const best = sorted[0]
             return { providerID: (best as any).providerID as string, modelID: best.id }
           }
-          return undefined
+          return { providerID: "nikcli", modelID: "" }
         }
 
         if (cfg.model) {
@@ -1812,10 +1823,7 @@ export namespace Provider {
           if (isAvailable(parsed.providerID, parsed.modelID)) return parsed
           return bestAvailable() ?? parsed
         }
-
-        const { providerID, modelID } = parseModel(DEFAULT_MODEL)
-        if (isAvailable(providerID, modelID)) return { providerID, modelID }
-        return bestAvailable() ?? { providerID, modelID }
+        return bestAvailable()
       })
 
       const getModelRef: Interface["getModelRef"] = Effect.fn("Provider.getModelRef")(function* (model) {
@@ -1823,6 +1831,20 @@ export namespace Provider {
         const providerInfo = s.providers[model.providerID]
         if (!providerInfo) return undefined
         return mapToModelRef(model, providerInfo)
+      })
+
+      const refresh: Interface["refresh"] = Effect.fn("Provider.refresh")(function* () {
+        const ctx = yield* InstanceState.context
+        // Clear the cached LanguageModel instances built from the old SDK +
+        // auth before invalidating, so the next getLanguage() rebuilds them.
+        try {
+          const s = yield* getState()
+          s.models.clear()
+          s.sdk.clear()
+        } catch {
+          // state never built yet — nothing to clear
+        }
+        yield* ScopedCache.invalidate(state, ctx.directory)
       })
 
       return Service.of({
@@ -1839,6 +1861,7 @@ export namespace Provider {
         closest,
         getSmallModel,
         defaultModel,
+        refresh,
       })
     }),
   )
@@ -1854,9 +1877,6 @@ export namespace Provider {
       [(model) => model.id, "desc"],
     )
   }
-
-  // Hardcoded default model — used when config.model is not set
-  const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M2.7"
 
   export function parseModel(model: string) {
     const [providerID, ...rest] = model.split("/")

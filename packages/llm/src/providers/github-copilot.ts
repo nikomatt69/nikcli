@@ -4,14 +4,16 @@ import { Provider } from "../provider"
 import { ProviderID, type ModelID } from "../schema"
 import * as OpenAIChat from "../protocols/openai-chat"
 import * as OpenAIResponses from "../protocols/openai-responses"
-import { withOpenAIOptions, type OpenAIProviderOptionsInput } from "./openai-options"
+import { withCopilotOptions, type CopilotProviderOptionsInput } from "./copilot-options"
+
+export type { CopilotProviderOptionsInput } from "./copilot-options"
 
 export const id = ProviderID.make("github-copilot")
 
 // GitHub Copilot has no canonical public URL — callers (nikcli, etc.) must
 // supply `baseURL` explicitly.
-export type ModelOptions = Omit<ModelInput, "id" | "provider" | "route"> & {
-  readonly providerOptions?: OpenAIProviderOptionsInput
+export type ModelOptions = Omit<ModelInput, "id" | "provider" | "route" | "providerOptions"> & {
+  readonly providerOptions?: CopilotProviderOptionsInput
 }
 type CopilotModelInput = ModelOptions & Pick<ModelInput, "id">
 
@@ -24,7 +26,7 @@ export const shouldUseResponsesApi = (modelID: string | ModelID) => {
 
 export const routes = [OpenAIResponses.route, OpenAIChat.route]
 
-const mapInput = (input: CopilotModelInput) => withOpenAIOptions(input.id, input)
+const mapInput = (input: CopilotModelInput) => withCopilotOptions(String(input.id), input)
 
 const chatModel = Route.model<CopilotModelInput>(OpenAIChat.route, { provider: id }, { mapInput })
 const responsesModel = Route.model<CopilotModelInput>(OpenAIResponses.route, { provider: id }, { mapInput })

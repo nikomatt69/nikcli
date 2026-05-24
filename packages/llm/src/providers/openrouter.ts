@@ -4,25 +4,24 @@ import { Endpoint } from "../route/endpoint"
 import { Framing } from "../route/framing"
 import { Provider } from "../provider"
 import { Protocol } from "../route/protocol"
-import { ProviderID, type ModelID, type ProviderOptions } from "../schema"
+import { ProviderID, type ModelID } from "../schema"
 import * as OpenAICompatibleProfiles from "./openai-compatible-profile"
 import * as OpenAIChat from "../protocols/openai-chat"
 import { isRecord } from "../protocols/shared"
+import {
+  withOpenRouterOptions,
+  type OpenRouterOptionsInput as OpenRouterOptions,
+  type OpenRouterProviderOptionsInput,
+} from "./openrouter-options"
+
+export type { OpenRouterOptionsInput, OpenRouterProviderOptionsInput } from "./openrouter-options"
+/** @deprecated use OpenRouterOptionsInput from openrouter-options.ts */
+export type { OpenRouterOptionsInput as OpenRouterOptionsLegacy } from "./openrouter-options"
+export type { OpenRouterOptions }
 
 export const profile = OpenAICompatibleProfiles.profiles.openrouter
 export const id = ProviderID.make(profile.provider)
 const ADAPTER = "openrouter"
-
-export interface OpenRouterOptions {
-  readonly [key: string]: unknown
-  readonly usage?: boolean | Record<string, unknown>
-  readonly reasoning?: Record<string, unknown>
-  readonly promptCacheKey?: string
-}
-
-export type OpenRouterProviderOptionsInput = ProviderOptions & {
-  readonly openrouter?: OpenRouterOptions
-}
 
 export type ModelOptions = Omit<RouteModelInput, "id" | "baseURL" | "providerOptions"> & {
   readonly baseURL?: string
@@ -80,7 +79,8 @@ const modelRef = Route.model<ModelInput>(route, {
   baseURL: profile.baseURL,
 })
 
-export const model = (id: string | ModelID, options: ModelOptions = {}) => modelRef({ ...options, id })
+export const model = (modelID: string | ModelID, options: ModelOptions = {}) =>
+  modelRef(withOpenRouterOptions(String(modelID), options))
 
 export const provider = Provider.make({
   id,
