@@ -1,0 +1,107 @@
+name: Build Android
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "EAS Build profile"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+  push:
+    branches:
+      - main
+      - "**"
+    paths:
+      - "packages/mobile/**"
+  pull_request:
+    paths:
+      - "packages/mobile/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-build:
+    name: Build Android (${{ inputs.profile || 'preview' }})
+    runs-on: macos-sequoia-15.4
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.4"
+          cache: "npm"
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          version: "1.3.12"
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/mobile
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build Android (EAS)
+        uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EAS_TOKEN }}
+
+      - name: Run EAS Build
+        run: |
+          eas build --platform android --profile ${{ inputs.profile || 'preview' }} --non-interactive
+        working-directory: packages/mobile
+        env:
+          EAS_BUILD_TIMEOUT: 3600
+
+      - name: Upload build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-info-${{ inputs.profile || 'preview' }}
+          path: |
+            packages/mobile/build.log
+          retention-days: 7
+
+  android-test:
+    name: TypeScript Check
+    runs-on: macos-sequoia-15.4
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.19.4"
+          cache: "npm"
+          cache-dependency-path: packages/mobile/package-lock.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          version: "1.3.12"
+
+      - name: Install dependencies
+        run: bun install
+        working-directory: packages/mobile
+
+      - name: Type check
+        run: bun run typecheck
+        working-directory: packages/mobile
