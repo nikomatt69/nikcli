@@ -13,7 +13,13 @@ import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import {
+  InstanceState,
+  locallyInstance,
+  runPromiseWithLayer,
+  withCurrentInstance,
+  type InstanceContext,
+} from "@/effect"
 import { isOverflow as overflowCheck } from "./overflow"
 
 export namespace SessionCompaction {
@@ -418,9 +424,7 @@ When constructing the summary, try to stick to this template:
           ),
         ),
       create: (input) =>
-        InstanceState.context.pipe(
-          Effect.flatMap((ctx) => Effect.tryPromise(() => createImpl({ ...input, ctx }))),
-        ),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => createImpl({ ...input, ctx })))),
     }),
   )
 

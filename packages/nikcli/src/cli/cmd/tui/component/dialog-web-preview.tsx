@@ -164,7 +164,7 @@ function extractLinks(html: string, baseUrl: string): Link[] {
     let resolved = href
     try {
       resolved = new URL(href, baseUrl).toString()
-    } catch { }
+    } catch {}
     if (seen.has(resolved)) continue
     seen.add(resolved)
     links.push({ href: resolved, text: stripTags(m[2] ?? "") || resolved })

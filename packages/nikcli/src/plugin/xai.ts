@@ -109,12 +109,7 @@ function generateState(): string {
   return base64UrlEncode(crypto.getRandomValues(new Uint8Array(32)).buffer)
 }
 
-function buildAuthorizeUrl(
-  redirectUri: string,
-  pkce: PkceCodes,
-  state: string,
-  authorizationEndpoint: string,
-): string {
+function buildAuthorizeUrl(redirectUri: string, pkce: PkceCodes, state: string, authorizationEndpoint: string): string {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: XAI_CLIENT_ID,

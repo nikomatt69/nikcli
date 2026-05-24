@@ -3,11 +3,7 @@ import { Provider } from "../provider"
 import { ProviderID, type ModelID } from "../schema"
 import * as BedrockConverse from "../protocols/bedrock-converse"
 import type { BedrockCredentials } from "../protocols/bedrock-converse"
-import {
-  withBedrockOptions,
-  type BedrockProviderOptionsInput,
-  type BedrockVariant,
-} from "./bedrock-options"
+import { withBedrockOptions, type BedrockProviderOptionsInput, type BedrockVariant } from "./bedrock-options"
 
 export type {
   BedrockOptionsInput,

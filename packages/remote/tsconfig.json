@@ -8,13 +8,7 @@
     "moduleResolution": "bundler",
     "target": "es2022",
     "downlevelIteration": true,
-    "lib": [
-      "es2022",
-      "dom",
-      "dom.iterable"
-    ]
+    "lib": ["es2022", "dom", "dom.iterable"]
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { sessionStatusDisplay, formatTreeChangeSummary } from "@/cli/cmd/tui/routes/tree/session-status"
 import { RGBA } from "@opentui/core"
-  import { recordBenchmark } from "../../benchmarks/runner"
+import { recordBenchmark } from "../../benchmarks/runner"
 
 const theme = {
   textMuted: RGBA.fromInts(128, 128, 128),
@@ -105,10 +105,7 @@ describe("sessionStatusDisplay", () => {
     })
 
     it("normalizes newlines in message", () => {
-      const result = sessionStatusDisplay(
-        { type: "retry", attempt: 1, message: "line1\nline2", next: 0 },
-        theme,
-      )
+      const result = sessionStatusDisplay({ type: "retry", attempt: 1, message: "line1\nline2", next: 0 }, theme)
       expect(result.label).not.toContain("\n")
     })
   })

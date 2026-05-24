@@ -45,7 +45,6 @@ export type EventInstallationUpdateAvailable = {
   type: "installation.update-available"
   properties: {
     version: string
-    method?: string
   }
 }
 

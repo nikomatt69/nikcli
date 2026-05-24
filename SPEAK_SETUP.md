@@ -7,6 +7,7 @@ The `speak` tool allows AI to generate voice messages that play on your device s
 ### 1. Choose a Provider
 
 **Option A: OpenRouter (Easiest - OpenAI TTS)**
+
 ```bash
 # Set your OpenRouter API key
 export NIKCLI_OPENROUTER_API_KEY="your-api-key"
@@ -17,6 +18,7 @@ nikcli auth login
 ```
 
 **Option B: ElevenLabs (Best voice quality)**
+
 ```bash
 # Set your ElevenLabs API key
 export NIKCLI_ELEVENLABS_API_KEY="your-api-key"
@@ -40,6 +42,7 @@ echo "your-api-key" > ~/.config/nikcli/secrets/elevenlabs-key
 ```
 
 **Config Options:**
+
 - `provider`: `"openrouter"` or `"elevenlabs"` (default: "openrouter")
 - `model`: Voice ID (e.g., "alloy", "YOq2y2Up4RgXP2HyXjE5")
 - `modelId`: TTS model (ElevenLabs: "eleven_v3", OpenRouter: "openai/gpt-audio-mini")
@@ -58,6 +61,7 @@ Allow the speak tool in your config:
 ```
 
 Or pattern-specific:
+
 ```json
 {
   "permission": {
@@ -98,14 +102,17 @@ Create a summary of this code and speak it with a happy tone using the Bella voi
 ## Voices
 
 ### OpenRouter Voices (OpenAI TTS):
+
 - alloy, ash, ballad, coral, echo, fable, nova, onyx, sage, shimmer
 
 ### ElevenLabs Voices:
+
 - Rachel, Sam, Roger, Sarah, Elliot, Charlie, Emily, Aria, Adam, Arnold, Bella, Dom, Dorothy, Fin, Freya, Grace, James, Jenny, Matthew
 
 ## System Requirements
 
 One of these audio players must be installed:
+
 - **macOS**: `afplay` (built-in)
 - **Linux/Windows**: `ffplay` (from ffmpeg) or `mpg123`
 
@@ -120,20 +127,24 @@ brew install ffmpeg
 ## Troubleshooting
 
 ### "No supported audio player found"
+
 Install one of: `afplay`, `ffplay`, or `mpg123`
 
 ### "API key not found"
+
 - Verify env var is set: `echo $NIKCLI_OPENROUTER_API_KEY`
 - Check file permissions on key file
 - Run `nikcli auth login` to set credentials
 
 ### "All TTS providers failed"
+
 - Check internet connection
 - Verify API key is valid
 - Try the other provider
 - Check logs: Look for timeout or authentication errors
 
 ### Audio not playing
+
 - Verify system audio is enabled
 - Check volume levels
 - Try `-v` flag to increase volume

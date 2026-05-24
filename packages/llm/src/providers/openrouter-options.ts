@@ -100,9 +100,7 @@ export const openRouterDefaultOptions = (modelID: string): ProviderOptions | und
   return openRouterProviderOptions(usageDefault)
 }
 
-export const withOpenRouterOptions = <
-  Options extends { readonly providerOptions?: OpenRouterProviderOptionsInput },
->(
+export const withOpenRouterOptions = <Options extends { readonly providerOptions?: OpenRouterProviderOptionsInput }>(
   modelID: string,
   options: Options,
 ): Options & { readonly id: string; readonly providerOptions?: ProviderOptions } => {

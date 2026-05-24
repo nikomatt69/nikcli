@@ -167,9 +167,7 @@ export function DialogBgAgents(props: {
     for (const job of visibleJobs) {
       const active = isActiveStatus(job.status)
       const color = local.agent.color(job.agent)
-      const category = active
-        ? `Active Background Jobs (${activeJobCount})`
-        : `Background Jobs (${inactiveJobCount})`
+      const category = active ? `Active Background Jobs (${activeJobCount})` : `Background Jobs (${inactiveJobCount})`
       out.push({
         title: job.title,
         value: {

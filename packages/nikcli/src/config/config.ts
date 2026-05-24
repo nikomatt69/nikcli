@@ -59,11 +59,7 @@ export namespace Config {
 
   export class Service extends Context.Service<Service, Interface>()("Config.Service") {}
 
-  async function loadState(
-    ctx: InstanceContext,
-    directories: string[],
-    projectFiles: string[],
-  ): Promise<State> {
+  async function loadState(ctx: InstanceContext, directories: string[], projectFiles: string[]): Promise<State> {
     const auth = await runAuth(
       Effect.gen(function* () {
         const auth = yield* Auth.Service
@@ -270,9 +266,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse command ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse command ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load command", { command: item, err })
@@ -310,9 +304,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse agent ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse agent ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load agent", { agent: item, err })
@@ -349,9 +341,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse mode ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse mode ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load mode", { mode: item, err })
@@ -1649,10 +1639,13 @@ export namespace Config {
             .catch((error) => {
               const errMsg = `bad file reference: "${match}"`
               if (error.code === "ENOENT") {
-                throw Object.assign(new InvalidError({
+                throw Object.assign(
+                  new InvalidError({
                     path: configFilepath,
                     message: errMsg + ` ${resolvedPath} does not exist`,
-                  }), { cause: error })
+                  }),
+                  { cause: error },
+                )
               }
               throw Object.assign(new InvalidError({ path: configFilepath, message: errMsg }), { cause: error })
             })
@@ -1737,11 +1730,14 @@ export namespace Config {
     message: Schema.optional(Schema.String),
   }) {}
 
-  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()("ConfigDirectoryTypoError", {
-    path: Schema.String,
-    dir: Schema.String,
-    suggestion: Schema.String,
-  }) {}
+  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()(
+    "ConfigDirectoryTypoError",
+    {
+      path: Schema.String,
+      dir: Schema.String,
+      suggestion: Schema.String,
+    },
+  ) {}
 
   export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
     path: Schema.optional(Schema.String),

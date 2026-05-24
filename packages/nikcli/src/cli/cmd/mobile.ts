@@ -253,5 +253,5 @@ export const MobileCommand = cmd({
         },
       })
       .demandCommand(),
-  async handler() { },
+  async handler() {},
 })

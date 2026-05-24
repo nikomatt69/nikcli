@@ -195,7 +195,11 @@ export function SessionPreviewStrip({
             right={`${visible.length}`}
             palette={palette}
           />
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingRight: 16 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 12, paddingRight: 16 }}
+          >
             {visible.map((preview) => (
               <PreviewCard
                 key={preview.id}
@@ -345,7 +349,9 @@ function PreviewCard(props: {
       <View style={{ padding: 12, gap: 10 }}>
         <View style={{ minWidth: 0 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <Text style={{ color: props.palette.accentLight, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}>
+            <Text
+              style={{ color: props.palette.accentLight, fontSize: 10, fontWeight: "800", textTransform: "uppercase" }}
+            >
               {sourceLabel(props.preview.source)}
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>

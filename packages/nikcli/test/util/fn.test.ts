@@ -53,7 +53,6 @@ describe("fn", () => {
       // A well-formed input still succeeds
       expect(wrapped({ name: "ok" })).toBe("ok")
     })
-
   })
 
   describe("force method", () => {

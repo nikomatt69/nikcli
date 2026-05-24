@@ -109,8 +109,8 @@ function routeNavigate(
           ? route.data.sessionID
           : undefined
     const workspaceID = sessionID
-      ? sync.session.get(sessionID)?.workspaceID ??
-        (route.data.type === "session" ? route.data.workspaceID : undefined)
+      ? (sync.session.get(sessionID)?.workspaceID ??
+        (route.data.type === "session" ? route.data.workspaceID : undefined))
       : route.data.workspaceID
     route.navigate({ type: "workspace", tab: "graph", sessionID, workspaceID })
     return
@@ -124,8 +124,8 @@ function routeNavigate(
           ? route.data.sessionID
           : undefined
     const workspaceID = sessionID
-      ? sync.session.get(sessionID)?.workspaceID ??
-        (route.data.type === "session" ? route.data.workspaceID : undefined)
+      ? (sync.session.get(sessionID)?.workspaceID ??
+        (route.data.type === "session" ? route.data.workspaceID : undefined))
       : route.data.workspaceID
     route.navigate({ type: "workspace", tab: "github", sessionID, workspaceID })
     return

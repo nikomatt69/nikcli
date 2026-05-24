@@ -284,7 +284,7 @@ export const useSessionCommands = (input: {
         const sessionID = input.params.id
         if (!sessionID) return
         if (input.status()?.type !== "idle") {
-          await input.sdk.client.session.abort({ sessionID }).catch(() => { })
+          await input.sdk.client.session.abort({ sessionID }).catch(() => {})
         }
         const revert = input.info()?.revert?.messageID
         const message = findLast(input.userMessages(), (x) => !revert || x.id < revert)

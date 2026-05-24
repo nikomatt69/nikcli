@@ -55,31 +55,31 @@
 
 ## Monorepo Structure (21+ packages)
 
-| Package                     | Name                          | Description                                                                                          |
-| --------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `packages/nikcli`           | `nikcli`                      | **Core** — CLI, 14 agent types, 40+ tools, Hono server, OpenTUI TUI, session management              |
-| `packages/app`              | `@nikcli-ai/app`              | Shared web UI (SolidJS)                                                                              |
-| `packages/ui`               | `@nikcli-ai/ui`               | UI component library, icons, themes, i18n                                                            |
-| `packages/util`             | `@nikcli-ai/util`             | Shared utilities (error, slug, retry — Zod-based)                                                    |
-| `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from OpenAPI)                                 |
-| `packages/nikcli-plugins/`  | `nikcli-plugins`           | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto)                          |
-| `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + 11 built-in plugins                                                             |
-| `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages: en, es, fr, de, ja, ko, zh, zht, ru, pl, ar, br, bs, da, no, sv) |
-| `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android)                                                             |
-| `packages/enterprise`       | `@nikcli-ai/enterprise`       | Enterprise web app (SolidStart + Nitro)                                                              |
-| `packages/cloud`            | `@nikcli-ai/cloud`            | Cloudflare Workers backend (D1, Durable Objects, jose JWT)                                           |
-| `packages/companion`        | `@nikcli-ai/companion`        | Companion server (Hono + WebSocket + Cloudflare Workers)                                             |
-| `packages/remote`           | `@nikcli-ai/remote`           | Remote terminal via WebSocket + QR code + tunnels                                                    |
-| `packages/slack`            | `@nikcli-ai/slack`            | Slack bot (@slack/bolt + Cloudflare Workers)                                                         |
-| `packages/web`              | `@nikcli-ai/web`              | Marketing/docs site (Astro + React + Cloudflare)                                                     |
-| `packages/webrenderer`      | `@opentui/webrenderer`        | Native Rust web renderer (wry/tao) for TUI bridge                                                    |
-| `packages/function`         | `@nikcli-ai/function`         | Serverless function (Hono + Cloudflare Workers)                                                      |
-| `packages/console/app`      | `@nikcli-ai/console-app`      | Console dashboard (SolidStart)                                                                       |
-| `packages/console/core`     | `@nikcli-ai/console-core`     | Console backend (Drizzle ORM + Stripe, 55 migrations)                                                |
-| `packages/console/function` | `@nikcli-ai/console-function` | Console serverless functions                                                                         |
-| `packages/console/resource` | `@nikcli-ai/console-resource` | Console resource abstraction (Cloudflare/Node)                                                       |
-| `packages/console/mail`     | `@nikcli-ai/console-mail`     | Email templates (jsx-email)                                                                          |
-| `github/`                   | `github`                      | GitHub Action composite action                                                                       |
+| Package                     | Name                          | Description                                                                                                   |
+| --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `packages/nikcli`           | `nikcli`                      | **Core** — CLI, 14 agent types, 40+ tools, Hono server, OpenTUI TUI, session management                       |
+| `packages/app`              | `@nikcli-ai/app`              | Shared web UI (SolidJS)                                                                                       |
+| `packages/ui`               | `@nikcli-ai/ui`               | UI component library, icons, themes, i18n                                                                     |
+| `packages/util`             | `@nikcli-ai/util`             | Shared utilities (error, slug, retry — Zod-based)                                                             |
+| `packages/sdk/js`           | `@nikcli-ai/sdk`              | JS SDK (client/server/crypto/cloud/v2 — auto-generated from OpenAPI)                                          |
+| `packages/nikcli-plugins/`  | `nikcli-plugins`              | External TUI plugin package (music, greet, matrix, starwars, weather, win95, pomodoro, calcio, pills, crypto) |
+| `packages/plugin`           | `@nikcli-ai/plugin`           | Plugin system core + 11 built-in plugins                                                                      |
+| `packages/desktop`          | `@nikcli-ai/desktop`          | Tauri v2 desktop app (16 languages: en, es, fr, de, ja, ko, zh, zht, ru, pl, ar, br, bs, da, no, sv)          |
+| `packages/mobile`           | `@nikcli-ai/mobile`           | Expo/React Native mobile (iOS + Android)                                                                      |
+| `packages/enterprise`       | `@nikcli-ai/enterprise`       | Enterprise web app (SolidStart + Nitro)                                                                       |
+| `packages/cloud`            | `@nikcli-ai/cloud`            | Cloudflare Workers backend (D1, Durable Objects, jose JWT)                                                    |
+| `packages/companion`        | `@nikcli-ai/companion`        | Companion server (Hono + WebSocket + Cloudflare Workers)                                                      |
+| `packages/remote`           | `@nikcli-ai/remote`           | Remote terminal via WebSocket + QR code + tunnels                                                             |
+| `packages/slack`            | `@nikcli-ai/slack`            | Slack bot (@slack/bolt + Cloudflare Workers)                                                                  |
+| `packages/web`              | `@nikcli-ai/web`              | Marketing/docs site (Astro + React + Cloudflare)                                                              |
+| `packages/webrenderer`      | `@opentui/webrenderer`        | Native Rust web renderer (wry/tao) for TUI bridge                                                             |
+| `packages/function`         | `@nikcli-ai/function`         | Serverless function (Hono + Cloudflare Workers)                                                               |
+| `packages/console/app`      | `@nikcli-ai/console-app`      | Console dashboard (SolidStart)                                                                                |
+| `packages/console/core`     | `@nikcli-ai/console-core`     | Console backend (Drizzle ORM + Stripe, 55 migrations)                                                         |
+| `packages/console/function` | `@nikcli-ai/console-function` | Console serverless functions                                                                                  |
+| `packages/console/resource` | `@nikcli-ai/console-resource` | Console resource abstraction (Cloudflare/Node)                                                                |
+| `packages/console/mail`     | `@nikcli-ai/console-mail`     | Email templates (jsx-email)                                                                                   |
+| `github/`                   | `github`                      | GitHub Action composite action                                                                                |
 
 ### Repository Root Structure
 
@@ -116,15 +116,19 @@
 ### CLI Startup & Auto-Upgrade Flow
 
 **Entry chain:**
+
 1. `src/index.ts` → yargs parses args → calls TUI command `src/cli/cmd/tui/thread.ts`
 2. `thread.ts` → spawns worker process → mounts TUI via `render(...).mount()`
 3. Worker sends `checkUpgrade` RPC call 1 second after TUI startup (`thread.ts:266-268`):
    ```ts
-   setTimeout(() => { client.call("checkUpgrade", { directory: cwd }).catch(() => {}) }, 1000).unref?.()
+   setTimeout(() => {
+     client.call("checkUpgrade", { directory: cwd }).catch(() => {})
+   }, 1000).unref?.()
    ```
 4. Worker `checkUpgrade` → calls `upgrade()` from `src/cli/upgrade.ts`
 
 **`upgrade()` function (`src/cli/upgrade.ts`):**
+
 1. Load global config (skip if no config)
 2. Detect install method via `Installation.method()` (npm, brew, curl, etc. — `"unknown"` skips)
 3. Fetch latest version via `Installation.latest(method)`
@@ -135,12 +139,14 @@
 8. If patch + autoupdate enabled → auto-upgrade silently, publish `Updated` event
 
 **TUI upgrade dialog (`src/cli/cmd/tui/app.tsx`):**
+
 - Listens for `installation.update-available` event via `Bus.subscribe()`
 - Shows `DialogConfirm` with version info, "Update & Restart" / "Later" buttons
 - If "Update & Restart": calls `upgradeNow()` from props → worker RPC → `Installation.upgrade()` → `Bus.publish(Updated)` → restart
 - Listens for `installation.updated` event for restart confirmation toast
 
 **Installation module (`src/installation/index.ts`):**
+
 - `Installation.VERSION` — injected at build time (`NIKCLI_VERSION` env var), fallback `"local"`
 - `Installation.CHANNEL` — injected at build time (`NIKCLI_CHANNEL` env var), fallback `"local"`
 - Effect Service with methods: `info()`, `method()`, `latest(method)`, `upgrade(method, target)`
@@ -358,6 +364,7 @@ External TUI plugin package using OpenTUI SolidJS components:
 - **Key patterns**: KV store for persistence, `createSignal` for state, `createEffect` for side effects, `onMount`/`onCleanup` for lifecycle
 
 **Known OpenTUI component constraints** (props that DO NOT exist at runtime):
+
 - `<text>`: no `bold`, `fontSize`, `textWrap`, `textStyle`, `flex`, `borderDirection`, `borderTop`, `borderColor`, `onClick`, `fontFamily`, `fontStyle`
 - `<box>`: no `borderTop`, `borderColor`, `overflow`, `paddingY`, `fg` (apply `fg` on child text elements instead)
 - `attributes` prop expects number (bitmask), not string array — remove or use `@ts-ignore`
@@ -491,6 +498,7 @@ Two install scripts exist with different feature sets:
 - `packages/web/public/install.sh` (cache-bust 2026-01-31): newer, has `--local [dist-dir]` and `v` prefix fallback
 
 Both support:
+
 - Platform detection: `linux-x64`, `linux-arm64`, `darwin-x64`, `darwin-arm64`, `windows-x64`
 - Archive formats: `.tar.gz` (Linux), `.zip` (macOS/Windows)
 - Special targets: `baseline` (no AVX2), `musl` (Alpine/musl libc)

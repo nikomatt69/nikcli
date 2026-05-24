@@ -67,22 +67,13 @@ async function fetchNpmDownloads(packageName: string): Promise<number> {
       return 0
     }
 
-    if (
-      typeof data === "object" &&
-      data !== null &&
-      "downloads" in data &&
-      Array.isArray((data as any).downloads)
-    ) {
+    if (typeof data === "object" && data !== null && "downloads" in data && Array.isArray((data as any).downloads)) {
       return (data as NpmDownloadsRange).downloads.reduce(
-        (total, day) =>
-          total +
-          (day && typeof day.downloads === "number" ? day.downloads : 0),
-        0
+        (total, day) => total + (day && typeof day.downloads === "number" ? day.downloads : 0),
+        0,
       )
     } else {
-      console.warn(
-        `Unexpected response format when fetching npm downloads for ${packageName}`
-      )
+      console.warn(`Unexpected response format when fetching npm downloads for ${packageName}`)
       return 0
     }
   } catch (error) {

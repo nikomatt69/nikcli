@@ -177,18 +177,18 @@ const RemoteStopCommand = cmd({
   describe: "stop the active remote session",
   handler: async () => {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
-        try {
-          await ensureRemoteService()
-          if (!remoteService.hasActiveSession()) {
-            UI.println("No active remote session")
-            return
-          }
-
-          await remoteService.stopSession()
-          UI.println("Remote session stopped")
-        } catch (error: any) {
-          UI.error(`Failed to stop session: ${error?.message ?? error}`)
+      try {
+        await ensureRemoteService()
+        if (!remoteService.hasActiveSession()) {
+          UI.println("No active remote session")
+          return
         }
+
+        await remoteService.stopSession()
+        UI.println("Remote session stopped")
+      } catch (error: any) {
+        UI.error(`Failed to stop session: ${error?.message ?? error}`)
+      }
     })
   },
 })
