@@ -29,7 +29,6 @@ export namespace Installation {
       "installation.update-available",
       z.object({
         version: z.string(),
-        method: z.string().optional(),
       }),
     ),
   }
@@ -143,8 +142,7 @@ export namespace Installation {
     if (tapFormula.includes("nikcli")) return "nikomatt69/tap/nikcli"
     const coreFormula = await $`brew list --formula nikcli`.throws(false).quiet().text()
     if (coreFormula.includes("nikcli")) return "nikcli"
-    // Default to the tap formula since nikcli is distributed via tap, not core Homebrew
-    return "nikomatt69/tap/nikcli"
+    return "nikcli"
   }
 
   async function upgradeImpl(method: Method, target: string) {
@@ -158,9 +156,6 @@ export namespace Installation {
         break
       case "npm":
         cmd = $`npm install -g nikcli-ai@${target}`
-        break
-      case "yarn":
-        cmd = $`yarn global add nikcli-ai@${target}`
         break
       case "pnpm":
         cmd = $`pnpm install -g nikcli-ai@${target}`
@@ -220,20 +215,13 @@ export namespace Installation {
     if (detectedMethod === "brew") {
       const formula = await getBrewFormula()
       if (formula === "nikcli") {
-        // Core Homebrew formula — check brew.sh API
-        try {
-          const data: any = await fetch("https://formulae.brew.sh/api/formula/nikcli.json").then((res) => {
+        return fetch("https://formulae.brew.sh/api/formula/nikcli.json")
+          .then((res) => {
             if (!res.ok) throw new Error(res.statusText)
             return res.json()
           })
-          return data.versions.stable
-        } catch {
-          // Core formula not found on brew.sh — fall through to GitHub releases
-          log.info("brew core formula not found on brew.sh, falling back to GitHub releases")
-        }
+          .then((data: any) => data.versions.stable)
       }
-      // Tap formula (nikomatt69/tap/nikcli) — always check GitHub releases
-      // since the tap just mirrors GitHub release assets
     }
 
     if (detectedMethod === "npm" || detectedMethod === "bun" || detectedMethod === "pnpm") {

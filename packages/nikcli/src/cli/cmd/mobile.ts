@@ -5,16 +5,16 @@ import { Flag } from "@/flag/flag"
 import { MobileAuth } from "@/mobile/auth"
 
 import { generateQR } from "@nikcli-ai/remote"
-import { Installation } from "@/installation"
 import { networkInterfaces } from "os"
+import type { NetworkOptions, ResolvedNetworkConfig } from "../network"
 
-function normalizePublicUrl(input?: string) {
+export function normalizePublicUrl(input?: string) {
   if (!input) return
   const url = new URL(input)
   return url.toString().replace(/\/$/, "")
 }
 
-function getLocalIPs(): string[] {
+export function getLocalIPs(): string[] {
   const ips: string[] = []
   for (const iface of Object.values(networkInterfaces())) {
     if (!iface) continue
@@ -25,11 +25,11 @@ function getLocalIPs(): string[] {
   return ips
 }
 
-function isLoopbackHostname(hostname: string) {
+export function isLoopbackHostname(hostname: string) {
   return hostname === "127.0.0.1" || hostname === "::1" || hostname === "localhost"
 }
 
-function resolveServerUrl(input: { publicUrl?: string; hostname: string; port: number }) {
+export function resolveServerUrl(input: { publicUrl?: string; hostname: string; port: number }) {
   if (input.publicUrl) {
     const value = normalizePublicUrl(input.publicUrl)
     if (!value) throw new Error("Invalid public URL")
@@ -40,7 +40,7 @@ function resolveServerUrl(input: { publicUrl?: string; hostname: string; port: n
   return `http://${host}:${input.port}`
 }
 
-function printPairing(info: { serverUrl: string; token: string; directory?: string }) {
+export async function printPairing(info: { serverUrl: string; token: string; directory?: string }) {
   const deepLink = new URL("nikcli://connect")
   deepLink.searchParams.set("server", info.serverUrl)
   deepLink.searchParams.set("token", info.token)
@@ -54,6 +54,92 @@ function printPairing(info: { serverUrl: string; token: string; directory?: stri
   console.log("")
 
   return generateQR(deepLink.toString())
+}
+
+export type MobileHostStartOptions = Partial<NetworkOptions> & {
+  publicUrl?: string
+  pair?: boolean
+  pairName?: string
+  pairExpiryDays?: number
+  directory?: string
+}
+
+export type MobileHostRuntime = {
+  server: ReturnType<typeof Server.listen>
+  hostname: string
+  port: number
+  serverUrl: string
+  network: ResolvedNetworkConfig
+}
+
+export async function startMobileHost(args: MobileHostStartOptions): Promise<MobileHostRuntime> {
+  const opts = await resolveNetworkOptions(args)
+  const loopback = isLoopbackHostname(opts.hostname)
+  const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
+  const publicExposure = Boolean(args.publicUrl) || !loopback
+
+  if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
+    if (publicExposure) {
+      throw new Error(
+        "Public mobile hosting requires NIKCLI_SERVER_PASSWORD. Set a server password before binding to a non-loopback address or using --public-url.",
+      )
+    }
+
+    console.log(
+      "Mobile mode without a server password is only safe on loopback. Set NIKCLI_SERVER_PASSWORD for LAN or public access.",
+    )
+  }
+
+  const server = Server.listen(opts)
+  try {
+    const hostname = server.hostname || opts.hostname
+    const port = server.port || opts.port || 4096
+    const serverUrl = resolveServerUrl({
+      publicUrl: args.publicUrl,
+      hostname,
+      port,
+    })
+
+    console.log(`nikcli mobile host listening on http://${hostname}:${port}`)
+    if (serverUrl !== `http://${hostname}:${port}`) {
+      console.log(`public mobile URL: ${serverUrl}`)
+    }
+
+    if (args.pair) {
+      const created = await MobileAuth.create({
+        name: args.pairName || "iphone",
+        expiresInDays: args.pairExpiryDays,
+      })
+
+      const localIPs = getLocalIPs()
+      const isAllInterfaces = opts.hostname === "0.0.0.0" || opts.hostname === "::"
+      const pairingIPs = args.publicUrl
+        ? [serverUrl]
+        : isAllInterfaces && localIPs.length > 0
+          ? localIPs.map((ip) => `http://${ip}:${port}`)
+          : [serverUrl]
+
+      for (let i = 0; i < pairingIPs.length; i++) {
+        const url = pairingIPs[i]
+        if (pairingIPs.length > 1) console.log(`--- Interface ${i + 1}/${pairingIPs.length}: ${url} ---`)
+        const qr = await printPairing({
+          serverUrl: url,
+          token: created.token,
+          directory: args.directory ?? process.cwd(),
+        })
+        console.log(qr)
+      }
+    }
+
+    return { server, hostname, port, serverUrl, network: opts }
+  } catch (error) {
+    await server.stop(true).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function stopMobileHost(host: MobileHostRuntime | undefined) {
+  await host?.server.stop(true)
 }
 
 export const MobileCommand = cmd({
@@ -86,62 +172,18 @@ export const MobileCommand = cmd({
               describe: "optional token expiry in days",
             }),
         handler: async (args) => {
-          const opts = await resolveNetworkOptions(args)
-          const loopback = isLoopbackHostname(opts.hostname)
-          const tailscaleAuthActive = Flag.NIKCLI_SERVER_TAILSCALE_AUTH && loopback
-          const publicExposure = Boolean(args.publicUrl) || !loopback
-
-          if (!Flag.NIKCLI_SERVER_PASSWORD && !tailscaleAuthActive) {
-            if (publicExposure) {
-              throw new Error(
-                "Public mobile hosting requires NIKCLI_SERVER_PASSWORD. Set a server password before binding to a non-loopback address or using --public-url.",
-              )
-            }
-
-            console.log(
-              "Mobile mode without a server password is only safe on loopback. Set NIKCLI_SERVER_PASSWORD for LAN or public access.",
-            )
-          }
-
-          const server = Server.listen(opts)
-          const hostname = server.hostname || opts.hostname
-          const port = server.port || opts.port || 4096
-          const serverUrl = resolveServerUrl({
+          const host = await startMobileHost({
+            ...args,
             publicUrl: args.publicUrl as string | undefined,
-            hostname,
-            port,
+            pair: Boolean(args.pair),
+            pairName: String(args.pairName || "iphone"),
+            pairExpiryDays: args.pairExpiryDays ? Number(args.pairExpiryDays) : undefined,
+            directory: process.cwd(),
           })
 
-          console.log(`nikcli mobile host listening on http://${hostname}:${port}`)
-          if (serverUrl !== `http://${hostname}:${port}`) {
-            console.log(`public mobile URL: ${serverUrl}`)
-          }
+          await new Promise(() => {})
 
-          if (args.pair) {
-            const created = await MobileAuth.create({
-              name: String(args.pairName || "iphone"),
-              expiresInDays: args.pairExpiryDays ? Number(args.pairExpiryDays) : undefined,
-            })
-
-            const localIPs = getLocalIPs()
-            const isAllInterfaces = opts.hostname === "0.0.0.0" || opts.hostname === "::"
-            const pairingIPs = args.publicUrl
-              ? [serverUrl]
-              : isAllInterfaces && localIPs.length > 0
-                ? localIPs.map((ip) => `http://${ip}:${port}`)
-                : [serverUrl]
-
-            for (let i = 0; i < pairingIPs.length; i++) {
-              const url = pairingIPs[i]
-              if (pairingIPs.length > 1) console.log(`--- Interface ${i + 1}/${pairingIPs.length}: ${url} ---`)
-              const qr = await printPairing({ serverUrl: url, token: created.token, directory: process.cwd() })
-              console.log(qr)
-            }
-          }
-
-          await new Promise(() => { })
-
-          await server.stop()
+          await stopMobileHost(host)
         },
       })
       .command({

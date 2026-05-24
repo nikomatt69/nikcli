@@ -5,19 +5,22 @@ import { withInstanceAsync } from "@/effect"
 import { UI } from "../ui"
 import { remoteService, qrRenderer, type RemoteSession, type SessionOptions } from "../remote"
 import { createTunnel, checkTunnelAvailability, probeTunnel, type TunnelProvider } from "@nikcli-ai/remote"
+import { withNetworkOptions } from "../network"
+import { startMobileHost, stopMobileHost, type MobileHostRuntime } from "./mobile"
 import readline from "node:readline"
 import clipboardy from "clipboardy"
 import os from "node:os"
 
 const RemoteStartCommand = cmd({
   command: "start",
-  describe: "start a new remote session",
+  describe: "start a new remote control session",
   builder: (yargs: Argv) =>
-    yargs
+    withNetworkOptions(yargs)
+      .default("hostname", "0.0.0.0")
       .option("name", {
         alias: ["n"],
         type: "string",
-        describe: "session name",
+        describe: "terminal remote session name",
       })
       .option("timeout", {
         alias: ["t"],
@@ -58,11 +61,49 @@ const RemoteStartCommand = cmd({
       .option("cloud-public-key", {
         describe: "optional E2E public key to register with cloud",
         type: "string",
+      })
+      .option("mobile", {
+        describe: "also start the /mobile API host and print an app pairing QR",
+        type: "boolean",
+        default: false,
+      })
+      .option("mobile-only", {
+        describe: "start only the mobile-compatible /mobile API host",
+        type: "boolean",
+        default: false,
+      })
+      .option("public-url", {
+        describe: "public HTTPS URL used by the mobile app outside your LAN or tailnet",
+        type: "string",
+      })
+      .option("pair", {
+        describe: "create and print a mobile pairing token when the mobile host is enabled",
+        type: "boolean",
+        default: true,
+      })
+      .option("pair-name", {
+        describe: "name for the generated mobile pairing token",
+        type: "string",
+        default: "iphone",
+      })
+      .option("pair-expiry-days", {
+        describe: "optional mobile pairing token expiry in days",
+        type: "number",
       }),
   handler: async (args) => {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
-      {
-        try {
+      let mobileHost: MobileHostRuntime | undefined
+      let terminalStarted = false
+      const mobileEnabled = Boolean(args.mobile || args.mobileOnly)
+      const terminalEnabled = !args.mobileOnly
+
+      try {
+        if (!terminalEnabled && !mobileEnabled) {
+          UI.println("No remote mode selected")
+          return
+        }
+
+        if (terminalEnabled) {
           await ensureRemoteService()
 
           if (remoteService.hasActiveSession()) {
@@ -70,13 +111,19 @@ const RemoteStartCommand = cmd({
             UI.println('Use "nikcli remote status" for details or "nikcli remote stop" to end it.')
             return
           }
+        }
 
-          const cloud = resolveCloudOptions(args)
-          const session = await remoteService.startSession({
+        let session: RemoteSession | undefined
+        let cloud: SessionOptions["cloud"] | undefined
+
+        if (terminalEnabled) {
+          cloud = resolveCloudOptions(args)
+          session = await remoteService.startSession({
             name: args.name as string | undefined,
             timeout: parseInt(args.timeout as string, 10) * 1000,
             ...(cloud ? { cloud } : {}),
           })
+          terminalStarted = true
 
           await maybeCreateTunnel(session, {
             enableTunnel: !args.noTunnel,
@@ -88,10 +135,38 @@ const RemoteStartCommand = cmd({
           }
 
           await qrRenderer.render(session)
-          await setupKeyboardControl(session)
-        } catch (error: any) {
-          UI.error(`Failed to start remote session: ${error?.message ?? error}`)
         }
+
+        if (mobileEnabled) {
+          mobileHost = await startMobileHost({
+            ...args,
+            publicUrl: args.publicUrl as string | undefined,
+            pair: Boolean(args.pair),
+            pairName: String(args.pairName || "iphone"),
+            pairExpiryDays: args.pairExpiryDays ? Number(args.pairExpiryDays) : undefined,
+            directory: process.cwd(),
+          })
+        }
+
+        if (session) {
+          try {
+            await setupKeyboardControl(session)
+          } finally {
+            await stopMobileHost(mobileHost)
+          }
+          return
+        }
+
+        if (mobileHost) {
+          UI.println("Mobile remote host is running. Press Ctrl+C to stop.")
+          await keepMobileHostAlive(mobileHost)
+        }
+      } catch (error: any) {
+        await stopMobileHost(mobileHost).catch(() => undefined)
+        if (terminalStarted && remoteService.hasActiveSession()) {
+          await remoteService.stopSession().catch(() => undefined)
+        }
+        UI.error(`Failed to start remote control: ${error?.message ?? error}`)
       }
     })
   },
@@ -102,7 +177,6 @@ const RemoteStopCommand = cmd({
   describe: "stop the active remote session",
   handler: async () => {
     await withInstanceAsync({ directory: process.cwd() }, async () => {
-      {
         try {
           await ensureRemoteService()
           if (!remoteService.hasActiveSession()) {
@@ -115,7 +189,6 @@ const RemoteStopCommand = cmd({
         } catch (error: any) {
           UI.error(`Failed to stop session: ${error?.message ?? error}`)
         }
-      }
     })
   },
 })
@@ -199,7 +272,7 @@ const RemoteAttachCommand = cmd({
 
 export const RemoteCommand = cmd({
   command: "remote [command]",
-  describe: "manage remote sessions for mobile control",
+  describe: "manage terminal and mobile app remote control sessions",
   builder: (yargs) =>
     yargs
       .command(RemoteStartCommand)
@@ -213,17 +286,21 @@ export const RemoteCommand = cmd({
 })
 
 function showRemoteHelp(): void {
-  UI.println("NikCLI Remote - Mobile Terminal Control")
+  UI.println("NikCLI Remote - Terminal and Mobile App Control")
   UI.println("")
   UI.println("Commands:")
-  UI.println("  start [--name <name>]   Start a new remote session")
-  UI.println("      --cloud             Enable cloud relay mode")
-  UI.println("      --cloud-url <url>   Cloud relay URL")
-  UI.println("      --cloud-token <t>   Cloud relay token")
-  UI.println("  stop                    Stop the active session")
-  UI.println("  status [--json]         Show session status and QR code")
-  UI.println("  share                   Get shareable session link")
-  UI.println("  attach <id>             Attach to an existing session")
+  UI.println("  start [--name <name>]         Start a terminal remote session")
+  UI.println("      --mobile                  Also start /mobile API host and pairing QR")
+  UI.println("      --mobile-only             Start only the mobile-compatible API host")
+  UI.println("      --public-url <url>        Mobile public HTTPS URL")
+  UI.println("      --pair-name <name>        Mobile pairing token label")
+  UI.println("      --cloud                   Enable terminal cloud relay mode")
+  UI.println("      --cloud-url <url>         Terminal cloud relay URL")
+  UI.println("      --cloud-token <t>         Terminal cloud relay token")
+  UI.println("  stop                          Stop the active terminal remote session")
+  UI.println("  status [--json]               Show terminal session status and QR code")
+  UI.println("  share                         Get terminal shareable session link")
+  UI.println("  attach <id>                   Attach to an existing terminal session")
 }
 
 function resolveCloudOptions(args: Record<string, unknown>): SessionOptions["cloud"] | undefined {
@@ -373,6 +450,22 @@ async function setupKeyboardControl(session: RemoteSession): Promise<void> {
       remoteService.off("device:disconnected", onDeviceDisconnected)
       resolve()
     })
+  })
+}
+
+async function keepMobileHostAlive(host: MobileHostRuntime): Promise<void> {
+  await new Promise<void>((resolve) => {
+    let closing = false
+    const close = () => {
+      if (closing) return
+      closing = true
+      process.off("SIGINT", close)
+      process.off("SIGTERM", close)
+      void stopMobileHost(host).finally(resolve)
+    }
+
+    process.once("SIGINT", close)
+    process.once("SIGTERM", close)
   })
 }
 
