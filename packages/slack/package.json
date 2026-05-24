@@ -20,7 +20,7 @@
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "@typescript/native-preview": "catalog:",
-    "wrangler": "^3.110.0"
+    "wrangler": "^4.59.1"
   },
   "peerDependencies": {
     "@slack/bolt": "^4.6.0"
