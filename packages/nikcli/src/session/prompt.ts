@@ -9,10 +9,8 @@ import { SessionRevert } from "./revert"
 import { Session } from "."
 import { Agent } from "../agent/agent"
 import { Provider } from "../provider/provider"
-import { type Tool as AITool, tool, jsonSchema, type ToolCallOptions } from "ai"
 import { SessionCompaction } from "./compaction"
 import { Bus } from "../bus"
-import { ProviderTransform } from "../provider/transform"
 import { SystemPrompt } from "./system"
 import { Plugin } from "../plugin"
 import PROMPT_PLAN from "../session/prompt/plan.txt"
@@ -20,7 +18,6 @@ import BUILD_SWITCH from "../session/prompt/build-switch.txt"
 import MAX_STEPS from "../session/prompt/max-steps.txt"
 import { defer } from "../util/defer"
 import { clone } from "remeda"
-import { ToolRegistry } from "../tool/registry"
 import { MCP } from "../mcp"
 import { LSP } from "../lsp"
 import { ReadTool } from "../tool/read"
@@ -43,21 +40,13 @@ import { SessionStatus } from "./status"
 import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
-import { Truncate } from "@/tool/truncation"
 import { Context, Effect, Layer, ScopedCache } from "effect"
 import { Instance } from "@/project/instance"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
 import { errorMessage } from "@/util/error"
+import { resolveTools, createStructuredOutputTool } from "./tools"
 
 globalThis.AI_SDK_LOG_WARNINGS = false
-
-const STRUCTURED_OUTPUT_DESCRIPTION = `Use this tool to return your final response in the requested structured format.
-
-IMPORTANT:
-- You MUST call this tool exactly once at the end of your response
-- The input must be valid JSON matching the required schema
-- Complete all necessary research and tool calls BEFORE calling this tool
-- This tool provides your final answer - no further actions are taken after calling it`
 
 const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested structured output. You MUST use the StructuredOutput tool to provide your final response. Do NOT respond with plain text - you MUST call the StructuredOutput tool with your answer formatted according to the schema.`
 
@@ -80,32 +69,6 @@ export namespace SessionPrompt {
     if (error instanceof DOMException && error.name === "AbortError") return true
     if (errorMessage(error) === "RunnerCancelled") return true
     return error instanceof Error && error.name === "AbortError"
-  }
-
-  function truncateOutput(text: string, options: Truncate.Options = {}, agent?: Agent.Info) {
-    return runPromiseWithLayer(
-      Truncate.defaultLayer,
-      Effect.gen(function* () {
-        const truncate = yield* Truncate.Service
-        return yield* truncate.output(text, options, agent)
-      }),
-    )
-  }
-
-  function toolRegistryTools(
-    model: { providerID: string; modelID: string },
-    agent?: Agent.Info,
-    options?: { slim?: boolean },
-  ) {
-    return runPromiseWithLayer(
-      ToolRegistry.defaultLayer,
-      withCurrentInstance(
-        Effect.gen(function* () {
-          const registry = yield* ToolRegistry.Service
-          return yield* registry.tools(model, agent, options)
-        }),
-      ),
-    )
   }
 
   function askPermission(input: PermissionNext.AskInput) {
@@ -1122,318 +1085,6 @@ export namespace SessionPrompt {
       if (item.info.role === "user" && item.info.model) return item.info.model
     }
     return providerDefaultModel()
-  }
-
-  /** @internal Exported for testing */
-  export async function resolveTools(input: {
-    agent: Agent.Info
-    model: Provider.Model
-    session: Session.Info
-    tools?: Record<string, boolean>
-    processor: SessionProcessor.Info
-    bypassAgentCheck: boolean
-  }) {
-    using _ = log.time("resolveTools")
-    const tools: Record<string, AITool> = {}
-
-    const context = (args: any, options: ToolCallOptions): Tool.Context => ({
-      sessionID: input.session.id,
-      abort: options.abortSignal!,
-      messageID: input.processor.message.id,
-      callID: options.toolCallId,
-      extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck },
-      agent: input.agent.name,
-      metadata: async (val: { title?: string; metadata?: any }) => {
-        const match = input.processor.partFromToolCall(options.toolCallId)
-        if (match && match.state.status === "running") {
-          await sessionUpdatePart({
-            ...match,
-            state: {
-              title: val.title,
-              metadata: val.metadata,
-              status: "running",
-              input: args,
-              time: {
-                start: Date.now(),
-              },
-            },
-          })
-        }
-      },
-      async ask(req) {
-        await askPermission({
-          ...req,
-          sessionID: input.session.id,
-          tool: { messageID: input.processor.message.id, callID: options.toolCallId },
-          ruleset: PermissionNext.merge(input.agent.permission, input.session.permission ?? []),
-        })
-      },
-    })
-
-    for (const item of await toolRegistryTools(
-      { modelID: input.model.api.id, providerID: input.model.providerID },
-      input.agent,
-    )) {
-      const schema = ProviderTransform.schema(input.model, z.toJSONSchema(item.parameters))
-      tools[item.id] = tool({
-        id: item.id as any,
-        description: item.description,
-        inputSchema: jsonSchema(schema as any),
-        async execute(args, options) {
-          const ctx = context(args, options)
-          await runPlugin(
-            Effect.gen(function* () {
-              const plugin = yield* Plugin.Service
-              yield* plugin.trigger(
-                "tool.execute.before",
-                {
-                  tool: item.id,
-                  sessionID: ctx.sessionID,
-                  callID: ctx.callID,
-                },
-                {
-                  args,
-                },
-              )
-            }),
-          )
-          const result = await item.executeAsync(args, ctx)
-          await runPlugin(
-            Effect.gen(function* () {
-              const plugin = yield* Plugin.Service
-              yield* plugin.trigger(
-                "tool.execute.after",
-                {
-                  tool: item.id,
-                  sessionID: ctx.sessionID,
-                  callID: ctx.callID,
-                },
-                result,
-              )
-            }),
-          )
-          return result
-        },
-        toModelOutput(result) {
-          return {
-            type: "text",
-            value: result.output,
-          }
-        },
-      })
-    }
-
-    const mcpTools = await runMCP(
-      Effect.gen(function* () {
-        const mcp = yield* MCP.Service
-        return yield* mcp.tools()
-      }),
-    )
-    for (const [key, item] of Object.entries(mcpTools)) {
-      const execute = item.execute
-      if (!execute) continue
-
-      item.execute = async (args, opts) => {
-        const ctx = context(args, opts)
-
-        await runPlugin(
-          Effect.gen(function* () {
-            const plugin = yield* Plugin.Service
-            yield* plugin.trigger(
-              "tool.execute.before",
-              {
-                tool: key,
-                sessionID: ctx.sessionID,
-                callID: opts.toolCallId,
-              },
-              {
-                args,
-              },
-            )
-          }),
-        )
-
-        await ctx.ask({
-          permission: key,
-          metadata: {},
-          patterns: ["*"],
-          always: ["*"],
-        })
-
-        const result = await execute(args, opts)
-
-        await runPlugin(
-          Effect.gen(function* () {
-            const plugin = yield* Plugin.Service
-            yield* plugin.trigger(
-              "tool.execute.after",
-              {
-                tool: key,
-                sessionID: ctx.sessionID,
-                callID: opts.toolCallId,
-              },
-              result,
-            )
-          }),
-        )
-
-        const textParts: string[] = []
-        const attachments: MessageV2.FilePart[] = []
-
-        for (const contentItem of result.content) {
-          if (contentItem.type === "text") {
-            textParts.push(contentItem.text)
-          } else if (contentItem.type === "image") {
-            attachments.push({
-              id: Identifier.ascending("part"),
-              sessionID: input.session.id,
-              messageID: input.processor.message.id,
-              type: "file",
-              mime: contentItem.mimeType,
-              url: `data:${contentItem.mimeType};base64,${contentItem.data}`,
-            })
-          } else if (contentItem.type === "resource") {
-            const { resource } = contentItem
-            if (resource.text) {
-              textParts.push(resource.text)
-            }
-            if (resource.blob) {
-              attachments.push({
-                id: Identifier.ascending("part"),
-                sessionID: input.session.id,
-                messageID: input.processor.message.id,
-                type: "file",
-                mime: resource.mimeType ?? "application/octet-stream",
-                url: `data:${resource.mimeType ?? "application/octet-stream"};base64,${resource.blob}`,
-                filename: resource.uri,
-              })
-            }
-          }
-        }
-
-        const truncated = await truncateOutput(textParts.join("\n\n"), {}, input.agent)
-        const metadata = {
-          ...(result.metadata ?? {}),
-          truncated: truncated.truncated,
-          ...(truncated.truncated && { outputPath: truncated.outputPath }),
-        }
-
-        return {
-          title: "",
-          metadata,
-          output: truncated.content,
-          attachments,
-          content: result.content,
-        }
-      }
-      item.toModelOutput = (result) => {
-        return {
-          type: "text",
-          value: result.output,
-        }
-      }
-      tools[key] = item
-    }
-
-    const { Connectors } = await import("@/connectors")
-    for (const [key, item] of Object.entries(await Connectors.tools())) {
-      const execute = item.execute
-      if (!execute) continue
-
-      item.execute = async (args, opts) => {
-        const ctx = context(args, opts)
-
-        await runPlugin(
-          Effect.gen(function* () {
-            const plugin = yield* Plugin.Service
-            yield* plugin.trigger(
-              "tool.execute.before",
-              {
-                tool: key,
-                sessionID: ctx.sessionID,
-                callID: opts.toolCallId,
-              },
-              {
-                args,
-              },
-            )
-          }),
-        )
-
-        await ctx.ask({
-          permission: key,
-          metadata: {},
-          patterns: ["*"],
-          always: ["*"],
-        })
-
-        const result = await execute(args, opts)
-
-        await runPlugin(
-          Effect.gen(function* () {
-            const plugin = yield* Plugin.Service
-            yield* plugin.trigger(
-              "tool.execute.after",
-              {
-                tool: key,
-                sessionID: ctx.sessionID,
-                callID: opts.toolCallId,
-              },
-              result,
-            )
-          }),
-        )
-
-        const textOutput = typeof result === "string" ? result : JSON.stringify(result, null, 2)
-        const truncated = await truncateOutput(textOutput, {}, input.agent)
-
-        return {
-          title: "",
-          metadata: { truncated: truncated.truncated },
-          output: truncated.content,
-          content: [{ type: "text", text: truncated.content }],
-        }
-      }
-      item.toModelOutput = (result) => {
-        return {
-          type: "text",
-          value: result.output,
-        }
-      }
-      tools[key] = item
-    }
-
-    return tools
-  }
-
-  /** @internal Exported for testing */
-  export function createStructuredOutputTool(input: {
-    schema: Record<string, any>
-    onSuccess: (output: unknown) => void
-  }): AITool {
-    // Remove $schema property if present (not needed for tool input)
-    const { $schema, ...toolSchema } = input.schema
-
-    return tool({
-      id: "StructuredOutput" as any,
-      description: STRUCTURED_OUTPUT_DESCRIPTION,
-      inputSchema: jsonSchema(toolSchema as any),
-      async execute(args) {
-        // AI SDK validates args against inputSchema before calling execute()
-        input.onSuccess(args)
-        return {
-          output: "Structured output captured successfully.",
-          title: "Structured Output",
-          metadata: { valid: true },
-        }
-      },
-      toModelOutput(result) {
-        return {
-          type: "text",
-          value: result.output,
-        }
-      },
-    })
   }
 
   async function createUserMessage(input: PromptInput) {

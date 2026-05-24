@@ -11,10 +11,10 @@ import { SessionProcessor } from "./processor"
 import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
-import { ProviderTransform } from "@/provider/transform"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
+import { isOverflow as overflowCheck } from "./overflow"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
@@ -70,8 +70,6 @@ export namespace SessionCompaction {
     ),
   }
 
-  const COMPACTION_BUFFER = 20_000
-
   const CreateInputSchema = Schema.Struct({
     sessionID: Schema.String.pipe(Schema.check(Schema.isStartsWith("ses"))),
     agent: Schema.String,
@@ -101,26 +99,6 @@ export namespace SessionCompaction {
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionCompaction.Service") {}
-
-  async function isOverflowImpl(input: {
-    tokens: MessageV2.Assistant["tokens"]
-    model: Provider.Model
-    config: Config.Info
-  }) {
-    const config = input.config
-    if (config.compaction?.auto === false) return false
-    const context = input.model.limit.context
-    if (context === 0) return false
-
-    const count =
-      input.tokens.total ||
-      input.tokens.input + input.tokens.output + input.tokens.cache.read + input.tokens.cache.write
-
-    const reserved =
-      config.compaction?.reserved ?? Math.min(COMPACTION_BUFFER, ProviderTransform.maxOutputTokens(input.model))
-    const usable = input.model.limit.input ? input.model.limit.input - reserved : context - reserved
-    return count >= usable
-  }
 
   export const PRUNE_MINIMUM = 20_000
   export const PRUNE_PROTECT = 40_000
@@ -419,7 +397,7 @@ When constructing the summary, try to stick to this template:
       isOverflow: (input) =>
         Effect.gen(function* () {
           const config = yield* Effect.promise(() => configGet())
-          return yield* Effect.tryPromise(() => isOverflowImpl({ ...input, config }))
+          return overflowCheck({ cfg: config, tokens: input.tokens, model: input.model })
         }),
       editContext: (input) =>
         Effect.gen(function* () {

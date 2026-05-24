@@ -207,7 +207,11 @@ export function Changes() {
     setReviewPanelOpen(true)
   }
 
-  function openCommentDialogForRow(row: DiffRow, editingKey: string | undefined, initial?: { text: string; type: CommentType }) {
+  function openCommentDialogForRow(
+    row: DiffRow,
+    editingKey: string | undefined,
+    initial?: { text: string; type: CommentType },
+  ) {
     renderer.currentFocusedRenderable?.blur()
     dialog.replace(
       () => (
@@ -503,13 +507,7 @@ export function Changes() {
   onCleanup(() => diffRef()?.clearAllLineColors())
 
   return (
-    <box
-      flexDirection="column"
-      width={dimensions().width}
-      height={dimensions().height}
-      backgroundColor={themeState.theme.background}
-      gap={0}
-    >
+    <box flexDirection="column" flexGrow={1} backgroundColor={themeState.theme.background} gap={0}>
       <ChangesHeader
         sessionTitle={sessionTitleDisplay()}
         sessionId={routeData.sessionID}

@@ -1,6 +1,5 @@
 import { SearchBackend } from "../file/searchBackend"
 import { Global } from "../global"
-import { Filesystem } from "../util/filesystem"
 import { Config } from "../config/config"
 import { Log } from "../util/log"
 import path from "path"
@@ -11,6 +10,8 @@ import PROMPT_BEAST from "./prompt/beast.txt"
 import PROMPT_GEMINI from "./prompt/gemini.txt"
 import PROMPT_ANTHROPIC_SPOOF from "./prompt/anthropic_spoof.txt"
 import PROMPT_CODEX from "./prompt/codex_header.txt"
+import PROMPT_SUMMARIZE from "./prompt/summarize.txt"
+import PROMPT_TITLE from "./prompt/title.txt"
 import type { Provider } from "@/provider/provider"
 import { Flag } from "@/flag/flag"
 import { Skill } from "@/skill"
@@ -18,19 +19,6 @@ import { Context, Effect, Layer } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "system-prompt" })
-
-async function resolveRelativeInstruction(ctx: InstanceContext, instruction: string): Promise<string[]> {
-  if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-    return Filesystem.globUp(instruction, ctx.directory, ctx.worktree).catch(() => [])
-  }
-  if (!Flag.NIKCLI_CONFIG_DIR) {
-    log.warn(
-      `Skipping relative instruction "${instruction}" - no NIKCLI_CONFIG_DIR set while project config is disabled`,
-    )
-    return []
-  }
-  return Filesystem.globUp(instruction, Flag.NIKCLI_CONFIG_DIR, Flag.NIKCLI_CONFIG_DIR).catch(() => [])
-}
 
 export namespace SystemPrompt {
   export interface Interface {
@@ -50,6 +38,24 @@ export namespace SystemPrompt {
     return PROMPT_CODEX.trim()
   }
 
+  export function summarize(providerID: string) {
+    switch (providerID) {
+      case "anthropic":
+        return [PROMPT_ANTHROPIC_SPOOF.trim(), PROMPT_SUMMARIZE]
+      default:
+        return [PROMPT_SUMMARIZE]
+    }
+  }
+
+  export function title(providerID: string) {
+    switch (providerID) {
+      case "anthropic":
+        return [PROMPT_ANTHROPIC_SPOOF.trim(), PROMPT_TITLE]
+      default:
+        return [PROMPT_TITLE]
+    }
+  }
+
   export function provider(model: Provider.Model) {
     if (model.api.id.includes("gpt-5")) return [PROMPT_CODEX]
     if (model.api.id.includes("gpt-") || model.api.id.includes("o1") || model.api.id.includes("o3"))
@@ -59,16 +65,6 @@ export namespace SystemPrompt {
     return [PROMPT_ANTHROPIC_WITHOUT_TODO]
   }
 
-  const LOCAL_RULE_FILES = ["AGENTS.md", "CLAUDE.md", "CONTEXT.md", ".github/instructions/memory.instruction.md"]
-  const GLOBAL_RULE_FILES = [path.join(Global.Path.config, "AGENTS.md")]
-  if (!Flag.NIKCLI_DISABLE_CLAUDE_CODE_PROMPT) {
-    GLOBAL_RULE_FILES.push(path.join(os.homedir(), ".claude", "CLAUDE.md"))
-  }
-
-  if (Flag.NIKCLI_CONFIG_DIR) {
-    GLOBAL_RULE_FILES.push(path.join(Flag.NIKCLI_CONFIG_DIR, "AGENTS.md"))
-  }
-
   async function environmentImpl(ctx: InstanceContext) {
     const project = ctx.project
     return [
@@ -76,83 +72,13 @@ export namespace SystemPrompt {
         `Here is some useful information about the environment you are running in:`,
         `<env>`,
         `  Working directory: ${ctx.directory}`,
+        `  Workspace root folder: ${ctx.worktree}`,
         `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
         `  Platform: ${process.platform}`,
         `  Today's date: ${new Date().toDateString()}`,
         `</env>`,
-        `<files>`,
-        `  ${
-          project.vcs === "git" && false
-            ? await SearchBackend.tree({
-                cwd: ctx.directory,
-                limit: 200,
-              })
-            : ""
-        }`,
-        `</files>`,
       ].join("\n"),
     ]
-  }
-
-  async function customImpl(ctx: InstanceContext, config: Config.Info) {
-    const paths = new Set<string>()
-
-    if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
-      for (const localRuleFile of LOCAL_RULE_FILES) {
-        const matches = await Filesystem.findUp(localRuleFile, ctx.directory, ctx.worktree)
-        if (matches.length > 0) {
-          matches.forEach((path) => paths.add(path))
-          break
-        }
-      }
-    }
-
-    for (const globalRuleFile of GLOBAL_RULE_FILES) {
-      if (await Bun.file(globalRuleFile).exists()) {
-        paths.add(globalRuleFile)
-        break
-      }
-    }
-
-    const urls: string[] = []
-    if (config.instructions) {
-      for (let instruction of config.instructions) {
-        if (instruction.startsWith("https://") || instruction.startsWith("http://")) {
-          urls.push(instruction)
-          continue
-        }
-        if (instruction.startsWith("~/")) {
-          instruction = path.join(os.homedir(), instruction.slice(2))
-        }
-        let matches: string[] = []
-        if (path.isAbsolute(instruction)) {
-          matches = await Array.fromAsync(
-            new Bun.Glob(path.basename(instruction)).scan({
-              cwd: path.dirname(instruction),
-              absolute: true,
-              onlyFiles: true,
-            }),
-          ).catch(() => [])
-        } else {
-          matches = await resolveRelativeInstruction(ctx, instruction)
-        }
-        matches.forEach((path) => paths.add(path))
-      }
-    }
-
-    const foundFiles = Array.from(paths).map((p) =>
-      Bun.file(p)
-        .text()
-        .catch(() => "")
-        .then((x) => "Instructions from: " + p + "\n" + x),
-    )
-    const foundUrls = urls.map((url) =>
-      fetch(url, { signal: AbortSignal.timeout(5000) })
-        .then((res) => (res.ok ? res.text() : ""))
-        .catch(() => "")
-        .then((x) => (x ? "Instructions from: " + url + "\n" + x : "")),
-    )
-    return Promise.all([...foundFiles, ...foundUrls]).then((result) => result.filter(Boolean))
   }
 
   async function skillsImpl(skill: Skill.Interface, names: string[] = []) {
@@ -190,6 +116,16 @@ export namespace SystemPrompt {
     ]
   }
 
+  async function customImpl(ctx: InstanceContext, config: Config.Info) {
+    const { collectSystemPaths, readInstructionContents, fetchInstructionUrls } = await import("./instruction")
+    const { paths, urls } = await collectSystemPaths(ctx, config)
+    const [fileContents, urlContents] = await Promise.all([
+      readInstructionContents(paths),
+      fetchInstructionUrls(urls),
+    ])
+    return [...fileContents, ...urlContents]
+  }
+
   const layer = Layer.effect(
     Service,
     Effect.gen(function* () {
@@ -197,13 +133,10 @@ export namespace SystemPrompt {
       function configGet(ctx: InstanceContext) {
         return runPromiseWithLayer(
           Config.defaultLayer,
-          locallyInstance(
-            ctx,
-            Effect.gen(function* () {
-              const config = yield* Config.Service
-              return yield* config.get()
-            }),
-          ),
+          locallyInstance(ctx, Effect.gen(function* () {
+            const config = yield* Config.Service
+            return yield* config.get()
+          })),
         )
       }
 
@@ -221,5 +154,7 @@ export namespace SystemPrompt {
     }),
   )
 
-  export const defaultLayer = Layer.unwrap(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
+  export const defaultLayer = Layer.unwrap(
+    Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))),
+  )
 }

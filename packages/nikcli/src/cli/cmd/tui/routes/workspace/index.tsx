@@ -86,7 +86,9 @@ export function Workspace() {
               }}
               outerRoute={route}
             >
-              <Changes />
+              <box flexGrow={1} flexDirection="column">
+                <Changes />
+              </box>
             </SubRoute>
           </Match>
           <Match when={activeTab() === "graph"}>
