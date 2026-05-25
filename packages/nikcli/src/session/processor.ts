@@ -599,6 +599,7 @@ export namespace SessionProcessor {
                 })
                 try {
                   await SessionRetry.sleep(delay, input.abort)
+                  input.abort.throwIfAborted()
                 } catch (sleepError) {
                   input.assistantMessage.error = MessageV2.fromError(sleepError, {
                     providerID: input.model.providerID,
@@ -609,7 +610,6 @@ export namespace SessionProcessor {
                   })
                   break
                 }
-                input.abort.throwIfAborted()
                 continue
               }
             }

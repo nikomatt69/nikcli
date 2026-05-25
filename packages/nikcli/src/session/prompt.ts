@@ -31,6 +31,7 @@ import { $, fileURLToPath } from "bun"
 import { pathToFileURL } from "url"
 import { ConfigMarkdown } from "../config/markdown"
 import { SessionSummary } from "./summary"
+import { SessionGoal } from "./goal"
 import { EventError } from "./event-error"
 import { fn } from "@/util/fn"
 import { SessionProcessor } from "./processor"
@@ -173,6 +174,10 @@ export namespace SessionPrompt {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
   }
 
+  function runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>) {
+    return runPromiseWithLayer(SessionGoal.defaultLayer, effect)
+  }
+
   function sessionGet(sessionID: string) {
     return runSession(
       Effect.gen(function* () {
@@ -223,6 +228,57 @@ export namespace SessionPrompt {
       Effect.gen(function* () {
         const session = yield* Session.Service
         return yield* session.plan(info)
+      }),
+    )
+  }
+
+  function tokenTotal(tokens: MessageV2.Assistant["tokens"]) {
+    return tokens.total ?? tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
+  }
+
+  async function accountGoalTurn(sessionID: string, assistant: MessageV2.Assistant) {
+    const seconds =
+      assistant.time.completed === undefined
+        ? 0
+        : Math.max(0, Math.round((assistant.time.completed - assistant.time.created) / 1000))
+    return runGoal(
+      Effect.gen(function* () {
+        const goal = yield* SessionGoal.Service
+        return yield* goal.accountUsage(sessionID, tokenTotal(assistant.tokens), seconds)
+      }),
+    )
+  }
+
+  async function nextGoalPrompt(sessionID: string) {
+    return runGoal(
+      Effect.gen(function* () {
+        const goal = yield* SessionGoal.Service
+        const current = yield* goal.get(sessionID)
+        if (!current || !goal.isGoalContinueNeeded(current)) return undefined
+
+        const updated = yield* goal.incrementIteration(sessionID)
+        if (!updated) return undefined
+
+        if (updated.status === "budget_limited") {
+          yield* goal.usageLimit(sessionID)
+          return {
+            text: goal.budgetLimitPrompt(updated),
+            activeCommand: undefined,
+          }
+        }
+
+        if (goal.isIterationLimitReached(updated)) {
+          yield* goal.usageLimit(sessionID)
+          return {
+            text: goal.iterationLimitPrompt(updated),
+            activeCommand: undefined,
+          }
+        }
+
+        return {
+          text: goal.continuationPrompt(updated),
+          activeCommand: "goal",
+        }
       }),
     )
   }
@@ -309,9 +365,13 @@ export namespace SessionPrompt {
         yield* Effect.addFinalizer(() =>
           Effect.sync(() => {
             for (const item of Object.values(data)) {
-              item.abort.abort()
-              for (const callback of item.callbacks) {
-                callback.reject()
+              if (!item.abort.signal.aborted) item.abort.abort()
+              if (!item.cancelling) {
+                item.cancelling = true
+                for (const callback of item.callbacks) {
+                  callback.reject()
+                }
+                item.callbacks = []
               }
             }
           }),
@@ -524,29 +584,42 @@ export namespace SessionPrompt {
     const s = state()
     const match = s[sessionID]
     if (!match || match.abort !== controller) return
-    match.cancelling = true
-    for (const item of match.callbacks) {
-      item.reject()
-    }
-    match.callbacks = []
-    delete s[sessionID]
-    await setStatus(sessionID, { type: "idle" })
-  }
-
-  const cancel = (() => {
-    const log = Log.create({ service: "session.prompt" })
-    return function cancel(sessionID: string) {
-      log.info("cancel", { sessionID })
-      const s = state()
-      const match = s[sessionID]
-      if (!match) return
-      match.abort.abort()
+    if (!match.cancelling) {
       match.cancelling = true
       for (const item of match.callbacks) {
         item.reject()
       }
       match.callbacks = []
-      return
+    }
+    await setStatus(sessionID, { type: "idle" })
+    if (s[sessionID] === match) {
+      delete s[sessionID]
+    }
+  }
+
+  const cancel = (() => {
+    const log = Log.create({ service: "session.prompt" })
+    return async function cancel(sessionID: string) {
+      log.info("cancel", { sessionID })
+      const s = state()
+      const match = s[sessionID]
+      if (!match) {
+        await setStatus(sessionID, { type: "idle" })
+        return
+      }
+      if (!match.abort.signal.aborted) {
+        match.abort.abort()
+      }
+      if (match.cancelling) {
+        await setStatus(sessionID, { type: "idle" })
+        return
+      }
+      match.cancelling = true
+      for (const item of match.callbacks) {
+        item.reject()
+      }
+      match.callbacks = []
+      await setStatus(sessionID, { type: "idle" })
     }
   })()
 
@@ -996,6 +1069,8 @@ export namespace SessionPrompt {
         toolChoice: format.type === "json_schema" ? "required" : undefined,
       })
 
+      await accountGoalTurn(sessionID, processor.message)
+
       // If structured output was captured, save it and exit immediately.
       // This takes priority because the StructuredOutput tool was called successfully.
       if (structuredOutput !== undefined) {
@@ -1046,6 +1121,42 @@ export namespace SessionPrompt {
         }
         await sessionUpdateMessage(processor.message)
         break
+      }
+
+      const goalFinished = processor.message.finish && !["tool-calls", "unknown"].includes(processor.message.finish)
+      if (goalFinished && !processor.message.error && result !== "stop" && result !== "compact") {
+        const continuation = await nextGoalPrompt(sessionID)
+        if (continuation) {
+          await sessionUpdate(sessionID, (draft) => {
+            draft.activeCommand = continuation.activeCommand
+          })
+          const continueMsg: MessageV2.User = {
+            id: Identifier.ascending("message"),
+            role: "user",
+            sessionID,
+            time: { created: Date.now() },
+            agent: lastUser.agent,
+            model: lastUser.model,
+            system: lastUser.system,
+            tools: lastUser.tools,
+            variant: lastUser.variant,
+          }
+          await sessionUpdateMessage(continueMsg)
+          await sessionUpdatePart({
+            id: Identifier.ascending("part"),
+            messageID: continueMsg.id,
+            sessionID,
+            type: "text",
+            text: continuation.text,
+            synthetic: true,
+            time: {
+              start: Date.now(),
+              end: Date.now(),
+            },
+          } satisfies MessageV2.TextPart)
+          step = 0
+          continue
+        }
       }
 
       if (result === "stop") break
@@ -1794,7 +1905,11 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     let aborted = false
     let exited = false
 
-    const kill = () => Shell.killTree(proc, { exited: () => exited })
+    let killPromise: Promise<void> | undefined
+    const kill = () => {
+      killPromise ??= Shell.killTree(proc, { exited: () => exited })
+      return killPromise
+    }
 
     if (abort.aborted) {
       aborted = true
@@ -1873,11 +1988,19 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     const command = await commandGet(input.command)
     if (!command) throw new Error(`Command "${input.command}" not found`)
     const agentName = command.agent ?? input.agent ?? (await defaultAgent())
+    const parsedGoal = input.command === Command.Default.GOAL ? SessionGoal.parseArguments(input.arguments) : undefined
+    const commandArguments = parsedGoal?.type === "objective" ? parsedGoal.objective : input.arguments
 
-    const raw = input.arguments.match(argsRegex) ?? []
+    const raw = commandArguments.match(argsRegex) ?? []
     const args = raw.map((arg) => arg.replace(quoteTrimRegex, ""))
 
-    const templateCommand = await command.template
+    let templateCommand = await command.template
+    if (parsedGoal?.type === "objective" && parsedGoal.tokenBudget !== undefined) {
+      templateCommand = templateCommand.replace(
+        "$ARGUMENTS",
+        `$ARGUMENTS\n\nToken Budget: ${parsedGoal.tokenBudget} tokens`,
+      )
+    }
 
     const placeholders = templateCommand.match(placeholderRegex) ?? []
     let last = 0
@@ -1894,10 +2017,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       return args[argIndex]
     })
     const usesArgumentsPlaceholder = templateCommand.includes("$ARGUMENTS")
-    let template = withArgs.replaceAll("$ARGUMENTS", input.arguments)
+    let template = withArgs.replaceAll("$ARGUMENTS", commandArguments)
 
-    if (placeholders.length === 0 && !usesArgumentsPlaceholder && input.arguments.trim()) {
-      template = template + "\n\n" + input.arguments
+    if (placeholders.length === 0 && !usesArgumentsPlaceholder && commandArguments.trim()) {
+      template = template + "\n\n" + commandArguments
     }
 
     const shell = ConfigMarkdown.shell(template)
@@ -1955,8 +2078,98 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       throw new Error(agentNotFoundMsg)
     }
 
-    const templateParts = await resolvePromptParts(template)
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true
+    const userAgent = isSubtask ? (input.agent ?? (await defaultAgent())) : agentName
+    const userModel = isSubtask
+      ? input.model
+        ? Provider.parseModel(input.model)
+        : await lastModel(input.sessionID)
+      : taskModel
+
+    if (parsedGoal?.type === "subcommand") {
+      const commandResult = await runGoal(
+        Effect.gen(function* () {
+          const goal = yield* SessionGoal.Service
+          if (parsedGoal.command === "pause") {
+            const paused = yield* goal.pause(input.sessionID)
+            return {
+              text: paused ? `Goal paused: ${paused.objective}` : "No active goal to pause.",
+              activeCommand: undefined,
+            }
+          }
+          if (parsedGoal.command === "resume") {
+            const resumed = yield* goal.resume(input.sessionID)
+            return {
+              text: resumed ? `Goal resumed: ${resumed.objective}` : "No paused goal to resume.",
+              activeCommand: resumed ? "goal" : undefined,
+            }
+          }
+          if (parsedGoal.command === "clear") {
+            const existing = yield* goal.get(input.sessionID)
+            yield* goal.clear(input.sessionID)
+            return {
+              text: existing ? `Goal cleared: ${existing.objective}` : "No active goal to clear.",
+              activeCommand: undefined,
+            }
+          }
+          const existing = yield* goal.get(input.sessionID)
+          if (!existing) {
+            return {
+              text: "No active goal is set for this session.",
+              activeCommand: undefined,
+            }
+          }
+          const budget =
+            existing.tokenBudget === undefined
+              ? `Tokens: ${existing.tokensUsed}`
+              : `Tokens: ${existing.tokensUsed} / ${existing.tokenBudget}`
+          return {
+            text: [
+              `Objective: ${existing.objective}`,
+              `Status: ${existing.status}`,
+              budget,
+              `Iterations: ${existing.iterationCount} / ${SessionGoal.MAX_ITERATIONS}`,
+              `Time used: ${SessionGoal.formatDuration(existing.timeUsedSeconds)}`,
+            ].join("\n"),
+            activeCommand: existing.status === "active" || existing.status === "budget_limited" ? "goal" : undefined,
+          }
+        }),
+      )
+      await sessionUpdate(input.sessionID, (draft) => {
+        draft.activeCommand = commandResult.activeCommand
+      })
+      const result = (await prompt({
+        sessionID: input.sessionID,
+        messageID: input.messageID,
+        model: userModel,
+        agent: userAgent,
+        parts: [{ type: "text", text: commandResult.text }],
+        variant: input.variant,
+        noReply: true,
+      })) as MessageV2.WithParts
+      Bus.publish(Command.Event.Executed, {
+        name: input.command,
+        sessionID: input.sessionID,
+        arguments: commandArguments,
+        messageID: result.info.id,
+      })
+      return result
+    }
+
+    if (parsedGoal?.type === "objective") {
+      if (!parsedGoal.objective) throw new Error("You must provide a goal condition")
+      await runGoal(
+        Effect.gen(function* () {
+          const goal = yield* SessionGoal.Service
+          yield* goal.set(input.sessionID, parsedGoal.objective, parsedGoal.tokenBudget)
+        }),
+      )
+      await sessionUpdate(input.sessionID, (draft) => {
+        draft.activeCommand = "goal"
+      })
+    }
+
+    const templateParts = await resolvePromptParts(template)
     const parts = isSubtask
       ? [
           {
@@ -1973,13 +2186,6 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         ]
       : [...templateParts, ...(input.parts ?? [])]
 
-    const userAgent = isSubtask ? (input.agent ?? (await defaultAgent())) : agentName
-    const userModel = isSubtask
-      ? input.model
-        ? Provider.parseModel(input.model)
-        : await lastModel(input.sessionID)
-      : taskModel
-
     await runPlugin(
       Effect.gen(function* () {
         const plugin = yield* Plugin.Service
@@ -1988,7 +2194,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
           {
             command: input.command,
             sessionID: input.sessionID,
-            arguments: input.arguments,
+            arguments: commandArguments,
           },
           { parts },
         )
@@ -2007,7 +2213,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
     Bus.publish(Command.Event.Executed, {
       name: input.command,
       sessionID: input.sessionID,
-      arguments: input.arguments,
+      arguments: commandArguments,
       messageID: result.info.id,
     })
 
@@ -2132,7 +2338,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
-      cancel: (sessionID) => Effect.sync(() => cancel(sessionID)),
+      cancel: (sessionID) => Effect.tryPromise(() => cancel(sessionID)),
       loop: (sessionID) => withInstanceContext(() => loop(sessionID)),
       shell: (input) => withInstanceContext(() => shell(input)),
       command: (input) => withInstanceContext(() => command(input)),

@@ -189,7 +189,7 @@ export const make = <A, E = never>(
   const cancel: Effect.Effect<void> = SynchronizedRef.modify(ref, (st) => {
     switch (st._tag) {
       case "Idle":
-        return [Effect.void, st] as const
+        return [idle, st] as const
       case "Running":
         return [
           Effect.gen(function* () {

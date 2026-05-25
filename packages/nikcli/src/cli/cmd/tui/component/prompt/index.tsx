@@ -772,7 +772,6 @@ export function Prompt(props: PromptProps) {
     return sync.background.list(props.sessionID)
   })
 
-  const backgroundedSubtaskCount = createMemo(() => backgroundJobs().length)
   // Monitors data for prompt frames
   const monitors = createMemo(() => {
     if (!props.sessionID) return [] as MonitorInfo[]
@@ -1850,7 +1849,7 @@ export function Prompt(props: PromptProps) {
                   store.mode === "normal" &&
                   props.sessionID &&
                   store.prompt.input === "" &&
-                  backgroundedSubtaskCount() > 0 &&
+                  totalBgItems() > 0 &&
                   keybind.match("subtask_picker", e)
                 ) {
                   e.preventDefault()

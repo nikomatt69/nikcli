@@ -23,6 +23,11 @@ describe("Identifier", () => {
       expect(schema.parse("wrk_abc123")).toBe("wrk_abc123")
     })
 
+    it("validates correct prefix for goal", () => {
+      const schema = Identifier.schema("goal")
+      expect(schema.parse("gol_abc123")).toBe("gol_abc123")
+    })
+
     it("rejects wrong prefix", () => {
       const schema = Identifier.schema("session")
       expect(() => schema.parse("msg_abc123")).toThrow()
@@ -43,6 +48,11 @@ describe("Identifier", () => {
     it("creates valid message ID with correct prefix", () => {
       const id = Identifier.ascending("message")
       expect(id.startsWith("msg_")).toBe(true)
+    })
+
+    it("creates valid goal ID with correct prefix", () => {
+      const id = Identifier.ascending("goal")
+      expect(id.startsWith("gol_")).toBe(true)
     })
 
     it("creates IDs with proper format", () => {

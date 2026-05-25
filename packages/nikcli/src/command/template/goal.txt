@@ -7,6 +7,10 @@ $ARGUMENTS
 
 ---
 
+You have `get_goal`, `create_goal`, and `update_goal` tools available to manage the session goal. Use `update_goal` with `complete` only after the goal is verified, and with `blocked` only under the repeated-blocker rule.
+
+---
+
 ## Mission
 
 Work autonomously until the goal condition above is **provably satisfied**, or until you can demonstrate with concrete evidence that it cannot be satisfied in the current environment. The completion criterion for this turn is the goal condition — not "I made an attempt", not "the diff looks correct", not "it should work now". Iterate until verified.

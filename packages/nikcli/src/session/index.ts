@@ -657,6 +657,7 @@ export namespace Session {
         await removeMessageWithPartsImpl(sessionID, msg.at(-1)!)
       }
       await storageRemove(["session_diff", sessionID]).catch(() => {})
+      await storageRemove(["goal", sessionID]).catch(() => {})
       await storageRemove(["session", ctx.project.id, sessionID])
       await publishBus(ctx, Event.Deleted, {
         info: session,

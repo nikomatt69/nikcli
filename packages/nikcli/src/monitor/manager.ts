@@ -157,6 +157,7 @@ export namespace Monitor {
       error?: string
     }
     exited: boolean
+    finalizing?: boolean
   }
 
   const state = Instance.state(
@@ -340,7 +341,9 @@ export namespace Monitor {
     exitCode?: number | null,
     signal?: NodeJS.Signals | null,
   ) {
+    if (runtime.finalizing) return
     if (runtime.exited && runtime.record.status !== "running") return
+    runtime.finalizing = true
     runtime.exited = true
     clearRuntimeTimers(runtime)
 

@@ -223,10 +223,15 @@ export namespace SessionHttpApi {
     abort: ({ params }: { params: typeof SessionIDPath.Type }) =>
       Effect.gen(function* () {
         yield* Effect.gen(function* () {
-          yield* Effect.promise(() => Delegation.cancelOwnedBySessionID(params.sessionID))
-          yield* Effect.promise(() => Monitor.cancelAll(params.sessionID))
           const sessionPrompt = yield* SessionPrompt.Service
-          yield* sessionPrompt.cancel(params.sessionID)
+          yield* Effect.all(
+            [
+              Effect.promise(() => Delegation.cancelOwnedBySessionID(params.sessionID)),
+              Effect.promise(() => Monitor.cancelAll(params.sessionID)),
+              sessionPrompt.cancel(params.sessionID),
+            ],
+            { concurrency: "unbounded", discard: true },
+          )
         }).pipe(Effect.catchCauseIf(Cause.hasInterruptsOnly, () => Effect.void))
         return true
       }).pipe(Effect.orDie),

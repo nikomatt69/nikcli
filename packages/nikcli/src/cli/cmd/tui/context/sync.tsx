@@ -53,6 +53,17 @@ type BackgroundJob = {
   error?: string
 }
 
+type MonitorSnapshot = {
+  id: string
+  title: string
+  command: string
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | string
+  logPath?: string
+  exitCode?: number
+  preview?: string
+  bytes?: number
+}
+
 export const { use: useSync, provider: SyncProvider } = createSimpleContext({
   name: "Sync",
   init: () => {
@@ -70,6 +81,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       session: Session[]
       session_status: Record<string, SessionStatus>
       background_job: Record<string, BackgroundJob[]>
+      monitor: Record<string, MonitorSnapshot[]>
       session_diff: Record<string, FileDiff[]>
       todo: Record<string, Todo[]>
       message: Record<string, Message[]>
@@ -96,6 +108,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
       session: [],
       session_status: {},
       background_job: {},
+      monitor: {},
       session_diff: {},
       todo: {},
       message: {},
@@ -128,6 +141,56 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         void refreshBackgroundJobs(sessionID).catch(() => {})
       }, 75)
       backgroundRefreshTimers.set(sessionID, timer)
+    }
+
+    function monitorFromRecord(record: {
+      id: string
+      title: string
+      command: string
+      status: MonitorSnapshot["status"]
+      logPath: string
+      exitCode?: number
+      preview?: string
+      bytes?: number
+    }): MonitorSnapshot {
+      return {
+        id: record.id,
+        title: record.title,
+        command: record.command,
+        status: record.status,
+        logPath: record.logPath,
+        exitCode: record.exitCode,
+        preview: record.preview,
+        bytes: record.bytes,
+      }
+    }
+
+    function upsertMonitor(sessionID: string, monitor: MonitorSnapshot) {
+      const monitors = store.monitor[sessionID]
+      if (!monitors) {
+        setStore("monitor", sessionID, [monitor])
+        return
+      }
+      const result = Binary.search(monitors, monitor.id, (m) => m.id)
+      if (result.found) {
+        setStore("monitor", sessionID, result.index, reconcile(monitor))
+        return
+      }
+      setStore(
+        "monitor",
+        sessionID,
+        produce((draft) => {
+          draft.splice(result.index, 0, monitor)
+        }),
+      )
+    }
+
+    function patchMonitor(sessionID: string, monitorID: string, patch: Partial<MonitorSnapshot>) {
+      const monitors = store.monitor[sessionID]
+      if (!monitors) return
+      const result = Binary.search(monitors, monitorID, (m) => m.id)
+      if (!result.found) return
+      setStore("monitor", sessionID, result.index, reconcile({ ...monitors[result.index], ...patch }))
     }
 
     async function syncWorkspaces() {
@@ -247,6 +310,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               delete draft.message[event.properties.info.id]
               delete draft.todo[event.properties.info.id]
               delete draft.background_job[event.properties.info.id]
+              delete draft.monitor[event.properties.info.id]
               delete draft.session_diff[event.properties.info.id]
               delete draft.session_status[event.properties.info.id]
               for (const messageID of messageIDs) {
@@ -345,6 +409,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const result = Binary.search(parts, event.properties.part.id, (p) => p.id)
           if (result.found) {
             setStore("part", event.properties.part.messageID, result.index, reconcile(event.properties.part))
+            if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
+              scheduleBackgroundRefresh(refreshParentID)
+              scheduleBackgroundRefresh(event.properties.part.sessionID)
+            }
             break
           }
           setStore(
@@ -363,6 +431,35 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
         case "delegation.completed": {
           scheduleBackgroundRefresh(event.properties.parentSessionID)
+          break
+        }
+
+        case "monitor.created": {
+          upsertMonitor(event.properties.sessionID, monitorFromRecord(event.properties.record))
+          break
+        }
+
+        case "monitor.updated": {
+          upsertMonitor(event.properties.sessionID, monitorFromRecord(event.properties.record))
+          break
+        }
+
+        case "monitor.output": {
+          patchMonitor(event.properties.sessionID, event.properties.monitorID, {
+            preview: event.properties.preview,
+            bytes: event.properties.bytes,
+            status: event.properties.status,
+          })
+          break
+        }
+
+        case "monitor.completed": {
+          patchMonitor(event.properties.sessionID, event.properties.monitorID, {
+            title: event.properties.title,
+            status: event.properties.status,
+            exitCode: event.properties.exitCode ?? undefined,
+            logPath: event.properties.logPath,
+          })
           break
         }
 
@@ -421,6 +518,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           draft.part = {}
           draft.todo = {}
           draft.background_job = {}
+          draft.monitor = {}
           draft.session_diff = {}
           draft.session_status = {}
         }),

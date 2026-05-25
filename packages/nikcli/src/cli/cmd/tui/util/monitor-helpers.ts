@@ -37,9 +37,6 @@ export function getMonitorsForSession(sync: Sync, sessionID: string): MonitorInf
       const monitorID = typeof meta.monitorId === "string" ? meta.monitorId : undefined
       if (!monitorID) continue
 
-      // Don't overwrite if we already have this monitor (earlier message wins)
-      if (seen.has(monitorID)) continue
-
       const title =
         (typeof meta.title === "string" && meta.title.trim()) ||
         (typeof input.title === "string" && input.title.trim()) ||
@@ -55,6 +52,10 @@ export function getMonitorsForSession(sync: Sync, sessionID: string): MonitorInf
 
       seen.set(monitorID, { id: monitorID, title, command, status, logPath, exitCode, preview, bytes })
     }
+  }
+
+  for (const monitor of sync.data.monitor[sessionID] ?? []) {
+    seen.set(monitor.id, monitor)
   }
 
   return [...seen.values()]

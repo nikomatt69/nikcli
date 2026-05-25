@@ -40,6 +40,9 @@ describe("ToolRegistry.Service", () => {
 
     expect(ids).toContain("bash")
     expect(ids).toContain("read")
+    expect(ids).toContain("create_goal")
+    expect(ids).toContain("get_goal")
+    expect(ids).toContain("update_goal")
   })
 
   it("resolves slim tool definitions", async () => {

@@ -45,6 +45,7 @@ import { AdvisorTool } from "./advisor"
 import { DelegatorTool } from "./delegator"
 import { ExecCodeTool } from "./exec_code"
 import { SearchToolsTool } from "./search_tools"
+import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
 
 const _toolDir = import.meta.dir
 
@@ -226,6 +227,9 @@ export namespace ToolRegistry {
           WebFetchTool,
           TodoWriteTool,
           TodoReadTool,
+          CreateGoalTool,
+          GetGoalTool,
+          UpdateGoalTool,
           WebSearchTool,
           CodeSearchTool,
           RepoCloneTool,

@@ -17,6 +17,7 @@ export namespace Identifier {
     event: "evt",
     account: "acc",
     org: "org",
+    goal: "gol",
   } as const
 
   export function schema(prefix: keyof typeof prefixes) {

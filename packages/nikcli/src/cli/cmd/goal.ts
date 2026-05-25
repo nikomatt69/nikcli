@@ -36,6 +36,10 @@ export const GoalCommand = cmd({
         type: "string",
         describe: "model variant (provider-specific reasoning effort, e.g., high, max, minimal)",
       })
+      .option("token-budget", {
+        type: "number",
+        describe: "optional token budget for automatic goal continuation",
+      })
       .option("format", {
         type: "string",
         choices: ["default", "json"],
@@ -50,10 +54,20 @@ export const GoalCommand = cmd({
       process.exit(1)
     }
 
+    const tokenBudget = args.tokenBudget ?? args["token-budget"]
+    let message = condition
+    if (tokenBudget !== undefined) {
+      if (typeof tokenBudget !== "number" || !Number.isSafeInteger(tokenBudget) || tokenBudget <= 0) {
+        console.error("--token-budget must be a positive integer")
+        process.exit(1)
+      }
+      message = `--token-budget ${tokenBudget} ${condition}`
+    }
+
     await RunCommand.handler({
       ...args,
       command: "goal",
-      message: [condition],
+      message: [message],
     } as never)
   },
 })
