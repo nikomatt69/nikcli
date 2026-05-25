@@ -1,0 +1,399 @@
+{
+  "run": {
+    "runId": "2026-05-25T21-37-27-679Z",
+    "createdAt": "2026-05-25T21:37:31.372Z",
+    "records": [
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:31.372Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "iterations": 200,
+        "value": 9.444958000000042,
+        "unit": "ms",
+        "valuePerIteration": 0.04722479000000021,
+        "metadata": {
+          "sourceFile": "test/provider/hot-paths.benchmark.test.ts",
+          "sourceLine": 78,
+          "sourceColumn": 5,
+          "messageCount": 120
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:31.374Z",
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "iterations": 5000,
+        "value": 1.6166250000001128,
+        "unit": "ms",
+        "valuePerIteration": 0.00032332500000002256,
+        "metadata": {
+          "sourceFile": "test/provider/hot-paths.benchmark.test.ts",
+          "sourceLine": 100,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:31.375Z",
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "iterations": 50000,
+        "value": 1.4167499999998654,
+        "unit": "ms",
+        "valuePerIteration": 0.00002833499999999731,
+        "metadata": {
+          "sourceFile": "test/provider/hot-paths.benchmark.test.ts",
+          "sourceLine": 120,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:31.379Z",
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "iterations": 2000,
+        "value": 3.7695409999996627,
+        "unit": "ms",
+        "valuePerIteration": 0.0018847704999998313,
+        "metadata": {
+          "sourceFile": "test/provider/hot-paths.benchmark.test.ts",
+          "sourceLine": 167,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:33.295Z",
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "iterations": 50000,
+        "value": 5.4644170000001395,
+        "unit": "ms",
+        "valuePerIteration": 0.00010928834000000279,
+        "metadata": {
+          "sourceFile": "test/cli/cli-parse.benchmark.test.ts",
+          "sourceLine": 20,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:33.304Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "iterations": 20000,
+        "value": 7.708832999999686,
+        "unit": "ms",
+        "valuePerIteration": 0.00038544164999998427,
+        "metadata": {
+          "sourceFile": "test/cli/cli-parse.benchmark.test.ts",
+          "sourceLine": 39,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:33.306Z",
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "iterations": 50000,
+        "value": 1.1354580000006536,
+        "unit": "ms",
+        "valuePerIteration": 0.00002270916000001307,
+        "metadata": {
+          "sourceFile": "test/cli/cli-parse.benchmark.test.ts",
+          "sourceLine": 58,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.399Z",
+        "suite": "session",
+        "module": "stepper",
+        "scenario": "reduce append with periodic reset",
+        "iterations": 4000,
+        "value": 72.23616700000002,
+        "unit": "ms",
+        "valuePerIteration": 0.018059041750000004,
+        "metadata": {
+          "sourceFile": "test/session/stepper.benchmark.test.ts",
+          "sourceLine": 32,
+          "sourceColumn": 5,
+          "entries": 7
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.403Z",
+        "suite": "session",
+        "module": "stepper",
+        "scenario": "memory adapter appendEntry",
+        "iterations": 2000,
+        "value": 4.223458000000392,
+        "unit": "ms",
+        "valuePerIteration": 0.0021117290000001957,
+        "metadata": {
+          "sourceFile": "test/session/stepper.benchmark.test.ts",
+          "sourceLine": 53,
+          "sourceColumn": 5,
+          "totalEntries": 2000
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.694Z",
+        "suite": "session",
+        "module": "status",
+        "scenario": "set/get busy-idle",
+        "iterations": 6000,
+        "value": 278.0528340000001,
+        "unit": "ms",
+        "valuePerIteration": 0.04634213900000001,
+        "metadata": {
+          "sourceFile": "test/session/status.benchmark.test.ts",
+          "sourceLine": 47,
+          "sourceColumn": 7
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.701Z",
+        "suite": "session",
+        "module": "message-v2",
+        "scenario": "toModelMessages user-only loop",
+        "iterations": 600,
+        "value": 3.3820000000005166,
+        "unit": "ms",
+        "valuePerIteration": 0.005636666666667528,
+        "metadata": {
+          "sourceFile": "test/session/message-v2.benchmark.test.ts",
+          "sourceLine": 42,
+          "sourceColumn": 5,
+          "totalMessages": 600
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.708Z",
+        "suite": "session",
+        "module": "message-v2",
+        "scenario": "TextPart parse loop",
+        "iterations": 3000,
+        "value": 7.086457999999766,
+        "unit": "ms",
+        "valuePerIteration": 0.0023621526666665884,
+        "metadata": {
+          "sourceFile": "test/session/message-v2.benchmark.test.ts",
+          "sourceLine": 69,
+          "sourceColumn": 5
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.715Z",
+        "suite": "session",
+        "module": "retry",
+        "scenario": "delay alternating headers",
+        "iterations": 8000,
+        "value": 0.8719999999993888,
+        "unit": "ms",
+        "valuePerIteration": 0.0001089999999999236,
+        "metadata": {
+          "sourceFile": "test/session/retry.benchmark.test.ts",
+          "sourceLine": 23,
+          "sourceColumn": 5,
+          "acc": 42419765.167359754
+        }
+      },
+      {
+        "runId": "2026-05-25T21-37-27-679Z",
+        "timestamp": "2026-05-25T21:37:34.717Z",
+        "suite": "session",
+        "module": "retry",
+        "scenario": "retryable rotate payloads",
+        "iterations": 3000,
+        "value": 1.225083999999697,
+        "unit": "ms",
+        "valuePerIteration": 0.0004083613333332323,
+        "metadata": {
+          "sourceFile": "test/session/retry.benchmark.test.ts",
+          "sourceLine": 48,
+          "sourceColumn": 5,
+          "variants": 4
+        }
+      }
+    ]
+  },
+  "comparison": {
+    "baseRunId": "2026-05-25T21-32-33-269Z",
+    "currentRunId": "2026-05-25T21-37-27-679Z",
+    "rows": [
+      {
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "message claude tool ids",
+        "unit": "ms",
+        "iterations": 200,
+        "baseline": 8.898833999999624,
+        "current": 9.444958000000042,
+        "delta": 0.5461240000004182,
+        "deltaPercent": 6.137028738826246
+      },
+      {
+        "suite": "provider",
+        "module": "provider/error",
+        "scenario": "parseStreamError JSON overflow",
+        "unit": "ms",
+        "iterations": 5000,
+        "baseline": 1.8593329999998787,
+        "current": 1.6166250000001128,
+        "delta": -0.2427079999997659,
+        "deltaPercent": -13.053498216821932
+      },
+      {
+        "suite": "provider",
+        "module": "provider/sdk/copilot/chat",
+        "scenario": "map finish reasons",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 1.2355419999998958,
+        "current": 1.4167499999998654,
+        "delta": 0.18120799999996962,
+        "deltaPercent": 14.666276014897504
+      },
+      {
+        "suite": "provider",
+        "module": "provider/transform",
+        "scenario": "schema gemini sanitize",
+        "unit": "ms",
+        "iterations": 2000,
+        "baseline": 3.1385830000003807,
+        "current": 3.7695409999996627,
+        "delta": 0.630957999999282,
+        "deltaPercent": 20.10327590505669
+      },
+      {
+        "suite": "cli",
+        "module": "github",
+        "scenario": "parseGitHubRemote loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 4.63391700000011,
+        "current": 5.4644170000001395,
+        "delta": 0.8305000000000291,
+        "deltaPercent": 17.922202749855238
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatError ModelNotFound loop",
+        "unit": "ms",
+        "iterations": 20000,
+        "baseline": 7.479707999999846,
+        "current": 7.708832999999686,
+        "delta": 0.22912499999983993,
+        "deltaPercent": 3.0632880320975717
+      },
+      {
+        "suite": "cli",
+        "module": "error",
+        "scenario": "FormatUnknownError Error loop",
+        "unit": "ms",
+        "iterations": 50000,
+        "baseline": 0.9925419999999576,
+        "current": 1.1354580000006536,
+        "delta": 0.14291600000069593,
+        "deltaPercent": 14.398987649963631
+      },
+      {
+        "suite": "session",
+        "module": "stepper",
+        "scenario": "reduce append with periodic reset",
+        "unit": "ms",
+        "iterations": 4000,
+        "baseline": 48.08320899999944,
+        "current": 72.23616700000002,
+        "delta": 24.15295800000058,
+        "deltaPercent": 50.23158500091136
+      },
+      {
+        "suite": "session",
+        "module": "stepper",
+        "scenario": "memory adapter appendEntry",
+        "unit": "ms",
+        "iterations": 2000,
+        "baseline": 3.5725830000001224,
+        "current": 4.223458000000392,
+        "delta": 0.6508750000002692,
+        "deltaPercent": 18.21861101618204
+      },
+      {
+        "suite": "session",
+        "module": "status",
+        "scenario": "set/get busy-idle",
+        "unit": "ms",
+        "iterations": 6000,
+        "baseline": 247.074208,
+        "current": 278.0528340000001,
+        "delta": 30.978626000000077,
+        "deltaPercent": 12.538186907797384
+      },
+      {
+        "suite": "session",
+        "module": "message-v2",
+        "scenario": "toModelMessages user-only loop",
+        "unit": "ms",
+        "iterations": 600,
+        "baseline": 3.9969590000000608,
+        "current": 3.3820000000005166,
+        "delta": -0.6149589999995442,
+        "deltaPercent": -15.385671957093752
+      },
+      {
+        "suite": "session",
+        "module": "message-v2",
+        "scenario": "TextPart parse loop",
+        "unit": "ms",
+        "iterations": 3000,
+        "baseline": 6.665166000000681,
+        "current": 7.086457999999766,
+        "delta": 0.4212919999990845,
+        "deltaPercent": 6.32080281269876
+      },
+      {
+        "suite": "session",
+        "module": "retry",
+        "scenario": "delay alternating headers",
+        "unit": "ms",
+        "iterations": 8000,
+        "baseline": 0.6716249999999491,
+        "current": 0.8719999999993888,
+        "delta": 0.20037499999943975,
+        "deltaPercent": 29.834356969954207
+      },
+      {
+        "suite": "session",
+        "module": "retry",
+        "scenario": "retryable rotate payloads",
+        "unit": "ms",
+        "iterations": 3000,
+        "baseline": 0.8603749999992942,
+        "current": 1.225083999999697,
+        "delta": 0.36470900000040274,
+        "deltaPercent": 42.389539445091025
+      }
+    ]
+  },
+  "exportedAt": "2026-05-25T21:37:34.717Z"
+}

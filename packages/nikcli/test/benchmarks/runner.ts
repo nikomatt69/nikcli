@@ -103,11 +103,29 @@ function safeNumber(value: number) {
   return Number.isFinite(value) ? value : 0
 }
 
+function callerLocation(): { sourceFile?: string; sourceLine?: number; sourceColumn?: number } {
+  const stack = new Error().stack
+  if (!stack) return {}
+  const runnerPath = "test/benchmarks/runner.ts"
+  for (const line of stack.split("\n")) {
+    if (line.includes(runnerPath) || !line.includes("/test/")) continue
+    const match = line.match(/\((.*):(\d+):(\d+)\)$/) ?? line.match(/at (.*):(\d+):(\d+)$/)
+    if (!match) continue
+    return {
+      sourceFile: path.relative(process.cwd(), match[1] ?? "").replace(/\\/g, "/"),
+      sourceLine: Number(match[2]),
+      sourceColumn: Number(match[3]),
+    }
+  }
+  return {}
+}
+
 export function recordBenchmark(input: Omit<BenchmarkRecord, "runId" | "timestamp">) {
   const store = getStore()
   const iterations = Math.max(1, Math.trunc(input.iterations))
   const value = safeNumber(input.value)
   const valuePerIteration = iterations > 0 ? value / iterations : value
+  const source = callerLocation()
 
   store.records.push({
     runId: store.runId,
@@ -119,8 +137,9 @@ export function recordBenchmark(input: Omit<BenchmarkRecord, "runId" | "timestam
     value,
     unit: input.unit,
     valuePerIteration,
-    metadata: normalizeMetadata(input.metadata),
+    metadata: normalizeMetadata({ ...source, ...(input.metadata ?? {}) }),
   })
+  store.flushed = false
 }
 
 export function recordVisualArtifact(input: {
@@ -149,6 +168,7 @@ export function recordVisualArtifact(input: {
     filename,
     content: input.content,
   })
+  store.flushed = false
 }
 
 function renderCell(value: number | string | null) {
@@ -357,6 +377,7 @@ function renderHtml(run: StoredBenchmarkRun, comparison?: BenchmarkComparison) {
 
 export async function flushBenchmarkRun() {
   const store = getStore()
+  if (store.records.length === 0 && store.visuals.length === 0) return
   if (store.flushed) return
   if (!SAVE_BENCHMARKS && !BASELINE_PATH && process.env.NIKCLI_BENCHMARK_COMPARE !== "1") return
   if (store.flushingPromise) await store.flushingPromise
@@ -410,4 +431,3 @@ export async function flushBenchmarkRun() {
   store.flushingPromise = promise
   await promise
 }
-
