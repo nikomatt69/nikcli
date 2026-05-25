@@ -1584,6 +1584,81 @@ const PART_MAPPING = {
   reasoning: ReasoningPart,
 }
 
+// Box-drawing / arrow chars that signal an ASCII diagram. When the assistant
+// emits raw diagrams in prose, the markdown renderer would otherwise paint them
+// in plain theme.text. Wrapping diagram-looking line runs in a fenced code
+// block delegates to opentui's CodeRenderable, which restores the themed
+// `markdownCodeBlock` coloring that the old `<code filetype="markdown">` path
+// produced — without losing real markdown structure (headings, lists, tables)
+// elsewhere in the message.
+const DIAGRAM_CHARS = new Set(
+  "─━│┃┌┍┎┏┐┑┒┓└┕┖┗┘┙┚┛├┝┞┟┠┡┢┣┤┥┦┧┨┩┪┫┬┭┮┯┰┱┲┳┴┵┶┷┸┹┺┻┼┽┾┿╀╁╂╃╄╅╆╇╈╉╊╋" +
+    "═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬╭╮╯╰╱╲╳" +
+    "▲▼◀▶△▽◁▷◆◇■□●○◉◍◎★☆" +
+    "←→↑↓↔↕⇐⇒⇑⇓⇔⇕",
+)
+
+function looksLikeDiagramLine(line: string): boolean {
+  let count = 0
+  for (const ch of line) {
+    if (DIAGRAM_CHARS.has(ch)) {
+      count++
+      if (count >= 2) return true
+    }
+  }
+  return false
+}
+
+function wrapDiagramsInFences(md: string): string {
+  if (md.length === 0) return md
+  // Fast path: no diagram chars at all
+  let hasAny = false
+  for (let i = 0; i < md.length; i++) {
+    if (DIAGRAM_CHARS.has(md[i])) {
+      hasAny = true
+      break
+    }
+  }
+  if (!hasAny) return md
+
+  const lines = md.split("\n")
+  const out: string[] = []
+  let inFence = false
+  let blockStart = -1
+
+  const flush = (endIdx: number) => {
+    if (blockStart < 0) return
+    out.push("```")
+    for (let j = blockStart; j <= endIdx; j++) out.push(lines[j])
+    out.push("```")
+    blockStart = -1
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+
+    if (trimmed.startsWith("```")) {
+      flush(i - 1)
+      inFence = !inFence
+      out.push(line)
+      continue
+    }
+    if (inFence) {
+      out.push(line)
+      continue
+    }
+    if (looksLikeDiagramLine(line)) {
+      if (blockStart < 0) blockStart = i
+      continue
+    }
+    flush(i - 1)
+    out.push(line)
+  }
+  flush(lines.length - 1)
+  return out.join("\n")
+}
+
 function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: AssistantMessage }) {
   const { theme, subtleSyntax } = useTheme()
   const ctx = use()
@@ -1592,6 +1667,8 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
     return props.part.text.replace("[REDACTED]", "").trim()
   })
+  const rendered = createMemo(() => wrapDiagramsInFences("_Thinking:_ " + content()))
+  const tight = createMemo(() => ctx.width < 84)
   return (
     <Show when={content() && ctx.showThinking()}>
       <box
@@ -1603,14 +1680,21 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
         customBorderChars={SplitBorder.customBorderChars}
         borderColor={theme.backgroundElement}
       >
-        <code
-          filetype="markdown"
-          drawUnstyledText={false}
-          streaming={true}
+        <markdown
+          streaming={!props.last ? false : true}
           syntaxStyle={subtleSyntax()}
-          content={"_Thinking:_ " + content()}
+          content={rendered()}
           conceal={ctx.conceal()}
+          concealCode={false}
           fg={theme.textMuted}
+          tableOptions={{
+            widthMode: "full",
+            wrapMode: "word",
+            cellPadding: tight() ? 0 : 1,
+            borders: true,
+            outerBorder: !tight(),
+            borderColor: theme.borderSubtle,
+          }}
         />
       </box>
     </Show>
@@ -1621,17 +1705,26 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   const ctx = use()
   const { theme, syntax } = useTheme()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
+  const tight = createMemo(() => ctx.width < 84)
+  const rendered = createMemo(() => wrapDiagramsInFences(props.part.text.trim()))
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
-        <code
-          filetype="markdown"
-          drawUnstyledText={false}
-          streaming={true}
+        <markdown
+          streaming={!props.last ? false : true}
           syntaxStyle={syntax()}
-          content={props.part.text.trim()}
+          content={rendered()}
           conceal={ctx.conceal()}
+          concealCode={false}
           fg={theme.text}
+          tableOptions={{
+            widthMode: "full",
+            wrapMode: "word",
+            cellPadding: tight() ? 0 : 1,
+            borders: true,
+            outerBorder: !tight(),
+            borderColor: theme.borderSubtle,
+          }}
         />
         <ImagePreviewList text={props.part.text} maxColumns={imagePreviewColumns()} />
       </box>

@@ -9,18 +9,8 @@ import { useKeybind } from "../context/keybind"
 import * as fuzzysort from "fuzzysort"
 import { Keybind } from "@/util/keybind"
 import { Config } from "@/config/config"
-import { runPromiseWithLayer } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect/runtime"
 import { Effect } from "effect"
-
-function configUpdateGlobal(config: Config.Info) {
-  return runPromiseWithLayer(
-    Config.defaultLayer,
-    Effect.gen(function* () {
-      const service = yield* Config.Service
-      yield* service.updateGlobal(config)
-    }),
-  )
-}
 
 export function useConnected() {
   const sync = useSync()
@@ -262,7 +252,11 @@ export function DialogModel(props: {
             const model = option.value as { providerID: string; modelID: string }
             const modelString = `${model.providerID}/${model.modelID}`
             dialog.clear()
-            void configUpdateGlobal({ model: modelString })
+            void runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(Effect.gen(function* () {
+              const service = yield* Config.Service
+              yield* service.update({ model: modelString })
+            })),
+            )
             local.model.set(model, { recent: true })
           },
         },

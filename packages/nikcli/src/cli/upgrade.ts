@@ -83,8 +83,8 @@ export async function upgrade(): Promise<void> {
 
   log.info("Update available", { current: Installation.VERSION, latest, method })
 
-  // Always notify the TUI — the dialog handles the user choice
-  await Bus.publish(Installation.Event.UpdateAvailable, { version: latest})
+  // Always notify the TUI — it surfaces a toast with the method-specific upgrade hint
+  await Bus.publish(Installation.Event.UpdateAvailable, { version: latest, method })
 }
 
 /**

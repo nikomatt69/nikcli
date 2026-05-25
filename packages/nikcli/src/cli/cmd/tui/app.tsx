@@ -57,7 +57,6 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
 import { DialogAlert } from "./ui/dialog-alert"
-import { DialogConfirm } from "./ui/dialog-confirm"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
@@ -164,7 +163,7 @@ export function tui(input: {
                                             <PromptHistoryProvider>
                                               <EditorContextProvider>
                                                 <PromptRefProvider>
-                                                  <App upgradeNow={input.upgradeNow} />
+                                                  <App />
                                                 </PromptRefProvider>
                                               </EditorContextProvider>
                                             </PromptHistoryProvider>
@@ -224,7 +223,7 @@ function sessionIDFromRoute(route: ReturnType<typeof useRoute>["data"]) {
   return "sessionID" in route ? route.sessionID : undefined
 }
 
-function App(props: { upgradeNow?: (method: string, version: string) => Promise<void> }) {
+function App() {
   const route = useRoute()
   const dimensions = useTerminalDimensions()
   const renderer = useRenderer()
@@ -238,7 +237,7 @@ function App(props: { upgradeNow?: (method: string, version: string) => Promise<
   const themeCtx = useTheme()
   const { theme, mode, setMode } = themeCtx
   const sync = useSync()
-  const { exit, restart, setSummary } = useExit()
+  const { exit, setSummary } = useExit()
   const promptRef = usePromptRef()
   const keybind = useKeybind()
 
@@ -1189,68 +1188,45 @@ function App(props: { upgradeNow?: (method: string, version: string) => Promise<
           duration: 5000,
         })
       }),
-      sdk.event.on(Installation.Event.UpdateAvailable.type, async (evt) => {
+      sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
         const version = evt.properties.version
         const method = (evt.properties as { method?: Installation.Method }).method
         const currentVersion = Installation.VERSION
 
-        // Friendly method name for display
-        const methodLabel = method
-          ? method === "brew"
-            ? "Homebrew"
-            : method === "npm" || method === "yarn" || method === "pnpm" || method === "bun"
-              ? method.toUpperCase()
-              : method === "curl"
-                ? "curl"
-                : method === "choco"
-                  ? "Chocolatey"
-                  : method === "scoop"
-                    ? "Scoop"
-                    : method
-          : undefined
+        // Avoid spamming the same version multiple times within a session
+        if (kv.get("update_toast_shown_version", "") === version) return
+        kv.set("update_toast_shown_version", version)
 
-        const upgradeHint = methodLabel ? `Will upgrade via ${methodLabel}.` : ""
+        // Method-specific upgrade command, falling back to `nikcli upgrade`
+        const upgradeCommand = (() => {
+          switch (method) {
+            case "curl":
+              return "nikcli upgrade"
+            case "npm":
+              return "npm install -g nikcli-ai@latest"
+            case "pnpm":
+              return "pnpm install -g nikcli-ai@latest"
+            case "bun":
+              return "bun install -g nikcli-ai@latest"
+            case "yarn":
+              return "yarn global add nikcli-ai@latest"
+            case "brew":
+              return "brew upgrade nikcli"
+            case "choco":
+              return "choco upgrade nikcli"
+            case "scoop":
+              return "scoop update nikcli"
+            default:
+              return "nikcli upgrade"
+          }
+        })()
 
-        const confirmed = await DialogConfirm.show(
-          dialog,
-          "Update Available",
-          `Nikcli v${version} is available (you have v${currentVersion}). ${upgradeHint}\n\nUpgrade now? The CLI will restart after updating.`,
-          "confirm",
-        )
-
-        if (!confirmed) return
-
-        // Show a spinner while upgrading
         toast.show({
-          variant: "info",
-          title: "Upgrading...",
-          message: `Upgrading to v${version}...`,
-          duration: 120_000,
+          variant: "warning",
+          title: `Update available · v${version}`,
+          message: `You have v${currentVersion}. Run \`${upgradeCommand}\` to upgrade.`,
+          duration: 10_000,
         })
-
-        try {
-          if (!props.upgradeNow) throw new Error("upgrade helper unavailable")
-          if (!method) throw new Error("installation method unavailable")
-          await props.upgradeNow(method, version)
-
-          toast.show({
-            variant: "success",
-            title: "Upgraded!",
-            message: `Nikcli v${version} installed. Restarting...`,
-            duration: 5_000,
-          })
-
-          // Give the toast a moment to render, then restart
-          await Bun.sleep(1500)
-          await restart()
-        } catch (error) {
-          toast.show({
-            variant: "error",
-            title: "Upgrade Failed",
-            message: `Failed to upgrade: ${error instanceof Error ? error.message : String(error)}. Try running 'nikcli upgrade' manually.`,
-            duration: 10_000,
-          })
-        }
       }),
       sdk.event.on("permission.asked", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined

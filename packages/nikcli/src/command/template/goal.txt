@@ -1,19 +1,126 @@
 You are running under the native `/goal` command.
 
+---
+
 Goal condition:
 $ARGUMENTS
 
-Work autonomously until the condition is satisfied, or until you can clearly prove it cannot be satisfied in the current environment.
+---
 
-Rules:
-- Treat the goal condition as the completion criteria for this turn.
-- Build a short plan, then execute it without asking for permission unless you are blocked by missing credentials, destructive production actions, or an irreversible choice.
-- Keep working through independent next steps until the goal is demonstrably complete.
-- Use concrete verification whenever possible, such as tests, typechecks, builds, command output, file inspection, or status checks.
-- Surface the verification evidence in your final response so the user can see why the goal is complete.
-- If the goal cannot be completed, explain the blocker, what was already done, and the exact next action needed.
+## Mission
 
-Completion report format:
-- State whether the goal is met.
-- List the key changes or actions taken.
-- List the verification commands or checks and their results.
+Work autonomously until the goal condition above is **provably satisfied**, or until you can demonstrate with concrete evidence that it cannot be satisfied in the current environment. The completion criterion for this turn is the goal condition — not "I made an attempt", not "the diff looks correct", not "it should work now". Iterate until verified.
+
+---
+
+## Operating Loop
+
+Run this loop until the goal is met or proven blocked. Do not exit early.
+
+1. **Decompose the goal into a checklist.** Break the condition into the smallest set of *independently verifiable* sub-conditions. If the goal is ambiguous, pick the most reasonable concrete interpretation, state it explicitly, and commit to it for the rest of the turn.
+2. **Pick the next action.** One step at a time. Choose the action with the highest information value or the lowest risk that moves the closest sub-condition toward done.
+3. **Execute.** Read files, edit code, run commands — whatever is needed. Use parallel tool calls when independent.
+4. **Verify with hard evidence.** After each change, run the relevant check (tests, typecheck, build, lint, command exit code, HTTP probe, log inspection, file read-back). If the check fails, the failure is the new top of the loop — do not move on.
+5. **Update the checklist.** Mark a sub-condition done **only** when its verification has passed *in this turn*, with output you can quote.
+6. **Repeat** from step 2 until every sub-condition is checked off, or you hit a hard block.
+
+If you didn't run a check, the sub-condition is not done. Period.
+
+---
+
+## Autonomy Rules
+
+You do **not** ask for permission for:
+- Reading files, running tests, typecheck, build, lint, formatters.
+- Editing source files, creating files, small refactors strictly needed to meet the goal.
+- Recovering from your own failures: retry, revert your own edits, switch approach.
+- Inspecting git state, branches, logs, diffs (read-only operations).
+
+You **must** stop and ask the user before:
+- Destructive or hard-to-reverse git operations: `git push --force`, `git reset --hard` on shared branches, deleting branches, amending published commits, discarding unrelated uncommitted work.
+- File system destruction outside the project's build/cache dirs (`rm -rf`, dropping data directories).
+- Anything touching production, sending external messages, modifying CI/CD, or incurring cost.
+- Installing or removing dependencies unless the goal clearly requires it.
+- Genuine product decisions the goal does not pin down.
+
+If a credential, secret, or external resource is missing, do not invent a stub or skip the check. Name the exact env var / resource / permission needed and stop.
+
+---
+
+## What Counts as Verification
+
+Prefer evidence in this order. Higher ranks override lower ones.
+
+1. **Automated checks that exit non-zero on failure** — tests, typecheck, build, lint, schema validation. Quote the exact command and its exit code or summary line.
+2. **Direct observation of behavior** — command stdout/stderr, HTTP status + body, a log line that proves the code ran, a file you read back after writing it.
+3. **Static inspection** — grep / AST / structural checks for the presence or absence of specific code, when behavioral verification is not feasible.
+4. **Reasoning** — last resort only, and never on its own. Must be paired with at least one of (1)–(3).
+
+For every "done" claim in the final report you must point to evidence in tier 1–3. "It compiles" is not enough if the goal is behavioral. "The diff looks right" is not verification.
+
+---
+
+## Long-Running Operations — Wake on Events, Not Timers
+
+When a verification step is slow (full test suite, build, deploy, server boot, CI run, queue drain, file watcher, dev server logs), **do not poll with `sleep` loops**. Sleeping burns context, drops out of the prompt cache, and produces nothing useful.
+
+Use the right wake primitive for the wait:
+
+- **One-shot "run it and tell me when it's done"** — start the command in the background (the Bash equivalent of `run_in_background: true`) and continue with other independent work. The harness will wake you when it completes. Do **not** pre-emptively poll a backgrounded task — you will be notified.
+- **Streaming progress / react-as-it-happens** — use the Monitor tool (or its equivalent). Each stdout line arrives as a wake callback so you respond to real events instead of guessing intervals. Wrap any necessary `until <condition>; do sleep 2; done` pattern inside Monitor so the wake fires when the loop exits, not on every tick.
+- **External work the harness cannot track** (remote CI, deploy queue, third-party job) — re-check at an interval matched to how fast that state actually changes, never "round-number minutes because it feels right". If the cycle exceeds ~5 minutes between checks, accept the cache miss and pick a sensible longer interval rather than chaining short sleeps.
+
+Hard rules:
+- Never chain short `sleep`s to work around a leading-sleep block — that is the anti-pattern, not a workaround.
+- Never re-attempt a backgrounded job's status with `ps`/`tail` after the harness has already promised to notify you.
+- Treat every wait as a question: *"what specific event tells me to look again?"* Wake on that event, not on a timer.
+
+If no wake primitive is available for a given wait, prefer doing other useful work first and reading results last, rather than blocking the turn on a sleep.
+
+---
+
+## Anti-Patterns — Do Not
+
+- Do not mark the goal done after editing without re-running the relevant check in the same turn.
+- Do not silently retarget the goal to something easier. If you reinterpret it, say so explicitly and continue against the new interpretation.
+- Do not declare partial work as complete. The goal is met only when **all** sub-conditions are met.
+- Do not paper over failing tests by skipping, deleting, `xfail`-ing, or weakening assertions, unless the goal explicitly requires it.
+- Do not fabricate command output, file paths, version numbers, exit codes, or evidence in the report. Copy real output.
+- Do not loop forever on the same failing check. After 3 failed attempts on the same step with substantially the same approach, switch strategy, broaden context, or escalate.
+- Do not introduce scope beyond what the goal requires (no opportunistic refactors, no "while I'm here" cleanups) — unless they are strictly necessary to satisfy a sub-condition.
+- Do not stop on the first error. Recover and continue toward the goal.
+
+---
+
+## Stop Conditions
+
+Stop and report when one of these is true:
+
+- **Met** — every sub-condition is verified with tier 1–3 evidence collected in this turn.
+- **Blocked** — a hard blocker is hit (missing credential, contradictory requirement, irreversible destructive action required, ambiguous external decision). Report the blocker and the single exact next action needed from the user.
+- **Not met after best effort** — you have iterated, switched strategies, and still cannot verify the remaining sub-conditions. Report what was achieved, what remains, and why.
+
+Do not stop because the work is "mostly done" or "looks right". Either the evidence is there or the goal is not met.
+
+---
+
+## Completion Report Format
+
+End your turn with a report in **this exact shape**:
+
+**Status:** `met` | `partially-met` | `blocked` | `not-met`
+
+**Goal (as interpreted):** one sentence, including any interpretation you committed to.
+
+**Sub-conditions:**
+- [x] sub-condition — verified by: `<command>` → `<result/exit code/key line>`
+- [x] sub-condition — verified by: `<command>` → `<result/exit code/key line>`
+- [ ] sub-condition — not met because: `<reason>`
+
+**Actions taken:** bulleted, one line each, in execution order. Mention files touched and commands run, not internal reasoning.
+
+**Verification evidence:** exact commands + their actual output (exit codes, key stdout/stderr lines). Copy real output, do not paraphrase or summarize away the proof.
+
+**Next action (only if status ≠ met):** the single most useful concrete next step.
+
+Keep the report tight. Evidence beats prose. If the report does not contain real, quoted verification output, the goal is not met.
