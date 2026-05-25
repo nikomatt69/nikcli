@@ -28,7 +28,9 @@ export const InstanceScope = {
           },
         })
       },
-      catch: (error) => error,
+      catch: (error) => {
+        return error instanceof Error ? error : new Error(String(error), { cause: error })
+      },
     })
   },
 }

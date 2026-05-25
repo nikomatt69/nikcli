@@ -68,9 +68,21 @@ export namespace SessionPrompt {
 
   export function isUserInitiatedStop(error: unknown) {
     if (error === undefined) return true
+    if (MessageV2.AbortedError.isInstance(error)) return true
     if (error instanceof DOMException && error.name === "AbortError") return true
     if (errorMessage(error) === "RunnerCancelled") return true
     return error instanceof Error && error.name === "AbortError"
+  }
+
+  function sessionInterruptedError() {
+    return new MessageV2.AbortedError({ message: "Session interrupted" })
+  }
+
+  function rejectSessionWaiters(callbacks: PromptState[string]["callbacks"]) {
+    const error = sessionInterruptedError()
+    for (const callback of callbacks) {
+      callback.reject(error)
+    }
   }
 
   function askPermission(input: PermissionNext.AskInput) {
@@ -368,9 +380,7 @@ export namespace SessionPrompt {
               if (!item.abort.signal.aborted) item.abort.abort()
               if (!item.cancelling) {
                 item.cancelling = true
-                for (const callback of item.callbacks) {
-                  callback.reject()
-                }
+                rejectSessionWaiters(item.callbacks)
                 item.callbacks = []
               }
             }
@@ -586,9 +596,7 @@ export namespace SessionPrompt {
     if (!match || match.abort !== controller) return
     if (!match.cancelling) {
       match.cancelling = true
-      for (const item of match.callbacks) {
-        item.reject()
-      }
+      rejectSessionWaiters(match.callbacks)
       match.callbacks = []
     }
     await setStatus(sessionID, { type: "idle" })
@@ -615,9 +623,7 @@ export namespace SessionPrompt {
         return
       }
       match.cancelling = true
-      for (const item of match.callbacks) {
-        item.reject()
-      }
+      rejectSessionWaiters(match.callbacks)
       match.callbacks = []
       await setStatus(sessionID, { type: "idle" })
     }
@@ -2338,7 +2344,8 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
-      cancel: (sessionID) => Effect.tryPromise(() => cancel(sessionID)),
+      cancel: (sessionID) =>
+        Effect.promise(() => cancel(sessionID)),
       loop: (sessionID) => withInstanceContext(() => loop(sessionID)),
       shell: (input) => withInstanceContext(() => shell(input)),
       command: (input) => withInstanceContext(() => command(input)),

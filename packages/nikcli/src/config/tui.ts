@@ -220,10 +220,7 @@ export namespace TuiConfig {
     const plugins = data.plugin
     if (plugins) {
       for (let i = 0; i < plugins.length; i++) {
-        plugins[i] = yield* Effect.tryPromise({
-          try: () => Config.resolvePluginSpec(plugins[i], configFilepath),
-          catch: (error) => error as Error,
-        })
+        plugins[i] = yield* Effect.promise(() => Config.resolvePluginSpec(plugins[i], configFilepath))
       }
     }
 

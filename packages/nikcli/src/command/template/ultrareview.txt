@@ -110,21 +110,41 @@ You can check monitor status by reading the log paths returned by the monitor to
 
 ---
 
-## Step 6 — Synthesize
+## Step 6 — Synthesize and Validate
 
 Once all 4 reviewers have finished:
 
 1. Read all 4 log files
-2. De-duplicate findings that appear in multiple reviewers (same file + same issue)
-3. Cross-verify: a finding reported by 2+ reviewers gets higher confidence
-4. Discard findings that are speculative, style-only, or cannot be verified from the diff alone
-5. Clean up temp files: `rm /tmp/ultrareview_diff_<timestamp>.patch /tmp/ultrareview_ctx_<timestamp>.txt`
+2. Extract the findings section from each reviewer's output
+3. **Validate findings** using these rules:
+   - **Real check**: File referenced in finding must exist in the codebase
+   - **Logical check**: Issue description must be substantive (≥10 chars), not speculative (no "might", "could", "maybe", "perhaps")
+   - **Propagation check**: Findings for shared dirs (util/, lib/, common/, types/) should flag potential side effects on related files
+   - **Regression check**: Findings mentioning async, remove, delete, api changes should warn about potential breakage
+4. De-duplicate findings that appear in multiple reviewers (same file + same issue)
+5. Discard findings that fail validation
+6. Report validation summary and any warnings
+7. Clean up temp files: `rm /tmp/ultrareview_diff_<timestamp>.patch /tmp/ultrareview_ctx_<timestamp>.txt`
+
+**Validation rules:**
+- A finding is INVALID if:
+  - File path does not exist (use `bash: test -f <file>` to verify)
+  - Issue description is < 10 characters
+  - Issue contains vague speculative language: "might", "could", "maybe", "perhaps", "possibly"
+  - High-severity findings (CRITICAL/HIGH) must have a fix suggestion
+  - Line number is out of range for the file
+- A finding has PROPAGATION WARNING if:
+  - File is in a shared directory (util/, lib/, common/, shared/, base/, core/, config/, types/)
+  - Other files in the same directory are changed
+- A finding has REGRESSION WARNING if:
+  - Issue mentions: async, await, promise, memory leak, remove, delete, deprecate, api change, contract
+  - Many related files exist that could be affected
 
 ---
 
 ## Step 7 — Output
 
-Present findings grouped by severity. Use this format for each finding:
+Present findings **after validation** grouped by severity. Use this format for each finding:
 
 ```
 ### [SEVERITY] Short title
@@ -134,13 +154,26 @@ Present findings grouped by severity. Use this format for each finding:
 **Fix:** Concrete suggestion.
 ```
 
+**Validation badges** (include if applicable):
+- `⚠ propagation` — may affect related files in shared directory
+- `⚠ regression` — may break dependent code
+
 Severity levels: `CRITICAL` | `HIGH` | `MEDIUM` | `LOW`
 
 Rules for the output:
 - Lead with the highest-severity findings
-- Only include findings where you are confident a real issue exists
+- Only include findings that passed validation (are real and logical)
+- Include propagation/regression warnings as badges
 - Do not include style suggestions unless they violate an explicit project convention
 - If no issues were found in a category, say so briefly
-- End with a one-line summary: total findings by severity
+- End with a one-line summary: total findings by severity, plus validation stats
 
 If all 4 reviewers found nothing, say: "No issues found across all review dimensions."
+
+**Include validation summary:**
+```
+## Validation Summary
+Total findings: N | Valid: X | Invalid: Y
+By severity: CRITICAL: N, HIGH: N, MEDIUM: N, LOW: N
+Warnings: propagation: N, regression: N
+```

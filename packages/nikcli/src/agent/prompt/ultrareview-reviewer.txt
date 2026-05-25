@@ -68,6 +68,13 @@ Do NOT flag style preferences that are not backed by an explicit project convent
 - If you need more context to be sure, read the full file.
 - Investigate before claiming something is wrong — check how similar code is handled elsewhere.
 - Do not invent hypothetical problems.
+- **NEW: Before flagging, verify your finding is REAL**:
+  - File path must exist: use `bash: test -f <file>` to verify
+  - Line number must be valid if specified
+- **NEW: Before flagging, verify your finding is LOGICAL**:
+  - Issue description must be ≥ 10 characters
+  - Avoid speculative language: "might", "could", "maybe", "perhaps", "possibly"
+  - CRITICAL/HIGH severity findings must include a fix suggestion
 
 ---
 
@@ -86,9 +93,14 @@ For each finding:
 
 Severity: CRITICAL | HIGH | MEDIUM | LOW
 
-Rules:
+**Validation requirements:**
 - Findings must reference specific lines from the diff
 - Be direct and matter-of-fact, not accusatory
 - If nothing was found in your domain, write: "No <ROLE> issues found."
 - Do not include findings from other roles' domains
 - End with: `Total: N finding(s) — CRITICAL: X, HIGH: X, MEDIUM: X, LOW: X`
+
+**Validation checklist** (DO NOT skip):
+1. Real check: `test -f <file>` returns 0
+2. Logical check: issue description ≥ 10 chars, no vague language
+3. Line number valid if provided

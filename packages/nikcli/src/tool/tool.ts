@@ -74,10 +74,7 @@ export namespace Tool {
   export interface AuthoredDef<Parameters extends z.ZodType = z.ZodType, M extends Metadata = Metadata> {
     description: string
     parameters: Parameters
-    execute(
-      args: z.infer<Parameters>,
-      ctx: Context,
-    ): Promise<Result<M>> | Effect.Effect<Result<M>, Error>
+    execute(args: z.infer<Parameters>, ctx: Context): Promise<Result<M>> | Effect.Effect<Result<M>, Error>
     formatValidationError?(error: z.ZodError): string
   }
 
@@ -101,7 +98,9 @@ export namespace Tool {
     if (isEffect<R, Error>(value)) return value
     return Effect.tryPromise({
       try: () => value,
-      catch: (cause) => (cause instanceof Error ? cause : new Error(String(cause))),
+      catch: (cause) => {
+        return cause instanceof Error ? cause : new Error(String(cause))
+      },
     })
   }
 
@@ -134,13 +133,10 @@ export namespace Tool {
             const wrappedCtx: Context = {
               ...ctx,
               metadata(input) {
-                const metadata =
-                  input.metadata && input.metadata.truncated !== undefined
-                    ? input.metadata
-                    : {
-                        ...(input.metadata ?? {}),
-                        truncated: false,
-                      }
+                const metadata = {
+                  ...(input.metadata ?? {}),
+                  truncated: input.metadata?.truncated === undefined ? false : input.metadata.truncated,
+                }
                 ctx.metadata({
                   ...input,
                   metadata,
@@ -151,7 +147,13 @@ export namespace Tool {
             const result = yield* asEffect(authoredExecute(args, wrappedCtx)) as Effect.Effect<Result<M>, Error>
             if (result.metadata.truncated !== undefined) return result
 
-            const truncated = yield* Effect.promise(() => truncateOutput(result.output, {}, initCtx?.agent))
+            const truncated = yield* Effect.gen(function* () {
+              try {
+                return yield* Effect.promise(() => truncateOutput(result.output, {}, initCtx?.agent))
+              } catch {
+                return { content: result.output, truncated: false } satisfies Truncate.Result
+              }
+            })
             return {
               ...result,
               output: truncated.content,
