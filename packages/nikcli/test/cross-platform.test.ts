@@ -36,22 +36,14 @@ describe("cross-platform file:// URL handling", () => {
   // job re-runs the roundtrip on a real windows-latest runner. Here we encode the
   // contract source-level: every site that constructs a `file://` URL from a
   // filesystem path must go through pathToFileURL — never through `file://${path}`.
-  const fileUrlSites = [
-    "session/prompt.ts",
-    "acp/agent.ts",
-    "cli/cmd/run.ts",
-  ] as const
+  const fileUrlSites = ["session/prompt.ts", "acp/agent.ts", "cli/cmd/run.ts"] as const
 
   for (const rel of fileUrlSites) {
     it(`${rel} uses pathToFileURL and does not naively concat file:// + a filesystem path`, () => {
       const src = readSrc(rel)
       expect(src).toContain("pathToFileURL")
       // The naive shapes we removed — match the exact patterns the fix replaced.
-      const naivePatterns = [
-        "`file://${filepath}`",
-        "`file://${resolvedPath}`",
-        "`file://${path}`",
-      ]
+      const naivePatterns = ["`file://${filepath}`", "`file://${resolvedPath}`", "`file://${path}`"]
       for (const naive of naivePatterns) {
         expect(src).not.toContain(naive)
       }

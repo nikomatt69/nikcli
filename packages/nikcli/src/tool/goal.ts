@@ -28,9 +28,7 @@ function formatGoal(goal: SessionGoal.State) {
   return [
     `Objective: ${goal.objective}`,
     `Status: ${goal.status}`,
-    goal.tokenBudget === undefined
-      ? `Tokens: ${goal.tokensUsed}`
-      : `Tokens: ${goal.tokensUsed} / ${goal.tokenBudget}`,
+    goal.tokenBudget === undefined ? `Tokens: ${goal.tokensUsed}` : `Tokens: ${goal.tokensUsed} / ${goal.tokenBudget}`,
     `Iterations: ${goal.iterationCount} / ${SessionGoal.MAX_ITERATIONS}`,
     `Time used: ${SessionGoal.formatDuration(goal.timeUsedSeconds)}`,
   ].join("\n")

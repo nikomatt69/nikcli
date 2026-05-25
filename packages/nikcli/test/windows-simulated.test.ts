@@ -82,10 +82,7 @@ Object.defineProperty(process, "arch", { value: ${JSON.stringify(arch)}, configu
 ${envPatches}
 // --- end preamble ---
 `
-  const tmp = path.join(
-    TMP_DIR,
-    `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ts`,
-  )
+  const tmp = path.join(TMP_DIR, `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ts`)
   tempFiles.push(tmp)
   await fs.writeFile(tmp, preamble + "\n" + body, "utf8")
 
@@ -96,10 +93,7 @@ ${envPatches}
     stderr: "pipe",
     env: buildSubprocessEnv(sim),
   })
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ])
+  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
   const code = await proc.exited
   if (code !== 0) {
     throw new Error(`subprocess exited ${code}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`)

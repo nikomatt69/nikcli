@@ -308,7 +308,10 @@ export const studioApi = {
     delete: (name: string) =>
       request<{ success: boolean }>(`/config/mcp/${encodeURIComponent(name)}`, { method: "DELETE" }),
     toggle: (name: string, enabled: boolean) =>
-      request<Record<string, unknown>>(`/mcp/${encodeURIComponent(name)}/toggle`, { method: "POST", ...json({ enabled }) }),
+      request<Record<string, unknown>>(`/mcp/${encodeURIComponent(name)}/toggle`, {
+        method: "POST",
+        ...json({ enabled }),
+      }),
   },
 
   profiles: {
@@ -342,8 +345,7 @@ export const studioApi = {
       request<{ success: boolean }>("/skill", { method: "POST", ...json({ name, description, content }) }),
     update: (name: string, data: Partial<SkillDetail>) =>
       request<{ success: boolean }>(`/skill/${encodeURIComponent(name)}`, { method: "PUT", ...json(data) }),
-    delete: (name: string) =>
-      request<{ success: boolean }>(`/skill/${encodeURIComponent(name)}`, { method: "DELETE" }),
+    delete: (name: string) => request<{ success: boolean }>(`/skill/${encodeURIComponent(name)}`, { method: "DELETE" }),
     importUrls: (urls: string[]) =>
       request<{ success: boolean; imported: number }>("/skills/import", { method: "POST", ...json({ urls }) }),
   },

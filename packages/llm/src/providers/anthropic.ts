@@ -2,11 +2,7 @@ import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
 import { ProviderID, type ModelID } from "../schema"
 import * as AnthropicMessages from "../protocols/anthropic-messages"
-import {
-  withAnthropicOptions,
-  type AnthropicProviderOptionsInput,
-  type AnthropicVariant,
-} from "./anthropic-options"
+import { withAnthropicOptions, type AnthropicProviderOptionsInput, type AnthropicVariant } from "./anthropic-options"
 
 export type { AnthropicOptionsInput, AnthropicProviderOptionsInput, AnthropicVariant } from "./anthropic-options"
 

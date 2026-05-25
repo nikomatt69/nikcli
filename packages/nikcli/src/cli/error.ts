@@ -17,9 +17,7 @@ export function FormatError(input: unknown): string | undefined {
     const { providerID, modelID, suggestions } = input
     const message = [
       `Model not found: ${providerID}/${modelID}`,
-      ...(Array.isArray(suggestions) && suggestions.length
-        ? ["Did you mean: " + suggestions.join(", ")]
-        : []),
+      ...(Array.isArray(suggestions) && suggestions.length ? ["Did you mean: " + suggestions.join(", ")] : []),
       `Try: \`nikcli models\` to list available models`,
       `Or check your config (nikcli.json) provider/model names`,
     ].join("\n")
@@ -33,9 +31,7 @@ export function FormatError(input: unknown): string | undefined {
   }
 
   if (input instanceof Config.JsonError) {
-    const message =
-      `Config file at ${input.path} is not valid JSON(C)` +
-      (input.message ? `: ${input.message}` : "")
+    const message = `Config file at ${input.path} is not valid JSON(C)` + (input.message ? `: ${input.message}` : "")
     log.warn("Config JSON error", { path: input.path, message: input.message })
     return message
   }
@@ -57,9 +53,7 @@ export function FormatError(input: unknown): string | undefined {
     const issues = input.issues as Array<{ message: string; path: string[] }> | undefined
     log.debug("Formatting config invalid error", { path: input.path, issues: issues?.length })
     return [
-      `Configuration is invalid${
-        input.path && input.path !== "config" ? ` at ${input.path}` : ""
-      }` +
+      `Configuration is invalid${input.path && input.path !== "config" ? ` at ${input.path}` : ""}` +
         (input.message ? `: ${input.message}` : ""),
       ...(issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
     ].join("\n")

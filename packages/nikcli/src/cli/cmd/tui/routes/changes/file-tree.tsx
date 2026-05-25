@@ -227,7 +227,9 @@ export function FileTree(props: {
           </Show>
           <text fg={theme.text}>
             <b>Files</b>{" "}
-            <span style={{ fg: theme.textMuted }}>{`(${filtered().length}${props.filterText ? `/${props.files.length}` : ""})`}</span>
+            <span
+              style={{ fg: theme.textMuted }}
+            >{`(${filtered().length}${props.filterText ? `/${props.files.length}` : ""})`}</span>
           </text>
           <box height={1} />
           <Show
@@ -238,8 +240,7 @@ export function FileTree(props: {
               {(row) => {
                 const indent = "  ".repeat(row.depth)
                 const isHighlighted = () => highlighted() === row.id
-                const file = () =>
-                  row.fileIndex !== undefined ? filtered()[row.fileIndex] : undefined
+                const file = () => (row.fileIndex !== undefined ? filtered()[row.fileIndex] : undefined)
                 const reviewed = () => {
                   const f = file()
                   return f && props.reviewed?.has(f.file)

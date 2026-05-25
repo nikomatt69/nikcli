@@ -38,11 +38,11 @@ const TextComponent = Schema.Struct({
   type: Schema.Literal("text"),
   title: Schema.optional(Schema.String),
   content: Schema.String.annotate({ description: "Plain text content" }),
-  style: Schema.optional(
-    Schema.Literals(["default", "info", "success", "warning", "error", "code", "muted"]),
-  ).annotate({
-    description: "Semantic tint. style=code wraps the content in a monospace block.",
-  }),
+  style: Schema.optional(Schema.Literals(["default", "info", "success", "warning", "error", "code", "muted"])).annotate(
+    {
+      description: "Semantic tint. style=code wraps the content in a monospace block.",
+    },
+  ),
 })
 
 const MarkdownComponent = Schema.Struct({
@@ -253,7 +253,9 @@ const LineChartComponent = Schema.Struct({
     Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(4)), Schema.check(Schema.isLessThanOrEqualTo(20))),
   ).annotate({ description: "Rows for the plot area. Default 8." }),
   showLegend: Schema.optional(Schema.Boolean).annotate({ description: "Default true when series count > 1." }),
-  showAxis: Schema.optional(Schema.Boolean).annotate({ description: "Render y-axis with min/max ticks. Default true." }),
+  showAxis: Schema.optional(Schema.Boolean).annotate({
+    description: "Render y-axis with min/max ticks. Default true.",
+  }),
   yUnit: Schema.optional(Schema.String),
 })
 
@@ -385,10 +387,7 @@ const SectionComponent = Schema.Struct({
   type: Schema.Literal("section"),
   title: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
-  children: Schema.Array(LeafComponent).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.check(Schema.isMaxLength(12)),
-  ),
+  children: Schema.Array(LeafComponent).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12))),
 })
 
 const GridComponent = Schema.Struct({
@@ -397,17 +396,10 @@ const GridComponent = Schema.Struct({
   columns: Schema.optional(
     Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)), Schema.check(Schema.isLessThanOrEqualTo(4))),
   ).annotate({ description: "1–4. Default auto." }),
-  children: Schema.Array(LeafComponent).pipe(
-    Schema.check(Schema.isMinLength(1)),
-    Schema.check(Schema.isMaxLength(12)),
-  ),
+  children: Schema.Array(LeafComponent).pipe(Schema.check(Schema.isMinLength(1)), Schema.check(Schema.isMaxLength(12))),
 })
 
-const VisualizationComponent = Schema.Union([
-  LeafComponent,
-  SectionComponent,
-  GridComponent,
-])
+const VisualizationComponent = Schema.Union([LeafComponent, SectionComponent, GridComponent])
 
 // ──────────────────────────────────────────────────────────────────────────
 // Public types

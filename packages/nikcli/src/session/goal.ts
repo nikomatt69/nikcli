@@ -193,7 +193,7 @@ export namespace SessionGoal {
       usageLine(state),
       `Time used: ${formatDuration(state.timeUsedSeconds)}`,
       "",
-      "Use get_goal if you need the current state. Call update_goal with status \"complete\" only after current evidence proves every requirement is satisfied. Call update_goal with status \"blocked\" only when the same blocker has repeated for 3 consecutive goal turns.",
+      'Use get_goal if you need the current state. Call update_goal with status "complete" only after current evidence proves every requirement is satisfied. Call update_goal with status "blocked" only when the same blocker has repeated for 3 consecutive goal turns.',
       "Do not redefine the goal or stop because the work is partially done. Continue from the current repository state.",
     ].join("\n")
   }

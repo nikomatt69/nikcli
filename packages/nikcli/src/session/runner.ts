@@ -172,9 +172,7 @@ export const make = <A, E = never>(
             if (Exit.isSuccess(exit)) return exit.value
             if (
               Cause.hasInterruptsOnly(exit.cause) ||
-              ((yield* Deferred.isDone(cancelled)) &&
-                Cause.hasInterrupts(exit.cause) &&
-                !Cause.hasDies(exit.cause))
+              ((yield* Deferred.isDone(cancelled)) && Cause.hasInterrupts(exit.cause) && !Cause.hasDies(exit.cause))
             ) {
               if (onInterrupt) return yield* onInterrupt
               return yield* Effect.die(new Cancelled())

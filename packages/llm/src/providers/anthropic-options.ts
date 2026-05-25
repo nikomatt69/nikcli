@@ -93,9 +93,7 @@ export const anthropicDefaultOptions = (
   return undefined
 }
 
-export const withAnthropicOptions = <
-  Options extends { readonly providerOptions?: AnthropicProviderOptionsInput },
->(
+export const withAnthropicOptions = <Options extends { readonly providerOptions?: AnthropicProviderOptionsInput }>(
   modelID: string,
   options: Options,
   defaults: { readonly variant?: AnthropicVariant } = {},

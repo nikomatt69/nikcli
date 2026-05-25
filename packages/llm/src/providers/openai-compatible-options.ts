@@ -43,9 +43,7 @@ export const openAICompatibleDefaultOptions = (
   }
 
   // Profile-less: try to infer from the model id alone.
-  if (
-    matches(id, [...DEEPSEEK_REASONING, ...FIREWORKS_REASONING, ...GROQ_REASONING, ...CEREBRAS_REASONING])
-  ) {
+  if (matches(id, [...DEEPSEEK_REASONING, ...FIREWORKS_REASONING, ...GROQ_REASONING, ...CEREBRAS_REASONING])) {
     return { openai: { reasoningEffort: "medium" } }
   }
   return undefined
@@ -61,10 +59,7 @@ export const withOpenAICompatibleOptions = <
   return {
     ...options,
     id: modelID,
-    providerOptions: mergeProviderOptions(
-      openAICompatibleDefaultOptions(modelID, defaults),
-      options.providerOptions,
-    ),
+    providerOptions: mergeProviderOptions(openAICompatibleDefaultOptions(modelID, defaults), options.providerOptions),
   }
 }
 

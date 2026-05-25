@@ -2,11 +2,7 @@ import type { RouteModelInput } from "../route/client"
 import { Provider } from "../provider"
 import { ProviderID, type ModelID } from "../schema"
 import * as Gemini from "../protocols/gemini"
-import {
-  withGoogleOptions,
-  type GoogleProviderOptionsInput,
-  type GoogleVariant,
-} from "./google-options"
+import { withGoogleOptions, type GoogleProviderOptionsInput, type GoogleVariant } from "./google-options"
 
 export type { GoogleOptionsInput, GoogleProviderOptionsInput, GoogleVariant } from "./google-options"
 

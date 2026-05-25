@@ -11,9 +11,7 @@ import { useToast } from "../ui/toast"
 import { MCP_CATALOG } from "./mcp-catalog"
 import type { McpLocalConfig } from "@nikcli-ai/sdk/v2"
 
-type McpRowValue =
-  | { kind: "installed"; name: string }
-  | { kind: "catalog"; index: number }
+type McpRowValue = { kind: "installed"; name: string } | { kind: "catalog"; index: number }
 
 function Status(props: { enabled: boolean; loading: boolean }) {
   const { theme } = useTheme()
@@ -54,15 +52,15 @@ export function DialogMcp() {
       })),
     )
 
-    const catalogRows: DialogSelectOption<McpRowValue>[] = MCP_CATALOG
-      .filter((entry) => !configuredNames.has(entry.name))
-      .map((entry, i) => ({
-        value: { kind: "catalog" as const, index: i },
-        title: entry.name,
-        description: entry.description,
-        footer: <span style={{ fg: theme.textMuted }}>not configured</span>,
-        category: "Catalog",
-      }))
+    const catalogRows: DialogSelectOption<McpRowValue>[] = MCP_CATALOG.filter(
+      (entry) => !configuredNames.has(entry.name),
+    ).map((entry, i) => ({
+      value: { kind: "catalog" as const, index: i },
+      title: entry.name,
+      description: entry.description,
+      footer: <span style={{ fg: theme.textMuted }}>not configured</span>,
+      category: "Catalog",
+    }))
 
     return [...installedRows, ...catalogRows]
   })

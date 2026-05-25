@@ -15,7 +15,6 @@ import { Keybind } from "@/util/keybind"
 import { Locale } from "@/util/locale"
 import { Global } from "@/global"
 
-
 type PermissionStage = "permission" | "always" | "reject"
 
 function normalizePath(input?: string) {
@@ -70,7 +69,6 @@ function EditBody(props: { request: PermissionRequest }) {
     if (files().length > 0) return files()[0]?.diff ?? ""
     return singleDiff()
   })
-
 
   const view = createMemo(() => {
     const diffStyle = sync.data.config.tui?.diff_style
@@ -455,13 +453,13 @@ function Prompt<const T extends Record<string, string>>(props: {
       {...(store.expanded
         ? { top: dimensions().height * -1 + 1, bottom: 1, left: 2, right: 2, position: "absolute" }
         : {
-          top: 0,
-          maxHeight: 15,
-          bottom: 0,
-          left: 0,
-          right: 0,
-          position: "relative",
-        })}
+            top: 0,
+            maxHeight: 15,
+            bottom: 0,
+            left: 0,
+            right: 0,
+            position: "relative",
+          })}
     >
       <box gap={1} paddingLeft={1} paddingRight={3} paddingTop={1} paddingBottom={1} flexGrow={1}>
         <box flexDirection="row" gap={1} paddingLeft={1} flexShrink={0}>

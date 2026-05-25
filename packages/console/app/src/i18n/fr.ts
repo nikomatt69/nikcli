@@ -113,8 +113,7 @@ export const dict = {
   "home.faq.a2.before": "Le moyen le plus simple de commencer est de lire l'",
   "home.faq.a2.link": "intro",
   "home.faq.q3": "Ai-je besoin d'abonnements IA supplementaires pour utiliser Nikcli?",
-  "home.faq.a3.p1":
-    "Pas forcement: Nikcli propose des modeles gratuits que vous pouvez utiliser sans creer de compte.",
+  "home.faq.a3.p1": "Pas forcement: Nikcli propose des modeles gratuits que vous pouvez utiliser sans creer de compte.",
   "home.faq.a3.p2.beforeZen": "En plus, vous pouvez utiliser des modeles populaires pour le code en creant un compte",
   "home.faq.a3.p2.afterZen": ".",
   "home.faq.a3.p3":
