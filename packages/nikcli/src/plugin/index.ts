@@ -21,7 +21,7 @@ import { CursorAuthPlugin } from "./cursor"
 import { readV1Plugin, readPluginId, resolvePluginId, pluginSource } from "./shared"
 import type { PluginModule } from "@nikcli-ai/plugin"
 import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cloudflare"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import {
   InstanceState,
   locallyInstance,
@@ -636,6 +636,10 @@ export namespace Plugin {
 
   const BUILTIN: string[] = []
 
+  export class PluginError extends Schema.TaggedErrorClass<PluginError>()("PluginError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
     trigger<
       Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
@@ -645,9 +649,9 @@ export namespace Plugin {
       name: Name,
       input: Input,
       output: Output,
-    ): Effect.Effect<Output, unknown>
-    list(): Effect.Effect<Hooks[], unknown>
-    init(): Effect.Effect<void, unknown>
+    ): Effect.Effect<Output, PluginError>
+    list(): Effect.Effect<Hooks[], never>
+    init(): Effect.Effect<void, PluginError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Plugin.Service") {}
@@ -798,9 +802,21 @@ export namespace Plugin {
 
       return Service.of({
         trigger: (name, input, output) =>
-          getState().pipe(Effect.flatMap((state) => Effect.tryPromise(() => triggerImpl(state, name, input, output)))),
+          getState().pipe(
+            Effect.flatMap((state) =>
+              Effect.tryPromise({
+                try: () => triggerImpl(state, name, input, output),
+                catch: (e) => new PluginError({ cause: e }),
+              }),
+            ),
+          ),
         list: () => getState().pipe(Effect.map((state) => state.hooks)),
-        init: () => getState().pipe(Effect.flatMap((state) => Effect.tryPromise(() => initImpl(state)))),
+        init: () =>
+          getState().pipe(
+            Effect.flatMap((state) =>
+              Effect.tryPromise({ try: () => initImpl(state), catch: (e) => new PluginError({ cause: e }) }),
+            ),
+          ),
       })
     }),
   )

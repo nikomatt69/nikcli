@@ -1,9 +1,13 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { Identifier } from "@/id/id"
 import { Storage } from "@/storage/storage"
 import { runPromiseWithLayer } from "@/effect"
 
 export namespace SessionGoal {
+  export class GoalError extends Schema.TaggedErrorClass<GoalError>()("GoalError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export const MAX_ITERATIONS = 50
 
   export type Status = "active" | "paused" | "blocked" | "usage_limited" | "budget_limited" | "complete"
@@ -26,19 +30,19 @@ export namespace SessionGoal {
     | { type: "objective"; objective: string; tokenBudget?: number }
 
   export interface Interface {
-    readonly get: (sessionID: string) => Effect.Effect<State | undefined, unknown>
-    readonly set: (sessionID: string, objective: string, tokenBudget?: number) => Effect.Effect<State, unknown>
-    readonly updateStatus: (sessionID: string, status: Status) => Effect.Effect<State | undefined, unknown>
+    readonly get: (sessionID: string) => Effect.Effect<State | undefined, GoalError>
+    readonly set: (sessionID: string, objective: string, tokenBudget?: number) => Effect.Effect<State, GoalError>
+    readonly updateStatus: (sessionID: string, status: Status) => Effect.Effect<State | undefined, GoalError>
     readonly accountUsage: (
       sessionID: string,
       tokensDelta: number,
       timeDeltaSeconds: number,
-    ) => Effect.Effect<State | undefined, unknown>
-    readonly incrementIteration: (sessionID: string) => Effect.Effect<State | undefined, unknown>
-    readonly pause: (sessionID: string) => Effect.Effect<State | undefined, unknown>
-    readonly resume: (sessionID: string) => Effect.Effect<State | undefined, unknown>
-    readonly usageLimit: (sessionID: string) => Effect.Effect<State | undefined, unknown>
-    readonly clear: (sessionID: string) => Effect.Effect<void, unknown>
+    ) => Effect.Effect<State | undefined, GoalError>
+    readonly incrementIteration: (sessionID: string) => Effect.Effect<State | undefined, GoalError>
+    readonly pause: (sessionID: string) => Effect.Effect<State | undefined, GoalError>
+    readonly resume: (sessionID: string) => Effect.Effect<State | undefined, GoalError>
+    readonly usageLimit: (sessionID: string) => Effect.Effect<State | undefined, GoalError>
+    readonly clear: (sessionID: string) => Effect.Effect<void, GoalError>
     readonly isGoalContinueNeeded: (state: State) => boolean
     readonly isIterationLimitReached: (state: State) => boolean
     readonly continuationPrompt: (state: State) => string
@@ -253,16 +257,16 @@ export namespace SessionGoal {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      get: (sessionID) => Effect.tryPromise(() => getImpl(sessionID)),
-      set: (sessionID, objective, tokenBudget) => Effect.tryPromise(() => setImpl(sessionID, objective, tokenBudget)),
-      updateStatus: (sessionID, status) => Effect.tryPromise(() => updateStatusImpl(sessionID, status)),
+      get: (sessionID) => Effect.tryPromise({ try: () => getImpl(sessionID), catch: (e) => new GoalError({ cause: e }) }),
+      set: (sessionID, objective, tokenBudget) => Effect.tryPromise({ try: () => setImpl(sessionID, objective, tokenBudget), catch: (e) => new GoalError({ cause: e }) }),
+      updateStatus: (sessionID, status) => Effect.tryPromise({ try: () => updateStatusImpl(sessionID, status), catch: (e) => new GoalError({ cause: e }) }),
       accountUsage: (sessionID, tokensDelta, timeDeltaSeconds) =>
-        Effect.tryPromise(() => accountUsageImpl(sessionID, tokensDelta, timeDeltaSeconds)),
-      incrementIteration: (sessionID) => Effect.tryPromise(() => incrementIterationImpl(sessionID)),
-      pause: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "paused")),
-      resume: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "active")),
-      usageLimit: (sessionID) => Effect.tryPromise(() => updateStatusImpl(sessionID, "usage_limited")),
-      clear: (sessionID) => Effect.tryPromise(() => storageRemove(key(sessionID)).catch(() => undefined)),
+        Effect.tryPromise({ try: () => accountUsageImpl(sessionID, tokensDelta, timeDeltaSeconds), catch: (e) => new GoalError({ cause: e }) }),
+      incrementIteration: (sessionID) => Effect.tryPromise({ try: () => incrementIterationImpl(sessionID), catch: (e) => new GoalError({ cause: e }) }),
+      pause: (sessionID) => Effect.tryPromise({ try: () => updateStatusImpl(sessionID, "paused"), catch: (e) => new GoalError({ cause: e }) }),
+      resume: (sessionID) => Effect.tryPromise({ try: () => updateStatusImpl(sessionID, "active"), catch: (e) => new GoalError({ cause: e }) }),
+      usageLimit: (sessionID) => Effect.tryPromise({ try: () => updateStatusImpl(sessionID, "usage_limited"), catch: (e) => new GoalError({ cause: e }) }),
+      clear: (sessionID) => Effect.tryPromise({ try: () => storageRemove(key(sessionID)).catch(() => undefined), catch: (e) => new GoalError({ cause: e }) }),
       isGoalContinueNeeded,
       isIterationLimitReached,
       continuationPrompt,

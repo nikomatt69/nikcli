@@ -963,8 +963,8 @@ export namespace Provider {
     list(): Effect.Effect<Record<string, Info>, unknown>
     getProvider(providerID: string): Effect.Effect<Info | undefined, unknown>
     getModel(providerID: string, modelID: string): Effect.Effect<Model, unknown>
-    getLanguage(model: Model): Effect.Effect<LanguageModelV2, unknown>
-    getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, unknown>
+    getLanguage(model: Model): Effect.Effect<LanguageModelV2, InitError | ModelNotFoundError>
+    getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, InitError | ModelNotFoundError>
     /** Resolve a model to a @nikcli-ai/llm ModelRef for the route-based provider system. */
     getModelRef(model: Model): Effect.Effect<ModelRef | undefined, unknown>
     closest(
@@ -1700,27 +1700,36 @@ export namespace Provider {
         if (s.models.has(key)) return s.models.get(key)!
 
         const provider = s.providers[model.providerID]
-        const sdk = yield* Effect.tryPromise(() => getSDK(s, model))
+        const sdk = yield* Effect.tryPromise({
+          try: () => getSDK(s, model),
+          catch: (e) => new InitError({ providerID: model.providerID }),
+        })
 
-        return yield* Effect.tryPromise(async () => {
-          try {
-            const language = s.modelLoaders[model.providerID]
-              ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
-              : sdk.languageModel(model.api.id)
-            s.models.set(key, language as LanguageModelV2)
-            return language as LanguageModelV2
-          } catch (e) {
-            if (e instanceof NoSuchModelError) {
-              throw Object.assign(
-                new ModelNotFoundError({
-                  modelID: model.id,
-                  providerID: model.providerID,
-                }),
-                { cause: e },
-              )
+        return yield* Effect.tryPromise({
+          try: async () => {
+            try {
+              const language = s.modelLoaders[model.providerID]
+                ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
+                : sdk.languageModel(model.api.id)
+              s.models.set(key, language as LanguageModelV2)
+              return language as LanguageModelV2
+            } catch (e) {
+              if (e instanceof NoSuchModelError) {
+                throw Object.assign(
+                  new ModelNotFoundError({
+                    modelID: model.id,
+                    providerID: model.providerID,
+                  }),
+                  { cause: e },
+                )
+              }
+              throw e
             }
-            throw e
-          }
+          },
+          catch: (e) =>
+            e instanceof ModelNotFoundError
+              ? e
+              : new InitError({ providerID: model.providerID }),
         })
       })
 
@@ -1729,48 +1738,54 @@ export namespace Provider {
         const key = `${model.providerID}/${model.id}`
         if (s.images.has(key)) return s.images.get(key)!
 
-        return yield* Effect.tryPromise(async () => {
-          const providerID = model.providerID ?? ""
-          const apiNpm = model.api?.npm ?? ""
+        return yield* Effect.tryPromise({
+          try: async () => {
+            const providerID = model.providerID ?? ""
+            const apiNpm = model.api?.npm ?? ""
 
-          if (
-            providerID.includes("openrouter") ||
-            apiNpm.includes("openrouter") ||
-            apiNpm.includes("openai-compatible")
-          ) {
-            const { createOpenAI } = await import("@ai-sdk/openai")
-            const provider = s.providers[providerID] || s.providers["openrouter"]
-            const openrouterApi = "https://openrouter.ai/api/v1"
-            const baseURL = model.api?.url || (providerID.includes("openrouter") ? openrouterApi : undefined)
+            if (
+              providerID.includes("openrouter") ||
+              apiNpm.includes("openrouter") ||
+              apiNpm.includes("openai-compatible")
+            ) {
+              const { createOpenAI } = await import("@ai-sdk/openai")
+              const provider = s.providers[providerID] || s.providers["openrouter"]
+              const openrouterApi = "https://openrouter.ai/api/v1"
+              const baseURL = model.api?.url || (providerID.includes("openrouter") ? openrouterApi : undefined)
 
-            const openaiSDK = createOpenAI({
-              name: providerID,
-              baseURL,
-              apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
-            })
+              const openaiSDK = createOpenAI({
+                name: providerID,
+                baseURL,
+                apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
+              })
 
-            const image = openaiSDK.imageModel(model.api.id)
-            s.images.set(key, image)
-            return image
-          }
-
-          const sdk = await getSDK(s, model)
-          try {
-            const image = sdk.imageModel(model.api.id)
-            s.images.set(key, image)
-            return image
-          } catch (e) {
-            if (e instanceof NoSuchModelError) {
-              throw Object.assign(
-                new ModelNotFoundError({
-                  modelID: model.id,
-                  providerID: model.providerID,
-                }),
-                { cause: e },
-              )
+              const image = openaiSDK.imageModel(model.api.id)
+              s.images.set(key, image)
+              return image
             }
-            throw e
-          }
+
+            const sdk = await getSDK(s, model)
+            try {
+              const image = sdk.imageModel(model.api.id)
+              s.images.set(key, image)
+              return image
+            } catch (e) {
+              if (e instanceof NoSuchModelError) {
+                throw Object.assign(
+                  new ModelNotFoundError({
+                    modelID: model.id,
+                    providerID: model.providerID,
+                  }),
+                  { cause: e },
+                )
+              }
+              throw e
+            }
+          },
+          catch: (e) =>
+            e instanceof ModelNotFoundError
+              ? e
+              : new InitError({ modelID: model.id, providerID: model.providerID, cause: e }),
         })
       })
 
@@ -1914,5 +1929,7 @@ export namespace Provider {
 
   export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
     providerID: Schema.String,
+    modelID: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown),
   }) {}
 }

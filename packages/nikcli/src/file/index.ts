@@ -139,17 +139,21 @@ export namespace File {
     files(): Promise<Entry>
   }
 
+  export class FileError extends Schema.TaggedErrorClass<FileError>()("FileError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
     init(): Effect.Effect<void, unknown>
-    status(): Effect.Effect<Info[], unknown>
-    read(file: string): Effect.Effect<Content, unknown>
-    list(dir?: string): Effect.Effect<Node[], unknown>
+    status(): Effect.Effect<Info[], FileError>
+    read(file: string): Effect.Effect<Content, FileError>
+    list(dir?: string): Effect.Effect<Node[], FileError>
     search(input: {
       query: string
       limit?: number
       dirs?: boolean
       type?: "file" | "directory"
-    }): Effect.Effect<string[], unknown>
+    }): Effect.Effect<string[], FileError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("File.Service") {}
@@ -546,17 +550,17 @@ export namespace File {
 
       const status = Effect.fn("File.status")(function* () {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => statusImpl(s.context))
+        return yield* Effect.tryPromise({ try: () => statusImpl(s.context), catch: (e) => new FileError({ cause: e }) })
       })
 
       const read = Effect.fn("File.read")(function* (file: string) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => readImpl(s.context, file))
+        return yield* Effect.tryPromise({ try: () => readImpl(s.context, file), catch: (e) => new FileError({ cause: e }) })
       })
 
       const list = Effect.fn("File.list")(function* (dir?: string) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => listImpl(s.context, dir))
+        return yield* Effect.tryPromise({ try: () => listImpl(s.context, dir), catch: (e) => new FileError({ cause: e }) })
       })
 
       const search = Effect.fn("File.search")(function* (input: {
@@ -566,7 +570,7 @@ export namespace File {
         type?: "file" | "directory"
       }) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => searchImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => searchImpl(s, input), catch: (e) => new FileError({ cause: e }) })
       })
 
       return Service.of({

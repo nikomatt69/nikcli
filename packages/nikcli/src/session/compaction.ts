@@ -23,6 +23,9 @@ import {
 import { isOverflow as overflowCheck } from "./overflow"
 
 export namespace SessionCompaction {
+  export class CompactionError extends Schema.TaggedErrorClass<CompactionError>()("CompactionError", {
+    cause: Schema.Unknown,
+  }) {}
   const log = Log.create({ service: "session.compaction" })
 
   function agentGet(name: string) {
@@ -97,11 +100,11 @@ export namespace SessionCompaction {
   }
 
   export interface Interface {
-    isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }): Effect.Effect<boolean, unknown>
-    editContext(input: { sessionID: string; keepLastNTurns?: number }): Effect.Effect<void, unknown>
-    prune(input: { sessionID: string }): Effect.Effect<void, unknown>
-    process(input: ProcessInput): Effect.Effect<"continue" | "stop", unknown>
-    create(input: CreateInput): Effect.Effect<void, unknown>
+    isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }): Effect.Effect<boolean, CompactionError>
+    editContext(input: { sessionID: string; keepLastNTurns?: number }): Effect.Effect<void, CompactionError>
+    prune(input: { sessionID: string }): Effect.Effect<void, CompactionError>
+    process(input: ProcessInput): Effect.Effect<"continue" | "stop", CompactionError>
+    create(input: CreateInput): Effect.Effect<void, CompactionError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionCompaction.Service") {}
@@ -409,22 +412,22 @@ When constructing the summary, try to stick to this template:
         Effect.gen(function* () {
           const ctx = yield* InstanceState.context
           const config = yield* Effect.promise(() => configGet())
-          return yield* Effect.tryPromise(() => editContextImpl({ ...input, config, ctx }))
+          return yield* Effect.tryPromise({ try: () => editContextImpl({ ...input, config, ctx }), catch: (e) => new CompactionError({ cause: e }) })
         }),
       prune: (input) =>
         Effect.gen(function* () {
           const ctx = yield* InstanceState.context
           const config = yield* Effect.promise(() => configGet())
-          return yield* Effect.tryPromise(() => pruneImpl({ ...input, config, ctx }))
+          return yield* Effect.tryPromise({ try: () => pruneImpl({ ...input, config, ctx }), catch: (e) => new CompactionError({ cause: e }) })
         }),
       process: (input) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>
-            Effect.tryPromise(() => processImpl({ ...input, directory: ctx.directory, worktree: ctx.worktree, ctx })),
+            Effect.tryPromise({ try: () => processImpl({ ...input, directory: ctx.directory, worktree: ctx.worktree, ctx }), catch: (e) => new CompactionError({ cause: e }) }),
           ),
         ),
       create: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => createImpl({ ...input, ctx })))),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => createImpl({ ...input, ctx }), catch: (e) => new CompactionError({ cause: e }) }))),
     }),
   )
 

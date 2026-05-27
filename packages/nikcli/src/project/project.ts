@@ -18,6 +18,10 @@ import { runPromiseWithLayer } from "@/effect"
 export namespace Project {
   const log = Log.create({ service: "project" })
 
+  export class ProjectError extends Schema.TaggedErrorClass<ProjectError>()("ProjectError", {
+    cause: Schema.Unknown,
+  }) {}
+
   function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
     return runPromiseWithLayer(Storage.defaultLayer, effect)
   }
@@ -134,13 +138,13 @@ export namespace Project {
   export type UpdateInput = Schema.Schema.Type<typeof UpdateInputSchema>
 
   export interface Interface {
-    fromDirectory(directory: string): Effect.Effect<{ project: Info; sandbox: string }, unknown>
-    discover(input: Info): Effect.Effect<void, unknown>
-    setInitialized(projectID: string): Effect.Effect<void, unknown>
-    list(): Effect.Effect<Info[], unknown>
-    update(input: UpdateInput): Effect.Effect<Info, unknown>
-    sandboxes(projectID: string): Effect.Effect<string[], unknown>
-    removeSandbox(projectID: string, directory: string): Effect.Effect<Info, unknown>
+    fromDirectory(directory: string): Effect.Effect<{ project: Info; sandbox: string }, ProjectError>
+    discover(input: Info): Effect.Effect<void, ProjectError>
+    setInitialized(projectID: string): Effect.Effect<void, ProjectError>
+    list(): Effect.Effect<Info[], ProjectError>
+    update(input: UpdateInput): Effect.Effect<Info, ProjectError>
+    sandboxes(projectID: string): Effect.Effect<string[], ProjectError>
+    removeSandbox(projectID: string, directory: string): Effect.Effect<Info, ProjectError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Project.Service") {}
@@ -473,13 +477,13 @@ export namespace Project {
   const layer = Layer.succeed(
     Service,
     Service.of({
-      fromDirectory: (directory) => Effect.tryPromise(() => fromDirectoryImpl(directory)),
-      discover: (input) => Effect.tryPromise(() => discoverImpl(input)),
-      setInitialized: (projectID) => Effect.tryPromise(() => setInitializedImpl(projectID)),
-      list: () => Effect.tryPromise(() => listImpl()),
-      update: (input) => Effect.tryPromise(() => updateImpl(input)),
-      sandboxes: (projectID) => Effect.tryPromise(() => sandboxesImpl(projectID)),
-      removeSandbox: (projectID, directory) => Effect.tryPromise(() => removeSandboxImpl(projectID, directory)),
+      fromDirectory: (directory) => Effect.tryPromise({ try: () => fromDirectoryImpl(directory), catch: (e) => new ProjectError({ cause: e }) }),
+      discover: (input) => Effect.tryPromise({ try: () => discoverImpl(input), catch: (e) => new ProjectError({ cause: e }) }),
+      setInitialized: (projectID) => Effect.tryPromise({ try: () => setInitializedImpl(projectID), catch: (e) => new ProjectError({ cause: e }) }),
+      list: () => Effect.tryPromise({ try: () => listImpl(), catch: (e) => new ProjectError({ cause: e }) }),
+      update: (input) => Effect.tryPromise({ try: () => updateImpl(input), catch: (e) => new ProjectError({ cause: e }) }),
+      sandboxes: (projectID) => Effect.tryPromise({ try: () => sandboxesImpl(projectID), catch: (e) => new ProjectError({ cause: e }) }),
+      removeSandbox: (projectID, directory) => Effect.tryPromise({ try: () => removeSandboxImpl(projectID, directory), catch: (e) => new ProjectError({ cause: e }) }),
     }),
   )
 

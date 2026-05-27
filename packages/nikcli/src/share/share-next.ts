@@ -7,11 +7,15 @@ import { MessageV2 } from "@/session/message-v2"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import type * as SDK from "@nikcli-ai/sdk/v2"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 export namespace ShareNext {
   const log = Log.create({ service: "share-next" })
+
+  export class ShareError extends Schema.TaggedErrorClass<ShareError>()("ShareError", {
+    cause: Schema.Unknown,
+  }) {}
 
   type Data =
     | {
@@ -51,11 +55,11 @@ export namespace ShareNext {
   const LOCAL_SHARE_PREFIX = ["local_share"]
 
   export interface Interface {
-    url(): Effect.Effect<string, unknown>
-    init(): Effect.Effect<void, unknown>
-    create(sessionID: string, input?: { baseUrl?: string }): Effect.Effect<StoredShare, unknown>
-    remove(sessionID: string): Effect.Effect<void, unknown>
-    publicData(shareID: string): Effect.Effect<Data[] | undefined, unknown>
+    url(): Effect.Effect<string, ShareError>
+    init(): Effect.Effect<void, ShareError>
+    create(sessionID: string, input?: { baseUrl?: string }): Effect.Effect<StoredShare, ShareError>
+    remove(sessionID: string): Effect.Effect<void, ShareError>
+    publicData(shareID: string): Effect.Effect<Data[] | undefined, ShareError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("ShareNext.Service") {}
@@ -505,11 +509,11 @@ export namespace ShareNext {
   const layer = Layer.succeed(
     Service,
     Service.of({
-      url: () => Effect.tryPromise(() => urlImpl()),
-      init: () => Effect.tryPromise(() => initImpl()),
-      create: (sessionID, input) => Effect.tryPromise(() => createImpl(sessionID, input)),
-      remove: (sessionID) => Effect.tryPromise(() => removeImpl(sessionID)),
-      publicData: (shareID) => Effect.tryPromise(() => publicDataImpl(shareID)),
+      url: () => Effect.tryPromise({ try: () => urlImpl(), catch: (e) => new ShareError({ cause: e }) }),
+      init: () => Effect.tryPromise({ try: () => initImpl(), catch: (e) => new ShareError({ cause: e }) }),
+      create: (sessionID, input) => Effect.tryPromise({ try: () => createImpl(sessionID, input), catch: (e) => new ShareError({ cause: e }) }),
+      remove: (sessionID) => Effect.tryPromise({ try: () => removeImpl(sessionID), catch: (e) => new ShareError({ cause: e }) }),
+      publicData: (shareID) => Effect.tryPromise({ try: () => publicDataImpl(shareID), catch: (e) => new ShareError({ cause: e }) }),
     }),
   )
 

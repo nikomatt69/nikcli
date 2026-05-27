@@ -21,6 +21,10 @@ type MacIcon = {
 }
 
 export namespace Todo {
+  export class TodoError extends Schema.TaggedErrorClass<TodoError>()("TodoError", {
+    cause: Schema.Unknown,
+  }) {}
+
   const InfoSchema = Schema.Struct({
     content: Schema.String.annotate({ description: "Brief description of the task" }),
     status: Schema.String.annotate({
@@ -63,8 +67,8 @@ export namespace Todo {
   }
 
   export interface Interface {
-    update(input: { sessionID: string; todos: Info[] }): Effect.Effect<void, unknown>
-    get(sessionID: string): Effect.Effect<Info[], unknown>
+    update(input: { sessionID: string; todos: Info[] }): Effect.Effect<void, TodoError>
+    get(sessionID: string): Effect.Effect<Info[], TodoError>
     init(): Effect.Effect<void>
   }
 
@@ -302,8 +306,8 @@ export namespace Todo {
   const layer = Layer.succeed(
     Service,
     Service.of({
-      update: (input) => Effect.tryPromise(() => updateImpl(input)),
-      get: (sessionID) => Effect.tryPromise(() => getImpl(sessionID)),
+      update: (input) => Effect.tryPromise({ try: () => updateImpl(input), catch: (e) => new TodoError({ cause: e }) }),
+      get: (sessionID) => Effect.tryPromise({ try: () => getImpl(sessionID), catch: (e) => new TodoError({ cause: e }) }),
       init: () => Effect.sync(() => initImpl()),
     }),
   )

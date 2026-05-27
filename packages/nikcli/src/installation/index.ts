@@ -16,6 +16,10 @@ declare global {
 export namespace Installation {
   const log = Log.create({ service: "installation" })
 
+  export class InstallationError extends Schema.TaggedErrorClass<InstallationError>()("InstallationError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export type Method = "curl" | "npm" | "yarn" | "pnpm" | "bun" | "brew" | "scoop" | "choco" | "unknown"
 
   export const Event = {
@@ -44,20 +48,22 @@ export namespace Installation {
   export class Service extends Context.Service<
     Service,
     {
-      info(): Effect.Effect<Info, unknown>
-      method(): Effect.Effect<Method, unknown>
-      latest(installMethod?: Method): Effect.Effect<string, unknown>
-      upgrade(method: Method, target: string): Effect.Effect<void, unknown>
+      info(): Effect.Effect<Info, InstallationError>
+      method(): Effect.Effect<Method, InstallationError>
+      latest(installMethod?: Method): Effect.Effect<string, InstallationError>
+      upgrade(method: Method, target: string): Effect.Effect<void, InstallationError>
     }
   >()("Installation.Service") {}
 
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      info: () => Effect.tryPromise(() => infoImpl()),
-      method: () => Effect.tryPromise(() => methodImpl()),
-      latest: (installMethod) => Effect.tryPromise(() => latestImpl(installMethod)),
-      upgrade: (method, target) => Effect.tryPromise(() => upgradeImpl(method, target)),
+      info: () => Effect.tryPromise({ try: () => infoImpl(), catch: (e) => new InstallationError({ cause: e }) }),
+      method: () => Effect.tryPromise({ try: () => methodImpl(), catch: (e) => new InstallationError({ cause: e }) }),
+      latest: (installMethod) =>
+        Effect.tryPromise({ try: () => latestImpl(installMethod), catch: (e) => new InstallationError({ cause: e }) }),
+      upgrade: (method, target) =>
+        Effect.tryPromise({ try: () => upgradeImpl(method, target), catch: (e) => new InstallationError({ cause: e }) }),
     }),
   )
 

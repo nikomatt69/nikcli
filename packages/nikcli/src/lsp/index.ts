@@ -68,21 +68,25 @@ export namespace LSP {
     context: InstanceContext
   }
 
+  export class LspError extends Schema.TaggedErrorClass<LspError>()("LspError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
-    init(): Effect.Effect<void, unknown>
-    status(): Effect.Effect<Status[], unknown>
-    hasClients(file: string): Effect.Effect<boolean, unknown>
-    touchFile(input: string, waitForDiagnostics?: boolean): Effect.Effect<void, unknown>
-    diagnostics(): Effect.Effect<Record<string, LSPClient.Diagnostic[]>, unknown>
-    hover(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    workspaceSymbol(query: string): Effect.Effect<Symbol[], unknown>
-    documentSymbol(uri: string): Effect.Effect<(DocumentSymbol | Symbol)[], unknown>
-    definition(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    references(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    implementation(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    prepareCallHierarchy(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    incomingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
-    outgoingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], unknown>
+    init(): Effect.Effect<void, LspError>
+    status(): Effect.Effect<Status[], LspError>
+    hasClients(file: string): Effect.Effect<boolean, LspError>
+    touchFile(input: string, waitForDiagnostics?: boolean): Effect.Effect<void, LspError>
+    diagnostics(): Effect.Effect<Record<string, LSPClient.Diagnostic[]>, LspError>
+    hover(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    workspaceSymbol(query: string): Effect.Effect<Symbol[], LspError>
+    documentSymbol(uri: string): Effect.Effect<(DocumentSymbol | Symbol)[], LspError>
+    definition(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    references(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    implementation(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    prepareCallHierarchy(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    incomingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
+    outgoingCalls(input: { file: string; line: number; character: number }): Effect.Effect<unknown[], LspError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("LSP.Service") {}
@@ -500,37 +504,37 @@ export namespace LSP {
 
       const status = Effect.fn("LSP.status")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => statusImpl(s))
+        return yield* Effect.tryPromise({ try: () => statusImpl(s), catch: (e) => new LspError({ cause: e }) })
       })
 
       const hasClients = Effect.fn("LSP.hasClients")(function* (file: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => hasClientsImpl(s, file))
+        return yield* Effect.tryPromise({ try: () => hasClientsImpl(s, file), catch: (e) => new LspError({ cause: e }) })
       })
 
       const touchFile = Effect.fn("LSP.touchFile")(function* (input: string, waitForDiagnostics?: boolean) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => touchFileImpl(s, input, waitForDiagnostics))
+        return yield* Effect.tryPromise({ try: () => touchFileImpl(s, input, waitForDiagnostics), catch: (e) => new LspError({ cause: e }) })
       })
 
       const diagnostics = Effect.fn("LSP.diagnostics")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => diagnosticsImpl(s))
+        return yield* Effect.tryPromise({ try: () => diagnosticsImpl(s), catch: (e) => new LspError({ cause: e }) })
       })
 
       const hover = Effect.fn("LSP.hover")(function* (input: { file: string; line: number; character: number }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => hoverImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => hoverImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const workspaceSymbol = Effect.fn("LSP.workspaceSymbol")(function* (query: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => workspaceSymbolImpl(s, query))
+        return yield* Effect.tryPromise({ try: () => workspaceSymbolImpl(s, query), catch: (e) => new LspError({ cause: e }) })
       })
 
       const documentSymbol = Effect.fn("LSP.documentSymbol")(function* (uri: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => documentSymbolImpl(s, uri))
+        return yield* Effect.tryPromise({ try: () => documentSymbolImpl(s, uri), catch: (e) => new LspError({ cause: e }) })
       })
 
       const definition = Effect.fn("LSP.definition")(function* (input: {
@@ -539,7 +543,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => definitionImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => definitionImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const references = Effect.fn("LSP.references")(function* (input: {
@@ -548,7 +552,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => referencesImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => referencesImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const implementation = Effect.fn("LSP.implementation")(function* (input: {
@@ -557,7 +561,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => implementationImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => implementationImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const prepareCallHierarchy = Effect.fn("LSP.prepareCallHierarchy")(function* (input: {
@@ -566,7 +570,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => prepareCallHierarchyImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => prepareCallHierarchyImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const incomingCalls = Effect.fn("LSP.incomingCalls")(function* (input: {
@@ -575,7 +579,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => incomingCallsImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => incomingCallsImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       const outgoingCalls = Effect.fn("LSP.outgoingCalls")(function* (input: {
@@ -584,7 +588,7 @@ export namespace LSP {
         character: number
       }) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => outgoingCallsImpl(s, input))
+        return yield* Effect.tryPromise({ try: () => outgoingCallsImpl(s, input), catch: (e) => new LspError({ cause: e }) })
       })
 
       return Service.of({

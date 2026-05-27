@@ -10,16 +10,20 @@ import PROMPT_SUMMARIZE from "./prompt/summarize.txt"
 import PROMPT_TITLE from "./prompt/title.txt"
 import type { Provider } from "@/provider/provider"
 import { Skill } from "@/skill"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "system-prompt" })
 
 export namespace SystemPrompt {
+  export class SystemPromptError extends Schema.TaggedErrorClass<SystemPromptError>()("SystemPromptError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
-    environment(): Effect.Effect<string[], unknown>
-    custom(): Effect.Effect<string[], unknown>
-    skills(names?: string[]): Effect.Effect<string[], unknown>
+    environment(): Effect.Effect<string[], SystemPromptError>
+    custom(): Effect.Effect<string[], SystemPromptError>
+    skills(names?: string[]): Effect.Effect<string[], SystemPromptError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SystemPrompt.Service") {}
@@ -137,14 +141,14 @@ export namespace SystemPrompt {
 
       return Service.of({
         environment: () =>
-          InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => environmentImpl(ctx)))),
+          InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => environmentImpl(ctx), catch: (e) => new SystemPromptError({ cause: e }) }))),
         custom: () =>
           Effect.gen(function* () {
             const ctx = yield* InstanceState.context
             const cfg = yield* Effect.promise(() => configGet(ctx))
-            return yield* Effect.tryPromise(() => customImpl(ctx, cfg))
+            return yield* Effect.tryPromise({ try: () => customImpl(ctx, cfg), catch: (e) => new SystemPromptError({ cause: e }) })
           }),
-        skills: (names = []) => Effect.tryPromise(() => skillsImpl(skill, names)),
+        skills: (names = []) => Effect.tryPromise({ try: () => skillsImpl(skill, names), catch: (e) => new SystemPromptError({ cause: e }) }),
       })
     }),
   )

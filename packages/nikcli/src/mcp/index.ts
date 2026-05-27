@@ -77,6 +77,10 @@ export namespace MCP {
     name: Schema.String,
   }) {}
 
+  export class McpError extends Schema.TaggedErrorClass<McpError>()("McpError", {
+    cause: Schema.Unknown,
+  }) {}
+
   type MCPClient = Client
 
   export const Status = z
@@ -177,30 +181,30 @@ export namespace MCP {
   }
 
   export interface Interface {
-    add(name: string, mcp: Config.Mcp): Effect.Effect<{ status: Record<string, Status> | Status }, unknown>
-    status(): Effect.Effect<Record<string, Status>, unknown>
-    clients(): Effect.Effect<Record<string, MCPClient>, unknown>
-    connect(name: string): Effect.Effect<void, unknown>
-    disconnect(name: string): Effect.Effect<void, unknown>
-    tools(): Effect.Effect<Record<string, Tool>, unknown>
-    prompts(): Effect.Effect<Record<string, PromptInfo & { client: string }>, unknown>
-    resources(): Effect.Effect<Record<string, ResourceInfo & { client: string }>, unknown>
+    add(name: string, mcp: Config.Mcp): Effect.Effect<{ status: Record<string, Status> | Status }, McpError>
+    status(): Effect.Effect<Record<string, Status>, McpError>
+    clients(): Effect.Effect<Record<string, MCPClient>, McpError>
+    connect(name: string): Effect.Effect<void, McpError>
+    disconnect(name: string): Effect.Effect<void, McpError>
+    tools(): Effect.Effect<Record<string, Tool>, McpError>
+    prompts(): Effect.Effect<Record<string, PromptInfo & { client: string }>, McpError>
+    resources(): Effect.Effect<Record<string, ResourceInfo & { client: string }>, McpError>
     getPrompt(
       clientName: string,
       name: string,
       args?: Record<string, string>,
-    ): Effect.Effect<Awaited<ReturnType<MCPClient["getPrompt"]>> | undefined, unknown>
+    ): Effect.Effect<Awaited<ReturnType<MCPClient["getPrompt"]>> | undefined, McpError>
     readResource(
       clientName: string,
       resourceUri: string,
-    ): Effect.Effect<Awaited<ReturnType<MCPClient["readResource"]>> | undefined, unknown>
-    startAuth(mcpName: string): Effect.Effect<{ authorizationUrl: string }, unknown>
-    authenticate(mcpName: string): Effect.Effect<Status, unknown>
-    finishAuth(mcpName: string, authorizationCode: string): Effect.Effect<Status, unknown>
-    removeAuth(mcpName: string): Effect.Effect<void, unknown>
-    supportsOAuth(mcpName: string): Effect.Effect<boolean, unknown>
-    hasStoredTokens(mcpName: string): Effect.Effect<boolean, unknown>
-    getAuthStatus(mcpName: string): Effect.Effect<AuthStatus, unknown>
+    ): Effect.Effect<Awaited<ReturnType<MCPClient["readResource"]>> | undefined, McpError>
+    startAuth(mcpName: string): Effect.Effect<{ authorizationUrl: string }, McpError>
+    authenticate(mcpName: string): Effect.Effect<Status, McpError>
+    finishAuth(mcpName: string, authorizationCode: string): Effect.Effect<Status, McpError>
+    removeAuth(mcpName: string): Effect.Effect<void, McpError>
+    supportsOAuth(mcpName: string): Effect.Effect<boolean, McpError>
+    hasStoredTokens(mcpName: string): Effect.Effect<boolean, McpError>
+    getAuthStatus(mcpName: string): Effect.Effect<AuthStatus, McpError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("MCP.Service") {}
@@ -1002,42 +1006,42 @@ export namespace MCP {
 
       const add = Effect.fn("MCP.add")(function* (name: string, mcp: Config.Mcp) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => addImpl(s, name, mcp))
+        return yield* Effect.tryPromise({ try: () => addImpl(s, name, mcp), catch: (e) => new McpError({ cause: e }) })
       })
 
       const status = Effect.fn("MCP.status")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => statusImpl(s))
+        return yield* Effect.tryPromise({ try: () => statusImpl(s), catch: (e) => new McpError({ cause: e }) })
       })
 
       const clients = Effect.fn("MCP.clients")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => clientsImpl(s))
+        return yield* Effect.tryPromise({ try: () => clientsImpl(s), catch: (e) => new McpError({ cause: e }) })
       })
 
       const connect = Effect.fn("MCP.connect")(function* (name: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => connectImpl(s, name))
+        return yield* Effect.tryPromise({ try: () => connectImpl(s, name), catch: (e) => new McpError({ cause: e }) })
       })
 
       const disconnect = Effect.fn("MCP.disconnect")(function* (name: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => disconnectImpl(s, name))
+        return yield* Effect.tryPromise({ try: () => disconnectImpl(s, name), catch: (e) => new McpError({ cause: e }) })
       })
 
       const tools = Effect.fn("MCP.tools")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => toolsImpl(s))
+        return yield* Effect.tryPromise({ try: () => toolsImpl(s), catch: (e) => new McpError({ cause: e }) })
       })
 
       const prompts = Effect.fn("MCP.prompts")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => promptsImpl(s))
+        return yield* Effect.tryPromise({ try: () => promptsImpl(s), catch: (e) => new McpError({ cause: e }) })
       })
 
       const resources = Effect.fn("MCP.resources")(function* () {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => resourcesImpl(s))
+        return yield* Effect.tryPromise({ try: () => resourcesImpl(s), catch: (e) => new McpError({ cause: e }) })
       })
 
       const getPrompt = Effect.fn("MCP.getPrompt")(function* (
@@ -1046,44 +1050,44 @@ export namespace MCP {
         args?: Record<string, string>,
       ) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => getPromptImpl(s, clientName, name, args))
+        return yield* Effect.tryPromise({ try: () => getPromptImpl(s, clientName, name, args), catch: (e) => new McpError({ cause: e }) })
       })
 
       const readResource = Effect.fn("MCP.readResource")(function* (clientName: string, resourceUri: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => readResourceImpl(s, clientName, resourceUri))
+        return yield* Effect.tryPromise({ try: () => readResourceImpl(s, clientName, resourceUri), catch: (e) => new McpError({ cause: e }) })
       })
 
       const startAuth = Effect.fn("MCP.startAuth")(function* (mcpName: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => startAuthImpl(s, mcpName))
+        return yield* Effect.tryPromise({ try: () => startAuthImpl(s, mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       const authenticate = Effect.fn("MCP.authenticate")(function* (mcpName: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => authenticateImpl(s, mcpName))
+        return yield* Effect.tryPromise({ try: () => authenticateImpl(s, mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       const finishAuth = Effect.fn("MCP.finishAuth")(function* (mcpName: string, authorizationCode: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => finishAuthImpl(s, mcpName, authorizationCode))
+        return yield* Effect.tryPromise({ try: () => finishAuthImpl(s, mcpName, authorizationCode), catch: (e) => new McpError({ cause: e }) })
       })
 
       const removeAuth = Effect.fn("MCP.removeAuth")(function* (mcpName: string) {
-        return yield* Effect.tryPromise(() => removeAuthImpl(mcpName))
+        return yield* Effect.tryPromise({ try: () => removeAuthImpl(mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       const supportsOAuth = Effect.fn("MCP.supportsOAuth")(function* (mcpName: string) {
         const s = yield* getState
-        return yield* Effect.tryPromise(() => supportsOAuthImpl(s, mcpName))
+        return yield* Effect.tryPromise({ try: () => supportsOAuthImpl(s, mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       const hasStoredTokens = Effect.fn("MCP.hasStoredTokens")(function* (mcpName: string) {
-        return yield* Effect.tryPromise(() => hasStoredTokensImpl(mcpName))
+        return yield* Effect.tryPromise({ try: () => hasStoredTokensImpl(mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       const getAuthStatus = Effect.fn("MCP.getAuthStatus")(function* (mcpName: string) {
-        return yield* Effect.tryPromise(() => getAuthStatusImpl(mcpName))
+        return yield* Effect.tryPromise({ try: () => getAuthStatusImpl(mcpName), catch: (e) => new McpError({ cause: e }) })
       })
 
       return Service.of({

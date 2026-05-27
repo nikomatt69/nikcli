@@ -13,6 +13,10 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 export namespace SessionRevert {
   const log = Log.create({ service: "session.revert" })
 
+  export class RevertError extends Schema.TaggedErrorClass<RevertError>()("RevertError", {
+    cause: Schema.Unknown,
+  }) {}
+
   function runSnapshot<A, E>(effect: Effect.Effect<A, E, Snapshot.Service>) {
     return runPromiseWithLayer(Snapshot.defaultLayer, withCurrentInstance(effect))
   }
@@ -60,9 +64,9 @@ export namespace SessionRevert {
   export type RevertInput = Schema.Schema.Type<typeof RevertInputSchema>
 
   export interface Interface {
-    revert(input: RevertInput): Effect.Effect<Session.Info, unknown>
-    unrevert(input: { sessionID: string }): Effect.Effect<Session.Info, unknown>
-    cleanup(session: Session.Info): Effect.Effect<void, unknown>
+    revert(input: RevertInput): Effect.Effect<Session.Info, RevertError>
+    unrevert(input: { sessionID: string }): Effect.Effect<Session.Info, RevertError>
+    cleanup(session: Session.Info): Effect.Effect<void, RevertError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionRevert.Service") {}
@@ -264,9 +268,9 @@ export namespace SessionRevert {
   const layer = Layer.succeed(
     Service,
     Service.of({
-      revert: (input) => Effect.tryPromise(() => revertImpl(input)),
-      unrevert: (input) => Effect.tryPromise(() => unrevertImpl(input)),
-      cleanup: (session) => Effect.tryPromise(() => cleanupImpl(session)),
+      revert: (input) => Effect.tryPromise({ try: () => revertImpl(input), catch: (e) => new RevertError({ cause: e }) }),
+      unrevert: (input) => Effect.tryPromise({ try: () => unrevertImpl(input), catch: (e) => new RevertError({ cause: e }) }),
+      cleanup: (session) => Effect.tryPromise({ try: () => cleanupImpl(session), catch: (e) => new RevertError({ cause: e }) }),
     }),
   )
 

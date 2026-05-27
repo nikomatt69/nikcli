@@ -17,10 +17,14 @@ import {
   type RefreshToken,
   type UserCode,
 } from "./schema"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Account {
   const log = Log.create({ service: "account" })
+
+  export class AccountError extends Schema.TaggedErrorClass<AccountError>()("AccountError", {
+    cause: Schema.Unknown,
+  }) {}
 
   // ============================================================================
   // Configuration
@@ -87,22 +91,22 @@ export namespace Account {
   }
 
   export interface Interface {
-    login(options?: LoginOptions): Effect.Effect<LoginStartResult, unknown>
+    login(options?: LoginOptions): Effect.Effect<LoginStartResult, AccountError>
     poll(
       deviceCode: DeviceCode,
       options?: { serverUrl?: string; onPending?: () => void },
     ): Effect.Effect<
       { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
-      unknown
+      AccountError
     >
     loginFull(
       options?: LoginOptions & { onPending?: (userCode: UserCode) => void },
     ): Effect.Effect<
       { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
-      unknown
+      AccountError
     >
-    token(accountID: AccountID): Effect.Effect<string, unknown>
-    orgs(accountID: AccountID): Effect.Effect<Org[], unknown>
+    token(accountID: AccountID): Effect.Effect<string, AccountError>
+    orgs(accountID: AccountID): Effect.Effect<Org[], AccountError>
     active(): Effect.Effect<Info | undefined>
     get(accountID: AccountID): Effect.Effect<Info | undefined>
     list(): Effect.Effect<Info[]>
@@ -116,11 +120,11 @@ export namespace Account {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      login: (options) => Effect.tryPromise(() => loginImpl(options)),
-      poll: (deviceCode, options) => Effect.tryPromise(() => pollImpl(deviceCode, options)),
-      loginFull: (options) => Effect.tryPromise(() => loginFullImpl(options)),
-      token: (accountID) => Effect.tryPromise(() => tokenImpl(accountID)),
-      orgs: (accountID) => Effect.tryPromise(() => orgsImpl(accountID)),
+      login: (options) => Effect.tryPromise({ try: () => loginImpl(options), catch: (e) => new AccountError({ cause: e }) }),
+      poll: (deviceCode, options) => Effect.tryPromise({ try: () => pollImpl(deviceCode, options), catch: (e) => new AccountError({ cause: e }) }),
+      loginFull: (options) => Effect.tryPromise({ try: () => loginFullImpl(options), catch: (e) => new AccountError({ cause: e }) }),
+      token: (accountID) => Effect.tryPromise({ try: () => tokenImpl(accountID), catch: (e) => new AccountError({ cause: e }) }),
+      orgs: (accountID) => Effect.tryPromise({ try: () => orgsImpl(accountID), catch: (e) => new AccountError({ cause: e }) }),
       active: () => Effect.sync(() => activeImpl()),
       get: (accountID) => Effect.sync(() => getImpl(accountID)),
       list: () => Effect.sync(() => listImpl()),

@@ -42,7 +42,7 @@ import { SessionStatus } from "./status"
 import { LLM } from "./llm"
 import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
-import { Context, Effect, Layer, ScopedCache } from "effect"
+import { Context, Effect, Layer, Schema, ScopedCache } from "effect"
 import { Instance } from "@/project/instance"
 import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
 import { errorMessage } from "@/util/error"
@@ -54,6 +54,10 @@ const STRUCTURED_OUTPUT_SYSTEM_PROMPT = `IMPORTANT: The user has requested struc
 
 export namespace SessionPrompt {
   const log = Log.create({ service: "session.prompt" })
+
+  export class PromptError extends Schema.TaggedErrorClass<PromptError>()("PromptError", {
+    cause: Schema.Unknown,
+  }) {}
   type PromptState = Record<
     string,
     {
@@ -481,7 +485,7 @@ export namespace SessionPrompt {
   export interface Interface {
     assertNotBusy(sessionID: string): Effect.Effect<void>
     prompt(input: PromptInput): Effect.Effect<Awaited<ReturnType<typeof prompt>>, unknown>
-    resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], unknown>
+    resolvePromptParts(template: string): Effect.Effect<PromptInput["parts"], PromptError>
     cancel(sessionID: string): Effect.Effect<void>
     loop(sessionID: string): Effect.Effect<Awaited<ReturnType<typeof loop>>, unknown>
     shell(input: ShellInput): Effect.Effect<Awaited<ReturnType<typeof shell>>, unknown>
@@ -2345,7 +2349,12 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       prompt: (input) => withInstanceContext(() => prompt(input)),
       resolvePromptParts: (template) =>
         InstanceState.context.pipe(
-          Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => resolvePromptPartsImpl(ctx, template),
+              catch: (e) => new PromptError({ cause: e }),
+            }),
+          ),
         ),
       cancel: (sessionID) => Effect.promise(() => cancel(sessionID)),
       loop: (sessionID) => withInstanceContext(() => loop(sessionID)),

@@ -19,15 +19,19 @@ export namespace Snapshot {
   const sizeLimit = 2 * 1024 * 1024
   const encoder = new TextEncoder()
 
+  export class SnapshotError extends Schema.TaggedErrorClass<SnapshotError>()("SnapshotError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
     init(): Effect.Effect<void>
-    cleanup(): Effect.Effect<void, unknown>
-    track(): Effect.Effect<string | undefined, unknown>
-    patch(hash: string): Effect.Effect<Patch, unknown>
-    restore(snapshot: string): Effect.Effect<void, unknown>
-    revert(patches: Patch[]): Effect.Effect<void, unknown>
-    diff(hash: string): Effect.Effect<string, unknown>
-    diffFull(from: string, to: string): Effect.Effect<FileDiff[], unknown>
+    cleanup(): Effect.Effect<void, SnapshotError>
+    track(): Effect.Effect<string | undefined, SnapshotError>
+    patch(hash: string): Effect.Effect<Patch, SnapshotError>
+    restore(snapshot: string): Effect.Effect<void, SnapshotError>
+    revert(patches: Patch[]): Effect.Effect<void, SnapshotError>
+    diff(hash: string): Effect.Effect<string, SnapshotError>
+    diffFull(from: string, to: string): Effect.Effect<FileDiff[], SnapshotError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Snapshot.Service") {}
@@ -54,17 +58,17 @@ export namespace Snapshot {
             skipInitialRun: true,
           })
         }),
-      cleanup: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => cleanupImpl(ctx)))),
-      track: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => trackImpl(ctx)))),
+      cleanup: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => cleanupImpl(ctx), catch: (e) => new SnapshotError({ cause: e }) }))),
+      track: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => trackImpl(ctx), catch: (e) => new SnapshotError({ cause: e }) }))),
       patch: (hash) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => patchImpl(ctx, hash)))),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => patchImpl(ctx, hash), catch: (e) => new SnapshotError({ cause: e }) }))),
       restore: (snapshot) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => restoreImpl(ctx, snapshot)))),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => restoreImpl(ctx, snapshot), catch: (e) => new SnapshotError({ cause: e }) }))),
       revert: (patches) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => revertImpl(ctx, patches)))),
-      diff: (hash) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => diffImpl(ctx, hash)))),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => revertImpl(ctx, patches), catch: (e) => new SnapshotError({ cause: e }) }))),
+      diff: (hash) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => diffImpl(ctx, hash), catch: (e) => new SnapshotError({ cause: e }) }))),
       diffFull: (from, to) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => diffFullImpl(ctx, from, to)))),
+        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise({ try: () => diffFullImpl(ctx, from, to), catch: (e) => new SnapshotError({ cause: e }) }))),
     }),
   )
 

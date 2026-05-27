@@ -59,18 +59,22 @@ export namespace Storage {
   export type RemoveOp = { type: "remove"; key: string[] }
   export type TransactionOp<T = unknown> = WriteOp<T> | RemoveOp
 
+  export class StorageError extends Schema.TaggedErrorClass<StorageError>()("StorageError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export interface Interface {
-    remove(key: string[]): Effect.Effect<void, unknown>
-    read<T>(key: string[]): Effect.Effect<T, unknown>
-    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, unknown>
-    write<T>(key: string[], content: T): Effect.Effect<void, unknown>
-    list(prefix: string[]): Effect.Effect<string[][], unknown>
+    remove(key: string[]): Effect.Effect<void, StorageError>
+    read<T>(key: string[]): Effect.Effect<T, StorageError>
+    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, StorageError>
+    write<T>(key: string[], content: T): Effect.Effect<void, StorageError>
+    list(prefix: string[]): Effect.Effect<string[][], StorageError>
     /**
      * Execute multiple operations atomically.
      * All operations succeed or all fail together.
      * Uses a single lock for efficiency and consistency.
      */
-    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, unknown>
+    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, StorageError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
@@ -372,32 +376,32 @@ export namespace Storage {
         remove: (key) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => removeImpl(dir, key))
+            return yield* Effect.tryPromise({ try: () => removeImpl(dir, key), catch: (e) => new StorageError({ cause: e }) })
           }),
         read: <T>(key: string[]) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => readImpl<T>(dir, key))
+            return yield* Effect.tryPromise({ try: () => readImpl<T>(dir, key), catch: (e) => new StorageError({ cause: e }) })
           }),
         update: <T>(key: string[], fn: (draft: T) => void) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => updateImpl<T>(dir, key, fn))
+            return yield* Effect.tryPromise({ try: () => updateImpl<T>(dir, key, fn), catch: (e) => new StorageError({ cause: e }) })
           }),
         write: (key, content) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => writeImpl(dir, key, content))
+            return yield* Effect.tryPromise({ try: () => writeImpl(dir, key, content), catch: (e) => new StorageError({ cause: e }) })
           }),
         list: (prefix) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => listImpl(dir, prefix))
+            return yield* Effect.tryPromise({ try: () => listImpl(dir, prefix), catch: (e) => new StorageError({ cause: e }) })
           }),
         transaction: (ops) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => transactionImpl(dir, ops))
+            return yield* Effect.tryPromise({ try: () => transactionImpl(dir, ops), catch: (e) => new StorageError({ cause: e }) })
           }),
       })
     }),

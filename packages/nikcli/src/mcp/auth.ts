@@ -2,9 +2,13 @@ import path from "path"
 import fs from "fs/promises"
 import z from "zod"
 import { Global } from "../global"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace McpAuth {
+  export class McpAuthError extends Schema.TaggedErrorClass<McpAuthError>()("McpAuthError", {
+    cause: Schema.Unknown,
+  }) {}
+
   export const Tokens = z.object({
     accessToken: z.string(),
     refreshToken: z.string().optional(),
@@ -31,19 +35,19 @@ export namespace McpAuth {
   export type Entry = z.infer<typeof Entry>
 
   export interface Interface {
-    get(mcpName: string): Effect.Effect<Entry | undefined, unknown>
-    getForUrl(mcpName: string, serverUrl: string): Effect.Effect<Entry | undefined, unknown>
-    all(): Effect.Effect<Record<string, Entry>, unknown>
-    set(mcpName: string, entry: Entry, serverUrl?: string): Effect.Effect<void, unknown>
-    remove(mcpName: string): Effect.Effect<void, unknown>
-    updateTokens(mcpName: string, tokens: Tokens, serverUrl?: string): Effect.Effect<void, unknown>
-    updateClientInfo(mcpName: string, clientInfo: ClientInfo, serverUrl?: string): Effect.Effect<void, unknown>
-    updateCodeVerifier(mcpName: string, codeVerifier: string): Effect.Effect<void, unknown>
-    clearCodeVerifier(mcpName: string): Effect.Effect<void, unknown>
-    updateOAuthState(mcpName: string, oauthState: string): Effect.Effect<void, unknown>
-    getOAuthState(mcpName: string): Effect.Effect<string | undefined, unknown>
-    clearOAuthState(mcpName: string): Effect.Effect<void, unknown>
-    isTokenExpired(mcpName: string): Effect.Effect<boolean | null, unknown>
+    get(mcpName: string): Effect.Effect<Entry | undefined, McpAuthError>
+    getForUrl(mcpName: string, serverUrl: string): Effect.Effect<Entry | undefined, McpAuthError>
+    all(): Effect.Effect<Record<string, Entry>, McpAuthError>
+    set(mcpName: string, entry: Entry, serverUrl?: string): Effect.Effect<void, McpAuthError>
+    remove(mcpName: string): Effect.Effect<void, McpAuthError>
+    updateTokens(mcpName: string, tokens: Tokens, serverUrl?: string): Effect.Effect<void, McpAuthError>
+    updateClientInfo(mcpName: string, clientInfo: ClientInfo, serverUrl?: string): Effect.Effect<void, McpAuthError>
+    updateCodeVerifier(mcpName: string, codeVerifier: string): Effect.Effect<void, McpAuthError>
+    clearCodeVerifier(mcpName: string): Effect.Effect<void, McpAuthError>
+    updateOAuthState(mcpName: string, oauthState: string): Effect.Effect<void, McpAuthError>
+    getOAuthState(mcpName: string): Effect.Effect<string | undefined, McpAuthError>
+    clearOAuthState(mcpName: string): Effect.Effect<void, McpAuthError>
+    isTokenExpired(mcpName: string): Effect.Effect<boolean | null, McpAuthError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("McpAuth.Service") {}
@@ -51,22 +55,22 @@ export namespace McpAuth {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      get: (mcpName) => Effect.tryPromise(() => getImpl(mcpName)),
-      getForUrl: (mcpName, serverUrl) => Effect.tryPromise(() => getForUrlImpl(mcpName, serverUrl)),
-      all: () => Effect.tryPromise(() => allImpl()),
-      set: (mcpName, entry, serverUrl) => Effect.tryPromise(() => setImpl(mcpName, entry, serverUrl)),
-      remove: (mcpName) => Effect.tryPromise(() => removeImpl(mcpName)),
+      get: (mcpName) => Effect.tryPromise({ try: () => getImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
+      getForUrl: (mcpName, serverUrl) => Effect.tryPromise({ try: () => getForUrlImpl(mcpName, serverUrl), catch: (e) => new McpAuthError({ cause: e }) }),
+      all: () => Effect.tryPromise({ try: () => allImpl(), catch: (e) => new McpAuthError({ cause: e }) }),
+      set: (mcpName, entry, serverUrl) => Effect.tryPromise({ try: () => setImpl(mcpName, entry, serverUrl), catch: (e) => new McpAuthError({ cause: e }) }),
+      remove: (mcpName) => Effect.tryPromise({ try: () => removeImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
       updateTokens: (mcpName, tokens, serverUrl) =>
-        Effect.tryPromise(() => updateTokensImpl(mcpName, tokens, serverUrl)),
+        Effect.tryPromise({ try: () => updateTokensImpl(mcpName, tokens, serverUrl), catch: (e) => new McpAuthError({ cause: e }) }),
       updateClientInfo: (mcpName, clientInfo, serverUrl) =>
-        Effect.tryPromise(() => updateClientInfoImpl(mcpName, clientInfo, serverUrl)),
+        Effect.tryPromise({ try: () => updateClientInfoImpl(mcpName, clientInfo, serverUrl), catch: (e) => new McpAuthError({ cause: e }) }),
       updateCodeVerifier: (mcpName, codeVerifier) =>
-        Effect.tryPromise(() => updateCodeVerifierImpl(mcpName, codeVerifier)),
-      clearCodeVerifier: (mcpName) => Effect.tryPromise(() => clearCodeVerifierImpl(mcpName)),
-      updateOAuthState: (mcpName, oauthState) => Effect.tryPromise(() => updateOAuthStateImpl(mcpName, oauthState)),
-      getOAuthState: (mcpName) => Effect.tryPromise(() => getOAuthStateImpl(mcpName)),
-      clearOAuthState: (mcpName) => Effect.tryPromise(() => clearOAuthStateImpl(mcpName)),
-      isTokenExpired: (mcpName) => Effect.tryPromise(() => isTokenExpiredImpl(mcpName)),
+        Effect.tryPromise({ try: () => updateCodeVerifierImpl(mcpName, codeVerifier), catch: (e) => new McpAuthError({ cause: e }) }),
+      clearCodeVerifier: (mcpName) => Effect.tryPromise({ try: () => clearCodeVerifierImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
+      updateOAuthState: (mcpName, oauthState) => Effect.tryPromise({ try: () => updateOAuthStateImpl(mcpName, oauthState), catch: (e) => new McpAuthError({ cause: e }) }),
+      getOAuthState: (mcpName) => Effect.tryPromise({ try: () => getOAuthStateImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
+      clearOAuthState: (mcpName) => Effect.tryPromise({ try: () => clearOAuthStateImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
+      isTokenExpired: (mcpName) => Effect.tryPromise({ try: () => isTokenExpiredImpl(mcpName), catch: (e) => new McpAuthError({ cause: e }) }),
     }),
   )
 

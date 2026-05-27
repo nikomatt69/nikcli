@@ -12,6 +12,10 @@ export const OAUTH_DUMMY_KEY = "nikcli-oauth-dummy-key"
 export namespace Auth {
   const log = Log.create({ service: "auth" })
 
+  export class AuthError extends Schema.TaggedErrorClass<AuthError>()("AuthError", {
+    cause: Schema.Unknown,
+  }) {}
+
   const SAFE_CURL_FLAGS = new Set([
     "-f",
     "-s",
@@ -69,14 +73,14 @@ export namespace Auth {
   )
 
   export interface Interface {
-    fetchWellKnown(baseURL: string): Effect.Effect<Response, unknown>
-    fetchWellKnownToken(baseURL: string, command: string[]): Effect.Effect<string, unknown>
-    get(providerID: string): Effect.Effect<Info | undefined, unknown>
-    all(): Effect.Effect<Record<string, Info>, unknown>
-    set(key: string, info: Info): Effect.Effect<void, unknown>
-    remove(key: string): Effect.Effect<void, unknown>
-    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, unknown>
-    getValid(providerID: string): Effect.Effect<Info | undefined, unknown>
+    fetchWellKnown(baseURL: string): Effect.Effect<Response, AuthError>
+    fetchWellKnownToken(baseURL: string, command: string[]): Effect.Effect<string, AuthError>
+    get(providerID: string): Effect.Effect<Info | undefined, AuthError>
+    all(): Effect.Effect<Record<string, Info>, AuthError>
+    set(key: string, info: Info): Effect.Effect<void, AuthError>
+    remove(key: string): Effect.Effect<void, AuthError>
+    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, AuthError>
+    getValid(providerID: string): Effect.Effect<Info | undefined, AuthError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Auth.Service") {}
@@ -84,14 +88,14 @@ export namespace Auth {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      fetchWellKnown: (baseURL) => Effect.tryPromise(() => fetchWellKnownImpl(baseURL)),
-      fetchWellKnownToken: (baseURL, command) => Effect.tryPromise(() => fetchWellKnownTokenImpl(baseURL, command)),
-      get: (providerID) => Effect.tryPromise(() => getImpl(providerID)),
-      all: () => Effect.tryPromise(() => allImpl()),
-      set: (key, info) => Effect.tryPromise(() => setImpl(key, info)),
-      remove: (key) => Effect.tryPromise(() => removeImpl(key)),
-      refresh: (providerID) => Effect.tryPromise(() => refreshImpl(providerID)),
-      getValid: (providerID) => Effect.tryPromise(() => getValidImpl(providerID)),
+      fetchWellKnown: (baseURL) => Effect.tryPromise({ try: () => fetchWellKnownImpl(baseURL), catch: (e) => new AuthError({ cause: e }) }),
+      fetchWellKnownToken: (baseURL, command) => Effect.tryPromise({ try: () => fetchWellKnownTokenImpl(baseURL, command), catch: (e) => new AuthError({ cause: e }) }),
+      get: (providerID) => Effect.tryPromise({ try: () => getImpl(providerID), catch: (e) => new AuthError({ cause: e }) }),
+      all: () => Effect.tryPromise({ try: () => allImpl(), catch: (e) => new AuthError({ cause: e }) }),
+      set: (key, info) => Effect.tryPromise({ try: () => setImpl(key, info), catch: (e) => new AuthError({ cause: e }) }),
+      remove: (key) => Effect.tryPromise({ try: () => removeImpl(key), catch: (e) => new AuthError({ cause: e }) }),
+      refresh: (providerID) => Effect.tryPromise({ try: () => refreshImpl(providerID), catch: (e) => new AuthError({ cause: e }) }),
+      getValid: (providerID) => Effect.tryPromise({ try: () => getValidImpl(providerID), catch: (e) => new AuthError({ cause: e }) }),
     }),
   )
 

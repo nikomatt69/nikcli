@@ -15,6 +15,10 @@ import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceConte
 export namespace SessionSummary {
   const log = Log.create({ service: "session.summary" })
 
+  export class SummaryError extends Schema.TaggedErrorClass<SummaryError>()("SummaryError", {
+    cause: Schema.Unknown,
+  }) {}
+
   const SummarizeInputSchema = Schema.Struct({
     sessionID: Schema.String,
     messageID: Schema.String,
@@ -30,9 +34,9 @@ export namespace SessionSummary {
   export type DiffInput = Schema.Schema.Type<typeof DiffInputSchema>
 
   export interface Interface {
-    summarize(input: SummarizeInput): Effect.Effect<void, unknown>
-    diff(input: DiffInput): Effect.Effect<Snapshot.FileDiff[], unknown>
-    computeDiff(input: { messages: MessageV2.WithParts[] }): Effect.Effect<Snapshot.FileDiff[], unknown>
+    summarize(input: SummarizeInput): Effect.Effect<void, SummaryError>
+    diff(input: DiffInput): Effect.Effect<Snapshot.FileDiff[], SummaryError>
+    computeDiff(input: { messages: MessageV2.WithParts[] }): Effect.Effect<Snapshot.FileDiff[], SummaryError>
   }
 
   export class Service extends Context.Service<Service, Interface>()("SessionSummary.Service") {}
@@ -125,7 +129,7 @@ export namespace SessionSummary {
           }
 
           if (from && to) {
-            return yield* snapshot.diffFull(from, to)
+            return yield* snapshot.diffFull(from, to).pipe(Effect.mapError((e) => new SummaryError({ cause: e })))
           }
           return []
         })
@@ -249,18 +253,21 @@ export namespace SessionSummary {
         summarize: (input) =>
           InstanceState.context.pipe(
             Effect.flatMap((ctx) =>
-              Effect.tryPromise(async () => {
-                const all = await runSession(
-                  Effect.gen(function* () {
-                    const session = yield* Session.Service
-                    return yield* session.messages({ sessionID: input.sessionID })
-                  }),
-                  ctx,
-                )
-                await Promise.all([
-                  summarizeSession(ctx, { sessionID: input.sessionID, messages: all }),
-                  summarizeMessage(ctx, { messageID: input.messageID, messages: all }),
-                ])
+              Effect.tryPromise({
+                try: async () => {
+                  const all = await runSession(
+                    Effect.gen(function* () {
+                      const session = yield* Session.Service
+                      return yield* session.messages({ sessionID: input.sessionID })
+                    }),
+                    ctx,
+                  )
+                  await Promise.all([
+                    summarizeSession(ctx, { sessionID: input.sessionID, messages: all }),
+                    summarizeMessage(ctx, { messageID: input.messageID, messages: all }),
+                  ])
+                },
+                catch: (e) => new SummaryError({ cause: e }),
               }),
             ),
           ),
@@ -273,12 +280,14 @@ export namespace SessionSummary {
             }
 
             const ctx = yield* InstanceState.context
-            const { focus, rootID } = yield* Effect.tryPromise(() =>
-              messagesForSummary(ctx, {
-                sessionID: input.sessionID,
-                messageID: input.messageID!,
-              }),
-            )
+            const { focus, rootID } = yield* Effect.tryPromise({
+              try: () =>
+                messagesForSummary(ctx, {
+                  sessionID: input.sessionID,
+                  messageID: input.messageID!,
+                }),
+              catch: (e) => new SummaryError({ cause: e }),
+            })
             const root = focus.find((message) => message.info.id === rootID)
             if (root?.info.role === "user" && root.info.summary?.diffs) {
               return root.info.summary.diffs

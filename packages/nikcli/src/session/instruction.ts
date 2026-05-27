@@ -1,6 +1,6 @@
 import path from "path"
 import os from "os"
-import { Effect, Layer, Context } from "effect"
+import { Effect, Layer, Context, Schema } from "effect"
 import { Config } from "@/config/config"
 import { InstanceState, type InstanceContext } from "@/effect"
 import { Flag } from "@/flag/flag"
@@ -124,16 +124,20 @@ export async function fetchInstructionUrls(urls: string[]): Promise<string[]> {
   ).then((r) => r.filter(Boolean))
 }
 
+export class InstructionError extends Schema.TaggedErrorClass<InstructionError>()("InstructionError", {
+  cause: Schema.Unknown,
+}) {}
+
 export interface Interface {
   readonly clear: (messageID: string) => Effect.Effect<void>
-  readonly systemPaths: () => Effect.Effect<{ paths: Set<string>; urls: string[] }, unknown>
-  readonly system: () => Effect.Effect<string[], unknown>
-  readonly find: (dir: string) => Effect.Effect<string | undefined, unknown>
+  readonly systemPaths: () => Effect.Effect<{ paths: Set<string>; urls: string[] }, InstructionError>
+  readonly system: () => Effect.Effect<string[], InstructionError>
+  readonly find: (dir: string) => Effect.Effect<string | undefined, InstructionError>
   readonly resolve: (
     messages: MessageV2.WithParts[],
     filepath: string,
     messageID: string,
-  ) => Effect.Effect<{ filepath: string; content: string }[], unknown>
+  ) => Effect.Effect<{ filepath: string; content: string }[], InstructionError>
 }
 
 export class Service extends Context.Service<Service, Interface>()("Instruction.Service") {}
@@ -156,8 +160,8 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
         systemPaths: () =>
           Effect.gen(function* () {
             const ctx = yield* InstanceState.context
-            const cfg = yield* configSvc.get()
-            const result = yield* Effect.tryPromise(() => collectSystemPaths(ctx, cfg))
+            const cfg = yield* configSvc.get().pipe(Effect.mapError((e) => new InstructionError({ cause: e })))
+            const result = yield* Effect.tryPromise({ try: () => collectSystemPaths(ctx, cfg), catch: (e) => new InstructionError({ cause: e }) })
             return result
           }),
 
@@ -167,8 +171,8 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
             // Increase concurrency: 8 for files, 4 for URLs (from opencode pattern)
             const [fileContents, urlContents] = yield* Effect.all(
               [
-                Effect.tryPromise(() => readInstructionContents(paths)),
-                Effect.tryPromise(() => fetchInstructionUrls(urls)),
+                Effect.tryPromise({ try: () => readInstructionContents(paths), catch: (e) => new InstructionError({ cause: e }) }),
+                Effect.tryPromise({ try: () => fetchInstructionUrls(urls), catch: (e) => new InstructionError({ cause: e }) }),
               ],
               { concurrency: 8 },
             )
@@ -179,7 +183,7 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
           Effect.gen(function* () {
             for (const file of LOCAL_RULE_FILES) {
               const p = path.join(dir, file)
-              const exists = yield* Effect.tryPromise(() => Bun.file(p).exists())
+              const exists = yield* Effect.tryPromise({ try: () => Bun.file(p).exists(), catch: (e) => new InstructionError({ cause: e }) })
               if (exists) return p
             }
             return undefined
@@ -204,11 +208,10 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
             for (const p of msgPaths) {
               if (messageClaims.has(p)) continue
               messageClaims.add(p)
-              const content = yield* Effect.tryPromise(() =>
+              const content = yield* Effect.tryPromise({ try: () =>
                 Bun.file(p)
                   .text()
-                  .catch(() => ""),
-              )
+                  .catch(() => ""), catch: (e) => new InstructionError({ cause: e }) })
               if (content) {
                 results.push({ filepath: p, content: `Instructions from: ${p}\n${content}` })
               }
@@ -226,11 +229,10 @@ export const layer: Layer.Layer<Service, never, Config.Service> = Layer.effect(
               }
 
               messageClaims.add(found)
-              const content = yield* Effect.tryPromise(() =>
+              const content = yield* Effect.tryPromise({ try: () =>
                 Bun.file(found)
                   .text()
-                  .catch(() => ""),
-              )
+                  .catch(() => ""), catch: (e) => new InstructionError({ cause: e }) })
               if (content) {
                 results.push({ filepath: found, content: `Instructions from: ${found}\n${content}` })
               }
