@@ -49,12 +49,12 @@ const steps: ValidationStep[] = [
   },
   {
     name: "Typecheck",
-    command: ["bun", "run", "typecheck", "--filter=!@nikcli-ai/bench-tui"],
+    command: ["bun", "run", "typecheck"],
     timeout: 180_000,
   },
   {
     name: "Run tests",
-    command: ["bun", "test", "--filter=!@nikcli-ai/bench-tui"],
+    command: ["bun", "test"],
     timeout: 300_000,
     critical: false,
   },
