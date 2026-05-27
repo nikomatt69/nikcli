@@ -419,9 +419,7 @@ ${result}
   // Multiple list* calls in the same call chain (e.g. listJobs -> listForParent, then
   // projectJob -> listForJob) hit the cache instead of re-reading every JSON file.
   // Uses a pending-promise reference so concurrent callers share a single in-flight load.
-  let listCache:
-    | { records: Record[]; expiresAt: number; promise: Promise<Record[]> }
-    | undefined
+  let listCache: { records: Record[]; expiresAt: number; promise: Promise<Record[]> } | undefined
   const LIST_CACHE_TTL_MS = 2_000
 
   async function listAll(): Promise<Record[]> {
@@ -495,7 +493,8 @@ ${result}
       result?.info.role === "assistant"
         ? result
         : messages.findLast((item: MessageV2.WithParts) => item.info.role === "assistant")
-    const text = assistant?.parts.findLast((part: MessageV2.Part): part is MessageV2.TextPart => part.type === "text")?.text ?? ""
+    const text =
+      assistant?.parts.findLast((part: MessageV2.Part): part is MessageV2.TextPart => part.type === "text")?.text ?? ""
 
     return {
       text,

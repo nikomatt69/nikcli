@@ -2,7 +2,6 @@ import { describe, expect, it } from "bun:test"
 import { isRecord } from "@/util/record"
 import { recordBenchmark } from "../benchmarks/runner"
 
-
 describe("isRecord", () => {
   describe("truthy cases", () => {
     it("returns true for plain object", () => {
@@ -72,7 +71,7 @@ describe("isRecord", () => {
         module: "isRecord",
         scenario: "throughput",
         iterations,
-        value: isRecord(values[i++ % values.length]) ? 1 : 0 as number,
+        value: isRecord(values[i++ % values.length]) ? 1 : (0 as number),
         unit: "ms",
       })
     })

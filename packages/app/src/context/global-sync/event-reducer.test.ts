@@ -88,7 +88,7 @@ describe("applyGlobalEvent", () => {
       refresh: () => {
         refreshCount += 1
       },
-      setGlobalProject() { },
+      setGlobalProject() {},
     })
 
     expect(refreshCount).toBe(1)
@@ -108,9 +108,9 @@ describe("applyDirectoryEvent", () => {
       event: { type: "session.created", properties: { info: rootSession({ id: "a" }) } },
       store,
       setStore,
-      push() { },
+      push() {},
       directory: "/tmp",
-      loadLsp() { },
+      loadLsp() {},
     })
 
     expect(store.session.map((x) => x.id)).toEqual(["a", "b"])
@@ -120,9 +120,9 @@ describe("applyDirectoryEvent", () => {
       event: { type: "session.created", properties: { info: rootSession({ id: "c", parentID: "a" }) } },
       store,
       setStore,
-      push() { },
+      push() {},
       directory: "/tmp",
-      loadLsp() { },
+      loadLsp() {},
     })
 
     expect(store.sessionTotal).toBe(2)
@@ -148,9 +148,9 @@ describe("applyDirectoryEvent", () => {
       event: { type: "session.updated", properties: { info: rootSession({ id: "ses_1", archived: 10 }) } },
       store,
       setStore,
-      push() { },
+      push() {},
       directory: "/tmp",
-      loadLsp() { },
+      loadLsp() {},
     })
 
     expect(store.session.map((x) => x.id)).toEqual(["ses_2"])

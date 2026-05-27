@@ -252,10 +252,14 @@ export function DialogModel(props: {
             const model = option.value as { providerID: string; modelID: string }
             const modelString = `${model.providerID}/${model.modelID}`
             dialog.clear()
-            void runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(Effect.gen(function* () {
-              const service = yield* Config.Service
-              yield* service.update({ model: modelString })
-            })),
+            void runPromiseWithLayer(
+              Config.defaultLayer,
+              withCurrentInstance(
+                Effect.gen(function* () {
+                  const service = yield* Config.Service
+                  yield* service.update({ model: modelString })
+                }),
+              ),
             )
             local.model.set(model, { recent: true })
           },

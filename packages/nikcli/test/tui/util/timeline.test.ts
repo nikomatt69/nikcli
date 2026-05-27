@@ -78,12 +78,10 @@ describe("lastUserMessageLine", () => {
 
   it("returns undefined if only assistant messages exist", () => {
     const messages: any[] = [{ id: "m1", role: "assistant" }]
-    const parts: any[] = [{ id: "p1", messageId: "m1", type: "text", text: "response", synthetic: false, ignored: false }]
-    const result = lastUserMessageLine(
-      { "session-1": messages },
-      { m1: parts },
-      "session-1",
-    )
+    const parts: any[] = [
+      { id: "p1", messageId: "m1", type: "text", text: "response", synthetic: false, ignored: false },
+    ]
+    const result = lastUserMessageLine({ "session-1": messages }, { m1: parts }, "session-1")
     expect(result).toBeUndefined()
   })
 
@@ -96,7 +94,7 @@ describe("lastUserMessageLine", () => {
       m1: [{ id: "p1", type: "text", text: "hello world", synthetic: false, ignored: false }],
       m2: [{ id: "p2", type: "text", text: "response", synthetic: false, ignored: false }],
     }
-    const result = lastUserMessageLine({ "s1": messages }, parts, "s1")
+    const result = lastUserMessageLine({ s1: messages }, parts, "s1")
     expect(result).toBe("hello world")
   })
 
@@ -108,7 +106,7 @@ describe("lastUserMessageLine", () => {
         { id: "p2", type: "text", text: "real text", synthetic: false, ignored: false },
       ],
     }
-    const result = lastUserMessageLine({ "s1": messages }, parts, "s1")
+    const result = lastUserMessageLine({ s1: messages }, parts, "s1")
     expect(result).toBe("real text")
   })
 
@@ -120,7 +118,7 @@ describe("lastUserMessageLine", () => {
         { id: "p2", type: "text", text: "visible text", synthetic: false, ignored: false },
       ],
     }
-    const result = lastUserMessageLine({ "s1": messages }, parts, "s1")
+    const result = lastUserMessageLine({ s1: messages }, parts, "s1")
     expect(result).toBe("visible text")
   })
 

@@ -15,7 +15,8 @@ function messageCount(session: CloudSessionInfo): number {
 
 function statusFor(session: CloudSessionInfo, status?: string): { label: string; className: string } {
   if (session.time?.archived) return { label: "Archived", className: "bg-terminal-muted/10 text-terminal-muted" }
-  if (status === "busy" || status === "running") return { label: "Running", className: "bg-terminal-accent/10 text-terminal-accent" }
+  if (status === "busy" || status === "running")
+    return { label: "Running", className: "bg-terminal-accent/10 text-terminal-accent" }
   if (status === "error") return { label: "Error", className: "bg-terminal-error/10 text-terminal-error" }
   return { label: "Ready", className: "bg-terminal-success/10 text-terminal-success" }
 }
@@ -25,14 +26,22 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
     <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
       <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-[var(--radius-md)] border border-terminal-accent/20 bg-terminal-accent/10 text-terminal-accent">
         <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="1.8"
+            d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"
+          />
         </svg>
       </div>
       <h3 className="text-lg font-semibold text-terminal-text">No Cloud Sessions yet</h3>
       <p className="mt-2 max-w-sm text-sm text-terminal-muted">
         Create a Cloud Session to track remote agent work, history, and project context from the dashboard.
       </p>
-      <button onClick={onCreate} className="mt-6 rounded-[var(--radius-md)] bg-terminal-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90">
+      <button
+        onClick={onCreate}
+        className="mt-6 rounded-[var(--radius-md)] bg-terminal-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90"
+      >
         Create Cloud Session
       </button>
     </div>
@@ -86,7 +95,9 @@ function SessionsPageInner() {
     return sessions.filter((session) => {
       if (!showArchived && session.time?.archived) return false
       if (!term) return true
-      return [session.title, session.id, session.directory].filter(Boolean).some((value) => value!.toLowerCase().includes(term))
+      return [session.title, session.id, session.directory]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term))
     })
   }, [sessions, search, showArchived])
 
@@ -147,7 +158,9 @@ function SessionsPageInner() {
     return (
       <div className="flex flex-col items-center justify-center rounded-[var(--radius-card)] border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
         <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings to manage Cloud Sessions.</p>
+        <p className="mt-2 text-sm text-terminal-muted">
+          Configure server connection in Settings to manage Cloud Sessions.
+        </p>
       </div>
     )
   }
@@ -156,10 +169,13 @@ function SessionsPageInner() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-terminal-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">Cloud Sessions</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
+            Cloud Sessions
+          </p>
           <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage Cloud Sessions</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
-            Create, rename, archive, delete, and inspect the authenticated Cloud Sessions attached to this nikcli server.
+            Create, rename, archive, delete, and inspect the authenticated Cloud Sessions attached to this nikcli
+            server.
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -169,7 +185,11 @@ function SessionsPageInner() {
             placeholder="Cloud Session title"
             className="min-h-10 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-panel px-3.5 text-sm text-terminal-text outline-none focus:border-terminal-accent focus:ring-2 focus:ring-terminal-accent/20"
           />
-          <button onClick={createCloudSession} disabled={creating} className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50">
+          <button
+            onClick={createCloudSession}
+            disabled={creating}
+            className="rounded-[var(--radius-md)] bg-terminal-accent px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-terminal-accent/90 disabled:opacity-50"
+          >
             {creating ? "Creating..." : "New Cloud Session"}
           </button>
         </div>
@@ -186,7 +206,9 @@ function SessionsPageInner() {
         </div>
         <div className="rounded-[var(--radius-card)] border border-terminal-border bg-terminal-panel p-5">
           <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-terminal-muted">Messages</div>
-          <div className="mt-2 text-3xl font-bold text-terminal-text">{sessions.reduce((total, session) => total + messageCount(session), 0)}</div>
+          <div className="mt-2 text-3xl font-bold text-terminal-text">
+            {sessions.reduce((total, session) => total + messageCount(session), 0)}
+          </div>
         </div>
       </div>
 
@@ -198,12 +220,21 @@ function SessionsPageInner() {
           className="min-h-10 flex-1 rounded-[var(--radius-md)] border border-terminal-border bg-terminal-bg px-3.5 text-sm text-terminal-text outline-none focus:border-terminal-accent focus:ring-2 focus:ring-terminal-accent/20"
         />
         <label className="flex items-center gap-2 text-sm text-terminal-muted">
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="h-4 w-4 accent-terminal-accent" />
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="h-4 w-4 accent-terminal-accent"
+          />
           Show archived
         </label>
       </div>
 
-      {error && <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">{error}</div>}
+      {error && (
+        <div className="rounded-[var(--radius-md)] border border-terminal-error/30 bg-terminal-error/10 px-4 py-3 text-sm text-terminal-error">
+          {error}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
@@ -232,8 +263,17 @@ function SessionsPageInner() {
                     <td className="px-4 py-3">
                       {editingId === session.id ? (
                         <div className="flex gap-2">
-                          <input value={editingTitle} onChange={(e) => setEditingTitle(e.target.value)} className="min-h-9 w-full rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-2 text-sm text-terminal-text outline-none focus:border-terminal-accent" />
-                          <button onClick={() => saveTitle(session.id)} className="rounded-[var(--radius-sm)] bg-terminal-accent px-3 text-xs font-semibold text-white">Save</button>
+                          <input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            className="min-h-9 w-full rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-2 text-sm text-terminal-text outline-none focus:border-terminal-accent"
+                          />
+                          <button
+                            onClick={() => saveTitle(session.id)}
+                            className="rounded-[var(--radius-sm)] bg-terminal-accent px-3 text-xs font-semibold text-white"
+                          >
+                            Save
+                          </button>
                         </div>
                       ) : (
                         <>
@@ -242,15 +282,39 @@ function SessionsPageInner() {
                         </>
                       )}
                     </td>
-                    <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>{status.label}</span></td>
-                    <td className="max-w-[240px] truncate px-4 py-3 font-mono text-xs text-terminal-muted">{session.directory ?? "Default workspace"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${status.className}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="max-w-[240px] truncate px-4 py-3 font-mono text-xs text-terminal-muted">
+                      {session.directory ?? "Default workspace"}
+                    </td>
                     <td className="px-4 py-3 text-right tabular-nums text-terminal-text">{messageCount(session)}</td>
                     <td className="px-4 py-3 text-terminal-muted">{formatTime(session.time?.updated)}</td>
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => { setEditingId(session.id); setEditingTitle(session.title) }} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-text hover:bg-terminal-border/40">Rename</button>
-                        <button onClick={() => archiveSession(session)} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-text hover:bg-terminal-border/40">{session.time?.archived ? "Restore" : "Archive"}</button>
-                        <button onClick={() => deleteSession(session.id)} className="rounded-[var(--radius-sm)] border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error hover:bg-terminal-error/10">Delete</button>
+                        <button
+                          onClick={() => {
+                            setEditingId(session.id)
+                            setEditingTitle(session.title)
+                          }}
+                          className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-text hover:bg-terminal-border/40"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          onClick={() => archiveSession(session)}
+                          className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-text hover:bg-terminal-border/40"
+                        >
+                          {session.time?.archived ? "Restore" : "Archive"}
+                        </button>
+                        <button
+                          onClick={() => deleteSession(session.id)}
+                          className="rounded-[var(--radius-sm)] border border-terminal-error/30 px-3 py-1.5 text-xs font-medium text-terminal-error hover:bg-terminal-error/10"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>

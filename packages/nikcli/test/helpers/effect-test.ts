@@ -29,19 +29,14 @@
  */
 import { Effect, ManagedRuntime } from "effect"
 
-export function makeTestRuntime<A, E>(
-  label: string,
-  layer: import("effect").Layer.Layer<A, E, never>,
-) {
+export function makeTestRuntime<A, E>(label: string, layer: import("effect").Layer.Layer<A, E, never>) {
   const runtime = ManagedRuntime.make(layer)
 
   /** Run the effect through the managed runtime, returning the value. */
-  const run = <R>(effect: Effect.Effect<A, E, R>) =>
-    runtime.runPromise(effect as Effect.Effect<A, E, any>)
+  const run = <R>(effect: Effect.Effect<A, E, R>) => runtime.runPromise(effect as Effect.Effect<A, E, any>)
 
   /** Run the effect through the managed runtime, returning the Exit. */
-  const runExit = <R>(effect: Effect.Effect<A, E, R>) =>
-    runtime.runPromiseExit(effect as Effect.Effect<A, E, any>)
+  const runExit = <R>(effect: Effect.Effect<A, E, R>) => runtime.runPromiseExit(effect as Effect.Effect<A, E, any>)
 
   return { run, runExit }
 }

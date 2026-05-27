@@ -114,10 +114,7 @@ export namespace SystemPrompt {
   async function customImpl(ctx: InstanceContext, config: Config.Info) {
     const { collectSystemPaths, readInstructionContents, fetchInstructionUrls } = await import("./instruction")
     const { paths, urls } = await collectSystemPaths(ctx, config)
-    const [fileContents, urlContents] = await Promise.all([
-      readInstructionContents(paths),
-      fetchInstructionUrls(urls),
-    ])
+    const [fileContents, urlContents] = await Promise.all([readInstructionContents(paths), fetchInstructionUrls(urls)])
     return [...fileContents, ...urlContents]
   }
 
@@ -128,10 +125,13 @@ export namespace SystemPrompt {
       function configGet(ctx: InstanceContext) {
         return runPromiseWithLayer(
           Config.defaultLayer,
-          locallyInstance(ctx, Effect.gen(function* () {
-            const config = yield* Config.Service
-            return yield* config.get()
-          })),
+          locallyInstance(
+            ctx,
+            Effect.gen(function* () {
+              const config = yield* Config.Service
+              return yield* config.get()
+            }),
+          ),
         )
       }
 
@@ -149,7 +149,5 @@ export namespace SystemPrompt {
     }),
   )
 
-  export const defaultLayer = Layer.unwrap(
-    Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))),
-  )
+  export const defaultLayer = Layer.unwrap(Effect.sync(() => layer.pipe(Layer.provide(Skill.defaultLayer))))
 }

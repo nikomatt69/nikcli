@@ -29,9 +29,7 @@ export namespace Installation {
       "installation.update-available",
       z.object({
         version: z.string(),
-        method: z
-          .enum(["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"])
-          .optional(),
+        method: z.enum(["curl", "npm", "yarn", "pnpm", "bun", "brew", "scoop", "choco", "unknown"]).optional(),
       }),
     ),
   }

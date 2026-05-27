@@ -120,9 +120,15 @@ export const ConnectorsRoutes = lazy(() =>
           },
         },
       }),
-      validator("json", z.object({
-        name: z.string().optional().describe("Connector name to invalidate (optional, invalidates all if not provided)"),
-      })),
+      validator(
+        "json",
+        z.object({
+          name: z
+            .string()
+            .optional()
+            .describe("Connector name to invalidate (optional, invalidates all if not provided)"),
+        }),
+      ),
       async (c) => {
         const { name } = c.req.valid("json")
         if (name) {

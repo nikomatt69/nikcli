@@ -81,9 +81,7 @@ export const googleDefaultOptions = (
   return undefined
 }
 
-export const withGoogleOptions = <
-  Options extends { readonly providerOptions?: GoogleProviderOptionsInput },
->(
+export const withGoogleOptions = <Options extends { readonly providerOptions?: GoogleProviderOptionsInput }>(
   modelID: string,
   options: Options,
   defaults: { readonly variant?: GoogleVariant; readonly enableThoughts?: boolean } = {},

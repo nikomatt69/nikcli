@@ -23,7 +23,9 @@ async function makeProjectDir() {
 }
 
 describe("PermissionNext.Service", () => {
-  const waitForPending = Effect.fn("PermissionNext.test.waitForPending")(function* (permission: PermissionNextNamespace.Interface) {
+  const waitForPending = Effect.fn("PermissionNext.test.waitForPending")(function* (
+    permission: PermissionNextNamespace.Interface,
+  ) {
     for (let attempt = 0; attempt < 20; attempt++) {
       const pending = yield* permission.list()
       if (pending.length > 0) return pending
@@ -72,14 +74,16 @@ describe("PermissionNext.Service", () => {
         Effect.gen(function* () {
           const permission = yield* PermissionNext.Service
           const fiber = yield* Effect.forkChild(
-            permission.ask({
-              permission: "bash",
-              patterns: ["rm -rf build"],
-              sessionID: "ses_permission_reject_effect",
-              metadata: { tool: "bash" },
-              always: ["rm -rf build"],
-              ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
-            }).pipe(Effect.result),
+            permission
+              .ask({
+                permission: "bash",
+                patterns: ["rm -rf build"],
+                sessionID: "ses_permission_reject_effect",
+                metadata: { tool: "bash" },
+                always: ["rm -rf build"],
+                ruleset: [{ permission: "bash", pattern: "*", action: "ask" }],
+              })
+              .pipe(Effect.result),
           )
 
           const pending = yield* waitForPending(permission)

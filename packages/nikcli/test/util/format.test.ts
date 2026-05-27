@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { formatDuration } from "@/util/format"
-import { recordBenchmark } from "../benchmarks/runner"    
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("formatDuration", () => {
   describe("zero and negative", () => {
@@ -109,7 +109,7 @@ describe("formatDuration", () => {
         value: formatDuration(inputs[i++ % inputs.length]!) as unknown as number,
         unit: "ms",
       })
-        formatDuration(inputs[i++ % inputs.length]!)
-      })
+      formatDuration(inputs[i++ % inputs.length]!)
+    })
   })
 })

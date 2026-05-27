@@ -118,10 +118,9 @@ export namespace Skill {
     category: Schema.optional(Schema.String).annotate({ description: "Optional category" }),
     tags: Schema.optional(Schema.Array(Schema.String)).annotate({ description: "Optional tags" }),
     content: Schema.optional(Schema.String).annotate({ description: "Optional markdown content body" }),
-    scope: Schema.Literals(["workspace", "global"]).pipe(
-      Schema.optional,
-      Schema.withDecodingDefault(Effect.succeed("workspace" as const)),
-    ).annotate({ description: "Where to create the skill" }),
+    scope: Schema.Literals(["workspace", "global"])
+      .pipe(Schema.optional, Schema.withDecodingDefault(Effect.succeed("workspace" as const)))
+      .annotate({ description: "Where to create the skill" }),
   })
   const CreateInput = zodObject(CreateInputSchema)
 
@@ -137,9 +136,8 @@ export namespace Skill {
 
           const addSkill = async (match: string) => {
             const md = await ConfigMarkdown.parse(match).catch((err) => {
-              const message = err instanceof ConfigMarkdown.FrontmatterError
-                ? err.message
-                : `Failed to parse skill ${match}`
+              const message =
+                err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse skill ${match}`
               Bus.publish(Session.Event.Error, { error: EventError.unknown(message) })
               log.error("failed to load skill", { skill: match, err })
               return undefined

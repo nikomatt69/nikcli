@@ -47,7 +47,10 @@ async function publishWithDistExports(pkgDir: string, srcPrefix = "./src/", dist
 
   for (const [key, value] of Object.entries(pkg.exports as Record<string, string>)) {
     if (typeof value !== "string") continue
-    const file = value.replace(srcPrefix, distPrefix).replace(/\.ts$/, "").replace(/\.tsx$/, "")
+    const file = value
+      .replace(srcPrefix, distPrefix)
+      .replace(/\.ts$/, "")
+      .replace(/\.tsx$/, "")
     pkg.exports[key] = { import: file + ".js", types: file + ".d.ts" }
   }
 
@@ -57,14 +60,16 @@ async function publishWithDistExports(pkgDir: string, srcPrefix = "./src/", dist
     if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
 
     const tgz = (await $`ls ${pkgDir}/*.tgz`.text()).trim().split("\n").pop()!
-    const publish = Bun.spawnSync(
-      ["npm", "publish", tgz, "--tag", channel, "--access", "public"],
-      { cwd: pkgDir, stdout: "pipe", stderr: "pipe" },
-    )
+    const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+      cwd: pkgDir,
+      stdout: "pipe",
+      stderr: "pipe",
+    })
     const stderr = publish.stderr.toString()
     Bun.spawnSync(["rm", "-f", tgz], { cwd: pkgDir })
     if (publish.exitCode !== 0) {
-      if (stderr.includes("E409") || stderr.includes("You cannot publish over the previously published versions")) return
+      if (stderr.includes("E409") || stderr.includes("You cannot publish over the previously published versions"))
+        return
       throw new Error(stderr.split("\n").find((l) => l.includes("npm error")) ?? "publish failed")
     }
   } finally {
@@ -78,10 +83,11 @@ async function publishSource(pkgDir: string) {
   const pack = Bun.spawnSync(["bun", "pm", "pack"], { cwd: pkgDir, stdout: "pipe", stderr: "pipe" })
   if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
   const tgz = (await $`ls ${pkgDir}/*.tgz`.text()).trim().split("\n").pop()!
-  const publish = Bun.spawnSync(
-    ["npm", "publish", tgz, "--tag", channel, "--access", "public"],
-    { cwd: pkgDir, stdout: "pipe", stderr: "pipe" },
-  )
+  const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+    cwd: pkgDir,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
   Bun.spawnSync(["rm", "-f", tgz], { cwd: pkgDir })
   const stderr = publish.stderr.toString()
   if (publish.exitCode !== 0 && stderr.includes("npm error")) {
@@ -118,10 +124,11 @@ await run("@nikcli-ai/sdk", async () => {
   const pack = Bun.spawnSync(["bun", "pm", "pack"], { cwd: dir, stdout: "pipe", stderr: "pipe" })
   if (pack.exitCode !== 0) throw new Error(pack.stderr.toString().trim() || "pack failed")
   const tgz = (await $`ls ${dir}/*.tgz`.text()).trim().split("\n").pop()!
-  const publish = Bun.spawnSync(
-    ["npm", "publish", tgz, "--tag", channel, "--access", "public"],
-    { cwd: dir, stdout: "pipe", stderr: "pipe" },
-  )
+  const publish = Bun.spawnSync(["npm", "publish", tgz, "--tag", channel, "--access", "public"], {
+    cwd: dir,
+    stdout: "pipe",
+    stderr: "pipe",
+  })
   Bun.spawnSync(["rm", "-f", tgz], { cwd: dir })
   const stderr = publish.stderr.toString()
   if (publish.exitCode !== 0 && stderr.includes("npm error")) {

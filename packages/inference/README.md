@@ -44,12 +44,12 @@ Multi-stage Bun Alpine image, non-root user, `HEALTHCHECK` against `/health`, gr
 
 ## API Keys (dev tiers)
 
-| Key            | Tier     | Req/day | Tokens/day |
-| -------------- | -------- | ------- | ---------- |
-| `nik-free`     | free     | 100     | 50K        |
-| `nik-starter`  | starter  | 1,000   | 1M         |
-| `nik-pro`      | pro      | 10,000  | 10M        |
-| `nik-biz`      | business | 100,000 | 100M       |
+| Key           | Tier     | Req/day | Tokens/day |
+| ------------- | -------- | ------- | ---------- |
+| `nik-free`    | free     | 100     | 50K        |
+| `nik-starter` | starter  | 1,000   | 1M         |
+| `nik-pro`     | pro      | 10,000  | 10M        |
+| `nik-biz`     | business | 100,000 | 100M       |
 
 ## License
 

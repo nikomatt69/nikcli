@@ -112,8 +112,7 @@ export const dict = {
   "home.faq.a2.before": "Den nemmeste made at komme i gang pa er at laese",
   "home.faq.a2.link": "introen",
   "home.faq.q3": "Skal jeg have ekstra AI-abonnementer for at bruge Nikcli?",
-  "home.faq.a3.p1":
-    "Ikke nodvendigvis. Nikcli kommer med gratis modeller, som du kan bruge uden at oprette en konto.",
+  "home.faq.a3.p1": "Ikke nodvendigvis. Nikcli kommer med gratis modeller, som du kan bruge uden at oprette en konto.",
   "home.faq.a3.p2.beforeZen": "Derudover kan du bruge populære kodningsmodeller ved at oprette en",
   "home.faq.a3.p2.afterZen": " konto.",
   "home.faq.a3.p3":

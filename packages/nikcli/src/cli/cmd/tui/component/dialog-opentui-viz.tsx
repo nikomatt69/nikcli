@@ -143,7 +143,10 @@ function sparkline(values: ReadonlyArray<number>): string {
   const range = max - min || 1
   let out = ""
   for (const v of values) {
-    const idx = Math.max(0, Math.min(SPARK_CHARS.length - 1, Math.floor(((v - min) / range) * (SPARK_CHARS.length - 1))))
+    const idx = Math.max(
+      0,
+      Math.min(SPARK_CHARS.length - 1, Math.floor(((v - min) / range) * (SPARK_CHARS.length - 1))),
+    )
     out += SPARK_CHARS[idx]
   }
   return out
@@ -683,9 +686,7 @@ function isStatComp(s: StatLike): s is Of<"stat"> {
 
 function StatTile(props: { stat: StatLike; compact?: boolean }) {
   const { theme } = useTheme()
-  const valueText = createMemo(() =>
-    formatValue(props.stat.value, props.stat.format, props.stat.unit),
-  )
+  const valueText = createMemo(() => formatValue(props.stat.value, props.stat.format, props.stat.unit))
   const valueColor = createMemo(() => resolveColor(theme, props.stat.color))
   const deltaText = createMemo(() => {
     if (props.stat.delta === undefined) return undefined
@@ -959,7 +960,7 @@ function LineChartRenderer(props: { comp: Of<"line_chart"> }) {
   const height = createMemo(() => props.comp.height ?? 8)
 
   const allValues = createMemo(() => props.comp.series.flatMap((s) => s.values))
-  const yMin = createMemo(() => (props.comp.yMin ?? Math.min(...allValues())))
+  const yMin = createMemo(() => props.comp.yMin ?? Math.min(...allValues()))
   const yMax = createMemo(() => {
     const m = props.comp.yMax ?? Math.max(...allValues())
     return m === yMin() ? m + 1 : m
@@ -1217,7 +1218,9 @@ function HeatmapRenderer(props: { comp: Of<"heatmap"> }) {
                 const v = createMemo(() => props.comp.values[rIdx()]?.[cIdx()] ?? 0)
                 const bg = createMemo(() => colorFor(v()))
                 const luminance = createMemo(() => 0.299 * bg().r + 0.587 * bg().g + 0.114 * bg().b)
-                const fg = createMemo(() => (luminance() > 0.55 ? RGBA.fromInts(0, 0, 0) : RGBA.fromInts(255, 255, 255)))
+                const fg = createMemo(() =>
+                  luminance() > 0.55 ? RGBA.fromInts(0, 0, 0) : RGBA.fromInts(255, 255, 255),
+                )
                 const txt = createMemo(() => {
                   const n = v()
                   const s = Math.abs(n) >= 100 ? Math.round(n).toString() : n.toFixed(1)
@@ -1322,9 +1325,7 @@ function ProgressBarsRenderer(props: { comp: Of<"progress_bars"> }) {
           const filled = createMemo(() => Math.round(pct() * barWidth()))
           const empty = createMemo(() => barWidth() - filled())
           const bar = createMemo(() => "█".repeat(filled()) + "░".repeat(empty()))
-          const color = createMemo(() =>
-            thresholdColor(theme, pctNum(), props.comp.thresholds, defaultColor(pct())),
-          )
+          const color = createMemo(() => thresholdColor(theme, pctNum(), props.comp.thresholds, defaultColor(pct())))
           return (
             <box flexDirection="row" gap={1}>
               <text fg={theme.textMuted} flexShrink={0}>

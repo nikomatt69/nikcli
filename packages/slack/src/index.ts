@@ -1,5 +1,12 @@
 import { App, type SayFn } from "@slack/bolt"
-import { createNikcli, createNikcliClient, type Part, type TextPart, type ToolPart, type ToolStateCompleted } from "@nikcli-ai/sdk"
+import {
+  createNikcli,
+  createNikcliClient,
+  type Part,
+  type TextPart,
+  type ToolPart,
+  type ToolStateCompleted,
+} from "@nikcli-ai/sdk"
 
 const NIKCLI_MODEL = process.env.NIKCLI_MODEL ?? "minimax-coding-plan/MiniMax-M2.5"
 const allowedChannels = new Set((process.env.SLACK_ALLOWED_CHANNELS ?? "").split(/[\s,]+/).filter(Boolean))
@@ -459,10 +466,10 @@ function isTextPart(part: Part): part is TextPart {
 
 function formatForSlack(text: string): string {
   return text
-    .replace(/\*\*(.+?)\*\*/gs, "*$1*")                         // **bold** → *bold*
-    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "_$1_")            // *italic* → _italic_
-    .replace(/^#{1,3} (.+)$/gm, "*$1*")                         // # Heading → *Heading*
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "<$2|$1>")  // [text](url) → <url|text>
+    .replace(/\*\*(.+?)\*\*/gs, "*$1*") // **bold** → *bold*
+    .replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, "_$1_") // *italic* → _italic_
+    .replace(/^#{1,3} (.+)$/gm, "*$1*") // # Heading → *Heading*
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, "<$2|$1>") // [text](url) → <url|text>
 }
 
 function extractResponseText(

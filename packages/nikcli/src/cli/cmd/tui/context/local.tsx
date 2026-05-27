@@ -35,9 +35,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
 
     const agent = iife(() => {
       const PRIMARY_AGENT_NAMES = ["build", "plan", "general", "ralph", "ultrareview-reviewer"]
-      const agents = createMemo(() =>
-        sync.data.agent.filter((x) => PRIMARY_AGENT_NAMES.includes(x.name)),
-      )
+      const agents = createMemo(() => sync.data.agent.filter((x) => PRIMARY_AGENT_NAMES.includes(x.name)))
       const subagents = createMemo(() =>
         sync.data.agent.filter((x) => !x.hidden && !PRIMARY_AGENT_NAMES.includes(x.name)),
       )

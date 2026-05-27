@@ -14,17 +14,12 @@ import { it } from "bun:test"
  * }))
  * ```
  */
-export function makeTestRuntime<A, E>(
-  label: string,
-  layer: import("effect").Layer.Layer<A, E, never>,
-) {
+export function makeTestRuntime<A, E>(label: string, layer: import("effect").Layer.Layer<A, E, never>) {
   const runtime = ManagedRuntime.make(layer)
 
-  const runTest = <R>(effect: Effect.Effect<A, E, R>) =>
-    runtime.runPromise(effect as Effect.Effect<A, E, any>)
+  const runTest = <R>(effect: Effect.Effect<A, E, R>) => runtime.runPromise(effect as Effect.Effect<A, E, any>)
 
-  const runTestExit = <R>(effect: Effect.Effect<A, E, R>) =>
-    runtime.runPromiseExit(effect as Effect.Effect<A, E, any>)
+  const runTestExit = <R>(effect: Effect.Effect<A, E, R>) => runtime.runPromiseExit(effect as Effect.Effect<A, E, any>)
 
   return { runTest, runTestExit, runtime }
 }
@@ -33,10 +28,7 @@ export function makeTestRuntime<A, E>(
  * Wraps `it` with a `ManagedRuntime` pre-baked layer.
  * Each test gets a fresh instance.
  */
-export function itWithRuntime<A, E>(
-  label: string,
-  layer: import("effect").Layer.Layer<A, E, never>,
-) {
+export function itWithRuntime<A, E>(label: string, layer: import("effect").Layer.Layer<A, E, never>) {
   const { runTest, runTestExit } = makeTestRuntime(label, layer)
 
   return {

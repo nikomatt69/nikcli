@@ -84,9 +84,9 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
     const method = await prompts.select({
       message: "Login method",
       options: plugin.auth.methods.map((x, idx) => ({
-          label: x.label,
-          value: idx.toString(),
-        })),
+        label: x.label,
+        value: idx.toString(),
+      })),
     })
     if (prompts.isCancel(method)) {
       throw new UI.CancelledError()
@@ -184,9 +184,7 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
         throw new UI.CancelledError()
       }
       const result =
-        authorize.method === "auto-code"
-          ? await authorize.callback(code || undefined)
-          : await authorize.callback(code)
+        authorize.method === "auto-code" ? await authorize.callback(code || undefined) : await authorize.callback(code)
       if (result.type === "failed") {
         prompts.log.error("Failed to authorize")
         log.error("OAuth code authorization failed", { provider })
@@ -296,9 +294,7 @@ export const AuthListCommand = cmd({
           prompts.log.info(`${provider} ${UI.Style.TEXT_DIM}${envVar}`)
         }
 
-        prompts.outro(
-          `${activeEnvVars.length} environment variable${activeEnvVars.length === 1 ? "" : "s"}`,
-        )
+        prompts.outro(`${activeEnvVars.length} environment variable${activeEnvVars.length === 1 ? "" : "s"}`)
       }
     } catch (error) {
       log.error("Failed to list credentials", { error })
@@ -427,9 +423,7 @@ export const AuthLoginCommand = cmd({
           return
         }
 
-        const plugin = await pluginList().then((x) =>
-          x.find((x) => x.auth?.provider === provider),
-        )
+        const plugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
         if (plugin && plugin.auth) {
           const handled = await handlePluginAuth({ auth: plugin.auth }, provider)
           if (handled) return
@@ -446,9 +440,7 @@ export const AuthLoginCommand = cmd({
           }
           provider = provider.replace(/^@ai-sdk\//, "")
 
-          const customPlugin = await pluginList().then((x) =>
-            x.find((x) => x.auth?.provider === provider),
-          )
+          const customPlugin = await pluginList().then((x) => x.find((x) => x.auth?.provider === provider))
           if (customPlugin && customPlugin.auth) {
             const handled = await handlePluginAuth({ auth: customPlugin.auth }, provider)
             if (handled) return

@@ -32,9 +32,7 @@ export const copilotDefaultOptions = (modelID: string): ProviderOptions | undefi
   return openAIDefaultOptions(id, { textVerbosity: false })
 }
 
-export const withCopilotOptions = <
-  Options extends { readonly providerOptions?: CopilotProviderOptionsInput },
->(
+export const withCopilotOptions = <Options extends { readonly providerOptions?: CopilotProviderOptionsInput }>(
   modelID: string,
   options: Options,
 ): Options & { readonly id: string; readonly providerOptions?: ProviderOptions } => {

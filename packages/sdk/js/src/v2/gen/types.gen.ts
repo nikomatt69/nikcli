@@ -568,6 +568,10 @@ export type SessionStatus =
     }
   | {
       type: "busy"
+      since: number
+    }
+  | {
+      type: "busy"
     }
 
 export type EventSessionStatus = {

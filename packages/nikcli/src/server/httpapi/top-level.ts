@@ -175,8 +175,5 @@ export namespace TopLevelHttpApi {
     Format.defaultLayer,
   )
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(DependenciesLive),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(DependenciesLive))
 }

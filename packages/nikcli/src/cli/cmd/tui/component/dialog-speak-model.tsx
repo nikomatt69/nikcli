@@ -259,7 +259,7 @@ export function DialogSpeakModel() {
           }
           toast.show({ message: "Speak model updated", variant: "success" })
           dialog.clear()
-        } catch  {
+        } catch {
           toast.show({ message: "Failed to update speak config", variant: "error" })
         } finally {
           setSaving(false)

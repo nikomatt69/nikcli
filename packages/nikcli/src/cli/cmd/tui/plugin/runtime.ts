@@ -323,7 +323,7 @@ function createPluginScope(load: PluginLoad, id: string) {
   let done = false
 
   const onDispose = (fn: TuiDispose) => {
-    if (done) return () => { }
+    if (done) return () => {}
     const key = Symbol()
     list.push({ key, fn })
     let drop = false
@@ -335,7 +335,7 @@ function createPluginScope(load: PluginLoad, id: string) {
   }
 
   const track = (fn: (() => void) | undefined) => {
-    if (!fn) return () => { }
+    if (!fn) return () => {}
     const off = onDispose(fn)
     let drop = false
     return () => {

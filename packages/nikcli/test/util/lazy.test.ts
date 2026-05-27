@@ -71,7 +71,7 @@ describe("lazy", () => {
     it("lazy cached access throughput", () => {
       const getValue = lazy(() => ({ result: 42 }))
       getValue() // prime cache
-        recordBenchmark({
+      recordBenchmark({
         suite: "util-lazy",
         module: "lazy cached access",
         scenario: "throughput",

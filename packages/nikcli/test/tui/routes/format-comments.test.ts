@@ -44,9 +44,7 @@ describe("hasAnyComments", () => {
   })
 
   it("returns true for a single file with one comment", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["src/index.ts", makeMap([makeComment()])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["src/index.ts", makeMap([makeComment()])]])
     expect(hasAnyComments(byFile)).toBe(true)
   })
 })
@@ -62,18 +60,14 @@ describe("formatCommentsForAI", () => {
   })
 
   it("includes header text", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["src/app.ts", makeMap([makeComment()])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["src/app.ts", makeMap([makeComment()])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("Code Review Feedback")
     expect(result).toContain("line-level feedback")
   })
 
   it("includes file path as section header", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["src/app.ts", makeMap([makeComment()])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["src/app.ts", makeMap([makeComment()])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("## src/app.ts")
   })
@@ -87,49 +81,37 @@ describe("formatCommentsForAI", () => {
   })
 
   it("includes [bug] type tag for bug comment", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["src/app.ts", makeMap([makeComment({ type: "bug" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["src/app.ts", makeMap([makeComment({ type: "bug" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("[bug]")
   })
 
   it("includes line type label for added lines", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([makeComment({ lineType: "add" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([makeComment({ lineType: "add" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("added")
   })
 
   it("includes line type label for removed lines", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([makeComment({ lineType: "remove" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([makeComment({ lineType: "remove" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("removed")
   })
 
   it("formats anchor new: correctly", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([makeComment({ anchor: "new:42" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([makeComment({ anchor: "new:42" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("Line 42 (new)")
   })
 
   it("formats anchor old: correctly", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([makeComment({ anchor: "old:10" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([makeComment({ anchor: "old:10" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("Line 10 (old)")
   })
 
   it("formats anchor ln: correctly", () => {
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([makeComment({ anchor: "ln:7" })])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([makeComment({ anchor: "ln:7" })])]])
     const result = formatCommentsForAI(byFile)
     expect(result).toContain("Line 7")
   })
@@ -137,9 +119,7 @@ describe("formatCommentsForAI", () => {
   it("sorts comments by line number within a file", () => {
     const c1 = makeComment({ id: "c1", line: 20, anchor: "new:20" })
     const c2 = makeComment({ id: "c2", line: 5, anchor: "new:5" })
-    const byFile = new Map<string, Map<string, Comment>>([
-      ["file.ts", makeMap([c1, c2])],
-    ])
+    const byFile = new Map<string, Map<string, Comment>>([["file.ts", makeMap([c1, c2])]])
     const result = formatCommentsForAI(byFile)
     const pos20 = result.indexOf("Line 20")
     const pos5 = result.indexOf("Line 5")

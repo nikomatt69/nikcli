@@ -110,7 +110,9 @@ function McpPageInner() {
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-terminal-border bg-terminal-panel py-16 text-center">
         <div className="mb-4 text-4xl">🔒</div>
         <h3 className="text-lg font-semibold text-terminal-text">Not connected</h3>
-        <p className="mt-2 text-sm text-terminal-muted">Configure server connection in Settings to manage this user's MCP servers.</p>
+        <p className="mt-2 text-sm text-terminal-muted">
+          Configure server connection in Settings to manage this user's MCP servers.
+        </p>
       </div>
     )
   }
@@ -121,7 +123,9 @@ function McpPageInner() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 border-b border-terminal-border/60 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">User MCP</p>
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-terminal-accent">
+            User MCP
+          </p>
           <h2 className="mt-2 font-display text-3xl font-bold text-terminal-text">Manage MCP servers</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-terminal-muted">
             Add, edit, enable, disable, or remove MCP servers from the connected nikcli user configuration.
@@ -224,7 +228,9 @@ function McpPageInner() {
                     {editingName === name ? (
                       <input
                         value={server.type === "local" ? editCommand : editUrl}
-                        onChange={(e) => (server.type === "local" ? setEditCommand(e.target.value) : setEditUrl(e.target.value))}
+                        onChange={(e) =>
+                          server.type === "local" ? setEditCommand(e.target.value) : setEditUrl(e.target.value)
+                        }
                         className="mt-2 w-full min-w-[280px] rounded-[var(--radius-sm)] border border-terminal-border bg-terminal-bg px-3 py-2 font-mono text-xs text-terminal-text outline-none focus:border-terminal-accent"
                       />
                     ) : (
@@ -242,15 +248,25 @@ function McpPageInner() {
                   </span>
                   {editingName === name ? (
                     <>
-                      <button onClick={() => saveEdit(name, server)} disabled={busy} className="rounded-[var(--radius-sm)] border border-terminal-accent/40 px-3 py-1.5 text-xs font-medium text-terminal-accent transition-colors hover:bg-terminal-accent/10">
+                      <button
+                        onClick={() => saveEdit(name, server)}
+                        disabled={busy}
+                        className="rounded-[var(--radius-sm)] border border-terminal-accent/40 px-3 py-1.5 text-xs font-medium text-terminal-accent transition-colors hover:bg-terminal-accent/10"
+                      >
                         Save
                       </button>
-                      <button onClick={() => setEditingName(null)} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50">
+                      <button
+                        onClick={() => setEditingName(null)}
+                        className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50"
+                      >
                         Cancel
                       </button>
                     </>
                   ) : (
-                    <button onClick={() => beginEdit(name, server)} className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50">
+                    <button
+                      onClick={() => beginEdit(name, server)}
+                      className="rounded-[var(--radius-sm)] border border-terminal-border px-3 py-1.5 text-xs font-medium text-terminal-muted transition-colors hover:bg-terminal-border/50"
+                    >
                       Edit
                     </button>
                   )}

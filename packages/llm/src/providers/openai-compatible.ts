@@ -3,10 +3,7 @@ import { ProviderID, type ModelID } from "../schema"
 import * as OpenAICompatibleChat from "../protocols/openai-compatible-chat"
 import type { OpenAICompatibleChatModelInput } from "../protocols/openai-compatible-chat"
 import { profiles, type OpenAICompatibleProfile } from "./openai-compatible-profile"
-import {
-  withOpenAICompatibleOptions,
-  type OpenAICompatibleProviderOptionsInput,
-} from "./openai-compatible-options"
+import { withOpenAICompatibleOptions, type OpenAICompatibleProviderOptionsInput } from "./openai-compatible-options"
 
 export type { OpenAICompatibleProviderOptionsInput } from "./openai-compatible-options"
 

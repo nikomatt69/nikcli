@@ -146,7 +146,7 @@ describe("errorData", () => {
         value: errorData(err) as unknown as number,
         unit: "ms",
       })
-        errorData(err)
+      errorData(err)
     })
   })
 })

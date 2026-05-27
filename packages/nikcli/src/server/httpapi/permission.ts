@@ -1,9 +1,4 @@
-import {
-  HttpApi,
-  HttpApiBuilder,
-  HttpApiEndpoint,
-  HttpApiGroup,
-} from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { PermissionNext } from "@/permission/next"
 
@@ -68,13 +63,8 @@ export namespace PermissionHttpApi {
   }
 
   export const HandlersLive = HttpApiBuilder.group(Api, "permission", (builder) =>
-    builder
-      .handle("list", handlers.list)
-      .handle("reply", handlers.reply),
+    builder.handle("list", handlers.list).handle("reply", handlers.reply),
   )
 
-  export const layer = ApiLive.pipe(
-    Layer.provide(HandlersLive),
-    Layer.provide(PermissionNext.defaultLayer),
-  )
+  export const layer = ApiLive.pipe(Layer.provide(HandlersLive), Layer.provide(PermissionNext.defaultLayer))
 }

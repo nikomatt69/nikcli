@@ -143,10 +143,13 @@ export namespace ConfigPaths {
           const errMsg = `bad file reference: "${token}"`
           if (error.code === "ENOENT") {
             return Effect.fail(
-              Object.assign(new InvalidError({
-                path: configSource,
-                message: errMsg + ` ${resolvedPath} does not exist`,
-              }), { cause: error }),
+              Object.assign(
+                new InvalidError({
+                  path: configSource,
+                  message: errMsg + ` ${resolvedPath} does not exist`,
+                }),
+                { cause: error },
+              ),
             )
           }
           return Effect.fail(Object.assign(new InvalidError({ path: configSource, message: errMsg }), { cause: error }))
@@ -190,8 +193,8 @@ export namespace ConfigPaths {
 
       return yield* Effect.fail(
         new JsonError({
-        path: configSource,
-        message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails}\n--- End ---`,
+          path: configSource,
+          message: `\n--- JSONC Input ---\n${text}\n--- Errors ---\n${errorDetails}\n--- End ---`,
         }),
       )
     }

@@ -773,7 +773,7 @@ export namespace Provider {
                   delete body.max_tokens
                   init = { ...init, body: JSON.stringify(body) }
                 }
-              } catch  {
+              } catch {
                 // If body parsing fails, continue with original request
               }
             }

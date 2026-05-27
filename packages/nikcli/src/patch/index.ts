@@ -547,8 +547,7 @@ export namespace Patch {
           type: MaybeApplyPatchVerified.CorrectnessError,
           error: new Error(ApplyPatchError.ImplicitInvocation),
         }
-      } catch {
-      }
+      } catch {}
     }
 
     const result = maybeParseApplyPatch(argv)
@@ -581,7 +580,7 @@ export namespace Patch {
                   type: "delete",
                   content,
                 })
-              } catch  {
+              } catch {
                 return {
                   type: MaybeApplyPatchVerified.CorrectnessError,
                   error: new Error(`Failed to read file for deletion: ${deletePath}`),

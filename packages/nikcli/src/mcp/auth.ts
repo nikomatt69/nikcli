@@ -60,7 +60,8 @@ export namespace McpAuth {
         Effect.tryPromise(() => updateTokensImpl(mcpName, tokens, serverUrl)),
       updateClientInfo: (mcpName, clientInfo, serverUrl) =>
         Effect.tryPromise(() => updateClientInfoImpl(mcpName, clientInfo, serverUrl)),
-      updateCodeVerifier: (mcpName, codeVerifier) => Effect.tryPromise(() => updateCodeVerifierImpl(mcpName, codeVerifier)),
+      updateCodeVerifier: (mcpName, codeVerifier) =>
+        Effect.tryPromise(() => updateCodeVerifierImpl(mcpName, codeVerifier)),
       clearCodeVerifier: (mcpName) => Effect.tryPromise(() => clearCodeVerifierImpl(mcpName)),
       updateOAuthState: (mcpName, oauthState) => Effect.tryPromise(() => updateOAuthStateImpl(mcpName, oauthState)),
       getOAuthState: (mcpName) => Effect.tryPromise(() => getOAuthStateImpl(mcpName)),

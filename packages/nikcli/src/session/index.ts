@@ -672,8 +672,12 @@ export namespace Session {
       for (const msg of await storageList(["message", sessionID])) {
         await removeMessageWithPartsImpl(sessionID, msg.at(-1)!)
       }
-      await storageRemove(["session_diff", sessionID]).catch((err) => { log.error('Storage operation failed', {error: err}) })
-      await storageRemove(["goal", sessionID]).catch((err) => { log.error('Storage operation failed', {error: err}) })
+      await storageRemove(["session_diff", sessionID]).catch((err) => {
+        log.error("Storage operation failed", { error: err })
+      })
+      await storageRemove(["goal", sessionID]).catch((err) => {
+        log.error("Storage operation failed", { error: err })
+      })
       await storageRemove(["session", ctx.project.id, sessionID])
       await publishBus(ctx, Event.Deleted, {
         info: session,
@@ -715,7 +719,9 @@ export namespace Session {
         },
         cost: msg.cost || 0,
         timestamp: msg.time.completed,
-      }).catch((err) => { log.error('Storage operation failed', {error: err}) })
+      }).catch((err) => {
+        log.error("Storage operation failed", { error: err })
+      })
     }
 
     return msg
@@ -764,7 +770,9 @@ export namespace Session {
           sessionID: part.sessionID,
           success: isSuccess,
           timestamp: Date.now(),
-        }).catch((err) => { log.error('Storage operation failed', {error: err}) })
+        }).catch((err) => {
+          log.error("Storage operation failed", { error: err })
+        })
       }
     }
 

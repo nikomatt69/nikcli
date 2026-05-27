@@ -972,7 +972,7 @@ export function Session() {
           )
           await Clipboard.copy(transcript)
           toast.show({ message: "Session transcript copied to clipboard!", variant: "success" })
-        } catch  {
+        } catch {
           toast.show({ message: "Failed to copy session transcript", variant: "error" })
         }
         dialog.clear()
@@ -1033,7 +1033,7 @@ export function Session() {
 
             toast.show({ message: `Session exported to ${filename}`, variant: "success" })
           }
-        } catch  {
+        } catch {
           toast.show({ message: "Failed to export session", variant: "error" })
         }
         dialog.clear()
@@ -1135,7 +1135,7 @@ export function Session() {
           ),
         }
       })
-    } catch  {
+    } catch {
       return []
     }
   })

@@ -382,19 +382,19 @@ export function DialogSelectServer() {
           add={
             store.addServer.showForm
               ? {
-                render: () => (
-                  <AddRow
-                    value={store.addServer.url}
-                    placeholder={language.t("dialog.server.add.placeholder")}
-                    adding={store.addServer.adding}
-                    error={store.addServer.error}
-                    status={store.addServer.status}
-                    onChange={handleAddChange}
-                    onKeyDown={handleAddKey}
-                    onBlur={blurAdd}
-                  />
-                ),
-              }
+                  render: () => (
+                    <AddRow
+                      value={store.addServer.url}
+                      placeholder={language.t("dialog.server.add.placeholder")}
+                      adding={store.addServer.adding}
+                      error={store.addServer.error}
+                      status={store.addServer.status}
+                      onChange={handleAddChange}
+                      onKeyDown={handleAddKey}
+                      onBlur={blurAdd}
+                    />
+                  ),
+                }
               : undefined
           }
         >
