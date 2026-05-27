@@ -79,9 +79,9 @@ export namespace ConfigPaths {
   const readFileEffect = Effect.fn("ConfigPaths.readFile")(function* (filepath: string) {
     return yield* Effect.tryPromise({
       try: () => Filesystem.readText(filepath),
-      catch: (err) => err as NodeJS.ErrnoException,
+      catch: (err) => err as ErrnoException,
     }).pipe(
-      Effect.catch((err: NodeJS.ErrnoException) => {
+      Effect.catch((err: ErrnoException) => {
         if (err.code === "ENOENT") return Effect.succeed(undefined)
         return Effect.fail(Object.assign(new JsonError({ path: filepath }), { cause: err }))
       }),
@@ -135,9 +135,9 @@ export namespace ConfigPaths {
       const resolvedPath = path.isAbsolute(filePath) ? filePath : path.resolve(configDir, filePath)
       const fileContent = yield* Effect.tryPromise({
         try: () => Filesystem.readText(resolvedPath),
-        catch: (error) => error as NodeJS.ErrnoException,
+        catch: (error) => error as ErrnoException,
       }).pipe(
-        Effect.catch((error: NodeJS.ErrnoException) => {
+        Effect.catch((error: ErrnoException) => {
           if (missing === "empty") return Effect.succeed("")
 
           const errMsg = `bad file reference: "${token}"`

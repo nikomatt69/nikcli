@@ -22,7 +22,6 @@ import mercury from "./theme/mercury.json" with { type: "json" }
 import monokai from "./theme/monokai.json" with { type: "json" }
 import nightowl from "./theme/nightowl.json" with { type: "json" }
 import nord from "./theme/nord.json" with { type: "json" }
-import osakaJade from "./theme/osaka-jade.json" with { type: "json" }
 import onedark from "./theme/one-dark.json" with { type: "json" }
 import nikcli from "./theme/nikcli.json" with { type: "json" }
 import orng from "./theme/orng.json" with { type: "json" }
@@ -43,8 +42,6 @@ import draculaOfficial from "./theme/dracula-official.json" with { type: "json" 
 import onepro from "./theme/one-pro.json" with { type: "json" }
 import materialOcean from "./theme/material-ocean.json" with { type: "json" }
 import githubDimmed from "./theme/github-dimmed.json" with { type: "json" }
-import arctic from "./theme/arctic.json" with { type: "json" }
-import vivid from "./theme/vivid.json" with { type: "json" }
 import equilibrium from "./theme/equilibrium.json" with { type: "json" }
 import ayuai from "./theme/ayuai.json" with { type: "json" }
 import dawnfox from "./theme/dawnfox.json" with { type: "json" }
@@ -64,7 +61,6 @@ import onyx from "./theme/onyx.json" with { type: "json" }
 import cosmic from "./theme/cosmic.json" with { type: "json" }
 import jet from "./theme/jet.json" with { type: "json" }
 import starlight from "./theme/starlight.json" with { type: "json" }
-import zinc from "./theme/zinc.json" with { type: "json" }
 import lavender from "./theme/lavender.json" with { type: "json" }
 import gone from "./theme/gone.json" with { type: "json" }
 import duo from "./theme/duo.json" with { type: "json" }
@@ -104,7 +100,6 @@ import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
 import { Global } from "@/global"
 import { Filesystem } from "@/util/filesystem"
-import { useSDK } from "./sdk"
 
 type ThemeColors = {
   primary: RGBA

@@ -1,4 +1,4 @@
-import { createMemo, Show } from "solid-js"
+import { createMemo } from "solid-js"
 import { useKV } from "../../context/kv"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"

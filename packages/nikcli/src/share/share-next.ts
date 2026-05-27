@@ -324,7 +324,7 @@ export namespace ShareNext {
         updated: Date.now(),
       },
       items: {
-        ...(existing?.items ?? {}),
+        ...existing?.items,
         ...toItemMap(data),
       },
     })

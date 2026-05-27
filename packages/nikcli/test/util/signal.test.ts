@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { signal } from "@/util/signal"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("signal", () => {
   it("returns an object with trigger and wait methods", () => {

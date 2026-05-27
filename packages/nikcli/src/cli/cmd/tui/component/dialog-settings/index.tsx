@@ -1,4 +1,4 @@
-import { createMemo, Show } from "solid-js"
+import { createMemo } from "solid-js"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSettingsSpinner } from "./spinner"

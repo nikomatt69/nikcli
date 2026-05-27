@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { createSignal, createEffect, on, batch, onCleanup } from "solid-js"
+import { recordBenchmark } from "./benchmarks/runner"
 
 describe("SolidJS Effects Performance Benchmark", () => {
   describe("on() with defer: true vs bare createEffect", () => {
@@ -45,6 +46,16 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(`   Bare effect time: ${bareTime.toFixed(2)}ms`)
       console.log(`   on() effect time: ${onTime.toFixed(2)}ms`)
       console.log(`   ⚡ Difference: ${(bareTime / onTime).toFixed(2)}x`)
+
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "on() defer vs bare createEffect",
+        iterations,
+        value: onTime,
+        unit: "ms",
+        metadata: { bareTime, onTime, speedup: bareTime / onTime },
+      })
 
       expect(bareEffectRuns).toBeGreaterThan(iterations)
       expect(onEffectRuns).toBeLessThanOrEqual(bareEffectRuns)
@@ -96,6 +107,16 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(`   on() (tracks 1 dep): ${onTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${(bareTime / onTime).toFixed(2)}x`)
 
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "unused dependency tracking overhead",
+        iterations,
+        value: onTime,
+        unit: "ms",
+        metadata: { bareTime, onTime },
+      })
+
       expect(bareRuns).toBeGreaterThan(iterations)
       expect(onRuns).toBeLessThanOrEqual(bareRuns)
     })
@@ -138,6 +159,15 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(`   Bare createEffect: ${avgBare.toFixed(4)}ms avg`)
       console.log(`   on() with defer: ${avgOn.toFixed(4)}ms avg`)
       console.log(`   ⚡ Overhead difference: ${((avgOn - avgBare) * 1000).toFixed(2)}µs`)
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "effect setup overhead",
+        iterations,
+        value: avgOn * 1000,
+        unit: "ms",
+        metadata: { avgBareUs: avgBare * 1000, avgOnUs: avgOn * 1000 },
+      })
     })
   })
 
@@ -173,6 +203,15 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(`   Non-batch time: ${nonBatchTime.toFixed(2)}ms`)
       console.log(`   Batch time: ${batchTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${(nonBatchTime / batchTime).toFixed(2)}x`)
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "batch vs non-batch updates",
+        iterations: iterations * signals.length,
+        value: batchTime,
+        unit: "ms",
+        metadata: { nonBatchTime, batchTime, speedup: nonBatchTime / batchTime },
+      })
     })
   })
 
@@ -225,6 +264,15 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(
         `   ⚡ Difference: ${((Math.abs(objectTime - arrayTime) / Math.max(objectTime, arrayTime)) * 100).toFixed(1)}%`,
       )
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "object vs array dependency tracking",
+        iterations,
+        value: Math.min(objectTime, arrayTime),
+        unit: "ms",
+        metadata: { objectTime, arrayTime },
+      })
     })
   })
 
@@ -257,6 +305,15 @@ describe("SolidJS Effects Performance Benchmark", () => {
       console.log(`\n📊 Memory Cleanup (${iterations} toggle cycles):`)
       console.log(`   Active intervals after cleanup: 0 (verified)`)
       console.log(`   ⚡ No interval leaks detected`)
+      recordBenchmark({
+        suite: "ui",
+        module: "solidjs",
+        scenario: "memory cleanup verification",
+        iterations,
+        value: iterations * 2,
+        unit: "count",
+        metadata: { iterations, intervalsActive: 0 },
+      })
     })
   })
 })

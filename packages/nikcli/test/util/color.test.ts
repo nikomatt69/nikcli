@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Color } from "@/util/color"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Color", () => {
   describe("isValidHex", () => {

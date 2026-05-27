@@ -1,4 +1,3 @@
-import z from "zod"
 import { Schema } from "effect"
 import { zod } from "@/util/effect-zod"
 import { spawn } from "child_process"
@@ -7,10 +6,9 @@ import path from "path"
 import DESCRIPTION from "./bash.txt"
 import { Log } from "../util/log"
 import { Instance } from "../project/instance"
-import { lazy, lazyAsync } from "@/util/lazy"
+import { lazyAsync } from "@/util/lazy"
 import { Language } from "web-tree-sitter"
 
-import { Filesystem } from "@/util/filesystem"
 import { fileURLToPath } from "url"
 import { Flag } from "@/flag/flag.ts"
 import { Shell } from "@/shell/shell"
@@ -45,7 +43,7 @@ export const log = Log.create({ service: "bash-tool" })
 function normalizePathInput(value: string) {
   return value
     .trim()
-    .replace(/^[\"'`]|[\"'`]$/g, "")
+    .replace(/^["'`]|["'`]$/g, "")
     .trim()
 }
 

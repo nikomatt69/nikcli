@@ -222,7 +222,7 @@ export const rlang: Info = {
       const hasR = firstLine.includes("R language")
       const hasFormatter = firstLine.includes("formatter")
       return hasR && hasFormatter
-    } catch (error) {
+    } catch  {
       return false
     }
   },

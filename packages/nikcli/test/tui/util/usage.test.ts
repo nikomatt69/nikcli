@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Usage } from "@/cli/cmd/tui/util/usage"
-import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
+import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("Usage.formatTokens", () => {
   it("returns plain number for values below 1000", () => {

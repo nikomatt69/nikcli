@@ -12,7 +12,7 @@ import { SessionTreeColumnHeaders, SessionTreeHeader } from "./header"
 import { SessionTreeFooter } from "./footer"
 import { sessionTreeActivityDisplay } from "./session-activity-line"
 import { DialogTimeline } from "../session/dialog-timeline"
-import { flattenTreeRows, listUserMessagePreviews, type TreeRow, treeLinePrefix } from "./tree-rows"
+import { flattenTreeRows, listUserMessagePreviews, treeLinePrefix } from "./tree-rows"
 
 type SyncContext = ReturnType<typeof useSync>
 type SessionInfo = SyncContext["data"]["session"][number]

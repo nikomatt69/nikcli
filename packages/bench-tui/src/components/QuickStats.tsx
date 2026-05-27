@@ -15,10 +15,11 @@ export function QuickStats(props: QuickStatsProps) {
   const [showDashboard, setShowDashboard] = createSignal(true)
   const [showCompare, setShowCompare] = createSignal(true)
 
-  const improved = () => props.compareRows.filter((row) => row.deltaPercent < -1).length
-  const regressed = () => props.compareRows.filter((row) => row.deltaPercent > 1).length
+  const improved = () => props.compareRows.filter((row) => row.severity === "improvement").length
+  const regressed = () =>
+    props.compareRows.filter((row) => row.severity === "regression" || row.severity === "critical").length
   const critical = () => props.compareRows.filter((row) => row.severity === "critical").length
-  const stableCount = () => props.compareRows.filter((row) => Math.abs(row.deltaPercent) <= 1).length
+  const stableCount = () => props.compareRows.filter((row) => row.severity === "neutral").length
   const avgDelta = () =>
     props.compareRows.length > 0
       ? props.compareRows.reduce((sum, row) => sum + row.deltaPercent, 0) / props.compareRows.length
@@ -40,21 +41,37 @@ export function QuickStats(props: QuickStatsProps) {
         {showDashboard ? "\u25bc" : "\u25b6"} Dashboard
       </text>
       <Show when={showDashboard()}>
-        <text fg={theme.textMuted} wrapMode="none">runs: {props.runs.length}</text>
-        <text fg={theme.textMuted} wrapMode="none">benchmarks: {props.allTests().length}</text>
-        <text fg={theme.textMuted} wrapMode="none">files: {props.testFiles.length}</text>
-        <text fg={theme.textMuted} wrapMode="none">cases: {testCases()}</text>
-        <text fg={theme.textMuted} wrapMode="none">decl: {declarations()}</text>
+        <text fg={theme.textMuted} wrapMode="none">
+          runs: {props.runs.length}
+        </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          benchmarks: {props.allTests().length}
+        </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          files: {props.testFiles.length}
+        </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          cases: {testCases()}
+        </text>
+        <text fg={theme.textMuted} wrapMode="none">
+          decl: {declarations()}
+        </text>
         <Show when={unresolvedEach() > 0}>
-          <text fg={theme.warning} wrapMode="none">dynamic: {unresolvedEach()}</text>
+          <text fg={theme.warning} wrapMode="none">
+            dynamic: {unresolvedEach()}
+          </text>
         </Show>
-        <text fg={theme.textMuted} wrapMode="none">bench files: {benchmarkFiles()}</text>
+        <text fg={theme.textMuted} wrapMode="none">
+          bench files: {benchmarkFiles()}
+        </text>
         <text fg={theme.textMuted} wrapMode="none">
           avg/run: {props.runs.length > 0 ? fmt(totalRecords() / props.runs.length, 1) : "0"}
         </text>
       </Show>
 
-      <text fg={theme.textMuted} wrapMode="none"> </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {" "}
+      </text>
       <text
         fg={theme.cyan}
         attributes={TextAttributes.BOLD}
@@ -64,22 +81,22 @@ export function QuickStats(props: QuickStatsProps) {
         {showCompare() ? "\u25bc" : "\u25b6"} Compare
       </text>
       <Show when={showCompare()}>
-        <Show
-          when={props.compareRows.length > 0}
-          fallback={<text fg={theme.textMuted}>No active compare</text>}
-        >
-          <text fg={theme.success} wrapMode="none">faster: {improved()}</text>
-          <text fg={theme.error} wrapMode="none">slower: {regressed()}</text>
+        <Show when={props.compareRows.length > 0} fallback={<text fg={theme.textMuted}>No active compare</text>}>
+          <text fg={theme.success} wrapMode="none">
+            faster: {improved()}
+          </text>
+          <text fg={theme.error} wrapMode="none">
+            slower: {regressed()}
+          </text>
           <Show when={critical() > 0}>
             <text fg={theme.error} attributes={TextAttributes.BOLD} wrapMode="none">
               critical: {critical()}
             </text>
           </Show>
-          <text fg={theme.textMuted} wrapMode="none">stable: {stableCount()}</text>
-          <text
-            fg={avgDelta() > 1 ? theme.error : avgDelta() < -1 ? theme.success : theme.textMuted}
-            wrapMode="none"
-          >
+          <text fg={theme.textMuted} wrapMode="none">
+            stable: {stableCount()}
+          </text>
+          <text fg={avgDelta() > 1 ? theme.error : avgDelta() < -1 ? theme.success : theme.textMuted} wrapMode="none">
             avg: {fmtDelta(avgDelta())}
           </text>
         </Show>

@@ -1,5 +1,5 @@
-import type { BenchmarkRecord, CompareResult, LoadedRun, RunIndex, TestIndex } from "../types"
-import { testKey, computeRunStatistics, compareSeverity } from "../types"
+import type { CompareResult, LoadedRun, RunIndex, TestIndex } from "../types"
+import { testKey, computeRunStatistics, compareSeverity, lowerIsBetter } from "../types"
 
 export function buildRunIndex(allRuns: LoadedRun[]): RunIndex {
   const index = new Map<string, TestIndex>()
@@ -52,8 +52,9 @@ export function buildRunIndex(allRuns: LoadedRun[]): RunIndex {
     ti.medianValue = stats.median
     ti.p95Value = stats.p95
     ti.stdDev = stats.stdDev
-    ti.bestValue = stats.min
-    ti.worstValue = stats.max
+    const betterLow = lowerIsBetter(ti.unit)
+    ti.bestValue = betterLow ? stats.min : stats.max
+    ti.worstValue = betterLow ? stats.max : stats.min
 
     for (const [runId, v] of ti.runValues) {
       if (v.value === ti.bestValue) {
@@ -77,12 +78,21 @@ export function buildRunIndex(allRuns: LoadedRun[]): RunIndex {
       const ssTot = runValues.reduce((s, y) => s + (y - ti.avgValue) ** 2, 0)
       const rSquared = ssTot === 0 ? 0 : 1 - ssRes / ssTot
 
-      const stdErr = Math.sqrt(ssRes / (n - 2)) / Math.sqrt(sumX2 - sumX * sumX / n) || 0
+      const stdErr = Math.sqrt(ssRes / (n - 2)) / Math.sqrt(sumX2 - (sumX * sumX) / n) || 0
       const tStat = stdErr === 0 ? 0 : slope / stdErr
       const confidence = Math.min(1, Math.abs(tStat) / 3)
 
-      const direction: "up" | "down" | "stable" =
-        slope < -stats.stdDev * 0.3 ? "up" : slope > stats.stdDev * 0.3 ? "down" : "stable"
+      const direction: "up" | "down" | "stable" = betterLow
+        ? slope < -stats.stdDev * 0.3
+          ? "up"
+          : slope > stats.stdDev * 0.3
+            ? "down"
+            : "stable"
+        : slope > stats.stdDev * 0.3
+          ? "up"
+          : slope < -stats.stdDev * 0.3
+            ? "down"
+            : "stable"
 
       ti.trend = direction
       ti.trendConfidence = confidence
@@ -91,7 +101,9 @@ export function buildRunIndex(allRuns: LoadedRun[]): RunIndex {
         ti.regressionWarnings.push(`Performance degrading (slope: ${slope.toFixed(2)}/run, R²=${rSquared.toFixed(2)})`)
       }
       if (ti.count >= 5 && stats.p95 > stats.median * 1.5) {
-        ti.regressionWarnings.push(`High variance detected (P95=${stats.p95.toFixed(1)} vs median=${stats.median.toFixed(1)})`)
+        ti.regressionWarnings.push(
+          `High variance detected (P95=${stats.p95.toFixed(1)} vs median=${stats.median.toFixed(1)})`,
+        )
       }
     }
   }
@@ -133,8 +145,8 @@ export function buildCompareResults(allRuns: LoadedRun[], leftRunId: string, rig
       rightValue: rightVal.value,
       delta,
       deltaPercent,
-      leftIsBetter: leftVal.value < rightVal.value,
-      severity: compareSeverity(deltaPercent),
+      leftIsBetter: lowerIsBetter(parts[3] ?? "ms") ? leftVal.value < rightVal.value : leftVal.value > rightVal.value,
+      severity: compareSeverity(deltaPercent, parts[3] ?? "ms"),
     })
   }
 

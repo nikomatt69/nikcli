@@ -845,7 +845,7 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
                 ),
                 {
                   role: "user",
-                  content: `Create an agent configuration based on this request: \"${input.description}\".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i: Info) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
+                  content: `Create an agent configuration based on this request: "${input.description}".\n\nIMPORTANT: The following identifiers already exist and must NOT be used: ${existing.map((i: Info) => i.name).join(", ")}\n  Return ONLY the JSON object, no other text, do not wrap in backticks`,
                 },
               ],
               model: language,

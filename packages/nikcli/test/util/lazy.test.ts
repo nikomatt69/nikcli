@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { lazy } from "@/util/lazy"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("lazy", () => {
   it("calls factory only once", () => {

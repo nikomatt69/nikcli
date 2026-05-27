@@ -1,5 +1,4 @@
 import type { Argv } from "yargs"
-import { Instance } from "../../project/instance"
 import { Provider } from "../../provider/provider"
 import { ModelsDev } from "../../provider/models"
 import { cmd } from "./cmd"

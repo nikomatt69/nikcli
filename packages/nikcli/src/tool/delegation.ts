@@ -89,7 +89,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
           parentSessionId: parentSessionID,
           delegationId: params.delegationId,
         },
-        output: `Delegation \"${params.delegationId}\" does not belong to the current session.`,
+        output: `Delegation "${params.delegationId}" does not belong to the current session.`,
       }
     }
 
@@ -113,7 +113,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
           parentSessionId: parentSessionID,
           delegationId: params.delegationId,
         },
-        output: output ?? `Delegation \"${params.delegationId}\" is not available in this session.`,
+        output: output ?? `Delegation "${params.delegationId}" is not available in this session.`,
       }
     }
 
@@ -127,7 +127,7 @@ export const DelegationTool = Tool.define<typeof parameters, DelegationMetadata>
           delegationId: params.delegationId,
           cancelled: false,
         },
-        output: `Delegation \"${params.delegationId}\" is not running or cannot be cancelled from this session.`,
+        output: `Delegation "${params.delegationId}" is not running or cannot be cancelled from this session.`,
       }
     }
 

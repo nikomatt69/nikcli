@@ -75,14 +75,19 @@ export namespace SessionPrompt {
   }
 
   function sessionInterruptedError() {
-    return new MessageV2.AbortedError({ message: "Session interrupted" })
+    return Effect.tryPromise({
+      try: () => Promise.resolve(new MessageV2.AbortedError({ message: "Session interrupted" })),
+      catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+    })
   }
 
   function rejectSessionWaiters(callbacks: PromptState[string]["callbacks"]) {
-    const error = sessionInterruptedError()
-    for (const callback of callbacks) {
-      callback.reject(error)
-    }
+    return Effect.gen(function* () {
+      const error = yield* sessionInterruptedError()
+      for (const callback of callbacks) {
+        yield* Effect.promise(() => Promise.resolve(callback.reject(error)))
+      }
+    })
   }
 
   function askPermission(input: PermissionNext.AskInput) {
@@ -183,7 +188,7 @@ export namespace SessionPrompt {
   }
 
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
-    return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
+    return runPromiseWithLayer(Session.layer, withCurrentInstance(effect))
   }
 
   function runGoal<A, E>(effect: Effect.Effect<A, E, SessionGoal.Service>) {
@@ -375,12 +380,12 @@ export namespace SessionPrompt {
       Effect.gen(function* () {
         const data: PromptState = {}
         yield* Effect.addFinalizer(() =>
-          Effect.sync(() => {
+          Effect.gen(function* () {
             for (const item of Object.values(data)) {
               if (!item.abort.signal.aborted) item.abort.abort()
               if (!item.cancelling) {
                 item.cancelling = true
-                rejectSessionWaiters(item.callbacks)
+                yield* Effect.orDie(rejectSessionWaiters(item.callbacks))
                 item.callbacks = []
               }
             }
@@ -404,11 +409,6 @@ export namespace SessionPrompt {
 
   function state(): PromptState {
     return runtimeFor(stateLayer).runSync(withCurrentInstance(getStateEffect()))
-  }
-
-  function assertNotBusy(sessionID: string) {
-    const match = state()[sessionID]
-    if (match) throw new Session.BusyError({ sessionID, message: "Session is busy" })
   }
 
   export const PromptInput = z.object({
@@ -619,12 +619,12 @@ export namespace SessionPrompt {
         match.abort.abort()
       }
       if (match.cancelling) {
-        await setStatus(sessionID, { type: "idle" })
-        return
+        await rejectSessionWaiters(match.callbacks)
+      } else {
+        match.cancelling = true
+        rejectSessionWaiters(match.callbacks)
+        match.callbacks = []
       }
-      match.cancelling = true
-      rejectSessionWaiters(match.callbacks)
-      match.callbacks = []
       await setStatus(sessionID, { type: "idle" })
     }
   })()
@@ -651,7 +651,7 @@ export namespace SessionPrompt {
 
     let step = 0
     while (true) {
-      await setStatus(sessionID, { type: "busy" })
+      await setStatus(sessionID, { type: "busy", since: Date.now() })
       log.info("loop", { step, sessionID })
       if (abort.aborted) break
       const session = await sessionGet(sessionID)
@@ -774,6 +774,7 @@ export namespace SessionPrompt {
           command: task.command,
           background: true,
         }
+        // Before hook - errors are non-fatal, log and continue
         await runPlugin(
           Effect.gen(function* () {
             const plugin = yield* Plugin.Service
@@ -787,7 +788,9 @@ export namespace SessionPrompt {
               { args: taskArgs },
             )
           }),
-        )
+        ).catch((err) => {
+          log.debug("plugin trigger failed", { error: String(err), tool: "task" })
+        })
         let executionError: Error | undefined
         const taskAgent = await agentRequired(task.agent)
         const taskCtx: Tool.Context = {
@@ -2344,8 +2347,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         InstanceState.context.pipe(
           Effect.flatMap((ctx) => Effect.tryPromise(() => resolvePromptPartsImpl(ctx, template))),
         ),
-      cancel: (sessionID) =>
-        Effect.promise(() => cancel(sessionID)),
+      cancel: (sessionID) => Effect.promise(() => cancel(sessionID)),
       loop: (sessionID) => withInstanceContext(() => loop(sessionID)),
       shell: (input) => withInstanceContext(() => shell(input)),
       command: (input) => withInstanceContext(() => command(input)),

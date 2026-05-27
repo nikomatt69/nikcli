@@ -1,7 +1,6 @@
 import { InstanceState } from "@/effect"
 import { Plugin } from "../plugin"
 import { map, filter, pipe, fromEntries, mapValues } from "remeda"
-import z from "zod"
 import type { AuthOuathResult, Hooks } from "@nikcli-ai/plugin"
 import { Auth } from "@/auth"
 import { zodObject } from "@/util/effect-zod"

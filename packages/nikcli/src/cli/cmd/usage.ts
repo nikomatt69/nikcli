@@ -260,7 +260,7 @@ async function getTopSessions(days: number, projectFilter: string | undefined, l
           date: new Date(session.time.updated),
         })
       }
-    } catch (error) {
+    } catch  {
       // Skip sessions that fail to load
     }
   }

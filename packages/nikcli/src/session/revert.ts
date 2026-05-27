@@ -1,5 +1,3 @@
-import z from "zod"
-import { Identifier } from "../id/id"
 import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
 import { Session } from "."
@@ -134,14 +132,15 @@ export namespace SessionRevert {
         }),
       )
       if (revert.snapshot) {
+        const snapshotId = revert.snapshot
         revert.diff = await runSnapshot(
           Effect.gen(function* () {
             const snapshot = yield* Snapshot.Service
-            return yield* snapshot.diff(revert.snapshot!)
+            return yield* snapshot.diff(snapshotId)
           }),
         )
       }
-      const rangeMessages = all.filter((msg) => msg.info.id >= revert!.messageID)
+      const rangeMessages = all.filter((msg) => msg.info.id >= revert.messageID)
       const diffs = await runSummary(
         Effect.gen(function* () {
           const summary = yield* SessionSummary.Service
@@ -185,11 +184,12 @@ export namespace SessionRevert {
       }),
     )
     if (!session.revert) return session
-    if (session.revert.snapshot) {
+    const revertSnapshot = session.revert.snapshot
+    if (revertSnapshot) {
       await runSnapshot(
         Effect.gen(function* () {
           const snapshot = yield* Snapshot.Service
-          yield* snapshot.restore(session.revert!.snapshot!)
+          yield* snapshot.restore(revertSnapshot)
         }),
       )
     }

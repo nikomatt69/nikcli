@@ -12,7 +12,6 @@ import {
 } from "@/util/findings"
 import fs from "fs/promises"
 import path from "path"
-import { Filesystem } from "@/util/filesystem"
 
 const TEST_DIR = "/tmp/nikcli-findings-test"
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Wildcard } from "@/util/wildcard"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Wildcard Benchmark", () => {
   describe("match performance", () => {
@@ -17,6 +18,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "match exact string comparison",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(5000)
     })
 
@@ -33,6 +43,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "match simple wildcard pattern",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -48,6 +67,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 Wildcard.match with special chars (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "match regex escaping overhead",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -66,6 +94,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 Repeated wildcard pattern (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "repeated same pattern cache",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(15000)
     })
@@ -93,6 +130,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / (iterations * 3)).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "all with small patterns object",
+        iterations: iterations * 3,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(15000)
     })
 
@@ -114,6 +160,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 Wildcard.all with 100 patterns (${iterations} calls):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "all with 100 patterns",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(15000)
     })
@@ -141,6 +196,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / (iterations * 3)).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "allStructured head + tail matching",
+        iterations: iterations * 3,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(15000)
     })
 
@@ -161,6 +225,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 allStructured with deep tail (${iterations} calls):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "allStructured deep tail sequences",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(15000)
     })
@@ -189,6 +262,16 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Complex (test-*): ${complexTime.toFixed(2)}ms`)
       console.log(`   Ratio: ${(complexTime / simpleTime).toFixed(2)}x`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "pattern complexity comparison",
+        iterations,
+        value: complexTime,
+        unit: "ms",
+        metadata: { simpleTime, complexTime, ratio: complexTime / simpleTime },
+      })
+
       expect(complexTime).toBeLessThan(simpleTime * 10) // Should not be more than 10x slower
     })
   })
@@ -212,6 +295,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "empty tail matching",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -232,6 +324,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 4-item tail matching (${iterations} calls):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "4-item tail matching",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(15000)
     })
@@ -255,6 +356,15 @@ describe("Wildcard Benchmark", () => {
       console.log(`\n📊 Batch matches (${iterations * patterns.length} calls):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per call: ${(elapsed / (iterations * patterns.length)).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "wildcard",
+        scenario: "batch multiple matches",
+        iterations: iterations * patterns.length,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(15000)
     })

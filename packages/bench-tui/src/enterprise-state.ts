@@ -1,8 +1,10 @@
+import path from "path"
+import { Glob } from "bun"
 import { createMemo, createSignal, onMount } from "solid-js"
 import {
   clamp,
-  OUTPUT_DIR,
   PKG_ROOT,
+  groupForRelative,
   type LoadedRun,
   type RunIndex,
   type RunnerState,
@@ -13,15 +15,21 @@ import {
   type Alert,
   type AlertSeverity,
   type TestFileEntry,
-  type BenchConfig,
+  type SuiteFileState,
+  type SuiteGroupState,
+  type SuiteRunResult,
+  type SuiteSortMode,
+  type SuiteExecStatus,
 } from "./types"
+import type { TestCaseEntry } from "./types"
 import { loadConfig } from "./types"
 import { buildCompareResults, buildRunIndex } from "./data/indexer"
 import { loadAllRuns } from "./data/loader"
 import { runBenchmarks, runSingleBenchmark } from "./data/runner"
+import { runTestFile, loadAllHistory, appendHistory, clearHistoryFor } from "./data/suite-runner"
 
 const NIKCLI_TEST_DIR = path.join(PKG_ROOT, "test")
-import path from "path"
+const VIEW_SEQUENCE: ViewMode[] = ["suite", "compare", "leaderboard", "detail", "files"]
 
 export function createBenchState() {
   const config = loadConfig()
@@ -38,7 +46,7 @@ export function createBenchState() {
   const [logLines, setLogLines] = createSignal<string[]>([])
   const [sortMode, setSortMode] = createSignal<SortMode>("value")
   const [sortAsc, setSortAsc] = createSignal(false)
-  const [viewMode, setViewMode] = createSignal<ViewMode>("compare")
+  const [viewMode, setViewMode] = createSignal<ViewMode>("suite")
   const [runIndex, setRunIndex] = createSignal<RunIndex>(new Map())
   const [filterMode, setFilterMode] = createSignal(false)
   const [filterText, setFilterText] = createSignal("")
@@ -53,9 +61,25 @@ export function createBenchState() {
   const [terminalWidth, setTerminalWidth] = createSignal(80)
   const [testFiles, setTestFiles] = createSignal<TestFileEntry[]>([])
   const [runningTest, setRunningTest] = createSignal<string | null>(null)
-  const [focusPane, setFocusPane] = createSignal<FocusPane>("main")
+  const [focusPane, setFocusPane] = createSignal<FocusPane>("tree")
   const [alerts, setAlerts] = createSignal<Alert[]>([])
   const [loading, setLoading] = createSignal(true)
+
+  // -------- Suite state --------
+  const [suiteHistory, setSuiteHistory] = createSignal<Map<string, SuiteRunResult[]>>(new Map())
+  const [suiteRunningFiles, setSuiteRunningFiles] = createSignal<Set<string>>(new Set())
+  const [suiteRunQueue, setSuiteRunQueue] = createSignal<string[]>([])
+  const [expandedGroups, setExpandedGroups] = createSignal<Set<string>>(new Set())
+  const [selectedGroup, setSelectedGroup] = createSignal<string | null>(null)
+  const [treeIdx, setTreeIdx] = createSignal(0)
+  const [treeScrollOff, setTreeScrollOff] = createSignal(0)
+  const [suiteSortMode, setSuiteSortMode] = createSignal<SuiteSortMode>("name")
+  const [suiteStatusFilter, setSuiteStatusFilter] = createSignal<SuiteExecStatus | "all">("all")
+  const [showOnlyFailures, setShowOnlyFailures] = createSignal(false)
+  const [autoExpandOnFail, setAutoExpandOnFail] = createSignal(true)
+  const [paletteOpen, setPaletteOpen] = createSignal(false)
+  const [paletteQuery, setPaletteQuery] = createSignal("")
+  const [paletteCursor, setPaletteCursor] = createSignal(0)
 
   // Memos
   const activeRun = createMemo(() => runs()[runIdx()])
@@ -128,7 +152,9 @@ export function createBenchState() {
     const asc = sortAsc() ? 1 : -1
     switch (sortMode()) {
       case "module":
-        rows = rows.sort((a, b) => a.module.localeCompare(b.module) || (Math.abs(b.deltaPercent) - Math.abs(a.deltaPercent)) * asc)
+        rows = rows.sort(
+          (a, b) => a.module.localeCompare(b.module) || (Math.abs(b.deltaPercent) - Math.abs(a.deltaPercent)) * asc,
+        )
         break
       case "name":
         rows = rows.sort((a, b) => a.scenario.localeCompare(b.scenario) * asc)
@@ -164,6 +190,7 @@ export function createBenchState() {
 
   const currentRowCount = createMemo(() => {
     if (compareMode()) return compareResults().length
+    // suite view uses treeIdx/suiteTreeRows for navigation, not rowIdx
     if (viewMode() === "files") return filteredTestFiles().length
     if (viewMode() === "compare") return dashboardRows().length
     if (viewMode() === "leaderboard") return leaderboardRows().length
@@ -217,10 +244,7 @@ export function createBenchState() {
 
   // Log management
   function appendLog(chunk: string) {
-    const lines = chunk
-      .replace(/\r/g, "")
-      .split("\n")
-      .filter(Boolean)
+    const lines = chunk.replace(/\r/g, "").split("\n").filter(Boolean)
     if (!lines.length) return
     setLogLines((cur) => [...cur, ...lines].slice(-config.maxLogLines))
   }
@@ -267,21 +291,22 @@ export function createBenchState() {
   function selectView(mode: ViewMode) {
     setCompareMode(false)
     setViewMode(mode)
-    setFocusPane("main")
+    setFocusPane(mode === "suite" ? "tree" : "main")
     setRowIdx(0)
     setScrollOff(0)
+    if (mode === "suite") {
+      setTreeCursor(treeIdx())
+    }
   }
 
   function cycleView() {
-    const modes: ViewMode[] = ["compare", "leaderboard", "detail", "files"]
-    const cur = modes.indexOf(viewMode())
-    selectView(modes[(cur + 1) % modes.length]!)
+    const cur = VIEW_SEQUENCE.indexOf(viewMode())
+    selectView(VIEW_SEQUENCE[(cur + 1) % VIEW_SEQUENCE.length]!)
   }
 
   function cycleViewBack() {
-    const modes: ViewMode[] = ["compare", "leaderboard", "detail", "files"]
-    const cur = modes.indexOf(viewMode())
-    selectView(modes[(cur - 1 + modes.length) % modes.length]!)
+    const cur = VIEW_SEQUENCE.indexOf(viewMode())
+    selectView(VIEW_SEQUENCE[(cur - 1 + VIEW_SEQUENCE.length) % VIEW_SEQUENCE.length]!)
   }
 
   // Run selection
@@ -322,8 +347,9 @@ export function createBenchState() {
 
   // Focus management
   function cycleFocus(delta: 1 | -1) {
-    const panes: FocusPane[] = ["runs", "main", "detail", "logs"]
-    const cur = panes.indexOf(focusPane())
+    const panes: FocusPane[] =
+      viewMode() === "suite" ? ["tree", "main", "detail", "logs"] : ["runs", "main", "detail", "logs"]
+    const cur = Math.max(0, panes.indexOf(focusPane()))
     setFocusPane(panes[(cur + delta + panes.length) % panes.length]!)
   }
 
@@ -394,7 +420,6 @@ export function createBenchState() {
     if (state() === "running") return
     setRunningTest(filePath)
     setLogLines([])
-    const rel = filePath.replace(NIKCLI_TEST_DIR, "").replace(/^\//, "")
     const baselinePath = baselineRunId() ?? runs()[0]?.filePath
     setExitCode(undefined)
     setRunStartTime(Date.now())
@@ -476,77 +501,572 @@ export function createBenchState() {
     }
   }
 
+  // ============================================================
+  // Suite memos & actions
+  // ============================================================
+
+  function fileStateFor(file: TestFileEntry): SuiteFileState {
+    const history = suiteHistory().get(file.relativePath) ?? []
+    return {
+      filePath: file.filePath,
+      relativePath: file.relativePath,
+      fileName: file.fileName,
+      group: groupForRelative(file.relativePath),
+      lastRun: history[history.length - 1],
+      history,
+    }
+  }
+
+  function fileStatus(fs: SuiteFileState): SuiteExecStatus {
+    if (suiteRunningFiles().has(fs.filePath)) return "running"
+    return fs.lastRun?.status ?? "notrun"
+  }
+
+  const suiteFileStates = createMemo<SuiteFileState[]>(() => testFiles().map(fileStateFor))
+
+  const suiteFilteredFiles = createMemo<SuiteFileState[]>(() => {
+    const ft = filterText().toLowerCase().trim()
+    const onlyFail = showOnlyFailures()
+    const statusFilter = suiteStatusFilter()
+    const rows = suiteFileStates().filter((fs) => {
+      if (onlyFail && fileStatus(fs) !== "fail") return false
+      if (statusFilter !== "all" && fileStatus(fs) !== statusFilter) return false
+      if (!ft) return true
+      return (
+        fs.relativePath.toLowerCase().includes(ft) ||
+        fs.fileName.toLowerCase().includes(ft) ||
+        fs.group.toLowerCase().includes(ft)
+      )
+    })
+    const statusRank: Record<string, number> = { fail: 0, running: 1, mixed: 2, pass: 3, skip: 4, todo: 5, notrun: 6 }
+    const mode = suiteSortMode()
+    return rows.sort((a, b) => {
+      if (mode === "status")
+        return statusRank[fileStatus(a)] - statusRank[fileStatus(b)] || a.relativePath.localeCompare(b.relativePath)
+      if (mode === "duration")
+        return (
+          (b.lastRun?.durationMs ?? -1) - (a.lastRun?.durationMs ?? -1) || a.relativePath.localeCompare(b.relativePath)
+        )
+      if (mode === "lastRun")
+        return (b.lastRun?.startedAt ?? 0) - (a.lastRun?.startedAt ?? 0) || a.relativePath.localeCompare(b.relativePath)
+      if (mode === "group") return a.group.localeCompare(b.group) || a.relativePath.localeCompare(b.relativePath)
+      return a.relativePath.localeCompare(b.relativePath)
+    })
+  })
+
+  const suiteGroups = createMemo<SuiteGroupState[]>(() => {
+    const buckets = new Map<string, SuiteFileState[]>()
+    for (const fs of suiteFilteredFiles()) {
+      const g = fs.group
+      const list = buckets.get(g) ?? []
+      list.push(fs)
+      buckets.set(g, list)
+    }
+    const groups: SuiteGroupState[] = []
+    for (const [name, files] of buckets.entries()) {
+      const sorted = files.sort((a, b) => a.relativePath.localeCompare(b.relativePath))
+      let passing = 0,
+        failing = 0,
+        notRun = 0,
+        running = 0
+      for (const f of sorted) {
+        const st = fileStatus(f)
+        if (st === "pass") passing++
+        else if (st === "fail") failing++
+        else if (st === "running") running++
+        else if (st === "notrun") notRun++
+      }
+      groups.push({
+        name,
+        files: sorted,
+        expanded: expandedGroups().has(name),
+        totalFiles: sorted.length,
+        passingFiles: passing,
+        failingFiles: failing,
+        notRunFiles: notRun,
+        runningFiles: running,
+      })
+    }
+    return groups.sort((a, b) => {
+      if (a.failingFiles !== b.failingFiles) return b.failingFiles - a.failingFiles
+      return a.name.localeCompare(b.name)
+    })
+  })
+
+  // Flattened tree rows: groups + expanded children
+  interface SuiteTreeRow {
+    kind: "group" | "file"
+    group: string
+    label: string
+    icon: string
+    status?: SuiteExecStatus
+    file?: SuiteFileState
+    counts?: { pass: number; fail: number; total: number; running: number; notRun: number }
+  }
+
+  const suiteTreeRows = createMemo<SuiteTreeRow[]>(() => {
+    const out: SuiteTreeRow[] = []
+    for (const g of suiteGroups()) {
+      out.push({
+        kind: "group",
+        group: g.name,
+        label: g.name,
+        icon: g.expanded ? "▼" : "▶",
+        counts: {
+          pass: g.passingFiles,
+          fail: g.failingFiles,
+          total: g.totalFiles,
+          running: g.runningFiles,
+          notRun: g.notRunFiles,
+        },
+      })
+      if (g.expanded) {
+        for (const f of g.files) {
+          out.push({
+            kind: "file",
+            group: g.name,
+            label: f.fileName,
+            icon: " ",
+            status: fileStatus(f),
+            file: f,
+          })
+        }
+      }
+    }
+    return out
+  })
+
+  const selectedTreeRow = createMemo(() => suiteTreeRows()[treeIdx()])
+  const selectedSuiteFile = createMemo(() => {
+    const row = selectedTreeRow()
+    return row?.kind === "file" ? row.file : undefined
+  })
+
+  // Aggregates for dashboard
+  const suiteAggregates = createMemo(() => {
+    const files = suiteFileStates()
+    let passing = 0,
+      failing = 0,
+      running = 0,
+      notRun = 0,
+      mixed = 0,
+      skipped = 0
+    let totalTests = 0,
+      totalPassed = 0,
+      totalFailed = 0,
+      totalSkipped = 0
+    let totalDurationMs = 0
+    for (const f of files) {
+      const st = fileStatus(f)
+      if (st === "pass") passing++
+      else if (st === "fail") failing++
+      else if (st === "running") running++
+      else if (st === "mixed") mixed++
+      else if (st === "skip") skipped++
+      else notRun++
+      const lr = f.lastRun
+      if (lr) {
+        totalTests += lr.totalTests
+        totalPassed += lr.passed
+        totalFailed += lr.failed
+        totalSkipped += lr.skipped
+        totalDurationMs += lr.durationMs
+      }
+    }
+    return {
+      totalFiles: files.length,
+      passing,
+      failing,
+      running,
+      notRun,
+      mixed,
+      skipped,
+      totalTests,
+      totalPassed,
+      totalFailed,
+      totalSkipped,
+      totalDurationMs,
+      passRate: totalTests > 0 ? totalPassed / totalTests : 0,
+    }
+  })
+
+  function setTreeCursor(index: number) {
+    const max = Math.max(0, suiteTreeRows().length - 1)
+    const target = clamp(index, 0, max)
+    setTreeIdx(target)
+    const ph = pageHeight(terminalHeight())
+    setTreeScrollOff((off) => {
+      if (target < off) return target
+      if (target >= off + ph) return Math.max(0, target - ph + 1)
+      return off
+    })
+  }
+
+  function moveTreeCursor(delta: number) {
+    setTreeCursor(treeIdx() + delta)
+  }
+
+  function scrollTree(direction: 1 | -1, amount = 3) {
+    const ph = pageHeight(terminalHeight())
+    const total = suiteTreeRows().length
+    const maxOffset = Math.max(0, total - ph)
+    const nextOffset = clamp(treeScrollOff() + direction * amount, 0, maxOffset)
+    setTreeScrollOff(nextOffset)
+    // Keep cursor visible inside new viewport
+    if (treeIdx() < nextOffset) setTreeIdx(nextOffset)
+    if (treeIdx() >= nextOffset + ph) setTreeIdx(Math.max(0, nextOffset + ph - 1))
+  }
+
+  function toggleGroup(name: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  function expandAllGroups() {
+    setExpandedGroups(new Set(suiteGroups().map((g) => g.name)))
+  }
+
+  function collapseAllGroups() {
+    setExpandedGroups(new Set<string>())
+  }
+
+  function activateTreeRow() {
+    const row = selectedTreeRow()
+    if (!row) return
+    if (row.kind === "group") toggleGroup(row.group)
+    else if (row.file) void runOneFile(row.file.filePath)
+  }
+
+  function cycleSuiteSort() {
+    const modes: SuiteSortMode[] = ["name", "status", "duration", "lastRun", "group"]
+    const cur = modes.indexOf(suiteSortMode())
+    setSuiteSortMode(modes[(cur + 1) % modes.length]!)
+  }
+
+  async function loadSuiteHistory() {
+    try {
+      const map = await loadAllHistory()
+      setSuiteHistory(map)
+    } catch (err) {
+      addAlert("warning", `Suite history load failed: ${err instanceof Error ? err.message : err}`, "suite")
+    }
+  }
+
+  async function runOneFile(filePath: string, options: { preserveRunState?: boolean } = {}) {
+    if (suiteRunningFiles().has(filePath)) return
+    let failed = false
+    const wasIdle = suiteRunningFiles().size === 0
+    setSuiteRunningFiles((prev) => new Set(prev).add(filePath))
+    if (!options.preserveRunState && wasIdle) setRunStartTime(Date.now())
+    if (!options.preserveRunState) setExitCode(undefined)
+    setState("running")
+    await runTestFile(filePath, {
+      onLog: appendLog,
+      onStateChange: (s, code) => {
+        if (!options.preserveRunState || s === "running") setState(s)
+        if (code !== undefined) setExitCode(code)
+      },
+      onStart: () => {},
+      onResult: async (result) => {
+        failed = result.exitCode !== 0 || result.status === "fail"
+        setExitCode(result.exitCode)
+        try {
+          await appendHistory(result)
+        } catch {}
+        setSuiteHistory((prev) => {
+          const next = new Map(prev)
+          const hist = next.get(result.relativePath) ?? []
+          next.set(result.relativePath, [...hist, result].slice(-25))
+          return next
+        })
+        if (result.status === "fail") {
+          addAlert(
+            "error",
+            `${result.relativePath} failed (${result.failed} test${result.failed === 1 ? "" : "s"})`,
+            "suite",
+          )
+          if (autoExpandOnFail()) {
+            setExpandedGroups((prev) => new Set(prev).add(groupForRelative(result.relativePath)))
+          }
+        }
+      },
+      onDone: () => {
+        setSuiteRunningFiles((prev) => {
+          const next = new Set(prev)
+          next.delete(filePath)
+          if (!options.preserveRunState) setState(next.size > 0 ? "running" : failed ? "error" : "success")
+          return next
+        })
+        if (!options.preserveRunState && suiteRunningFiles().size <= 1) setRunStartTime(null)
+      },
+    })
+  }
+
+  async function runGroup(groupName: string) {
+    const group = suiteGroups().find((g) => g.name === groupName)
+    if (!group) return
+    let failed = false
+    setSuiteRunQueue(group.files.map((f) => f.filePath))
+    setSuiteRunningFiles((prev) => new Set([...prev, ...group.files.map((f) => f.filePath)]))
+    setRunStartTime(Date.now())
+    setExitCode(undefined)
+    setState("running")
+    for (const file of group.files) {
+      const result = await runTestFile(file.filePath, {
+        onLog: appendLog,
+        onStateChange: (s, code) => {
+          if (s === "running") setState(s)
+          if (code !== undefined) setExitCode(code)
+        },
+        onStart: () => {},
+        onResult: async (result) => {
+          failed ||= result.exitCode !== 0 || result.status === "fail"
+          setExitCode(result.exitCode)
+          try {
+            await appendHistory(result)
+          } catch {}
+          setSuiteHistory((prev) => {
+            const next = new Map(prev)
+            const hist = next.get(result.relativePath) ?? []
+            next.set(result.relativePath, [...hist, result].slice(-25))
+            return next
+          })
+          if (result.status === "fail") {
+            addAlert(
+              "error",
+              `${result.relativePath} failed (${result.failed} test${result.failed === 1 ? "" : "s"})`,
+              "suite",
+            )
+            if (autoExpandOnFail())
+              setExpandedGroups((prev) => new Set(prev).add(groupForRelative(result.relativePath)))
+          }
+        },
+        onDone: () => {},
+      })
+      setSuiteRunningFiles((prev) => {
+        const next = new Set(prev)
+        next.delete(result.filePath)
+        return next
+      })
+      setSuiteRunQueue((prev) => prev.filter((fp) => fp !== result.filePath))
+    }
+    setSuiteRunQueue([])
+    setRunStartTime(null)
+    setState(failed ? "error" : "success")
+  }
+
+  async function runAllSuite() {
+    const all = suiteFilteredFiles().map((f) => f.filePath)
+    if (all.length === 0) return
+    setSuiteRunQueue(all)
+    let failed = false
+    setRunStartTime(Date.now())
+    setExitCode(undefined)
+    setState("running")
+    for (const fp of all) {
+      await runOneFile(fp, { preserveRunState: true })
+      const hist = suiteHistory().get(fp.replace(NIKCLI_TEST_DIR, "").replace(/^\//, ""))
+      const latest = hist?.[hist.length - 1]
+      failed ||= latest?.status === "fail"
+      setSuiteRunQueue((prev) => prev.filter((queued) => queued !== fp))
+    }
+    setSuiteRunQueue([])
+    setRunStartTime(null)
+    setState(failed ? "error" : "success")
+    addAlert("info", `Suite run complete: ${all.length} files`, "suite")
+  }
+
+  async function clearHistoryForSelected() {
+    const file = selectedSuiteFile()
+    if (!file) return
+    await clearHistoryFor(file.relativePath)
+    setSuiteHistory((prev) => {
+      const next = new Map(prev)
+      next.delete(file.relativePath)
+      return next
+    })
+    addAlert("info", `Cleared history for ${file.relativePath}`, "suite")
+  }
+
+  function setSuiteRowCount() {
+    return suiteTreeRows().length
+  }
+  void setSuiteRowCount
+
   // Lifecycle
   onMount(() => {
+    void loadSuiteHistory()
     refresh().then(() => {
-      if (runs().length === 0) void runBench()
+      // Expand top failing group automatically
+      const top = suiteGroups()[0]
+      const failing = suiteGroups().find((g) => g.failingFiles > 0)
+      if (failing ?? top) setExpandedGroups(new Set([(failing ?? top)!.name]))
     })
   })
 
   return {
-    runs, runIdx, runScrollOff, runPageSize, resizeRunPage,
-    rowIdx, scrollOff,
-    state, exitCode,
-    logLines, clearLogs,
-    sortMode, setSortMode, sortAsc, setSortAsc,
-    viewMode, setViewMode,
-    runIndex, filterMode, setFilterMode,
-    filterText, setFilterText,
-    compareMode, setCompareMode,
-    compareLeft, compareRight, compareResults, setCompareResults,
-    baselineRunId, setBaselineRunId,
-    helpMode, setHelpMode,
+    runs,
+    runIdx,
+    runScrollOff,
+    runPageSize,
+    resizeRunPage,
+    rowIdx,
+    scrollOff,
+    state,
+    exitCode,
+    logLines,
+    clearLogs,
+    sortMode,
+    setSortMode,
+    sortAsc,
+    setSortAsc,
+    viewMode,
+    setViewMode,
+    runIndex,
+    filterMode,
+    setFilterMode,
+    filterText,
+    setFilterText,
+    compareMode,
+    setCompareMode,
+    compareLeft,
+    compareRight,
+    compareResults,
+    setCompareResults,
+    baselineRunId,
+    setBaselineRunId,
+    helpMode,
+    setHelpMode,
     runStartTime,
-    terminalHeight, setTerminalHeight,
-    terminalWidth, setTerminalWidth,
-    testFiles, runningTest, setRunningTest,
-    focusPane, setFocusPane,
-    alerts, loading,
+    terminalHeight,
+    setTerminalHeight,
+    terminalWidth,
+    setTerminalWidth,
+    testFiles,
+    runningTest,
+    setRunningTest,
+    focusPane,
+    setFocusPane,
+    alerts,
+    loading,
 
     pageHeight,
 
-    activeRun, baselineRun, allTests, filteredTests, sortedFiltered,
-    leaderboardRows, filteredTestFiles, selectedTestFile,
-    currentRowCount, activeRunDelta, runDuration,
-    dashboardRows, selectedCompareResult, selectedTest,
-    activeCompareResults, hasAlerts,
+    activeRun,
+    baselineRun,
+    allTests,
+    filteredTests,
+    sortedFiltered,
+    leaderboardRows,
+    filteredTestFiles,
+    selectedTestFile,
+    currentRowCount,
+    activeRunDelta,
+    runDuration,
+    dashboardRows,
+    selectedCompareResult,
+    selectedTest,
+    activeCompareResults,
+    hasAlerts,
 
-    setRuns, setRunIdx, setRunScrollOff, setRunPageSize,
-    setRowIdx, setScrollOff, setState, setExitCode,
-    setLogLines, setRunIndex, setTestFiles,
+    setRuns,
+    setRunIdx,
+    setRunScrollOff,
+    setRunPageSize,
+    setRowIdx,
+    setScrollOff,
+    setState,
+    setExitCode,
+    setLogLines,
+    setRunIndex,
+    setTestFiles,
 
     refresh,
-    runBench, runSingleTest,
-    deleteRun, exportRun,
-    setRunAsBaseline, doCompare, swapCompare,
+    runBench,
+    runSingleTest,
+    deleteRun,
+    exportRun,
+    setRunAsBaseline,
+    doCompare,
+    swapCompare,
     appendLog,
-    setCursor, moveCursor, pageCursor, jumpCursor, scrollRows,
-    selectView, cycleView, cycleViewBack,
-    selectRun, moveRun, scrollRuns, cycleFocus,
-    cycleSort, toggleSortAsc,
-    addAlert, dismissAlert, dismissAllAlerts,
+    setCursor,
+    moveCursor,
+    pageCursor,
+    jumpCursor,
+    scrollRows,
+    selectView,
+    cycleView,
+    cycleViewBack,
+    selectRun,
+    moveRun,
+    scrollRuns,
+    cycleFocus,
+    cycleSort,
+    toggleSortAsc,
+    addAlert,
+    dismissAlert,
+    dismissAllAlerts,
+
+    // Suite
+    suiteHistory,
+    suiteRunningFiles,
+    suiteRunQueue,
+    expandedGroups,
+    selectedGroup,
+    setSelectedGroup,
+    treeIdx,
+    treeScrollOff,
+    setTreeScrollOff,
+    suiteSortMode,
+    setSuiteSortMode,
+    suiteStatusFilter,
+    setSuiteStatusFilter,
+    showOnlyFailures,
+    setShowOnlyFailures,
+    autoExpandOnFail,
+    setAutoExpandOnFail,
+    suiteFileStates,
+    suiteFilteredFiles,
+    suiteGroups,
+    suiteTreeRows,
+    selectedTreeRow,
+    selectedSuiteFile,
+    suiteAggregates,
+    setTreeIdx,
+    setTreeCursor,
+    moveTreeCursor,
+    scrollTree,
+    toggleGroup,
+    expandAllGroups,
+    collapseAllGroups,
+    activateTreeRow,
+    cycleSuiteSort,
+    loadSuiteHistory,
+    runOneFile,
+    runGroup,
+    runAllSuite,
+    clearHistoryForSelected,
+
+    // Palette
+    paletteOpen,
+    setPaletteOpen,
+    paletteQuery,
+    setPaletteQuery,
+    paletteCursor,
+    setPaletteCursor,
   }
 }
 
 export type BenchState = ReturnType<typeof createBenchState>
 
-async function pipeOutput(stream: ReadableStream<Uint8Array> | null, onLog: (chunk: string) => void): Promise<void> {
-  if (!stream) return
-  const reader = stream.getReader()
-  const dec = new TextDecoder()
-  while (true) {
-    const r = await reader.read()
-    if (r.done) break
-    onLog(dec.decode(r.value, { stream: true }))
-  }
-}
-
 export function useBenchState() {
   return createBenchState()
 }
-
-import { Glob } from "bun"
-import type { TestCaseEntry } from "./types"
 
 function isIdentChar(ch: string | undefined): boolean {
   return Boolean(ch && /[A-Za-z0-9_$]/.test(ch))
@@ -570,7 +1090,10 @@ function skipQuoted(source: string, index: number): number {
   let i = index + 1
   while (i < source.length) {
     const ch = source[i]
-    if (ch === "\\") { i += 2; continue }
+    if (ch === "\\") {
+      i += 2
+      continue
+    }
     if (ch === quote) return i + 1
     i++
   }
@@ -596,10 +1119,16 @@ function findMatching(source: string, openIndex: number, open: string, close: st
   let depth = 0
   for (let i = openIndex; i < source.length; i++) {
     const skipped = skipCodeTrivia(source, i)
-    if (skipped !== i) { i = skipped - 1; continue }
+    if (skipped !== i) {
+      i = skipped - 1
+      continue
+    }
     const ch = source[i]
     if (ch === open) depth++
-    if (ch === close) { depth--; if (depth === 0) return i }
+    if (ch === close) {
+      depth--
+      if (depth === 0) return i
+    }
   }
   return -1
 }
@@ -612,7 +1141,11 @@ function readFirstStringArgument(source: string, callIndex: number): { value: st
   i++
   while (i < source.length) {
     const ch = source[i]
-    if (ch === "\\") { value += source[i + 1] ?? ""; i += 2; continue }
+    if (ch === "\\") {
+      value += source[i + 1] ?? ""
+      i += 2
+      continue
+    }
     if (ch === quote) return { value, end: i + 1 }
     value += ch
     i++
@@ -666,9 +1199,12 @@ function parseDeclarationAt(
 export function parseTestCases(source: string): TestCaseEntry[] {
   const cases: TestCaseEntry[] = []
   const lineFor = (index: number) => source.slice(0, index).split("\n").length
-  for (let i = 0; i < source.length;) {
+  for (let i = 0; i < source.length; ) {
     const skipped = skipCodeTrivia(source, i)
-    if (skipped !== i) { i = skipped; continue }
+    if (skipped !== i) {
+      i = skipped
+      continue
+    }
     if (!isIdentChar(source[i - 1])) {
       const parsed = parseDeclarationAt(source, i, lineFor)
       if (parsed && !isIdentChar(source[parsed.end])) {
@@ -722,7 +1258,8 @@ export async function scanTestFiles(): Promise<TestFileEntry[]> {
         benchmarkCount,
         testCount: runnableTests.reduce((sum, test) => sum + countCases(test), 0),
         declarationCount: runnableTests.length,
-        unresolvedEachCount: runnableTests.filter((test) => test.mode === "each" && test.caseCount === undefined).length,
+        unresolvedEachCount: runnableTests.filter((test) => test.mode === "each" && test.caseCount === undefined)
+          .length,
         tests,
       })
     }

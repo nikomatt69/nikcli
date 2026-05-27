@@ -1,5 +1,5 @@
 import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js"
-import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
+import { TextAttributes } from "@opentui/core"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import path from "node:path"
 import { useRoute, useRouteData } from "@tui/context/route"

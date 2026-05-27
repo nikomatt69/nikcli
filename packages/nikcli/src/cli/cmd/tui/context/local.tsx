@@ -438,7 +438,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         const nextConfig = {
           ...sync.data.config,
           connectors: {
-            ...(sync.data.config.connectors ?? {}),
+            ...sync.data.config.connectors,
             [name]: {
               ...entry,
               enabled: nextEnabled,

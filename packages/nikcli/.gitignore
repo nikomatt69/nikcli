@@ -6,3 +6,4 @@ app.log
 .vercel
 .env*.local
 test/bench-results/
+test/benchmarks/runs/

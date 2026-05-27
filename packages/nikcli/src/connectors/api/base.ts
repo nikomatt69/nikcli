@@ -25,7 +25,7 @@ export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
       ...fetchOptions,
       headers: {
         ...authHeaders,
-        ...(fetchOptions.headers || {}),
+        ...fetchOptions.headers,
       },
     })
 
@@ -55,7 +55,7 @@ export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
       ...options,
       method: "POST",
       headers: {
-        ...(options?.headers || {}),
+        ...options?.headers,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

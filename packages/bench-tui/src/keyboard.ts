@@ -1,10 +1,66 @@
-import { useKeyboard } from "@opentui/solid"
+import { useKeyboard, useRenderer } from "@opentui/solid"
 import type { BenchState } from "./enterprise-state"
 import { actionForKey, isTextInputKey } from "./keymap"
+import { rankFiles } from "./components/CommandPalette"
 
 export function useBenchKeyboard(s: BenchState) {
+  const renderer = useRenderer()
+  const resetActiveCursor = () => {
+    if (s.viewMode() === "suite") s.setTreeCursor(0)
+    else s.setCursor(0)
+  }
+
   useKeyboard((evt) => {
     const action = actionForKey(evt)
+
+    // Command palette has its own input-style key handling.
+    if (s.paletteOpen()) {
+      evt.preventDefault()
+      if (action === "quit" || action === "cancel" || action === "paletteClose") {
+        s.setPaletteOpen(false)
+        s.setPaletteQuery("")
+        s.setPaletteCursor(0)
+        return
+      }
+      if (action === "cursorDown" || action === "paletteDown" || evt.name === "down") {
+        const max = Math.max(0, rankFiles(s.paletteQuery(), s.suiteFileStates()).length - 1)
+        s.setPaletteCursor((c: number) => Math.min(max, c + 1))
+        return
+      }
+      if (action === "cursorUp" || action === "paletteUp" || evt.name === "up") {
+        s.setPaletteCursor((c: number) => Math.max(0, c - 1))
+        return
+      }
+      if (action === "runSelected" || action === "paletteConfirm" || evt.name === "return") {
+        const matches = rankFiles(s.paletteQuery(), s.suiteFileStates())
+        const target = matches[s.paletteCursor()]
+        if (target) {
+          // Jump tree to the file too
+          const idx = s.suiteTreeRows().findIndex((r) => r.kind === "file" && r.file?.filePath === target.filePath)
+          if (idx >= 0) s.setTreeCursor(idx)
+          void s.runOneFile(target.filePath)
+        }
+        s.setPaletteOpen(false)
+        s.setPaletteQuery("")
+        s.setPaletteCursor(0)
+        return
+      }
+      if (action === "deleteChar" || evt.name === "backspace") {
+        s.setPaletteQuery((q: string) => q.slice(0, -1))
+        s.setPaletteCursor(0)
+        return
+      }
+      if (action === "clearInput") {
+        s.setPaletteQuery("")
+        s.setPaletteCursor(0)
+        return
+      }
+      if (isTextInputKey(evt)) {
+        s.setPaletteQuery((q: string) => q + evt.name)
+        s.setPaletteCursor(0)
+      }
+      return
+    }
 
     if (s.helpMode()) {
       if (action === "quit" || action === "cancel" || action === "help" || evt.name === "space") {
@@ -27,17 +83,17 @@ export function useBenchKeyboard(s: BenchState) {
       }
       if (action === "clearInput") {
         s.setFilterText("")
-        s.setCursor(0)
+        resetActiveCursor()
         return
       }
       if (action === "deleteChar") {
         s.setFilterText((t: string) => t.slice(0, -1))
-        s.setCursor(0)
+        resetActiveCursor()
         return
       }
       if (isTextInputKey(evt)) {
         s.setFilterText((t: string) => t + evt.name)
-        s.setCursor(0)
+        resetActiveCursor()
       }
       return
     }
@@ -48,7 +104,6 @@ export function useBenchKeyboard(s: BenchState) {
     switch (action) {
       case "quit":
         process.exit(0)
-        return
       case "cancel":
         if (s.compareMode()) {
           s.setCompareMode(false)
@@ -65,7 +120,9 @@ export function useBenchKeyboard(s: BenchState) {
         if (!s.compareMode()) void s.runBench()
         return
       case "runSelected": {
-        if (s.viewMode() === "files") {
+        if (s.viewMode() === "suite") {
+          s.activateTreeRow()
+        } else if (s.viewMode() === "files") {
           const file = s.filteredTestFiles()[s.rowIdx()]
           if (file) void s.runSingleTest(file.filePath)
         }
@@ -76,6 +133,9 @@ export function useBenchKeyboard(s: BenchState) {
         if (run) void s.exportRun(run.filePath)
         return
       }
+      case "viewSuite":
+        if (!s.compareMode()) s.selectView("suite")
+        return
       case "viewCompare":
         if (!s.compareMode()) s.selectView("compare")
         return
@@ -87,6 +147,35 @@ export function useBenchKeyboard(s: BenchState) {
         return
       case "viewFiles":
         if (!s.compareMode()) s.selectView("files")
+        return
+      case "runAll":
+        if (s.viewMode() === "suite") void s.runAllSuite()
+        return
+      case "runGroup": {
+        if (s.viewMode() === "suite") {
+          const row = s.selectedTreeRow()
+          if (row) void s.runGroup(row.group)
+        }
+        return
+      }
+      case "toggleGroup": {
+        if (s.viewMode() === "suite") {
+          const row = s.selectedTreeRow()
+          if (row) s.toggleGroup(row.group)
+        }
+        return
+      }
+      case "expandAll":
+        if (s.viewMode() === "suite") s.expandAllGroups()
+        return
+      case "collapseAll":
+        if (s.viewMode() === "suite") s.collapseAllGroups()
+        return
+      case "toggleOnlyFailures":
+        if (s.viewMode() === "suite") s.setShowOnlyFailures((v: boolean) => !v)
+        return
+      case "clearHistory":
+        if (s.viewMode() === "suite") void s.clearHistoryForSelected()
         return
       case "cycleView":
         if (!s.compareMode()) s.cycleView()
@@ -101,7 +190,10 @@ export function useBenchKeyboard(s: BenchState) {
         s.cycleFocus(-1)
         return
       case "sort":
-        if (!s.compareMode()) s.cycleSort()
+        if (!s.compareMode()) {
+          if (s.viewMode() === "suite") s.cycleSuiteSort()
+          else s.cycleSort()
+        }
         return
       case "sortReverse":
         if (!s.compareMode()) s.toggleSortAsc()
@@ -110,7 +202,7 @@ export function useBenchKeyboard(s: BenchState) {
         if (!s.compareMode()) {
           s.setFilterMode(true)
           s.setFilterText("")
-          s.setCursor(0)
+          resetActiveCursor()
         }
         return
       case "compare": {
@@ -150,20 +242,40 @@ export function useBenchKeyboard(s: BenchState) {
         return
       }
       case "cursorDown":
-        s.setFocusPane("main")
-        s.moveCursor(1)
+        if (s.viewMode() === "suite" && s.focusPane() !== "logs") {
+          s.setFocusPane("tree")
+          s.moveTreeCursor(1)
+        } else {
+          s.setFocusPane("main")
+          s.moveCursor(1)
+        }
         return
       case "cursorUp":
-        s.setFocusPane("main")
-        s.moveCursor(-1)
+        if (s.viewMode() === "suite" && s.focusPane() !== "logs") {
+          s.setFocusPane("tree")
+          s.moveTreeCursor(-1)
+        } else {
+          s.setFocusPane("main")
+          s.moveCursor(-1)
+        }
         return
       case "pageDown":
-        s.setFocusPane("main")
-        s.pageCursor(1)
+        if (s.viewMode() === "suite") {
+          s.setFocusPane("tree")
+          s.moveTreeCursor(s.pageHeight(s.terminalHeight()))
+        } else {
+          s.setFocusPane("main")
+          s.pageCursor(1)
+        }
         return
       case "pageUp":
-        s.setFocusPane("main")
-        s.pageCursor(-1)
+        if (s.viewMode() === "suite") {
+          s.setFocusPane("tree")
+          s.moveTreeCursor(-s.pageHeight(s.terminalHeight()))
+        } else {
+          s.setFocusPane("main")
+          s.pageCursor(-1)
+        }
         return
       case "nextRun":
         if (!s.compareMode()) s.moveRun(-1)
@@ -172,11 +284,39 @@ export function useBenchKeyboard(s: BenchState) {
         if (!s.compareMode()) s.moveRun(1)
         return
       case "firstRow":
-        s.jumpCursor("first")
+        if (s.viewMode() === "suite") s.setTreeCursor(0)
+        else s.jumpCursor("first")
         return
       case "lastRow":
-        s.jumpCursor("last")
+        if (s.viewMode() === "suite") s.setTreeCursor(s.suiteTreeRows().length - 1)
+        else s.jumpCursor("last")
         return
+      case "paletteOpen":
+        s.setPaletteQuery("")
+        s.setPaletteCursor(0)
+        s.setPaletteOpen(true)
+        return
+      case "debugOverlay":
+        try {
+          renderer.toggleDebugOverlay()
+        } catch {}
+        return
+      case "copyPath": {
+        const file = s.selectedSuiteFile()
+        if (file) {
+          try {
+            if (renderer.isOsc52Supported?.()) renderer.copyToClipboardOSC52(file.relativePath)
+            s.appendLog(`✓ Copied ${file.relativePath} to clipboard`)
+          } catch {
+            s.appendLog(`! Clipboard copy failed`)
+          }
+        }
+        return
+      }
+      case "paletteClose":
+      case "paletteConfirm":
+      case "paletteUp":
+      case "paletteDown":
       case "clearInput":
       case "deleteChar":
       case "filterConfirm":

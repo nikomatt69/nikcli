@@ -2,7 +2,9 @@
  * ElevenLabs TTS Provider Implementation
  */
 
+import path from "path"
 import type { TTSProvider, TTSVoice, TTSRequest, TTSResponse, TTSProviderConfig } from "./provider"
+import { Global } from "@/global"
 
 const ELEVENLABS_VOICES: TTSVoice[] = [
   { id: "YOq2y2Up4RgXP2HyXjE5", name: "Rachel" },
@@ -48,8 +50,7 @@ export class ElevenLabsProvider implements TTSProvider {
   async getConfig(): Promise<TTSProviderConfig> {
     if (this.config) return this.config
 
-    const path = await import("@/global")
-    const API_KEY_FILEPATH = path.Global.Path.config + "/secrets/elevenlabs-key"
+    const apiKeyFilePath = path.join(Global.Path.config, "secrets/elevenlabs-key")
 
     const envKey =
       process.env.NIKCLI_ELEVENLABS_API_KEY ??
@@ -60,7 +61,7 @@ export class ElevenLabsProvider implements TTSProvider {
     if (envKey && envKey.trim()) {
       this.apiKey = envKey.trim()
     } else {
-      const file = Bun.file(API_KEY_FILEPATH)
+      const file = Bun.file(apiKeyFilePath)
       if (await file.exists()) {
         this.apiKey = (await file.text()).trim()
       }
@@ -72,7 +73,7 @@ export class ElevenLabsProvider implements TTSProvider {
           "ElevenLabs API key not found.",
           "",
           "Set NIKCLI_ELEVENLABS_API_KEY (or ELEVENLABS_API_KEY), or create:",
-          API_KEY_FILEPATH,
+          apiKeyFilePath,
           "with your API key.",
         ].join("\n"),
       )
@@ -134,8 +135,8 @@ export class ElevenLabsProvider implements TTSProvider {
       const rawDetail = parsedError.detail
       const errorDetail =
         rawDetail !== null && rawDetail !== undefined && typeof rawDetail === "object"
-          ? (rawDetail as any).message ?? JSON.stringify(rawDetail)
-          : rawDetail ?? parsedError.message ?? errorText
+          ? ((rawDetail as any).message ?? JSON.stringify(rawDetail))
+          : (rawDetail ?? parsedError.message ?? errorText)
 
       switch (response.status) {
         case 401:

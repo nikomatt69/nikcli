@@ -684,7 +684,7 @@ async function ensureGlobalGithubConnector(input?: Partial<Config.ConnectorGithu
       ? globalConfig.connectors[key]
       : currentEntry.connector
   ) as Config.ConnectorGithub
-  const connectors = { ...(globalConfig.connectors ?? {}) }
+  const connectors = { ...globalConfig.connectors }
 
   connectors[key] = {
     ...existing,

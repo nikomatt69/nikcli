@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { CustomSpeedScroll, getScrollAcceleration } from "@/cli/cmd/tui/util/scroll"
-import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
+import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("CustomSpeedScroll", () => {
   it("tick returns the configured speed", () => {

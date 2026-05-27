@@ -195,8 +195,7 @@ export namespace LLM {
       if (uiRun.length === 0) return
       result.push(
         ...convertToModelMessages(uiRun, {
-          // @ts-expect-error convertToModelMessages only needs each matching tool's toModelOutput.
-          tools: uiMessageTools(uiRun),
+          tools: uiMessageTools(uiRun) as unknown as ToolSet,
         }),
       )
       uiRun = []
@@ -485,8 +484,11 @@ export namespace LLM {
           {
             async transformParams(args) {
               if (args.type === "stream") {
-                // @ts-expect-error
-                args.params.prompt = ProviderTransform.message(args.params.prompt, input.model, options)
+                args.params.prompt = ProviderTransform.message(
+                  args.params.prompt as unknown as ModelMessage[],
+                  input.model,
+                  options,
+                ) as unknown as typeof args.params.prompt
               }
               return args.params
             },

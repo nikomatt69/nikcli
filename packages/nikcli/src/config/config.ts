@@ -7,7 +7,6 @@ import { ModelsDev } from "../provider/models"
 import { mergeDeep, unique } from "remeda"
 import { Global } from "../global"
 import fs from "fs/promises"
-import { lazy, lazyAsync } from "../util/lazy"
 import { Flag } from "../flag/flag"
 import { Auth } from "../auth"
 import { type ParseError as JsoncParseError, parse as parseJsonc, printParseErrorCode } from "jsonc-parser"
@@ -59,11 +58,7 @@ export namespace Config {
 
   export class Service extends Context.Service<Service, Interface>()("Config.Service") {}
 
-  async function loadState(
-    ctx: InstanceContext,
-    directories: string[],
-    projectFiles: string[],
-  ): Promise<State> {
+  async function loadState(ctx: InstanceContext, directories: string[], projectFiles: string[]): Promise<State> {
     const auth = await runAuth(
       Effect.gen(function* () {
         const auth = yield* Auth.Service
@@ -90,7 +85,7 @@ export namespace Config {
         if (!response.ok) {
           throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
         }
-        const wellknown = (await response.json()) as any
+        const wellknown = (await response.json()) as { config?: Record<string, unknown> }
         const remoteConfig = wellknown.config ?? {}
         // Add $schema to prevent load() from trying to write back to a non-existent file
         if (!remoteConfig.$schema) remoteConfig.$schema = "https://nikcli.store/config.json"
@@ -225,6 +220,8 @@ export namespace Config {
   }
 
   export async function installDependencies(dir: string) {
+    if (process.env.NIKCLI_TEST_MODE || process.env.NIKCLI_SKIP_PLUGIN_INSTALL) return
+
     const pkg = path.join(dir, "package.json")
 
     if (!(await Bun.file(pkg).exists())) {
@@ -240,11 +237,15 @@ export namespace Config {
       {
         cwd: dir,
       },
-    ).catch(() => {})
+    ).catch((err) => {
+      console.error("Install failed:", err)
+    })
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
-    await BunProc.run(["install"], { cwd: dir }).catch(() => {})
+    await BunProc.run(["install"], { cwd: dir }).catch((err) => {
+      console.error("Install failed:", err)
+    })
   }
 
   function rel(item: string, patterns: string[]) {
@@ -270,9 +271,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse command ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse command ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load command", { command: item, err })
@@ -310,9 +309,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse agent ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse agent ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load agent", { agent: item, err })
@@ -349,9 +346,7 @@ export namespace Config {
       cwd: dir,
     })) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
-        const message = err instanceof ConfigMarkdown.FrontmatterError
-          ? err.message
-          : `Failed to parse mode ${item}`
+        const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse mode ${item}`
         const { Session } = await import("@/session")
         Bus.publish(Session.Event.Error, { error: { name: "UnknownError" as const, data: { message } } })
         log.error("failed to load mode", { mode: item, err })
@@ -1649,10 +1644,13 @@ export namespace Config {
             .catch((error) => {
               const errMsg = `bad file reference: "${match}"`
               if (error.code === "ENOENT") {
-                throw Object.assign(new InvalidError({
+                throw Object.assign(
+                  new InvalidError({
                     path: configFilepath,
                     message: errMsg + ` ${resolvedPath} does not exist`,
-                  }), { cause: error })
+                  }),
+                  { cause: error },
+                )
               }
               throw Object.assign(new InvalidError({ path: configFilepath, message: errMsg }), { cause: error })
             })
@@ -1737,11 +1735,14 @@ export namespace Config {
     message: Schema.optional(Schema.String),
   }) {}
 
-  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()("ConfigDirectoryTypoError", {
-    path: Schema.String,
-    dir: Schema.String,
-    suggestion: Schema.String,
-  }) {}
+  export class ConfigDirectoryTypoError extends Schema.TaggedErrorClass<ConfigDirectoryTypoError>()(
+    "ConfigDirectoryTypoError",
+    {
+      path: Schema.String,
+      dir: Schema.String,
+      suggestion: Schema.String,
+    },
+  ) {}
 
   export class InvalidError extends Schema.TaggedErrorClass<InvalidError>()("ConfigInvalidError", {
     path: Schema.optional(Schema.String),

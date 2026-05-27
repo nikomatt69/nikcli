@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { recordBenchmark } from "./benchmarks/runner"
 
 interface TableRow {
   [key: string]: any
@@ -125,6 +126,15 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   New (Map): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
 
+      recordBenchmark({
+        suite: "ui",
+        module: "table",
+        scenario: "row index lookup (indexOf vs Map)",
+        iterations: iterations * visibleRows.length,
+        value: newTime,
+        unit: "ms",
+        metadata: { oldTime, improvement },
+      })
       // Correctness — both lookup strategies must return the same indices.
       // Timing comparisons are noisy on shared CI / Windows runners, so we keep
       // the log for visibility but do not gate the test on absolute wall time.
@@ -172,6 +182,16 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   Old (indexOf per row): ${oldTime.toFixed(2)}ms`)
       console.log(`   New (Map lookup): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
+
+      recordBenchmark({
+        suite: "ui",
+        module: "table",
+        scenario: "full render simulation O(n²) worst case",
+        iterations: iterations * visibleRowCount,
+        value: newTime,
+        unit: "ms",
+        metadata: { oldTime, improvement },
+      })
 
       // Correctness only — see note above; timing is for visibility, not gating.
       expect(sinkNew).toBe(sinkOld)
@@ -229,6 +249,16 @@ describe("TUI Table Performance Optimizations", () => {
       console.log(`   Old (.find): ${oldTime.toFixed(2)}ms`)
       console.log(`   New (Map.get): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
+
+      recordBenchmark({
+        suite: "ui",
+        module: "table",
+        scenario: "column ID lookup (find vs Map.get)",
+        iterations: iterations * columnIds.length,
+        value: newTime,
+        unit: "ms",
+        metadata: { oldTime, improvement },
+      })
 
       // Correctness only — see note above; timing is for visibility, not gating.
       expect(newHits).toBe(oldHits)

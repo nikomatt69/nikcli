@@ -3,6 +3,7 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { Filesystem } from "@/util/filesystem"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Filesystem Benchmark", () => {
   let testDir: string
@@ -31,6 +32,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "exists on existing file",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -46,6 +56,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`\n📊 Filesystem.exists on missing file (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "exists on missing file",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -67,6 +86,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "isDir on existing directory",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
   })
@@ -86,10 +114,19 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "contains contained path",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(1000)
     })
 
-    it("non-contained paths", () => {
+    it("non-contained paths", async () => {
       const iterations = 100000
 
       const start = performance.now()
@@ -101,6 +138,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`\n📊 Filesystem.contains (non-contained) (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "contains non-contained path",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(1000)
     })
@@ -122,6 +168,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "findUp immediate hit",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(5000)
     })
 
@@ -142,6 +197,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "findUp walks up 3 levels",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -160,6 +224,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`\n📊 Filesystem.findUp (not found, walks to root) (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "findUp not found walks to root",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -181,6 +254,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "readText small file",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -200,6 +282,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "readText 10KB file",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
   })
@@ -218,6 +309,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "write small file",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -235,6 +335,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`\n📊 Filesystem.write to same file (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "write same file repeatedly",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -258,6 +367,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "globUp 10 files",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -279,6 +397,15 @@ describe("Filesystem Benchmark", () => {
       console.log(`\n📊 Filesystem.globUp walks up (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "filesystem",
+        scenario: "globUp walks up",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })

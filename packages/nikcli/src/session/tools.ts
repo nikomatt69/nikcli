@@ -12,7 +12,7 @@ import { PermissionNext } from "@/permission/next"
 import { Truncate } from "@/tool/truncation"
 import { Tool } from "@/tool/tool"
 import { Effect } from "effect"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Session } from "."
 import z from "zod"
 
@@ -99,14 +99,14 @@ export async function resolveTools(input: {
   using _ = log.time("resolveTools")
   const tools: Record<string, AITool> = {}
 
-  const context = (args: any, options: ToolCallOptions): Tool.Context => ({
+  const context = (args: Record<string, unknown>, options: ToolCallOptions): Tool.Context => ({
     sessionID: input.session.id,
     abort: options.abortSignal!,
     messageID: input.processor.message.id,
     callID: options.toolCallId,
     extra: { model: input.model, bypassAgentCheck: input.bypassAgentCheck },
     agent: input.agent.name,
-    metadata: async (val: { title?: string; metadata?: any }) => {
+    metadata: async (val: { title?: string; metadata?: Record<string, unknown> }) => {
       const match = input.processor.partFromToolCall(options.toolCallId)
       if (match && match.state.status === "running") {
         await sessionUpdatePart({
@@ -139,11 +139,12 @@ export async function resolveTools(input: {
   )) {
     const schema = ProviderTransform.schema(input.model, z.toJSONSchema(item.parameters))
     tools[item.id] = tool({
-      id: item.id as any,
+      id: String(item.id) as `${string}.${string}`,
       description: item.description,
-      inputSchema: jsonSchema(schema as any),
+      inputSchema: jsonSchema(schema),
       async execute(args, options) {
         const ctx = context(args, options)
+        // Before hook - errors are non-fatal, log and continue
         await runPlugin(
           Effect.gen(function* () {
             const plugin = yield* Plugin.Service
@@ -159,8 +160,11 @@ export async function resolveTools(input: {
               },
             )
           }),
-        )
+        ).catch((err) => {
+          log.debug("plugin trigger failed", { error: String(err), tool: item.id })
+        })
         const result = await item.executeAsync(args, ctx)
+        // After hook - errors are non-fatal, log and continue
         await runPlugin(
           Effect.gen(function* () {
             const plugin = yield* Plugin.Service
@@ -174,7 +178,9 @@ export async function resolveTools(input: {
               result,
             )
           }),
-        )
+        ).catch((err) => {
+          log.debug("plugin trigger failed", { error: String(err), tool: item.id })
+        })
         return result
       },
       toModelOutput(result) {
@@ -214,7 +220,9 @@ export async function resolveTools(input: {
             },
           )
         }),
-      )
+      ).catch((err) => {
+        log.debug("plugin trigger failed", { error: String(err), tool: key })
+      })
 
       await ctx.ask({
         permission: key,
@@ -238,7 +246,9 @@ export async function resolveTools(input: {
             result,
           )
         }),
-      )
+      ).catch((err) => {
+        log.debug("plugin trigger failed", { error: String(err), tool: key })
+      })
 
       const textParts: string[] = []
       const attachments: MessageV2.FilePart[] = []
@@ -276,7 +286,7 @@ export async function resolveTools(input: {
 
       const truncated = await truncateOutput(textParts.join("\n\n"), {}, input.agent)
       const metadata = {
-        ...(result.metadata ?? {}),
+        ...result.metadata,
         truncated: truncated.truncated,
         ...(truncated.truncated && { outputPath: truncated.outputPath }),
       }
@@ -321,7 +331,9 @@ export async function resolveTools(input: {
             },
           )
         }),
-      )
+      ).catch((err) => {
+        log.debug("plugin trigger failed", { error: String(err), tool: key })
+      })
 
       await ctx.ask({
         permission: key,
@@ -345,7 +357,9 @@ export async function resolveTools(input: {
             result,
           )
         }),
-      )
+      ).catch((err) => {
+        log.debug("plugin trigger failed", { error: String(err), tool: key })
+      })
 
       const textOutput = typeof result === "string" ? result : JSON.stringify(result, null, 2)
       const truncated = await truncateOutput(textOutput, {}, input.agent)
@@ -370,15 +384,15 @@ export async function resolveTools(input: {
 }
 
 export function createStructuredOutputTool(input: {
-  schema: Record<string, any>
+  schema: Record<string, unknown>
   onSuccess: (output: unknown) => void
 }): AITool {
   const { $schema, ...toolSchema } = input.schema
 
   return tool({
-    id: "StructuredOutput" as any,
+    id: "StructuredOutput" as `${string}.${string}`,
     description: STRUCTURED_OUTPUT_DESCRIPTION,
-    inputSchema: jsonSchema(toolSchema as any),
+    inputSchema: jsonSchema(toolSchema as Parameters<typeof jsonSchema>[0]),
     async execute(args) {
       input.onSuccess(args)
       return {

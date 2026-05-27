@@ -9,11 +9,9 @@ import os from "os"
 import { Config } from "../config/config"
 import { Global } from "../global"
 import { Plugin } from "../plugin"
-import { Instance } from "../project/instance"
 import type { Hooks } from "@nikcli-ai/plugin"
 import { cmd } from "@/cli/cmd/cmd"
 import { UI } from "@/cli/ui"
-import z from "zod"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
@@ -75,12 +73,10 @@ async function handlePluginAuth(plugin: { auth: PluginAuth }, provider: string):
   if (plugin.auth.methods.length > 1) {
     const method = await prompts.select({
       message: "Login method",
-      options: [
-        ...plugin.auth.methods.map((x, index) => ({
+      options: plugin.auth.methods.map((x, index) => ({
           label: x.label,
           value: index.toString(),
         })),
-      ],
     })
     if (prompts.isCancel(method)) throw new UI.CancelledError()
     index = parseInt(method)

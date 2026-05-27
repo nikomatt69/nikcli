@@ -1,7 +1,7 @@
 import { For, Show } from "solid-js"
 import { TextAttributes } from "@opentui/core"
 import { theme } from "../theme"
-import { fmt, short, relativeTime } from "../types"
+import { short, relativeTime } from "../types"
 import type { LoadedRun } from "../types"
 
 interface RunListSidebarProps {
@@ -28,7 +28,8 @@ export function RunListSidebar(props: RunListSidebarProps) {
       border
       borderColor={props.focused ? theme.borderFocus : theme.border}
       backgroundColor={theme.surface}
-      paddingLeft={1} paddingRight={1}
+      paddingLeft={1}
+      paddingRight={1}
       flexDirection="column"
       onMouseOver={props.onFocus}
       onMouseScroll={(event) => {
@@ -37,20 +38,12 @@ export function RunListSidebar(props: RunListSidebarProps) {
         props.onScrollRuns(event.scroll?.direction === "up" ? -1 : 1)
       }}
     >
-      <text
-        fg={props.focused ? theme.accent : theme.blue}
-        attributes={TextAttributes.BOLD}
-        wrapMode="none"
-      >
+      <text fg={props.focused ? theme.accent : theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
         Runs {props.runs.length > 0 ? `(${props.runIdx + 1}/${props.runs.length})` : ""}
       </text>
       <Show
         when={!props.loading && props.runs.length > 0}
-        fallback={
-          <text fg={theme.textMuted}>
-            {props.loading ? "Loading..." : "No runs yet"}
-          </text>
-        }
+        fallback={<text fg={theme.textMuted}>{props.loading ? "Loading..." : "No runs yet"}</text>}
       >
         <For each={visibleRuns()}>
           {(run, i) => {
@@ -69,7 +62,8 @@ export function RunListSidebar(props: RunListSidebarProps) {
                   onMouseOver={() => props.onSelectRun(realIdx)}
                   onMouseUp={() => props.onSelectRun(realIdx)}
                 >
-                  {isActive ? "\u25b8" : " "}{isBaseline ? "\u2605" : " "}
+                  {isActive ? "\u25b8" : " "}
+                  {isBaseline ? "\u2605" : " "}
                   {String(realIdx + 1).padStart(2)}.{short(run.run.runId, width - 8)}
                 </text>
               )
@@ -86,7 +80,8 @@ export function RunListSidebar(props: RunListSidebarProps) {
                   wrapMode="none"
                   attributes={isActive || isBaseline ? TextAttributes.BOLD : TextAttributes.NONE}
                 >
-                  {isActive ? "\u25b8" : " "}{isBaseline ? "\u2605" : " "}
+                  {isActive ? "\u25b8" : " "}
+                  {isBaseline ? "\u2605" : " "}
                   {String(realIdx + 1).padStart(2)}.{short(run.run.runId, width - 8)}
                 </text>
                 <text
@@ -94,7 +89,8 @@ export function RunListSidebar(props: RunListSidebarProps) {
                   wrapMode="none"
                   attributes={isActive ? TextAttributes.BOLD : TextAttributes.NONE}
                 >
-                  {"    "}{String(recCount).padStart(3)} rec {age}
+                  {"    "}
+                  {String(recCount).padStart(3)} rec {age}
                 </text>
               </box>
             )

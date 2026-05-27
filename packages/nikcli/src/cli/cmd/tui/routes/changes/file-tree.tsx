@@ -11,7 +11,6 @@ import {
   moveFileTreeSelection,
   moveFileTreeSelectionToFirstChild,
   moveFileTreeSelectionToParent,
-  orderedPatchFileIndexes,
   setFileTreeDirectoryExpanded,
   toggleFileTreeDirectory,
 } from "./file-tree-utils"

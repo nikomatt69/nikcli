@@ -9,7 +9,6 @@ import { createTwoFilesPatch } from "diff"
 import type {
   OpenTUIVizSpecType,
   VizComponent,
-  VizLeaf,
   VizColorToken,
   VizNumberFormat,
   VizSeverity,

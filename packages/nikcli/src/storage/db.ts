@@ -1,7 +1,6 @@
 import { type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite"
 import { migrate } from "drizzle-orm/bun-sqlite/migrator"
 export * from "drizzle-orm"
-import { lazy } from "@/util/lazy"
 import { Global } from "@/global"
 import { Log } from "@/util/log"
 import path from "path"

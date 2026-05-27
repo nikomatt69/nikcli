@@ -228,7 +228,7 @@ export const ConfigRoutes = lazy(() =>
             return yield* service.get()
           }),
         )
-        const nextMcp = { ...(current.mcp ?? {}) }
+        const nextMcp = { ...current.mcp }
         if (!(name in nextMcp)) return c.json({ error: "MCP server not found" }, 404)
         delete nextMcp[name]
         await Bun.write(path.join(Instance.directory, "nikcli.json"), JSON.stringify({ ...current, mcp: nextMcp }, null, 2))

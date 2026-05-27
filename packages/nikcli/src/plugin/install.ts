@@ -287,7 +287,7 @@ async function patchOne(dir: string, target: Target, spec: string, force: boolea
     break
   }
 
-  const src = await dep.readText(cfg).catch((err: NodeJS.ErrnoException) => {
+  const src = await dep.readText(cfg).catch((err: ErrnoException) => {
     if (err.code === "ENOENT") return "{}"
     return err
   })

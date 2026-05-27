@@ -1,6 +1,5 @@
 import type { Argv } from "yargs"
 import { cmd } from "./cmd"
-import { Instance } from "../../project/instance"
 import { withInstanceAsync } from "@/effect"
 import { UI } from "../ui"
 import { remoteService, qrRenderer, type RemoteSession, type SessionOptions } from "../remote"

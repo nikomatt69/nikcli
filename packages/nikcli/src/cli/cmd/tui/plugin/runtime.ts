@@ -17,7 +17,6 @@ import { TuiConfig } from "@/config/tui"
 import { Log } from "@/util/log"
 import { errorData, errorMessage } from "@/util/error"
 import { isRecord } from "@/util/record"
-import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
 import {
   checkPluginCompatibility,

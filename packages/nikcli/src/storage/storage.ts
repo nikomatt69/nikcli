@@ -273,7 +273,7 @@ export namespace Storage {
   async function withErrorHandling<T>(body: () => Promise<T>) {
     return body().catch((e) => {
       if (!(e instanceof Error)) throw e
-      const errnoException = e as NodeJS.ErrnoException
+      const errnoException = e as ErrnoException
       if (errnoException.code === "ENOENT") {
         throw new NotFoundError({ message: `Resource not found: ${errnoException.path}` })
       }

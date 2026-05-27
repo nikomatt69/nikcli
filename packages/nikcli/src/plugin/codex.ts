@@ -1,7 +1,6 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
 import { Log } from "../util/log"
 import { OAUTH_DUMMY_KEY } from "../auth"
-import { ProviderTransform } from "../provider/transform"
 
 const log = Log.create({ service: "plugin.codex" })
 

@@ -2,8 +2,8 @@ import type { ParsedKey } from "@opentui/core"
 
 export type BenchAction =
   | "quit" | "cancel" | "help"
-  | "refresh" | "runSuite" | "runSelected"
-  | "viewCompare" | "viewLeaderboard" | "viewDetail" | "viewFiles"
+  | "refresh" | "runSuite" | "runSelected" | "runAll" | "runGroup"
+  | "viewSuite" | "viewCompare" | "viewLeaderboard" | "viewDetail" | "viewFiles"
   | "cycleView" | "cycleViewBack"
   | "sort" | "sortReverse"
   | "filter" | "filterClear" | "filterConfirm"
@@ -11,6 +11,9 @@ export type BenchAction =
   | "cursorDown" | "cursorUp" | "pageDown" | "pageUp"
   | "nextRun" | "prevRun" | "firstRow" | "lastRow"
   | "focusNext" | "focusPrev"
+  | "toggleGroup" | "expandAll" | "collapseAll" | "toggleOnlyFailures" | "clearHistory"
+  | "paletteOpen" | "paletteClose" | "paletteConfirm" | "paletteUp" | "paletteDown"
+  | "debugOverlay" | "copyPath"
   | "clearInput" | "deleteChar"
 
 export interface KeyChord {
@@ -32,9 +35,16 @@ const key = (name: string, mods: Omit<KeyChord, "name"> = {}): KeyChord => ({ na
 
 export const BENCH_KEYBINDINGS: BenchKeyBinding[] = [
   { action: "runSuite", label: "r", description: "Run full benchmark suite", keys: [key("r")], category: "actions" },
-  { action: "runSelected", label: "enter", description: "Run selected test file", keys: [key("enter")], category: "actions" },
+  { action: "runAll", label: "R", description: "Run ALL test files in suite", keys: [key("r", { shift: true })], category: "actions" },
+  { action: "runSelected", label: "enter", description: "Run selected (or toggle group)", keys: [key("enter")], category: "actions" },
+  { action: "runGroup", label: "ctrl+enter", description: "Run all files in selected group", keys: [key("enter", { ctrl: true })], category: "actions" },
   { action: "refresh", label: "u", description: "Refresh runs & index", keys: [key("u")], category: "actions" },
   { action: "exportRun", label: "e", description: "Export run data", keys: [key("e")], category: "actions" },
+  { action: "toggleGroup", label: "space", description: "Toggle expand on selected group", keys: [key("space")], category: "navigation" },
+  { action: "expandAll", label: "E", description: "Expand all groups", keys: [key("e", { shift: true })], category: "navigation" },
+  { action: "collapseAll", label: "W", description: "Collapse all groups", keys: [key("w", { shift: true })], category: "navigation" },
+  { action: "toggleOnlyFailures", label: "F", description: "Toggle show-only-failures filter", keys: [key("f", { shift: true })], category: "data" },
+  { action: "clearHistory", label: "ctrl+x", description: "Clear history for selected file", keys: [key("x", { ctrl: true })], category: "data" },
   { action: "prevRun", label: "h / left / [", description: "Previous run", keys: [key("h"), key("left"), key("[")], category: "navigation" },
   { action: "nextRun", label: "l / right / ]", description: "Next run", keys: [key("l"), key("right"), key("]")], category: "navigation" },
   { action: "cursorDown", label: "j / down", description: "Move cursor down", keys: [key("j"), key("down")], category: "navigation" },
@@ -45,12 +55,16 @@ export const BENCH_KEYBINDINGS: BenchKeyBinding[] = [
   { action: "lastRow", label: "G / end", description: "Jump to last row", keys: [key("g", { shift: true }), key("end")], category: "navigation" },
   { action: "cycleView", label: "tab", description: "Next dashboard view", keys: [key("tab")], category: "views" },
   { action: "cycleViewBack", label: "shift+tab", description: "Previous dashboard view", keys: [key("tab", { shift: true })], category: "views" },
-  { action: "focusNext", label: "ctrl+n", description: "Focus next pane", keys: [key("n", { ctrl: true })], category: "focus" },
-  { action: "focusPrev", label: "ctrl+p", description: "Focus previous pane", keys: [key("p", { ctrl: true })], category: "focus" },
-  { action: "viewCompare", label: "1", description: "Compare dashboard", keys: [key("1")], category: "views" },
-  { action: "viewLeaderboard", label: "2", description: "Leaderboard view", keys: [key("2")], category: "views" },
-  { action: "viewDetail", label: "3", description: "Benchmark detail", keys: [key("3")], category: "views" },
-  { action: "viewFiles", label: "4", description: "Test file explorer", keys: [key("4")], category: "views" },
+  { action: "focusNext", label: "ctrl+]", description: "Focus next pane", keys: [key("]", { ctrl: true }), key("n", { ctrl: true })], category: "focus" },
+  { action: "focusPrev", label: "ctrl+[", description: "Focus previous pane", keys: [key("[", { ctrl: true })], category: "focus" },
+  { action: "paletteOpen", label: "ctrl+p", description: "Open command palette (file jumper)", keys: [key("p", { ctrl: true })], category: "navigation" },
+  { action: "debugOverlay", label: "ctrl+\\", description: "Toggle debug overlay (FPS/memory)", keys: [key("\\", { ctrl: true })], category: "actions" },
+  { action: "copyPath", label: "y", description: "Copy selected test file path to clipboard", keys: [key("y")], category: "actions" },
+  { action: "viewSuite", label: "1", description: "Suite admin dashboard", keys: [key("1")], category: "views" },
+  { action: "viewCompare", label: "2", description: "Compare dashboard", keys: [key("2")], category: "views" },
+  { action: "viewLeaderboard", label: "3", description: "Leaderboard view", keys: [key("3")], category: "views" },
+  { action: "viewDetail", label: "4", description: "Benchmark detail", keys: [key("4")], category: "views" },
+  { action: "viewFiles", label: "5", description: "Test file explorer", keys: [key("5")], category: "views" },
   { action: "sort", label: "a", description: "Cycle sort mode", keys: [key("a")], category: "data" },
   { action: "sortReverse", label: "A", description: "Reverse sort order", keys: [key("a", { shift: true })], category: "data" },
   { action: "filter", label: "f / /", description: "Open filter input", keys: [key("f"), key("/")], category: "data" },

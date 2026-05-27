@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Identifier } from "@/id/id"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Identifier Benchmark", () => {
   describe("ascending creation", () => {
@@ -7,7 +8,6 @@ describe("Identifier Benchmark", () => {
       const iterations = 100000
       const warmup = 1000
 
-      // Warmup
       for (let i = 0; i < warmup; i++) {
         Identifier.ascending("session")
       }
@@ -24,8 +24,15 @@ describe("Identifier Benchmark", () => {
       console.log(`   Per op: ${perOp.toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
 
-      // Should be fast - under 2ms per operation
-      // Tolerant of CI/Windows runner noise.
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "ascending session IDs",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(perOp).toBeLessThan(0.01)
     })
 
@@ -33,7 +40,6 @@ describe("Identifier Benchmark", () => {
       const iterations = 100000
       const warmup = 1000
 
-      // Warmup
       for (let i = 0; i < warmup; i++) {
         Identifier.ascending("message")
       }
@@ -49,8 +55,15 @@ describe("Identifier Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${perOp.toFixed(4)}ms`)
 
-      // Tolerant of CI/Windows runner noise; the per-op average should comfortably
-      // stay well below 1ms on any reasonable machine.
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "ascending message IDs",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(perOp).toBeLessThan(0.01)
     })
   })
@@ -60,7 +73,6 @@ describe("Identifier Benchmark", () => {
       const iterations = 100000
       const warmup = 1000
 
-      // Warmup
       for (let i = 0; i < warmup; i++) {
         Identifier.descending("session")
       }
@@ -77,7 +89,15 @@ describe("Identifier Benchmark", () => {
       console.log(`   Per op: ${perOp.toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
 
-      // Tolerant of CI/Windows runner noise.
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "descending session IDs",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(perOp).toBeLessThan(0.01)
     })
   })
@@ -105,7 +125,16 @@ describe("Identifier Benchmark", () => {
       console.log(`   Descending: ${descTime.toFixed(2)}ms`)
       console.log(`   Overhead: ${overhead.toFixed(2)}x`)
 
-      // Descending should not be significantly slower
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "ascending vs descending overhead",
+        iterations,
+        value: overhead,
+        unit: "ratio",
+        metadata: { ascendingMs: ascTime, descendingMs: descTime },
+      })
+
       expect(overhead).toBeLessThan(1.5)
     })
   })
@@ -115,13 +144,11 @@ describe("Identifier Benchmark", () => {
       const iterations = 100000
       const warmup = 1000
 
-      // Create IDs first
       const ids: string[] = []
       for (let i = 0; i < 100; i++) {
         ids.push(Identifier.descending("session"))
       }
 
-      // Warmup
       for (let i = 0; i < warmup; i++) {
         Identifier.timestamp(ids[0])
       }
@@ -137,8 +164,15 @@ describe("Identifier Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${perOp.toFixed(4)}ms`)
 
-      // Tolerant of CI/Windows runner noise; the per-op average should comfortably
-      // stay well below 1ms on any reasonable machine.
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "timestamp extraction single",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(perOp).toBeLessThan(0.01)
     })
 
@@ -159,7 +193,16 @@ describe("Identifier Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
-      expect(elapsed).toBeLessThan(100) // Should be under 100ms for 10k extractions
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "timestamp extraction array",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
+      expect(elapsed).toBeLessThan(100)
     })
   })
 
@@ -179,8 +222,15 @@ describe("Identifier Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${perOp.toFixed(4)}ms`)
 
-      // Tolerant of CI/Windows runner noise; the per-op average should comfortably
-      // stay well below 1ms on any reasonable machine.
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "schema validation session",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(perOp).toBeLessThan(0.01)
     })
   })
@@ -200,9 +250,18 @@ describe("Identifier Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Unique: ${ids.size}`)
 
-      // Should generate all unique IDs
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "unique ID generation",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: { uniqueCount: ids.size },
+      })
+
       expect(ids.size).toBe(iterations)
-      expect(elapsed).toBeLessThan(1000) // Under 1 second for 50k IDs
+      expect(elapsed).toBeLessThan(1000)
     })
   })
 
@@ -220,6 +279,15 @@ describe("Identifier Benchmark", () => {
       console.log(`\n📊 Identifier.create with explicit timestamp (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "create explicit timestamp",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(1000)
     })
@@ -245,7 +313,17 @@ describe("Identifier Benchmark", () => {
       console.log(`   Descending: ${descTime.toFixed(2)}ms`)
       console.log(`   Ratio: ${(descTime / ascTime).toFixed(2)}x`)
 
-      expect(descTime).toBeLessThan(ascTime * 2) // Should not be more than 2x slower
+      recordBenchmark({
+        suite: "id",
+        module: "id",
+        scenario: "create ascending vs descending",
+        iterations,
+        value: descTime / ascTime,
+        unit: "ratio",
+        metadata: { ascendingMs: ascTime, descendingMs: descTime },
+      })
+
+      expect(descTime).toBeLessThan(ascTime * 2)
     })
   })
 })

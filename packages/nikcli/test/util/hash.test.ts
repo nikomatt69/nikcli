@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Hash } from "@/util/hash"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Hash", () => {
   describe("fast", () => {

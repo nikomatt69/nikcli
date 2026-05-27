@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { AsyncQueue, work } from "@/util/queue"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("AsyncQueue", () => {
   describe("push and next", () => {

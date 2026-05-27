@@ -62,7 +62,7 @@ export namespace Command {
 
   function skillTemplate(skill: Skill.Info) {
     return [
-      `Use the skill tool to load the \"${skill.name}\" skill first.`,
+      `Use the skill tool to load the "${skill.name}" skill first.`,
       `After loading it, follow that skill for the rest of this session unless the user says otherwise.`,
       "Apply the skill to the user request below when one is provided.",
       "If no additional request is provided, briefly confirm that the skill is active and explain what it helps with.",

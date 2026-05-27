@@ -3,7 +3,7 @@ import { Log } from "../util/log"
 import { Flag } from "../flag/flag"
 import { Global } from "../global"
 import path from "path"
-import { lazy, lazyAsync } from "@/util/lazy"
+import { lazyAsync } from "@/util/lazy"
 
 interface FileTimeEntry {
   mtime: number

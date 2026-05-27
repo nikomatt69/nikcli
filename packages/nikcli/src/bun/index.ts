@@ -1,12 +1,10 @@
 import { Global } from "../global"
 import { Log } from "../util/log"
 import path from "path"
-import { Filesystem } from "../util/filesystem"
 import { readableStreamToText } from "bun"
 import { Schema } from "effect"
 import { createRequire } from "module"
 import { Lock } from "../util/lock"
-import { proxied } from "../util/network"
 
 
 export namespace BunProc {

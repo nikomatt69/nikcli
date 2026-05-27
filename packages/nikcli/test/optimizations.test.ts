@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const CLAUDE_TOOL_ID_REGEX = /[^a-zA-Z0-9_-]/g
 const MISTRAL_TOOL_ID_REGEX = /[^a-zA-Z0-9]/g
@@ -149,6 +150,15 @@ describe("Optimizations - Performance Benchmarks", () => {
 
       // Pre-compiled regex avoids RegExp object creation overhead each call
       expect(speedup).toBeGreaterThan(2.5)
+      recordBenchmark({
+        suite: "core",
+        module: "regex",
+        scenario: "DEFAULT_TITLE_REGEX pre-compiled vs inline",
+        iterations,
+        value: compiledTime,
+        unit: "ms",
+        metadata: { inlineTime, speedup },
+      })
     })
   })
 
@@ -177,6 +187,15 @@ describe("Optimizations - Performance Benchmarks", () => {
       console.log(`   Inline:   ${inlineTime.toFixed(2)}ms`)
       console.log(`   Compiled: ${compiledTime.toFixed(2)}ms`)
       console.log(`   Speedup:  ${(inlineTime / compiledTime).toFixed(2)}x`)
+      recordBenchmark({
+        suite: "core",
+        module: "id",
+        scenario: "Claude tool ID normalization",
+        iterations,
+        value: compiledTime,
+        unit: "ms",
+        metadata: { inlineTime, speedup: inlineTime / compiledTime },
+      })
     })
 
     it("Mistral normalization - compiled regex", () => {
@@ -205,6 +224,15 @@ describe("Optimizations - Performance Benchmarks", () => {
       console.log(`   Inline:   ${inlineTime.toFixed(2)}ms`)
       console.log(`   Compiled: ${compiledTime.toFixed(2)}ms`)
       console.log(`   Speedup:  ${(inlineTime / compiledTime).toFixed(2)}x`)
+      recordBenchmark({
+        suite: "core",
+        module: "id",
+        scenario: "Mistral tool ID normalization",
+        iterations,
+        value: compiledTime,
+        unit: "ms",
+        metadata: { inlineTime, speedup: inlineTime / compiledTime },
+      })
     })
   })
 
@@ -244,6 +272,15 @@ describe("Optimizations - Performance Benchmarks", () => {
       // Perf benchmarks can be noisy across environments; keep this as a guardrail.
       // Allow 0.5x as minimum since JSON.stringify can be unpredictable across environments
       expect(speedup).toBeGreaterThan(0.5)
+      recordBenchmark({
+        suite: "core",
+        module: "json",
+        scenario: "doom loop single vs multiple stringify",
+        iterations,
+        value: afterTime,
+        unit: "ms",
+        metadata: { beforeTime, afterTime, speedup },
+      })
     })
   })
 })

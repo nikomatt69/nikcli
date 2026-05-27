@@ -1,6 +1,6 @@
 import { For, Show } from "solid-js"
 import { TextAttributes } from "@opentui/core"
-import { theme } from "../theme"
+import { theme, formatBytes, ratioBar } from "../theme"
 import { short } from "../types"
 import type { TestFileEntry } from "../types"
 
@@ -17,18 +17,25 @@ interface TestFileListViewProps {
 
 export function TestFileListView(props: TestFileListViewProps) {
   const files = () => props.filteredTestFiles().slice(props.scrollOff, props.scrollOff + props.pageHeight)
-  const totalCases = () => files().reduce((s, f) => s + f.testCount, 0)
-  const totalDecls = () => files().reduce((s, f) => s + f.declarationCount, 0)
-  const totalBm = () => files().reduce((s, f) => s + f.benchmarkCount, 0)
+  const all = () => props.filteredTestFiles()
+  const totalCases = () => all().reduce((s, f) => s + f.testCount, 0)
+  const totalDecls = () => all().reduce((s, f) => s + f.declarationCount, 0)
+  const totalBm = () => all().reduce((s, f) => s + f.benchmarkCount, 0)
+  const benchFileRate = () => (all().length > 0 ? all().filter((f) => f.hasBenchmarks).length / all().length : 0)
 
   return (
-    <box flexDirection="column" flexGrow={1}
+    <box
+      flexDirection="column"
+      flexGrow={1}
       onMouseScroll={(event) => {
         event.preventDefault()
         event.stopPropagation()
         props.onScrollRows(event.scroll?.direction === "up" ? -1 : 1)
       }}
     >
+      <text fg={theme.blue} attributes={TextAttributes.BOLD} wrapMode="none">
+        Test File Explorer / {all().length} files / benchmark density {ratioBar(benchFileRate(), 12)}
+      </text>
       <text fg={theme.textMuted} wrapMode="none">
         {" test file (enter=run)                           cases  decl  benches  size"}
       </text>
@@ -56,7 +63,7 @@ export function TestFileListView(props: TestFileListViewProps) {
               {cases.padStart(5)}
               {String(file.declarationCount).padStart(6)}
               {String(file.benchmarkCount).padStart(8)}
-              {String(file.size).padStart(7)}
+              {formatBytes(file.size).padStart(7)}
             </text>
           )
         }}
@@ -66,7 +73,8 @@ export function TestFileListView(props: TestFileListViewProps) {
         fallback={<text fg={theme.textMuted}>No test files found. Press r to run benchmarks.</text>}
       >
         <text fg={theme.textMuted} wrapMode="none">
-          {"\u2500"} {files().length} files | {totalDecls()} tests | {totalBm()} benchmarks
+          {"─"} visible {files().length}/{all().length} files | {totalDecls()} declarations | {totalCases()} cases |{" "}
+          {totalBm()} benchmarks
         </text>
       </Show>
     </box>

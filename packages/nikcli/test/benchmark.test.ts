@@ -1,4 +1,5 @@
-import { describe, expect, it } from "bun:test"
+import { describe, it } from "bun:test"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const CLAUDE_TOOL_ID_REGEX = /[^a-zA-Z0-9_-]/g
 const MISTRAL_TOOL_ID_REGEX = /[^a-zA-Z0-9]/g
@@ -50,6 +51,15 @@ describe("Performance Benchmark", () => {
       console.log(
         `   ⚡ Improvement: ${(inlineTime / compiledTime).toFixed(2)}x faster (${(((inlineTime - compiledTime) / inlineTime) * 100).toFixed(1)}% reduction)`,
       )
+      recordBenchmark({
+        suite: "core",
+        module: "regex",
+        scenario: "DEFAULT_TITLE_REGEX inline vs compiled",
+        iterations: iterations * titles.length,
+        value: inlineTime,
+        unit: "ms",
+        metadata: { compiledTime },
+      })
     })
   })
 
@@ -82,6 +92,15 @@ describe("Performance Benchmark", () => {
       console.log(
         `   ⚡ Improvement: ${(beforeTime / afterTime).toFixed(2)}x faster (${(((beforeTime - afterTime) / beforeTime) * 100).toFixed(1)}% reduction)`,
       )
+      recordBenchmark({
+        suite: "core",
+        module: "json",
+        scenario: "doom-loop stringify optimization",
+        iterations,
+        value: afterTime,
+        unit: "ms",
+        metadata: { beforeTime },
+      })
     })
   })
 
@@ -116,6 +135,15 @@ describe("Performance Benchmark", () => {
       console.log(`\n📊 Real-world scenario (50k sessions checking titles):`)
       console.log(`   Pre-compiled can handle: ${callsPerSecond.toLocaleString()} title checks/second`)
       console.log(`   Time saved per 50k sessions: ${(inlineTime - compiledTime).toFixed(2)}ms`)
+      recordBenchmark({
+        suite: "core",
+        module: "regex",
+        scenario: "real-world title checks per second",
+        iterations: 1,
+        value: callsPerSecond,
+        unit: "count",
+        metadata: { inlineTime, compiledTime },
+      })
     })
   })
 })

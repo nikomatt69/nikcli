@@ -56,12 +56,23 @@ interface BenchmarkStore {
   visuals: VisualArtifact[]
   flushed: boolean
   flushingPromise: Promise<void> | null
+  currentFile: string
 }
 
 const STORE_KEY = "__nikcliBenchmarkStore__"
 const OUTPUT_DIR = process.env.NIKCLI_BENCHMARK_OUTPUT_DIR ?? path.join(process.cwd(), "test", "benchmarks", "runs")
-const SAVE_BENCHMARKS = process.env.NIKCLI_BENCHMARK_SAVE === "1"
-const BASELINE_PATH = process.env.NIKCLI_BENCHMARK_BASELINE_PATH
+
+// Use getter functions to check env vars at call time (not module load time)
+// This allows preload.ts to set env vars before flushBenchmarkRun is called
+function shouldSaveBenchmarks() {
+  return process.env.NIKCLI_BENCHMARK_SAVE === "1"
+}
+function getBaselinePath() {
+  return process.env.NIKCLI_BENCHMARK_BASELINE_PATH
+}
+function shouldPerFileRuns() {
+  return process.env.NIKCLI_BENCHMARK_PER_FILE === "1"
+}
 
 function getStore(): BenchmarkStore {
   const root = globalThis as Record<string, unknown>
@@ -73,9 +84,46 @@ function getStore(): BenchmarkStore {
       visuals: [],
       flushed: false,
       flushingPromise: null,
+      currentFile: "unknown",
     } satisfies BenchmarkStore
   }
   return root[STORE_KEY] as BenchmarkStore
+}
+
+/**
+ * Creates a new benchmark run for the current test file.
+ * Call this at the start of each test file to generate separate runs per file.
+ * @param fileName Optional file name (will be auto-detected if not provided)
+ */
+export function beginBenchmarkRun(fileName?: string): string {
+  const store = getStore()
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+
+  let currentFile = fileName ?? "unknown"
+
+  // If no file name provided, try to detect from stack trace
+  if (!fileName) {
+    const stack = new Error().stack ?? ""
+    // Match test file patterns
+    const testFileMatch = stack.match(/\/test\/[^\s()]+\.test\.ts/) ?? stack.match(/[\\/]test[\\/][^\s()]+\.test\.ts/)
+    if (testFileMatch) {
+      currentFile = testFileMatch[0].replace(/^\//, "").replace(/\\/g, "/")
+    }
+  }
+
+  // Use only the filename (basename) for the slug to keep names clean
+  const fileBasename = path.basename(currentFile, ".ts")
+  const fileSlug = fileBasename
+
+  store.runId = `${timestamp}__${fileSlug}`
+  store.createdAt = new Date().toISOString()
+  store.records = []
+  store.visuals = []
+  store.flushed = false
+  store.flushingPromise = null
+  store.currentFile = currentFile
+
+  return store.runId
 }
 
 function normalizeMetadata(value: unknown): Record<string, MetadataValue> {
@@ -107,8 +155,9 @@ function callerLocation(): { sourceFile?: string; sourceLine?: number; sourceCol
   const stack = new Error().stack
   if (!stack) return {}
   const runnerPath = "test/benchmarks/runner.ts"
+  const preloadPath = "test/preload.ts"
   for (const line of stack.split("\n")) {
-    if (line.includes(runnerPath) || !line.includes("/test/")) continue
+    if (line.includes(runnerPath) || line.includes(preloadPath) || !line.includes("/test/")) continue
     const match = line.match(/\((.*):(\d+):(\d+)\)$/) ?? line.match(/at (.*):(\d+):(\d+)$/)
     if (!match) continue
     return {
@@ -125,7 +174,10 @@ export function recordBenchmark(input: Omit<BenchmarkRecord, "runId" | "timestam
   const iterations = Math.max(1, Math.trunc(input.iterations))
   const value = safeNumber(input.value)
   const valuePerIteration = iterations > 0 ? value / iterations : value
-  const source = callerLocation()
+  const caller = callerLocation()
+
+  // Use store's currentFile as sourceFile if caller didn't find one
+  const sourceFile = caller.sourceFile ?? store.currentFile
 
   store.records.push({
     runId: store.runId,
@@ -137,7 +189,7 @@ export function recordBenchmark(input: Omit<BenchmarkRecord, "runId" | "timestam
     value,
     unit: input.unit,
     valuePerIteration,
-    metadata: normalizeMetadata({ ...source, ...(input.metadata ?? {}) }),
+    metadata: normalizeMetadata({ sourceFile, ...caller, ...input.metadata }),
   })
   store.flushed = false
 }
@@ -154,11 +206,9 @@ export function recordVisualArtifact(input: {
   const count = store.visuals.filter(
     (item) => item.suite === input.suite && item.module === input.module && item.scenario === input.scenario,
   ).length
-  const filename =
-    `${sanitizeSlug(input.suite)}__${sanitizeSlug(input.module)}__${sanitizeSlug(input.scenario)}__${String(count + 1).padStart(
-      4,
-      "0",
-    )}.${extension}`
+  const filename = `${sanitizeSlug(input.suite)}__${sanitizeSlug(input.module)}__${sanitizeSlug(input.scenario)}__${String(
+    count + 1,
+  ).padStart(4, "0")}.${extension}`
 
   store.visuals.push({
     suite: input.suite,
@@ -186,9 +236,7 @@ function renderRows(records: BenchmarkRecord[]) {
   const rows = sorted.map((record) => {
     const normalizedMs = record.unit === "ms" ? Math.round((record.value / maxMs) * 180) : 20
     const value = `${record.value.toFixed(2)} ${record.unit}`
-    const perIteration = record.valuePerIteration
-      ? `${record.valuePerIteration.toFixed(4)} ${record.unit}/iter`
-      : "n/a"
+    const perIteration = record.valuePerIteration ? `${record.valuePerIteration.toFixed(4)} ${record.unit}/iter` : "n/a"
     return `<tr>
       ${renderCell(record.timestamp)}
       ${renderCell(record.suite)}
@@ -377,6 +425,10 @@ function renderHtml(run: StoredBenchmarkRun, comparison?: BenchmarkComparison) {
 
 export async function flushBenchmarkRun() {
   const store = getStore()
+  const SAVE_BENCHMARKS = shouldSaveBenchmarks()
+  const BASELINE_PATH = getBaselinePath()
+  const PER_FILE_RUNS = shouldPerFileRuns()
+
   if (store.records.length === 0 && store.visuals.length === 0) return
   if (store.flushed) return
   if (!SAVE_BENCHMARKS && !BASELINE_PATH && process.env.NIKCLI_BENCHMARK_COMPARE !== "1") return
@@ -386,43 +438,112 @@ export async function flushBenchmarkRun() {
   const promise = (async () => {
     try {
       await fs.mkdir(OUTPUT_DIR, { recursive: true })
-      await fs.mkdir(path.join(OUTPUT_DIR, "visual", store.runId), { recursive: true })
 
-      let comparison: BenchmarkComparison | undefined
-      if (BASELINE_PATH) {
-        const baseline = await readBenchmarkRun(BASELINE_PATH)
-        if (baseline) {
-          comparison = compareBenchmarkRuns({ ...store }, baseline)
-        }
-      }
+      // Group records by test file when PER_FILE_RUNS is enabled
+      if (PER_FILE_RUNS) {
+        const recordsByFile = new Map<string, BenchmarkRecord[]>()
+        const visualsByFile = new Map<string, VisualArtifact[]>()
 
-      const runData: StoredBenchmarkRun = {
-        runId: store.runId,
-        createdAt: store.createdAt,
-        records: store.records,
-      }
-
-      for (const visual of store.visuals) {
-        const visualPath = path.join(OUTPUT_DIR, "visual", store.runId, visual.filename)
-        await fs.writeFile(visualPath, visual.content, "utf8")
         for (const record of store.records) {
-          if (record.suite === visual.suite && record.module === visual.module && record.scenario === visual.scenario) {
-            record.metadata = {
-              ...(record.metadata ?? {}),
-              visualPath: `visual/${store.runId}/${visual.filename}`,
+          const sourceFile = record.metadata?.["sourceFile"] as string | undefined
+          const fileKey = sourceFile ?? "unknown"
+          if (!recordsByFile.has(fileKey)) recordsByFile.set(fileKey, [])
+          recordsByFile.get(fileKey)!.push(record)
+        }
+
+        for (const visual of store.visuals) {
+          const fileKey = `${visual.suite}/${visual.module}`
+          if (!visualsByFile.has(fileKey)) visualsByFile.set(fileKey, [])
+          visualsByFile.get(fileKey)!.push(visual)
+        }
+
+        // Write separate run file for each test file
+        for (const [fileKey, records] of recordsByFile) {
+          // Use store's currentFile basename to keep naming consistent
+          const fileSlug = path.basename(store.currentFile, ".ts")
+          // Extract timestamp from store.runId (format: timestamp__fileSlug)
+          const timestamp = store.runId.split("__")[0] ?? new Date().toISOString().replace(/[:.]/g, "-")
+          const runId = `${timestamp}__${fileSlug}`
+          await fs.mkdir(path.join(OUTPUT_DIR, "visual", runId), { recursive: true })
+
+          const visuals = visualsByFile.get(fileKey) ?? []
+          for (const visual of visuals) {
+            const visualPath = path.join(OUTPUT_DIR, "visual", runId, visual.filename)
+            await fs.writeFile(visualPath, visual.content, "utf8")
+          }
+
+          const runData: StoredBenchmarkRun = {
+            runId,
+            createdAt: store.createdAt,
+            records,
+          }
+
+          let comparison: BenchmarkComparison | undefined
+          if (BASELINE_PATH) {
+            const baseline = await readBenchmarkRun(BASELINE_PATH)
+            if (baseline) {
+              // Filter baseline records to matching file
+              const filteredBaseline = {
+                ...baseline,
+                records: baseline.records.filter((r) => {
+                  const src = r.metadata?.["sourceFile"] as string | undefined
+                  return src === fileKey
+                }),
+              }
+              if (filteredBaseline.records.length > 0) {
+                comparison = compareBenchmarkRuns(runData, filteredBaseline)
+              }
+            }
+          }
+
+          const output = { run: runData, comparison, exportedAt: new Date().toISOString() }
+          await fs.writeFile(path.join(OUTPUT_DIR, `${runId}.json`), JSON.stringify(output, null, 2), "utf8")
+          await fs.writeFile(path.join(OUTPUT_DIR, `${runId}.html`), renderHtml(runData, comparison), "utf8")
+        }
+      } else {
+        // Original behavior: single run file
+        await fs.mkdir(path.join(OUTPUT_DIR, "visual", store.runId), { recursive: true })
+
+        let comparison: BenchmarkComparison | undefined
+        if (BASELINE_PATH) {
+          const baseline = await readBenchmarkRun(BASELINE_PATH)
+          if (baseline) {
+            comparison = compareBenchmarkRuns({ ...store }, baseline)
+          }
+        }
+
+        const runData: StoredBenchmarkRun = {
+          runId: store.runId,
+          createdAt: store.createdAt,
+          records: store.records,
+        }
+
+        for (const visual of store.visuals) {
+          const visualPath = path.join(OUTPUT_DIR, "visual", store.runId, visual.filename)
+          await fs.writeFile(visualPath, visual.content, "utf8")
+          for (const record of store.records) {
+            if (
+              record.suite === visual.suite &&
+              record.module === visual.module &&
+              record.scenario === visual.scenario
+            ) {
+              record.metadata = {
+                ...record.metadata,
+                visualPath: `visual/${store.runId}/${visual.filename}`,
+              }
             }
           }
         }
-      }
 
-      const output = {
-        run: runData,
-        comparison,
-        exportedAt: new Date().toISOString(),
-      }
+        const output = {
+          run: runData,
+          comparison,
+          exportedAt: new Date().toISOString(),
+        }
 
-      await fs.writeFile(path.join(OUTPUT_DIR, `${store.runId}.json`), JSON.stringify(output, null, 2), "utf8")
-      await fs.writeFile(path.join(OUTPUT_DIR, `${store.runId}.html`), renderHtml(runData, comparison), "utf8")
+        await fs.writeFile(path.join(OUTPUT_DIR, `${store.runId}.json`), JSON.stringify(output, null, 2), "utf8")
+        await fs.writeFile(path.join(OUTPUT_DIR, `${store.runId}.html`), renderHtml(runData, comparison), "utf8")
+      }
       store.flushed = true
     } finally {
       store.flushingPromise = null

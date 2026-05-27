@@ -522,7 +522,7 @@ export namespace LSPServer {
           }).exited
         }
         binary = BunProc.which()
-        args.push(...["run", js])
+        args.push("run", js)
       }
       args.push("--stdio")
 
@@ -861,7 +861,7 @@ export namespace LSPServer {
           if (cargoTomlContent.includes("[workspace]")) {
             return currentDir
           }
-        } catch (err) {
+        } catch  {
           // File doesn't exist or can't be read, continue searching up
         }
 

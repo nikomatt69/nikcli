@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Token } from "@/util/token"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Token", () => {
   describe("estimate", () => {

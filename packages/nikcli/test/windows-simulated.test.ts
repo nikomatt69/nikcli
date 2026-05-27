@@ -18,6 +18,7 @@ import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import fs from "node:fs/promises"
 import { existsSync } from "node:fs"
 import path from "node:path"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const ROOT = path.resolve(import.meta.dir, "..")
 // Keep temp files INSIDE the package so tsconfig path aliases (e.g. "@/") resolve.
@@ -82,10 +83,7 @@ Object.defineProperty(process, "arch", { value: ${JSON.stringify(arch)}, configu
 ${envPatches}
 // --- end preamble ---
 `
-  const tmp = path.join(
-    TMP_DIR,
-    `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ts`,
-  )
+  const tmp = path.join(TMP_DIR, `sim-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ts`)
   tempFiles.push(tmp)
   await fs.writeFile(tmp, preamble + "\n" + body, "utf8")
 
@@ -96,10 +94,7 @@ ${envPatches}
     stderr: "pipe",
     env: buildSubprocessEnv(sim),
   })
-  const [stdout, stderr] = await Promise.all([
-    new Response(proc.stdout).text(),
-    new Response(proc.stderr).text(),
-  ])
+  const [stdout, stderr] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
   const code = await proc.exited
   if (code !== 0) {
     throw new Error(`subprocess exited ${code}\n--- stdout ---\n${stdout}\n--- stderr ---\n${stderr}`)
@@ -278,10 +273,21 @@ describe("Windows cross-build artifact (script/cross-build-windows.ts)", () => {
       console.warn(`[windows-simulated] artifact not present at ${expected}; run script/cross-build-windows.ts first`)
       return
     }
+    const start = performance.now()
     const buf = Buffer.alloc(2)
     const fh = await fs.open(expected, "r")
     await fh.read(buf, 0, 2, 0)
     await fh.close()
+    const checkTime = performance.now() - start
+    recordBenchmark({
+      suite: "platform",
+      module: "windows",
+      scenario: "PE binary validation",
+      iterations: 1,
+      value: checkTime,
+      unit: "ms",
+      metadata: { size: (await fs.stat(expected)).size },
+    })
     expect(buf[0]).toBe(0x4d) // "M"
     expect(buf[1]).toBe(0x5a) // "Z"
 

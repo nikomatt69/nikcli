@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { randomBytes } from "crypto"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const LENGTH = 26
 
@@ -86,6 +87,15 @@ describe("ID Generation Optimization", () => {
       console.log(
         `   ⚡ Difference: ${Math.abs(improvement).toFixed(2)}x (${Math.abs(percentReduction).toFixed(1)}% ${percentReduction > 0 ? "reduction" : "increase"})`,
       )
+      recordBenchmark({
+        suite: "core",
+        module: "id",
+        scenario: "randomBase62 string concatenation",
+        iterations,
+        value: Math.min(oldTime, newTime),
+        unit: "ms",
+        metadata: { oldTime, newTime, improvement },
+      })
 
       expect(newTime).toBeLessThanOrEqual(oldTime * 1.1)
     })
@@ -127,6 +137,15 @@ describe("ID Generation Optimization", () => {
       console.log(
         `   ⚡ Difference: ${Math.abs(improvement).toFixed(2)}x (${Math.abs(percentReduction).toFixed(1)}% ${percentReduction > 0 ? "reduction" : "increase"})`,
       )
+      recordBenchmark({
+        suite: "core",
+        module: "id",
+        scenario: "full ID creation",
+        iterations,
+        value: Math.min(oldTime, newTime),
+        unit: "ms",
+        metadata: { oldTime, newTime, improvement },
+      })
     })
   })
 })

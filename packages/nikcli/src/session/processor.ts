@@ -261,7 +261,7 @@ export namespace SessionProcessor {
               input.abort.throwIfAborted()
               switch (value.type) {
                 case "start":
-                  await setStatus(input.sessionID, { type: "busy" })
+                  await setStatus(input.sessionID, { type: "busy", since: Date.now() })
                   break
 
                 case "reasoning-start":

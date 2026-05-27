@@ -1,17 +1,33 @@
 import { describe, expect, it } from "bun:test"
-import { readFileSync, existsSync } from "fs"
+import { readFileSync, existsSync, statSync } from "fs"
 import { resolve } from "path"
+import { recordBenchmark } from "./benchmarks/runner"
 
 describe("Build Optimizations", () => {
- 
-
   describe("Build output", () => {
     it("can check if dist exists", () => {
       const distPath = resolve(__dirname, "../dist")
       const exists = existsSync(distPath)
 
+      const start = performance.now()
+      const iterations = 1000
+      for (let i = 0; i < iterations; i++) {
+        existsSync(distPath)
+      }
+      const checkTime = performance.now() - start
+
+      recordBenchmark({
+        suite: "build",
+        module: "fs",
+        scenario: "dist directory existence check",
+        iterations,
+        value: checkTime,
+        unit: "ms",
+        metadata: { exists, distPath },
+      })
+
       if (exists) {
-        const stat = require("fs").statSync(distPath)
+        const stat = statSync(distPath)
         expect(stat.isDirectory()).toBe(true)
       }
     })
@@ -23,7 +39,7 @@ describe("Code Quality - No Implicit Dependencies", () => {
     it("dialog-remote uses onMount for async iterator", () => {
       const filePath = resolve(__dirname, "../src/cli/cmd/tui/component/dialog-remote.tsx")
       const content = readFileSync(filePath, "utf-8")
- 
+
       expect(content).toContain("onMount")
       expect(content).not.toMatch(/createEffect\(\s*\(\s*\)\s*=>\s*\{[\s\S]*for await.*connection\.output/)
     })

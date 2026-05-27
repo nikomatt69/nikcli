@@ -1,7 +1,6 @@
 import { Bus } from "@/bus"
 import { BusEvent } from "@/bus/bus-event"
 import { Global } from "@/global"
-import { Identifier } from "@/id/id"
 import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
 import { Session } from "@/session"
@@ -434,7 +433,7 @@ export namespace Monitor {
       const snapshot = await readLog(record.sessionID, record.id, 80)
       const output = snapshot.output.trim()
       const lines = [
-        `Monitor \"${record.title}\" finished.`,
+        `Monitor "${record.title}" finished.`,
         `Command: ${record.command}`,
         `Working directory: ${record.cwd}`,
         `Status: ${record.status}`,

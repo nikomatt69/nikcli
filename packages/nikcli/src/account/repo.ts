@@ -1,6 +1,6 @@
 import { AccountDB } from "./db"
 import { normalizeServerUrl } from "./url"
-import type { AccountRow, Info, Org, RefreshToken } from "./schema"
+import type { AccountRow, Info, RefreshToken } from "./schema"
 
 export namespace AccountRepo {
   // ============================================================================

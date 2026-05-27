@@ -1,7 +1,6 @@
 import fs from "fs/promises"
 import path from "path"
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator"
-import z from "zod"
 import { Global } from "@/global"
 import { Instance } from "@/project/instance"
 import { SandboxRegistry } from "@/sandbox/registry"
@@ -179,8 +178,8 @@ export namespace BackgroundRun {
 
   function researchMetadata(record: Record, result: string, metadata?: Metadata) {
     const merged = {
-      ...(record.metadata ?? {}),
-      ...(metadata ?? {}),
+      ...record.metadata,
+      ...metadata,
     }
     if (record.agent !== "researcher" && merged.kind !== "research")
       return Object.keys(merged).length > 0 ? merged : undefined
@@ -585,7 +584,7 @@ ${result}
   export async function readArtifact(id: string): Promise<string> {
     const record = await get(id).catch(() => undefined)
     if (!record) {
-      throw new Error(`Delegation \"${id}\" not found.`)
+      throw new Error(`Delegation "${id}" not found.`)
     }
 
     try {

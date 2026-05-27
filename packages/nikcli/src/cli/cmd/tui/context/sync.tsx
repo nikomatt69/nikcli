@@ -25,13 +25,11 @@ import { createStore, produce, reconcile } from "solid-js/store"
 import { useSDK } from "@tui/context/sdk"
 import { Binary } from "@nikcli-ai/util/binary"
 import { createSimpleContext } from "./helper"
-import type { Snapshot } from "@/snapshot"
 import { useExit } from "./exit"
 import { useArgs } from "./args"
 import { batch, onMount } from "solid-js"
 import { Log } from "@/util/log"
 import type { Path } from "@nikcli-ai/sdk/v2"
-import { readFileSync } from "fs"
 
 type BackgroundJob = {
   jobID: string

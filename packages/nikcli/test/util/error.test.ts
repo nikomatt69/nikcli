@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { errorFormat, errorMessage, errorData } from "@/util/error"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("errorFormat", () => {
   it("returns stack for Error with stack", () => {

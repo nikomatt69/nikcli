@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Scope, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import { make as makeRunner, type Runner } from "./runner"
 import { SessionStatus } from "./status"
 
@@ -61,7 +61,10 @@ export namespace SessionRunState {
           onIdle: status
             .set(sessionID, { type: "idle" })
             .pipe(Effect.tap(() => Effect.sync(() => runners.delete(sessionID)))),
-          onBusy: status.set(sessionID, { type: "busy", since: Date.now() } as any),
+          onBusy: status.set(sessionID, {
+            type: "busy",
+            since: Date.now(),
+          } as SessionStatus.Info),
           onInterrupt,
         })
         runners.set(sessionID, runner)

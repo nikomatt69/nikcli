@@ -134,7 +134,7 @@ export namespace Tool {
               ...ctx,
               metadata(input) {
                 const metadata = {
-                  ...(input.metadata ?? {}),
+                  ...input.metadata,
                   truncated: input.metadata?.truncated === undefined ? false : input.metadata.truncated,
                 }
                 ctx.metadata({

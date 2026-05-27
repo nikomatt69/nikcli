@@ -2,9 +2,6 @@ import path from "path"
 import { exec } from "child_process"
 import * as prompts from "@clack/prompts"
 import { map, pipe, sortBy, values } from "remeda"
-import { Octokit } from "@octokit/rest"
-import { graphql } from "@octokit/graphql"
-import type { Context } from "@actions/github/lib/context"
 import type {
   IssueCommentEvent,
   IssuesEvent,
@@ -18,13 +15,8 @@ import { cmd } from "./cmd"
 import { ModelsDev } from "../../provider/models"
 import { Instance } from "@/project/instance"
 import { withInstanceAsync } from "@/effect"
-import { bootstrap } from "../bootstrap"
-import { Session } from "../../session"
-import { Identifier } from "../../id/id"
 import { Provider } from "../../provider/provider"
-import { Bus } from "../../bus"
 import { MessageV2 } from "../../session/message-v2"
-import { SessionPrompt } from "@/session/prompt"
 import { Git } from "@/git"
 import { parseGitHubRemote } from "@/util/repository"
 

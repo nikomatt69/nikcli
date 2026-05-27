@@ -4,7 +4,7 @@ import {
   truncateOneLine,
   lastUserMessageLine,
 } from "@/cli/cmd/tui/util/timeline-style-text"
-import { recordBenchmark, compareBenchmarkRuns } from "../../benchmarks/runner"
+import { recordBenchmark } from "../../benchmarks/runner"
 
 describe("formatMessageLineForTimeline", () => {
   it("returns text unchanged if single line", () => {

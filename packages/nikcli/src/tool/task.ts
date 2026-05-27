@@ -336,10 +336,10 @@ async function validateReusableSession({
   ).catch(() => undefined)
   if (!found) return undefined
   if (found.parentID !== parentSessionID) {
-    throw new Error(`Task session \"${sessionID}\" does not belong to the current parent session.`)
+    throw new Error(`Task session "${sessionID}" does not belong to the current parent session.`)
   }
   if (parentWorkspaceID && found.workspaceID && found.workspaceID !== parentWorkspaceID) {
-    throw new Error(`Task session \"${sessionID}\" belongs to a different workspace.`)
+    throw new Error(`Task session "${sessionID}" belongs to a different workspace.`)
   }
 
   const messages = await runSession(
@@ -353,7 +353,7 @@ async function validateReusableSession({
   )
   if (mismatchedAgent?.info.role === "assistant") {
     throw new Error(
-      `Task session \"${sessionID}\" is already associated with @${mismatchedAgent.info.agent ?? "unknown"}.`,
+      `Task session "${sessionID}" is already associated with @${mismatchedAgent.info.agent ?? "unknown"}.`,
     )
   }
 

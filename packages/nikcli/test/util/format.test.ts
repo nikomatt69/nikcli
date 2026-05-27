@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { formatDuration } from "@/util/format"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"    
+import { recordBenchmark } from "../benchmarks/runner"    
 
 describe("formatDuration", () => {
   describe("zero and negative", () => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Lock } from "@/util/lock"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Lock Benchmark", () => {
   describe("read lock", () => {
@@ -23,6 +24,15 @@ describe("Lock Benchmark", () => {
       console.log(`\n📊 Mock lock acquire/release (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: "mock acquire/release",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(100)
     })
@@ -48,6 +58,15 @@ describe("Lock Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: "Lock.read actual lock",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(5000) // Should complete under 5 seconds
     })
@@ -76,6 +95,15 @@ describe("Lock Benchmark", () => {
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: "Lock.write actual lock",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(5000)
     })
   })
@@ -97,6 +125,16 @@ describe("Lock Benchmark", () => {
       console.log(`\n📊 ${readerCount} concurrent readers x ${iterations} (${readerCount * iterations} total):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per iteration: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: `${readerCount} concurrent readers`,
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: { readerCount, totalOps: readerCount * iterations },
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -152,6 +190,15 @@ describe("Lock Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: "lock contention same key",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(5000)
     })
   })
@@ -170,6 +217,15 @@ describe("Lock Benchmark", () => {
       console.log(`\n📊 Lock cleanup benchmark (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "lock",
+        scenario: "lock cleanup overhead",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(3000)
     })

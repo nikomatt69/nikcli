@@ -715,7 +715,7 @@ export namespace Provider {
           featureFlags: {
             duo_agent_platform_agentic_chat: true,
             duo_agent_platform: true,
-            ...(providerConfig?.options?.featureFlags || {}),
+            ...providerConfig?.options?.featureFlags,
           },
         },
         async getModel(sdk: ReturnType<typeof createGitLab>, modelID: string) {
@@ -723,7 +723,7 @@ export namespace Provider {
             featureFlags: {
               duo_agent_platform_agentic_chat: true,
               duo_agent_platform: true,
-              ...(providerConfig?.options?.featureFlags || {}),
+              ...providerConfig?.options?.featureFlags,
             },
           })
         },
@@ -773,7 +773,7 @@ export namespace Provider {
                   delete body.max_tokens
                   init = { ...init, body: JSON.stringify(body) }
                 }
-              } catch (e) {
+              } catch  {
                 // If body parsing fails, continue with original request
               }
             }
@@ -1064,8 +1064,8 @@ export namespace Provider {
         source: provider.source ?? "api",
         env: configProvider?.env ?? [],
         options: {
-          ...(configProvider?.options ?? {}),
-          ...(provider.options ?? {}),
+          ...configProvider?.options,
+          ...provider.options,
         },
         models: {},
         ...provider,

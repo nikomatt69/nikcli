@@ -66,10 +66,10 @@ export interface LoadedRun {
   deltaVsBaseline?: number
 }
 
-export type ViewMode = "compare" | "leaderboard" | "detail" | "files"
+export type ViewMode = "suite" | "compare" | "leaderboard" | "detail" | "files"
 export type SortMode = "value" | "module" | "name" | "delta" | "trend"
 export type RunnerState = "idle" | "running" | "success" | "error"
-export type FocusPane = "runs" | "main" | "detail" | "logs" | "filter"
+export type FocusPane = "runs" | "main" | "detail" | "logs" | "filter" | "tree"
 export type AlertSeverity = "info" | "warning" | "error" | "critical"
 export type TrendDirection = "up" | "down" | "stable"
 export type CompareMode = "active" | "explicit"
@@ -82,12 +82,15 @@ export interface TestIndex {
   module: string
   scenario: string
   unit: string
-  runValues: Map<string, {
-    value: number
-    iterations: number
-    timestamp?: string
-    metadata?: Record<string, MetadataValue>
-  }>
+  runValues: Map<
+    string,
+    {
+      value: number
+      iterations: number
+      timestamp?: string
+      metadata?: Record<string, MetadataValue>
+    }
+  >
   runs: string[]
   bestRun: string | null
   bestValue: number
@@ -235,6 +238,19 @@ export function fmt(v: number, d = 2): string {
   return v.toFixed(d)
 }
 
+export function fmtDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return "0ms"
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)}s`
+  const m = Math.floor(ms / 60_000)
+  const s = Math.round((ms % 60_000) / 1000)
+  return `${m}m${s.toString().padStart(2, "0")}s`
+}
+
+export function pct(part: number, total: number): number {
+  return total > 0 ? part / total : 0
+}
+
 export function fmtDelta(v: number): string {
   const prefix = v >= 0 ? "+" : ""
   if (Math.abs(v) >= 100) return `${prefix}${v.toFixed(0)}%`
@@ -243,6 +259,8 @@ export function fmtDelta(v: number): string {
 }
 
 export function short(s: string, max: number): string {
+  if (max <= 0) return ""
+  if (max === 1) return s.length <= 1 ? s : "\u2026"
   return s.length <= max ? s : s.slice(0, max - 1) + "\u2026"
 }
 
@@ -272,12 +290,117 @@ export function trendIcon(t: TrendDirection): string {
   return t === "up" ? "\u2191" : t === "down" ? "\u2193" : "\u2192"
 }
 
-export function compareSeverity(deltaPercent: number): CompareResult["severity"] {
-  const abs = Math.abs(deltaPercent)
-  if (abs > 10) return "critical"
-  if (abs > 5) return "regression"
-  if (abs > 1) return "improvement"
+export function lowerIsBetter(unit: string): boolean {
+  return unit === "ms" || unit === "bytes" || unit === "value"
+}
+
+export function compareSeverity(deltaPercent: number, unit = "ms"): CompareResult["severity"] {
+  const worsePercent = lowerIsBetter(unit) ? deltaPercent : -deltaPercent
+  if (worsePercent >= 10) return "critical"
+  if (worsePercent >= 5) return "regression"
+  if (worsePercent <= -1) return "improvement"
   return "neutral"
+}
+
+// ============================================================
+// Test Suite Management (covers ALL test/**/*.test.ts files)
+// ============================================================
+
+export type SuiteExecStatus = "pass" | "fail" | "skip" | "running" | "notrun" | "mixed" | "todo"
+
+export interface SuiteCaseResult {
+  name: string
+  status: "pass" | "fail" | "skip" | "todo"
+  durationMs?: number
+  errorMessage?: string
+}
+
+export interface SuiteRunResult {
+  filePath: string
+  relativePath: string
+  runId: string
+  startedAt: number
+  durationMs: number
+  status: SuiteExecStatus
+  exitCode: number
+  totalTests: number
+  passed: number
+  failed: number
+  skipped: number
+  todo: number
+  cases: SuiteCaseResult[]
+  errorOutput?: string
+}
+
+export interface SuiteFileState {
+  filePath: string
+  relativePath: string
+  fileName: string
+  group: string
+  lastRun?: SuiteRunResult
+  history: SuiteRunResult[]
+}
+
+export interface SuiteGroupState {
+  name: string
+  files: SuiteFileState[]
+  expanded: boolean
+  totalFiles: number
+  passingFiles: number
+  failingFiles: number
+  notRunFiles: number
+  runningFiles: number
+}
+
+export type SuiteSortMode = "name" | "status" | "duration" | "lastRun" | "group"
+
+export const SUITE_HISTORY_DIR = path.join(process.env.HOME ?? "/tmp", ".bench-tui", "suite-history")
+export const SUITE_HISTORY_MAX_PER_FILE = 25
+
+export function groupForRelative(rel: string): string {
+  const seg = rel.split("/")[0] ?? "root"
+  if (seg.endsWith(".test.ts")) return "_root"
+  return seg
+}
+
+export function suiteStatusIcon(status: SuiteExecStatus): string {
+  switch (status) {
+    case "pass":
+      return "✓"
+    case "fail":
+      return "✗"
+    case "running":
+      return "●"
+    case "skip":
+      return "○"
+    case "todo":
+      return "◇"
+    case "mixed":
+      return "◔"
+    case "notrun":
+    default:
+      return "·"
+  }
+}
+
+export function suiteStatusLabel(status: SuiteExecStatus): string {
+  switch (status) {
+    case "pass":
+      return "PASS"
+    case "fail":
+      return "FAIL"
+    case "running":
+      return "RUN "
+    case "skip":
+      return "SKIP"
+    case "todo":
+      return "TODO"
+    case "mixed":
+      return "MIX "
+    case "notrun":
+    default:
+      return "----"
+  }
 }
 
 export function computeRunStatistics(values: number[]): RunStatistics {

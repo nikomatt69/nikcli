@@ -2,6 +2,7 @@ import { afterAll, afterEach, describe, expect, it } from "bun:test"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-search-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
@@ -183,6 +184,20 @@ describe("SearchBackend", () => {
       console.log(`  grep fff:      ${formatSample(result.grep.fff)}`)
       console.log(`  grep rg:       ${formatSample(result.grep.rg)}`)
       console.log(`  grep bun:      ${formatSample(result.grep.bun)}`)
+
+      recordBenchmark({
+        suite: "search",
+        module: "backend",
+        scenario: "fff vs ripgrep vs Bun file listing",
+        iterations: 40,
+        value: result.files.bun.averageMs ?? 0,
+        unit: "ms",
+        metadata: {
+          bunFiles: result.files.bun.count,
+          fffAvailable: result.files.fff?.available ?? false,
+          rgAvailable: result.files.rg?.available ?? false,
+        },
+      })
 
       expect(result.files.bun.available).toBe(true)
       expect(result.grep.bun.available).toBe(true)

@@ -16,7 +16,6 @@ import path from "node:path"
 import fs from "node:fs"
 import { $ } from "bun"
 import { fileURLToPath } from "node:url"
-import pkg from "../package.json"
 import { Script } from "@nikcli-ai/script"
 
 const __filename = fileURLToPath(import.meta.url)

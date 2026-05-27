@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite"
-import { drizzle, type BunSQLiteDatabase } from "drizzle-orm/bun-sqlite"
+import { drizzle } from "drizzle-orm/bun-sqlite"
 import { eq, and, or, sql, desc, asc } from "drizzle-orm"
 import { createHash, randomBytes } from "node:crypto"
 import fs from "fs/promises"

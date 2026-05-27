@@ -1,5 +1,4 @@
 import { realpathSync } from "fs"
-import { normalize, resolve as pathResolve } from "path"
 
 export namespace WindowsPath {
   export function isWindows() {

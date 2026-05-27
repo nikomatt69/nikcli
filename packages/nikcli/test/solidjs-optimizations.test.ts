@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "bun:test"
+import { describe, expect, it } from "bun:test"
 import { createSignal, createEffect, on, onMount, onCleanup } from "solid-js"
+import { recordBenchmark } from "./benchmarks/runner"
 
 describe("SolidJS createEffect Optimizations", () => {
   describe("on() wrapper with defer: true", () => {
@@ -206,20 +207,38 @@ describe("Performance: on() vs bare createEffect", () => {
     let bareEffectRuns = 0
     let onEffectRuns = 0
 
-    createEffect(() => {
-      value()
-      bareEffectRuns++
-    })
+    const startBare = performance.now()
+    for (let i = 0; i < 1000; i++) {
+      createEffect(() => {
+        value()
+        bareEffectRuns++
+      })
+    }
+    const bareTime = performance.now() - startBare
 
-    createEffect(
-      on(
-        () => value(),
-        () => {
-          onEffectRuns++
-        },
-        { defer: true },
-      ),
-    )
+    const startOn = performance.now()
+    for (let i = 0; i < 1000; i++) {
+      createEffect(
+        on(
+          () => value(),
+          () => {
+            onEffectRuns++
+          },
+          { defer: true },
+        ),
+      )
+    }
+    const onTime = performance.now() - startOn
+
+    recordBenchmark({
+      suite: "ui",
+      module: "solidjs",
+      scenario: "effect creation overhead (1000 effects)",
+      iterations: 1000,
+      value: onTime,
+      unit: "ms",
+      metadata: { bareTime, onTime },
+    })
 
     expect(bareEffectRuns).toBe(1)
     expect(onEffectRuns).toBe(0)

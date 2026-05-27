@@ -113,6 +113,7 @@ function storageList(prefix: string[]) {
 
 export namespace Session {
   const log = Log.create({ service: "session" })
+  const analyticsLog = Log.create({ service: "session-analytics" })
 
   const GithubInfo = z
     .object({
@@ -514,7 +515,12 @@ export namespace Session {
       projectID: ctx.project.id,
       directory: result.directory,
       timestamp: result.time.created,
-    }).catch(() => {})
+    }).catch((err) => {
+      analyticsLog.error("Failed to record session for analytics", {
+        sessionID: result.id,
+        error: err,
+      })
+    })
 
     return result
   }
@@ -647,17 +653,27 @@ export namespace Session {
         duration: session.time.updated - session.time.created,
         created: session.time.created,
         completed: session.time.updated,
-      }).catch(() => {})
+      }).catch((err) => {
+        analyticsLog.error("Failed to record session end for analytics", {
+          sessionID,
+          error: err,
+        })
+      })
 
       for (const child of await childrenImpl(ctx, sessionID)) {
         await removeImpl(ctx, child.id)
       }
-      await unshareImpl(ctx, sessionID).catch(() => {})
+      await unshareImpl(ctx, sessionID).catch((err) => {
+        log.warn("Failed to unshare session during deletion", {
+          sessionID,
+          error: err,
+        })
+      })
       for (const msg of await storageList(["message", sessionID])) {
         await removeMessageWithPartsImpl(sessionID, msg.at(-1)!)
       }
-      await storageRemove(["session_diff", sessionID]).catch(() => {})
-      await storageRemove(["goal", sessionID]).catch(() => {})
+      await storageRemove(["session_diff", sessionID]).catch((err) => { log.error('Storage operation failed', {error: err}) })
+      await storageRemove(["goal", sessionID]).catch((err) => { log.error('Storage operation failed', {error: err}) })
       await storageRemove(["session", ctx.project.id, sessionID])
       await publishBus(ctx, Event.Deleted, {
         info: session,
@@ -699,7 +715,7 @@ export namespace Session {
         },
         cost: msg.cost || 0,
         timestamp: msg.time.completed,
-      }).catch(() => {})
+      }).catch((err) => { log.error('Storage operation failed', {error: err}) })
     }
 
     return msg
@@ -748,7 +764,7 @@ export namespace Session {
           sessionID: part.sessionID,
           success: isSuccess,
           timestamp: Date.now(),
-        }).catch(() => {})
+        }).catch((err) => { log.error('Storage operation failed', {error: err}) })
       }
     }
 
@@ -926,7 +942,7 @@ export namespace Session {
       diff: (sessionID) => Effect.tryPromise(() => diffImpl(sessionID)),
       messages: (input) =>
         InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => messagesImpl(ctx, input)))),
-      list: () => InstanceState.context.pipe(Effect.map((ctx) => listImpl(ctx))),
+      list: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.sync(() => listImpl(ctx)))),
       children: (parentID) =>
         InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => childrenImpl(ctx, parentID)))),
       remove: (sessionID) =>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const CACHE_MAX_SIZE = 100
 
@@ -144,6 +145,15 @@ describe("Wildcard Regex Caching Optimization", () => {
       console.log(`   Uncached (new RegExp each call): ${oldTime.toFixed(2)}ms`)
       console.log(`   Cached (Map cache): ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster (${percentReduction.toFixed(1)}% reduction)`)
+      recordBenchmark({
+        suite: "core",
+        module: "wildcard",
+        scenario: "cached vs uncached regex",
+        iterations: iterations * patterns.length * strings.length,
+        value: newTime,
+        unit: "ms",
+        metadata: { oldTime, improvement },
+      })
 
       expect(newTime).toBeLessThan(oldTime)
     })
@@ -175,6 +185,15 @@ describe("Wildcard Regex Caching Optimization", () => {
       console.log(`   Uncached: ${oldTime.toFixed(2)}ms`)
       console.log(`   Cached: ${newTime.toFixed(2)}ms`)
       console.log(`   ⚡ Improvement: ${improvement.toFixed(2)}x faster`)
+      recordBenchmark({
+        suite: "core",
+        module: "wildcard",
+        scenario: "cache hit rate impact",
+        iterations: iterations * patterns.length,
+        value: newTime,
+        unit: "ms",
+        metadata: { oldTime, improvement },
+      })
     })
   })
 })

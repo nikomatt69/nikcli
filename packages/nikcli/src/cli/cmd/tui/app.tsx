@@ -7,14 +7,12 @@ import {
   Switch,
   Match,
   createEffect,
-  createMemo,
   untrack,
   ErrorBoundary,
   createSignal,
   onMount,
   onCleanup,
   batch,
-  Show,
   on,
 } from "solid-js"
 import { Installation } from "@/installation"
@@ -23,7 +21,7 @@ import { DialogProvider, useDialog } from "@tui/ui/dialog"
 import { DialogProvider as DialogProviderList, DialogProviderDisconnect } from "@tui/component/dialog-provider"
 import { SDKProvider, useSDK } from "@tui/context/sdk"
 import { ProjectProvider } from "@tui/context/project"
-import { ServerProvider, useServer } from "@tui/context/server"
+import { ServerProvider } from "@tui/context/server"
 import { SyncProvider, useSync } from "@tui/context/sync"
 import { AnalyticsProvider } from "@tui/context/analytics"
 import { LocalProvider, useLocal } from "@tui/context/local"
@@ -48,9 +46,6 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
-import { Changes } from "@tui/routes/changes"
-import { SessionTree } from "@tui/routes/tree"
-import { GitGraph } from "@tui/routes/git-graph"
 import { GitHubPanel } from "@tui/routes/github"
 import { Workspace } from "@tui/routes/workspace"
 import { PromptHistoryProvider } from "./component/prompt/history"
@@ -85,7 +80,6 @@ import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
-import { Terminal } from "./util/terminal"
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
   return {
@@ -106,7 +100,6 @@ function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
 }
 
 import type { EventSource } from "./context/sdk"
-import { Logo } from "./component/logo"
 
 export function tui(input: {
   url: string

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { Locale } from "@/util/locale"
-import { recordBenchmark, compareBenchmarkRuns } from "../benchmarks/runner"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("Locale", () => {
   describe("titlecase", () => {

@@ -13,6 +13,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "bun:test"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { recordBenchmark } from "./benchmarks/runner"
 
 const SRC = path.join(import.meta.dir, "..", "src")
 const readSrc = (rel: string) => fs.readFileSync(path.join(SRC, rel), "utf8")
@@ -26,6 +27,22 @@ describe("cross-platform file:// URL handling", () => {
   it("pathToFileURL handles spaces and unicode (naive interpolation would break these)", () => {
     const tricky = "/tmp/has space/é/файл.txt"
     const url = pathToFileURL(tricky).href
+
+    const iterations = 10000
+    const start = performance.now()
+    for (let i = 0; i < iterations; i++) {
+      fileURLToPath(pathToFileURL(tricky).href)
+    }
+    const roundtripTime = performance.now() - start
+    recordBenchmark({
+      suite: "platform",
+      module: "url",
+      scenario: "pathToFileURL roundtrip",
+      iterations,
+      value: roundtripTime,
+      unit: "ms",
+    })
+
     expect(url).toContain("file://")
     expect(url).toContain("%20")
     expect(fileURLToPath(url)).toBe(tricky)
@@ -36,22 +53,14 @@ describe("cross-platform file:// URL handling", () => {
   // job re-runs the roundtrip on a real windows-latest runner. Here we encode the
   // contract source-level: every site that constructs a `file://` URL from a
   // filesystem path must go through pathToFileURL — never through `file://${path}`.
-  const fileUrlSites = [
-    "session/prompt.ts",
-    "acp/agent.ts",
-    "cli/cmd/run.ts",
-  ] as const
+  const fileUrlSites = ["session/prompt.ts", "acp/agent.ts", "cli/cmd/run.ts"] as const
 
   for (const rel of fileUrlSites) {
     it(`${rel} uses pathToFileURL and does not naively concat file:// + a filesystem path`, () => {
       const src = readSrc(rel)
       expect(src).toContain("pathToFileURL")
       // The naive shapes we removed — match the exact patterns the fix replaced.
-      const naivePatterns = [
-        "`file://${filepath}`",
-        "`file://${resolvedPath}`",
-        "`file://${path}`",
-      ]
+      const naivePatterns = ["`file://${filepath}`", "`file://${resolvedPath}`", "`file://${path}`"]
       for (const naive of naivePatterns) {
         expect(src).not.toContain(naive)
       }

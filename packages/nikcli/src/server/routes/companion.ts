@@ -1,8 +1,6 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
-import { Session } from "../../session"
 import { lazy } from "../../util/lazy"
-import { upgradeWebSocket } from "hono/bun"
 
 const sessions = new Map<string, any>()
 const cliSockets = new Map<string, any>()

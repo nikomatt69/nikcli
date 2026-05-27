@@ -81,7 +81,7 @@ export const MonitorTool = Tool.define<typeof parameters, MonitorMetadata>("moni
       title,
       metadata,
       output: [
-        `Started monitor \"${title}\" in the background.`,
+        `Started monitor "${title}" in the background.`,
         `Command: ${params.command}`,
         `Working directory: ${cwd}`,
         `Log file: ${record.logPath}`,

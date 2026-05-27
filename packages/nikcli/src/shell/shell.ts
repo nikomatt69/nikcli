@@ -56,7 +56,7 @@ export namespace Shell {
       if (!opts?.exited?.()) {
         process.kill(-pid, "SIGKILL")
       }
-    } catch (_e) {
+    } catch  {
       proc.kill("SIGTERM")
       await Bun.sleep(SIGKILL_TIMEOUT_MS)
       if (!opts?.exited?.()) {

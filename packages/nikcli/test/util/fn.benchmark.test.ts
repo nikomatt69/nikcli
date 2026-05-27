@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { fn } from "@/util/fn"
 import z from "zod"
+import { recordBenchmark } from "../benchmarks/runner"
 
 describe("fn Benchmark", () => {
   describe("validation overhead", () => {
@@ -36,6 +37,16 @@ describe("fn Benchmark", () => {
       console.log(`   With fn wrapper: ${valTime.toFixed(2)}ms`)
       console.log(`   Overhead: ${(valTime / noValTime).toFixed(2)}x`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "parse vs no-parse comparison",
+        iterations,
+        value: valTime,
+        unit: "ms",
+        metadata: { noValTime, overhead: valTime / noValTime },
+      })
+
       expect(valTime).toBeLessThan(noValTime * 100) // Should not be more than 100x slower
     })
 
@@ -55,6 +66,15 @@ describe("fn Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "simple schema parsing",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(5000)
     })
@@ -105,6 +125,15 @@ describe("fn Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "nested object parsing",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(10000)
     })
 
@@ -138,6 +167,15 @@ describe("fn Benchmark", () => {
       console.log(`\n📊 fn with array schema (${iterations} iterations):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "array schema parsing",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })
@@ -177,6 +215,16 @@ describe("fn Benchmark", () => {
       console.log(`   Force: ${forceTime.toFixed(2)}ms`)
       console.log(`   Speedup: ${(normalTime / forceTime).toFixed(2)}x`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "force vs normal comparison",
+        iterations,
+        value: normalTime,
+        unit: "ms",
+        metadata: { normalTime, forceTime, speedup: normalTime / forceTime },
+      })
+
       // Force should be faster
       expect(forceTime).toBeLessThan(normalTime)
     })
@@ -200,6 +248,15 @@ describe("fn Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "schema property access",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(5000)
     })
   })
@@ -221,6 +278,15 @@ describe("fn Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
       console.log(`   Ops/sec: ${((iterations / elapsed) * 1000).toFixed(0)}`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "minimal callback",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(3000)
     })
@@ -249,6 +315,15 @@ describe("fn Benchmark", () => {
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per op: ${(elapsed / iterations).toFixed(4)}ms`)
 
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "heavy callback",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+      })
+
       expect(elapsed).toBeLessThan(15000)
     })
   })
@@ -272,6 +347,15 @@ describe("fn Benchmark", () => {
       console.log(`\n📊 Multiple fn wrappers (${iterations * 3} total calls):`)
       console.log(`   Total: ${elapsed.toFixed(2)}ms`)
       console.log(`   Per batch: ${(elapsed / iterations).toFixed(4)}ms`)
+
+      recordBenchmark({
+        suite: "util",
+        module: "fn",
+        scenario: "multiple fn wrappers batch",
+        iterations: iterations * 3,
+        value: elapsed,
+        unit: "ms",
+      })
 
       expect(elapsed).toBeLessThan(10000)
     })

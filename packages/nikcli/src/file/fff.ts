@@ -1,15 +1,12 @@
 import path from "path"
 import fs from "fs/promises"
 import crypto from "crypto"
-import { Context, Effect, Layer, Schema, Scope } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import {
   FileFinder,
-  type FileItem,
   type GrepMatch,
-  type GrepMode,
   type GrepOptions,
   type GrepResult,
-  type MixedItem,
   type MixedSearchResult,
   type SearchOptions,
   type SearchResult,
