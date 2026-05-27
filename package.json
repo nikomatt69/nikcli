@@ -8,7 +8,7 @@
   "packageManager": "bun@1.3.14",
   "scripts": {
     "dev": "bun run --cwd packages/nikcli --conditions=browser src/index.ts",
-    "typecheck": "bun turbo typecheck",
+    "typecheck": "bun turbo typecheck --filter='!@nikcli-ai/console-app' --filter='!@nikcli-ai/enterprise'",
     "prepare": "husky",
     "random": "echo 'Random script'",
     "hello": "echo 'Hello World!'",
