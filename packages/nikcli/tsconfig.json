@@ -20,9 +20,6 @@
       ],
       "@tui/*": [
         "./src/cli/cmd/tui/*"
-      ],
-      "@nikcli-ai/bench-tui": [
-        "../bench-tui/src/bench-tui.d.ts"
       ]
     }
   }
