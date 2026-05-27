@@ -31,3 +31,4 @@ logs/
 
 # Local RAG index (auto-generated)
 .nikcli/rag/
+packages/bench-tui
