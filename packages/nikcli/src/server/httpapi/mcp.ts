@@ -147,9 +147,7 @@ export namespace McpHttpApi {
         const mcp = yield* MCP.Service
         const supports = yield* mcp.supportsOAuth(params.name).pipe(Effect.orDie)
         if (!supports) {
-          return yield* new HttpApiError.BadRequest({
-            message: `MCP server ${params.name} does not support OAuth`,
-          })
+          return yield* new HttpApiError.BadRequest()
         }
         return yield* mcp.startAuth(params.name).pipe(Effect.orDie)
       }),
@@ -163,9 +161,7 @@ export namespace McpHttpApi {
         const mcp = yield* MCP.Service
         const supports = yield* mcp.supportsOAuth(params.name).pipe(Effect.orDie)
         if (!supports) {
-          return yield* new HttpApiError.BadRequest({
-            message: `MCP server ${params.name} does not support OAuth`,
-          })
+          return yield* new HttpApiError.BadRequest()
         }
         return yield* mcp.authenticate(params.name).pipe(Effect.orDie)
       }),

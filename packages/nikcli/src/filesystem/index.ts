@@ -122,7 +122,7 @@ export namespace AppFileSystem {
 
       const up = (options: { targets: string[]; start: string; stop?: string }): Stream.Stream<string> =>
         Stream.unfold(options.start as string | null, (current: string | null) => {
-          if (current === null) return Effect.void
+          if (current === null) return Effect.succeed(undefined)
           return Effect.gen(function* () {
             const matches: string[] = []
             for (const target of options.targets) {

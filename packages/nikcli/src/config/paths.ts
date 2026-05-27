@@ -82,7 +82,7 @@ export namespace ConfigPaths {
       catch: (err) => err as ErrnoException,
     }).pipe(
       Effect.catch((err: ErrnoException) => {
-        if (err.code === "ENOENT") return Effect.void
+        if (err.code === "ENOENT") return Effect.succeed(undefined)
         return Effect.fail(Object.assign(new JsonError({ path: filepath }), { cause: err }))
       }),
     )
