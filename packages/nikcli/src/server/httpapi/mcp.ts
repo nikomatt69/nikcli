@@ -1,4 +1,4 @@
-import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup } from "effect/unstable/httpapi"
+import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiError, HttpApiGroup } from "effect/unstable/httpapi"
 import { Effect, Layer, Schema } from "effect"
 import { Config } from "@/config/config"
 import { MCP } from "@/mcp"
@@ -93,7 +93,13 @@ export namespace McpHttpApi {
   export const Group = HttpApiGroup.make("mcp")
     .add(HttpApiEndpoint.get("status", "/", { success: StatusMap }))
     .add(HttpApiEndpoint.post("add", "/", { payload: AddPayload, success: StatusMap }))
-    .add(HttpApiEndpoint.post("startAuth", "/:name/auth", { params: NamePath, success: StartAuthResponse }))
+    .add(
+      HttpApiEndpoint.post("startAuth", "/:name/auth", {
+        params: NamePath,
+        success: StartAuthResponse,
+        error: HttpApiError.BadRequest,
+      }),
+    )
     .add(
       HttpApiEndpoint.post("authCallback", "/:name/auth/callback", {
         params: NamePath,
@@ -101,7 +107,13 @@ export namespace McpHttpApi {
         success: Status,
       }),
     )
-    .add(HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate", { params: NamePath, success: Status }))
+    .add(
+      HttpApiEndpoint.post("authenticate", "/:name/auth/authenticate", {
+        params: NamePath,
+        success: Status,
+        error: HttpApiError.BadRequest,
+      }),
+    )
     .add(HttpApiEndpoint.delete("removeAuth", "/:name/auth", { params: NamePath, success: Success }))
     .add(HttpApiEndpoint.post("connect", "/:name/connect", { params: NamePath, success: Schema.Boolean }))
     .add(HttpApiEndpoint.post("disconnect", "/:name/disconnect", { params: NamePath, success: Schema.Boolean }))
@@ -133,12 +145,14 @@ export namespace McpHttpApi {
     startAuth: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
-        const supports = yield* mcp.supportsOAuth(params.name)
+        const supports = yield* mcp.supportsOAuth(params.name).pipe(Effect.orDie)
         if (!supports) {
-          return yield* Effect.die(new Error(`MCP server ${params.name} does not support OAuth`))
+          return yield* new HttpApiError.BadRequest({
+            message: `MCP server ${params.name} does not support OAuth`,
+          })
         }
-        return yield* mcp.startAuth(params.name)
-      }).pipe(Effect.orDie),
+        return yield* mcp.startAuth(params.name).pipe(Effect.orDie)
+      }),
     authCallback: ({ params, payload }: { params: { name: string }; payload: typeof AuthCallbackPayload.Type }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
@@ -147,12 +161,14 @@ export namespace McpHttpApi {
     authenticate: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
-        const supports = yield* mcp.supportsOAuth(params.name)
+        const supports = yield* mcp.supportsOAuth(params.name).pipe(Effect.orDie)
         if (!supports) {
-          return yield* Effect.die(new Error(`MCP server ${params.name} does not support OAuth`))
+          return yield* new HttpApiError.BadRequest({
+            message: `MCP server ${params.name} does not support OAuth`,
+          })
         }
-        return yield* mcp.authenticate(params.name)
-      }).pipe(Effect.orDie),
+        return yield* mcp.authenticate(params.name).pipe(Effect.orDie)
+      }),
     removeAuth: ({ params }: { params: { name: string } }) =>
       Effect.gen(function* () {
         const mcp = yield* MCP.Service
