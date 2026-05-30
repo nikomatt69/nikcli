@@ -18,8 +18,13 @@ for (const [key, value] of Object.entries(pkg.exports)) {
   }
 }
 await Bun.write("package.json", JSON.stringify(pkg, null, 2))
+// Remove any stale tarballs so the glob below resolves to exactly one file.
+// `npm publish` only accepts a single package-spec, and a leftover .tgz from a
+// previous version would make `npm publish *.tgz` fail with EUSAGE.
+await $`rm -f *.tgz`
+const tarball = `${pkg.name.replace("@", "").replace("/", "-")}-${pkg.version}.tgz`
 try {
-  await $`bun pm pack && npm publish *.tgz --tag ${Script.channel} --access public`
+  await $`bun pm pack && npm publish ${tarball} --tag ${Script.channel} --access public`
 } catch (err: any) {
   const msg = String(err?.message ?? err)
   if (!msg.includes("E409") && !msg.includes("You cannot publish over the previously published versions")) {
