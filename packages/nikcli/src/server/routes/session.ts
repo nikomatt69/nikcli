@@ -287,7 +287,12 @@ export const SessionRoutes = lazy(() =>
         )
         // Then get instruction paths using current instance context
         const ctx = captureInstanceContext()
-        const config = await runConfig(Effect.sync(() => Config.get()))
+        const config = await runConfig(
+          Effect.gen(function* () {
+            const service = yield* Config.Service
+            return yield* service.get()
+          }),
+        )
         const { collectSystemPaths } = await import("../../session/instruction")
         const result = await collectSystemPaths(ctx, config)
         const instructions = Array.from(result.paths).map((p) => ({

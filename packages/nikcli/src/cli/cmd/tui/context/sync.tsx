@@ -126,7 +126,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
 
     // Batch streaming part updates to reduce render cycles
     // Collect pending part updates and apply them at 60ms intervals
-    const pendingPartUpdates = new Map<string, Map<string, unknown>>()
+    let pendingPartUpdates = new Map<string, Map<string, unknown>>()
     let batchTimer: ReturnType<typeof setTimeout> | null = null
     const BATCH_INTERVAL_MS = 60
 
