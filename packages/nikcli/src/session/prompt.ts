@@ -1184,6 +1184,28 @@ export namespace SessionPrompt {
       }
       continue
     }
+
+    // When the turn is interrupted (double-ESC / session.abort), the loop can
+    // break between steps — after a step already finished cleanly, or after a
+    // tool absorbed the abort and the stream ended normally — so no message
+    // carries MessageAbortedError. Mark the most recent assistant message as
+    // interrupted (unless the stream processor already set an error) so the UI
+    // shows the "· interrupted" indicator instead of a normal completion.
+    if (abort.aborted) {
+      for await (const item of MessageV2.stream(sessionID)) {
+        if (item.info.role !== "assistant") continue
+        const info = item.info
+        if (!info.error) {
+          await sessionUpdateMessage({
+            ...info,
+            error: { name: "MessageAbortedError", data: { message: "Interrupted by user" } },
+            time: { ...info.time, completed: info.time.completed ?? Date.now() },
+          })
+        }
+        break
+      }
+    }
+
     void runCompaction(
       Effect.gen(function* () {
         const compaction = yield* SessionCompaction.Service

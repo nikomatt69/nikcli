@@ -1854,7 +1854,6 @@ export namespace Provider {
       })
 
       const refresh: Interface["refresh"] = Effect.fn("Provider.refresh")(function* () {
-        const ctx = yield* InstanceState.context
         // Clear the cached LanguageModel instances built from the old SDK +
         // auth before invalidating, so the next getLanguage() rebuilds them.
         try {
@@ -1864,7 +1863,14 @@ export namespace Provider {
         } catch {
           // state never built yet — nothing to clear
         }
-        yield* ScopedCache.invalidate(state, ctx.directory)
+        // Invalidate every cached directory entry, not just the current one.
+        // Auth (`auth.json`) and config live in global/shared locations, so a
+        // credential change affects the provider list for *every* instance
+        // directory/worktree. Invalidating only `ctx.directory` left stale
+        // snapshots behind whenever the entry was built under a different key
+        // than the one in scope at refresh time — the cause of the model list
+        // staying empty for a freshly-connected provider until a CLI restart.
+        yield* ScopedCache.invalidateAll(state)
       })
 
       return Service.of({

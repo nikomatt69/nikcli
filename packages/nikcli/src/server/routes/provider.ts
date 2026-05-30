@@ -29,6 +29,19 @@ function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
 }
 
+// Invalidate the cached provider state after a credential change so the next
+// `provider.list()` rebuilds from the updated `auth.json`. `Instance.dispose()`
+// alone does not clear this cache, so without an explicit refresh a connected
+// or disconnected provider would not show up until a CLI restart.
+function refreshProviderCache() {
+  return runProvider(
+    Effect.gen(function* () {
+      const provider = yield* Provider.Service
+      yield* Effect.ignore(provider.refresh())
+    }),
+  )
+}
+
 export const ProviderRoutes = lazy(() =>
   new Hono()
     .get(
@@ -155,6 +168,7 @@ export const ProviderRoutes = lazy(() =>
             yield* providerAuth.api({ providerID, key })
           }),
         )
+        await refreshProviderCache()
         await Instance.dispose()
         return c.json({ success: true as const })
       },
@@ -190,6 +204,7 @@ export const ProviderRoutes = lazy(() =>
             yield* auth.remove(providerID)
           }),
         )
+        await refreshProviderCache()
         await Instance.dispose()
         return c.json({ success: true as const })
       },
@@ -283,6 +298,11 @@ export const ProviderRoutes = lazy(() =>
             })
           }),
         )
+        // OAuth stores credentials without disposing the instance, so the
+        // provider cache must be refreshed here. Otherwise the just-connected
+        // provider's models stay missing from the model picker until a CLI
+        // restart.
+        await refreshProviderCache()
         return c.json(true)
       },
     ),
