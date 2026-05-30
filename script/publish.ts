@@ -36,6 +36,24 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
   ),
 )
 
+// Resolve a single .tgz tarball in a directory, picking the newest if several exist.
+// Passing a `*.tgz` glob to `npm publish` fails EUSAGE when it matches multiple files.
+async function resolveTarball(dir: string): Promise<string> {
+  const glob = new Bun.Glob("*.tgz")
+  const files = await Array.fromAsync(glob.scan({ cwd: dir }))
+  if (files.length === 0) {
+    throw new Error(`No .tgz tarball found in ${dir}`)
+  }
+  if (files.length === 1) {
+    return files[0]
+  }
+  const withTimes = await Promise.all(
+    files.map(async (f) => ({ f, mtime: (await Bun.file(`${dir}/${f}`).stat()).mtimeMs })),
+  )
+  withTimes.sort((a, b) => b.mtime - a.mtime)
+  return withTimes[0].f
+}
+
 const tags = [Script.channel]
 
 const tasks = Object.entries(binaries).map(async ([name]) => {
@@ -43,13 +61,16 @@ const tasks = Object.entries(binaries).map(async ([name]) => {
     await $`chmod -R 755 .`.cwd(`./dist/${name}`)
   }
   await $`bun pm pack`.cwd(`./dist/${name}`)
+  const tarball = await resolveTarball(`./dist/${name}`)
   for (const tag of tags) {
-    await $`npm publish *.tgz --access public --tag ${tag}`.cwd(`./dist/${name}`)
+    await $`npm publish ${tarball} --access public --tag ${tag}`.cwd(`./dist/${name}`)
   }
 })
 await Promise.all(tasks)
+await $`bun pm pack`.cwd(`./dist/${pkg.name}`)
+const workspaceTarball = await resolveTarball(`./dist/${pkg.name}`)
 for (const tag of tags) {
-  await $`cd ./dist/${pkg.name} && bun pm pack && npm publish *.tgz --access public --tag ${tag}`
+  await $`npm publish ${workspaceTarball} --access public --tag ${tag}`.cwd(`./dist/${pkg.name}`)
 }
 
 if (!Script.preview) {
