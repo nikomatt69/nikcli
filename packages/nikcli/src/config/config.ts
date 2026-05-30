@@ -1467,6 +1467,7 @@ export namespace Config {
             .positive()
             .optional()
             .describe("Timeout in milliseconds for model context protocol (MCP) requests"),
+          nativeLlm: z.boolean().optional().describe("Enable native @nikcli-ai/llm runtime (AI SDK fallback)"),
         })
         .optional(),
       rag: Rag.optional().describe("RAG embedding configuration"),

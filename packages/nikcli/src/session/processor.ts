@@ -658,6 +658,21 @@ export namespace SessionProcessor {
               })
             }
           }
+          // If the turn was interrupted but the stream ended without throwing
+          // (e.g. a tool absorbed the abort and the stream finished normally),
+          // the catch above never set an error. Mark it here so the message
+          // carries MessageAbortedError and the UI shows "· interrupted".
+          if (input.abort.aborted && !input.assistantMessage.error) {
+            input.assistantMessage.error = {
+              name: "MessageAbortedError",
+              data: { message: "Interrupted by user" },
+            }
+          }
+          log.info("interrupt-mark", {
+            aborted: input.abort.aborted,
+            messageID: input.assistantMessage.id,
+            error: input.assistantMessage.error?.name,
+          })
           input.assistantMessage.time.completed = Date.now()
           await updateMessage(input.assistantMessage)
           // Flush any remaining coalesced delta writes before returning

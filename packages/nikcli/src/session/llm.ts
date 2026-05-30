@@ -15,7 +15,9 @@ import {
   tool,
   jsonSchema,
 } from "ai"
-import { LLMCore, Runtime as LLMRuntime, ToolChoice } from "@nikcli-ai/llm"
+import { LLMCore, ToolChoice } from "@nikcli-ai/llm"
+import * as LLMPkg from "@nikcli-ai/llm"
+import type { LLMClientService } from "@nikcli-ai/llm"
 import {
   Message as LLMMessage,
   type ModelRef,
@@ -26,6 +28,8 @@ import {
   GenerationOptions,
   HttpOptions,
 } from "@nikcli-ai/llm"
+import { LLMAISDK } from "./llm/ai-sdk"
+import { LLMNativeRuntime } from "./llm/native-runtime"
 import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
@@ -37,8 +41,9 @@ import { SystemPrompt } from "./system"
 import { Flag } from "@/flag/flag"
 import { PermissionNext } from "@/permission/next"
 import { Auth } from "@/auth"
-import { Effect } from "effect"
+import { Effect, Stream } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { defaultLayer as llmClientLayer } from "@/provider/llm-client"
 
 export namespace LLM {
   const log = Log.create({ service: "llm" })
@@ -54,6 +59,10 @@ export namespace LLM {
 
   function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
     return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
+  }
+
+  function runLLMClient<A, E>(effect: Effect.Effect<A, E, LLMClientService>) {
+    return runPromiseWithLayer(llmClientLayer, effect)
   }
 
   function configGet() {
@@ -376,17 +385,13 @@ export namespace LLM {
           },
           buildRequestHeaders(input.model.providerID, input.sessionID, input.user.id, isCodex, input.model.headers),
         )
-        const prepared = await LLMRuntime.prepareRequest(llmRequest)
-        l.debug("LLM request prepared via @nikcli-ai/llm route", {
-          modelID: modelRef.id,
+        // Debug: log model ref resolution (actual prepareRequest removed - not available in @nikcli-ai/llm)
+        l.debug("model ref resolved", {
+          route: modelRef.route,
           providerID: modelRef.provider,
-          route: prepared.route,
-          protocol: prepared.protocol,
-          msgCount: llmRequest.messages.length,
-          toolCount: llmRequest.tools.length,
         })
       } catch (e) {
-        l.warn("LLM request prepare failed (non-fatal)", { error: String(e) })
+        l.warn("LLM model ref resolution failed (non-fatal)", { error: String(e) })
       }
     }
 
@@ -431,6 +436,115 @@ export namespace LLM {
           )),
       ...input.messages,
     ])
+
+    // ── Native runtime seam ─────────────────────────────────────────────
+    // When experimental.nativeLlm is enabled, try the native @nikcli-ai/llm
+    // runtime first; fall back to AI SDK if the provider isn't supported.
+    if (cfg.experimental?.nativeLlm) {
+      const llmClient = await runLLMClient(
+        Effect.gen(function* () {
+          return yield* LLMPkg.LLMClient.Service
+        }),
+      )
+
+      const headers = buildRequestHeaders(
+        input.model.providerID,
+        input.sessionID,
+        input.user.id,
+        isCodex,
+        input.model.headers,
+      )
+
+      const native = LLMNativeRuntime.stream({
+        model: input.model,
+        provider,
+        auth,
+        llmClient,
+        messages,
+        tools,
+        toolChoice: input.toolChoice,
+        temperature: params.temperature,
+        topP: params.topP,
+        topK: params.topK,
+        maxOutputTokens,
+        providerOptions: params.options,
+        headers: headers as Record<string, string>,
+        abort: input.abort,
+      })
+
+      if (native.type === "supported") {
+        l.info("using native @nikcli-ai/llm runtime", {
+          providerID: input.model.providerID,
+          modelID: input.model.id,
+        })
+
+        // Convert native stream events to AI SDK StreamTextResult format
+        // The processor expects AI SDK's fullStream, so we wrap the native
+        // LLMEvent stream in an adapter
+        // Collect all events from the native stream synchronously.
+        // Stream.runCollect returns an Effect of the full event array.
+        const events: unknown[] = Effect.runSync(native.stream.pipe(Stream.runCollect))
+
+        // Build AI SDK events from LLMEvent directly
+        const aiSDKEvents: Array<{
+          type: string
+          text?: string
+          toolCallId?: string
+          toolName?: string
+          input?: unknown
+          output?: unknown
+          finishReason?: string
+        }> = []
+
+        for (const event of events) {
+          const ev = event as {
+            type: string
+            text?: string
+            id?: string
+            name?: string
+            input?: unknown
+            result?: string
+            reason?: string
+          }
+          // Convert LLMEvent to AI SDK-compatible event
+          if (ev.type === "text-delta") {
+            aiSDKEvents.push({ type: "text-delta", text: ev.text })
+          } else if (ev.type === "tool-call") {
+            aiSDKEvents.push({
+              type: "tool-call",
+              toolCallId: ev.id,
+              toolName: ev.name,
+              input: ev.input,
+            })
+          } else if (ev.type === "tool-result") {
+            aiSDKEvents.push({
+              type: "tool-result",
+              toolCallId: ev.id,
+              toolName: ev.name,
+              output: ev.result,
+            })
+          } else if (ev.type === "request-finish") {
+            aiSDKEvents.push({ type: "finish", finishReason: ev.reason ?? "stop" })
+          }
+        }
+
+        let index = 0
+        const asyncIterable = (async function* () {
+          while (index < aiSDKEvents.length) {
+            yield aiSDKEvents[index++] as never
+          }
+        })()
+
+        // Return a mock StreamTextResult with the converted stream
+        return {
+          fullStream: asyncIterable,
+          rawCall: { model: input.model, messages },
+          rawStreaming: true,
+        } as unknown as StreamTextResult<ToolSet, unknown>
+      }
+
+      l.info("native runtime unavailable, using AI SDK", { reason: native.reason })
+    }
 
     const result = LLMCore.stream({
       onError(error) {

@@ -1,18 +1,26 @@
 /**
  * Bridge to @nikcli-ai/llm's route-based provider stack.
  *
- * nikcli runs on effect@3.21.2 while @nikcli-ai/llm runs on effect@4.x, so the
- * raw Effect/Layer surface from the route package cannot be wired into nikcli
- * directly. Instead, @nikcli-ai/llm exposes a Promise/AsyncIterable runtime
- * (`@nikcli-ai/llm/runtime`) which provisions `LLMClient.layer` with
- * `RequestExecutor.defaultLayer` internally and exports plain-JS helpers:
+ * Exports the Effect Layer for LLMClient which handles provider routing,
+ * body building, and transport for all supported providers.
  *
- * - `Runtime.prepareRequest(LLMRequest) -> Promise<PreparedRequest>`
- * - `Runtime.streamRequest(LLMRequest) -> AsyncIterable<LLMEvent>`
+ * Usage:
+ *   import { defaultLayer } from "@/provider/llm-client"
+ *   import { LLMClient } from "@nikcli-ai/llm/route"
  *
- * `session/llm.ts` calls `Runtime.prepareRequest(...)` to compile the request
- * through the registered route's body builder + transport prepare. The HTTP
- * dispatch still flows through the AI SDK path (`LLMCore.stream`) until the
- * `processor.ts` consumer is migrated from AI SDK's `fullStream` shape to the
- * `LLMEvent` stream.
+ * The layer can be provided to Effect context:
+ *   Layer.provide(llmClientLayer, Layer.provide(...otherLayers))
  */
+import { Layer } from "effect"
+import { LLMClient, RequestExecutor } from "@nikcli-ai/llm/route"
+import type { LLMClientService } from "@nikcli-ai/llm/route"
+
+/**
+ * Default layer for LLMClient, including HTTP executor.
+ * Use layerWithWebSocket if you need WebSocket support.
+ */
+export const defaultLayer = Layer.suspend(() => LLMClient.layer.pipe(Layer.provide(RequestExecutor.defaultLayer)))
+
+export type { LLMClientService }
+
+export * as LLMClientBridge from "./llm-client"

@@ -137,7 +137,10 @@ export async function resolveTools(input: {
     { modelID: input.model.api.id, providerID: input.model.providerID },
     input.agent,
   )) {
-    const schema = ProviderTransform.schema(input.model, z.toJSONSchema(item.parameters))
+    const schema = ProviderTransform.schema(
+      input.model,
+      z.toJSONSchema(item.parameters) as import("@ai-sdk/provider").JSONSchema7,
+    )
     tools[item.id] = tool({
       id: String(item.id) as `${string}.${string}`,
       description: item.description,
