@@ -9,6 +9,7 @@ process.chdir(dir)
 await import("./build")
 
 const pkg = await import("../package.json").then((m) => m.default)
+const tgzFile = `${pkg.name.replace("@", "").replace("/", "-")}-${pkg.version}.tgz`
 const original = JSON.parse(JSON.stringify(pkg))
 for (const [key, value] of Object.entries(pkg.exports)) {
   const file = value.replace("./src/", "./dist/").replace(".ts", "")
@@ -20,5 +21,5 @@ for (const [key, value] of Object.entries(pkg.exports)) {
 }
 await Bun.write("package.json", JSON.stringify(pkg, null, 2))
 await $`bun pm pack`
-await $`npm publish *.tgz --tag ${Script.channel} --access public`
+await $`npm publish ${tgzFile} --tag ${Script.channel} --access public`
 await Bun.write("package.json", JSON.stringify(original, null, 2))
