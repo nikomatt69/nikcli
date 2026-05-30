@@ -1226,6 +1226,46 @@ export type KeybindsConfig = {
    */
   session_delete?: string
   /**
+   * Toggle session pin
+   */
+  session_pin_toggle?: string
+  /**
+   * Quick switch to session slot 1
+   */
+  session_quick_switch_1?: string
+  /**
+   * Quick switch to session slot 2
+   */
+  session_quick_switch_2?: string
+  /**
+   * Quick switch to session slot 3
+   */
+  session_quick_switch_3?: string
+  /**
+   * Quick switch to session slot 4
+   */
+  session_quick_switch_4?: string
+  /**
+   * Quick switch to session slot 5
+   */
+  session_quick_switch_5?: string
+  /**
+   * Quick switch to session slot 6
+   */
+  session_quick_switch_6?: string
+  /**
+   * Quick switch to session slot 7
+   */
+  session_quick_switch_7?: string
+  /**
+   * Quick switch to session slot 8
+   */
+  session_quick_switch_8?: string
+  /**
+   * Quick switch to session slot 9
+   */
+  session_quick_switch_9?: string
+  /**
    * Delete stash entry
    */
   stash_delete?: string
@@ -2390,6 +2430,10 @@ export type Config = {
      * Timeout in milliseconds for model context protocol (MCP) requests
      */
     mcp_timeout?: number
+    /**
+     * Enable native @nikcli-ai/llm runtime (AI SDK fallback)
+     */
+    nativeLlm?: boolean
   }
   rag?: RagConfig
   image?: ImageConfig
@@ -4473,6 +4517,43 @@ export type SessionUpdateResponses = {
 }
 
 export type SessionUpdateResponse = SessionUpdateResponses[keyof SessionUpdateResponses]
+
+export type SessionInstructionsData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/instructions"
+}
+
+export type SessionInstructionsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionInstructionsError = SessionInstructionsErrors[keyof SessionInstructionsErrors]
+
+export type SessionInstructionsResponses = {
+  /**
+   * List of instruction files with their paths
+   */
+  200: Array<{
+    path: string
+    name: string
+  }>
+}
+
+export type SessionInstructionsResponse = SessionInstructionsResponses[keyof SessionInstructionsResponses]
 
 export type SessionChildrenData = {
   body?: never

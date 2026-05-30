@@ -52,6 +52,9 @@ import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
 import { PromptStashProvider } from "./component/prompt/stash"
 import { DialogAlert } from "./ui/dialog-alert"
+import { DialogConfirm } from "./ui/dialog-confirm"
+import { UpgradeProvider, useUpgrade } from "./context/upgrade"
+import { AttentionProvider, useAttention } from "./context/attention"
 import { ToastProvider, useToast } from "./ui/toast"
 import { ExitProvider, useExit } from "./context/exit"
 import { Usage } from "./util/usage"
@@ -155,9 +158,13 @@ export function tui(input: {
                                           <FrecencyProvider>
                                             <PromptHistoryProvider>
                                               <EditorContextProvider>
-                                                <PromptRefProvider>
-                                                  <App />
-                                                </PromptRefProvider>
+                <PromptRefProvider>
+                  <UpgradeProvider upgradeNow={input.upgradeNow}>
+                    <AttentionProvider renderer={renderer}>
+                      <App />
+                    </AttentionProvider>
+                  </UpgradeProvider>
+                </PromptRefProvider>
                                               </EditorContextProvider>
                                             </PromptHistoryProvider>
                                           </FrecencyProvider>
@@ -228,10 +235,12 @@ function App() {
   const sdk = useSDK()
   const toast = useToast()
   const themeCtx = useTheme()
+  const upgradeCtx = useUpgrade()
   const { theme, mode, setMode } = themeCtx
   const sync = useSync()
   const { exit, setSummary } = useExit()
   const promptRef = usePromptRef()
+  const attention = useAttention()
   const keybind = useKeybind()
 
   // Plugin routes — mutable map + reactive stamp for re-renders
@@ -1181,54 +1190,61 @@ function App() {
           duration: 5000,
         })
       }),
-      sdk.event.on(Installation.Event.UpdateAvailable.type, (evt) => {
+      sdk.event.on(Installation.Event.UpdateAvailable.type, async (evt) => {
         const version = evt.properties.version
         const method = (evt.properties as { method?: Installation.Method }).method
         const currentVersion = Installation.VERSION
 
-        // Avoid spamming the same version multiple times within a session
-        if (kv.get("update_toast_shown_version", "") === version) return
-        kv.set("update_toast_shown_version", version)
+        // Skip version already dismissed by the user
+        const skipped = kv.get("skipped_version")
+        if (skipped && version === skipped) return
 
-        // Method-specific upgrade command, falling back to `nikcli upgrade`
-        const upgradeCommand = (() => {
-          switch (method) {
-            case "curl":
-              return "nikcli upgrade"
-            case "npm":
-              return "npm install -g nikcli-ai@latest"
-            case "pnpm":
-              return "pnpm install -g nikcli-ai@latest"
-            case "bun":
-              return "bun install -g nikcli-ai@latest"
-            case "yarn":
-              return "yarn global add nikcli-ai@latest"
-            case "brew":
-              return "brew upgrade nikcli"
-            case "choco":
-              return "choco upgrade nikcli"
-            case "scoop":
-              return "scoop update nikcli"
-            default:
-              return "nikcli upgrade"
-          }
-        })()
+        const choice = await DialogConfirm.show(
+          dialog,
+          `Update Available`,
+          `A new release v${version} is available. You have v${currentVersion}. Update now?`,
+          "confirm",
+        )
+
+        if (choice === false) {
+          kv.set("skipped_version", version)
+          return
+        }
+
+        if (!choice) return
 
         toast.show({
-          variant: "warning",
-          title: `Update available · v${version}`,
-          message: `You have v${currentVersion}. Run \`${upgradeCommand}\` to upgrade.`,
-          duration: 10_000,
+          variant: "info",
+          message: `Updating to v${version}...`,
+          duration: 30_000,
         })
+
+        try {
+          await upgradeCtx.upgradeNow?.(method ?? "npm", version)
+        } catch (error) {
+          toast.show({
+            variant: "error",
+            title: "Update Failed",
+            message: error instanceof Error ? error.message : "Update failed",
+            duration: 10_000,
+          })
+          return
+        }
+
+        await DialogAlert.show(dialog, "Update Complete", `Successfully updated to v${version}. Please restart the application.`)
+
+        await exit()
       }),
       sdk.event.on("permission.asked", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
         if (!tuiCfg?.sound) return
+        if (attention.focus() === "focused") return
         Sound.pulse(1.3)
       }),
       sdk.event.on("session.idle", () => {
         const tuiCfg = sync.data.config?.tui as { sound?: boolean } | undefined
         if (!tuiCfg?.sound) return
+        if (attention.focus() === "focused") return
         Sound.pulse(0.8)
       }),
     ]

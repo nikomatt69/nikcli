@@ -1,26 +1,42 @@
 import { useSync } from "@tui/context/sync"
-import { createMemo, For, Show, Switch, Match } from "solid-js"
+import { createMemo, createResource, For, Show, Switch, Match } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
 import type { AssistantMessage } from "@nikcli-ai/sdk/v2"
 import { Installation } from "@/installation"
 import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
+import { useSDK } from "../../context/sdk"
 import { TodoItem } from "../../component/todo-item"
 
 export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const sync = useSync()
+  const sdk = useSDK()
   const { theme } = useTheme()
   const session = createMemo(() => sync.session.get(props.sessionID)!)
   const diff = createMemo(() => sync.data.session_diff[props.sessionID] ?? [])
   const todo = createMemo(() => sync.data.todo[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
 
+  // Fetch instruction files
+  const [instructions] = createResource(
+    () => props.sessionID,
+    async (sessionID) => {
+      try {
+        const result = await sdk.client.session.instructions({ sessionID })
+        return result.data ?? []
+      } catch {
+        return []
+      }
+    },
+  )
+
   const [expanded, setExpanded] = createStore({
     mcp: true,
     diff: true,
     todo: true,
     lsp: true,
+    instructions: true,
   })
 
   // Sort MCP servers alphabetically for consistent display order
@@ -198,6 +214,32 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </For>
               </Show>
             </box>
+            <Show when={instructions()?.length}>
+              <box>
+                <box
+                  flexDirection="row"
+                  gap={1}
+                  onMouseDown={() => instructions()!.length > 2 && setExpanded("instructions", !expanded.instructions)}
+                >
+                  <Show when={instructions()!.length > 2}>
+                    <text fg={theme.text}>{expanded.instructions ? "▼" : "▶"}</text>
+                  </Show>
+                  <text fg={theme.text}>
+                    <b>Instructions</b>
+                    <span style={{ fg: theme.textMuted }}> ({instructions()!.length})</span>
+                  </text>
+                </box>
+                <Show when={instructions()!.length <= 2 || expanded.instructions}>
+                  <For each={instructions()}>
+                    {(item) => (
+                      <text fg={theme.textMuted} wrapMode="none">
+                        📄 {item.name}
+                      </text>
+                    )}
+                  </For>
+                </Show>
+              </box>
+            </Show>
             <Show when={todo().length > 0 && todo().some((t) => t.status !== "completed")}>
               <box>
                 <box

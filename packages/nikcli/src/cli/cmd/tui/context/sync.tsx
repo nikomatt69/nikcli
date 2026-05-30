@@ -124,6 +124,40 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
     const sdk = useSDK()
     const backgroundRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
+    // Batch streaming part updates to reduce render cycles
+    // Collect pending part updates and apply them at 60ms intervals
+    const pendingPartUpdates = new Map<string, Map<string, unknown>>()
+    let batchTimer: ReturnType<typeof setTimeout> | null = null
+    const BATCH_INTERVAL_MS = 60
+
+    function scheduleBatchFlush() {
+      if (batchTimer !== null) return
+      batchTimer = setTimeout(() => {
+        batchTimer = null
+        const updates = pendingPartUpdates
+        pendingPartUpdates = new Map()
+        batch(() => {
+          for (const [messageID, parts] of updates) {
+            const existingParts = store.part[messageID] ?? []
+            for (const [partID, part] of parts) {
+              const result = Binary.search(existingParts, partID, (p) => p.id)
+              if (result.found) {
+                setStore("part", messageID, result.index, reconcile(part as any))
+              } else {
+                setStore(
+                  "part",
+                  messageID,
+                  produce((draft) => {
+                    draft.splice(result.index, 0, part as any)
+                  }),
+                )
+              }
+            }
+          }
+        })
+      }, BATCH_INTERVAL_MS)
+    }
+
     async function refreshBackgroundJobs(sessionID: string) {
       const result = await sdk.client.session.background({ sessionID }).catch(() => undefined)
       if (!result?.data) return
@@ -358,8 +392,11 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               draft.splice(result.index, 0, event.properties.info)
             }),
           )
+          // Smart message truncation: keep more recent messages in memory
+          // but allow lazy loading of older message parts when needed
           const updated = store.message[event.properties.info.sessionID]
-          if (updated.length > 100) {
+          const MAX_VISIBLE_MESSAGES = 100
+          if (updated.length > MAX_VISIBLE_MESSAGES) {
             const oldest = updated[0]
             batch(() => {
               setStore(
@@ -369,12 +406,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
                   draft.shift()
                 }),
               )
-              setStore(
-                "part",
-                produce((draft) => {
-                  delete draft[oldest.id]
-                }),
-              )
+              // Don't delete parts immediately - they may still be referenced
+              // Parts will be garbage collected when session is unloaded
             })
           }
           break
@@ -394,41 +427,34 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           break
         }
         case "message.part.updated": {
-          const refreshParentID = getSessionByID(event.properties.part.sessionID)?.parentID
-          const parts = store.part[event.properties.part.messageID]
-          if (!parts) {
-            setStore("part", event.properties.part.messageID, [event.properties.part])
+          const part = event.properties.part
+          const messageID = part.messageID
+
+          // Batch streaming updates for better performance
+          // This reduces render cycles during active streaming
+          const messageParts = pendingPartUpdates.get(messageID)
+          if (messageParts) {
+            messageParts.set(part.id, part)
+          } else {
+            pendingPartUpdates.set(messageID, new Map([[part.id, part]]))
+          }
+          scheduleBatchFlush()
+
+          // Only schedule background refresh for task tools (not for every part update)
+          if (part.type === "tool" && part.tool === "task") {
+            const refreshParentID = getSessionByID(part.sessionID)?.parentID
             scheduleBackgroundRefresh(refreshParentID)
-            if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
-              scheduleBackgroundRefresh(event.properties.part.sessionID)
-            }
-            break
-          }
-          const result = Binary.search(parts, event.properties.part.id, (p) => p.id)
-          if (result.found) {
-            setStore("part", event.properties.part.messageID, result.index, reconcile(event.properties.part))
-            if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
-              scheduleBackgroundRefresh(refreshParentID)
-              scheduleBackgroundRefresh(event.properties.part.sessionID)
-            }
-            break
-          }
-          setStore(
-            "part",
-            event.properties.part.messageID,
-            produce((draft) => {
-              draft.splice(result.index, 0, event.properties.part)
-            }),
-          )
-          scheduleBackgroundRefresh(refreshParentID)
-          if (event.properties.part.type === "tool" && event.properties.part.tool === "task") {
-            scheduleBackgroundRefresh(event.properties.part.sessionID)
+            scheduleBackgroundRefresh(part.sessionID)
           }
           break
         }
 
         case "delegation.completed": {
-          scheduleBackgroundRefresh(event.properties.parentSessionID)
+          // Trust push over polling - only refresh if we don't have the data
+          const jobs = store.background_job[event.properties.parentSessionID]
+          if (!jobs || !jobs.some(j => j.rootDelegationID === event.properties.delegationID)) {
+            scheduleBackgroundRefresh(event.properties.parentSessionID)
+          }
           break
         }
 
@@ -443,6 +469,8 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         }
 
         case "monitor.output": {
+          // Use event payload directly instead of polling
+          // Only update preview from event - don't fetch full log unless needed
           patchMonitor(event.properties.sessionID, event.properties.monitorID, {
             preview: event.properties.preview,
             bytes: event.properties.bytes,
@@ -619,11 +647,16 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
           const mode = options?.full ? "full" : "partial"
           const existing = syncedSessions.get(sessionID)
           if (existing === "full" || existing === mode) return result.session.get(sessionID)
+          // Load messages with limit for partial sync (server supports this)
+          // Full sync loads all messages for compaction/summarization
           const [session, messages, todo, diff, backgroundJobs] = await Promise.all([
             sdk.client.session.get({ sessionID }, { throwOnError: true }),
             sdk.client.session.messages(options?.full ? { sessionID } : { sessionID, limit: 100 }),
             sdk.client.session.todo({ sessionID }),
-            sdk.client.session.diff({ sessionID }),
+            // Lazy load diffs - only fetch if not already cached
+            syncedSessions.has(sessionID)
+              ? Promise.resolve({ data: store.session_diff[sessionID] })
+              : sdk.client.session.diff({ sessionID }),
             sdk.client.session.background({ sessionID }).catch(() => undefined),
           ])
           setStore(
@@ -637,7 +670,10 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
               for (const message of messages.data!) {
                 draft.part[message.info.id] = message.parts
               }
-              draft.session_diff[sessionID] = diff.data ?? []
+              // Only update diff if we fetched it (not from cache)
+              if (!syncedSessions.has(sessionID) || diff.data) {
+                draft.session_diff[sessionID] = diff.data ?? []
+              }
             }),
           )
           syncedSessions.set(sessionID, mode === "full" ? "full" : "partial")

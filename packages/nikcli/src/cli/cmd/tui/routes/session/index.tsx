@@ -40,6 +40,7 @@ import {
 } from "@nikcli-ai/sdk/v2"
 import { useLocal } from "@tui/context/local"
 import { Locale } from "@/util/locale"
+import { reasoningSummary } from "@tui/context/thinking"
 import { Token } from "@/util/token"
 import type { Tool } from "@/tool/tool"
 import type { ReadTool } from "@/tool/read"
@@ -327,6 +328,47 @@ export function Session() {
     const job = sync.background.findBySession(route.sessionID)
     if (job) undismissBackground(parentID, job.rootDelegationID)
     navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
+  })
+
+  // Session pin toggle with <leader>p
+  useKeyboard((evt) => {
+    if (!keybind.match("session_pin_toggle", evt)) return
+    evt.preventDefault()
+    evt.stopPropagation()
+    const sessionID = route.sessionID
+    if (!sessionID) return
+    const isPinned = local.session.isPinned(sessionID)
+    local.session.togglePin(sessionID)
+    toast.show({
+      message: isPinned ? "Session unpinned" : "Session pinned",
+      variant: "info",
+      duration: 2000,
+    })
+  })
+
+  // Quick-switch to pinned sessions with <leader>1-9
+  useKeyboard((evt) => {
+    if (!evt.name) return
+    const num = parseInt(evt.name, 10)
+    if (isNaN(num) || num < 1 || num > 9) return
+    if (!keybind.match(`session_quick_switch_${num}`, evt)) return
+    evt.preventDefault()
+    evt.stopPropagation()
+    const slots = local.session.slots()
+    const targetSessionID = slots[num - 1]
+    if (!targetSessionID) {
+      toast.show({
+        message: `No session pinned in slot ${num}`,
+        variant: "warning",
+        duration: 2000,
+      })
+      return
+    }
+    navigate({
+      type: "session",
+      sessionID: targetSessionID,
+      workspaceID: sync.session.get(targetSessionID)?.workspaceID,
+    })
   })
 
   // Helper: Find next visible message boundary in direction
@@ -1666,8 +1708,18 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
     // OpenRouter sends encrypted reasoning data that appears as [REDACTED]
     return props.part.text.replace("[REDACTED]", "").trim()
   })
-  const rendered = createMemo(() => wrapDiagramsInFences("_Thinking:_ " + content()))
+  const summary = createMemo(() => reasoningSummary(content()))
+  const body = createMemo(() => (summary().body ? wrapDiagramsInFences(summary().body) : ""))
   const tight = createMemo(() => ctx.width < 84)
+  const done = createMemo(() => {
+    const end = props.part.time.end
+    return end !== undefined
+  })
+  const duration = createMemo(() => {
+    const end = props.part.time.end
+    if (end === undefined) return
+    return Locale.duration(end - props.part.time.start)
+  })
   return (
     <Show when={content() && ctx.showThinking()}>
       <box
@@ -1679,24 +1731,50 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
         customBorderChars={SplitBorder.customBorderChars}
         borderColor={theme.backgroundElement}
       >
-        <markdown
-          streaming={!props.last ? false : true}
-          syntaxStyle={subtleSyntax()}
-          content={rendered()}
-          conceal={ctx.conceal()}
-          concealCode={false}
-          fg={theme.textMuted}
-          tableOptions={{
-            widthMode: "full",
-            wrapMode: "word",
-            cellPadding: tight() ? 0 : 1,
-            borders: true,
-            outerBorder: !tight(),
-            borderColor: theme.borderSubtle,
-          }}
-        />
+        <ReasoningHeader done={done()} title={summary().title} duration={duration()} />
+        <Show when={summary().body}>
+          <box marginTop={1}>
+            <markdown
+              streaming={!props.last ? false : true}
+              syntaxStyle={subtleSyntax()}
+              content={body()}
+              conceal={ctx.conceal()}
+              concealCode={false}
+              fg={theme.textMuted}
+              tableOptions={{
+                widthMode: "full",
+                wrapMode: "word",
+                cellPadding: tight() ? 0 : 1,
+                borders: true,
+                outerBorder: !tight(),
+                borderColor: theme.borderSubtle,
+              }}
+            />
+          </box>
+        </Show>
       </box>
     </Show>
+  )
+}
+
+function ReasoningHeader(props: { done: boolean; title: string | null; duration?: string }) {
+  const { theme } = useTheme()
+  return (
+    <text fg={theme.warning} wrapMode="none">
+      <span>{props.done ? "Thought" : "Thinking"}</span>
+      <Show when={props.title || props.duration}>
+        <span>: </span>
+      </Show>
+      <Show when={props.title}>
+        <span>{props.title}</span>
+      </Show>
+      <Show when={props.duration}>
+        <span>
+          {props.title ? " · " : ""}
+          {props.duration}
+        </span>
+      </Show>
+    </text>
   )
 }
 

@@ -2,6 +2,8 @@ import { createStore } from "solid-js/store"
 import { batch, createEffect, createMemo, on } from "solid-js"
 import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
+import { useRoute } from "@tui/context/route"
+import { useSDK } from "@tui/context/sdk"
 import { uniqueBy } from "remeda"
 import path from "path"
 import { Global } from "@/global"
@@ -10,7 +12,6 @@ import { createSimpleContext } from "./helper"
 import { useToast } from "../ui/toast"
 import { Provider } from "@/provider/provider"
 import { useArgs } from "./args"
-import { useSDK } from "./sdk"
 import { RGBA } from "@opentui/core"
 
 export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
@@ -462,6 +463,100 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       },
     }
 
+    const session = iife(() => {
+      const [sessionStore, setSessionStore] = createStore<{
+        ready: boolean
+        pinned: string[]
+      }>({
+        ready: false,
+        pinned: [],
+      })
+
+      const file = Bun.file(path.join(Global.Path.state, "session.json"))
+      const state = {
+        pending: false,
+      }
+
+      function save() {
+        if (!sessionStore.ready) {
+          state.pending = true
+          return
+        }
+        state.pending = false
+        Bun.write(
+          file,
+          JSON.stringify({
+            pinned: sessionStore.pinned,
+          }),
+        )
+      }
+
+      file
+        .json()
+        .then((x) => {
+          if (Array.isArray(x.pinned)) setSessionStore("pinned", x.pinned)
+        })
+        .catch(() => {})
+        .finally(() => {
+          setSessionStore("ready", true)
+          if (state.pending) save()
+        })
+
+      const route = useRoute()
+      const sdk = useSDK()
+
+      const slots = createMemo(() => {
+        const existing = new Set(sync.data.session.filter((x) => x.parentID === undefined).map((x) => x.id))
+        return sessionStore.pinned.filter((id) => existing.has(id)).slice(0, 9)
+      })
+
+      function prune(sessionID: string) {
+        batch(() => {
+          if (sessionStore.pinned.includes(sessionID)) {
+            setSessionStore(
+              "pinned",
+              sessionStore.pinned.filter((x) => x !== sessionID),
+            )
+          }
+          save()
+        })
+      }
+
+      // Clean up pinned session when session is deleted
+      sdk.event.on("session.deleted" as any, (evt: any) => {
+        prune(evt.details?.info?.id)
+      })
+
+      return {
+        get ready() {
+          return sessionStore.ready
+        },
+        pinned() {
+          return sessionStore.pinned
+        },
+        slots,
+        isPinned(sessionID: string) {
+          return sessionStore.pinned.includes(sessionID)
+        },
+        togglePin(sessionID: string) {
+          batch(() => {
+            const exists = sessionStore.pinned.includes(sessionID)
+            const next = exists
+              ? sessionStore.pinned.filter((x) => x !== sessionID)
+              : [...sessionStore.pinned, sessionID]
+            setSessionStore("pinned", next)
+            save()
+          })
+        },
+        quickSwitch(slot: number) {
+          const target = slots()[slot - 1]
+          if (!target) return
+          if (route.data.type === "session" && route.data.sessionID === target) return
+          route.navigate({ type: "session", sessionID: target })
+        },
+      }
+    })
+
     // Automatically update model when agent changes
     createEffect(
       on(
@@ -490,6 +585,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
       agent,
       mcp,
       connectors,
+      session,
     }
     return result
   },

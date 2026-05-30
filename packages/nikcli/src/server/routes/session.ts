@@ -244,6 +244,60 @@ export const SessionRoutes = lazy(() =>
       },
     )
     .get(
+      "/:sessionID/instructions",
+      describeRoute({
+        summary: "Get loaded instruction files",
+        description:
+          "Retrieve the list of instruction files that are currently loaded for this session (AGENTS.md, CLAUDE.md, etc.)",
+        tags: ["Session"],
+        operationId: "session.instructions",
+        responses: {
+          200: {
+            description: "List of instruction files with their paths",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.array(
+                    z.object({
+                      path: z.string(),
+                      name: z.string(),
+                    }),
+                  ),
+                ),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: Session.ID,
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        // Verify session exists first
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(sessionID)
+          }),
+        )
+        // Then get instruction paths using current instance context
+        const ctx = captureInstanceContext()
+        const config = await runConfig(Effect.sync(() => Config.get()))
+        const { collectSystemPaths } = await import("../../session/instruction")
+        const result = await collectSystemPaths(ctx, config)
+        const instructions = Array.from(result.paths).map((p) => ({
+          path: p,
+          name: p.split("/").pop() || p,
+        }))
+        return c.json(instructions)
+      },
+    )
+    .get(
       "/:sessionID/children",
       describeRoute({
         summary: "Get session children",
@@ -470,14 +524,32 @@ export const SessionRoutes = lazy(() =>
       validator("json", Session.InitializeInput.omit({ sessionID: true })),
       async (c) => {
         const sessionID = c.req.valid("param").sessionID
-        const body = c.req.valid("json")
+        // Verify session exists first
         await runSession(
           Effect.gen(function* () {
             const service = yield* Session.Service
-            yield* service.initialize({ ...body, sessionID })
+            yield* service.get(sessionID)
           }),
         )
-        return c.json(true)
+        // Then get instruction paths using current instance context
+        const ctx = captureInstanceContext()
+        const config = await runPromiseWithLayer(
+          Config.defaultLayer,
+          locallyInstance(
+            ctx,
+            Effect.gen(function* () {
+              const config = yield* Config.Service
+              return yield* config.get()
+            }),
+          ),
+        )
+        const { collectSystemPaths } = await import("../../session/instruction")
+        const result = await collectSystemPaths(ctx, config)
+        const instructions = Array.from(result.paths).map((p) => ({
+          path: p,
+          name: p.split("/").pop() || p,
+        }))
+        return c.json(instructions)
       },
     )
     .post(

@@ -268,6 +268,8 @@ import type {
   SessionGithub,
   SessionInitErrors,
   SessionInitResponses,
+  SessionInstructionsErrors,
+  SessionInstructionsResponses,
   SessionListResponses,
   SessionMessageErrors,
   SessionMessageResponses,
@@ -1772,6 +1774,38 @@ export class Session2 extends HeyApiClient {
         ...options?.headers,
         ...params.headers,
       },
+    })
+  }
+
+  /**
+   * Get loaded instruction files
+   *
+   * Retrieve the list of instruction files that are currently loaded for this session (AGENTS.md, CLAUDE.md, etc.)
+   */
+  public instructions<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionInstructionsResponses, SessionInstructionsErrors, ThrowOnError>({
+      url: "/session/{sessionID}/instructions",
+      ...options,
+      ...params,
     })
   }
 
