@@ -452,7 +452,7 @@ export const { use: useSync, provider: SyncProvider } = createSimpleContext({
         case "delegation.completed": {
           // Trust push over polling - only refresh if we don't have the data
           const jobs = store.background_job[event.properties.parentSessionID]
-          if (!jobs || !jobs.some(j => j.rootDelegationID === event.properties.delegationID)) {
+          if (!jobs || !jobs.some((j) => j.rootDelegationID === event.properties.delegationID)) {
             scheduleBackgroundRefresh(event.properties.parentSessionID)
           }
           break

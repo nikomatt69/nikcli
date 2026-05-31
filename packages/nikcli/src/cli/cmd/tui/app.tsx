@@ -158,13 +158,13 @@ export function tui(input: {
                                           <FrecencyProvider>
                                             <PromptHistoryProvider>
                                               <EditorContextProvider>
-                <PromptRefProvider>
-                  <UpgradeProvider upgradeNow={input.upgradeNow}>
-                    <AttentionProvider renderer={renderer}>
-                      <App />
-                    </AttentionProvider>
-                  </UpgradeProvider>
-                </PromptRefProvider>
+                                                <PromptRefProvider>
+                                                  <UpgradeProvider upgradeNow={input.upgradeNow}>
+                                                    <AttentionProvider renderer={renderer}>
+                                                      <App />
+                                                    </AttentionProvider>
+                                                  </UpgradeProvider>
+                                                </PromptRefProvider>
                                               </EditorContextProvider>
                                             </PromptHistoryProvider>
                                           </FrecencyProvider>
@@ -1231,7 +1231,11 @@ function App() {
           return
         }
 
-        await DialogAlert.show(dialog, "Update Complete", `Successfully updated to v${version}. Please restart the application.`)
+        await DialogAlert.show(
+          dialog,
+          "Update Complete",
+          `Successfully updated to v${version}. Please restart the application.`,
+        )
 
         await exit()
       }),
