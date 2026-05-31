@@ -740,6 +740,21 @@ export type EventCommandExecuted = {
   }
 }
 
+export type EventFileWatcherUpdated = {
+  type: "file.watcher.updated"
+  properties: {
+    file: string
+    event: "add" | "change" | "unlink"
+  }
+}
+
+export type EventVcsBranchUpdated = {
+  type: "vcs.branch.updated"
+  properties: {
+    branch?: string
+  }
+}
+
 export type EventWorkspaceReady = {
   type: "workspace.ready"
   properties: {
@@ -905,14 +920,6 @@ export type EventTodoUpdated = {
   }
 }
 
-export type EventFileWatcherUpdated = {
-  type: "file.watcher.updated"
-  properties: {
-    file: string
-    event: "add" | "change" | "unlink"
-  }
-}
-
 export type SessionGithub = {
   owner: string
   repo: string
@@ -1045,13 +1052,6 @@ export type EventSessionError = {
   }
 }
 
-export type EventVcsBranchUpdated = {
-  type: "vcs.branch.updated"
-  properties: {
-    branch?: string
-  }
-}
-
 export type Pty = {
   id: string
   title: string
@@ -1119,6 +1119,8 @@ export type Event =
   | EventMcpToolsChanged
   | EventMcpBrowserOpenFailed
   | EventCommandExecuted
+  | EventFileWatcherUpdated
+  | EventVcsBranchUpdated
   | EventWorkspaceReady
   | EventWorkspaceFailed
   | EventWorkspaceStatus
@@ -1129,13 +1131,11 @@ export type Event =
   | EventDelegationCompleted
   | EventFileEdited
   | EventTodoUpdated
-  | EventFileWatcherUpdated
   | EventSessionCreated
   | EventSessionUpdated
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
-  | EventVcsBranchUpdated
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
@@ -1906,7 +1906,15 @@ export type ProviderConfig = {
      * Timeout in milliseconds for requests to this provider. Default is 300000 (5 minutes). Set to false to disable timeout.
      */
     timeout?: number | false
-    [key: string]: unknown | string | boolean | number | false | undefined
+    /**
+     * Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.
+     */
+    headerTimeout?: number | false
+    /**
+     * Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.
+     */
+    chunkTimeout?: number
+    [key: string]: unknown | string | boolean | number | false | number | false | number | undefined
   }
 }
 
@@ -2736,6 +2744,7 @@ export type Workspace = {
     | {
         directory: string
         type: "worktree"
+        strategy?: "git" | "cow"
         eventLimit?: number
       }
     | {
@@ -2777,6 +2786,30 @@ export type McpResource = {
   description?: string
   mimeType?: string
   client: string
+}
+
+export type ManagedWorktreeInfo = {
+  id: string
+  parentId?: string | null
+  name: string
+  branch: string
+  directory: string
+  createdAt: number
+}
+
+export type ManagedWorktreeCreateInput = {
+  from: string
+  name?: string
+  into?: string
+}
+
+export type ManagedWorktreeRemoveInput = {
+  at: string
+}
+
+export type ManagedWorktreeLinkInput = {
+  at: string
+  to?: string
 }
 
 export type TextPartInput = {
@@ -3251,6 +3284,21 @@ export type VcsInfo = {
   branch: string
 }
 
+export type VcsFileStatus = {
+  file: string
+  additions: number
+  deletions: number
+  status: "added" | "deleted" | "modified"
+}
+
+export type VcsApplyResult = {
+  applied: boolean
+}
+
+export type VcsApplyInput = {
+  patch: string
+}
+
 export type Command = {
   name: string
   description?: string
@@ -3326,6 +3374,10 @@ export type WellKnownAuth = {
 }
 
 export type Auth = OAuth | ApiAuth | WellKnownAuth
+
+export type ManagedWorktreeChildrenInput = string
+
+export type ManagedWorktreeAncestorsInput = string
 
 export type GetSShareIdData = {
   body?: never
@@ -4041,6 +4093,7 @@ export type ExperimentalWorkspaceCreateData = {
       | {
           directory: string
           type: "worktree"
+          strategy?: "git" | "cow"
           eventLimit?: number
         }
       | {
@@ -4163,6 +4216,7 @@ export type ExperimentalWorkspaceWarpData = {
   body?: {
     id: string | null
     sessionID: string
+    copyChanges?: boolean
     timeoutMs?: number
   }
   path?: never
@@ -4199,6 +4253,7 @@ export type ExperimentalWorkspaceWarpResponse =
 export type ExperimentalWorkspaceSessionWarpData = {
   body?: {
     workspaceID: string | null
+    copyChanges?: boolean
     timeoutMs?: number
   }
   path: {
@@ -4307,6 +4362,177 @@ export type ExperimentalResourceListResponses = {
 
 export type ExperimentalResourceListResponse =
   ExperimentalResourceListResponses[keyof ExperimentalResourceListResponses]
+
+export type ManagedWorktreeRemoveData = {
+  body?: ManagedWorktreeRemoveInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/managed-worktree"
+}
+
+export type ManagedWorktreeRemoveErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeRemoveError = ManagedWorktreeRemoveErrors[keyof ManagedWorktreeRemoveErrors]
+
+export type ManagedWorktreeRemoveResponses = {
+  /**
+   * Managed worktree removed
+   */
+  200: null
+}
+
+export type ManagedWorktreeRemoveResponse = ManagedWorktreeRemoveResponses[keyof ManagedWorktreeRemoveResponses]
+
+export type ManagedWorktreeListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/managed-worktree"
+}
+
+export type ManagedWorktreeListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeListError = ManagedWorktreeListErrors[keyof ManagedWorktreeListErrors]
+
+export type ManagedWorktreeListResponses = {
+  /**
+   * Managed worktrees
+   */
+  200: Array<ManagedWorktreeInfo>
+}
+
+export type ManagedWorktreeListResponse = ManagedWorktreeListResponses[keyof ManagedWorktreeListResponses]
+
+export type ManagedWorktreeCreateData = {
+  body?: ManagedWorktreeCreateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/managed-worktree"
+}
+
+export type ManagedWorktreeCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeCreateError = ManagedWorktreeCreateErrors[keyof ManagedWorktreeCreateErrors]
+
+export type ManagedWorktreeCreateResponses = {
+  /**
+   * Managed worktree created
+   */
+  200: ManagedWorktreeInfo
+}
+
+export type ManagedWorktreeCreateResponse = ManagedWorktreeCreateResponses[keyof ManagedWorktreeCreateResponses]
+
+export type ManagedWorktreeLinkData = {
+  body?: ManagedWorktreeLinkInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/managed-worktree/link"
+}
+
+export type ManagedWorktreeLinkErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeLinkError = ManagedWorktreeLinkErrors[keyof ManagedWorktreeLinkErrors]
+
+export type ManagedWorktreeLinkResponses = {
+  /**
+   * Managed worktree linked
+   */
+  200: ManagedWorktreeInfo
+}
+
+export type ManagedWorktreeLinkResponse = ManagedWorktreeLinkResponses[keyof ManagedWorktreeLinkResponses]
+
+export type ManagedWorktreeChildrenData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    of: string
+  }
+  url: "/experimental/managed-worktree/children"
+}
+
+export type ManagedWorktreeChildrenErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeChildrenError = ManagedWorktreeChildrenErrors[keyof ManagedWorktreeChildrenErrors]
+
+export type ManagedWorktreeChildrenResponses = {
+  /**
+   * Managed worktree children
+   */
+  200: Array<ManagedWorktreeInfo>
+}
+
+export type ManagedWorktreeChildrenResponse = ManagedWorktreeChildrenResponses[keyof ManagedWorktreeChildrenResponses]
+
+export type ManagedWorktreeAncestorsData = {
+  body?: never
+  path?: never
+  query: {
+    directory?: string
+    workspace?: string
+    of: string
+  }
+  url: "/experimental/managed-worktree/ancestors"
+}
+
+export type ManagedWorktreeAncestorsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type ManagedWorktreeAncestorsError = ManagedWorktreeAncestorsErrors[keyof ManagedWorktreeAncestorsErrors]
+
+export type ManagedWorktreeAncestorsResponses = {
+  /**
+   * Managed worktree ancestors
+   */
+  200: Array<ManagedWorktreeInfo>
+}
+
+export type ManagedWorktreeAncestorsResponse =
+  ManagedWorktreeAncestorsResponses[keyof ManagedWorktreeAncestorsResponses]
 
 export type SessionListData = {
   body?: never
@@ -8843,6 +9069,72 @@ export type VcsGetResponses = {
 }
 
 export type VcsGetResponse = VcsGetResponses[keyof VcsGetResponses]
+
+export type VcsStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/vcs/status"
+}
+
+export type VcsStatusResponses = {
+  /**
+   * VCS status
+   */
+  200: Array<VcsFileStatus>
+}
+
+export type VcsStatusResponse = VcsStatusResponses[keyof VcsStatusResponses]
+
+export type VcsDiffRawData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/vcs/diff/raw"
+}
+
+export type VcsDiffRawResponses = {
+  /**
+   * Raw VCS diff
+   */
+  200: string
+}
+
+export type VcsDiffRawResponse = VcsDiffRawResponses[keyof VcsDiffRawResponses]
+
+export type VcsApplyData = {
+  body?: VcsApplyInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/vcs/apply"
+}
+
+export type VcsApplyErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type VcsApplyError = VcsApplyErrors[keyof VcsApplyErrors]
+
+export type VcsApplyResponses = {
+  /**
+   * VCS patch applied
+   */
+  200: VcsApplyResult
+}
+
+export type VcsApplyResponse = VcsApplyResponses[keyof VcsApplyResponses]
 
 export type CommandListData = {
   body?: never

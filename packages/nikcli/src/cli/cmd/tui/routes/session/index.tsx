@@ -18,6 +18,7 @@ import path from "path"
 import { useRoute, useRouteData } from "@tui/context/route"
 import { useSync } from "@tui/context/sync"
 import { SplitBorder } from "@tui/component/border"
+import { Spinner } from "@tui/component/spinner"
 import { useTheme, selectedForeground, tint } from "@tui/context/theme"
 import {
   BoxRenderable,
@@ -1760,21 +1761,30 @@ function ReasoningPart(props: { last: boolean; part: ReasoningPart; message: Ass
 function ReasoningHeader(props: { done: boolean; title: string | null; duration?: string }) {
   const { theme } = useTheme()
   return (
-    <text fg={theme.warning} wrapMode="none">
-      <span>{props.done ? "Thought" : "Thinking"}</span>
-      <Show when={props.title || props.duration}>
-        <span>: </span>
-      </Show>
-      <Show when={props.title}>
-        <span>{props.title}</span>
-      </Show>
-      <Show when={props.duration}>
-        <span>
-          {props.title ? " · " : ""}
-          {props.duration}
-        </span>
-      </Show>
-    </text>
+    <Switch>
+      <Match when={!props.done}>
+        <box flexDirection="row">
+          <Spinner color={theme.warning}>{props.title ? "Thinking: " + props.title : "Thinking"}</Spinner>
+        </box>
+      </Match>
+      <Match when={props.done}>
+        <text fg={theme.warning} wrapMode="none">
+          <span>Thought</span>
+          <Show when={props.title || props.duration}>
+            <span>: </span>
+          </Show>
+          <Show when={props.title}>
+            <span>{props.title}</span>
+          </Show>
+          <Show when={props.duration}>
+            <span>
+              {props.title ? " · " : ""}
+              {props.duration}
+            </span>
+          </Show>
+        </text>
+      </Match>
+    </Switch>
   )
 }
 

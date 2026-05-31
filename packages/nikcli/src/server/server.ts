@@ -88,6 +88,10 @@ function runProvider<A, E>(effect: Effect.Effect<A, E, Provider.Service>) {
   return runPromiseWithLayer(Provider.defaultLayer, withCurrentInstance(effect))
 }
 
+function runVcs<A, E>(effect: Effect.Effect<A, E, Vcs.Service>) {
+  return runPromiseWithLayer(Vcs.defaultLayer, withCurrentInstance(effect))
+}
+
 async function invalidateProviderCache() {
   try {
     await runProvider(
@@ -140,6 +144,33 @@ export namespace Server {
     return items.some((x) => x.toLowerCase() === normalized)
   }
 
+  function sessionIDFromPath(pathname: string) {
+    const match = /^\/session\/([^/?#]+)/.exec(pathname)
+    if (!match) return
+
+    let sessionID = match[1]
+    try {
+      sessionID = decodeURIComponent(sessionID)
+    } catch {
+      // Keep the raw value; the schema check below will reject invalid IDs.
+    }
+    return Session.ID.safeParse(sessionID).success ? sessionID : undefined
+  }
+
+  async function sessionForRequest(sessionID: string, directory: string) {
+    return withInstanceAsync({ directory, init: InstanceBootstrap }, async () =>
+      runPromiseWithLayer(
+        Session.defaultLayer,
+        withCurrentInstance(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            return yield* session.getAnyProject(sessionID)
+          }),
+        ),
+      ),
+    ).catch(() => undefined)
+  }
+
   export function url(): URL {
     return _url ?? new URL("http://localhost:4096")
   }
@@ -162,6 +193,11 @@ export namespace Server {
                 name: err._tag,
                 data: { providerID: err.providerID, modelID: err.modelID, suggestions: err.suggestions },
               },
+              { status: 400 },
+            )
+          if (err instanceof Vcs.PatchApplyError)
+            return c.json(
+              { name: err._tag, data: { message: err.message, reason: err.reason } },
               { status: 400 },
             )
           if (err instanceof Error && err.name.startsWith("Worktree"))
@@ -344,7 +380,9 @@ export namespace Server {
           } catch {
             // fallback to original value
           }
-          const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace")
+          const routeSessionID = sessionIDFromPath(c.req.path)
+          const routeSession = routeSessionID ? await sessionForRequest(routeSessionID, directory) : undefined
+          const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace") || routeSession?.workspaceID
           const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
 
           if (workspace) {
@@ -361,6 +399,8 @@ export namespace Server {
             }
 
             directory = target.directory
+          } else if (routeSession?.directory) {
+            directory = routeSession.directory
           }
 
           return WorkspaceContext.provide({
@@ -497,6 +537,105 @@ export namespace Server {
             return c.json({
               branch,
             })
+          },
+        )
+        .get(
+          "/vcs/status",
+          describeRoute({
+            summary: "Get VCS status",
+            description: "Retrieve changed files in the current working tree without patches.",
+            operationId: "vcs.status",
+            responses: {
+              200: {
+                description: "VCS status",
+                content: {
+                  "application/json": {
+                    schema: resolver(Vcs.FileStatus.array()),
+                  },
+                },
+              },
+            },
+          }),
+          async (c) => {
+            const status = await runVcs(
+              Effect.gen(function* () {
+                const vcs = yield* Vcs.Service
+                return yield* vcs.status()
+              }),
+            )
+            return c.json(status)
+          },
+        )
+        .get(
+          "/vcs/diff/raw",
+          describeRoute({
+            summary: "Get raw VCS diff",
+            description: "Retrieve a raw patch for current uncommitted changes.",
+            operationId: "vcs.diff.raw",
+            responses: {
+              200: {
+                description: "Raw VCS diff",
+                content: {
+                  "text/x-diff": {
+                    schema: resolver(z.string()),
+                  },
+                },
+              },
+            },
+          }),
+          async (c) => {
+            const patch = await runVcs(
+              Effect.gen(function* () {
+                const vcs = yield* Vcs.Service
+                return yield* vcs.diffRaw()
+              }),
+            )
+            return c.text(patch, 200, { "content-type": "text/x-diff; charset=utf-8" })
+          },
+        )
+        .post(
+          "/vcs/apply",
+          describeRoute({
+            summary: "Apply VCS patch",
+            description: "Apply a raw patch to the current working tree.",
+            operationId: "vcs.apply",
+            responses: {
+              200: {
+                description: "VCS patch applied",
+                content: {
+                  "application/json": {
+                    schema: resolver(Vcs.ApplyResult),
+                  },
+                },
+              },
+              ...errors(400),
+            },
+          }),
+          validator("json", Vcs.ApplyInput),
+          async (c) => {
+            const body = c.req.valid("json")
+            const result = await runVcs(
+              Effect.gen(function* () {
+                const vcs = yield* Vcs.Service
+                return yield* vcs.apply(body)
+              }).pipe(
+                Effect.match({
+                  onFailure: (error) => ({ ok: false as const, error }),
+                  onSuccess: (value) => ({ ok: true as const, value }),
+                }),
+              ),
+            )
+            if (result.ok) return c.json(result.value)
+            return c.json(
+              {
+                name: "VcsApplyError",
+                data: {
+                  message: result.error.message,
+                  reason: result.error.reason,
+                },
+              },
+              400,
+            )
           },
         )
         .get(

@@ -300,7 +300,8 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) part.metadata = value.providerMetadata
-                    // flushNow persists the part - no need for Session.updatePart (avoids double-write)
+                    // Flush and publish update so UI can stop spinner
+                    Bus.publish(MessageV2.Event.PartUpdated, { part, delta: "" })
                     await coalescer.flushNow(["part", part.messageID, part.id]).catch(() => {})
                     delete reasoningMap[value.id]
                   }
@@ -552,7 +553,8 @@ export namespace SessionProcessor {
                       end: Date.now(),
                     }
                     if (value.providerMetadata) textPart.metadata = value.providerMetadata
-                    // flushNow persists the part - no need for Session.updatePart (avoids double-write)
+                    // Flush and publish update so UI can update stats
+                    Bus.publish(MessageV2.Event.PartUpdated, { part: textPart, delta: "" })
                     await coalescer.flushNow(["part", textPart.messageID, textPart.id]).catch(() => {})
                   }
                   currentText = undefined

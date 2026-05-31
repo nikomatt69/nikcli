@@ -15,6 +15,7 @@ export namespace WorkspaceHttpApi {
     Schema.Struct({
       type: Schema.Literal("worktree"),
       directory: Schema.String,
+      strategy: Schema.optional(Schema.Literals(["git", "cow"])),
       eventLimit: Schema.optional(Schema.Number),
     }),
     Schema.Struct({
@@ -66,6 +67,7 @@ export namespace WorkspaceHttpApi {
   const WarpPayload = Schema.Struct({
     id: Schema.NullOr(Schema.String),
     sessionID: Schema.String,
+    copyChanges: Schema.optional(Schema.Boolean),
     timeoutMs: Schema.optional(Schema.Number),
   }).annotate({ identifier: "WorkspaceWarpInput" })
 
@@ -109,7 +111,12 @@ export namespace WorkspaceHttpApi {
   export const handlers = {
     adaptors: () =>
       Effect.succeed([
-        { type: "worktree", name: "Worktree", description: "Create a local git worktree", available: true },
+        {
+          type: "worktree",
+          name: "Worktree",
+          description: "Create a local git worktree or COW clone",
+          available: true,
+        },
         { type: "container", name: "Container", description: "Docker/Podman container", available: true },
       ]),
     list: () =>
@@ -157,6 +164,7 @@ export namespace WorkspaceHttpApi {
         Workspace.sessionWarp({
           workspaceID: payload.id,
           sessionID: payload.sessionID,
+          copyChanges: payload.copyChanges,
           timeoutMs: payload.timeoutMs ?? 30_000,
         }),
       ).pipe(Effect.asVoid, Effect.orDie),

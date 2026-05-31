@@ -75,6 +75,21 @@ import type {
   GlobalHealthResponses,
   InstanceDisposeResponses,
   LspStatusResponses,
+  ManagedWorktreeAncestorsErrors,
+  ManagedWorktreeAncestorsResponses,
+  ManagedWorktreeChildrenErrors,
+  ManagedWorktreeChildrenResponses,
+  ManagedWorktreeCreateErrors,
+  ManagedWorktreeCreateInput,
+  ManagedWorktreeCreateResponses,
+  ManagedWorktreeLinkErrors,
+  ManagedWorktreeLinkInput,
+  ManagedWorktreeLinkResponses,
+  ManagedWorktreeListErrors,
+  ManagedWorktreeListResponses,
+  ManagedWorktreeRemoveErrors,
+  ManagedWorktreeRemoveInput,
+  ManagedWorktreeRemoveResponses,
   McpAddErrors,
   McpAddResponses,
   McpAuthAuthenticateErrors,
@@ -326,7 +341,12 @@ import type {
   TuiSelectSessionResponses,
   TuiShowToastResponses,
   TuiSubmitPromptResponses,
+  VcsApplyErrors,
+  VcsApplyInput,
+  VcsApplyResponses,
+  VcsDiffRawResponses,
   VcsGetResponses,
+  VcsStatusResponses,
   WorktreeCreateErrors,
   WorktreeCreateInput,
   WorktreeCreateResponses,
@@ -1138,6 +1158,7 @@ export class Session extends HeyApiClient {
       directory?: string
       workspace?: string
       workspaceID?: string | null
+      copyChanges?: boolean
       timeoutMs?: number
     },
     options?: Options<never, ThrowOnError>,
@@ -1151,6 +1172,7 @@ export class Session extends HeyApiClient {
             { in: "query", key: "directory" },
             { in: "query", key: "workspace" },
             { in: "body", key: "workspaceID" },
+            { in: "body", key: "copyChanges" },
             { in: "body", key: "timeoutMs" },
           ],
         },
@@ -1225,6 +1247,7 @@ export class Workspace extends HeyApiClient {
         | {
             directory: string
             type: "worktree"
+            strategy?: "git" | "cow"
             eventLimit?: number
           }
         | {
@@ -1319,6 +1342,7 @@ export class Workspace extends HeyApiClient {
       workspace?: string
       id?: string | null
       sessionID?: string
+      copyChanges?: boolean
       timeoutMs?: number
     },
     options?: Options<never, ThrowOnError>,
@@ -1332,6 +1356,7 @@ export class Workspace extends HeyApiClient {
             { in: "query", key: "workspace" },
             { in: "body", key: "id" },
             { in: "body", key: "sessionID" },
+            { in: "body", key: "copyChanges" },
             { in: "body", key: "timeoutMs" },
           ],
         },
@@ -1435,6 +1460,231 @@ export class Experimental extends HeyApiClient {
   private _resource?: Resource
   get resource(): Resource {
     return (this._resource ??= new Resource({ client: this.client }))
+  }
+}
+
+export class ManagedWorktree extends HeyApiClient {
+  /**
+   * Remove managed worktree
+   *
+   * Remove a managed worktree and its descendant subtree.
+   */
+  public remove<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      managedWorktreeRemoveInput?: ManagedWorktreeRemoveInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "managedWorktreeRemoveInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<
+      ManagedWorktreeRemoveResponses,
+      ManagedWorktreeRemoveErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/managed-worktree",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List all managed worktrees
+   *
+   * Get all registered managed worktrees.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<ManagedWorktreeListResponses, ManagedWorktreeListErrors, ThrowOnError>({
+      url: "/experimental/managed-worktree",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create managed worktree
+   *
+   * Clone a workspace with copy-on-write support.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      managedWorktreeCreateInput?: ManagedWorktreeCreateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "managedWorktreeCreateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ManagedWorktreeCreateResponses,
+      ManagedWorktreeCreateErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/managed-worktree",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Link managed worktree
+   *
+   * Reconnect a moved managed worktree to its registry record.
+   */
+  public link<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      managedWorktreeLinkInput?: ManagedWorktreeLinkInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "managedWorktreeLinkInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<ManagedWorktreeLinkResponses, ManagedWorktreeLinkErrors, ThrowOnError>(
+      {
+        url: "/experimental/managed-worktree/link",
+        ...options,
+        ...params,
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+          ...params.headers,
+        },
+      },
+    )
+  }
+
+  /**
+   * List managed worktree children
+   *
+   * Get direct managed children of a worktree.
+   */
+  public children<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      of: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "of" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ManagedWorktreeChildrenResponses,
+      ManagedWorktreeChildrenErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/managed-worktree/children",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List managed worktree ancestors
+   *
+   * Get the managed ancestry of a worktree.
+   */
+  public ancestors<ThrowOnError extends boolean = false>(
+    parameters: {
+      directory?: string
+      workspace?: string
+      of: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "of" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      ManagedWorktreeAncestorsResponses,
+      ManagedWorktreeAncestorsErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/managed-worktree/ancestors",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -6834,6 +7084,38 @@ export class Path extends HeyApiClient {
   }
 }
 
+export class Diff extends HeyApiClient {
+  /**
+   * Get raw VCS diff
+   *
+   * Retrieve a raw patch for current uncommitted changes.
+   */
+  public raw<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<VcsDiffRawResponses, unknown, ThrowOnError>({
+      url: "/vcs/diff/raw",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Vcs extends HeyApiClient {
   /**
    * Get VCS info
@@ -6863,6 +7145,78 @@ export class Vcs extends HeyApiClient {
       ...options,
       ...params,
     })
+  }
+
+  /**
+   * Get VCS status
+   *
+   * Retrieve changed files in the current working tree without patches.
+   */
+  public status<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<VcsStatusResponses, unknown, ThrowOnError>({
+      url: "/vcs/status",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Apply VCS patch
+   *
+   * Apply a raw patch to the current working tree.
+   */
+  public apply<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      vcsApplyInput?: VcsApplyInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "vcsApplyInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<VcsApplyResponses, VcsApplyErrors, ThrowOnError>({
+      url: "/vcs/apply",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  private _diff?: Diff
+  get diff(): Diff {
+    return (this._diff ??= new Diff({ client: this.client }))
   }
 }
 
@@ -7623,6 +7977,11 @@ export class NikcliClient extends HeyApiClient {
   private _experimental?: Experimental
   get experimental(): Experimental {
     return (this._experimental ??= new Experimental({ client: this.client }))
+  }
+
+  private _managedWorktree?: ManagedWorktree
+  get managedWorktree(): ManagedWorktree {
+    return (this._managedWorktree ??= new ManagedWorktree({ client: this.client }))
   }
 
   private _session?: Session2

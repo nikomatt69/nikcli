@@ -2,7 +2,7 @@ import { Hono } from "hono"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { ToolRegistry } from "../../tool/registry"
-import { Worktree } from "../../worktree"
+import { Worktree, ManagedWorktree } from "../../worktree"
 import { Instance } from "../../project/instance"
 import { Project } from "../../project/project"
 import { MCP } from "../../mcp"
@@ -19,6 +19,10 @@ function runToolRegistry<A, E>(effect: Effect.Effect<A, E, ToolRegistry.Service>
 
 function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
   return runPromiseWithLayer(Worktree.defaultLayer, withCurrentInstance(effect))
+}
+
+function runManagedWorktree<A, E>(effect: Effect.Effect<A, E, ManagedWorktree.Service>) {
+  return runPromiseWithLayer(ManagedWorktree.defaultLayer, withCurrentInstance(effect))
 }
 
 function runProject<A, E>(effect: Effect.Effect<A, E, Project.Service>) {
@@ -265,6 +269,185 @@ export const ExperimentalRoutes = lazy(() =>
           }),
         )
         return c.json(resources)
+      },
+    )
+    // Managed worktree routes (based on opencode PR #30117)
+    .post(
+      "/managed-worktree",
+      describeRoute({
+        summary: "Create managed worktree",
+        description: "Clone a workspace with copy-on-write support.",
+        operationId: "managed-worktree.create",
+        responses: {
+          200: {
+            description: "Managed worktree created",
+            content: {
+              "application/json": {
+                schema: resolver(ManagedWorktree.Info),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", ManagedWorktree.CreateInput.optional()),
+      async (c) => {
+        const body = c.req.valid("json")
+        const worktree = await runManagedWorktree(
+          Effect.gen(function* () {
+            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            return yield* service.create(body)
+          }),
+        )
+        return c.json(worktree)
+      },
+    )
+    .delete(
+      "/managed-worktree",
+      describeRoute({
+        summary: "Remove managed worktree",
+        description: "Remove a managed worktree and its descendant subtree.",
+        operationId: "managed-worktree.remove",
+        responses: {
+          200: {
+            description: "Managed worktree removed",
+            content: {
+              "application/json": {
+                schema: resolver(z.null()),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", ManagedWorktree.RemoveInput),
+      async (c) => {
+        const body = c.req.valid("json")
+        await runManagedWorktree(
+          Effect.gen(function* () {
+            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            yield* service.remove(body)
+          }),
+        )
+        return c.json(null)
+      },
+    )
+    .post(
+      "/managed-worktree/link",
+      describeRoute({
+        summary: "Link managed worktree",
+        description: "Reconnect a moved managed worktree to its registry record.",
+        operationId: "managed-worktree.link",
+        responses: {
+          200: {
+            description: "Managed worktree linked",
+            content: {
+              "application/json": {
+                schema: resolver(ManagedWorktree.Info),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", ManagedWorktree.LinkInput),
+      async (c) => {
+        const body = c.req.valid("json")
+        const result = await runManagedWorktree(
+          Effect.gen(function* () {
+            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            return yield* service.link(body)
+          }),
+        )
+        return c.json(result)
+      },
+    )
+    .get(
+      "/managed-worktree/children",
+      describeRoute({
+        summary: "List managed worktree children",
+        description: "Get direct managed children of a worktree.",
+        operationId: "managed-worktree.children",
+        responses: {
+          200: {
+            description: "Managed worktree children",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(ManagedWorktree.Info)),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("query", ManagedWorktree.ChildrenInput),
+      async (c) => {
+        const body = c.req.valid("query")
+        const children = await runManagedWorktree(
+          Effect.gen(function* () {
+            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            return yield* service.children(body)
+          }),
+        )
+        return c.json(children)
+      },
+    )
+    .get(
+      "/managed-worktree/ancestors",
+      describeRoute({
+        summary: "List managed worktree ancestors",
+        description: "Get the managed ancestry of a worktree.",
+        operationId: "managed-worktree.ancestors",
+        responses: {
+          200: {
+            description: "Managed worktree ancestors",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(ManagedWorktree.Info)),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("query", ManagedWorktree.AncestorsInput),
+      async (c) => {
+        const body = c.req.valid("query")
+        const ancestors = await runManagedWorktree(
+          Effect.gen(function* () {
+            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            return yield* service.ancestors(body)
+          }),
+        )
+        return c.json(ancestors)
+      },
+    )
+    .get(
+      "/managed-worktree",
+      describeRoute({
+        summary: "List all managed worktrees",
+        description: "Get all registered managed worktrees.",
+        operationId: "managed-worktree.list",
+        responses: {
+          200: {
+            description: "Managed worktrees",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(ManagedWorktree.Info)),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        const worktrees = await runManagedWorktree(
+          Effect.gen(function* () {
+            const service = yield* ManagedWorktree.Service
+            return yield* service.list()
+          }),
+        )
+        return c.json(worktrees)
       },
     ),
 )

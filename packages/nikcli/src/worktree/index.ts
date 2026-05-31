@@ -9,6 +9,7 @@ import { Lock } from "@/util/lock"
 import { InstanceState, type InstanceContext } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
+export * from "./managed"
 
 export namespace Worktree {
   const InfoSchema = Schema.Struct({

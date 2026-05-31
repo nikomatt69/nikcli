@@ -20,14 +20,28 @@ type AskInput = {
     [key: string]: any
   }
 }
+export type ToolAttachment = {
+  type: "file"
+  mime: string
+  url: string
+  filename?: string
+}
+export type ToolResult =
+  | string
+  | {
+      title?: string
+      output: string
+      metadata?: Record<string, any>
+      attachments?: ToolAttachment[]
+    }
 export declare function tool<Args extends z.ZodRawShape>(input: {
   description: string
   args: Args
-  execute(args: z.infer<z.ZodObject<Args>>, context: ToolContext): Promise<string>
+  execute(args: z.infer<z.ZodObject<Args>>, context: ToolContext): Promise<ToolResult>
 }): {
   description: string
   args: Args
-  execute(args: z.infer<z.ZodObject<Args>>, context: ToolContext): Promise<string>
+  execute(args: z.infer<z.ZodObject<Args>>, context: ToolContext): Promise<ToolResult>
 }
 export declare namespace tool {
   var schema: typeof z

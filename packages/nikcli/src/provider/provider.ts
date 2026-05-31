@@ -45,6 +45,7 @@ import { createPerplexity } from "@ai-sdk/perplexity"
 import { createVercel } from "@ai-sdk/vercel"
 import { createGitLab } from "@gitlab/gitlab-ai-provider"
 import { ProviderTransform } from "./transform"
+import { ProviderError } from "./error"
 
 // @nikcli-ai/llm provider factories for the new route-based model ref system
 import {
@@ -107,6 +108,7 @@ function configGet(ctx?: InstanceContext): Promise<Config.Info> {
 
 export namespace Provider {
   const log = Log.create({ service: "provider" })
+  const OPENAI_HEADER_TIMEOUT_DEFAULT = 10_000
 
   function normalizeBaseURL(baseURL: string): string {
     return baseURL.endsWith("/") ? baseURL.slice(0, -1) : baseURL
@@ -125,6 +127,63 @@ export namespace Provider {
     if (id.includes("image")) return true
     if (id.startsWith("sd") || id.includes("stable-diffusion")) return true
     return false
+  }
+
+  function timeoutController(ms: number) {
+    const ctl = new AbortController()
+    const id = setTimeout(() => ctl.abort(new ProviderError.HeaderTimeoutError(ms)), ms)
+    return {
+      signal: ctl.signal,
+      clear: () => clearTimeout(id),
+    }
+  }
+
+  function wrapSSE(res: Response, ms: number, ctl: AbortController) {
+    if (typeof ms !== "number" || ms <= 0) return res
+    if (!res.body) return res
+    if (!res.headers.get("content-type")?.includes("text/event-stream")) return res
+
+    const reader = res.body.getReader()
+    const body = new ReadableStream<Uint8Array>({
+      async pull(ctrl) {
+        const part = await new Promise<Awaited<ReturnType<typeof reader.read>>>((resolve, reject) => {
+          const id = setTimeout(() => {
+            const err = new Error("SSE read timed out")
+            ctl.abort(err)
+            void reader.cancel(err)
+            reject(err)
+          }, ms)
+
+          reader.read().then(
+            (part) => {
+              clearTimeout(id)
+              resolve(part)
+            },
+            (err) => {
+              clearTimeout(id)
+              reject(err)
+            },
+          )
+        })
+
+        if (part.done) {
+          ctrl.close()
+          return
+        }
+
+        ctrl.enqueue(part.value)
+      },
+      async cancel(reason) {
+        ctl.abort(reason)
+        await reader.cancel(reason)
+      },
+    })
+
+    return new Response(body, {
+      headers: new Headers(res.headers),
+      status: res.status,
+      statusText: res.statusText,
+    })
   }
 
   async function loadOllamaProvider(config: Config.Info): Promise<Info | undefined> {
@@ -408,7 +467,7 @@ export namespace Provider {
         async getModel(sdk: any, modelID: string, _options?: Record<string, any>) {
           return sdk.responses(modelID)
         },
-        options: {},
+        options: { headerTimeout: OPENAI_HEADER_TIMEOUT_DEFAULT },
       }
     },
     "github-copilot": async () => {
@@ -1450,30 +1509,40 @@ export namespace Provider {
       const customFetch = options["fetch"] as
         | ((input: any, init?: BunFetchRequestInit) => Promise<Response>)
         | undefined
+      const chunkTimeout = options["chunkTimeout"]
+      const headerTimeout = options["headerTimeout"]
+      delete options["chunkTimeout"]
+      delete options["headerTimeout"]
 
       options["fetch"] = async (input: any, init?: BunFetchRequestInit) => {
-        // Preserve custom fetch if it exists, wrap it with timeout logic
         const fetchFn = customFetch ?? fetch
         const opts = init ?? {}
+        const chunkAbortCtl = typeof chunkTimeout === "number" && chunkTimeout > 0 ? new AbortController() : undefined
+        const headerTimeoutMs = headerTimeout === false ? undefined : headerTimeout
+        const headerTimeoutCtl = typeof headerTimeoutMs === "number" ? timeoutController(headerTimeoutMs) : undefined
+        const signals: AbortSignal[] = []
 
-        if (options["timeout"] !== undefined && options["timeout"] !== null) {
-          const signals: AbortSignal[] = []
-          if (opts.signal) signals.push(opts.signal)
-          if (options["timeout"] !== false) signals.push(AbortSignal.timeout(options["timeout"] as number))
-
-          const combined = signals.length > 1 ? AbortSignal.any(signals) : signals[0]
-
-          opts.signal = combined
+        if (opts.signal) signals.push(opts.signal)
+        if (chunkAbortCtl) signals.push(chunkAbortCtl.signal)
+        if (headerTimeoutCtl) signals.push(headerTimeoutCtl.signal)
+        if (options["timeout"] !== undefined && options["timeout"] !== null && options["timeout"] !== false) {
+          signals.push(AbortSignal.timeout(options["timeout"] as number))
         }
+
+        const combined = signals.length === 0 ? undefined : signals.length === 1 ? signals[0] : AbortSignal.any(signals)
+        if (combined) opts.signal = combined
 
         // Strip openai itemId metadata following what codex does
         // Codex uses #[serde(skip_serializing)] on id fields for all item types:
         // Message, Reasoning, FunctionCall, LocalShellCall, CustomToolCall, WebSearchCall
         // IDs are only re-attached for Azure with store=true
-        if (model.api.npm === "@ai-sdk/openai" && opts.body && opts.method === "POST") {
+        if (
+          (model.api.npm === "@ai-sdk/openai" || model.api.npm === "@ai-sdk/azure") &&
+          opts.body &&
+          opts.method === "POST"
+        ) {
           const body = JSON.parse(opts.body as string)
-          const isAzure = model.providerID.includes("azure")
-          const keepIds = isAzure && body.store === true
+          const keepIds = body.store === true
           if (!keepIds && Array.isArray(body.input)) {
             for (const item of body.input) {
               if ("id" in item) {
@@ -1507,11 +1576,14 @@ export namespace Provider {
           }
         }
 
-        return fetchFn(input, {
+        const res = await fetchFn(input, {
           ...opts,
           // @ts-ignore see here: https://github.com/oven-sh/bun/issues/16682
           timeout: false,
-        })
+        }).finally(() => headerTimeoutCtl?.clear())
+
+        if (!chunkAbortCtl) return res
+        return wrapSSE(res, chunkTimeout as number, chunkAbortCtl)
       }
 
       // Special case: google-vertex-anthropic uses a subpath import

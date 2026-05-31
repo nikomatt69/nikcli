@@ -7,6 +7,7 @@ import { PermissionNext } from "@/permission/next"
 import { Project } from "@/project/project"
 import { InstanceBootstrap } from "@/project/bootstrap"
 import { Instance } from "@/project/instance"
+import { Vcs } from "@/project/vcs"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
@@ -32,6 +33,10 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
 
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+}
+
+function runVcs<A, E>(effect: Effect.Effect<A, E, Vcs.Service>) {
+  return runPromiseWithLayer(Vcs.defaultLayer, withCurrentInstance(effect))
 }
 
 function storageRead<T>(key: string[]) {
@@ -570,10 +575,11 @@ export namespace Workspace {
     z.object({
       sessionID: Identifier.schema("session"),
       workspaceID: z.union([Identifier.schema("workspace"), z.null()]),
+      copyChanges: z.boolean().optional(),
       timeoutMs: z.number().int().positive().default(30_000),
       signal: z.any().optional(),
     }),
-    async ({ sessionID, workspaceID, timeoutMs, signal }) => {
+    async ({ sessionID, workspaceID, copyChanges, timeoutMs, signal }) => {
       const current = await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -621,6 +627,27 @@ export namespace Workspace {
         ? await restore({ workspaceID, timeoutMs, signal }).then(() => targetWorkspace(workspaceID))
         : undefined
 
+      const sourcePatch =
+        copyChanges && current.workspaceID
+          ? await workspaceDiffRaw(current.workspaceID, signal as AbortSignal | undefined).catch((error) => {
+              log.warn("session warp source patch read failed", {
+                workspaceID: current.workspaceID,
+                sessionID,
+                error,
+              })
+              return ""
+            })
+          : ""
+
+      if (sourcePatch) {
+        await applyWorkspacePatch({
+          workspaceID,
+          fallbackDirectory: current.directory,
+          patch: sourcePatch,
+          signal: signal as AbortSignal | undefined,
+        })
+      }
+
       await runSession(
         Effect.gen(function* () {
           const session = yield* Session.Service
@@ -652,6 +679,81 @@ export namespace Workspace {
       }
     },
   )
+
+  async function runVcsInDirectory<A, E>(directory: string, effect: Effect.Effect<A, E, Vcs.Service>) {
+    return withInstanceAsync({ directory, init: InstanceBootstrap }, async () => runVcs(effect))
+  }
+
+  async function workspaceDiffRaw(workspaceID: string, signal?: AbortSignal) {
+    const target = await targetWorkspace(workspaceID)
+    if (!target) return ""
+
+    if (target.type === "local") {
+      return runVcsInDirectory(
+        target.directory,
+        Effect.gen(function* () {
+          const vcs = yield* Vcs.Service
+          return yield* vcs.diffRaw()
+        }),
+      )
+    }
+
+    const response = await fetch(new URL("/vcs/diff/raw", target.url), {
+      headers: target.headers,
+      signal,
+    }).catch((error) => {
+      log.warn("workspace diff raw request failed", { workspaceID, error })
+      return undefined
+    })
+    if (!response?.ok) {
+      if (response) {
+        log.warn("workspace diff raw request failed", {
+          workspaceID,
+          status: response.status,
+          body: await response.text().catch(() => ""),
+        })
+      }
+      return ""
+    }
+    return response.text()
+  }
+
+  async function applyWorkspacePatch(input: {
+    workspaceID: string | null
+    fallbackDirectory: string
+    patch: string
+    signal?: AbortSignal
+  }) {
+    const target = input.workspaceID ? await targetWorkspace(input.workspaceID) : undefined
+
+    if (target?.type === "remote") {
+      const headers = new Headers(target.headers)
+      headers.set("content-type", "application/json")
+      const response = await fetch(new URL("/vcs/apply", target.url), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ patch: input.patch }),
+        signal: input.signal,
+      })
+      if (!response.ok) {
+        const body = await response.text().catch(() => "")
+        throw new Vcs.PatchApplyError({
+          message: body || `Failed to apply workspace patch: HTTP ${response.status}`,
+          reason: "not-clean",
+        })
+      }
+      return
+    }
+
+    const directory = target?.type === "local" ? target.directory : input.fallbackDirectory
+    await runVcsInDirectory(
+      directory,
+      Effect.gen(function* () {
+        const vcs = yield* Vcs.Service
+        return yield* vcs.apply({ patch: input.patch })
+      }),
+    )
+  }
 
   async function targetWorkspace(workspaceID: string) {
     const info = await get(workspaceID)

@@ -4,6 +4,7 @@ import { zod } from "@/util/effect-zod"
 const WorktreeConfig = Schema.Struct({
   directory: Schema.String,
   type: Schema.Literal("worktree"),
+  strategy: Schema.optional(Schema.Literals(["git", "cow"])),
   eventLimit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
 })
 

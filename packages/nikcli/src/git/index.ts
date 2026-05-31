@@ -37,6 +37,15 @@ export namespace Git {
     deletions: number
   }
 
+  export type Patch = {
+    text: string
+    truncated: boolean
+  }
+
+  export type PatchOptions = {
+    context?: number
+  }
+
   export interface Result {
     exitCode: number
     text(): string
@@ -241,5 +250,52 @@ export namespace Git {
         } satisfies Stat,
       ]
     })
+  }
+
+  export async function patchAll(cwd: string, ref: string, options?: PatchOptions): Promise<Patch> {
+    const result = await run(
+      ["diff", "--patch", "--no-ext-diff", "--no-renames", `--unified=${options?.context ?? 3}`, ref, "--", "."],
+      { cwd },
+    )
+    return { text: result.text(), truncated: false }
+  }
+
+  export async function patchUntracked(cwd: string, file: string, options?: PatchOptions): Promise<Patch> {
+    const result = await run(
+      [
+        "diff",
+        "--no-index",
+        "--patch",
+        "--no-ext-diff",
+        "--no-renames",
+        `--unified=${options?.context ?? 3}`,
+        "--",
+        "/dev/null",
+        file,
+      ],
+      { cwd },
+    )
+    return { text: result.text(), truncated: false }
+  }
+
+  export async function statUntracked(cwd: string, file: string): Promise<Stat | undefined> {
+    const result = await run(["diff", "--no-index", "--numstat", "--", "/dev/null", file], { cwd })
+    const parts = result.text().split("\t")
+    if (parts.length < 2) return undefined
+
+    const additionsRaw = parts[0]
+    const deletionsRaw = parts[1]
+    const additions = additionsRaw === "-" ? 0 : Number.parseInt(additionsRaw || "0", 10)
+    const deletions = deletionsRaw === "-" ? 0 : Number.parseInt(deletionsRaw || "0", 10)
+
+    return {
+      file,
+      additions: Number.isFinite(additions) ? additions : 0,
+      deletions: Number.isFinite(deletions) ? deletions : 0,
+    }
+  }
+
+  export async function applyPatch(cwd: string, patch: string): Promise<Result> {
+    return run(["apply", "--whitespace=nowarn", "-"], { cwd, stdin: patch })
   }
 }

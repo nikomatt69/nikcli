@@ -10,6 +10,8 @@ import { BunProc } from "../bun"
 import { Config } from "../config/config"
 import { resolveCredential } from "../connectors/credentials"
 import { Flag } from "../flag/flag"
+import { Installation } from "../installation"
+import { Instance } from "../project/instance"
 import { Session } from "../session"
 import { Log } from "../util/log"
 import { AsyncQueue } from "../util/queue"
@@ -638,7 +640,7 @@ export namespace Plugin {
 
   export interface Interface {
     trigger<
-      Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
+      Name extends Exclude<keyof Required<Hooks>, "auth" | "dispose" | "event" | "tool" | "provider">,
       Input = Parameters<Required<Hooks>[Name]>[0],
       Output = Parameters<Required<Hooks>[Name]>[1],
     >(
@@ -652,10 +654,30 @@ export namespace Plugin {
 
   export class Service extends Context.Service<Service, Interface>()("Plugin.Service") {}
 
+  export function experimentalWebSocketsEnabled(input: { enabled: boolean; channel?: string }) {
+    return input.enabled || ["local", "dev", "beta"].includes(input.channel ?? Installation.CHANNEL)
+  }
+
   type State = {
     hooks: Hooks[]
     input: PluginInput
     subscribed: boolean
+    disposed: boolean
+  }
+
+  async function disposeHooks(state: State) {
+    if (state.disposed) return
+    state.disposed = true
+
+    for (const hook of state.hooks) {
+      try {
+        await hook.dispose?.()
+      } catch (error) {
+        log.error("plugin dispose hook failed", {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
   }
 
   async function buildState(ctx: InstanceContext): Promise<State> {
@@ -678,7 +700,12 @@ export namespace Plugin {
 
     // Built-in plugins that are directly imported (not installed from npm)
     const internalPlugins: PluginInstance[] = [
-      CodexAuthPlugin,
+      (input) =>
+        CodexAuthPlugin(input, {
+          experimentalWebSockets: experimentalWebSocketsEnabled({
+            enabled: Flag.NIKCLI_EXPERIMENTAL_WEBSOCKETS,
+          }),
+        }),
       CopilotAuthPlugin,
       XAIAuthPlugin,
       CursorAuthPlugin,
@@ -746,15 +773,18 @@ export namespace Plugin {
       }
     }
 
-    return {
+    const state: State = {
       hooks,
       input,
       subscribed: false,
+      disposed: false,
     }
+    Instance.registerDisposer(() => disposeHooks(state))
+    return state
   }
 
   async function triggerImpl<
-    Name extends Exclude<keyof Required<Hooks>, "auth" | "event" | "tool" | "provider">,
+    Name extends Exclude<keyof Required<Hooks>, "auth" | "dispose" | "event" | "tool" | "provider">,
     Input = Parameters<Required<Hooks>[Name]>[0],
     Output = Parameters<Required<Hooks>[Name]>[1],
   >(state: State, name: Name, input: Input, output: Output): Promise<Output> {

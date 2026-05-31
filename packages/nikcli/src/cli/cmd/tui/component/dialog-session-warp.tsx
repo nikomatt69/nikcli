@@ -6,6 +6,7 @@ import { useSync } from "@tui/context/sync"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { DialogWorkspaceCreate } from "./dialog-workspace-list"
+import { DialogWorkspaceFileChanges } from "./dialog-workspace-file-changes"
 
 /**
  * Move the current session to another workspace, or detach it back to the local project.
@@ -52,7 +53,20 @@ export function DialogSessionWarp(props: { sessionID: string }) {
     return items
   })
 
-  async function warp(target: string) {
+  async function confirmCopyChanges() {
+    const sourceWorkspaceID = currentWorkspaceID()
+    if (!sourceWorkspaceID) return false
+
+    const status = await sdk.client.vcs.status({ workspace: sourceWorkspaceID }).catch(() => undefined)
+    const files = status?.data ?? []
+    if (files.length === 0) return false
+
+    const choice = await DialogWorkspaceFileChanges.show(dialog, files)
+    if (!choice) return undefined
+    return choice === "yes"
+  }
+
+  async function warp(target: string, copyChanges: boolean) {
     if (pending()) return
     setPending(true)
     const workspaceID = target === "__local__" ? null : target
@@ -60,8 +74,19 @@ export function DialogSessionWarp(props: { sessionID: string }) {
       const result = await sdk.client.experimental.workspace.warp({
         id: workspaceID,
         sessionID: props.sessionID,
+        copyChanges,
       })
       if (result.error) {
+        if (
+          "name" in result.error &&
+          (result.error.name === "VcsApplyError" || result.error.name === "VcsPatchApplyError")
+        ) {
+          toast.show({
+            message: "Unable to apply file changes in the target workspace",
+            variant: "error",
+          })
+          return
+        }
         toast.show({ message: "Failed to warp session", variant: "error" })
         return
       }
@@ -105,13 +130,19 @@ export function DialogSessionWarp(props: { sessionID: string }) {
             <DialogWorkspaceCreate
               onSelect={async (workspaceID) => {
                 await sync.workspace.sync()
-                await warp(workspaceID)
+                const copyChanges = await confirmCopyChanges()
+                if (copyChanges === undefined) return
+                await warp(workspaceID, copyChanges)
               }}
             />
           ))
           return
         }
-        void warp(option.value)
+        void (async () => {
+          const copyChanges = await confirmCopyChanges()
+          if (copyChanges === undefined) return
+          await warp(option.value, copyChanges)
+        })()
       }}
     />
   )

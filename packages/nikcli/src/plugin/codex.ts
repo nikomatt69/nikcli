@@ -1,6 +1,11 @@
 import type { Hooks, PluginInput } from "@nikcli-ai/plugin"
 import { Log } from "../util/log"
 import { OAUTH_DUMMY_KEY } from "../auth"
+import { OpenAIWebSocketPool } from "./openai/ws-pool"
+
+export interface CodexAuthPluginOptions {
+  experimentalWebSockets?: boolean
+}
 
 const log = Log.create({ service: "plugin.codex" })
 
@@ -371,13 +376,23 @@ function waitForOAuthCallback(pkce: PkceCodes, state: string): Promise<TokenResp
   })
 }
 
-export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
+export async function CodexAuthPlugin(input: PluginInput, options: CodexAuthPluginOptions = {}): Promise<Hooks> {
+  const websocketFetches: Array<ReturnType<typeof OpenAIWebSocketPool.createWebSocketFetch>> = []
+
   return {
+    async dispose() {
+      for (const websocketFetch of websocketFetches) websocketFetch.close()
+      websocketFetches.length = 0
+    },
     auth: {
       provider: "openai",
       async loader(getAuth, provider) {
         const auth = await getAuth()
-        if (auth.type !== "oauth") return {}
+        const websocketFetch = options.experimentalWebSockets
+          ? OpenAIWebSocketPool.createWebSocketFetch({ httpFetch: fetch })
+          : undefined
+        if (websocketFetch) websocketFetches.push(websocketFetch)
+        if (auth.type !== "oauth") return websocketFetch ? { fetch: websocketFetch } : {}
 
         filterCodexOAuthModels(provider)
 
@@ -405,7 +420,8 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
             }
 
             const currentAuth = await getAuth()
-            if (currentAuth.type !== "oauth") return fetch(requestInput, init)
+            if (currentAuth.type !== "oauth")
+              return websocketFetch ? websocketFetch(requestInput, init) : fetch(requestInput, init)
 
             const authWithAccount = currentAuth as typeof currentAuth & { accountId?: string }
 
@@ -457,10 +473,12 @@ export async function CodexAuthPlugin(input: PluginInput): Promise<Hooks> {
                 ? new URL(CODEX_API_ENDPOINT)
                 : parsed
 
-            return fetch(url, {
+            const requestInit = {
               ...init,
               headers,
-            })
+            }
+            if (websocketFetch && parsed.pathname.includes("/v1/responses")) return websocketFetch(url, requestInit)
+            return fetch(url, OpenAIWebSocketPool.withoutInternalHeaders(requestInit))
           },
         }
       },

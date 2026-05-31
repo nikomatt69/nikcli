@@ -180,6 +180,7 @@ export type AuthOuathResult = { url: string; instructions: string } & (
 )
 
 export interface Hooks {
+  dispose?: () => Promise<void> | void
   event?: (input: { event: Event }) => Promise<void>
   config?: (input: Config) => Promise<void>
   tool?: {

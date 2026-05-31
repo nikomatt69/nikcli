@@ -185,6 +185,7 @@ export const WorkspaceRoutes = lazy(() =>
         z.object({
           id: z.union([Workspace.Info.shape.id, z.null()]),
           sessionID: Identifier.schema("session"),
+          copyChanges: z.boolean().optional(),
           timeoutMs: z.number().int().positive().optional(),
         }),
       ),
@@ -193,6 +194,7 @@ export const WorkspaceRoutes = lazy(() =>
         await Workspace.sessionWarp({
           sessionID: body.sessionID,
           workspaceID: body.id,
+          copyChanges: body.copyChanges,
           timeoutMs: body.timeoutMs ?? 30_000,
         })
         return c.body(null, 204)
@@ -227,6 +229,7 @@ export const WorkspaceRoutes = lazy(() =>
         "json",
         z.object({
           workspaceID: z.union([Workspace.Info.shape.id, z.null()]),
+          copyChanges: z.boolean().optional(),
           timeoutMs: z.number().int().positive().optional(),
         }),
       ),
@@ -237,6 +240,7 @@ export const WorkspaceRoutes = lazy(() =>
           await Workspace.sessionWarp({
             sessionID,
             workspaceID: body.workspaceID,
+            copyChanges: body.copyChanges,
             timeoutMs: body.timeoutMs ?? 30_000,
           }),
         )

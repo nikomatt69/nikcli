@@ -65,6 +65,12 @@ export namespace Locale {
     return s.slice(0, len - 1) + "…"
   }
 
+  export function truncateLeft(str: string | unknown, len: number): string {
+    const s = String(str ?? "")
+    if (s.length <= len) return s
+    return "…" + s.slice(-(len - 1))
+  }
+
   export function truncateMiddle(str: string | unknown, maxLength: number = 35): string {
     const s = String(str ?? "")
     if (s.length <= maxLength) return s

@@ -1,6 +1,14 @@
 import { APICallError } from "ai"
 
 export namespace ProviderError {
+  export class HeaderTimeoutError extends Error {
+    override readonly name = "ProviderHeaderTimeoutError"
+
+    constructor(readonly ms: number) {
+      super(`Provider response headers timed out after ${ms}ms`)
+    }
+  }
+
   const OVERFLOW_PATTERNS = [
     /prompt is too long/i,
     /input is too long for requested model/i,

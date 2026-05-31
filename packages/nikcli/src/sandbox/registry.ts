@@ -178,7 +178,7 @@ export namespace SandboxRegistry {
 declare module "./types" {
   export namespace Sandbox {
     export type ConfigInput =
-      | { type: "worktree"; directory: string; eventLimit?: number }
+      | { type: "worktree"; directory: string; strategy?: "git" | "cow"; eventLimit?: number }
       | {
           type: "container"
           directory: string

@@ -133,8 +133,16 @@ export namespace ToolRegistry {
     return Tool.define(id, async () => ({
       parameters: z.object(def.args),
       description: def.description,
-      execute: async (args, ctx) => {
+      execute: async (args, ctx): Promise<Tool.Result<{}>> => {
         const result = await def.execute(args as any, ctx)
+        if (typeof result !== "string") {
+          return {
+            title: result.title ?? "",
+            output: result.output,
+            metadata: result.metadata ?? {},
+            attachments: result.attachments,
+          }
+        }
         return {
           title: "",
           output: result,
