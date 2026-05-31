@@ -75,8 +75,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Railway CLI (silent)
-        run: curl -fsSL https://railway.com/install.sh | sh >/dev/null 2>&1
+      - name: Install Railway CLI
+        run: curl -fsSL https://railway.com/install.sh | bash -s -- --yes
         shell: bash
 
       - name: Deploy to Railway (silent)
