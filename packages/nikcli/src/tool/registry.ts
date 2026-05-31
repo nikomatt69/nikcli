@@ -1,4 +1,5 @@
 import { plugin } from "bun"
+import type { ToolAttachment } from "@nikcli-ai/plugin"
 import { QuestionTool } from "./question"
 import { BashTool } from "./bash"
 import { MonitorTool } from "./monitor"
@@ -140,7 +141,15 @@ export namespace ToolRegistry {
             title: result.title ?? "",
             output: result.output,
             metadata: result.metadata ?? {},
-            attachments: result.attachments,
+            attachments: (result.attachments as ToolAttachment[])?.map((a) => ({
+              id: ctx.messageID,
+              sessionID: ctx.sessionID,
+              messageID: ctx.messageID,
+              type: a.type,
+              mime: a.mime,
+              url: a.url,
+              filename: a.filename,
+            })),
           }
         }
         return {

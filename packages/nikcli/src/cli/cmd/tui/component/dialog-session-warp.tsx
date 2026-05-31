@@ -77,16 +77,6 @@ export function DialogSessionWarp(props: { sessionID: string }) {
         copyChanges,
       })
       if (result.error) {
-        if (
-          "name" in result.error &&
-          (result.error.name === "VcsApplyError" || result.error.name === "VcsPatchApplyError")
-        ) {
-          toast.show({
-            message: "Unable to apply file changes in the target workspace",
-            variant: "error",
-          })
-          return
-        }
         toast.show({ message: "Failed to warp session", variant: "error" })
         return
       }

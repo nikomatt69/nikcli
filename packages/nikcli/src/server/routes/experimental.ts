@@ -295,7 +295,7 @@ export const ExperimentalRoutes = lazy(() =>
         const body = c.req.valid("json")
         const worktree = await runManagedWorktree(
           Effect.gen(function* () {
-            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            const service = yield* ManagedWorktree.Service
             return yield* service.create(body)
           }),
         )
@@ -325,7 +325,7 @@ export const ExperimentalRoutes = lazy(() =>
         const body = c.req.valid("json")
         await runManagedWorktree(
           Effect.gen(function* () {
-            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            const service = yield* ManagedWorktree.Service
             yield* service.remove(body)
           }),
         )
@@ -355,7 +355,7 @@ export const ExperimentalRoutes = lazy(() =>
         const body = c.req.valid("json")
         const result = await runManagedWorktree(
           Effect.gen(function* () {
-            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            const service = yield* ManagedWorktree.Service
             return yield* service.link(body)
           }),
         )
@@ -385,7 +385,7 @@ export const ExperimentalRoutes = lazy(() =>
         const body = c.req.valid("query")
         const children = await runManagedWorktree(
           Effect.gen(function* () {
-            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            const service = yield* ManagedWorktree.Service
             return yield* service.children(body)
           }),
         )
@@ -415,7 +415,7 @@ export const ExperimentalRoutes = lazy(() =>
         const body = c.req.valid("query")
         const ancestors = await runManagedWorktree(
           Effect.gen(function* () {
-            const service: ManagedWorktree.Service = yield* ManagedWorktree.Service
+            const service = yield* ManagedWorktree.Service
             return yield* service.ancestors(body)
           }),
         )

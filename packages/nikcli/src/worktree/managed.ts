@@ -305,44 +305,53 @@ export namespace ManagedWorktree {
   }
 
   // Service interface
-  export class Service extends Context.Service<Service>()("ManagedWorktree.Service") {}
+  export interface Interface {
+    readonly create: (input?: Schema.Schema.Type<typeof CreateInputSchema>) => Effect.Effect<Info>
+    readonly remove: (input: Schema.Schema.Type<typeof RemoveInputSchema>) => Effect.Effect<void>
+    readonly link: (input: Schema.Schema.Type<typeof LinkInputSchema>) => Effect.Effect<Info>
+    readonly children: (input: Schema.Schema.Type<typeof ChildrenInputSchema>) => Effect.Effect<Info[]>
+    readonly ancestors: (input: Schema.Schema.Type<typeof AncestorsInputSchema>) => Effect.Effect<Info[]>
+    readonly list: () => Effect.Effect<Info[]>
+  }
+
+  export class Service extends Context.Service<Service, Interface>()("ManagedWorktree.Service") {}
 
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      async create(input: Schema.Schema.Type<typeof CreateInputSchema>) {
+      create(input) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => createImpl(ctx, input))
+          return yield* Effect.promise(() => createImpl(ctx, input))
         })
       },
-      async remove(input: Schema.Schema.Type<typeof RemoveInputSchema>) {
+      remove(input: Schema.Schema.Type<typeof RemoveInputSchema>) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => removeImpl(ctx, input))
+          return yield* Effect.promise(() => removeImpl(ctx, input))
         })
       },
-      async link(input: Schema.Schema.Type<typeof LinkInputSchema>) {
+      link(input: Schema.Schema.Type<typeof LinkInputSchema>) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => linkImpl(ctx, input))
+          return yield* Effect.promise(() => linkImpl(ctx, input))
         })
       },
-      async children(input: Schema.Schema.Type<typeof ChildrenInputSchema>) {
+      children(input: Schema.Schema.Type<typeof ChildrenInputSchema>) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => childrenImpl(ctx, input))
+          return yield* Effect.promise(() => childrenImpl(ctx, input))
         })
       },
-      async ancestors(input: Schema.Schema.Type<typeof AncestorsInputSchema>) {
+      ancestors(input: Schema.Schema.Type<typeof AncestorsInputSchema>) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => ancestorsImpl(ctx, input))
+          return yield* Effect.promise(() => ancestorsImpl(ctx, input))
         })
       },
-      async list() {
+      list() {
         return Effect.gen(function* () {
-          return yield* Effect.tryPromise(() => listImpl())
+          return yield* Effect.promise(() => listImpl())
         })
       },
     }),
@@ -351,7 +360,10 @@ export namespace ManagedWorktree {
   export const defaultLayer = layer
 
   // Implementation
-  async function createImpl(ctx: InstanceContext, input: Schema.Schema.Type<typeof CreateInputSchema>): Promise<Info> {
+  async function createImpl(ctx: InstanceContext, input?: Schema.Schema.Type<typeof CreateInputSchema>): Promise<Info> {
+    if (!input) {
+      throw new WorktreeError({ message: "No input provided", code: "INVALID_INPUT" })
+    }
     const from = await existingDirectory(input.from)
     const gitDir = path.join(from, ".git")
 
