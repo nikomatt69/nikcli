@@ -149,8 +149,7 @@ export function nativeTools(
                 abortSignal: input.abort,
               })
             },
-            catch: (error) =>
-              new ToolFailure({ message: error instanceof Error ? error.message : String(error) }),
+            catch: (error) => new ToolFailure({ message: error instanceof Error ? error.message : String(error) }),
           }),
       }),
     ]),

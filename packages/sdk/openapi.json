@@ -2656,6 +2656,89 @@
         ]
       }
     },
+    "/session/{sessionID}/instructions": {
+      "get": {
+        "operationId": "session.instructions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get loaded instruction files",
+        "description": "Retrieve the list of instruction files that are currently loaded for this session (AGENTS.md, CLAUDE.md, etc.)",
+        "tags": ["Session"],
+        "responses": {
+          "200": {
+            "description": "List of instruction files with their paths",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["path", "name"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.instructions({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/session/{sessionID}/children": {
       "get": {
         "operationId": "session.children",
@@ -17001,6 +17084,56 @@
             "default": "ctrl+d",
             "type": "string"
           },
+          "session_pin_toggle": {
+            "description": "Toggle session pin",
+            "default": "<leader>p",
+            "type": "string"
+          },
+          "session_quick_switch_1": {
+            "description": "Quick switch to session slot 1",
+            "default": "<leader>1",
+            "type": "string"
+          },
+          "session_quick_switch_2": {
+            "description": "Quick switch to session slot 2",
+            "default": "<leader>2",
+            "type": "string"
+          },
+          "session_quick_switch_3": {
+            "description": "Quick switch to session slot 3",
+            "default": "<leader>3",
+            "type": "string"
+          },
+          "session_quick_switch_4": {
+            "description": "Quick switch to session slot 4",
+            "default": "<leader>4",
+            "type": "string"
+          },
+          "session_quick_switch_5": {
+            "description": "Quick switch to session slot 5",
+            "default": "<leader>5",
+            "type": "string"
+          },
+          "session_quick_switch_6": {
+            "description": "Quick switch to session slot 6",
+            "default": "<leader>6",
+            "type": "string"
+          },
+          "session_quick_switch_7": {
+            "description": "Quick switch to session slot 7",
+            "default": "<leader>7",
+            "type": "string"
+          },
+          "session_quick_switch_8": {
+            "description": "Quick switch to session slot 8",
+            "default": "<leader>8",
+            "type": "string"
+          },
+          "session_quick_switch_9": {
+            "description": "Quick switch to session slot 9",
+            "default": "<leader>9",
+            "type": "string"
+          },
           "stash_delete": {
             "description": "Delete stash entry",
             "default": "ctrl+d",
@@ -19083,6 +19216,10 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "nativeLlm": {
+                "description": "Enable native @nikcli-ai/llm runtime (AI SDK fallback)",
+                "type": "boolean"
               }
             }
           },
