@@ -196,10 +196,7 @@ export namespace Server {
               { status: 400 },
             )
           if (err instanceof Vcs.PatchApplyError)
-            return c.json(
-              { name: err._tag, data: { message: err.message, reason: err.reason } },
-              { status: 400 },
-            )
+            return c.json({ name: err._tag, data: { message: err.message, reason: err.reason } }, { status: 400 })
           if (err instanceof Error && err.name.startsWith("Worktree"))
             return c.json({ name: err.name, data: { message: err.message } }, { status: 400 })
           if (err instanceof HTTPException) return err.getResponse()
@@ -382,7 +379,8 @@ export namespace Server {
           }
           const routeSessionID = sessionIDFromPath(c.req.path)
           const routeSession = routeSessionID ? await sessionForRequest(routeSessionID, directory) : undefined
-          const workspaceID = c.req.query("workspace") || c.req.header("x-nikcli-workspace") || routeSession?.workspaceID
+          const workspaceID =
+            c.req.query("workspace") || c.req.header("x-nikcli-workspace") || routeSession?.workspaceID
           const workspace = workspaceID ? await Workspace.get(workspaceID).catch(() => undefined) : undefined
 
           if (workspace) {

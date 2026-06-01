@@ -1565,6 +1565,18 @@
                             "type": "string",
                             "const": "worktree"
                           },
+                          "strategy": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "const": "git"
+                              },
+                              {
+                                "type": "string",
+                                "const": "cow"
+                              }
+                            ]
+                          },
                           "eventLimit": {
                             "type": "integer",
                             "exclusiveMinimum": 0,
@@ -1927,6 +1939,9 @@
                     "type": "string",
                     "pattern": "^ses.*"
                   },
+                  "copyChanges": {
+                    "type": "boolean"
+                  },
                   "timeoutMs": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
@@ -2041,6 +2056,9 @@
                         "type": "null"
                       }
                     ]
+                  },
+                  "copyChanges": {
+                    "type": "boolean"
                   },
                   "timeoutMs": {
                     "type": "integer",
@@ -2208,6 +2226,350 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.resource.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/managed-worktree": {
+      "post": {
+        "operationId": "managed-worktree.create",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Create managed worktree",
+        "description": "Clone a workspace with copy-on-write support.",
+        "responses": {
+          "200": {
+            "description": "Managed worktree created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedWorktreeInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedWorktreeCreateInput"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.create({\n  ...\n})"
+          }
+        ]
+      },
+      "delete": {
+        "operationId": "managed-worktree.remove",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Remove managed worktree",
+        "description": "Remove a managed worktree and its descendant subtree.",
+        "responses": {
+          "200": {
+            "description": "Managed worktree removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedWorktreeRemoveInput"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.remove({\n  ...\n})"
+          }
+        ]
+      },
+      "get": {
+        "operationId": "managed-worktree.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List all managed worktrees",
+        "description": "Get all registered managed worktrees.",
+        "responses": {
+          "200": {
+            "description": "Managed worktrees",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedWorktreeInfo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/managed-worktree/link": {
+      "post": {
+        "operationId": "managed-worktree.link",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Link managed worktree",
+        "description": "Reconnect a moved managed worktree to its registry record.",
+        "responses": {
+          "200": {
+            "description": "Managed worktree linked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagedWorktreeInfo"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagedWorktreeLinkInput"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.link({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/managed-worktree/children": {
+      "get": {
+        "operationId": "managed-worktree.children",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ManagedWorktreeChildrenInput"
+          }
+        ],
+        "summary": "List managed worktree children",
+        "description": "Get direct managed children of a worktree.",
+        "responses": {
+          "200": {
+            "description": "Managed worktree children",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedWorktreeInfo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.children({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/managed-worktree/ancestors": {
+      "get": {
+        "operationId": "managed-worktree.ancestors",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ManagedWorktreeAncestorsInput"
+          }
+        ],
+        "summary": "List managed worktree ancestors",
+        "description": "Get the managed ancestry of a worktree.",
+        "responses": {
+          "200": {
+            "description": "Managed worktree ancestors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ManagedWorktreeInfo"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.managed-worktree.ancestors({\n  ...\n})"
           }
         ]
       }
@@ -2652,6 +3014,89 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.update({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/instructions": {
+      "get": {
+        "operationId": "session.instructions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get loaded instruction files",
+        "description": "Retrieve the list of instruction files that are currently loaded for this session (AGENTS.md, CLAUDE.md, etc.)",
+        "tags": ["Session"],
+        "responses": {
+          "200": {
+            "description": "List of instruction files with their paths",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["path", "name"]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.instructions({\n  ...\n})"
           }
         ]
       }
@@ -12822,6 +13267,151 @@
         ]
       }
     },
+    "/vcs/status": {
+      "get": {
+        "operationId": "vcs.status",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get VCS status",
+        "description": "Retrieve changed files in the current working tree without patches.",
+        "responses": {
+          "200": {
+            "description": "VCS status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VcsFileStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.vcs.status({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/vcs/diff/raw": {
+      "get": {
+        "operationId": "vcs.diff.raw",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Get raw VCS diff",
+        "description": "Retrieve a raw patch for current uncommitted changes.",
+        "responses": {
+          "200": {
+            "description": "Raw VCS diff",
+            "content": {
+              "text/x-diff": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.vcs.diff.raw({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/vcs/apply": {
+      "post": {
+        "operationId": "vcs.apply",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Apply VCS patch",
+        "description": "Apply a raw patch to the current working tree.",
+        "responses": {
+          "200": {
+            "description": "VCS patch applied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VcsApplyResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VcsApplyInput"
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.vcs.apply({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/command": {
       "get": {
         "operationId": "command.list",
@@ -15541,6 +16131,59 @@
         },
         "required": ["type", "properties"]
       },
+      "Event.file.watcher.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "file.watcher.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "event": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "add"
+                  },
+                  {
+                    "type": "string",
+                    "const": "change"
+                  },
+                  {
+                    "type": "string",
+                    "const": "unlink"
+                  }
+                ]
+              }
+            },
+            "required": ["file", "event"]
+          }
+        },
+        "required": ["type", "properties"]
+      },
+      "Event.vcs.branch.updated": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "vcs.branch.updated"
+          },
+          "properties": {
+            "type": "object",
+            "properties": {
+              "branch": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "required": ["type", "properties"]
+      },
       "Event.workspace.ready": {
         "type": "object",
         "properties": {
@@ -16141,41 +16784,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.file.watcher.updated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "file.watcher.updated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "file": {
-                "type": "string"
-              },
-              "event": {
-                "anyOf": [
-                  {
-                    "type": "string",
-                    "const": "add"
-                  },
-                  {
-                    "type": "string",
-                    "const": "change"
-                  },
-                  {
-                    "type": "string",
-                    "const": "unlink"
-                  }
-                ]
-              }
-            },
-            "required": ["file", "event"]
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "SessionGithub": {
         "type": "object",
         "properties": {
@@ -16580,24 +17188,6 @@
         },
         "required": ["type", "properties"]
       },
-      "Event.vcs.branch.updated": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "const": "vcs.branch.updated"
-          },
-          "properties": {
-            "type": "object",
-            "properties": {
-              "branch": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "required": ["type", "properties"]
-      },
       "Pty": {
         "type": "object",
         "properties": {
@@ -16804,6 +17394,12 @@
             "$ref": "#/components/schemas/Event.command.executed"
           },
           {
+            "$ref": "#/components/schemas/Event.file.watcher.updated"
+          },
+          {
+            "$ref": "#/components/schemas/Event.vcs.branch.updated"
+          },
+          {
             "$ref": "#/components/schemas/Event.workspace.ready"
           },
           {
@@ -16834,9 +17430,6 @@
             "$ref": "#/components/schemas/Event.todo.updated"
           },
           {
-            "$ref": "#/components/schemas/Event.file.watcher.updated"
-          },
-          {
             "$ref": "#/components/schemas/Event.session.created"
           },
           {
@@ -16850,9 +17443,6 @@
           },
           {
             "$ref": "#/components/schemas/Event.session.error"
-          },
-          {
-            "$ref": "#/components/schemas/Event.vcs.branch.updated"
           },
           {
             "$ref": "#/components/schemas/Event.pty.created"
@@ -16999,6 +17589,56 @@
           "session_delete": {
             "description": "Delete session",
             "default": "ctrl+d",
+            "type": "string"
+          },
+          "session_pin_toggle": {
+            "description": "Toggle session pin",
+            "default": "<leader>p",
+            "type": "string"
+          },
+          "session_quick_switch_1": {
+            "description": "Quick switch to session slot 1",
+            "default": "<leader>1",
+            "type": "string"
+          },
+          "session_quick_switch_2": {
+            "description": "Quick switch to session slot 2",
+            "default": "<leader>2",
+            "type": "string"
+          },
+          "session_quick_switch_3": {
+            "description": "Quick switch to session slot 3",
+            "default": "<leader>3",
+            "type": "string"
+          },
+          "session_quick_switch_4": {
+            "description": "Quick switch to session slot 4",
+            "default": "<leader>4",
+            "type": "string"
+          },
+          "session_quick_switch_5": {
+            "description": "Quick switch to session slot 5",
+            "default": "<leader>5",
+            "type": "string"
+          },
+          "session_quick_switch_6": {
+            "description": "Quick switch to session slot 6",
+            "default": "<leader>6",
+            "type": "string"
+          },
+          "session_quick_switch_7": {
+            "description": "Quick switch to session slot 7",
+            "default": "<leader>7",
+            "type": "string"
+          },
+          "session_quick_switch_8": {
+            "description": "Quick switch to session slot 8",
+            "default": "<leader>8",
+            "type": "string"
+          },
+          "session_quick_switch_9": {
+            "description": "Quick switch to session slot 9",
+            "default": "<leader>9",
             "type": "string"
           },
           "stash_delete": {
@@ -18134,6 +18774,28 @@
                     "const": false
                   }
                 ]
+              },
+              "headerTimeout": {
+                "description": "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.",
+                "anyOf": [
+                  {
+                    "description": "Timeout in milliseconds to wait for response headers. Provider integrations may set defaults. Set to false to disable timeout.",
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  {
+                    "description": "Disable response header timeout for this provider.",
+                    "type": "boolean",
+                    "const": false
+                  }
+                ]
+              },
+              "chunkTimeout": {
+                "description": "Timeout in milliseconds between streamed SSE chunks for this provider. If no chunk arrives within this window, the request is aborted.",
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
               }
             },
             "additionalProperties": {}
@@ -19083,6 +19745,10 @@
                 "type": "integer",
                 "exclusiveMinimum": 0,
                 "maximum": 9007199254740991
+              },
+              "nativeLlm": {
+                "description": "Enable native @nikcli-ai/llm runtime (AI SDK fallback)",
+                "type": "boolean"
               }
             }
           },
@@ -19767,6 +20433,18 @@
                     "type": "string",
                     "const": "worktree"
                   },
+                  "strategy": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "git"
+                      },
+                      {
+                        "type": "string",
+                        "const": "cow"
+                      }
+                    ]
+                  },
                   "eventLimit": {
                     "type": "integer",
                     "exclusiveMinimum": 0,
@@ -19913,6 +20591,77 @@
           }
         },
         "required": ["name", "uri", "client"]
+      },
+      "ManagedWorktreeInfo": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "parentId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "number"
+          }
+        },
+        "required": ["id", "name", "branch", "directory", "createdAt"],
+        "additionalProperties": false
+      },
+      "ManagedWorktreeCreateInput": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "into": {
+            "type": "string"
+          }
+        },
+        "required": ["from"],
+        "additionalProperties": false
+      },
+      "ManagedWorktreeRemoveInput": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          }
+        },
+        "required": ["at"],
+        "additionalProperties": false
+      },
+      "ManagedWorktreeLinkInput": {
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": ["at"],
+        "additionalProperties": false
       },
       "TextPartInput": {
         "type": "object",
@@ -21337,6 +22086,58 @@
         "required": ["branch"],
         "additionalProperties": false
       },
+      "VcsFileStatus": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "additions": {
+            "type": "number"
+          },
+          "deletions": {
+            "type": "number"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "added"
+              },
+              {
+                "type": "string",
+                "const": "deleted"
+              },
+              {
+                "type": "string",
+                "const": "modified"
+              }
+            ]
+          }
+        },
+        "required": ["file", "additions", "deletions", "status"],
+        "additionalProperties": false
+      },
+      "VcsApplyResult": {
+        "type": "object",
+        "properties": {
+          "applied": {
+            "type": "boolean"
+          }
+        },
+        "required": ["applied"],
+        "additionalProperties": false
+      },
+      "VcsApplyInput": {
+        "type": "object",
+        "properties": {
+          "patch": {
+            "type": "string"
+          }
+        },
+        "required": ["patch"],
+        "additionalProperties": false
+      },
       "Command": {
         "type": "object",
         "properties": {
@@ -21600,6 +22401,24 @@
             "$ref": "#/components/schemas/WellKnownAuth"
           }
         ]
+      }
+    },
+    "parameters": {
+      "ManagedWorktreeChildrenInput": {
+        "in": "query",
+        "name": "of",
+        "schema": {
+          "type": "string"
+        },
+        "required": true
+      },
+      "ManagedWorktreeAncestorsInput": {
+        "in": "query",
+        "name": "of",
+        "schema": {
+          "type": "string"
+        },
+        "required": true
       }
     }
   }

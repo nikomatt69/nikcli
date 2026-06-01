@@ -124,7 +124,9 @@ export namespace Vcs {
             Effect.gen(function* () {
               const stat =
                 statsByFile.get(item.file) ??
-                (item.status === "added" ? yield* Effect.promise(() => Git.statUntracked(ctx.directory, item.file)) : undefined)
+                (item.status === "added"
+                  ? yield* Effect.promise(() => Git.statUntracked(ctx.directory, item.file))
+                  : undefined)
               return {
                 file: item.file,
                 additions: stat?.additions ?? 0,
