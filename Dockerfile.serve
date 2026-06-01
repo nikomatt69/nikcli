@@ -93,20 +93,18 @@ FROM base AS runtime
 COPY --from=build /app/packages/nikcli/dist /tmp/nikcli-dist
 
 ARG TARGETARCH
-ENV LD_PATH=/app/lib
-RUN mkdir -p /app/lib && \
-    if [ "$TARGETARCH" = "arm64" ]; then \
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
         cp /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
-        cp $(ldd /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli 2>/dev/null | grep ld-linux | awk '{print $3}') /app/lib/ 2>/dev/null || true; \
     else \
         cp /tmp/nikcli-dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
-        cp /lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /app/lib/ 2>/dev/null || cp /lib64/ld-linux-x86-64.so.2 /app/lib/ 2>/dev/null || true; \
     fi && \
     chmod +x /usr/local/bin/nikcli && \
-    [ -f /app/lib/ld-linux-x86-64.so.2 ] && patchelf --set-interpreter /app/lib/ld-linux-x86-64.so.2 /usr/local/bin/nikcli 2>/dev/null || true && \
     rm -rf /tmp/nikcli-dist
 
-ENV LD_LIBRARY_PATH=/app/lib
+# Smoke-test: fail the build immediately if the binary cannot execute,
+# instead of shipping a broken binary that crash-loops with
+# "exec: nikcli: not found" at container startup.
+RUN nikcli --version
 
 RUN mkdir -p /var/run/sshd /data /data/config /data/state && \
     ssh-keygen -A && \
