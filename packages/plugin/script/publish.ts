@@ -18,16 +18,26 @@ for (const [key, value] of Object.entries(pkg.exports)) {
   }
 }
 await Bun.write("package.json", JSON.stringify(pkg, null, 2))
+
+function getStderr(err: any): string {
+  const s = err?.stderr
+  if (!s) return ""
+  if (s instanceof Uint8Array) return Buffer.from(s).toString()
+  return String(s)
+}
+
 try {
   await $`bun pm pack`
   const tgz = (await $`ls *.tgz`.text()).trim().split("\n").pop()!
   await $`npm publish ${tgz} --tag ${Script.channel} --access public`
 } catch (err: any) {
-  const msg = String(err?.message ?? err)
-  if (!msg.includes("E409") && !msg.includes("You cannot publish over the previously published versions")) {
+  // Bun's ShellError puts the npm output in err.stderr, not err.message, so the
+  // "already published" guard must inspect stderr to stay idempotent on re-runs.
+  const msg = String(err?.message ?? err) + getStderr(err)
+  if (!msg.includes("E409") && !msg.includes("previously published versions")) {
     await Bun.write("package.json", JSON.stringify(original, null, 2))
     throw err
   }
-  console.log("  already published (E409)")
+  console.log("  already published, skipping")
 }
 await Bun.write("package.json", JSON.stringify(original, null, 2))
