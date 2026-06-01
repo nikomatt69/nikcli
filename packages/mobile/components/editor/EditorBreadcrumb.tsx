@@ -73,7 +73,7 @@ export function EditorBreadcrumb(props: {
         const isLast = index === all.length - 1
         const scale = getScale(index)
         return (
-          <View key={index} style={styles.segmentRow}>
+          <View key={segment} style={styles.segmentRow}>
             <Animated.View style={{ transform: [{ scale }] }}>
               <Pressable
                 onPress={() => {

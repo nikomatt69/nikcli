@@ -9,7 +9,7 @@ import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
 import { MobileClient } from "@/lib/client"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { ServerConfig } from "@/lib/types"
 
@@ -149,7 +149,7 @@ export default function ConnectScreen() {
         description="Pair once, verify the hosted endpoint, then move from repo selection to approvals and pull requests without leaving your phone."
         className="px-6 py-7"
       >
-        <View className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-accent/15" />
+        <View className="absolute -right-10 -top-10 size-40 rounded-full bg-accent/15" />
         <View className="absolute bottom-0 left-0 h-24 w-full bg-panel/35" />
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label="Live sessions" tone="accent" />
@@ -220,7 +220,7 @@ export default function ConnectScreen() {
         <Text className="mt-3 font-mono text-sm leading-6 text-soft">
           nikcli mobile pair --public-url https://nikcli-mobile-production.up.railway.app --name iphone --expiry-days 90
         </Text>
-        <View className="mt-4 gap-2 rounded-[24px] border border-border bg-background/70 px-4 py-4">
+        <View className="mt-4 gap-2 rounded-[24px] border border-border bg-background/70 p-4">
           <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
             GitHub OAuth server setup
           </Text>

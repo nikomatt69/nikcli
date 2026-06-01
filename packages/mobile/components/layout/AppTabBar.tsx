@@ -4,14 +4,16 @@ import type { BottomTabBarProps } from "@react-navigation/bottom-tabs"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { APP_TABS } from "@/components/layout/navigation.config"
-import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
+import { useServer } from "@/lib/server-context"
 
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { bottom } = useSafeAreaInsets()
   const { config, bootstrap } = useServer()
   const { palette, isDark } = useAppTheme()
-  const indicatorAnims = useRef(new Map<string, Animated.Value>()).current
+  const indicatorAnimsRef = useRef<Map<string, Animated.Value> | null>(null)
+  if (indicatorAnimsRef.current === null) indicatorAnimsRef.current = new Map<string, Animated.Value>()
+  const indicatorAnims = indicatorAnimsRef.current
   const visibleRoutes = useMemo(
     () =>
       state.routes

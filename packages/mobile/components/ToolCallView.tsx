@@ -58,7 +58,9 @@ export function ToolCallView(props: { part: ToolPart }) {
   const state = props.part.state
   const status = state.status
   const Icon = toolIcon(props.part.tool)
-  const pulseAnim = useRef(new Animated.Value(1)).current
+  const pulseAnimRef = useRef<Animated.Value | null>(null)
+  if (pulseAnimRef.current === null) pulseAnimRef.current = new Animated.Value(1)
+  const pulseAnim = pulseAnimRef.current
 
   useEffect(() => {
     if (status !== "running") {
@@ -142,7 +144,7 @@ export function ToolCallView(props: { part: ToolPart }) {
       }}
     >
       <Pressable
-        className="flex-row items-center justify-between gap-3 px-3 py-3"
+        className="flex-row items-center justify-between gap-3 p-3"
         onPress={toggle}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
@@ -220,7 +222,7 @@ export function ToolCallView(props: { part: ToolPart }) {
       {open ? (
         <View className="gap-3 border-t border-border px-3 py-2.5">
           {inputEntries.length > 0 ? (
-            <View className="rounded-[16px] border border-border/70 bg-surface px-3 py-3">
+            <View className="rounded-[16px] border border-border/70 bg-surface p-3">
               <Text className="mb-2 text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Input</Text>
               {inputEntries.map(([key, value]) => (
                 <View key={key} className="mb-1 min-w-0 flex-row gap-2">
@@ -242,7 +244,7 @@ export function ToolCallView(props: { part: ToolPart }) {
             </View>
           ) : null}
           {rawOutput !== undefined ? (
-            <View className="rounded-[16px] border border-border/70 bg-surface px-3 py-3">
+            <View className="rounded-[16px] border border-border/70 bg-surface p-3">
               <View className="mb-2 flex-row items-center justify-between gap-2">
                 <Text className="text-[10px] font-semibold uppercase tracking-[1.5px] text-accent-light">Output</Text>
                 {output ? (

@@ -50,11 +50,21 @@ export function PublishSheet({
   onPublish,
 }: PublishSheetProps) {
   const { palette, isDark } = useAppTheme()
-  const translateY = useRef(new Animated.Value(100)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const cancelScaleAnim = useRef(new Animated.Value(1)).current
-  const publishScaleAnim = useRef(new Animated.Value(1)).current
-  const pulseAnim = useRef(new Animated.Value(1)).current
+  const translateYRef = useRef<Animated.Value | null>(null)
+  if (translateYRef.current === null) translateYRef.current = new Animated.Value(100)
+  const translateY = translateYRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const cancelScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (cancelScaleAnimRef.current === null) cancelScaleAnimRef.current = new Animated.Value(1)
+  const cancelScaleAnim = cancelScaleAnimRef.current
+  const publishScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (publishScaleAnimRef.current === null) publishScaleAnimRef.current = new Animated.Value(1)
+  const publishScaleAnim = publishScaleAnimRef.current
+  const pulseAnimRef = useRef<Animated.Value | null>(null)
+  if (pulseAnimRef.current === null) pulseAnimRef.current = new Animated.Value(1)
+  const pulseAnim = pulseAnimRef.current
 
   useEffect(() => {
     if (visible) {

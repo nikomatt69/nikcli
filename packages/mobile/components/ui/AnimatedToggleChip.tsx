@@ -14,8 +14,12 @@ type AnimatedToggleChipProps = {
 
 export function AnimatedToggleChip({ label, sublabel, active, onToggle, tone = "accent" }: AnimatedToggleChipProps) {
   const { palette, isDark } = useAppTheme()
-  const scale = useRef(new Animated.Value(1)).current
-  const toggleProgress = useRef(new Animated.Value(active ? 1 : 0)).current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
+  const scale = scaleRef.current
+  const toggleProgressRef = useRef<Animated.Value | null>(null)
+  if (toggleProgressRef.current === null) toggleProgressRef.current = new Animated.Value(active ? 1 : 0)
+  const toggleProgress = toggleProgressRef.current
 
   useEffect(() => {
     Animated.spring(toggleProgress, {

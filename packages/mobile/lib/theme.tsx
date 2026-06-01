@@ -768,6 +768,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false)
 
   // Load saved preferences
+  // Note: themeId/colorSchemePreference are populated asynchronously from
+  // AsyncStorage, which can't run during a useState lazy initializer.
+  // The "isLoaded" gate below prevents rendering with stale defaults
+  // before storage has been read. This is the standard React Native
+  // pattern for persisted UI preferences.
+  // oxlint-disable-next-line react-doctor/no-initialize-state
   useEffect(() => {
     const loadPreferences = async () => {
       try {

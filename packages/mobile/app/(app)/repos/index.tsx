@@ -2,14 +2,14 @@ import { useCallback, useMemo, useState } from "react"
 import { RefreshControl, ScrollView, Text, View } from "react-native"
 import { router, useFocusEffect, useRootNavigationState } from "expo-router"
 import { GithubRepoCard, LocalRepoCard } from "@/components/RepoCard"
-import { RepoCardSkeleton } from "@/components/Skeleton"
+import { RepoCardSkeleton } from "@/components/RepoCardSkeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { GitHubBranch, GitHubRepo, ProjectInfo } from "@/lib/types"
 
@@ -146,7 +146,7 @@ export default function ReposScreen() {
     }
   }
 
-  async function useImportedRepo(repo: GitHubRepo) {
+  async function handleImportedRepo(repo: GitHubRepo) {
     if (!config || !repo.imported_directory) return
     await save({ ...config, directory: repo.imported_directory })
   }
@@ -248,9 +248,12 @@ export default function ReposScreen() {
       className="flex-1 bg-background"
       contentInsetAdjustmentBehavior="automatic"
       contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 28 }}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
-      }
+      refreshControl={useMemo(
+        () => (
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
+        ),
+        [refreshing, load, palette.accent],
+      )}
     >
       <SurfaceCard
         eyebrow="Workspace portfolio"
@@ -407,7 +410,7 @@ export default function ReposScreen() {
               </View>
             ) : null}
 
-            <View className="mt-4 rounded-[8px] border border-border bg-background/70 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-border bg-background/70 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[2px] text-accent-light">
                 Launch summary
               </Text>
@@ -470,7 +473,7 @@ export default function ReposScreen() {
               </View>
               {repo.imported_directory ? (
                 <View className="flex-1">
-                  <ActionButton label="Use repo" variant="secondary" onPress={() => void useImportedRepo(repo)} />
+                  <ActionButton label="Use repo" variant="secondary" onPress={() => void handleImportedRepo(repo)} />
                 </View>
               ) : null}
             </View>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Modal,
   Pressable,
   ScrollView,
@@ -11,15 +10,16 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native"
 import { ChevronRight, Globe, Plug, Search, Server, Sparkles, Terminal, X, Zap } from "lucide-react-native"
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window")
-
 export type PluginCategory = "mcp" | "skill" | "tool" | "connector"
+
+const PLUGIN_CATEGORIES: Array<PluginCategory | "all"> = ["all", "mcp", "skill", "tool", "connector"]
 
 export type PluginInfo = {
   id: string
@@ -65,10 +65,12 @@ const CATEGORY_LABELS: Record<PluginCategory, string> = {
   connector: "Connectors",
 }
 
+const EMPTY_PLUGINS: NonNullable<PluginInfo[]> = []
+
 export function PluginManagerSheet({
   visible,
   onClose,
-  plugins = [],
+  plugins = EMPTY_PLUGINS,
   onPluginToggle,
   onPluginInstall,
   onPluginUninstall,
@@ -80,12 +82,19 @@ export function PluginManagerSheet({
   onSearchChange,
 }: PluginManagerSheetProps) {
   const { palette, isDark } = useAppTheme()
-  const slideAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const contentScaleAnim = useRef(new Animated.Value(0.94)).current
+  const { height: SCREEN_HEIGHT } = useWindowDimensions()
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const contentScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (contentScaleAnimRef.current === null) contentScaleAnimRef.current = new Animated.Value(0.94)
+  const contentScaleAnim = contentScaleAnimRef.current
   const [selectedCategory, setSelectedCategory] = useState<PluginCategory | "all">("all")
 
-  const categories: Array<PluginCategory | "all"> = ["all", "mcp", "skill", "tool", "connector"]
+  const categories = PLUGIN_CATEGORIES
 
   const filteredPlugins = useMemo(() => {
     let result = plugins
@@ -331,7 +340,7 @@ export function PluginManagerSheet({
             {loading ? (
               <View style={{ alignItems: "center", paddingVertical: 32 }}>
                 <ActivityIndicator size="small" color={palette.accent} />
-                <Text style={{ marginTop: 12, fontSize: 13, color: palette.muted }}>Loading plugins...</Text>
+                <Text style={{ marginTop: 12, fontSize: 13, color: palette.muted }}>Loading plugins…</Text>
               </View>
             ) : filteredPlugins.length > 0 ? (
               <View style={{ gap: 10 }}>
@@ -400,8 +409,12 @@ function AnimatedCategoryTab({
   palette: { accent: string; muted: string }
   isDark: boolean
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
-  const glowAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
+  const glowAnimRef = useRef<Animated.Value | null>(null)
+  if (glowAnimRef.current === null) glowAnimRef.current = new Animated.Value(isActive ? 1 : 0)
+  const glowAnim = glowAnimRef.current
 
   useEffect(() => {
     Animated.spring(glowAnim, {
@@ -468,7 +481,9 @@ function AnimatedManageCard({
   isDark: boolean
   palette: { ink: string; accentLight: string; muted: string }
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

@@ -7,11 +7,19 @@ interface TypingIndicatorProps {
   showNames?: boolean
 }
 
-export function TypingIndicator({ users = [], showNames = true }: TypingIndicatorProps) {
+const EMPTY_USERS: NonNullable<TypingIndicatorProps["users"]> = []
+
+export function TypingIndicator({ users = EMPTY_USERS, showNames = true }: TypingIndicatorProps) {
   const { isDark } = useAppTheme()
-  const dot1 = useRef(new Animated.Value(0)).current
-  const dot2 = useRef(new Animated.Value(0)).current
-  const dot3 = useRef(new Animated.Value(0)).current
+  const dot1Ref = useRef<Animated.Value | null>(null)
+  if (dot1Ref.current === null) dot1Ref.current = new Animated.Value(0)
+  const dot1 = dot1Ref.current
+  const dot2Ref = useRef<Animated.Value | null>(null)
+  if (dot2Ref.current === null) dot2Ref.current = new Animated.Value(0)
+  const dot2 = dot2Ref.current
+  const dot3Ref = useRef<Animated.Value | null>(null)
+  if (dot3Ref.current === null) dot3Ref.current = new Animated.Value(0)
+  const dot3 = dot3Ref.current
 
   useEffect(() => {
     const makeDotAnim = (val: Animated.Value, delay: number) =>
@@ -52,7 +60,7 @@ export function TypingIndicator({ users = [], showNames = true }: TypingIndicato
           {dots.map((anim, i) => (
             <Animated.View
               key={i}
-              className="h-2 w-2 rounded-full"
+              className="size-2 rounded-full"
               style={{
                 backgroundColor: dotColor,
                 opacity: anim,
@@ -72,95 +80,6 @@ export function TypingIndicator({ users = [], showNames = true }: TypingIndicato
           </Text>
         )}
       </View>
-    </View>
-  )
-}
-
-export function OnlineStatus({ status, size = 10 }: { status: "online" | "offline" | "busy"; size?: number }) {
-  const { isDark } = useAppTheme()
-
-  const colors = {
-    online: isDark ? "#30D158" : "#34C759",
-    offline: isDark ? "#636366" : "#8E8E93",
-    busy: isDark ? "#FF9F0A" : "#FF9500",
-  }
-
-  return (
-    <View
-      className="rounded-full border-2"
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: colors[status],
-        borderColor: isDark ? "#111111" : "#FFFFFF",
-      }}
-    />
-  )
-}
-
-export function ChatAvatar({
-  name,
-  avatar,
-  size = 36,
-  status,
-}: {
-  name: string
-  avatar?: string
-  size?: number
-  status?: "online" | "offline" | "busy"
-}) {
-  const { isDark } = useAppTheme()
-
-  const initials = name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-
-  return (
-    <View className="relative">
-      <View
-        className="items-center justify-center rounded-full"
-        style={{
-          width: size,
-          height: size,
-          backgroundColor: isDark ? "#2C2C2E" : "#E9E9EB",
-        }}
-      >
-        <Text
-          className="font-semibold"
-          style={{
-            fontSize: size * 0.4,
-            color: isDark ? "#FFFFFF" : "#000000",
-          }}
-        >
-          {initials}
-        </Text>
-      </View>
-
-      {status && (
-        <View
-          className="absolute bottom-0 right-0 rounded-full border-2"
-          style={{
-            width: size * 0.35,
-            height: size * 0.35,
-            borderColor: isDark ? "#111111" : "#FFFFFF",
-            backgroundColor:
-              status === "online"
-                ? isDark
-                  ? "#30D158"
-                  : "#34C759"
-                : status === "busy"
-                  ? isDark
-                    ? "#FF9F0A"
-                    : "#FF9500"
-                  : isDark
-                    ? "#636366"
-                    : "#8E8E93",
-          }}
-        />
-      )}
     </View>
   )
 }

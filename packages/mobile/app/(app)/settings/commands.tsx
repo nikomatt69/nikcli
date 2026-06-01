@@ -6,7 +6,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { getAppPreferences, setAppPreferences } from "@/lib/storage"
 import { useUIStore } from "@/lib/store"
 import { type HostCommandConfig, type PromptPreset } from "@/lib/types"
@@ -313,7 +313,7 @@ export default function CommandsSettingsScreen() {
                 <Pressable
                   key={mode}
                   onPress={() => setPresetMode(mode)}
-                  className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(active)}`}
+                  className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(active)}`}
                 >
                   <Text className={`text-sm font-semibold capitalize ${optionChipTextClass(active)}`}>{mode}</Text>
                   <Text className="mt-1 text-xs leading-5 text-soft">Insert as reusable {mode} preset</Text>
@@ -324,7 +324,7 @@ export default function CommandsSettingsScreen() {
           <ActionButton label="Save preset" loading={saving} onPress={() => void addPreset()} />
           <View className="gap-3">
             {promptPresets.map((preset) => (
-              <View key={preset.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+              <View key={preset.id} className="rounded-[8px] border border-border bg-background/60 p-4">
                 <View className="flex-row flex-wrap items-center gap-2">
                   <Text className="text-base font-semibold text-ink">{preset.title}</Text>
                   <InfoChip label={preset.mode} tone="accent" />
@@ -409,7 +409,7 @@ export default function CommandsSettingsScreen() {
             <View className="gap-3">
               {commandEntries.length ? (
                 commandEntries.map(([name, command]) => (
-                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">/{name}</Text>
                       {command.subtask ? <InfoChip label="Task" tone="accent" /> : null}
@@ -432,7 +432,7 @@ export default function CommandsSettingsScreen() {
                   </View>
                 ))
               ) : (
-                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 p-4">
                   <Text className="text-sm leading-6 text-soft">
                     No custom host commands yet. Add one above to extend the mobile palette.
                   </Text>

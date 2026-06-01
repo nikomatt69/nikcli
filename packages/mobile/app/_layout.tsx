@@ -8,7 +8,8 @@ import { GestureHandlerRootView } from "react-native-gesture-handler"
 import { AppState } from "react-native"
 import { SafeAreaProvider } from "react-native-safe-area-context"
 import { GlobalErrorBoundary } from "@/components/GlobalErrorBoundary"
-import { ServerProvider, useServer } from "@/lib/server-provider"
+import { ServerProvider } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { setupOfflineDrainOnForeground } from "@/lib/offline"
 import {
   addNotificationNavigationListener,

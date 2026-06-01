@@ -61,8 +61,12 @@ export const ActionSheet = React.forwardRef<
   const { height: windowHeight } = useWindowDimensions()
   const { palette, isDark } = useAppTheme()
   const [visible, setVisible] = useState(false)
-  const translateY = useRef(new Animated.Value(36)).current
-  const opacity = useRef(new Animated.Value(0)).current
+  const translateYRef = useRef<Animated.Value | null>(null)
+  if (translateYRef.current === null) translateYRef.current = new Animated.Value(36)
+  const translateY = translateYRef.current
+  const opacityRef = useRef<Animated.Value | null>(null)
+  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
+  const opacity = opacityRef.current
   const contentHeight = useMemo(() => snapPointHeight(snapPoints[0], windowHeight), [snapPoints, windowHeight])
 
   const dismiss = useCallback(() => {

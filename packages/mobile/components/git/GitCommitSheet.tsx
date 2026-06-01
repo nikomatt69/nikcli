@@ -10,7 +10,14 @@ import {
   Text,
   View,
 } from "react-native"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { AdaptiveBlur } from "@/components/GlassView"
+import { ActionButton } from "@/components/ui/ActionButton"
+import { TextField } from "@/components/ui/TextField"
+import { GitFileTree } from "./GitFileTree"
+import { GitFileStatusBadge } from "./GitFileStatusBadge"
+import type { GitCommit, GitFileStatus } from "@/lib/types"
+import { useAppTheme } from "@/lib/theme"
 
 const ENTRANCE_CONFIG = {
   damping: 20,
@@ -22,13 +29,64 @@ const PRESS_CONFIG = {
   friction: 20,
   tension: 170,
 }
-import { AdaptiveBlur } from "@/components/GlassView"
-import { ActionButton } from "@/components/ui/ActionButton"
-import { TextField } from "@/components/ui/TextField"
-import { GitFileTree } from "./GitFileTree"
-import { GitFileStatusBadge } from "./GitFileStatusBadge"
-import type { GitCommit, GitFileStatus } from "@/lib/types"
-import { useAppTheme } from "@/lib/theme"
+
+interface AnimatedTabProps {
+  active: boolean
+  label: string
+  isDark: boolean
+  palette: { border: string; ink: string; muted: string }
+  onPress: () => void
+}
+
+function AnimatedTab({ active, label, isDark, palette, onPress }: AnimatedTabProps) {
+  const pressAnimRef = useRef<Animated.Value | null>(null)
+  if (pressAnimRef.current === null) pressAnimRef.current = new Animated.Value(1)
+  const pressAnim = pressAnimRef.current
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={() => {
+        Animated.spring(pressAnim, {
+          toValue: 0.96,
+          ...PRESS_CONFIG,
+          useNativeDriver: true,
+        }).start()
+      }}
+      onPressOut={() => {
+        Animated.spring(pressAnim, {
+          toValue: 1,
+          friction: 16,
+          tension: 150,
+          useNativeDriver: true,
+        }).start()
+      }}
+    >
+      <Animated.View
+        style={{
+          flex: 1,
+          paddingVertical: 10,
+          borderRadius: 14,
+          backgroundColor: active ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)") : "transparent",
+          borderWidth: 1,
+          borderColor: active ? palette.border : "transparent",
+          alignItems: "center",
+          transform: [{ scale: pressAnim }],
+        }}
+      >
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "600",
+            color: active ? palette.ink : palette.muted,
+          }}
+        >
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  )
+}
 
 interface GitCommitSheetProps {
   visible: boolean
@@ -61,77 +119,25 @@ export function GitCommitSheet({
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set())
   const [tab, setTab] = useState<"staged" | "changes">("changes")
 
-  const allFiles: GitFileStatus[] = [
-    ...staged.map((f) => ({ ...f })),
-    ...unstaged.map((f) => ({ ...f })),
-    ...untracked.map((path) => ({ status: "untracked" as const, path })),
-  ]
+  const allFiles = useMemo<GitFileStatus[]>(
+    () => [
+      ...staged.map((f) => ({ ...f })),
+      ...unstaged.map((f) => ({ ...f })),
+      ...untracked.map((path) => ({ status: "untracked" as const, path })),
+    ],
+    [staged, unstaged, untracked],
+  )
 
   const selectedCount = selectedFiles.size
   const hasFilesToCommit = staged.length > 0 || selectedCount > 0
   const commitableFiles = tab === "staged" ? staged : allFiles
 
-  const entranceAnim = useRef(new Animated.Value(0)).current
-
-  interface AnimatedTabProps {
-    tab: string
-    active: boolean
-    label: string
-    isDark: boolean
-    palette: { border: string; ink: string; muted: string }
-    onPress: () => void
-  }
-
-  const AnimatedTab = ({ active, label, isDark, palette, onPress }: AnimatedTabProps) => {
-    const pressAnim = useRef(new Animated.Value(1)).current
-
-    return (
-      <Pressable
-        onPress={onPress}
-        onPressIn={() => {
-          Animated.spring(pressAnim, {
-            toValue: 0.96,
-            ...PRESS_CONFIG,
-            useNativeDriver: true,
-          }).start()
-        }}
-        onPressOut={() => {
-          Animated.spring(pressAnim, {
-            toValue: 1,
-            friction: 16,
-            tension: 150,
-            useNativeDriver: true,
-          }).start()
-        }}
-      >
-        <Animated.View
-          style={{
-            flex: 1,
-            paddingVertical: 10,
-            borderRadius: 14,
-            backgroundColor: active ? (isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)") : "transparent",
-            borderWidth: 1,
-            borderColor: active ? palette.border : "transparent",
-            alignItems: "center",
-            transform: [{ scale: pressAnim }],
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              fontWeight: "600",
-              color: active ? palette.ink : palette.muted,
-            }}
-          >
-            {label}
-          </Text>
-        </Animated.View>
-      </Pressable>
-    )
-  }
-
-  const sheetAnim = useRef(new Animated.Value(0)).current
-  const backdropAnim = useRef(new Animated.Value(0)).current
+  const sheetAnimRef = useRef<Animated.Value | null>(null)
+  if (sheetAnimRef.current === null) sheetAnimRef.current = new Animated.Value(0)
+  const sheetAnim = sheetAnimRef.current
+  const backdropAnimRef = useRef<Animated.Value | null>(null)
+  if (backdropAnimRef.current === null) backdropAnimRef.current = new Animated.Value(0)
+  const backdropAnim = backdropAnimRef.current
   const fileItemAnims = useRef<Map<string, Animated.Value>>(new Map())
 
   useEffect(() => {
@@ -185,32 +191,6 @@ export function GitCommitSheet({
   }, [allFiles])
 
   const getFileItemAnim = (path: string) => fileItemAnims.current.get(path) || new Animated.Value(1)
-
-  const createPressAnim = () => {
-    const pressAnim = useRef(new Animated.Value(1)).current
-    return {
-      pressAnim,
-      onPressIn: () => {
-        Animated.spring(pressAnim, {
-          toValue: 0.97,
-          ...PRESS_CONFIG,
-          useNativeDriver: true,
-        }).start()
-      },
-      onPressOut: () => {
-        Animated.spring(pressAnim, {
-          toValue: 1,
-          friction: 16,
-          tension: 150,
-          useNativeDriver: true,
-        }).start()
-      },
-    }
-  }
-
-  const closePressAnim = createPressAnim()
-  const commitPressAnim = createPressAnim()
-  const tabChangePressAnim = createPressAnim()
 
   async function handleCommit() {
     if (!commitMessage.trim() || committing) return
@@ -318,7 +298,6 @@ export function GitCommitSheet({
                   {/* Tabs */}
                   <View style={{ flexDirection: "row", gap: 8, marginTop: 16 }}>
                     <AnimatedTab
-                      tab="changes"
                       active={tab === "changes"}
                       label={`Changes (${unstaged.length + untracked.length})`}
                       isDark={isDark}
@@ -326,7 +305,6 @@ export function GitCommitSheet({
                       onPress={() => setTab("changes")}
                     />
                     <AnimatedTab
-                      tab="staged"
                       active={tab === "staged"}
                       label={`Staged (${staged.length})`}
                       isDark={isDark}

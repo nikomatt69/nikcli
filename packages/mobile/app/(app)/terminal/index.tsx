@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +17,7 @@ import { Copy, ClipboardPaste } from "lucide-react-native"
 import { Asset } from "expo-asset"
 import * as FileSystem from "expo-file-system"
 import * as Clipboard from "expo-clipboard"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -180,6 +180,78 @@ function TerminalWebView({
 
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 
+const TAB_BAR_CLOSE_BUTTON_STYLE = { marginLeft: 2 }
+const TAB_BAR_ITEM_BASE = {
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 6,
+  paddingHorizontal: 10,
+  paddingVertical: 5,
+  borderRadius: 8,
+  borderWidth: 1,
+}
+
+function TabBarItem({
+  title,
+  active,
+  isDark,
+  palette,
+  onSelect,
+  onClose,
+}: {
+  title: string
+  active: boolean
+  isDark: boolean
+  palette: ReturnType<typeof useAppTheme>["palette"]
+  onSelect: () => void
+  onClose: () => void
+}) {
+  const activeAccent = isDark ? "#58a6ff" : "#0369a1"
+  const activeBackground = isDark ? "rgba(88,166,255,0.15)" : "rgba(14,165,233,0.12)"
+  const activeBorder = isDark ? "rgba(88,166,255,0.3)" : "rgba(14,165,233,0.2)"
+  const containerStyle = useMemo(
+    () => ({
+      ...TAB_BAR_ITEM_BASE,
+      backgroundColor: active ? activeBackground : "transparent",
+      borderColor: active ? activeBorder : "transparent",
+    }),
+    [active, activeBackground, activeBorder],
+  )
+  const titleStyle = useMemo(
+    () => ({
+      fontSize: 12,
+      fontWeight: active ? ("600" as const) : ("400" as const),
+      color: active ? activeAccent : palette.soft,
+      maxWidth: 100,
+    }),
+    [active, activeAccent, palette.soft],
+  )
+  const closeLabelStyle = useMemo(() => ({ fontSize: 13, color: palette.muted, lineHeight: 16 }), [palette.muted])
+  return (
+    <Pressable
+      onPress={onSelect}
+      accessibilityRole="tab"
+      accessibilityState={active ? { selected: true } : {}}
+      accessibilityLabel={`Terminal tab ${title}`}
+      style={containerStyle}
+    >
+      <TerminalSquare size={13} color={active ? activeAccent : palette.muted} strokeWidth={2} />
+      <Text numberOfLines={1} style={titleStyle}>
+        {title}
+      </Text>
+      <Pressable
+        onPress={onClose}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={`Close terminal tab ${title}`}
+        style={TAB_BAR_CLOSE_BUTTON_STYLE}
+      >
+        <Text style={closeLabelStyle}>✕</Text>
+      </Pressable>
+    </Pressable>
+  )
+}
+
 function TabBar({
   tabs,
   activeIndex,
@@ -209,54 +281,16 @@ function TabBar({
         backgroundColor: isDark ? "#0d1117" : "#f6f9fc",
         paddingVertical: 6,
       }}
-      renderItem={({ item, index }) => {
-        const active = index === activeIndex
-        return (
-          <Pressable
-            onPress={() => onSelect(index)}
-            accessibilityRole="tab"
-            accessibilityState={active ? { selected: true } : {}}
-            accessibilityLabel={`Terminal tab ${item.title}`}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 10,
-              paddingVertical: 5,
-              borderRadius: 8,
-              backgroundColor: active ? (isDark ? "rgba(88,166,255,0.15)" : "rgba(14,165,233,0.12)") : "transparent",
-              borderWidth: 1,
-              borderColor: active ? (isDark ? "rgba(88,166,255,0.3)" : "rgba(14,165,233,0.2)") : "transparent",
-            }}
-          >
-            <TerminalSquare
-              size={13}
-              color={active ? (isDark ? "#58a6ff" : "#0369a1") : palette.muted}
-              strokeWidth={2}
-            />
-            <Text
-              numberOfLines={1}
-              style={{
-                fontSize: 12,
-                fontWeight: active ? "600" : "400",
-                color: active ? (isDark ? "#58a6ff" : "#0369a1") : palette.soft,
-                maxWidth: 100,
-              }}
-            >
-              {item.title}
-            </Text>
-            <Pressable
-              onPress={() => onClose(index)}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel={`Close terminal tab ${item.title}`}
-              style={{ marginLeft: 2 }}
-            >
-              <Text style={{ fontSize: 13, color: palette.muted, lineHeight: 16 }}>✕</Text>
-            </Pressable>
-          </Pressable>
-        )
-      }}
+      renderItem={({ item, index }) => (
+        <TabBarItem
+          title={item.title}
+          active={index === activeIndex}
+          isDark={isDark}
+          palette={palette}
+          onSelect={() => onSelect(index)}
+          onClose={() => onClose(index)}
+        />
+      )}
     />
   )
 }

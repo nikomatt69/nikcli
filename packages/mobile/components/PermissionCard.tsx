@@ -58,7 +58,7 @@ export function PermissionCard(props: {
 
   return (
     <View
-      className="mb-3 overflow-hidden rounded-[8px] border px-4 py-4"
+      className="mb-3 overflow-hidden rounded-[8px] border p-4"
       style={{
         borderColor: isDark ? "rgba(251,191,36,0.20)" : "rgba(217,119,6,0.20)",
         backgroundColor: isDark ? palette.surfaceMuted : palette.panel,
@@ -105,7 +105,7 @@ export function PermissionCard(props: {
           </Text>
           {props.item.patterns.map((pattern, index) => (
             <ScrollView
-              key={`${pattern || "*"}:${index}`}
+              key={pattern || "*"}
               horizontal
               nestedScrollEnabled
               showsHorizontalScrollIndicator

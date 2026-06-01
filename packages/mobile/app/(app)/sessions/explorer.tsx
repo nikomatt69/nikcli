@@ -28,7 +28,7 @@ import {
 import { AdaptiveBlur } from "@/components/GlassView"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { FileNode, GitState } from "@/lib/types"
 
@@ -56,6 +56,59 @@ function relativeParent(path: string) {
   const parts = path.split("/").filter(Boolean)
   if (parts.length <= 1) return "Project root"
   return parts.slice(Math.max(0, parts.length - 4), -1).join("/")
+}
+
+function FileFilterRow({
+  path,
+  isDark,
+  palette,
+  onOpen,
+}: {
+  path: string
+  isDark: boolean
+  palette: ReturnType<typeof useAppTheme>["palette"]
+  onOpen: (path: string) => void
+}) {
+  const iconBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.07)"
+  const pressedBackground = isDark ? "rgba(255,255,255,0.05)" : "rgba(14,165,233,0.05)"
+  const borderColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)"
+  const rowStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => ({
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      gap: 10,
+      backgroundColor: pressed ? pressedBackground : "transparent",
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderColor,
+    }),
+    [pressedBackground, borderColor],
+  )
+  return (
+    <Pressable onPress={() => onOpen(path)} style={rowStyle}>
+      <View
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: 8,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: iconBackground,
+        }}
+      >
+        <FileCode2 size={15} color={palette.accentLight} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ fontSize: 13, color: palette.ink, fontWeight: "700" }}>
+          {path.split("/").pop()}
+        </Text>
+        <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 11, color: palette.muted }}>
+          {relativeParent(path)}
+        </Text>
+      </View>
+    </Pressable>
+  )
 }
 
 function filePresentation(node: FileNode, palette: ReturnType<typeof useAppTheme>["palette"], isDark: boolean) {
@@ -107,6 +160,19 @@ function ChromeIconButton({
   disabled?: boolean
 }) {
   const { palette, isDark } = useAppTheme()
+  const borderColor = isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.82)"
+  const backgroundColor = isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)"
+  const buttonStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => ({
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor,
+      backgroundColor,
+      padding: 10,
+      opacity: disabled ? 0.42 : pressed ? 0.68 : 1,
+    }),
+    [borderColor, backgroundColor, disabled],
+  )
   return (
     <Pressable
       onPress={onPress}
@@ -114,14 +180,7 @@ function ChromeIconButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={8}
-      style={({ pressed }) => ({
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.13)" : "rgba(193,208,223,0.82)",
-        backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.72)",
-        padding: 10,
-        opacity: disabled ? 0.42 : pressed ? 0.68 : 1,
-      })}
+      style={buttonStyle}
     >
       <Icon size={16} color={palette.ink} strokeWidth={2.2} />
     </Pressable>
@@ -469,6 +528,7 @@ export default function ExplorerScreen() {
     searchRequestRef.current = requestId
     const t = setTimeout(async () => {
       try {
+        if (searchRequestRef.current !== requestId) return
         setFileSearchLoading(true)
         const results = await client.searchFiles(fileQuery.trim())
         if (searchRequestRef.current !== requestId) return
@@ -704,46 +764,7 @@ export default function ExplorerScreen() {
               </View>
             ) : null
           }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => openPath(item)}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                gap: 10,
-                backgroundColor: pressed
-                  ? isDark
-                    ? "rgba(255,255,255,0.05)"
-                    : "rgba(14,165,233,0.05)"
-                  : "transparent",
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)",
-              })}
-            >
-              <View
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.07)",
-                }}
-              >
-                <FileCode2 size={15} color={palette.accentLight} strokeWidth={2} />
-              </View>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontSize: 13, color: palette.ink, fontWeight: "700" }}>
-                  {item.split("/").pop()}
-                </Text>
-                <Text numberOfLines={1} style={{ marginTop: 2, fontSize: 11, color: palette.muted }}>
-                  {relativeParent(item)}
-                </Text>
-              </View>
-            </Pressable>
-          )}
+          renderItem={({ item }) => <FileFilterRow path={item} isDark={isDark} palette={palette} onOpen={openPath} />}
         />
       ) : (
         <FlatList

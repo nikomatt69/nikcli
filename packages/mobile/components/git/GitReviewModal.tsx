@@ -23,6 +23,29 @@ import type { GitBranchInfo, GitFileStatus, GitState, ParsedFileDiff } from "@/l
 
 type TabType = "changes" | "graph" | "review"
 
+function createPressAnim() {
+  const pressAnim = new Animated.Value(1)
+  return {
+    onPressIn: () => {
+      Animated.spring(pressAnim, {
+        toValue: 0.97,
+        friction: 20,
+        tension: 170,
+        useNativeDriver: true,
+      }).start()
+    },
+    onPressOut: () => {
+      Animated.spring(pressAnim, {
+        toValue: 1,
+        friction: 16,
+        tension: 150,
+        useNativeDriver: true,
+      }).start()
+    },
+    scaleAnim: pressAnim,
+  }
+}
+
 interface GitReviewModalProps {
   visible: boolean
   onClose: () => void
@@ -173,9 +196,15 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
   const [commitMessage, setCommitMessage] = useState("")
   const [gitAction, setGitAction] = useState<"stage" | "unstage" | "discard" | "commit" | "push" | null>(null)
 
-  const entranceAnim = useRef(new Animated.Value(0)).current
-  const contentFadeAnim = useRef(new Animated.Value(1)).current
-  const tabSlideAnim = useRef(new Animated.Value(0)).current
+  const entranceAnimRef = useRef<Animated.Value | null>(null)
+  if (entranceAnimRef.current === null) entranceAnimRef.current = new Animated.Value(0)
+  const entranceAnim = entranceAnimRef.current
+  const contentFadeAnimRef = useRef<Animated.Value | null>(null)
+  if (contentFadeAnimRef.current === null) contentFadeAnimRef.current = new Animated.Value(1)
+  const contentFadeAnim = contentFadeAnimRef.current
+  const tabSlideAnimRef = useRef<Animated.Value | null>(null)
+  if (tabSlideAnimRef.current === null) tabSlideAnimRef.current = new Animated.Value(0)
+  const tabSlideAnim = tabSlideAnimRef.current
   const commitItemAnims = useRef<Map<string, Animated.Value>>(new Map())
 
   useEffect(() => {
@@ -263,29 +292,6 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
 
   const contentAnimStyle = {
     opacity: contentFadeAnim,
-  }
-
-  const createPressAnim = () => {
-    const pressAnim = new Animated.Value(1)
-    return {
-      onPressIn: () => {
-        Animated.spring(pressAnim, {
-          toValue: 0.97,
-          friction: 20,
-          tension: 170,
-          useNativeDriver: true,
-        }).start()
-      },
-      onPressOut: () => {
-        Animated.spring(pressAnim, {
-          toValue: 1,
-          friction: 16,
-          tension: 150,
-          useNativeDriver: true,
-        }).start()
-      },
-      scaleAnim: pressAnim,
-    }
   }
 
   const closeButtonAnim = createPressAnim()
@@ -933,7 +939,7 @@ export function GitReviewModal({ visible, onClose, sessionID, github, onCommit, 
               {loading ? (
                 <View style={{ padding: 40, alignItems: "center" }}>
                   <ActivityIndicator color={palette.accent} />
-                  <Text style={{ marginTop: 12, color: palette.soft }}>Loading git graph...</Text>
+                  <Text style={{ marginTop: 12, color: palette.soft }}>Loading git graph…</Text>
                 </View>
               ) : commits.length === 0 ? (
                 <View style={{ padding: 40, alignItems: "center" }}>

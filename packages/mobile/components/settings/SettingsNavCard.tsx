@@ -17,8 +17,12 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
   ref,
 ) {
   const { palette, isDark } = useAppTheme()
-  const scale = useRef(new Animated.Value(1)).current
-  const shimmerAnim = useRef(new Animated.Value(0)).current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
+  const scale = scaleRef.current
+  const shimmerAnimRef = useRef<Animated.Value | null>(null)
+  if (shimmerAnimRef.current === null) shimmerAnimRef.current = new Animated.Value(0)
+  const shimmerAnim = shimmerAnimRef.current
 
   useEffect(() => {
     if (shimmer) {
@@ -56,7 +60,7 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
         {...props}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        className="rounded-[8px] border border-border bg-background/60 px-4 py-4"
+        className="rounded-[8px] border border-border bg-background/60 p-4"
         style={({ pressed }) => ({
           opacity: pressed ? 0.9 : 1,
         })}
@@ -97,7 +101,9 @@ export const SettingsNavCard = forwardRef<View, SettingsNavCardProps>(function S
 })
 
 function AnimatedBadge({ badge, index, shimmer }: { badge: string; index: number; shimmer: boolean }) {
-  const badgeAnim = useRef(new Animated.Value(shimmer ? 0 : 1)).current
+  const badgeAnimRef = useRef<Animated.Value | null>(null)
+  if (badgeAnimRef.current === null) badgeAnimRef.current = new Animated.Value(shimmer ? 0 : 1)
+  const badgeAnim = badgeAnimRef.current
 
   useEffect(() => {
     if (shimmer) {

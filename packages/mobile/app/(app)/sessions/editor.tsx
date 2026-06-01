@@ -35,7 +35,7 @@ import { SkeletonBox } from "@/components/Skeleton"
 import { EditorBreadcrumb } from "@/components/editor/EditorBreadcrumb"
 import { FileSearchSheet } from "@/components/editor/FileSearchSheet"
 import { GitFileStatusBadge } from "@/components/git/GitFileStatusBadge"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import { triggerHaptic } from "@/lib/haptics"
 import { detectLanguage, highlightCode, DRACULA, type Segment } from "@/lib/syntax"
@@ -101,16 +101,34 @@ export default function EditorScreen() {
   // ── Animation refs ─────────────────────────────────────────────
   const unsavedSheetRef = useActionSheetRef()
   const contentAnims = useStaggeredAnimation(2, 80)
-  const findBarAnim = useRef(new Animated.Value(0)).current
-  const backScale = useRef(new Animated.Value(1)).current
-  const findScale = useRef(new Animated.Value(1)).current
-  const fileSearchScale = useRef(new Animated.Value(1)).current
-  const copyScale = useRef(new Animated.Value(1)).current
-  const modeScale = useRef(new Animated.Value(1)).current
-  const wrapScale = useRef(new Animated.Value(1)).current
-  const saveScale = useRef(new Animated.Value(1)).current
+  const findBarAnimRef = useRef<Animated.Value | null>(null)
+  if (findBarAnimRef.current === null) findBarAnimRef.current = new Animated.Value(0)
+  const findBarAnim = findBarAnimRef.current
+  const backScaleRef = useRef<Animated.Value | null>(null)
+  if (backScaleRef.current === null) backScaleRef.current = new Animated.Value(1)
+  const backScale = backScaleRef.current
+  const findScaleRef = useRef<Animated.Value | null>(null)
+  if (findScaleRef.current === null) findScaleRef.current = new Animated.Value(1)
+  const findScale = findScaleRef.current
+  const fileSearchScaleRef = useRef<Animated.Value | null>(null)
+  if (fileSearchScaleRef.current === null) fileSearchScaleRef.current = new Animated.Value(1)
+  const fileSearchScale = fileSearchScaleRef.current
+  const copyScaleRef = useRef<Animated.Value | null>(null)
+  if (copyScaleRef.current === null) copyScaleRef.current = new Animated.Value(1)
+  const copyScale = copyScaleRef.current
+  const modeScaleRef = useRef<Animated.Value | null>(null)
+  if (modeScaleRef.current === null) modeScaleRef.current = new Animated.Value(1)
+  const modeScale = modeScaleRef.current
+  const wrapScaleRef = useRef<Animated.Value | null>(null)
+  if (wrapScaleRef.current === null) wrapScaleRef.current = new Animated.Value(1)
+  const wrapScale = wrapScaleRef.current
+  const saveScaleRef = useRef<Animated.Value | null>(null)
+  if (saveScaleRef.current === null) saveScaleRef.current = new Animated.Value(1)
+  const saveScale = saveScaleRef.current
   // Local toggle animation with useNativeDriver:false for color interpolation
-  const modeProgress = useRef(new Animated.Value(mode === "edit" ? 1 : 0)).current
+  const modeProgressRef = useRef<Animated.Value | null>(null)
+  if (modeProgressRef.current === null) modeProgressRef.current = new Animated.Value(mode === "edit" ? 1 : 0)
+  const modeProgress = modeProgressRef.current
   useEffect(() => {
     Animated.spring(modeProgress, {
       toValue: mode === "edit" ? 1 : 0,
@@ -133,13 +151,18 @@ export default function EditorScreen() {
     const query = findQuery.trim()
     if (!query) return []
     const lines = content.split("\n")
+    const matches: Array<{ line: string; lineNumber: number }> = []
     if (caseSensitive) {
-      return lines.map((line, index) => ({ line, lineNumber: index + 1 })).filter((item) => item.line.includes(query))
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes(query)) matches.push({ line: lines[i], lineNumber: i + 1 })
+      }
+      return matches
     }
     const lowerQuery = query.toLowerCase()
-    return lines
-      .map((line, index) => ({ line, lineNumber: index + 1 }))
-      .filter((item) => item.line.toLowerCase().includes(lowerQuery))
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].toLowerCase().includes(lowerQuery)) matches.push({ line: lines[i], lineNumber: i + 1 })
+    }
+    return matches
   }, [content, findQuery, caseSensitive])
   const activeFindLine = findMatches[activeFindIndex]?.lineNumber
 
@@ -203,15 +226,17 @@ export default function EditorScreen() {
   // Scroll to highlighted line
   useEffect(() => {
     if (!loading && targetLine && targetLine > 1) {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         scrollRef.current?.scrollTo({ y: (targetLine - 1) * LINE_HEIGHT, animated: true })
       }, 300)
+      return () => clearTimeout(timer)
     }
   }, [loading, targetLine])
 
-  useEffect(() => {
+  const handleFindQueryChange = useCallback((next: string) => {
+    setFindQuery(next)
     setActiveFindIndex(0)
-  }, [findQuery])
+  }, [])
 
   function saveRecentSearch(query: string) {
     if (!query.trim()) return
@@ -336,79 +361,39 @@ export default function EditorScreen() {
   }
 
   function renderChromeButton(
-    scaleRef: Animated.Value,
+    scale: Animated.Value,
     icon: React.ReactNode,
     onPress: () => void,
     opts?: { active?: boolean; activeBg?: string; activeBorder?: string; label?: string },
   ) {
-    const isActive = opts?.active ?? false
     return (
-      <Animated.View style={{ transform: [{ scale: scaleRef }] }}>
-        <Pressable
-          onPress={onPress}
-          onPressIn={() => Animated.spring(scaleRef, { toValue: 0.93, ...PRESS_SPRING }).start()}
-          onPressOut={() => Animated.spring(scaleRef, { toValue: 1, ...PRESS_SPRING }).start()}
-          accessibilityRole="button"
-          accessibilityLabel={opts?.label}
-          style={{
-            ...chromeButtonBase,
-            backgroundColor: isActive
-              ? (opts?.activeBg ?? (isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.10)"))
-              : chromeButtonBase.backgroundColor,
-            borderColor: isActive ? (opts?.activeBorder ?? palette.accent) : chromeButtonBase.borderColor,
-          }}
-        >
-          {icon}
-        </Pressable>
-      </Animated.View>
+      <ChromeButton
+        scale={scale}
+        icon={icon}
+        onPress={onPress}
+        active={opts?.active ?? false}
+        activeBg={opts?.activeBg ?? (isDark ? "rgba(14,165,233,0.15)" : "rgba(14,165,233,0.10)")}
+        activeBorder={opts?.activeBorder ?? palette.accent}
+        label={opts?.label}
+        isDark={isDark}
+        palette={palette}
+        chromeButtonBase={chromeButtonBase}
+      />
     )
   }
 
   // ── Line number renderer with accent pill ──────────────────────
   function renderLineNumbers(nums: number[], highlights: (number | undefined)[]) {
     return (
-      <View
-        style={{
-          paddingTop: 14,
-          paddingHorizontal: 10,
-          alignItems: "flex-end",
-          backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-          borderRightWidth: StyleSheet.hairlineWidth,
-          borderRightColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-          minWidth: 42,
-        }}
-      >
-        {nums.map((n) => {
-          const isActive = highlights.includes(n)
-          return (
-            <View
-              key={n}
-              style={{
-                backgroundColor: isActive
-                  ? isDark
-                    ? "rgba(14,165,233,0.12)"
-                    : "rgba(14,165,233,0.08)"
-                  : "transparent",
-                borderRadius: 4,
-                paddingHorizontal: isActive ? 4 : 0,
-                marginHorizontal: isActive ? -4 : 0,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: FONT_SIZE,
-                  lineHeight: LINE_HEIGHT,
-                  fontFamily: MONO,
-                  fontWeight: isActive ? "600" : "400",
-                  color: isActive ? palette.accentLight : isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.25)",
-                }}
-              >
-                {n}
-              </Text>
-            </View>
-          )
-        })}
-      </View>
+      <LineNumbers
+        nums={nums}
+        highlights={highlights}
+        isDark={isDark}
+        palette={palette}
+        fontSize={FONT_SIZE}
+        lineHeight={LINE_HEIGHT}
+        fontFamily={MONO}
+      />
     )
   }
 
@@ -653,7 +638,7 @@ export default function EditorScreen() {
                   <Search size={14} color={palette.muted} strokeWidth={2.1} />
                   <TextInput
                     value={findQuery}
-                    onChangeText={setFindQuery}
+                    onChangeText={handleFindQueryChange}
                     placeholder="Find in current file"
                     placeholderTextColor={palette.muted}
                     autoCapitalize="none"
@@ -675,7 +660,7 @@ export default function EditorScreen() {
                   </Pressable>
                   <Pressable
                     onPress={() => {
-                      setFindQuery("")
+                      handleFindQueryChange("")
                       setFindOpen(false)
                     }}
                     hitSlop={6}
@@ -774,7 +759,7 @@ export default function EditorScreen() {
                   ) : (
                     highlightedLines?.map((lineSegs, lineIndex) => (
                       <Text
-                        key={lineIndex}
+                        key={lineSegs.map((s) => s.text).join("")}
                         selectable
                         style={{
                           fontFamily: MONO,
@@ -784,7 +769,7 @@ export default function EditorScreen() {
                         }}
                       >
                         {lineSegs.map((seg, i) => (
-                          <Text key={i} style={{ color: seg.color }}>
+                          <Text key={`${seg.text}-${seg.color}`} style={{ color: seg.color }}>
                             {seg.text}
                           </Text>
                         ))}
@@ -964,6 +949,104 @@ export default function EditorScreen() {
       </ActionSheet>
 
       <FileSearchSheet visible={fileSearchOpen} onClose={() => setFileSearchOpen(false)} onSelect={openSearchResult} />
+    </View>
+  )
+}
+
+interface ChromeButtonProps {
+  scale: Animated.Value
+  icon: React.ReactNode
+  onPress: () => void
+  active: boolean
+  activeBg: string
+  activeBorder: string
+  label?: string
+  isDark: boolean
+  palette: { accent: string }
+  chromeButtonBase: { backgroundColor: string; borderColor: string; [key: string]: unknown }
+}
+
+function ChromeButton({
+  scale,
+  icon,
+  onPress,
+  active,
+  activeBg,
+  activeBorder,
+  label,
+  isDark,
+  palette,
+  chromeButtonBase,
+}: ChromeButtonProps) {
+  return (
+    <Animated.View style={{ transform: [{ scale }] }}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={() => Animated.spring(scale, { toValue: 0.93, ...PRESS_SPRING }).start()}
+        onPressOut={() => Animated.spring(scale, { toValue: 1, ...PRESS_SPRING }).start()}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={{
+          ...chromeButtonBase,
+          backgroundColor: active ? activeBg : chromeButtonBase.backgroundColor,
+          borderColor: active ? activeBorder : chromeButtonBase.borderColor,
+        }}
+      >
+        {icon}
+      </Pressable>
+    </Animated.View>
+  )
+}
+
+interface LineNumbersProps {
+  nums: number[]
+  highlights: Array<number | undefined>
+  isDark: boolean
+  palette: { accentLight: string }
+  fontSize: number
+  lineHeight: number
+  fontFamily: string
+}
+
+function LineNumbers({ nums, highlights, isDark, palette, fontSize, lineHeight, fontFamily }: LineNumbersProps) {
+  return (
+    <View
+      style={{
+        paddingTop: 14,
+        paddingHorizontal: 10,
+        alignItems: "flex-end",
+        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+        borderRightWidth: StyleSheet.hairlineWidth,
+        borderRightColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        minWidth: 42,
+      }}
+    >
+      {nums.map((n) => {
+        const isActive = highlights.includes(n)
+        return (
+          <View
+            key={n}
+            style={{
+              backgroundColor: isActive ? (isDark ? "rgba(14,165,233,0.12)" : "rgba(14,165,233,0.08)") : "transparent",
+              borderRadius: 4,
+              paddingHorizontal: isActive ? 4 : 0,
+              marginHorizontal: isActive ? -4 : 0,
+            }}
+          >
+            <Text
+              style={{
+                fontSize,
+                lineHeight,
+                fontFamily,
+                fontWeight: isActive ? "600" : "400",
+                color: isActive ? palette.accentLight : isDark ? "rgba(255,255,255,0.22)" : "rgba(0,0,0,0.25)",
+              }}
+            >
+              {n}
+            </Text>
+          </View>
+        )
+      })}
     </View>
   )
 }

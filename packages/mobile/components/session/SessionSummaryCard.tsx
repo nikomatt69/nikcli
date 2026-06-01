@@ -117,7 +117,7 @@ export function SessionSummaryCard({
 
   return (
     <View className="pb-4">
-      <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="px-5 py-5">
+      <SurfaceCard eyebrow="Execution timeline" title={title} description={location} className="p-5">
         <View className="flex-row flex-wrap gap-2">
           <InfoChip label={status} tone={currentStatusTone(status)} />
           <InfoChip label={`${messageCount} messages`} />
@@ -150,7 +150,7 @@ export function SessionSummaryCard({
 
         {github ? (
           <View
-            className="mt-4 rounded-[8px] border px-4 py-4"
+            className="mt-4 rounded-[8px] border p-4"
             style={{
               borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.72)",
               backgroundColor: isDark ? "rgba(0,0,0,0.45)" : "rgba(241,246,251,0.68)",

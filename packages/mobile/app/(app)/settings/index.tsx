@@ -9,7 +9,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { getAppPreferences, setAppPreferences } from "@/lib/storage"
 import { ensureNotificationPermissions } from "@/lib/notifications"
 import { useUIStore } from "@/lib/store"
@@ -143,7 +143,6 @@ export default function SettingsScreen() {
   const [selectedModelID, setSelectedModelID] = useState(config?.modelID ?? MOBILE_DEFAULT_MODEL_ID)
   const [providerKey, setProviderKey] = useState("")
   const [githubToken, setGithubToken] = useState("")
-  const [githubOauthClientID, setGithubOauthClientID] = useState("")
   const [hostConfig, setHostConfig] = useState<HostConfigSnapshot | null>(null)
   const [mcpStatus, setMcpStatus] = useState<Record<string, HostMcpStatus>>({})
   const [skills, setSkills] = useState<SkillInfo[]>([])
@@ -163,28 +162,35 @@ export default function SettingsScreen() {
   const [message, setMessage] = useState<string | null>(null)
   const authRun = useRef(0)
 
-  useEffect(() => {
+  const [prevConfig, setPrevConfig] = useState(config)
+  if (config !== prevConfig) {
+    setPrevConfig(config)
     setUrl(config?.url ?? "")
     setToken(config?.token ?? "")
     setDirectory(config?.directory ?? "")
     setSelectedExecutionTarget(config?.executionTarget ?? "local")
     setSelectedProviderID(config?.modelProviderID ?? MOBILE_DEFAULT_PROVIDER_ID)
     setSelectedModelID(config?.modelID ?? MOBILE_DEFAULT_MODEL_ID)
-  }, [config])
+  }
+
+  const githubOauthClientID = useMemo(() => {
+    if (typeof hostConfig?.connectors?.github?.oauthClientId === "string") {
+      return hostConfig.connectors.github.oauthClientId
+    }
+    if (typeof hostConfig?.connectors?.github?.clientId === "string") {
+      return hostConfig.connectors.github.clientId
+    }
+    return ""
+  }, [hostConfig])
+  const [githubOauthClientIDDraft, setGithubOauthClientID] = useState(githubOauthClientID)
+
+  useEffect(() => {
+    setGithubOauthClientID(githubOauthClientID)
+  }, [githubOauthClientID])
 
   useEffect(() => {
     setColorScheme(themeMode)
   }, [setColorScheme, themeMode])
-
-  useEffect(() => {
-    const oauthClientID =
-      typeof hostConfig?.connectors?.github?.oauthClientId === "string"
-        ? hostConfig.connectors.github.oauthClientId
-        : typeof hostConfig?.connectors?.github?.clientId === "string"
-          ? hostConfig.connectors.github.clientId
-          : ""
-    setGithubOauthClientID(oauthClientID)
-  }, [hostConfig])
 
   const loadProviderData = useCallback(async () => {
     if (!client) {
@@ -293,6 +299,13 @@ export default function SettingsScreen() {
     if (messageText) setMessage(messageText)
   }
 
+  // persistPreferences is intentionally defined here because each field's
+  // type is derived from the component's local useState (via `typeof`).
+  // Hoisting it would require extracting those types, which would
+  // duplicate them. The function does NOT read live state — it only
+  // uses the supplied `next` argument — so the runtime cost of
+  // rebuilding it per render is negligible compared to the type churn.
+  // oxlint-disable-next-line react-doctor/prefer-module-scope-pure-function
   async function persistPreferences(next: {
     themeMode?: ThemeMode
     visibleSettingsSections?: Record<SettingsSectionID, boolean>
@@ -566,6 +579,7 @@ export default function SettingsScreen() {
   async function waitForApproval(flow: GitHubDeviceAuthStart, runID: number) {
     let interval = flow.interval
     while (Date.now() < flow.expiresAt && authRun.current === runID) {
+      if (authRun.current !== runID || !client) return
       await sleep(interval * 1000)
       if (authRun.current !== runID || !client) return
       const result = await client.pollGithubDeviceAuth(flow.deviceCode)
@@ -978,7 +992,7 @@ export default function SettingsScreen() {
           </View>
 
           <View className="mt-4 gap-3">
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 GitHub profile
               </Text>
@@ -996,7 +1010,7 @@ export default function SettingsScreen() {
               </Text>
             </View>
 
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Host profile
               </Text>
@@ -1030,7 +1044,7 @@ export default function SettingsScreen() {
         </View>
 
         {/* Theme Selector Dropdown */}
-        <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
+        <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
           <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">Color Theme</Text>
           <Pressable
             onPress={() => setThemePickerOpen(true)}
@@ -1043,7 +1057,7 @@ export default function SettingsScreen() {
             <View className="flex-row items-center gap-2">
               {/* Theme preview swatches */}
               <View
-                className="h-6 w-6 rounded-full border-2 border-border"
+                className="size-6 rounded-full border-2 border-border"
                 style={{ backgroundColor: palette?.accent ?? "#0ea5e9" }}
               />
               <Text style={{ color: palette?.ink ?? "#0d1b2a", fontSize: 14 }}>▼</Text>
@@ -1058,7 +1072,7 @@ export default function SettingsScreen() {
               <Pressable
                 key={mode}
                 onPress={() => void applyThemeMode(mode)}
-                className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(active)}`}
+                className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(active)}`}
               >
                 <Text className={`text-sm font-semibold capitalize ${optionChipTextClass(active)}`}>{mode}</Text>
                 <Text className="mt-1 text-xs leading-5 text-soft">
@@ -1073,7 +1087,7 @@ export default function SettingsScreen() {
           })}
         </View>
 
-        <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
+        <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
           <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
             Visible settings sections
           </Text>
@@ -1117,7 +1131,7 @@ export default function SettingsScreen() {
           </View>
 
           <View className="mt-4 gap-3">
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Notifications
               </Text>
@@ -1143,7 +1157,7 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">Haptics</Text>
               <View className="mt-3 flex-row flex-wrap gap-2">
                 {[
@@ -1168,7 +1182,7 @@ export default function SettingsScreen() {
               </View>
             </View>
 
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Message gestures
               </Text>
@@ -1280,7 +1294,7 @@ export default function SettingsScreen() {
           <View className="mt-4 flex-row gap-2">
             <Pressable
               onPress={() => setSelectedExecutionTarget("local")}
-              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(selectedExecutionTarget === "local")}`}
+              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(selectedExecutionTarget === "local")}`}
             >
               <Text className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "local")}`}>
                 Local worktree
@@ -1295,7 +1309,7 @@ export default function SettingsScreen() {
                 if (containerReady) setSelectedExecutionTarget("container")
               }}
               disabled={!containerReady}
-              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(selectedExecutionTarget === "container")}`}
+              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(selectedExecutionTarget === "container")}`}
             >
               <Text className={`text-sm font-semibold ${optionChipTextClass(selectedExecutionTarget === "container")}`}>
                 Container sandbox
@@ -1367,7 +1381,7 @@ export default function SettingsScreen() {
               </View>
 
               {selectedProvider ? (
-                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 p-4">
                   <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                     Selected provider
                   </Text>
@@ -1414,7 +1428,7 @@ export default function SettingsScreen() {
                 onPress={() => void saveSessionDefaults()}
               />
 
-              <View className="rounded-[8px] border border-border bg-panel/55 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-panel/55 p-4">
                 <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                   Provider API key
                 </Text>
@@ -1486,7 +1500,7 @@ export default function SettingsScreen() {
           <View className="mt-4 gap-3">
             <TextField
               label="GitHub OAuth client ID"
-              value={githubOauthClientID}
+              value={githubOauthClientIDDraft}
               onChangeText={setGithubOauthClientID}
               autoCapitalize="none"
               placeholder="Iv1.1234567890abcdef"
@@ -1511,7 +1525,7 @@ export default function SettingsScreen() {
           </View>
 
           {!oauthConfigured ? (
-            <View className="mt-4 rounded-[8px] border border-danger/30 bg-danger/10 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-danger/30 bg-danger/10 p-4">
               <Text className="text-sm leading-6 text-ink">
                 OAuth is always exposed from mobile now. To make device sign-in work on this host, save a GitHub OAuth
                 client ID here or configure it on the host through `connectors.github.oauthClientId`,
@@ -1531,7 +1545,7 @@ export default function SettingsScreen() {
           )}
 
           {githubConnected ? (
-            <View className="mt-4 rounded-[8px] border border-success/20 bg-success/10 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-success/20 bg-success/10 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-ink">Connected account</Text>
               <Text className="mt-2 text-xl font-semibold text-ink">@{bootstrap?.github?.user?.login}</Text>
               {bootstrap?.github?.user?.name ? (
@@ -1549,14 +1563,14 @@ export default function SettingsScreen() {
           ) : null}
 
           {oauthFlow ? (
-            <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Authorization in progress
               </Text>
               <Text className="mt-2 text-sm leading-6 text-soft">
                 Enter this code in GitHub if the browser page asks for it.
               </Text>
-              <View className="mt-3 rounded-2xl border border-accent/20 bg-accent/10 px-4 py-4">
+              <View className="mt-3 rounded-2xl border border-accent/20 bg-accent/10 p-4">
                 <Text className="text-center text-[28px] font-semibold tracking-[6px] text-ink">
                   {oauthFlow.userCode}
                 </Text>
@@ -1595,7 +1609,7 @@ export default function SettingsScreen() {
             <InfoChip label={`${Object.keys(mcpStatus).length} live statuses`} />
           </View>
 
-          <View className="mt-4 rounded-[8px] border border-border bg-background/60 px-4 py-4">
+          <View className="mt-4 rounded-[8px] border border-border bg-background/60 p-4">
             <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
               Add MCP server
             </Text>
@@ -1610,14 +1624,14 @@ export default function SettingsScreen() {
               <View className="flex-row gap-2">
                 <Pressable
                   onPress={() => setMcpType("remote")}
-                  className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "remote")}`}
+                  className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "remote")}`}
                 >
                   <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}>Remote</Text>
                   <Text className="mt-1 text-xs leading-5 text-soft">URL-based MCP endpoint</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setMcpType("local")}
-                  className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "local")}`}
+                  className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "local")}`}
                 >
                   <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}>Local</Text>
                   <Text className="mt-1 text-xs leading-5 text-soft">Host command launched by Nikcli</Text>
@@ -1650,7 +1664,7 @@ export default function SettingsScreen() {
                 const status = mcpStatus[name]
                 const enabled = entry.enabled !== false
                 return (
-                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
@@ -1709,7 +1723,7 @@ export default function SettingsScreen() {
                 )
               })
             ) : (
-              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 p-4">
                 <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
               </View>
             )}
@@ -1738,7 +1752,7 @@ export default function SettingsScreen() {
             <View className="gap-3">
               {visibleSkills.length ? (
                 visibleSkills.map((skill) => (
-                  <View key={skill.name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View key={skill.name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap gap-2">
                       <Text className="text-base font-semibold text-ink">{skill.name}</Text>
                       {skill.category ? <InfoChip label={skill.category} tone="accent" /> : null}
@@ -1754,7 +1768,7 @@ export default function SettingsScreen() {
                   </View>
                 ))
               ) : (
-                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 p-4">
                   <Text className="text-sm leading-6 text-soft">
                     No skills matched this search or the host is not exposing any skill yet.
                   </Text>
@@ -1806,7 +1820,7 @@ export default function SettingsScreen() {
       ) : null}
 
       {bootstrapLoading ? (
-        <View className="items-center rounded-[8px] border border-border bg-surface px-4 py-4">
+        <View className="items-center rounded-[8px] border border-border bg-surface p-4">
           <ActivityIndicator color={palette.accent} />
           <Text className="mt-3 text-sm text-soft">Refreshing host and GitHub posture…</Text>
         </View>
@@ -1863,7 +1877,7 @@ export default function SettingsScreen() {
                     </View>
                     {isSelected && (
                       <View
-                        className="h-6 w-6 items-center justify-center rounded-full"
+                        className="size-6 items-center justify-center rounded-full"
                         style={{ backgroundColor: `${palette?.accent ?? "#0ea5e9"}30` }}
                       >
                         <Text style={{ color: palette?.accent ?? "#0ea5e9", fontWeight: "bold" }}>✓</Text>

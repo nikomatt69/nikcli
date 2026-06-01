@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AppState, Pressable, Text, View } from "react-native"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 
 export function NetworkBanner() {
   const { client, config } = useServer()

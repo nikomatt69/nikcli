@@ -460,30 +460,32 @@ export async function reconcilePersistedLiveActivities(
 
   await ensureLiveActivityRegistryLoaded()
 
-  for (const [sessionID] of liveActivityIDs.entries()) {
-    const detail = await loadSession(sessionID).catch(() => null)
-    if (!detail) {
-      await purgeSessionLiveActivity(sessionID)
-      continue
-    }
+  await Promise.all(
+    Array.from(liveActivityIDs.entries()).map(async ([sessionID]) => {
+      const detail = await loadSession(sessionID).catch(() => null)
+      if (!detail) {
+        await purgeSessionLiveActivity(sessionID)
+        return
+      }
 
-    const snapshot = buildSessionLiveActivitySnapshot(detail)
-    if (!snapshot) continue
+      const snapshot = buildSessionLiveActivitySnapshot(detail)
+      if (!snapshot) return
 
-    if (snapshot.mode === "upsert") {
-      await upsertSessionLiveActivity({
+      if (snapshot.mode === "upsert") {
+        await upsertSessionLiveActivity({
+          sessionID,
+          title: snapshot.title,
+          subtitle: snapshot.subtitle,
+          countdownTo: snapshot.countdownTo,
+        })
+        return
+      }
+
+      await stopSessionLiveActivity({
         sessionID,
         title: snapshot.title,
         subtitle: snapshot.subtitle,
-        countdownTo: snapshot.countdownTo,
       })
-      continue
-    }
-
-    await stopSessionLiveActivity({
-      sessionID,
-      title: snapshot.title,
-      subtitle: snapshot.subtitle,
-    })
-  }
+    }),
+  )
 }

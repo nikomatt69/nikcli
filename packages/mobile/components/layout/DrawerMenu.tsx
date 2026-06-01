@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { RefreshCw, Square, X } from "lucide-react-native"
 import { StatusPill } from "@/components/layout/StatusPill"
 import { APP_TABS, getCurrentProjectLabel, getGitHubStatusLabel } from "@/components/layout/navigation.config"
-import { useServer } from "@/lib/server-provider"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
+import { useServer } from "@/lib/server-context"
 
 type DrawerMenuProps = {
   routeName: string
@@ -21,8 +21,12 @@ export function DrawerMenu({ routeName }: DrawerMenuProps) {
   const { palette, isDark } = useAppTheme()
   const open = useUIStore((state) => state.drawerOpen)
   const closeDrawer = useUIStore((state) => state.closeDrawer)
-  const translateX = useRef(new Animated.Value(360)).current
-  const overlay = useRef(new Animated.Value(0)).current
+  const translateXRef = useRef<Animated.Value | null>(null)
+  if (translateXRef.current === null) translateXRef.current = new Animated.Value(360)
+  const translateX = translateXRef.current
+  const overlayRef = useRef<Animated.Value | null>(null)
+  if (overlayRef.current === null) overlayRef.current = new Animated.Value(0)
+  const overlay = overlayRef.current
 
   useEffect(() => {
     if (!open) return

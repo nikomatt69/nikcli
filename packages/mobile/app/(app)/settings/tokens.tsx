@@ -6,7 +6,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { relativeTime, type MobileAuthToken } from "@/lib/types"
 
 export default function TokensSettingsScreen() {
@@ -18,6 +18,11 @@ export default function TokensSettingsScreen() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [now, setNow] = useState(0)
+
+  useEffect(() => {
+    setNow(Date.now())
+  }, [])
 
   const load = useCallback(async () => {
     if (!client) return
@@ -153,15 +158,15 @@ export default function TokensSettingsScreen() {
           <View className="gap-3">
             {tokens.length ? (
               tokens.map((token) => (
-                <View key={token.id} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                <View key={token.id} className="rounded-[8px] border border-border bg-background/60 p-4">
                   <View className="flex-row flex-wrap gap-2">
                     {token.name ? <InfoChip label={token.name} tone="accent" /> : null}
                     <InfoChip label={`Created ${relativeTime(token.createdAt)}`} />
                     {token.lastUsedAt ? <InfoChip label={`Used ${relativeTime(token.lastUsedAt)}`} /> : null}
                     {token.expiresAt ? (
                       <InfoChip
-                        label={token.expiresAt > Date.now() ? `Expires ${relativeTime(token.expiresAt)}` : "Expired"}
-                        tone={token.expiresAt > Date.now() ? "neutral" : "warn"}
+                        label={token.expiresAt > now ? `Expires ${relativeTime(token.expiresAt)}` : "Expired"}
+                        tone={token.expiresAt > now ? "neutral" : "warn"}
                       />
                     ) : (
                       <InfoChip label="No expiry" tone="neutral" />
@@ -181,7 +186,7 @@ export default function TokensSettingsScreen() {
                 </View>
               ))
             ) : (
-              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 p-4">
                 <Text className="text-sm leading-6 text-soft">No active tokens. Create one above.</Text>
               </View>
             )}

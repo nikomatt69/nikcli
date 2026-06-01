@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import {
   Animated,
-  Dimensions,
   Modal,
   Platform,
   Pressable,
@@ -10,6 +9,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native"
 import * as DocumentPicker from "expo-document-picker"
 import * as FileSystem from "expo-file-system"
@@ -18,8 +18,6 @@ import { Camera, ChevronRight, FileText, FolderOpen, Image, Search, X } from "lu
 import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window")
 
 export type AttachmentPickerSheetProps = {
   visible: boolean
@@ -63,10 +61,17 @@ const ATTACHMENT_ITEMS: AttachmentItemDef[] = [
 
 export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPickerSheetProps) {
   const { palette, isDark } = useAppTheme()
+  const { width: SCREEN_WIDTH } = useWindowDimensions()
   const [searchQuery, setSearchQuery] = useState("")
-  const slideAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const cardScaleAnim = useRef(new Animated.Value(0.92)).current
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const cardScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (cardScaleAnimRef.current === null) cardScaleAnimRef.current = new Animated.Value(0.92)
+  const cardScaleAnim = cardScaleAnimRef.current
 
   useEffect(() => {
     if (visible) {
@@ -312,7 +317,9 @@ export function AttachmentPickerSheet({ visible, onClose, onFile }: AttachmentPi
 
 function CloseButton({ onPress }: { onPress: () => void }) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -363,8 +370,12 @@ function AnimatedItemCard({
   isDark: boolean
   palette: { accentLight: string; ink: string; soft: string; accent: string }
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
-  const borderGlowAnim = useRef(new Animated.Value(0)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
+  const borderGlowAnimRef = useRef<Animated.Value | null>(null)
+  if (borderGlowAnimRef.current === null) borderGlowAnimRef.current = new Animated.Value(0)
+  const borderGlowAnim = borderGlowAnimRef.current
 
   const handlePressIn = () => {
     Animated.parallel([

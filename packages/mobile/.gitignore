@@ -4,3 +4,36 @@
 
 expo-env.d.ts
 # @end expo-cli
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+
+# Native
+ios/
+android/
+ios/Pods/
+android/.gradle/
+android/build/
+android/app/build/
+*.xcworkspace
+*.xcuserstate
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Node
+node_modules/
+npm-debug.*
+*.log
+
+# Misc
+.DS_Store
+.env*.local
+.idea
+.vscode/
+.turbo

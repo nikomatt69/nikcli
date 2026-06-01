@@ -7,7 +7,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { type HostConfigSnapshot, type HostMcpConfig, type HostMcpStatus } from "@/lib/types"
 
 function optionChipClass(active: boolean) {
@@ -210,14 +210,14 @@ export default function McpSettingsScreen() {
           <View className="flex-row gap-2">
             <Pressable
               onPress={() => setMcpType("remote")}
-              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "remote")}`}
+              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "remote")}`}
             >
               <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "remote")}`}>Remote</Text>
               <Text className="mt-1 text-xs leading-5 text-soft">URL-based MCP endpoint</Text>
             </Pressable>
             <Pressable
               onPress={() => setMcpType("local")}
-              className={`min-w-0 flex-1 rounded-[18px] border px-3 py-3 ${optionChipClass(mcpType === "local")}`}
+              className={`min-w-0 flex-1 rounded-[18px] border p-3 ${optionChipClass(mcpType === "local")}`}
             >
               <Text className={`text-sm font-semibold ${optionChipTextClass(mcpType === "local")}`}>Local</Text>
               <Text className="mt-1 text-xs leading-5 text-soft">Host command launched by Nikcli</Text>
@@ -260,7 +260,7 @@ export default function McpSettingsScreen() {
                 const status = mcpStatus[name]
                 const enabled = entry.enabled !== false
                 return (
-                  <View key={name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View key={name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap items-center gap-2">
                       <Text className="text-base font-semibold text-ink">{name}</Text>
                       <InfoChip label={entry.type} tone="accent" />
@@ -313,7 +313,7 @@ export default function McpSettingsScreen() {
                 )
               })
             ) : (
-              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 p-4">
                 <Text className="text-sm leading-6 text-soft">No MCP servers configured on this host yet.</Text>
               </View>
             )}

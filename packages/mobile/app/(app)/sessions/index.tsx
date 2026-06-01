@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FlatList, RefreshControl, View, useWindowDimensions } from "react-native"
 import { router, useRootNavigationState } from "expo-router"
 import { SessionListItem } from "@/components/SessionListItem"
-import { SessionListSkeleton } from "@/components/Skeleton"
+import { SessionListSkeleton } from "@/components/SessionListSkeleton"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import { MOBILE_DEFAULT_MODEL_ID, MOBILE_DEFAULT_PROVIDER_ID, type SessionSummary } from "@/lib/types"
 
@@ -80,6 +80,11 @@ export default function SessionsScreen() {
     // Use ref to avoid search being in deps (first effect handles search debounce)
     void load(searchRef.current)
   }, [config, loading, load, rootNavigationState?.key])
+
+  const refreshControlElement = useMemo(
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />,
+    [refreshing, load, palette.accent],
+  )
 
   async function createSession() {
     if (!client || creating) return
@@ -166,9 +171,7 @@ export default function SessionsScreen() {
         contentInsetAdjustmentBehavior="automatic"
         data={sessions}
         keyExtractor={(item) => item.info.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
-        }
+        refreshControl={refreshControlElement}
         ItemSeparatorComponent={() => <View className="h-3" />}
         renderItem={({ item, index }) => (
           <SessionListItem

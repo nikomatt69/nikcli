@@ -1,5 +1,5 @@
 import { Animated, Easing, Pressable, Text, View, useWindowDimensions } from "react-native"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef } from "react"
 import { GitBranch, RefreshCw } from "lucide-react-native"
 import type { GitState } from "@/lib/types"
 import { useAppTheme } from "@/lib/theme"
@@ -19,14 +19,35 @@ const ENTRANCE_CONFIG = {
 
 export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: GitStatusBarProps) {
   const { palette, isDark } = useAppTheme()
-  const entranceAnim = useRef(new Animated.Value(0)).current
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const entranceAnimRef = useRef<Animated.Value | null>(null)
+  if (entranceAnimRef.current === null) entranceAnimRef.current = new Animated.Value(0)
+  const entranceAnim = entranceAnimRef.current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
   const pulseRefs = useRef<
     Map<string, { opacity: Animated.Value; scale: Animated.Value; loop: Animated.CompositeAnimation }>
   >(new Map())
-  const statusTransitionAnim = useRef(new Animated.Value(1)).current
-  const refreshScaleAnim = useRef(new Animated.Value(1)).current
-  const [pulseKeys, setPulseKeys] = useState<Set<string>>(new Set())
+  const statusTransitionAnimRef = useRef<Animated.Value | null>(null)
+  if (statusTransitionAnimRef.current === null) statusTransitionAnimRef.current = new Animated.Value(1)
+  const statusTransitionAnim = statusTransitionAnimRef.current
+  const refreshScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (refreshScaleAnimRef.current === null) refreshScaleAnimRef.current = new Animated.Value(1)
+  const refreshScaleAnim = refreshScaleAnimRef.current
+
+  // Derive the active pulse keys from gitState instead of mirroring it in
+  // useState. The "previous value" we need for change detection lives in a
+  // ref, so no setState is triggered by the gitState prop change.
+  const pulseKeys = useMemo<Set<string>>(() => {
+    if (!gitState) return new Set()
+    const set = new Set<string>()
+    if (gitState.staged.length > 0) set.add("staged")
+    if (gitState.unstaged.length > 0) set.add("unstaged")
+    if (gitState.commitsAhead > 0) set.add("ahead")
+    return set
+  }, [gitState])
+
+  const previousPulseKeysRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     Animated.spring(entranceAnim, {
@@ -38,13 +59,8 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
 
   useEffect(() => {
     if (!gitState) return
-    const newPulseKeys = new Set<string>()
-    if (gitState.staged.length > 0) newPulseKeys.add("staged")
-    if (gitState.unstaged.length > 0) newPulseKeys.add("unstaged")
-    if (gitState.commitsAhead > 0) newPulseKeys.add("ahead")
-
-    const hasChanged =
-      ![...newPulseKeys].every((key) => pulseKeys.has(key)) || ![...pulseKeys].every((key) => newPulseKeys.has(key))
+    const prev = previousPulseKeysRef.current
+    const hasChanged = ![...pulseKeys].every((key) => prev.has(key)) || ![...prev].every((key) => pulseKeys.has(key))
 
     if (hasChanged) {
       Animated.sequence([
@@ -61,9 +77,9 @@ export function GitStatusBar({ gitState, loading = false, onPress, onRefresh }: 
           useNativeDriver: true,
         }),
       ]).start()
-      setPulseKeys(newPulseKeys)
+      previousPulseKeysRef.current = pulseKeys
     }
-  }, [gitState, pulseKeys, statusTransitionAnim])
+  }, [pulseKeys, gitState, statusTransitionAnim])
 
   useEffect(() => {
     pulseKeys.forEach((key) => {

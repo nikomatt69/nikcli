@@ -7,7 +7,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { type GitHubDeviceAuthStart, type HostConfigSnapshot } from "@/lib/types"
 
 function githubConnectorKey(snapshot: HostConfigSnapshot | null) {
@@ -114,6 +114,7 @@ export default function GithubSettingsScreen() {
   async function waitForApproval(flow: GitHubDeviceAuthStart, runID: number) {
     let interval = flow.interval
     while (Date.now() < flow.expiresAt && authRun.current === runID) {
+      if (authRun.current !== runID || !client) return
       await sleep(interval * 1000)
       if (authRun.current !== runID || !client) return
       const result = await client.pollGithubDeviceAuth(flow.deviceCode)
@@ -288,7 +289,7 @@ export default function GithubSettingsScreen() {
           </View>
 
           {!oauthConfigured ? (
-            <View className="rounded-[8px] border border-danger/30 bg-danger/10 px-4 py-4">
+            <View className="rounded-[8px] border border-danger/30 bg-danger/10 p-4">
               <Text className="text-sm leading-6 text-ink">
                 Save a GitHub OAuth client ID here or configure it on the host with `connectors.github.oauthClientId`,
                 `NIKCLI_GITHUB_OAUTH_CLIENT_ID`, or `GITHUB_CLIENT_ID_CONSOLE`.
@@ -297,14 +298,14 @@ export default function GithubSettingsScreen() {
           ) : null}
 
           {oauthFlow ? (
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-[11px] font-semibold uppercase tracking-[1.8px] text-accent-light">
                 Authorization in progress
               </Text>
               <Text className="mt-2 text-sm leading-6 text-soft">
                 Enter this code in GitHub if the browser page asks for it.
               </Text>
-              <View className="mt-3 rounded-2xl border border-accent/20 bg-accent/10 px-4 py-4">
+              <View className="mt-3 rounded-2xl border border-accent/20 bg-accent/10 p-4">
                 <Text className="text-center text-[28px] font-semibold tracking-[6px] text-ink">
                   {oauthFlow.userCode}
                 </Text>

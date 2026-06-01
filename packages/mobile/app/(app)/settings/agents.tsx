@@ -5,7 +5,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { type AgentInfo } from "@/lib/types"
 
 export default function AgentsSettingsScreen() {
@@ -94,7 +94,7 @@ export default function AgentsSettingsScreen() {
               placeholder="Search agents, tools, descriptions"
             />
             {loading ? (
-              <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+              <View className="rounded-[8px] border border-border bg-background/60 p-4">
                 <Text className="text-sm leading-6 text-soft">Loading agents…</Text>
               </View>
             ) : (
@@ -102,8 +102,8 @@ export default function AgentsSettingsScreen() {
                 {visibleAgents.length ? (
                   visibleAgents.map((agent, index) => (
                     <View
-                      key={`${agent.id || agent.name}:${index}`}
-                      className="rounded-[8px] border border-border bg-background/60 px-4 py-4"
+                      key={agent.id || agent.name}
+                      className="rounded-[8px] border border-border bg-background/60 p-4"
                     >
                       <View className="flex-row flex-wrap items-center gap-2">
                         <Text className="text-base font-semibold text-ink">{agent.name}</Text>
@@ -125,7 +125,7 @@ export default function AgentsSettingsScreen() {
                     </View>
                   ))
                 ) : (
-                  <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View className="rounded-[8px] border border-border bg-background/60 p-4">
                     <Text className="text-sm leading-6 text-soft">
                       No agents matched this search or the host has not registered any agents yet.
                     </Text>

@@ -8,6 +8,39 @@ import { triggerHaptic } from "@/lib/haptics"
 import type { ChatMessage, ChatMessageStatus } from "@/lib/chat-types"
 import { cn } from "@/lib/cn"
 
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+}
+
+function formatDate(ts: number): string {
+  const date = new Date(ts)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  if (date.toDateString() === today.toDateString()) return "Today"
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday"
+  return date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" })
+}
+
+function formatDuration(seconds?: number): string {
+  if (!seconds) return "0:00"
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
+const STATUS_ICON_MAP: Record<ChatMessageStatus, LucideIcon> = {
+  sending: Clock,
+  sent: Check,
+  delivered: Check,
+  read: CheckCheck,
+  failed: AlertCircle,
+}
+
+const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🎉"]
+
 interface ChatBubbleProps {
   message: ChatMessage
   isOwn: boolean
@@ -62,20 +95,7 @@ export function ChatBubble({
   const bubbleBg = isOwn ? chat.userBubbleBg : chat.receivedBubbleBg
   const textColor = isOwn ? chat.userBubbleText : chat.receivedBubbleText
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
-
-  const StatusIcon: Record<ChatMessageStatus, LucideIcon> = {
-    sending: Clock,
-    sent: Check,
-    delivered: Check,
-    read: CheckCheck,
-    failed: AlertCircle,
-  }
-
-  const StatusIconComponent = StatusIcon[message.status]
+  const StatusIconComponent = STATUS_ICON_MAP[message.status]
   const statusColor = message.status === "read" ? chat.readReceiptRead : chat.readReceiptSent
 
   // iMessage-style grouped corner: connecting side is less rounded when grouped
@@ -185,7 +205,7 @@ export function ChatBubble({
 
 export function QuickReactionPicker({ onSelect }: { onSelect: (emoji: string) => void }) {
   const { isDark } = useAppTheme()
-  const reactions = ["👍", "❤️", "😂", "😮", "😢", "🎉"]
+  const reactions = QUICK_REACTIONS
 
   return (
     <View
@@ -224,17 +244,6 @@ export function QuickReactionPicker({ onSelect }: { onSelect: (emoji: string) =>
 
 export function DateSeparator({ timestamp }: { timestamp: number }) {
   const { palette, isDark } = useAppTheme()
-
-  const formatDate = (ts: number) => {
-    const date = new Date(ts)
-    const today = new Date()
-    const yesterday = new Date(today)
-    yesterday.setDate(yesterday.getDate() - 1)
-
-    if (date.toDateString() === today.toDateString()) return "Today"
-    if (date.toDateString() === yesterday.toDateString()) return "Yesterday"
-    return date.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" })
-  }
 
   return (
     <View className="my-5 items-center">
@@ -286,13 +295,6 @@ export function VoiceMessageBubble({
   )
   const progress = 0.6
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return "0:00"
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
-
   return (
     <View className={cn("mb-0.5", isOwn ? "items-end" : "items-start")}>
       <Pressable
@@ -320,7 +322,7 @@ export function VoiceMessageBubble({
           <View className="h-10 flex-1 flex-row items-center gap-[3px]">
             {waveform.map((value, i) => (
               <View
-                key={i}
+                key={value}
                 style={{
                   width: 3,
                   height: `${value * 100}%`,

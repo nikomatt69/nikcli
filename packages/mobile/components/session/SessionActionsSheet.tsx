@@ -27,7 +27,9 @@ type RowProps = {
 
 function SheetRow({ Icon, label, description, onPress, tone = "accent" }: RowProps) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

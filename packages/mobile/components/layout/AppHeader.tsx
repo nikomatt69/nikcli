@@ -5,10 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { DrawerMenu } from "@/components/layout/DrawerMenu"
 import { StatusPill } from "@/components/layout/StatusPill"
 import { getCurrentProjectLabel, getCurrentTab, getGitHubStatusLabel } from "@/components/layout/navigation.config"
-import { useServer } from "@/lib/server-provider"
 import { useUIStore } from "@/lib/store"
 import { useAppTheme } from "@/lib/theme"
 import { router } from "expo-router"
+import { useServer } from "@/lib/server-context"
 
 type AppHeaderProps = {
   routeName: string

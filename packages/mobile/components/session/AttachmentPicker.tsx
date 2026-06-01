@@ -23,7 +23,9 @@ type RowProps = {
 
 function PickerRow({ Icon, label, description, onPress }: RowProps) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -57,7 +59,7 @@ function PickerRow({ Icon, label, description, onPress }: RowProps) {
       onPressOut={handlePressOut}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
-      <Animated.View style={[{ transform: [{ scale: scaleAnim }] }]}>
+      <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
         <View className="flex-row items-center gap-3.5 px-5 py-4">
           <View
             className="shrink-0 items-center justify-center rounded-[14px]"

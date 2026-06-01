@@ -40,6 +40,11 @@ export function useSessionStream(input: {
     onErrorRef.current = input.onError
   }, [input.onError])
 
+  // react-native-sse's EventSource does not expose a per-listener
+  // removeEventListener; removeAllEventListeners() drops every
+  // subscription registered below, and es.close() shuts the stream
+  // down. The linter doesn't recognise this two-step teardown.
+  // oxlint-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
     if (!input.enabled || !input.config || !input.sessionID) return
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { FlatList, RefreshControl, View } from "react-native"
 import { Link, router, type Href } from "expo-router"
 import { ActionButton } from "@/components/ui/ActionButton"
@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import type { Routine } from "@/lib/types"
 import { relativeTime } from "@/lib/types"
@@ -71,6 +71,11 @@ export default function RoutinesScreen() {
     void load()
   }, [load])
 
+  const refreshControlElement = useMemo(
+    () => <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />,
+    [refreshing, load, palette.accent],
+  )
+
   async function runRoutine(id: string) {
     if (!client || runningID) return
     try {
@@ -121,9 +126,7 @@ export default function RoutinesScreen() {
         contentInsetAdjustmentBehavior="automatic"
         data={routines}
         keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void load()} tintColor={palette.accent} />
-        }
+        refreshControl={refreshControlElement}
         ItemSeparatorComponent={() => <View className="h-3" />}
         renderItem={({ item }) => <RoutineRow item={item} onRun={runRoutine} running={runningID === item.id} />}
         ListHeaderComponent={hero}

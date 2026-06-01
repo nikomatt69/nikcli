@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native"
+import { useServer, userLogin, userRegister, userStatus } from "@/lib/server-context"
 import { router } from "expo-router"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
 import { Mail } from "lucide-react-native"
@@ -19,7 +20,6 @@ import { ActionButton } from "@/components/ui/ActionButton"
 import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer, userLogin, userRegister, userStatus } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import { getRememberedUser, setRememberedUser, clearRememberedUser, type RememberedUser } from "@/lib/storage"
 import { triggerHaptic } from "@/lib/haptics"
@@ -63,8 +63,12 @@ function AnimatedFormCard({
 }
 
 function SuccessCheckmark({ visible }: { visible: boolean }) {
-  const scale = useRef(new Animated.Value(0)).current
-  const opacity = useRef(new Animated.Value(0)).current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(0)
+  const scale = scaleRef.current
+  const opacityRef = useRef<Animated.Value | null>(null)
+  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
+  const opacity = opacityRef.current
 
   useEffect(() => {
     if (visible) {
@@ -131,11 +135,21 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
 
-  const logoScale = useRef(new Animated.Value(0)).current
-  const logoOpacity = useRef(new Animated.Value(0)).current
-  const formTranslateY = useRef(new Animated.Value(30)).current
-  const formOpacity = useRef(new Animated.Value(0)).current
-  const shakeAnim = useRef(new Animated.Value(0)).current
+  const logoScaleRef = useRef<Animated.Value | null>(null)
+  if (logoScaleRef.current === null) logoScaleRef.current = new Animated.Value(0)
+  const logoScale = logoScaleRef.current
+  const logoOpacityRef = useRef<Animated.Value | null>(null)
+  if (logoOpacityRef.current === null) logoOpacityRef.current = new Animated.Value(0)
+  const logoOpacity = logoOpacityRef.current
+  const formTranslateYRef = useRef<Animated.Value | null>(null)
+  if (formTranslateYRef.current === null) formTranslateYRef.current = new Animated.Value(30)
+  const formTranslateY = formTranslateYRef.current
+  const formOpacityRef = useRef<Animated.Value | null>(null)
+  if (formOpacityRef.current === null) formOpacityRef.current = new Animated.Value(0)
+  const formOpacity = formOpacityRef.current
+  const shakeAnimRef = useRef<Animated.Value | null>(null)
+  if (shakeAnimRef.current === null) shakeAnimRef.current = new Animated.Value(0)
+  const shakeAnim = shakeAnimRef.current
 
   useEffect(() => {
     if (!checkingStatus) {

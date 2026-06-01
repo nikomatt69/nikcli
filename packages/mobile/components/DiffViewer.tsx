@@ -98,7 +98,7 @@ export function DiffViewer(props: { diffs: FileDiff[] }) {
                   <View style={{ gap: 1 }}>
                     {renderLines(diff.before, diff.after).map((line, index) => (
                       <Text
-                        key={`${diff.file}-${index}`}
+                        key={line.text}
                         selectable
                         selectionColor={palette.accent}
                         className={`font-mono text-xs leading-5 ${line.kind === "add" ? "text-emerald-300" : line.kind === "remove" ? "text-rose-300" : "text-muted"}`}

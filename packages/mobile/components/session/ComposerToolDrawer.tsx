@@ -54,13 +54,18 @@ const styles = StyleSheet.create({
   },
 })
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window")
-
 // Animation constants
 const SPRING_CONFIG = { damping: 20, stiffness: 260, mass: 0.8 }
 const SPRING_CONFIG_FAST = { damping: 22, stiffness: 300, mass: 0.7 }
 
 export type ComposerTab = "tools" | "skills" | "mcp" | "model"
+
+// Stable empty defaults so memo() on child components sees the same
+// reference across renders and doesn't redraw.
+const EMPTY_AVAILABLE_MODELS: NonNullable<ComposerToolDrawerProps["availableModels"]> = []
+const EMPTY_MCP_SERVERS: NonNullable<ComposerToolDrawerProps["mcpServers"]> = []
+const EMPTY_SKILLS: NonNullable<ComposerToolDrawerProps["skills"]> = []
+const EMPTY_TOOLS: NonNullable<ComposerToolDrawerProps["tools"]> = []
 
 export type ComposerToolDrawerProps = {
   visible: boolean
@@ -132,18 +137,18 @@ export function ComposerToolDrawer({
   activeTab,
   onTabChange,
   modelLabel,
-  availableModels = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
-  mcpServers = [],
+  mcpServers = EMPTY_MCP_SERVERS,
   onMcpToggle,
   onMcpManage,
-  skills = [],
+  skills = EMPTY_SKILLS,
   onSkillSelect,
   onSkillsManage,
   onAttachFile,
   onAttachImage,
   onAttachCamera,
-  tools = [],
+  tools = EMPTY_TOOLS,
   onToolToggle,
   onToolsManage,
   gitState,
@@ -154,10 +159,16 @@ export function ComposerToolDrawer({
   onGitRefresh,
 }: ComposerToolDrawerProps) {
   const { colorScheme, palette, isDark } = useAppTheme()
-  const { height } = useWindowDimensions()
-  const slideAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const contentScaleAnim = useRef(new Animated.Value(0.94)).current
+  const { height: SCREEN_HEIGHT, height } = useWindowDimensions()
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const contentScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (contentScaleAnimRef.current === null) contentScaleAnimRef.current = new Animated.Value(0.94)
+  const contentScaleAnim = contentScaleAnimRef.current
 
   useEffect(() => {
     const animation = visible
@@ -394,16 +405,14 @@ function AttachContent({
           })}
         >
           <View
-            style={[
-              {
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
-              },
-            ]}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 14,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.09)",
+            }}
           >
             <row.Icon size={20} color={palette.accentLight} strokeWidth={2} />
           </View>
@@ -431,8 +440,12 @@ function AnimatedTabButton({
   palette: { accent: string; muted: string; accentLight: string }
   isDark: boolean
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
-  const glowAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
+  const glowAnimRef = useRef<Animated.Value | null>(null)
+  if (glowAnimRef.current === null) glowAnimRef.current = new Animated.Value(isActive ? 1 : 0)
+  const glowAnim = glowAnimRef.current
 
   useEffect(() => {
     Animated.spring(glowAnim, {
@@ -472,20 +485,18 @@ function AnimatedTabButton({
   return (
     <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
       <Animated.View
-        style={[
-          {
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderRadius: 16,
-            transform: [{ scale: scaleAnim }],
-            borderColor,
-            borderWidth: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }),
-            backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
-          },
-        ]}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: 16,
+          transform: [{ scale: scaleAnim }],
+          borderColor,
+          borderWidth: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }),
+          backgroundColor: isActive ? palette.accent : isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+        }}
       >
         {children}
       </Animated.View>
@@ -505,7 +516,9 @@ function AnimatedItemCard({
   index?: number
   borderBottom: boolean
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -595,8 +608,12 @@ function AnimatedToggleSwitch({
   onValueChange: (val: boolean) => void
   palette: { accent: string; border: string }
 }) {
-  const toggleAnim = useRef(new Animated.Value(value ? 1 : 0)).current
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const toggleAnimRef = useRef<Animated.Value | null>(null)
+  if (toggleAnimRef.current === null) toggleAnimRef.current = new Animated.Value(value ? 1 : 0)
+  const toggleAnim = toggleAnimRef.current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   useEffect(() => {
     Animated.spring(toggleAnim, {
@@ -675,7 +692,7 @@ function AnimatedToggleSwitch({
 
 function ModelContent({
   modelLabel,
-  availableModels = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
 }: {
   modelLabel?: string
@@ -763,7 +780,7 @@ function ModelContent({
 }
 
 function McpContent({
-  servers = [],
+  servers = EMPTY_MCP_SERVERS,
   onMcpToggle,
   onMcpManage,
 }: {
@@ -855,7 +872,7 @@ function McpContent({
 }
 
 function SkillsContent({
-  skills = [],
+  skills = EMPTY_SKILLS,
   onSkillSelect,
   onSkillsManage,
 }: {
@@ -876,19 +893,17 @@ function SkillsContent({
     <View style={{ flex: 1 }}>
       <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
         <View
-          style={[
-            {
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 14,
-              borderWidth: 1,
-              backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
-              borderColor: palette.border,
-            },
-          ]}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 14,
+            borderWidth: 1,
+            backgroundColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+            borderColor: palette.border,
+          }}
         >
           <Search size={14} color={palette.muted} strokeWidth={2} />
           <View style={{ flex: 1 }}>
@@ -916,16 +931,14 @@ function SkillsContent({
               borderBottom={i < filtered.length - 1}
             >
               <View
-                style={[
-                  {
-                    width: 34,
-                    height: 34,
-                    borderRadius: 10,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
-                  },
-                ]}
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(14,165,233,0.08)",
+                }}
               >
                 <Sparkles size={15} color={palette.accentLight} strokeWidth={2.2} />
               </View>
@@ -1065,7 +1078,7 @@ function GitContent({
 }
 
 function ToolsContent({
-  tools = [],
+  tools = EMPTY_TOOLS,
   onToolToggle,
   onToolsManage,
 }: {
@@ -1188,7 +1201,9 @@ function AnimatedPressableText({
   onPress: () => void
   palette: { accentLight: string }
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {

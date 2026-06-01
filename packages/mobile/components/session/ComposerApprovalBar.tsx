@@ -189,7 +189,7 @@ function QuestionApprovalView(props: {
 
           return (
             <Pressable
-              key={optIdx}
+              key={option.label}
               onPress={() => onSelectAnswer(currentQuestion, optIdx, isMultiple)}
               style={({ pressed }) => ({
                 borderRadius: 10,
@@ -256,7 +256,7 @@ function QuestionApprovalView(props: {
         <View style={{ flexDirection: "row", gap: 16, marginTop: 8 }}>
           {questions.map((q, idx) => (
             <Pressable
-              key={idx}
+              key={q.question}
               onPress={() => setCurrentQuestion(idx)}
               style={{
                 width: 8,
@@ -284,8 +284,12 @@ function QuestionApprovalView(props: {
 export function ComposerApprovalBar(props: ApprovalBarProps) {
   const { palette, isDark } = useAppTheme()
   const [index, setIndex] = useState(0)
-  const slideAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
   const [selectedAnswers, setSelectedAnswers] = useState<number[]>([])
 
   const count = props.approvals.length

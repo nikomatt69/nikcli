@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useSafeAreaInsets } from "react-native-safe-area-context"
-import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native"
+import {
+  Animated,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native"
 import {
   Brain,
   ChevronRight,
@@ -21,7 +31,20 @@ import { AdaptiveBlur } from "@/components/GlassView"
 import { triggerHaptic } from "@/lib/haptics"
 import { useAppTheme } from "@/lib/theme"
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window")
+const TABS: TabConfig[] = [
+  { id: "attach", icon: Plus, label: "Attach" },
+  { id: "tools", icon: Terminal, label: "Tools" },
+  { id: "skills", icon: Sparkles, label: "Skills" },
+  { id: "mcp", icon: Puzzle, label: "MCP" },
+  { id: "model", icon: Code2, label: "Model" },
+]
+
+// Stable empty defaults so memo() on child components sees the same
+// reference across renders and doesn't redraw.
+const EMPTY_AVAILABLE_MODELS: NonNullable<ComposerToolbarProps["availableModels"]> = []
+const EMPTY_MCP_SERVERS: NonNullable<ComposerToolbarProps["mcpServers"]> = []
+const EMPTY_SKILLS: NonNullable<ComposerToolbarProps["skills"]> = []
+const EMPTY_TOOLS: NonNullable<ComposerToolbarProps["tools"]> = []
 
 export type ComposerToolbarTab = "attach" | "tools" | "skills" | "mcp" | "model" | "none"
 
@@ -45,14 +68,6 @@ type TabConfig = {
   label: string
 }
 
-const TABS: TabConfig[] = [
-  { id: "attach", icon: Plus, label: "Attach" },
-  { id: "tools", icon: Terminal, label: "Tools" },
-  { id: "skills", icon: Sparkles, label: "Skills" },
-  { id: "mcp", icon: Puzzle, label: "MCP" },
-  { id: "model", icon: Code2, label: "Model" },
-]
-
 export function ComposerToolbar({
   onAttach,
   onGitPress,
@@ -61,12 +76,13 @@ export function ComposerToolbar({
   onSkillSelect,
   onToolSelect,
   modelLabel,
-  availableModels = [],
-  mcpServers = [],
-  skills = [],
-  tools = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
+  mcpServers = EMPTY_MCP_SERVERS,
+  skills = EMPTY_SKILLS,
+  tools = EMPTY_TOOLS,
 }: ComposerToolbarProps) {
   const { palette, isDark } = useAppTheme()
+  const { height: SCREEN_HEIGHT } = useWindowDimensions()
   const [activeTab, setActiveTab] = useState<ComposerToolbarTab>("attach")
   const [drawerVisible, setDrawerVisible] = useState(false)
 
@@ -135,20 +151,27 @@ function ComposerDrawer({
   onClose,
   onTabChange,
   modelLabel,
-  availableModels = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
-  mcpServers = [],
+  mcpServers = EMPTY_MCP_SERVERS,
   onMcpToggle,
-  skills = [],
+  skills = EMPTY_SKILLS,
   onSkillSelect,
-  tools = [],
+  tools = EMPTY_TOOLS,
   onToolSelect,
 }: ComposerDrawerProps) {
   const { palette, isDark } = useAppTheme()
   const insets = useSafeAreaInsets()
-  const slideAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const contentScaleAnim = useRef(new Animated.Value(0.94)).current
+  const { height: SCREEN_HEIGHT } = useWindowDimensions()
+  const slideAnimRef = useRef<Animated.Value | null>(null)
+  if (slideAnimRef.current === null) slideAnimRef.current = new Animated.Value(0)
+  const slideAnim = slideAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const contentScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (contentScaleAnimRef.current === null) contentScaleAnimRef.current = new Animated.Value(0.94)
+  const contentScaleAnim = contentScaleAnimRef.current
 
   useEffect(() => {
     if (visible) {
@@ -347,7 +370,7 @@ function ComposerDrawer({
 
 function ModelContent({
   modelLabel,
-  availableModels = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
   onModelSelect,
 }: {
   modelLabel?: string
@@ -434,7 +457,7 @@ function ModelContent({
 }
 
 function McpContent({
-  servers = [],
+  servers = EMPTY_MCP_SERVERS,
   onMcpToggle,
 }: {
   servers?: Array<{ name: string; connected: boolean; enabled: boolean }>
@@ -507,7 +530,7 @@ function McpContent({
 }
 
 function SkillsContent({
-  skills = [],
+  skills = EMPTY_SKILLS,
   onSkillSelect,
 }: {
   skills?: Array<{ name: string; description?: string }>
@@ -602,7 +625,7 @@ function SkillsContent({
 }
 
 function ToolsContent({
-  tools = [],
+  tools = EMPTY_TOOLS,
   onToolSelect,
 }: {
   tools?: Array<{ name: string; description?: string; enabled?: boolean }>
@@ -682,8 +705,12 @@ function AnimatedTabButton({
   onPress: () => void
   palette: { accent: string; muted: string; accentLight: string; panel: string; border: string }
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
-  const glowAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
+  const glowAnimRef = useRef<Animated.Value | null>(null)
+  if (glowAnimRef.current === null) glowAnimRef.current = new Animated.Value(isActive ? 1 : 0)
+  const glowAnim = glowAnimRef.current
 
   useEffect(() => {
     Animated.spring(glowAnim, {
@@ -752,7 +779,9 @@ function AnimatedListItem({
   index?: number
   borderBottom: boolean
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -805,7 +834,9 @@ function AnimatedSwitchRow({
   index?: number
   borderBottom: boolean
 }) {
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   return (
     <Animated.View
@@ -834,8 +865,12 @@ function AnimatedSwitch({
   onValueChange: (val: boolean) => void
   palette: { accent: string; border: string }
 }) {
-  const toggleAnim = useRef(new Animated.Value(value ? 1 : 0)).current
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const toggleAnimRef = useRef<Animated.Value | null>(null)
+  if (toggleAnimRef.current === null) toggleAnimRef.current = new Animated.Value(value ? 1 : 0)
+  const toggleAnim = toggleAnimRef.current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   useEffect(() => {
     Animated.spring(toggleAnim, {

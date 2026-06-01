@@ -39,9 +39,15 @@ type CommandPaletteSheetProps = {
 export function CommandPaletteSheet(props: CommandPaletteSheetProps) {
   const { colorScheme, palette, isDark } = useAppTheme()
   const { height } = useWindowDimensions()
-  const scaleAnim = useRef(new Animated.Value(0)).current
-  const opacityAnim = useRef(new Animated.Value(0)).current
-  const itemScales = useRef(new Map<string, Animated.Value>()).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(0)
+  const scaleAnim = scaleAnimRef.current
+  const opacityAnimRef = useRef<Animated.Value | null>(null)
+  if (opacityAnimRef.current === null) opacityAnimRef.current = new Animated.Value(0)
+  const opacityAnim = opacityAnimRef.current
+  const itemScalesRef = useRef<Map<string, Animated.Value> | null>(null)
+  if (itemScalesRef.current === null) itemScalesRef.current = new Map<string, Animated.Value>()
+  const itemScales = itemScalesRef.current
 
   useEffect(() => {
     if (props.visible) {

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from "react"
+import { useEffect, useMemo, useState, type PropsWithChildren } from "react"
 import {
   clearServerConfig,
   getServerConfig,
@@ -7,89 +7,9 @@ import {
   setUserToken,
   clearUserToken,
 } from "@/lib/storage"
-import { buildMobileUrl, MobileClient, parseMobileResponse } from "@/lib/client"
+import { MobileClient } from "@/lib/client"
 import type { MobileBootstrap, ServerConfig } from "@/lib/types"
-
-export type UserProfile = {
-  id: string
-  username: string
-  email: string
-  display_name: string | null
-  role: "admin" | "user"
-  created_at: number
-  updated_at: number
-}
-
-async function userFetch<T>(serverUrl: string, path: string, options?: RequestInit & { token?: string }): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (options?.token) headers["Authorization"] = `Bearer ${options.token}`
-  const res = await fetch(buildMobileUrl({ url: serverUrl }, path), { ...options, headers })
-  return parseMobileResponse<T>(res, path)
-}
-
-export function userLogin(
-  serverUrl: string,
-  email: string,
-  password: string,
-): Promise<{ token: string; user: UserProfile }> {
-  return userFetch(serverUrl, "/user/login", { method: "POST", body: JSON.stringify({ email, password }) })
-}
-
-export function userRegister(
-  serverUrl: string,
-  data: { username: string; email: string; password: string; displayName?: string },
-  adminToken?: string,
-): Promise<{ token: string; user: UserProfile }> {
-  return userFetch(serverUrl, "/user/register", { method: "POST", body: JSON.stringify(data), token: adminToken })
-}
-
-export function userMe(serverUrl: string, token: string): Promise<UserProfile> {
-  return userFetch(serverUrl, "/user/me", { token })
-}
-
-export function userLogoutApi(serverUrl: string, token: string): Promise<{ ok: boolean }> {
-  return userFetch(serverUrl, "/user/logout", { method: "POST", token })
-}
-
-export function userStatus(serverUrl: string): Promise<{ hasUsers: boolean }> {
-  return userFetch(serverUrl, "/user/status")
-}
-
-export function userList(serverUrl: string, token: string): Promise<UserProfile[]> {
-  return userFetch(serverUrl, "/user/list", { token })
-}
-
-export function userUpdate(
-  serverUrl: string,
-  token: string,
-  id: string,
-  data: { displayName?: string; password?: string; role?: "admin" | "user" },
-): Promise<UserProfile> {
-  return userFetch(serverUrl, `/user/${id}`, { method: "PATCH", body: JSON.stringify(data), token })
-}
-
-export function userDelete(serverUrl: string, token: string, id: string): Promise<{ ok: boolean }> {
-  return userFetch(serverUrl, `/user/${id}`, { method: "DELETE", token })
-}
-
-type ServerContextValue = {
-  config: ServerConfig | null
-  loading: boolean
-  ready: boolean
-  client: MobileClient | null
-  bootstrap: MobileBootstrap | null
-  bootstrapLoading: boolean
-  currentUser: UserProfile | null
-  userToken: string | null
-  userLoading: boolean
-  refreshBootstrap(): Promise<MobileBootstrap | null>
-  save(config: ServerConfig): Promise<void>
-  clear(): Promise<void>
-  setUserSession(token: string, user: UserProfile): Promise<void>
-  signOut(): Promise<void>
-}
-
-const ServerContext = createContext<ServerContextValue | undefined>(undefined)
+import { ServerContext, type ServerContextValue, userLogoutApi, userMe, type UserProfile } from "@/lib/server-context"
 
 export function ServerProvider(props: PropsWithChildren) {
   const [config, setConfig] = useState<ServerConfig | null>(null)
@@ -188,7 +108,7 @@ export function ServerProvider(props: PropsWithChildren) {
           setBootstrapLoading(false)
         }
       },
-      async save(next) {
+      async save(next: ServerConfig) {
         await setServerConfig(next)
         setConfig(next)
       },
@@ -197,7 +117,7 @@ export function ServerProvider(props: PropsWithChildren) {
         setConfig(null)
         setBootstrap(null)
       },
-      async setUserSession(token, user) {
+      async setUserSession(token: string, user: UserProfile) {
         await setUserToken(token)
         setUserTokenState(token)
         setCurrentUser(user)
@@ -215,10 +135,4 @@ export function ServerProvider(props: PropsWithChildren) {
   )
 
   return <ServerContext.Provider value={value}>{props.children}</ServerContext.Provider>
-}
-
-export function useServer() {
-  const value = useContext(ServerContext)
-  if (!value) throw new Error("useServer must be used inside ServerProvider")
-  return value
 }

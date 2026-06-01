@@ -1,5 +1,5 @@
 import { Link } from "expo-router"
-import { Text, View } from "react-native"
+import { Pressable, Text, View } from "react-native"
 
 export default function NotFoundScreen() {
   return (
@@ -10,8 +10,10 @@ export default function NotFoundScreen() {
         <Text className="mt-3 text-sm leading-6 text-soft">
           This route is unavailable in the current mobile workspace. Return to the connection screen to continue.
         </Text>
-        <Link href="/" className="mt-5 text-sm font-semibold text-accent-light">
-          Back to connect
+        <Link href="/" asChild>
+          <Pressable className="mt-5 self-start">
+            <Text className="text-sm font-semibold text-accent-light">Back to connect</Text>
+          </Pressable>
         </Link>
       </View>
     </View>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ActivityIndicator,
   Alert,
@@ -30,7 +30,8 @@ import {
   UserCircle2,
   Users,
 } from "lucide-react-native"
-import { useServer, userDelete, userList, userUpdate, type UserProfile } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
+import { userDelete, userList, userUpdate, type UserProfile } from "@/lib/server-context"
 import { useAppTheme } from "@/lib/theme"
 import { ActionButton } from "@/components/ui/ActionButton"
 import { TextField } from "@/components/ui/TextField"
@@ -70,9 +71,15 @@ function useEntranceAnimation(count: number, startDelay = 0) {
 
 function AnimatedAvatar({ user, size = 80 }: { user: UserProfile; size?: number }) {
   const { palette, isDark } = useAppTheme()
-  const pulseAnim = useRef(new Animated.Value(1)).current
-  const glowAnim = useRef(new Animated.Value(0)).current
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const pulseAnimRef = useRef<Animated.Value | null>(null)
+  if (pulseAnimRef.current === null) pulseAnimRef.current = new Animated.Value(1)
+  const pulseAnim = pulseAnimRef.current
+  const glowAnimRef = useRef<Animated.Value | null>(null)
+  if (glowAnimRef.current === null) glowAnimRef.current = new Animated.Value(0)
+  const glowAnim = glowAnimRef.current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   useEffect(() => {
     const pulse = Animated.loop(
@@ -235,7 +242,9 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, trend, color, animation, index }: StatCardProps) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, { toValue: 0.97, ...SPRING_CONFIG, useNativeDriver: true }).start()
@@ -326,7 +335,9 @@ interface ProgressBarProps {
 
 function AnimatedProgressBar({ label, value, max = 100, color, animation, delay = 0 }: ProgressBarProps) {
   const { palette, isDark } = useAppTheme()
-  const progressAnim = useRef(new Animated.Value(0)).current
+  const progressAnimRef = useRef<Animated.Value | null>(null)
+  if (progressAnimRef.current === null) progressAnimRef.current = new Animated.Value(0)
+  const progressAnim = progressAnimRef.current
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -392,8 +403,12 @@ interface AchievementBadgeProps {
 
 function AchievementBadge({ icon, label, earned, animation, index }: AchievementBadgeProps) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(earned ? 1 : 0.8)).current
-  const rotateAnim = useRef(new Animated.Value(0)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(earned ? 1 : 0.8)
+  const scaleAnim = scaleAnimRef.current
+  const rotateAnimRef = useRef<Animated.Value | null>(null)
+  if (rotateAnimRef.current === null) rotateAnimRef.current = new Animated.Value(0)
+  const rotateAnim = rotateAnimRef.current
 
   useEffect(() => {
     if (earned) {
@@ -483,8 +498,12 @@ function AchievementBadge({ icon, label, earned, animation, index }: Achievement
 
 function PremiumSection({ children, animation }: { children: React.ReactNode; animation: Animated.Value }) {
   const { palette, isDark } = useAppTheme()
-  const shimmerAnim = useRef(new Animated.Value(0)).current
-  const shimmerOpacity = useRef(new Animated.Value(0.3)).current
+  const shimmerAnimRef = useRef<Animated.Value | null>(null)
+  if (shimmerAnimRef.current === null) shimmerAnimRef.current = new Animated.Value(0)
+  const shimmerAnim = shimmerAnimRef.current
+  const shimmerOpacityRef = useRef<Animated.Value | null>(null)
+  if (shimmerOpacityRef.current === null) shimmerOpacityRef.current = new Animated.Value(0.3)
+  const shimmerOpacity = shimmerOpacityRef.current
 
   useEffect(() => {
     const shimmer = Animated.loop(
@@ -817,6 +836,11 @@ export default function UserScreen() {
     ])
   }
 
+  const refreshControlElement = useMemo(
+    () => <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.accent} />,
+    [refreshing, handleRefresh, palette.accent],
+  )
+
   if (!currentUser) {
     return (
       <View
@@ -853,7 +877,7 @@ export default function UserScreen() {
     >
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={palette.accent} />}
+        refreshControl={refreshControlElement}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

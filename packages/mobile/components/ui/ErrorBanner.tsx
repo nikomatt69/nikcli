@@ -7,7 +7,7 @@ export function ErrorBanner(props: { message: string }) {
 
   return (
     <View
-      className="overflow-hidden rounded-[8px] border px-4 py-4"
+      className="overflow-hidden rounded-[8px] border p-4"
       style={{
         borderColor: isDark ? "rgba(251,113,133,0.24)" : "rgba(239,68,68,0.24)",
         backgroundColor: isDark ? "rgba(251,113,133,0.10)" : "rgba(239,68,68,0.08)",

@@ -21,7 +21,9 @@ export function ActionButton({
   ...props
 }: ActionButtonProps) {
   const { palette, isDark } = useAppTheme()
-  const scale = useRef(new Animated.Value(1)).current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
+  const scale = scaleRef.current
   const inactive = Boolean(disabled || loading)
 
   useEffect(() => {

@@ -35,7 +35,7 @@ export function LocalRepoCard(props: {
   return (
     <Pressable
       onPress={props.onSelect}
-      className="overflow-hidden rounded-[8px] border px-4 py-4"
+      className="overflow-hidden rounded-[8px] border p-4"
       style={{
         borderColor: props.selected
           ? isDark
@@ -88,7 +88,7 @@ export function GithubRepoCard(props: { repo: GitHubRepo }) {
 
   return (
     <View
-      className="overflow-hidden rounded-[8px] border px-4 py-4"
+      className="overflow-hidden rounded-[8px] border p-4"
       style={{
         borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(193,208,223,0.9)",
         backgroundColor: isDark ? "rgba(0,0,0,0.55)" : "rgba(241,246,251,0.65)",

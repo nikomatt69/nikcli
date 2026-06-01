@@ -5,7 +5,7 @@ import { ErrorBanner } from "@/components/ui/ErrorBanner"
 import { InfoChip } from "@/components/ui/InfoChip"
 import { SurfaceCard } from "@/components/ui/SurfaceCard"
 import { TextField } from "@/components/ui/TextField"
-import { useServer } from "@/lib/server-provider"
+import { useServer } from "@/lib/server-context"
 import { type SkillInfo } from "@/lib/types"
 
 export default function SkillsSettingsScreen() {
@@ -78,14 +78,14 @@ export default function SkillsSettingsScreen() {
             placeholder="Search skills, categories, tags"
           />
           {loading ? (
-            <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+            <View className="rounded-[8px] border border-border bg-background/60 p-4">
               <Text className="text-sm leading-6 text-soft">Loading skill registry…</Text>
             </View>
           ) : (
             <View className="gap-3">
               {visibleSkills.length ? (
                 visibleSkills.map((skill) => (
-                  <View key={skill.name} className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                  <View key={skill.name} className="rounded-[8px] border border-border bg-background/60 p-4">
                     <View className="flex-row flex-wrap gap-2">
                       <Text className="text-base font-semibold text-ink">{skill.name}</Text>
                       {skill.category ? <InfoChip label={skill.category} tone="accent" /> : null}
@@ -101,7 +101,7 @@ export default function SkillsSettingsScreen() {
                   </View>
                 ))
               ) : (
-                <View className="rounded-[8px] border border-border bg-background/60 px-4 py-4">
+                <View className="rounded-[8px] border border-border bg-background/60 p-4">
                   <Text className="text-sm leading-6 text-soft">
                     No skills matched this search or the host is not exposing any skill yet.
                   </Text>

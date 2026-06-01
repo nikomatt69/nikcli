@@ -86,12 +86,21 @@ const INPUT_MAX_ROWS = 6
 const INPUT_MIN_HEIGHT = INPUT_PADDING_TOP + INPUT_MIN_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 68
 const INPUT_MAX_HEIGHT = INPUT_PADDING_TOP + INPUT_MAX_ROWS * INPUT_LINE_HEIGHT + INPUT_PADDING_BOTTOM // 156
 
+// Stable empty defaults so memo() on child components sees the same
+// reference across renders and doesn't redraw.
+const EMPTY_SLASH_SUGGESTIONS: NonNullable<SessionComposerProps["slashSuggestions"]> = []
+const EMPTY_PENDING_ATTACHMENTS: NonNullable<SessionComposerProps["pendingAttachments"]> = []
+const EMPTY_AVAILABLE_MODELS: NonNullable<SessionComposerProps["availableModels"]> = []
+const EMPTY_SKILLS: NonNullable<SessionComposerProps["skills"]> = []
+const EMPTY_TOOLS: NonNullable<SessionComposerProps["tools"]> = []
+const EMPTY_MCP_SERVERS: NonNullable<SessionComposerProps["mcpServers"]> = []
+
 export function SessionComposer({
   mode,
   setMode,
   input,
   setInput,
-  slashSuggestions = [],
+  slashSuggestions = EMPTY_SLASH_SUGGESTIONS,
   slashLoading,
   sending,
   sessionBlocked,
@@ -102,14 +111,14 @@ export function SessionComposer({
   onAttach,
   onOpenGit,
   onStop,
-  pendingAttachments = [],
+  pendingAttachments = EMPTY_PENDING_ATTACHMENTS,
   onRemoveAttachment,
   modelLabel,
   activeMcpCount = 0,
-  availableModels = [],
-  skills = [],
-  tools = [],
-  mcpServers = [],
+  availableModels = EMPTY_AVAILABLE_MODELS,
+  skills = EMPTY_SKILLS,
+  tools = EMPTY_TOOLS,
+  mcpServers = EMPTY_MCP_SERVERS,
   onModelSelect,
   onSkillSelect,
   onToolToggle,
@@ -137,25 +146,39 @@ export function SessionComposer({
   // ── Animation values ──────────────────────────────────────────────────────
 
   // Focus: border glow (non-native — drives borderColor interpolation)
-  const focusAnim = useRef(new Animated.Value(0)).current
+  const focusAnimRef = useRef<Animated.Value | null>(null)
+  if (focusAnimRef.current === null) focusAnimRef.current = new Animated.Value(0)
+  const focusAnim = focusAnimRef.current
 
   // Send button: color transition (non-native)
-  const sendColorAnim = useRef(new Animated.Value(hasText && !sendBlocked ? 1 : 0)).current
+  const sendColorAnimRef = useRef<Animated.Value | null>(null)
+  if (sendColorAnimRef.current === null) sendColorAnimRef.current = new Animated.Value(hasText && !sendBlocked ? 1 : 0)
+  const sendColorAnim = sendColorAnimRef.current
 
   // Send button: scale spring pop (native)
-  const sendScaleAnim = useRef(new Animated.Value(1)).current
+  const sendScaleAnimRef = useRef<Animated.Value | null>(null)
+  if (sendScaleAnimRef.current === null) sendScaleAnimRef.current = new Animated.Value(1)
+  const sendScaleAnim = sendScaleAnimRef.current
 
   // Stop button: pulsing scale (native)
-  const stopPulse = useRef(new Animated.Value(1)).current
+  const stopPulseRef = useRef<Animated.Value | null>(null)
+  if (stopPulseRef.current === null) stopPulseRef.current = new Animated.Value(1)
+  const stopPulse = stopPulseRef.current
 
   // Mode segmented control: sliding pill (non-native for left position)
-  const modeAnim = useRef(new Animated.Value(mode === "code" ? 1 : 0)).current
+  const modeAnimRef = useRef<Animated.Value | null>(null)
+  if (modeAnimRef.current === null) modeAnimRef.current = new Animated.Value(mode === "code" ? 1 : 0)
+  const modeAnim = modeAnimRef.current
 
   // Slash panel: fade + slide (native)
-  const slashAnim = useRef(new Animated.Value(0)).current
+  const slashAnimRef = useRef<Animated.Value | null>(null)
+  if (slashAnimRef.current === null) slashAnimRef.current = new Animated.Value(0)
+  const slashAnim = slashAnimRef.current
 
   // Status banner: slide down (native)
-  const statusAnim = useRef(new Animated.Value(0)).current
+  const statusAnimRef = useRef<Animated.Value | null>(null)
+  if (statusAnimRef.current === null) statusAnimRef.current = new Animated.Value(0)
+  const statusAnim = statusAnimRef.current
 
   // ── Effects ───────────────────────────────────────────────────────────────
 

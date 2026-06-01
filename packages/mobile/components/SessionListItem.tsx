@@ -37,7 +37,9 @@ type SheetRowProps = {
 
 function SheetRow({ icon, label, description, onPress, tone = "accent" }: SheetRowProps) {
   const { palette, isDark } = useAppTheme()
-  const scaleAnim = useRef(new Animated.Value(1)).current
+  const scaleAnimRef = useRef<Animated.Value | null>(null)
+  if (scaleAnimRef.current === null) scaleAnimRef.current = new Animated.Value(1)
+  const scaleAnim = scaleAnimRef.current
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -224,9 +226,15 @@ export function SessionListItem(props: {
   const { palette, isDark } = useAppTheme()
   const status = props.item.status?.type ?? "idle"
   const summary = props.item.info.summary
-  const translateY = useRef(new Animated.Value(10)).current
-  const opacity = useRef(new Animated.Value(0)).current
-  const scale = useRef(new Animated.Value(1)).current
+  const translateYRef = useRef<Animated.Value | null>(null)
+  if (translateYRef.current === null) translateYRef.current = new Animated.Value(10)
+  const translateY = translateYRef.current
+  const opacityRef = useRef<Animated.Value | null>(null)
+  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
+  const opacity = opacityRef.current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
+  const scale = scaleRef.current
   const sheetRef = useRef<ActionSheetRef>(null)
   const badge = repoBadge(props.item)
   const containerBacked = Boolean(props.item.info.workspaceID)
@@ -303,7 +311,7 @@ export function SessionListItem(props: {
         delayLongPress={380}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
-        className="overflow-hidden rounded-[8px] border border-border bg-surface px-4 py-4"
+        className="overflow-hidden rounded-[8px] border border-border bg-surface p-4"
         style={{
           shadowColor: palette.shadow,
           shadowOpacity: isDark ? 0.24 : 0.14,
@@ -338,7 +346,7 @@ export function SessionListItem(props: {
             }}
           >
             <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: statusColors.dotColor }} />
-            <Text style={{ color: statusColors.textColor, fontSize: 10, fontWeight: "700", letterSpacing: 1.2 }}>
+            <Text style={{ color: statusColors.textColor, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 }}>
               {status.toUpperCase()}
             </Text>
           </View>
@@ -369,7 +377,7 @@ export function SessionListItem(props: {
               hitSlop={10}
               className="rounded-[8px] border border-border/70 bg-background/80 px-3 py-2"
             >
-              <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 2 }}>···</Text>
+              <Text style={{ fontSize: 13, color: palette.muted, letterSpacing: 0.4 }}>···</Text>
             </Pressable>
           </View>
         </View>

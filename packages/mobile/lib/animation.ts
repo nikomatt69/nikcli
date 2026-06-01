@@ -61,6 +61,10 @@ export const SPRING_MICRO = {
 export function usePrefersReducedMotion(): boolean {
   const [reduceMotion, setReduceMotion] = useState(false)
 
+  // AccessibilityInfo.addEventListener returns an EmitterSubscription
+  // whose only release handle is .remove() — the linter doesn't recognise
+  // this RN-specific pattern, but the resource IS released in cleanup.
+  // oxlint-disable-next-line react-doctor/effect-needs-cleanup
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
       .then((value) => setReduceMotion(Boolean(value)))
@@ -136,7 +140,9 @@ export function useItemAnimation(index: number, options?: ItemRevealOptions): An
   const respectReducedMotion = options?.respectReducedMotion ?? true
   const prefersReducedMotion = usePrefersReducedMotion()
   const reduce = respectReducedMotion && prefersReducedMotion
-  const anim = useRef(new Animated.Value(0)).current
+  const animRef = useRef<Animated.Value | null>(null)
+  if (animRef.current === null) animRef.current = new Animated.Value(0)
+  const anim = animRef.current
 
   useEffect(() => {
     if (reduce) {
@@ -156,7 +162,9 @@ export function useItemAnimation(index: number, options?: ItemRevealOptions): An
 }
 
 export function useShimmerAnimation(): Animated.Value {
-  const shimmer = useRef(new Animated.Value(0)).current
+  const shimmerRef = useRef<Animated.Value | null>(null)
+  if (shimmerRef.current === null) shimmerRef.current = new Animated.Value(0)
+  const shimmer = shimmerRef.current
   const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {
@@ -180,7 +188,9 @@ export function useShimmerAnimation(): Animated.Value {
 }
 
 export function usePressAnimation() {
-  const scale = useRef(new Animated.Value(1)).current
+  const scaleRef = useRef<Animated.Value | null>(null)
+  if (scaleRef.current === null) scaleRef.current = new Animated.Value(1)
+  const scale = scaleRef.current
 
   const onPressIn = () => {
     Animated.spring(scale, { toValue: 0.976, ...PRESS_SPRING }).start()
@@ -195,7 +205,9 @@ export function usePressAnimation() {
 
 /** Progress 0 ↔ 1 for purely transform-driven toggles (`useNativeDriver: true`). */
 export function useToggleAnimation(enabled: boolean): Animated.Value {
-  const progress = useRef(new Animated.Value(enabled ? 1 : 0)).current
+  const progressRef = useRef<Animated.Value | null>(null)
+  if (progressRef.current === null) progressRef.current = new Animated.Value(enabled ? 1 : 0)
+  const progress = progressRef.current
   const prefersReducedMotion = usePrefersReducedMotion()
 
   useEffect(() => {

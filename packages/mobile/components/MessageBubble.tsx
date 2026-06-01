@@ -40,25 +40,26 @@ function toolParts(parts: MessageWithParts["parts"]) {
   return parts.filter((part): part is ToolPart => part.type === "tool")
 }
 
-function renderPathPreview(files: string[]) {
-  return files.map((file, index) => (
-    <View
-      key={`${file}-${index}`}
-      className="overflow-hidden rounded-[12px] border border-border/70 bg-surface px-2.5 py-2"
-    >
-      <ScrollView
-        horizontal
-        nestedScrollEnabled
-        showsHorizontalScrollIndicator
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ alignSelf: "flex-start" }}
-      >
-        <Text selectable className="font-mono text-xs leading-5 text-soft">
-          {file || "Unknown file"}
-        </Text>
-      </ScrollView>
+function PathPreview({ files }: { files: string[] }) {
+  return (
+    <View className="min-w-0 gap-1">
+      {files.map((file) => (
+        <View key={file} className="overflow-hidden rounded-[12px] border border-border/70 bg-surface px-2.5 py-2">
+          <ScrollView
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator
+            style={{ flexGrow: 0 }}
+            contentContainerStyle={{ alignSelf: "flex-start" }}
+          >
+            <Text selectable className="font-mono text-xs leading-5 text-soft">
+              {file || "Unknown file"}
+            </Text>
+          </ScrollView>
+        </View>
+      ))}
     </View>
-  ))
+  )
 }
 
 function words(text: string) {
@@ -124,9 +125,9 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         style={{ backgroundColor: `${palette.codeBlockBackground}dd`, borderBottomColor: palette.border }}
       >
         <View className="flex-row items-center gap-2">
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#ff5f57" }} />
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#ffbd2e" }} />
-          <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: "#28c840" }} />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#ff5f57" }} />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#ffbd2e" }} />
+          <View className="size-2.5 rounded-full" style={{ backgroundColor: "#28c840" }} />
         </View>
         <Text className="text-[10px] font-bold uppercase tracking-wider" style={{ color: palette.accentLight }}>
           {language}
@@ -163,13 +164,13 @@ function ScrollableCodeBlock(props: { node: ASTNode; textStyle: any; backgroundC
         <View>
           {lineHighlights.map((lineHighlighted, lineIndex) => (
             <Text
-              key={`line-${lineIndex}`}
+              key={lineHighlighted.map((s) => s.text).join("")}
               selectable
               className="text-[11px] leading-[18px]"
               style={{ fontFamily: "Menlo" }}
             >
               {lineHighlighted.map((seg, i) => (
-                <Text key={`line-${lineIndex}-seg-${i}`} style={{ color: seg.color }}>
+                <Text key={`${seg.text}-${seg.color}`} style={{ color: seg.color }}>
                   {seg.text}
                 </Text>
               ))}
@@ -253,7 +254,9 @@ export function MessageBubble(props: {
   const { palette, isDark } = useAppTheme()
   const gestures = useUIStore((state) => state.gestures)
   const [showReasoning, setShowReasoning] = useState(false)
-  const reasoningRotation = useRef(new Animated.Value(0)).current
+  const reasoningRotationRef = useRef<Animated.Value | null>(null)
+  if (reasoningRotationRef.current === null) reasoningRotationRef.current = new Animated.Value(0)
+  const reasoningRotation = reasoningRotationRef.current
   const text = useMemo(() => latestText(props.message.parts), [props.message.parts])
   const reasoning = useMemo(() => reasoningParts(props.message.parts), [props.message.parts])
   const patch = patchPart(props.message.parts)
@@ -265,11 +268,7 @@ export function MessageBubble(props: {
   const cost = assistantInfo?.cost ?? 0
   const tokens = assistantInfo ? assistantInfo.tokens.input + assistantInfo.tokens.output : 0
   const reasoningText = useMemo(
-    () =>
-      reasoning
-        .map((part) => part.text.trim())
-        .filter(Boolean)
-        .join("\n\n"),
+    () => reasoning.flatMap((part) => (part.text.trim() ? [part.text.trim()] : [])).join("\n\n"),
     [reasoning],
   )
   const wordCount = reasoningText ? words(reasoningText) : 0
@@ -496,7 +495,7 @@ export function MessageBubble(props: {
 
           {reasoningVisible ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[8px] border border-border bg-background/55 px-3 py-3">
+              <View className="rounded-[8px] border border-border bg-background/55 p-3">
                 <Pressable
                   onPress={toggleReasoning}
                   accessibilityRole="button"
@@ -548,7 +547,7 @@ export function MessageBubble(props: {
 
           {patch ? (
             <View className="border-t border-border/80 px-3.5 py-3">
-              <View className="rounded-[8px] border border-border bg-background/55 px-3 py-3">
+              <View className="rounded-[8px] border border-border bg-background/55 p-3">
                 <View className="flex-row items-center justify-between gap-3">
                   <Text className="flex-1 text-sm font-semibold text-ink">Patch preview</Text>
                   {!props.diffLoaded ? (
@@ -564,7 +563,7 @@ export function MessageBubble(props: {
                   ) : null}
                 </View>
                 <ScrollView className="mt-2 max-h-28" nestedScrollEnabled style={{ flexGrow: 0 }}>
-                  <View className="min-w-0 gap-1">{renderPathPreview(patch.files)}</View>
+                  <PathPreview files={patch.files} />
                 </ScrollView>
                 {props.diffLoaded ? (
                   props.diffs?.length ? (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useServer } from "@/lib/server-context"
 import {
   ActivityIndicator,
   Animated,
@@ -13,7 +14,6 @@ import {
   View,
 } from "react-native"
 import { Clock, FileCode2, FolderSearch, Hash, Search, X } from "lucide-react-native"
-import { useServer } from "@/lib/server-provider"
 import { useAppTheme } from "@/lib/theme"
 import type { SearchMatch } from "@/lib/types"
 import { triggerHaptic } from "@/lib/haptics"
@@ -22,6 +22,12 @@ import { SPRING_CONFIG } from "@/lib/animation"
 import * as SecureStore from "expo-secure-store"
 
 const RECENT_SEARCHES_KEY = "file_search_recent"
+const METRICS_ROW_STYLE = {
+  flexDirection: "row" as const,
+  alignItems: "center" as const,
+  gap: 8,
+  flexWrap: "wrap" as const,
+}
 const MAX_RECENT_SEARCHES = 8
 
 type SearchResult = {
@@ -123,8 +129,12 @@ function Metric({ icon, label }: { icon: React.ReactNode; label: string }) {
 }
 
 function AnimatedResult({ index, children }: { index: number; children: React.ReactNode }) {
-  const opacity = useRef(new Animated.Value(0)).current
-  const translateY = useRef(new Animated.Value(8)).current
+  const opacityRef = useRef<Animated.Value | null>(null)
+  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
+  const opacity = opacityRef.current
+  const translateYRef = useRef<Animated.Value | null>(null)
+  if (translateYRef.current === null) translateYRef.current = new Animated.Value(8)
+  const translateY = translateYRef.current
 
   useEffect(() => {
     Animated.parallel([
@@ -134,6 +144,70 @@ function AnimatedResult({ index, children }: { index: number; children: React.Re
   }, [index, opacity, translateY])
 
   return <Animated.View style={{ opacity, transform: [{ translateY }] }}>{children}</Animated.View>
+}
+
+function SearchResultRow({
+  result,
+  index,
+  isDark,
+  palette,
+  onSelect,
+}: {
+  result: SearchResult
+  index: number
+  isDark: boolean
+  palette: ReturnType<typeof useAppTheme>["palette"]
+  onSelect: (file: string, line: number) => void
+}) {
+  const pressedBackground = isDark ? "rgba(255,255,255,0.06)" : "rgba(14,165,233,0.06)"
+  const iconBackground = isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.08)"
+  const borderColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)"
+  const rowStyle = useCallback(
+    ({ pressed }: { pressed: boolean }) => ({
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: pressed ? pressedBackground : "transparent",
+      transform: [{ scale: pressed ? 0.98 : 1 }],
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: borderColor,
+    }),
+    [pressedBackground, borderColor],
+  )
+  return (
+    <AnimatedResult index={index}>
+      <Pressable onPress={() => onSelect(result.file, result.line)} style={rowStyle}>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+          <View
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: iconBackground,
+            }}
+          >
+            <FileCode2 size={15} color={palette.accentLight} strokeWidth={2.1} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: palette.ink, fontWeight: "700" }}>
+                {fileName(result.file)}
+              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                <Hash size={10} color={palette.muted} strokeWidth={2.2} />
+                <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "700" }}>{result.line}</Text>
+              </View>
+            </View>
+            <Text numberOfLines={1} style={{ fontSize: 11, color: palette.muted }}>
+              {parentPath(result.file)}
+            </Text>
+            <HighlightedLine result={result} color={palette.soft} matchColor={palette.accentLight} />
+          </View>
+        </View>
+      </Pressable>
+    </AnimatedResult>
+  )
 }
 
 export function FileSearchSheet(props: {
@@ -153,9 +227,15 @@ export function FileSearchSheet(props: {
   const resultFileCount = new Set(results.map((result) => result.file)).size
 
   // ── Sheet entrance animation ──
-  const translateY = useRef(new Animated.Value(40)).current
-  const opacity = useRef(new Animated.Value(0)).current
-  const sheetScale = useRef(new Animated.Value(0.96)).current
+  const translateYRef = useRef<Animated.Value | null>(null)
+  if (translateYRef.current === null) translateYRef.current = new Animated.Value(40)
+  const translateY = translateYRef.current
+  const opacityRef = useRef<Animated.Value | null>(null)
+  if (opacityRef.current === null) opacityRef.current = new Animated.Value(0)
+  const opacity = opacityRef.current
+  const sheetScaleRef = useRef<Animated.Value | null>(null)
+  if (sheetScaleRef.current === null) sheetScaleRef.current = new Animated.Value(0.96)
+  const sheetScale = sheetScaleRef.current
 
   useEffect(() => {
     if (props.visible) {
@@ -164,15 +244,24 @@ export function FileSearchSheet(props: {
         Animated.spring(translateY, { toValue: 0, damping: 18, stiffness: 220, mass: 0.95, useNativeDriver: true }),
         Animated.spring(sheetScale, { toValue: 1, damping: 20, stiffness: 240, mass: 0.8, useNativeDriver: true }),
       ]).start()
-      setTimeout(() => inputRef.current?.focus(), 200)
+      const focusTimer = setTimeout(() => inputRef.current?.focus(), 200)
       void loadRecentSearches()
+      return () => clearTimeout(focusTimer)
     } else {
       opacity.setValue(0)
       translateY.setValue(40)
       sheetScale.setValue(0.96)
+      // Resetting the search form when the sheet hides is the intended UX:
+      // each open should start from a clean slate. The modal's open/close
+      // prop is the source of truth, and the work is not user-visible
+      // (it happens during the close animation). This is the standard
+      // modal-reset pattern, not state-derived-from-prop duplication.
+      // oxlint-disable-next-line react-doctor/no-adjust-state-on-prop-change
       setQuery("")
+      // oxlint-disable-next-line react-doctor/no-adjust-state-on-prop-change
       setResults([])
     }
+    return undefined
   }, [props.visible, opacity, translateY, sheetScale])
 
   async function loadRecentSearches() {
@@ -399,7 +488,7 @@ export function FileSearchSheet(props: {
                         borderBottomColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
                       }}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <View style={METRICS_ROW_STYLE}>
                         <Metric
                           icon={<Search size={12} color={palette.accentLight} strokeWidth={2.1} />}
                           label={loading ? "Searching" : `${results.length} matches`}
@@ -424,56 +513,13 @@ export function FileSearchSheet(props: {
                   ) : null
                 }
                 renderItem={({ item, index }) => (
-                  <AnimatedResult index={index}>
-                    <Pressable
-                      onPress={() => handleSelect(item.file, item.line)}
-                      style={({ pressed }) => ({
-                        paddingHorizontal: 16,
-                        paddingVertical: 12,
-                        backgroundColor: pressed
-                          ? isDark
-                            ? "rgba(255,255,255,0.06)"
-                            : "rgba(14,165,233,0.06)"
-                          : "transparent",
-                        transform: [{ scale: pressed ? 0.98 : 1 }],
-                        borderBottomWidth: StyleSheet.hairlineWidth,
-                        borderBottomColor: isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)",
-                      })}
-                    >
-                      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-                        <View
-                          style={{
-                            width: 34,
-                            height: 34,
-                            borderRadius: 8,
-                            alignItems: "center",
-                            justifyContent: "center",
-                            backgroundColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(14,165,233,0.08)",
-                          }}
-                        >
-                          <FileCode2 size={15} color={palette.accentLight} strokeWidth={2.1} />
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <Text
-                              numberOfLines={1}
-                              style={{ flex: 1, fontSize: 13, color: palette.ink, fontWeight: "700" }}
-                            >
-                              {fileName(item.file)}
-                            </Text>
-                            <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                              <Hash size={10} color={palette.muted} strokeWidth={2.2} />
-                              <Text style={{ fontSize: 11, color: palette.muted, fontWeight: "700" }}>{item.line}</Text>
-                            </View>
-                          </View>
-                          <Text numberOfLines={1} style={{ fontSize: 11, color: palette.muted }}>
-                            {parentPath(item.file)}
-                          </Text>
-                          <HighlightedLine result={item} color={palette.soft} matchColor={palette.accentLight} />
-                        </View>
-                      </View>
-                    </Pressable>
-                  </AnimatedResult>
+                  <SearchResultRow
+                    result={item}
+                    index={index}
+                    isDark={isDark}
+                    palette={palette}
+                    onSelect={handleSelect}
+                  />
                 )}
               />
             ) : recentSearches.length > 0 ? (

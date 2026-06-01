@@ -26,6 +26,10 @@ interface GitFileTreeProps {
 function buildTree(files: GitFileStatus[]): FileTreeItem[] {
   const root: FileTreeItem[] = []
   const pathMap = new Map<string, FileTreeItem>()
+  const filesByPath = new Map<string, GitFileStatus>()
+  for (const file of files) {
+    filesByPath.set(file.path, file)
+  }
 
   const allPaths = new Set<string>()
   for (const file of files) {
@@ -46,7 +50,7 @@ function buildTree(files: GitFileStatus[]): FileTreeItem[] {
       currentPath = currentPath ? `${currentPath}/${part}` : part
 
       if (isLast) {
-        const fileStatus = files.find((f) => f.path === path)
+        const fileStatus = filesByPath.get(path)
         if (!pathMap.has(currentPath)) {
           const item: FileTreeItem = {
             name: part,

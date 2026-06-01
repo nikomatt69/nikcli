@@ -1,4 +1,4 @@
-import { useMemo, type PropsWithChildren, type ReactNode } from "react"
+import type { PropsWithChildren, ReactNode } from "react"
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native"
 import { cn } from "@/lib/cn"
 import { useAppTheme } from "@/lib/theme"
@@ -23,7 +23,7 @@ export function SurfaceCard({
 }: SurfaceCardProps) {
   const { width } = useWindowDimensions()
   const { palette, isDark } = useAppTheme()
-  const compact = useMemo(() => width < 390, [width])
+  const compact = width < 390
   const backgroundColor =
     tone === "panel" ? palette.panel : tone === "background" ? `${palette.background}dd` : palette.surfaceRaised
   const borderColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(193,208,223,0.86)"

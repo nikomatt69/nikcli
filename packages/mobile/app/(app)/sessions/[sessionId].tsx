@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useServer } from "@/lib/server-context"
 import { ArrowLeft, Ellipsis, FolderOpen } from "lucide-react-native"
 import * as Clipboard from "expo-clipboard"
 import {
@@ -38,7 +39,6 @@ import {
 import { GitStatusBar } from "@/components/git/GitStatusBar"
 import { GitReviewModal } from "@/components/git/GitReviewModal"
 import { EmptyState } from "@/components/ui/EmptyState"
-import { useServer } from "@/lib/server-provider"
 import { triggerHaptic } from "@/lib/haptics"
 import {
   buildSessionLiveActivitySnapshot,
@@ -442,15 +442,22 @@ export default function SessionScreen() {
   }, [client])
 
   const drawerSkills = useMemo(
-    () => commands.filter((c) => c.skill).map((c) => ({ name: c.name, description: c.description })),
+    () =>
+      commands.reduce<Array<{ name: string; description?: string }>>((acc, c) => {
+        if (c.skill) acc.push({ name: c.name, description: c.description })
+        return acc
+      }, []),
     [commands],
   )
 
   const drawerTools = useMemo(
     () =>
-      commands
-        .filter((c) => !c.skill && !c.mcp && !c.subtask)
-        .map((c) => ({ name: c.name, description: c.description, enabled: true })),
+      commands.reduce<Array<{ name: string; description?: string; enabled: true }>>((acc, c) => {
+        if (!c.skill && !c.mcp && !c.subtask) {
+          acc.push({ name: c.name, description: c.description, enabled: true })
+        }
+        return acc
+      }, []),
     [commands],
   )
 

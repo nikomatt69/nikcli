@@ -44,16 +44,14 @@ export async function drainQueue(): Promise<void> {
   const queue = await readQueue()
   if (!queue.length) return
 
-  const remaining: OfflineOp[] = []
-  for (const op of queue) {
-    try {
+  const results = await Promise.allSettled(
+    queue.map(async (op) => {
       if (op.type === "sendMessage") {
         await client.sendMessage(op.sessionID, op.text, op.options)
       }
-    } catch {
-      remaining.push(op)
-    }
-  }
+    }),
+  )
+  const remaining: OfflineOp[] = queue.filter((_, i) => results[i].status === "rejected")
   await writeQueue(remaining)
 }
 
