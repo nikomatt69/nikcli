@@ -85,14 +85,16 @@ jobs:
         shell: bash
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE || 'nikcli-mobile' }}
         run: |
           if [ -z "${RAILWAY_TOKEN:-}" ]; then
             echo "✗ RAILWAY_TOKEN not configured — skipping deploy"
             exit 0
           fi
+          echo "→ Deploying to Railway service: ${RAILWAY_SERVICE:-nikcli-mobile}"
           mkdir -p tmp
           if ./script/railway-deploy.sh --detach >tmp/railway.log 2>&1; then
-            echo "✓ Railway deploy triggered"
+            echo "✓ Railway deploy triggered (service=${RAILWAY_SERVICE:-nikcli-mobile})"
           else
             echo "✗ Railway deploy failed (last 30 lines):"
             tail -n 30 tmp/railway.log || true
