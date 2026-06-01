@@ -93,11 +93,69 @@ export namespace ModelsDev {
       options: {},
     }
 
+    // MiniMax M3 (1M context, MiniMax Sparse Attention, multimodal input, real coding-plan pricing)
+    const m3ReleaseDate = "2026-05-31"
+    const m3Limit = {
+      context: 1_048_576,
+      output: 131_072,
+    }
+    const m3Modalities: NonNullable<Model["modalities"]> = {
+      input: ["text", "image", "video"],
+      output: ["text"],
+    }
+
+    const minimaxM3: Model = {
+      id: "MiniMax-M3",
+      name: "MiniMax-M3",
+      family: "minimax",
+      release_date: m3ReleaseDate,
+      attachment: true,
+      reasoning: true,
+      tool_call: true,
+      temperature: true,
+      cost: {
+        input: 0.3,
+        output: 1.2,
+        cache_read: 0.03,
+        cache_write: 0.375,
+      },
+      limit: m3Limit,
+      modalities: m3Modalities,
+      options: {},
+    }
+
+    const openrouterM3: Model = {
+      id: "minimax/minimax-m3",
+      name: "MiniMax M3",
+      family: "minimax",
+      release_date: m3ReleaseDate,
+      attachment: true,
+      reasoning: true,
+      tool_call: true,
+      temperature: true,
+      interleaved: {
+        field: "reasoning_details",
+      },
+      cost: {
+        input: 0.3,
+        output: 1.2,
+      },
+      limit: m3Limit,
+      modalities: m3Modalities,
+      options: {},
+    }
+
     ensureModel(database, "minimax", "MiniMax-M2.5", minimaxM25Paid)
     ensureModel(database, "minimax-cn", "MiniMax-M2.5", minimaxM25Paid)
     ensureModel(database, "minimax-coding-plan", "MiniMax-M2.5", minimaxM25Free)
     ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M2.5", minimaxM25Free)
     ensureModel(database, "openrouter", "minimax/minimax-m2.5", openrouterM25)
+
+    ensureModel(database, "minimax", "MiniMax-M3", minimaxM3)
+    ensureModel(database, "minimax-cn", "MiniMax-M3", minimaxM3)
+    ensureModel(database, "minimax-coding-plan", "MiniMax-M3", minimaxM3)
+    ensureModel(database, "minimax-cn-coding-plan", "MiniMax-M3", minimaxM3)
+    ensureModel(database, "openrouter", "minimax/minimax-m3", openrouterM3)
 
     // Cursor is not in models.dev; inject it so /connect dialog can offer it.
     if (!database["cursor"]) {
