@@ -272,6 +272,10 @@ import type {
   SessionChildrenResponses,
   SessionCommandErrors,
   SessionCommandResponses,
+  SessionContextErrors,
+  SessionContextResponses,
+  SessionContextToggleErrors,
+  SessionContextToggleResponses,
   SessionCreateErrors,
   SessionCreateResponses,
   SessionDeleteErrors,
@@ -1856,6 +1860,10 @@ export class Session2 extends HeyApiClient {
       title?: string
       permission?: PermissionRuleset
       skills?: Array<string>
+      disabledInstructions?: Array<string>
+      disabledTools?: {
+        [key: string]: boolean
+      }
       github?: SessionGithub
       workspaceID?: string
     },
@@ -1872,6 +1880,8 @@ export class Session2 extends HeyApiClient {
             { in: "body", key: "title" },
             { in: "body", key: "permission" },
             { in: "body", key: "skills" },
+            { in: "body", key: "disabledInstructions" },
+            { in: "body", key: "disabledTools" },
             { in: "body", key: "github" },
             { in: "body", key: "workspaceID" },
           ],
@@ -2056,6 +2066,85 @@ export class Session2 extends HeyApiClient {
       url: "/session/{sessionID}/instructions",
       ...options,
       ...params,
+    })
+  }
+
+  /**
+   * Get context usage breakdown
+   *
+   * Compute a per-source breakdown of estimated context tokens (system prompt, environment, instruction files, skills, MCP servers, built-in tools, agents, and conversation) along with the tokens last reported by the provider. Sources tagged togglable can be enabled/disabled to manage context.
+   */
+  public context<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<SessionContextResponses, SessionContextErrors, ThrowOnError>({
+      url: "/session/{sessionID}/context",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Enable or disable a context source
+   *
+   * Enable or disable a single context source for this session. Supports MCP servers (kind=mcp), active skills (kind=skill), instruction files (kind=instruction), and tools (kind=tool). Returns the recomputed context breakdown.
+   */
+  public contextToggle<ThrowOnError extends boolean = false>(
+    parameters: {
+      sessionID: string
+      directory?: string
+      workspace?: string
+      kind?: "mcp" | "skill" | "instruction" | "tool"
+      key?: string
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "sessionID" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "kind" },
+            { in: "body", key: "key" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      SessionContextToggleResponses,
+      SessionContextToggleErrors,
+      ThrowOnError
+    >({
+      url: "/session/{sessionID}/context/toggle",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
     })
   }
 

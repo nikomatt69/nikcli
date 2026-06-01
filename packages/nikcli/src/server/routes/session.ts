@@ -5,6 +5,7 @@ import z from "zod"
 import { Session } from "../../session"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "../../session/prompt"
+import { SessionContext } from "../../session/context-breakdown"
 import { SessionCompaction } from "../../session/compaction"
 import { SessionRevert } from "../../session/revert"
 import { SessionStatus } from "@/session/status"
@@ -23,6 +24,7 @@ import { Instance } from "@/project/instance"
 import { WorkspaceContext } from "@/workspace/workspace-context"
 import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
+import { MCP } from "@/mcp"
 import { Cause, Effect, Exit } from "effect"
 import { locallyInstance, runPromiseWithLayer, withCurrentInstance, type InstanceContext } from "@/effect"
 
@@ -58,6 +60,10 @@ function runCompaction<A, E>(effect: Effect.Effect<A, E, SessionCompaction.Servi
 
 function runConfig<A, E>(effect: Effect.Effect<A, E, Config.Service>) {
   return runPromiseWithLayer(Config.defaultLayer, withCurrentInstance(effect))
+}
+
+function runMCP<A, E>(effect: Effect.Effect<A, E, MCP.Service>) {
+  return runPromiseWithLayer(MCP.defaultLayer, withCurrentInstance(effect))
 }
 
 function captureInstanceContext(): InstanceContext {
@@ -300,6 +306,127 @@ export const SessionRoutes = lazy(() =>
           name: p.split("/").pop() || p,
         }))
         return c.json(instructions)
+      },
+    )
+    .get(
+      "/:sessionID/context",
+      describeRoute({
+        summary: "Get context usage breakdown",
+        description:
+          "Compute a per-source breakdown of estimated context tokens (system prompt, environment, instruction files, skills, MCP servers, built-in tools, agents, and conversation) along with the tokens last reported by the provider. Sources tagged togglable can be enabled/disabled to manage context.",
+        tags: ["Session"],
+        operationId: "session.context",
+        responses: {
+          200: {
+            description: "Context usage breakdown",
+            content: {
+              "application/json": {
+                schema: resolver(SessionContext.Breakdown),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: Session.ID,
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        const result = await SessionContext.breakdown(sessionID)
+        return c.json(result)
+      },
+    )
+    .post(
+      "/:sessionID/context/toggle",
+      describeRoute({
+        summary: "Enable or disable a context source",
+        description:
+          "Enable or disable a single context source for this session. Supports MCP servers (kind=mcp), active skills (kind=skill), instruction files (kind=instruction), and tools (kind=tool). Returns the recomputed context breakdown.",
+        tags: ["Session"],
+        operationId: "session.contextToggle",
+        responses: {
+          200: {
+            description: "Updated context usage breakdown",
+            content: {
+              "application/json": {
+                schema: resolver(SessionContext.Breakdown),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ sessionID: Session.ID })),
+      validator(
+        "json",
+        z.object({
+          kind: z.enum(["mcp", "skill", "instruction", "tool"]),
+          key: z.string(),
+          enabled: z.boolean(),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        const { kind, key, enabled } = c.req.valid("json")
+
+        if (kind === "mcp") {
+          await runConfig(
+            Effect.gen(function* () {
+              const config = yield* Config.Service
+              yield* config.update({ mcp: { [key]: { enabled } } })
+            }),
+          )
+          await runMCP(
+            Effect.gen(function* () {
+              const mcp = yield* MCP.Service
+              if (enabled) yield* mcp.connect(key)
+              else yield* mcp.disconnect(key)
+            }),
+          ).catch((e) => log.warn("mcp toggle connect/disconnect failed", { key, error: String(e) }))
+        } else if (kind === "skill") {
+          await runSession(
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(sessionID, (draft) => {
+                const set = new Set(draft.skills ?? [])
+                if (enabled) set.add(key)
+                else set.delete(key)
+                draft.skills = [...set]
+              })
+            }),
+          )
+        } else if (kind === "tool") {
+          await runSession(
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(sessionID, (draft) => {
+                const map = { ...(draft.disabledTools ?? {}) }
+                if (enabled) delete map[key]
+                else map[key] = true
+                draft.disabledTools = map
+              })
+            }),
+          )
+        } else {
+          await runSession(
+            Effect.gen(function* () {
+              const service = yield* Session.Service
+              yield* service.update(sessionID, (draft) => {
+                const set = new Set(draft.disabledInstructions ?? [])
+                if (enabled) set.delete(key)
+                else set.add(key)
+                draft.disabledInstructions = [...set]
+              })
+            }),
+          )
+        }
+
+        const result = await SessionContext.breakdown(sessionID)
+        return c.json(result)
       },
     )
     .get(

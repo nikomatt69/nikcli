@@ -1,45 +1,173 @@
-import { TextAttributes } from "@opentui/core"
+import { ScrollBoxRenderable, TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useSync } from "@tui/context/sync"
 import { useRoute } from "@tui/context/route"
-import { For, Match, Show, Switch, createMemo } from "solid-js"
+import { useSDK } from "@tui/context/sdk"
+import { useToast } from "@tui/ui/toast"
+import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { Usage } from "../util/usage"
+import type { SessionContextResponse } from "@nikcli-ai/sdk/v2"
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
 
 const BAR_WIDTH = 40
 
+type Breakdown = SessionContextResponse
+type Source = Breakdown["sources"][number]
+
+const CATEGORY_ORDER: Source["category"][] = [
+  "system",
+  "instructions",
+  "skills",
+  "mcp",
+  "tools",
+  "agents",
+  "messages",
+]
+
+const CATEGORY_LABEL: Record<Source["category"], string> = {
+  system: "System prompt",
+  instructions: "Instructions",
+  skills: "Skills · /skills",
+  mcp: "MCP servers · /mcp",
+  tools: "Tools",
+  agents: "Agents · /agents",
+  messages: "Conversation",
+}
+
 export function DialogUsage() {
   const { theme } = useTheme()
-  const sync = useSync()
   const route = useRoute()
+  const sdk = useSDK()
+  const toast = useToast()
+  const dimensions = useTerminalDimensions()
 
   const sessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
 
-  const usage = createMemo(() => {
-    const sid = sessionID()
-    const messages = sid ? (sync.data.message[sid] ?? []) : []
-    return Usage.fromMessages(messages, sync.data.provider)
+  const [data, { mutate, refetch }] = createResource(sessionID, async (sid) => {
+    const result = await sdk.client.session.context({ sessionID: sid })
+    return result.data as Breakdown | undefined
   })
 
-  const contextLimit = createMemo(() => usage().model?.contextLimit ?? 0)
+  const [selected, setSelected] = createSignal(0)
+  const [busy, setBusy] = createSignal(false)
+  let scroll: ScrollBoxRenderable | undefined
+
+  // Sources ordered by category, in a stable display order.
+  const sources = createMemo(() => {
+    const all = data()?.sources ?? []
+    return [...all].sort((a, b) => {
+      const ca = CATEGORY_ORDER.indexOf(a.category)
+      const cb = CATEGORY_ORDER.indexOf(b.category)
+      if (ca !== cb) return ca - cb
+      return b.tokens - a.tokens
+    })
+  })
+
+  const contextLimit = createMemo(() => data()?.model?.contextLimit ?? 0)
+  const reportedTotal = createMemo(() => data()?.reported.total ?? 0)
+  const estimatedTotal = createMemo(() => data()?.estimatedTotal ?? 0)
+
+  // Reserve a buffer for auto-compaction, matching the conversation runtime.
+  const autocompactReserved = createMemo(() => (contextLimit() > 0 ? Math.min(20_000, contextLimit()) : 0))
 
   const segments = createMemo(() => {
-    const u = usage()
     const limit = contextLimit()
     if (limit <= 0) return { used: BAR_WIDTH, reserved: 0, free: 0 }
-    const usedRaw = Math.min(u.tokens, limit)
-    const reservedRaw = Math.min(u.autocompactReserved, Math.max(0, limit - usedRaw))
+    const usedRaw = Math.min(reportedTotal(), limit)
+    const reservedRaw = Math.min(autocompactReserved(), Math.max(0, limit - usedRaw))
     const used = Math.max(0, Math.round((usedRaw / limit) * BAR_WIDTH))
     const reserved = Math.max(0, Math.round((reservedRaw / limit) * BAR_WIDTH))
     const free = Math.max(0, BAR_WIDTH - used - reserved)
     return { used, reserved, free }
   })
 
-  const mcpEntries = createMemo(() => Object.entries(sync.data.mcp))
-  const customAgents = createMemo(() =>
-    sync.data.agent.filter((a) => !a.hidden).sort((a, b) => a.name.localeCompare(b.name)),
-  )
+  function rowID(index: number) {
+    return "ctx-row-" + index
+  }
+
+  function clamp(index: number) {
+    const length = sources().length
+    if (length === 0) return 0
+    return Math.max(0, Math.min(index, length - 1))
+  }
+
+  function scrollToSelected(index: number) {
+    if (!scroll) return
+    const target = scroll.getChildren().find((child) => child.id === rowID(index))
+    if (!target) return
+    const y = target.y - scroll.y
+    if (y >= scroll.height) scroll.scrollBy(y - scroll.height + 1)
+    if (y < 0) scroll.scrollBy(y)
+  }
+
+  function move(direction: number) {
+    const length = sources().length
+    if (length === 0) return
+    let next = selected() + direction
+    if (next < 0) next = length - 1
+    if (next >= length) next = 0
+    setSelected(next)
+    scrollToSelected(next)
+  }
+
+  async function toggle(source: Source) {
+    if (!source.togglable || !source.toggleKind || !source.toggleKey) return
+    const sid = sessionID()
+    if (!sid || busy()) return
+    setBusy(true)
+    const nextEnabled = !source.enabled
+    try {
+      const result = await sdk.client.session.contextToggle({
+        sessionID: sid,
+        kind: source.toggleKind,
+        key: source.toggleKey,
+        enabled: nextEnabled,
+      })
+      if (result.data) mutate(result.data as Breakdown)
+      toast.show({
+        message: `${source.label} ${nextEnabled ? "enabled" : "disabled"}`,
+        variant: "success",
+      })
+    } catch (err: any) {
+      toast.show({ message: `Failed to toggle ${source.label}: ${err?.message ?? err}`, variant: "error" })
+      void refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  useKeyboard((evt) => {
+    if (evt.name === "up" || (evt.ctrl && evt.name === "p") || evt.name === "k") {
+      move(-1)
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+    if (evt.name === "down" || (evt.ctrl && evt.name === "n") || evt.name === "j") {
+      move(1)
+      evt.preventDefault()
+      evt.stopPropagation()
+      return
+    }
+    if (evt.name === "space" || evt.name === "return") {
+      const source = sources()[clamp(selected())]
+      if (source) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        void toggle(source)
+      }
+    }
+  })
+
+  const listHeight = createMemo(() => Math.max(5, dimensions().height - 18))
+
+  function tokenPct(value: number) {
+    const limit = contextLimit()
+    if (limit > 0) return Usage.formatPct(value, limit)
+    const total = estimatedTotal()
+    return total > 0 ? Usage.formatPct(value, total) : "—"
+  }
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
@@ -51,149 +179,144 @@ export function DialogUsage() {
       </box>
 
       <Show
-        when={usage().model}
+        when={data()?.model}
         fallback={
           <box>
-            <text fg={theme.textMuted}>No active session or no assistant messages yet.</text>
-            <text fg={theme.textMuted}>Send a message to populate context usage.</text>
+            <Show
+              when={!data.loading}
+              fallback={<text fg={theme.textMuted}>Computing context breakdown…</text>}
+            >
+              <text fg={theme.textMuted}>No active session or no assistant messages yet.</text>
+              <text fg={theme.textMuted}>Send a message to populate context usage.</text>
+            </Show>
           </box>
         }
       >
         {(model) => (
-          <box>
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
-              {model().name}
-            </text>
-            <text fg={theme.textMuted}>
-              {model().providerID}/{model().modelID}
-            </text>
-            <text fg={theme.text}>
-              <b>{Usage.formatTokens(usage().tokens)}</b>
-              <span style={{ fg: theme.textMuted }}>
-                {" "}
-                / {Usage.formatTokens(model().contextLimit)} tokens{" "}
-                {usage().percent !== undefined && `(${Usage.formatPct(usage().tokens, model().contextLimit)})`}
-              </span>
-            </text>
-          </box>
+          <>
+            <box>
+              <text fg={theme.text} attributes={TextAttributes.BOLD}>
+                {model().name}
+              </text>
+              <text fg={theme.textMuted}>
+                {model().providerID}/{model().modelID}
+              </text>
+              <text fg={theme.text}>
+                <b>{Usage.formatTokens(reportedTotal())}</b>
+                <span style={{ fg: theme.textMuted }}>
+                  {" "}
+                  / {Usage.formatTokens(model().contextLimit)} tokens reported{" "}
+                  {contextLimit() > 0 && `(${Usage.formatPct(reportedTotal(), contextLimit())})`}
+                </span>
+              </text>
+              <text fg={theme.textMuted}>
+                ≈ {Usage.formatTokens(estimatedTotal())} tokens estimated across the sources below
+              </text>
+            </box>
+
+            <Show when={contextLimit() > 0}>
+              <box flexDirection="row">
+                <text bg={theme.primary} fg={theme.primary}>
+                  {"█".repeat(segments().used)}
+                </text>
+                <text bg={theme.warning} fg={theme.warning}>
+                  {"█".repeat(segments().reserved)}
+                </text>
+                <text bg={theme.backgroundElement} fg={theme.backgroundElement}>
+                  {"█".repeat(segments().free)}
+                </text>
+              </box>
+            </Show>
+
+            <scrollbox
+              scrollbarOptions={{ visible: false }}
+              ref={(r: ScrollBoxRenderable) => (scroll = r)}
+              maxHeight={listHeight()}
+            >
+              <For each={sources()}>
+                {(source, index) => {
+                  const active = createMemo(() => index() === selected())
+                  const prev = createMemo(() => sources()[index() - 1])
+                  const showHeader = createMemo(() => index() === 0 || prev()?.category !== source.category)
+                  const indicator = () => {
+                    if (!source.togglable) return "•"
+                    return source.enabled ? "[x]" : "[ ]"
+                  }
+                  const indicatorColor = () => {
+                    if (!source.togglable) return theme.textMuted
+                    return source.enabled ? theme.success : theme.textMuted
+                  }
+                  const labelColor = () => (source.enabled ? theme.text : theme.textMuted)
+                  return (
+                    <>
+                      <Show when={showHeader()}>
+                        <box paddingTop={index() > 0 ? 1 : 0}>
+                          <text fg={theme.accent} attributes={TextAttributes.BOLD}>
+                            {CATEGORY_LABEL[source.category]}
+                          </text>
+                        </box>
+                      </Show>
+                      <box
+                        id={rowID(index())}
+                        flexDirection="row"
+                        gap={1}
+                        paddingLeft={1}
+                        paddingRight={1}
+                        backgroundColor={active() ? theme.backgroundElement : undefined}
+                        onMouseUp={() => {
+                          setSelected(index())
+                          void toggle(source)
+                        }}
+                      >
+                        <text flexShrink={0} fg={indicatorColor()}>
+                          {indicator()}
+                        </text>
+                        <box flexGrow={1} flexShrink={1} flexDirection="row" justifyContent="space-between" gap={2}>
+                          <text flexShrink={1} wrapMode="none" fg={labelColor()}>
+                            <b>{source.label}</b>
+                            <Show when={source.detail}>
+                              <span style={{ fg: theme.textMuted }}> — {source.detail}</span>
+                            </Show>
+                          </text>
+                          <text flexShrink={0} fg={source.enabled ? theme.text : theme.textMuted}>
+                            {Usage.formatTokens(source.tokens)}
+                            <span style={{ fg: theme.textMuted }}>
+                              {" "}
+                              {source.enabled ? tokenPct(source.tokens) : "(off)"}
+                            </span>
+                          </text>
+                        </box>
+                      </box>
+                    </>
+                  )
+                }}
+              </For>
+            </scrollbox>
+
+            <Show when={data()?.reported && reportedTotal() > 0}>
+              <box flexDirection="row" flexWrap="wrap" gap={2}>
+                <text fg={theme.textMuted}>
+                  cache read {Usage.formatTokens(data()!.reported.cacheRead)}
+                </text>
+                <text fg={theme.textMuted}>
+                  cache write {Usage.formatTokens(data()!.reported.cacheWrite)}
+                </text>
+                <text fg={theme.textMuted}>output {Usage.formatTokens(data()!.reported.output)}</text>
+                <Show when={data()!.reported.reasoning > 0}>
+                  <text fg={theme.textMuted}>reasoning {Usage.formatTokens(data()!.reported.reasoning)}</text>
+                </Show>
+              </box>
+            </Show>
+
+            <box paddingTop={1} flexDirection="row" flexWrap="wrap" gap={1} flexShrink={0}>
+              <text fg={theme.textMuted}>↑↓ navigate</text>
+              <text fg={theme.borderSubtle}>·</text>
+              <text fg={busy() ? theme.warning : theme.textMuted}>{busy() ? "saving…" : "space toggle"}</text>
+              <text fg={theme.borderSubtle}>·</text>
+              <text fg={theme.textMuted}>esc close</text>
+            </box>
+          </>
         )}
-      </Show>
-
-      <Show when={contextLimit() > 0}>
-        <box flexDirection="row">
-          <text bg={theme.primary} fg={theme.primary}>
-            {"█".repeat(segments().used)}
-          </text>
-          <text bg={theme.warning} fg={theme.warning}>
-            {"█".repeat(segments().reserved)}
-          </text>
-          <text bg={theme.backgroundElement} fg={theme.backgroundElement}>
-            {"█".repeat(segments().free)}
-          </text>
-        </box>
-      </Show>
-
-      <Show when={usage().model}>
-        <box>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            Breakdown (from provider)
-          </text>
-          <For
-            each={[
-              { label: "Input", value: usage().components.input, color: theme.primary },
-              { label: "Output", value: usage().components.output, color: theme.primary },
-              { label: "Reasoning", value: usage().components.reasoning, color: theme.primary },
-              { label: "Cache read", value: usage().components.cacheRead, color: theme.primary },
-              { label: "Cache write", value: usage().components.cacheWrite, color: theme.primary },
-              { label: "Autocompact buffer", value: usage().autocompactReserved, color: theme.warning },
-              { label: "Free space", value: usage().free ?? 0, color: theme.textMuted },
-            ]}
-          >
-            {(item) => (
-              <box flexDirection="row" gap={1}>
-                <text fg={item.color} flexShrink={0}>
-                  •
-                </text>
-                <text fg={theme.text} wrapMode="none">
-                  <b>{item.label}:</b>{" "}
-                  <span style={{ fg: theme.textMuted }}>
-                    {Usage.formatTokens(item.value)}
-                    {contextLimit() > 0 && ` (${Usage.formatPct(item.value, contextLimit())})`}
-                  </span>
-                </text>
-              </box>
-            )}
-          </For>
-          <Show when={usage().cost > 0}>
-            <text fg={theme.text}>
-              <b>Cost:</b> <span style={{ fg: theme.textMuted }}>{money.format(usage().cost)}</span>
-            </text>
-          </Show>
-        </box>
-      </Show>
-
-      <Show when={mcpEntries().length > 0} fallback={<text fg={theme.textMuted}>No MCP Servers</text>}>
-        <box>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            MCP · /mcp
-          </text>
-          <For each={mcpEntries()}>
-            {([key, item]) => (
-              <box flexDirection="row" gap={1}>
-                <text
-                  flexShrink={0}
-                  style={{
-                    fg: (
-                      {
-                        connected: theme.success,
-                        failed: theme.error,
-                        disabled: theme.textMuted,
-                        needs_auth: theme.warning,
-                        needs_client_registration: theme.error,
-                      } as Record<string, typeof theme.success>
-                    )[item.status],
-                  }}
-                >
-                  •
-                </text>
-                <text fg={theme.text} wrapMode="word">
-                  <b>{key}</b>{" "}
-                  <span style={{ fg: theme.textMuted }}>
-                    <Switch fallback={item.status}>
-                      <Match when={item.status === "connected"}>Connected</Match>
-                      <Match when={item.status === "disabled"}>Disabled</Match>
-                      <Match when={(item.status as string) === "needs_auth"}>Needs auth</Match>
-                      <Match when={item.status === "failed" && item}>{(val) => val().error}</Match>
-                    </Switch>
-                  </span>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
-
-      <Show when={customAgents().length > 0}>
-        <box>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            Agents · /agents
-          </text>
-          <For each={customAgents()}>
-            {(agent) => (
-              <box flexDirection="row" gap={1}>
-                <text flexShrink={0} fg={theme.success}>
-                  •
-                </text>
-                <text fg={theme.text} wrapMode="word">
-                  <b>{agent.name}</b>
-                  <Show when={agent.description}>
-                    <span style={{ fg: theme.textMuted }}> — {agent.description}</span>
-                  </Show>
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
       </Show>
     </box>
   )

@@ -1000,6 +1000,10 @@ export type Session = {
   }
   permission?: PermissionRuleset
   skills?: Array<string>
+  disabledInstructions?: Array<string>
+  disabledTools?: {
+    [key: string]: boolean
+  }
   revert?: {
     messageID: string
     partID?: string
@@ -4578,6 +4582,10 @@ export type SessionCreateData = {
     title?: string
     permission?: PermissionRuleset
     skills?: Array<string>
+    disabledInstructions?: Array<string>
+    disabledTools?: {
+      [key: string]: boolean
+    }
     github?: SessionGithub
     workspaceID?: string
   }
@@ -4780,6 +4788,132 @@ export type SessionInstructionsResponses = {
 }
 
 export type SessionInstructionsResponse = SessionInstructionsResponses[keyof SessionInstructionsResponses]
+
+export type SessionContextData = {
+  body?: never
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/context"
+}
+
+export type SessionContextErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionContextError = SessionContextErrors[keyof SessionContextErrors]
+
+export type SessionContextResponses = {
+  /**
+   * Context usage breakdown
+   */
+  200: {
+    model?: {
+      providerID: string
+      modelID: string
+      name: string
+      contextLimit: number
+    }
+    reported: {
+      input: number
+      output: number
+      reasoning: number
+      cacheRead: number
+      cacheWrite: number
+      total: number
+    }
+    sources: Array<{
+      id: string
+      category: "system" | "instructions" | "skills" | "mcp" | "tools" | "agents" | "messages"
+      label: string
+      detail?: string
+      tokens: number
+      enabled: boolean
+      togglable: boolean
+      toggleKind?: "mcp" | "skill" | "instruction" | "tool"
+      toggleKey?: string
+    }>
+    estimatedTotal: number
+  }
+}
+
+export type SessionContextResponse = SessionContextResponses[keyof SessionContextResponses]
+
+export type SessionContextToggleData = {
+  body?: {
+    kind: "mcp" | "skill" | "instruction" | "tool"
+    key: string
+    enabled: boolean
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/context/toggle"
+}
+
+export type SessionContextToggleErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionContextToggleError = SessionContextToggleErrors[keyof SessionContextToggleErrors]
+
+export type SessionContextToggleResponses = {
+  /**
+   * Updated context usage breakdown
+   */
+  200: {
+    model?: {
+      providerID: string
+      modelID: string
+      name: string
+      contextLimit: number
+    }
+    reported: {
+      input: number
+      output: number
+      reasoning: number
+      cacheRead: number
+      cacheWrite: number
+      total: number
+    }
+    sources: Array<{
+      id: string
+      category: "system" | "instructions" | "skills" | "mcp" | "tools" | "agents" | "messages"
+      label: string
+      detail?: string
+      tokens: number
+      enabled: boolean
+      togglable: boolean
+      toggleKind?: "mcp" | "skill" | "instruction" | "tool"
+      toggleKey?: string
+    }>
+    estimatedTotal: number
+  }
+}
+
+export type SessionContextToggleResponse = SessionContextToggleResponses[keyof SessionContextToggleResponses]
 
 export type SessionChildrenData = {
   body?: never

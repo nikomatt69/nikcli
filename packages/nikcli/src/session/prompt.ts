@@ -156,14 +156,14 @@ export namespace SessionPrompt {
     )
   }
 
-  function systemPromptParts(skills: string[] = []) {
+  function systemPromptParts(skills: string[] = [], disabledInstructions: string[] = []) {
     return runPromiseWithLayer(
       SystemPrompt.defaultLayer,
       withCurrentInstance(
         Effect.gen(function* () {
           const systemPrompt = yield* SystemPrompt.Service
           const [activeSkillMessages, environment, custom] = yield* Effect.all(
-            [systemPrompt.skills(skills), systemPrompt.environment(), systemPrompt.custom()],
+            [systemPrompt.skills(skills), systemPrompt.environment(), systemPrompt.custom(disabledInstructions)],
             { concurrency: "unbounded" },
           )
           return {
@@ -1046,7 +1046,7 @@ export namespace SessionPrompt {
         }),
       )
 
-      const systemPrompt = await systemPromptParts(session.skills ?? [])
+      const systemPrompt = await systemPromptParts(session.skills ?? [], session.disabledInstructions ?? [])
 
       // Build system prompt, adding structured output instructions if needed
       const system = [...systemPrompt.system]

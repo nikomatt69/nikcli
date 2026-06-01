@@ -99,6 +99,10 @@ export async function resolveTools(input: {
   using _ = log.time("resolveTools")
   const tools: Record<string, AITool> = {}
 
+  // Tools the user disabled for this session are dropped entirely: the model
+  // never sees their schema and the permission rule is never registered.
+  const disabledTools = input.session.disabledTools ?? {}
+
   const context = (args: Record<string, unknown>, options: ToolCallOptions): Tool.Context => ({
     sessionID: input.session.id,
     abort: options.abortSignal!,
@@ -137,6 +141,7 @@ export async function resolveTools(input: {
     { modelID: input.model.api.id, providerID: input.model.providerID },
     input.agent,
   )) {
+    if (disabledTools[item.id] === true) continue
     const schema = ProviderTransform.schema(
       input.model,
       z.toJSONSchema(item.parameters) as import("@ai-sdk/provider").JSONSchema7,
@@ -202,6 +207,7 @@ export async function resolveTools(input: {
     }),
   )
   for (const [key, item] of Object.entries(mcpTools)) {
+    if (disabledTools[key] === true) continue
     const execute = item.execute
     if (!execute) continue
 

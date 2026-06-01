@@ -220,6 +220,21 @@ export namespace Session {
       }),
       permission: PermissionNext.Ruleset.optional(),
       skills: z.array(z.string()).optional(),
+      /**
+       * Paths of custom instruction files (AGENTS.md, CLAUDE.md, etc.) that
+       * the user has explicitly disabled for this session. The server
+       * filters these out of the system prompt at build time so the model
+       * never sees them — the only way to actually shrink that part of the
+       * context.
+       */
+      disabledInstructions: z.array(z.string()).optional(),
+      /**
+       * Tool IDs the user has disabled for this session. Both the schema
+       * (so the model never sees them) and the permission rule are
+       * suppressed. Map value is unused but kept as a record for forward
+       * compatibility with "true/false" partial disables.
+       */
+      disabledTools: z.record(z.string(), z.boolean()).optional(),
       revert: z
         .object({
           messageID: z.string(),
@@ -254,6 +269,8 @@ export namespace Session {
       title: z.string().optional(),
       permission: Info.shape.permission,
       skills: z.array(z.string()).optional(),
+      disabledInstructions: z.array(z.string()).optional(),
+      disabledTools: z.record(z.string(), z.boolean()).optional(),
       github: GithubInfo.optional(),
       workspaceID: Info.shape.workspaceID,
     })
@@ -355,6 +372,8 @@ export namespace Session {
     workspaceID?: string
     permission?: PermissionNext.Ruleset
     skills?: string[]
+    disabledInstructions?: string[]
+    disabledTools?: Record<string, boolean>
     github?: z.infer<typeof GithubInfo>
     mobile?: MobileInfo
   }
@@ -482,6 +501,8 @@ export namespace Session {
       title: input.title ?? createDefaultTitle(!!input.parentID),
       permission: input.permission,
       skills: input.skills ?? inheritedSkills ?? [],
+      disabledInstructions: input.disabledInstructions,
+      disabledTools: input.disabledTools,
       github: input.github,
       mobile: input.mobile,
       time: {
@@ -915,6 +936,8 @@ export namespace Session {
                 title: input?.title,
                 permission: input?.permission,
                 skills: input?.skills,
+                disabledInstructions: input?.disabledInstructions,
+                disabledTools: input?.disabledTools,
                 github: input?.github,
                 workspaceID: input?.workspaceID,
               }),

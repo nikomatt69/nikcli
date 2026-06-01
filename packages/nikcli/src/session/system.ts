@@ -18,7 +18,7 @@ const log = Log.create({ service: "system-prompt" })
 export namespace SystemPrompt {
   export interface Interface {
     environment(): Effect.Effect<string[], unknown>
-    custom(): Effect.Effect<string[], unknown>
+    custom(disabled?: string[]): Effect.Effect<string[], unknown>
     skills(names?: string[]): Effect.Effect<string[], unknown>
   }
 
@@ -111,10 +111,18 @@ export namespace SystemPrompt {
     ]
   }
 
-  async function customImpl(ctx: InstanceContext, config: Config.Info) {
+  async function customImpl(ctx: InstanceContext, config: Config.Info, disabled: string[] = []) {
     const { collectSystemPaths, readInstructionContents, fetchInstructionUrls } = await import("./instruction")
     const { paths, urls } = await collectSystemPaths(ctx, config)
-    const [fileContents, urlContents] = await Promise.all([readInstructionContents(paths), fetchInstructionUrls(urls)])
+    // Drop instruction files/urls the user disabled for this session so the
+    // model never sees them — the only way to actually shrink that context.
+    const disabledSet = new Set(disabled)
+    const enabledPaths = new Set([...paths].filter((p) => !disabledSet.has(p)))
+    const enabledUrls = urls.filter((u) => !disabledSet.has(u))
+    const [fileContents, urlContents] = await Promise.all([
+      readInstructionContents(enabledPaths),
+      fetchInstructionUrls(enabledUrls),
+    ])
     return [...fileContents, ...urlContents]
   }
 
@@ -138,11 +146,11 @@ export namespace SystemPrompt {
       return Service.of({
         environment: () =>
           InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => environmentImpl(ctx)))),
-        custom: () =>
+        custom: (disabled = []) =>
           Effect.gen(function* () {
             const ctx = yield* InstanceState.context
             const cfg = yield* Effect.promise(() => configGet(ctx))
-            return yield* Effect.tryPromise(() => customImpl(ctx, cfg))
+            return yield* Effect.tryPromise(() => customImpl(ctx, cfg, disabled))
           }),
         skills: (names = []) => Effect.tryPromise(() => skillsImpl(skill, names)),
       })

@@ -51,18 +51,22 @@ async function resolveRelativeInstruction(instruction: string, ctx: InstanceCont
 export async function collectSystemPaths(
   ctx: InstanceContext,
   config: Config.Info,
+  options?: { disabledPaths?: string[] },
 ): Promise<{
   paths: Set<string>
   urls: string[]
 }> {
   const paths = new Set<string>()
   const urls: string[] = []
+  const disabled = new Set(options?.disabledPaths ?? [])
 
   if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
     for (const file of LOCAL_RULE_FILES) {
       const matches = await Filesystem.findUp(file, ctx.directory, ctx.worktree)
       if (matches.length > 0) {
-        matches.forEach((p) => paths.add(p))
+        matches.forEach((p) => {
+          if (!disabled.has(p)) paths.add(p)
+        })
         break
       }
     }
@@ -70,7 +74,7 @@ export async function collectSystemPaths(
 
   for (const file of globalRuleFiles()) {
     if (await Bun.file(file).exists()) {
-      paths.add(file)
+      if (!disabled.has(file)) paths.add(file)
     }
   }
 
@@ -95,7 +99,9 @@ export async function collectSystemPaths(
       } else {
         matches = await resolveRelativeInstruction(instruction, ctx)
       }
-      matches.forEach((p) => paths.add(p))
+      matches.forEach((p) => {
+        if (!disabled.has(p)) paths.add(p)
+      })
     }
   }
 
