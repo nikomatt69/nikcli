@@ -46,7 +46,6 @@ import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
 import { Session } from "@tui/routes/session"
-import { GitHubPanel } from "@tui/routes/github"
 import { Workspace } from "@tui/routes/workspace"
 import { PromptHistoryProvider } from "./component/prompt/history"
 import { FrecencyProvider } from "./component/prompt/frecency"
@@ -116,77 +115,87 @@ export function tui(input: {
   startServer?: () => Promise<string>
 }) {
   // promise to prevent immediate exit
-  return new Promise<void>(async (resolve) => {
-    const unguard = win32InstallCtrlCGuard()
-    win32DisableProcessedInput()
-    const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
-    const renderer = await createCliRenderer(rendererConfig(tuiCfg))
-    void renderer.getPalette({ size: 16 }).catch(() => undefined)
-    const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
-    const onExit = async () => {
-      unguard?.()
-      await input.onExit?.()
-      resolve()
-    }
+  return new Promise<void>((resolve, reject) => {
+    void (async () => {
+      try {
+        const unguard = win32InstallCtrlCGuard()
+        win32DisableProcessedInput()
+        const tuiCfg = await TuiConfig.get().catch(() => ({}) as TuiConfig.Info)
+        const renderer = await createCliRenderer(rendererConfig(tuiCfg))
+        void renderer.getPalette({ size: 16 }).catch(() => undefined)
+        const mode = (await (renderer as any).waitForThemeMode?.(1000)) ?? "dark"
+        const onExit = async () => {
+          unguard?.()
+          await input.onExit?.()
+          resolve()
+        }
 
-    await render(() => {
-      return (
-        <ErrorBoundary
-          fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
-        >
-          <ArgsProvider {...input.args}>
-            <ExitProvider onExit={onExit} onBeforeExit={() => TuiPluginRuntime.dispose()} onRestart={input.onRestart}>
-              <ServerProvider startServer={input.startServer}>
-                <KVProvider>
-                  <ToastProvider>
-                    <RouteProvider>
-                      <SDKProvider
-                        url={input.url}
-                        directory={input.directory}
-                        fetch={input.fetch}
-                        events={input.events}
-                      >
-                        <ProjectProvider>
-                          <SyncProvider>
-                            <AnalyticsProvider>
-                              <ThemeProvider mode={mode}>
-                                <LocalProvider>
-                                  <KeybindProvider>
-                                    <PromptStashProvider>
-                                      <DialogProvider>
-                                        <CommandProvider>
-                                          <FrecencyProvider>
-                                            <PromptHistoryProvider>
-                                              <EditorContextProvider>
-                <PromptRefProvider>
-                  <UpgradeProvider upgradeNow={input.upgradeNow}>
-                    <AttentionProvider renderer={renderer}>
-                      <App />
-                    </AttentionProvider>
-                  </UpgradeProvider>
-                </PromptRefProvider>
-                                              </EditorContextProvider>
-                                            </PromptHistoryProvider>
-                                          </FrecencyProvider>
-                                        </CommandProvider>
-                                      </DialogProvider>
-                                    </PromptStashProvider>
-                                  </KeybindProvider>
-                                </LocalProvider>
-                              </ThemeProvider>
-                            </AnalyticsProvider>
-                          </SyncProvider>
-                        </ProjectProvider>
-                      </SDKProvider>
-                    </RouteProvider>
-                  </ToastProvider>
-                </KVProvider>
-              </ServerProvider>
-            </ExitProvider>
-          </ArgsProvider>
-        </ErrorBoundary>
-      )
-    })
+        await render(() => {
+          return (
+            <ErrorBoundary
+              fallback={(error, reset) => <ErrorComponent error={error} reset={reset} onExit={onExit} mode={mode} />}
+            >
+              <ArgsProvider {...input.args}>
+                <ExitProvider
+                  onExit={onExit}
+                  onBeforeExit={() => TuiPluginRuntime.dispose()}
+                  onRestart={input.onRestart}
+                >
+                  <ServerProvider startServer={input.startServer}>
+                    <KVProvider>
+                      <ToastProvider>
+                        <RouteProvider>
+                          <SDKProvider
+                            url={input.url}
+                            directory={input.directory}
+                            fetch={input.fetch}
+                            events={input.events}
+                          >
+                            <ProjectProvider>
+                              <SyncProvider>
+                                <AnalyticsProvider>
+                                  <ThemeProvider mode={mode}>
+                                    <LocalProvider>
+                                      <KeybindProvider>
+                                        <PromptStashProvider>
+                                          <DialogProvider>
+                                            <CommandProvider>
+                                              <FrecencyProvider>
+                                                <PromptHistoryProvider>
+                                                  <EditorContextProvider>
+                                                    <PromptRefProvider>
+                                                      <UpgradeProvider upgradeNow={input.upgradeNow}>
+                                                        <AttentionProvider renderer={renderer}>
+                                                          <App />
+                                                        </AttentionProvider>
+                                                      </UpgradeProvider>
+                                                    </PromptRefProvider>
+                                                  </EditorContextProvider>
+                                                </PromptHistoryProvider>
+                                              </FrecencyProvider>
+                                            </CommandProvider>
+                                          </DialogProvider>
+                                        </PromptStashProvider>
+                                      </KeybindProvider>
+                                    </LocalProvider>
+                                  </ThemeProvider>
+                                </AnalyticsProvider>
+                              </SyncProvider>
+                            </ProjectProvider>
+                          </SDKProvider>
+                        </RouteProvider>
+                      </ToastProvider>
+                    </KVProvider>
+                  </ServerProvider>
+                </ExitProvider>
+              </ArgsProvider>
+            </ErrorBoundary>
+          )
+        })
+      } catch (err) {
+        reject(err)
+      }
+    })()
   })
 }
 
@@ -1231,7 +1240,11 @@ function App() {
           return
         }
 
-        await DialogAlert.show(dialog, "Update Complete", `Successfully updated to v${version}. Please restart the application.`)
+        await DialogAlert.show(
+          dialog,
+          "Update Complete",
+          `Successfully updated to v${version}. Please restart the application.`,
+        )
 
         await exit()
       }),

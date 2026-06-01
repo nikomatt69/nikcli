@@ -4,7 +4,7 @@ import { useSync } from "@tui/context/sync"
 import { useSDK } from "@tui/context/sdk"
 import { useAnalytics } from "../context/analytics"
 import { useKeyboard } from "@opentui/solid"
-import { For, Show, createSignal, createMemo, onMount } from "solid-js"
+import { For, Show, createSignal, createMemo, onMount, type ParentProps } from "solid-js"
 import {
   aggregateAnalytics,
   mergeWithHistorical,
@@ -78,7 +78,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "sessions", label: "Sessions" },
 ]
 
-export function DialogAnalytics(props: { onClose: () => void }) {
+export function DialogAnalytics(_props: { onClose: () => void }) {
   const { theme } = useTheme()
   const sync = useSync()
   const sdk = useSDK()
@@ -149,12 +149,6 @@ export function DialogAnalytics(props: { onClose: () => void }) {
   }
 
   // Computed values
-  const totalNonCache = createMemo(() => {
-    const s = stats()?.global.tokens
-    if (!s) return 0
-    return s.input + s.output + s.reasoning
-  })
-
   const last14Days = createMemo(() => stats()?.days.slice(-14) ?? [])
   const last30Days = createMemo(() => stats()?.days.slice(-30) ?? [])
 
@@ -181,7 +175,11 @@ export function DialogAnalytics(props: { onClose: () => void }) {
         <text fg={theme.accent} attributes={TextAttributes.BOLD}>
           ◈ ANALYTICS
         </text>
-        <text fg={theme.textMuted}>←→ or click tabs | esc to close</text>
+        <text fg={theme.textMuted}>
+          {activeTab() === "overview"
+            ? "←→ tabs · ↑↓ focus · space toggle · esc close"
+            : "←→ or click tabs · esc close"}
+        </text>
       </box>
 
       <Show when={loading()}>
@@ -212,7 +210,7 @@ export function DialogAnalytics(props: { onClose: () => void }) {
 
         {/* Tab Content */}
         <Show when={activeTab() === "overview"}>
-          <OverviewTab stats={stats()!} last14Days={last14Days()} last30Days={last30Days()} />
+          <OverviewTab stats={stats()!} last30Days={last30Days()} />
         </Show>
         <Show when={activeTab() === "tokens"}>
           <TokensTab stats={stats()!} last14Days={last14Days()} />
@@ -234,16 +232,115 @@ export function DialogAnalytics(props: { onClose: () => void }) {
   )
 }
 
+// ===== SHARED UI =====
+
+function LegendDot(props: { color: ReturnType<typeof getChartColors>["input"]; label: string }) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="row" gap={1} alignItems="center">
+      <text fg={props.color} wrapMode="none">
+        ■
+      </text>
+      <text fg={theme.textMuted} wrapMode="none">
+        {props.label}
+      </text>
+    </box>
+  )
+}
+
+function CollapsibleSection(
+  props: ParentProps<{
+    title: string
+    open: boolean
+    focused?: boolean
+    hint?: string
+    onToggle: () => void
+  }>,
+) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="column" gap={1}>
+      <box
+        flexDirection="row"
+        gap={1}
+        alignItems="center"
+        backgroundColor={props.focused ? theme.backgroundElement : undefined}
+        onMouseUp={() => props.onToggle()}
+      >
+        <text fg={props.focused ? theme.primary : theme.textMuted} wrapMode="none">
+          {props.open ? "▾" : "▶"}
+        </text>
+        <text fg={props.focused ? theme.primary : theme.text} attributes={TextAttributes.BOLD} wrapMode="none">
+          {props.title}
+        </text>
+        <Show when={props.hint}>
+          <text fg={theme.textMuted} wrapMode="none">
+            {props.hint}
+          </text>
+        </Show>
+      </box>
+      <Show when={props.open}>
+        <box flexDirection="column" gap={1} paddingLeft={2}>
+          {props.children}
+        </box>
+      </Show>
+    </box>
+  )
+}
+
+// Keyboard-navigable collapsible group: ↑↓ moves focus, space/enter toggles the
+// focused section. `extraKeys` lets a tab handle section-specific keys (returns
+// true when handled). Mounted one-at-a-time per tab, so handlers never overlap.
+function useCollapsibleGroup<T extends string>(
+  sections: readonly T[],
+  extraKeys?: (evt: { name?: string; preventDefault?: () => void }, focusedId: T) => boolean,
+) {
+  const [open, setOpen] = createSignal<Record<T, boolean>>(
+    Object.fromEntries(sections.map((s) => [s, true])) as Record<T, boolean>,
+  )
+  const [focus, setFocus] = createSignal(0)
+  const toggle = (id: T) => setOpen((o) => ({ ...o, [id]: !o[id] }))
+  const focused = (id: T) => sections[focus()] === id
+
+  useKeyboard((evt) => {
+    if (evt.name === "up" || evt.name === "arrow-up") {
+      evt.preventDefault?.()
+      setFocus((f) => Math.max(0, f - 1))
+    } else if (evt.name === "down" || evt.name === "arrow-down") {
+      evt.preventDefault?.()
+      setFocus((f) => Math.min(sections.length - 1, f + 1))
+    } else if (evt.name === "space" || evt.name === " " || evt.name === "return") {
+      evt.preventDefault?.()
+      toggle(sections[focus()]!)
+    } else {
+      extraKeys?.(evt, sections[focus()]!)
+    }
+  })
+
+  return { open, toggle, focused }
+}
+
 // ===== TAB COMPONENTS =====
 
-function OverviewTab(props: {
-  stats: AggregatedStats
-  last14Days: typeof props.stats.days
-  last30Days: typeof props.stats.days
-}) {
+const OVERVIEW_SECTIONS = ["trend", "daily", "providers"] as const
+
+function OverviewTab(props: { stats: AggregatedStats; last30Days: typeof props.stats.days }) {
   const { theme } = useTheme()
   const g = () => props.stats.global
   const viz = () => getChartColors(theme)
+
+  const [dailyRange, setDailyRange] = createSignal<7 | 14 | 30>(7)
+  const cycleRange = () => setDailyRange((r) => (r === 7 ? 14 : r === 14 ? 30 : 7))
+  const { open, toggle, focused } = useCollapsibleGroup(OVERVIEW_SECTIONS, (evt, id) => {
+    if (id === "daily" && evt.name === "r") {
+      evt.preventDefault?.()
+      cycleRange()
+      return true
+    }
+    return false
+  })
+  const dailyDays = createMemo(() => props.last30Days.slice(-dailyRange()))
+  const dailyMax = createMemo(() => Math.max(1, ...dailyDays().map((d) => d.tokens)))
 
   return (
     <box flexDirection="column" gap={2}>
@@ -272,112 +369,131 @@ function OverviewTab(props: {
 
       {/* Braille Line Chart - Token Usage Over Time */}
       <Show when={props.last30Days.length > 0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Token Usage Over Time (30 days)
-        </text>
-        <BrailleLineChart
-          series={[
-            {
-              label: "Input",
-              data: props.last30Days.map((d) => d.input),
-              color: viz().input,
-            },
-            {
-              label: "Output",
-              data: props.last30Days.map((d) => d.output),
-              color: viz().output,
-            },
-            {
-              label: "Cache",
-              data: props.last30Days.map((d) => d.cacheRead + d.cacheWrite),
-              color: viz().cache,
-            },
-          ]}
-          width={60}
-          height={8}
-          showGrid
-          showLegend
-          showAxis
-          yFormat={formatTokens}
-        />
+        <CollapsibleSection
+          title="Token Usage Over Time"
+          hint="(30 days)"
+          open={open().trend}
+          focused={focused("trend")}
+          onToggle={() => toggle("trend")}
+        >
+          <BrailleLineChart
+            series={[
+              {
+                label: "Input",
+                data: props.last30Days.map((d) => d.input),
+                color: viz().input,
+              },
+              {
+                label: "Output",
+                data: props.last30Days.map((d) => d.output),
+                color: viz().output,
+              },
+              {
+                label: "Cache",
+                data: props.last30Days.map((d) => d.cacheRead + d.cacheWrite),
+                color: viz().cache,
+              },
+            ]}
+            width={60}
+            height={8}
+            showGrid
+            showLegend
+            showAxis
+            yFormat={formatTokens}
+          />
+        </CollapsibleSection>
       </Show>
 
       {/* Daily Stacked Bar Chart */}
-      <Show when={props.last14Days.length > 0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Daily Token Breakdown (14 days)
-        </text>
-        <For each={props.last14Days.slice(-7)}>
-          {(day) => (
-            <box flexDirection="row" gap={2} alignItems="center">
-              <text fg={theme.textMuted} width={6} wrapMode="none">
-                {day.date.slice(5)}
-              </text>
-              <StackedBarChartV2
-                segments={[
-                  { label: "Input", value: day.input, color: viz().input },
-                  { label: "Output", value: day.output, color: viz().output },
-                  { label: "Cache", value: day.cacheRead + day.cacheWrite, color: viz().cache },
-                  { label: "Reason", value: day.reasoning, color: viz().reasoning },
-                ]}
-                width={30}
-                showLabels={false}
-              />
-              <text fg={theme.textMuted}>{formatTokens(day.tokens)}</text>
-            </box>
-          )}
-        </For>
-        {/* Legend */}
-        <box flexDirection="row" gap={3}>
-          <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={viz().input} wrapMode="none">
-              ■
+      <Show when={props.last30Days.length > 0}>
+        <CollapsibleSection
+          title="Daily Token Breakdown"
+          hint={`(last ${dailyRange()} days · r to cycle)`}
+          open={open().daily}
+          focused={focused("daily")}
+          onToggle={() => toggle("daily")}
+        >
+          <For each={dailyDays()}>
+            {(day) => {
+              const isPeak = () => day.tokens > 0 && day.tokens === dailyMax()
+              return (
+                <box flexDirection="row" gap={2} alignItems="center">
+                  <text
+                    fg={isPeak() ? theme.primary : theme.textMuted}
+                    attributes={isPeak() ? TextAttributes.BOLD : undefined}
+                    width={6}
+                    wrapMode="none"
+                  >
+                    {day.date.slice(5)}
+                  </text>
+                  <StackedBarChartV2
+                    segments={[
+                      { label: "Input", value: day.input, color: viz().input },
+                      { label: "Output", value: day.output, color: viz().output },
+                      { label: "Cache", value: day.cacheRead + day.cacheWrite, color: viz().cache },
+                      { label: "Reason", value: day.reasoning, color: viz().reasoning },
+                    ]}
+                    width={30}
+                    showLabels={false}
+                  />
+                  <text fg={theme.textMuted} width={7} wrapMode="none">
+                    {formatTokens(day.tokens)}
+                  </text>
+                  <text fg={theme.success} wrapMode="none">
+                    {day.cost > 0 ? money.format(day.cost) : ""}
+                  </text>
+                </box>
+              )
+            }}
+          </For>
+          <Show when={dailyDays().every((d) => d.tokens === 0)}>
+            <text fg={theme.textMuted}>No usage in this range</text>
+          </Show>
+          {/* Legend + range control */}
+          <box flexDirection="row" gap={3} alignItems="center">
+            <LegendDot color={viz().input} label="Input" />
+            <LegendDot color={viz().output} label="Output" />
+            <LegendDot color={viz().cache} label="Cache" />
+            <LegendDot color={viz().reasoning} label="Reason" />
+            <text fg={theme.textMuted} onMouseUp={() => cycleRange()} wrapMode="none">
+              [{dailyRange()}d ⟳]
             </text>
-            <text fg={theme.textMuted}>Input</text>
           </box>
-          <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={viz().output} wrapMode="none">
-              ■
-            </text>
-            <text fg={theme.textMuted}>Output</text>
-          </box>
-          <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={viz().cache} wrapMode="none">
-              ■
-            </text>
-            <text fg={theme.textMuted}>Cache</text>
-          </box>
-          <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={viz().reasoning} wrapMode="none">
-              ■
-            </text>
-            <text fg={theme.textMuted}>Reason</text>
-          </box>
-        </box>
+        </CollapsibleSection>
       </Show>
 
       {/* Provider Summary */}
-      <box flexDirection="column" gap={0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Top Providers
-        </text>
-        <For each={Array.from(props.stats.providers.values()).slice(0, 3)}>
+      <CollapsibleSection
+        title="Top Providers"
+        hint={`(${props.stats.providers.size})`}
+        open={open().providers}
+        focused={focused("providers")}
+        onToggle={() => toggle("providers")}
+      >
+        <For each={Array.from(props.stats.providers.values()).slice(0, 5)}>
           {(prov) => (
             <box flexDirection="row" gap={2} alignItems="center">
-              <text fg={theme.primary} width={12}>
+              <text fg={theme.primary} width={12} wrapMode="none">
                 {prov.providerID}
               </text>
-              <text fg={theme.textMuted}>
+              <text fg={theme.textMuted} width={14} wrapMode="none">
                 {prov.sessions}s / {prov.messages}m
               </text>
-              <text fg={theme.success}>{money.format(prov.cost)}</text>
+              <text fg={theme.success} wrapMode="none">
+                {money.format(prov.cost)}
+              </text>
             </box>
           )}
         </For>
-      </box>
+        <Show when={props.stats.providers.size === 0}>
+          <text fg={theme.textMuted}>No provider data</text>
+        </Show>
+      </CollapsibleSection>
     </box>
   )
 }
+
+const TOKENS_SECTIONS = ["breakdown", "trend", "efficiency"] as const
 
 function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.stats.days }) {
   const { theme } = useTheme()
@@ -386,14 +502,17 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
   const tokens = () => g().tokens
   const total = createMemo(() => tokens().input + tokens().output + tokens().reasoning)
   const totalWithCache = createMemo(() => total() + tokens().cacheRead + tokens().cacheWrite)
+  const { open, toggle, focused } = useCollapsibleGroup(TOKENS_SECTIONS)
 
   return (
-    <box flexDirection="column" gap={1}>
+    <box flexDirection="column" gap={2}>
       {/* Token Breakdown Bars with 8-level precision */}
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Token Breakdown
-      </text>
-      <box flexDirection="column" gap={0}>
+      <CollapsibleSection
+        title="Token Breakdown"
+        open={open().breakdown}
+        focused={focused("breakdown")}
+        onToggle={() => toggle("breakdown")}
+      >
         <HBarPrecision label="input" value={tokens().input} max={total()} width={25} color={viz().input} showPct />
         <HBarPrecision label="output" value={tokens().output} max={total()} width={25} color={viz().output} showPct />
         <HBarPrecision
@@ -420,46 +539,54 @@ function TokensTab(props: { stats: AggregatedStats; last14Days: typeof props.sta
           color={viz().cacheWrite}
           showPct
         />
-      </box>
+      </CollapsibleSection>
 
       {/* Braille Area Chart for token trend */}
       <Show when={props.last14Days.length > 0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          14-Day Token Trend
-        </text>
-        <BrailleAreaChart data={props.last14Days.map((d) => d.tokens)} width={50} height={4} color={viz().input} />
+        <CollapsibleSection
+          title="14-Day Token Trend"
+          open={open().trend}
+          focused={focused("trend")}
+          onToggle={() => toggle("trend")}
+        >
+          <BrailleAreaChart data={props.last14Days.map((d) => d.tokens)} width={50} height={4} color={viz().input} />
+        </CollapsibleSection>
       </Show>
 
       {/* Efficiency Metrics */}
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Efficiency Metrics
-      </text>
-      <box flexDirection="row" gap={3}>
-        <box flexDirection="column" gap={0}>
-          <text fg={theme.textMuted}>Cost/1K tokens</text>
-          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
-            ${g().efficiency.costPer1kTokens.toFixed(4)}
-          </text>
+      <CollapsibleSection
+        title="Efficiency Metrics"
+        open={open().efficiency}
+        focused={focused("efficiency")}
+        onToggle={() => toggle("efficiency")}
+      >
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="column" gap={0}>
+            <text fg={theme.textMuted}>Cost/1K tokens</text>
+            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+              ${g().efficiency.costPer1kTokens.toFixed(4)}
+            </text>
+          </box>
+          <box flexDirection="column" gap={0}>
+            <text fg={theme.textMuted}>Cost/session</text>
+            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+              {money.format(g().efficiency.costPerSession)}
+            </text>
+          </box>
+          <box flexDirection="column" gap={0}>
+            <text fg={theme.textMuted}>Tokens/session</text>
+            <text fg={viz().input} attributes={TextAttributes.BOLD}>
+              {formatTokens(g().efficiency.avgTokensPerSession)}
+            </text>
+          </box>
+          <box flexDirection="column" gap={0}>
+            <text fg={theme.textMuted}>Avg cost/day</text>
+            <text fg={colorToString(theme.warning)} attributes={TextAttributes.BOLD}>
+              {money.format(g().efficiency.avgCostPerDay)}
+            </text>
+          </box>
         </box>
-        <box flexDirection="column" gap={0}>
-          <text fg={theme.textMuted}>Cost/session</text>
-          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
-            {money.format(g().efficiency.costPerSession)}
-          </text>
-        </box>
-        <box flexDirection="column" gap={0}>
-          <text fg={theme.textMuted}>Tokens/session</text>
-          <text fg={viz().input} attributes={TextAttributes.BOLD}>
-            {formatTokens(g().efficiency.avgTokensPerSession)}
-          </text>
-        </box>
-        <box flexDirection="column" gap={0}>
-          <text fg={theme.textMuted}>Avg cost/day</text>
-          <text fg={colorToString(theme.warning)} attributes={TextAttributes.BOLD}>
-            {money.format(g().efficiency.avgCostPerDay)}
-          </text>
-        </box>
-      </box>
+      </CollapsibleSection>
     </box>
   )
 }
@@ -644,6 +771,8 @@ function ToolsTab(props: { stats: AggregatedStats }) {
   )
 }
 
+const SESSIONS_SECTIONS = ["sessions", "top", "background", "workspaces"] as const
+
 function SessionsTab(props: { stats: AggregatedStats }) {
   const { theme } = useTheme()
   const viz = () => getChartColors(theme)
@@ -651,113 +780,136 @@ function SessionsTab(props: { stats: AggregatedStats }) {
   const ws = () => props.stats.workspaces
   const topSessions = createMemo(() => props.stats.sessions.slice(0, 5))
   const bg = () => props.stats.backgroundRuns
+  const { open, toggle, focused } = useCollapsibleGroup(SESSIONS_SECTIONS)
 
   return (
-    <box flexDirection="column" gap={1}>
+    <box flexDirection="column" gap={2}>
       {/* Session Stats */}
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Sessions
-      </text>
-      <box flexDirection="row" gap={3}>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Total:</text>
-          <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
-            {g().sessions}
-          </text>
-        </box>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Active:</text>
-          <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
-            {g().sessions - g().archivedSessions}
-          </text>
-        </box>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Archived:</text>
-          <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
-            {g().archivedSessions}
-          </text>
-        </box>
-      </box>
-
-      {/* Top Sessions */}
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Top by Tokens
-      </text>
-      <For each={topSessions()}>
-        {(session) => {
-          const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
-          return (
-            <box flexDirection="row" gap={1} alignItems="center">
-              <text fg={theme.text} width={14}>
-                {session.title.slice(-14)}
-              </text>
-              <text fg={theme.primary}>{formatTokens(total)}</text>
-              <text fg={theme.success}>{money.format(session.cost)}</text>
-            </box>
-          )
-        }}
-      </For>
-
-      {/* Background Runs */}
-      <Show when={bg().total > 0}>
-        <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Background Runs ({bg().total})
-        </text>
-        <StackedBarChartV2
-          segments={[
-            { label: "Completed", value: bg().completed, color: viz().cache },
-            { label: "Running", value: bg().running, color: viz().input },
-            { label: "Error", value: bg().error, color: viz().alert },
-            { label: "Cancelled", value: bg().cancelled, color: viz().reasoning },
-          ]}
-          width={35}
-          showLabels
-        />
+      <CollapsibleSection
+        title="Sessions"
+        hint={`(${g().sessions})`}
+        open={open().sessions}
+        focused={focused("sessions")}
+        onToggle={() => toggle("sessions")}
+      >
         <box flexDirection="row" gap={3}>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Success:</text>
-            <text fg={colorToString(theme.success)}>{bg().successRate.toFixed(0)}%</text>
+            <text fg={theme.textMuted}>Total:</text>
+            <text fg={colorToString(theme.primary)} attributes={TextAttributes.BOLD}>
+              {g().sessions}
+            </text>
           </box>
           <box flexDirection="row" gap={1} alignItems="center">
-            <text fg={theme.textMuted}>Avg duration:</text>
-            <text fg={viz().input}>{formatDuration(bg().avgDuration)}</text>
+            <text fg={theme.textMuted}>Active:</text>
+            <text fg={colorToString(theme.success)} attributes={TextAttributes.BOLD}>
+              {g().sessions - g().archivedSessions}
+            </text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Archived:</text>
+            <text fg={theme.textMuted} attributes={TextAttributes.BOLD}>
+              {g().archivedSessions}
+            </text>
           </box>
         </box>
-      </Show>
+      </CollapsibleSection>
+
+      {/* Top Sessions */}
+      <CollapsibleSection
+        title="Top by Tokens"
+        open={open().top}
+        focused={focused("top")}
+        onToggle={() => toggle("top")}
+      >
+        <For each={topSessions()}>
+          {(session) => {
+            const total = session.tokens.input + session.tokens.output + session.tokens.reasoning
+            return (
+              <box flexDirection="row" gap={1} alignItems="center">
+                <text fg={theme.text} width={14}>
+                  {session.title.slice(-14)}
+                </text>
+                <text fg={theme.primary}>{formatTokens(total)}</text>
+                <text fg={theme.success}>{money.format(session.cost)}</text>
+              </box>
+            )
+          }}
+        </For>
+        <Show when={topSessions().length === 0}>
+          <text fg={theme.textMuted}>No sessions yet</text>
+        </Show>
+      </CollapsibleSection>
+
+      {/* Background Runs */}
+      <CollapsibleSection
+        title="Background Runs"
+        hint={`(${bg().total})`}
+        open={open().background}
+        focused={focused("background")}
+        onToggle={() => toggle("background")}
+      >
+        <Show when={bg().total > 0} fallback={<text fg={theme.textMuted}>No background runs</text>}>
+          <StackedBarChartV2
+            segments={[
+              { label: "Completed", value: bg().completed, color: viz().cache },
+              { label: "Running", value: bg().running, color: viz().input },
+              { label: "Error", value: bg().error, color: viz().alert },
+              { label: "Cancelled", value: bg().cancelled, color: viz().reasoning },
+            ]}
+            width={35}
+            showLabels
+          />
+          <box flexDirection="row" gap={3}>
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.textMuted}>Success:</text>
+              <text fg={colorToString(theme.success)}>{bg().successRate.toFixed(0)}%</text>
+            </box>
+            <box flexDirection="row" gap={1} alignItems="center">
+              <text fg={theme.textMuted}>Avg duration:</text>
+              <text fg={viz().input}>{formatDuration(bg().avgDuration)}</text>
+            </box>
+          </box>
+        </Show>
+      </CollapsibleSection>
 
       {/* Workspaces Summary */}
-      <text fg={theme.text} attributes={TextAttributes.BOLD}>
-        Workspaces
-      </text>
-      <box flexDirection="row" gap={3}>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Total:</text>
-          <text fg={colorToString(theme.primary)}>{ws().total}</text>
+      <CollapsibleSection
+        title="Workspaces"
+        hint={`(${ws().total})`}
+        open={open().workspaces}
+        focused={focused("workspaces")}
+        onToggle={() => toggle("workspaces")}
+      >
+        <box flexDirection="row" gap={3}>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Total:</text>
+            <text fg={colorToString(theme.primary)}>{ws().total}</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Active:</text>
+            <text fg={colorToString(theme.success)}>{ws().active}</text>
+          </box>
+          <box flexDirection="row" gap={1} alignItems="center">
+            <text fg={theme.textMuted}>Disconnected:</text>
+            <text fg={colorToString(theme.error)}>{ws().disconnected}</text>
+          </box>
         </box>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Active:</text>
-          <text fg={colorToString(theme.success)}>{ws().active}</text>
-        </box>
-        <box flexDirection="row" gap={1} alignItems="center">
-          <text fg={theme.textMuted}>Disconnected:</text>
-          <text fg={colorToString(theme.error)}>{ws().disconnected}</text>
-        </box>
-      </box>
 
-      {/* Type breakdown */}
-      <Show when={Object.keys(ws().byType).length > 0}>
-        <text fg={theme.textMuted}>By type:</text>
-        <box flexDirection="row" gap={2}>
-          <For each={Object.entries(ws().byType)}>
-            {([type, count]) => (
-              <box flexDirection="row" gap={1} alignItems="center">
-                <text fg={colorToString(theme.accent)}>{type}:</text>
-                <text fg={theme.text}>{count}</text>
-              </box>
-            )}
-          </For>
-        </box>
-      </Show>
+        {/* Type breakdown */}
+        <Show when={Object.keys(ws().byType).length > 0}>
+          <text fg={theme.textMuted}>By type:</text>
+          <box flexDirection="row" gap={2}>
+            <For each={Object.entries(ws().byType)}>
+              {([type, count]) => (
+                <box flexDirection="row" gap={1} alignItems="center">
+                  <text fg={colorToString(theme.accent)}>{type}:</text>
+                  <text fg={theme.text}>{count}</text>
+                </box>
+              )}
+            </For>
+          </box>
+        </Show>
+      </CollapsibleSection>
     </box>
   )
 }

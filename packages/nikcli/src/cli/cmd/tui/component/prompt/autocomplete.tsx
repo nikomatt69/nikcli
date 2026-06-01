@@ -135,7 +135,7 @@ export function Autocomplete(props: {
   const filter = createMemo(() => {
     if (!store.visible) return
     // Track props.value to make memo reactive to text changes
-    props.value // <- there surely is a better way to do this, like making .input() reactive
+    void props.value // <- there surely is a better way to do this, like making .input() reactive
 
     return props.input().getTextRange(store.index + 1, props.input().cursorOffset)
   })

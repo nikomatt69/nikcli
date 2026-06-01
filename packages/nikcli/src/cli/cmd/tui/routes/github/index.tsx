@@ -1,6 +1,6 @@
 import { For, Show, createEffect, createMemo, createResource, createSignal } from "solid-js"
 import { TextAttributes } from "@opentui/core"
-import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
+import { useKeyboard } from "@opentui/solid"
 import path from "node:path"
 import { useRoute, useRouteData } from "@tui/context/route"
 import { useSDK } from "@tui/context/sdk"
@@ -289,14 +289,12 @@ export function GitHubPanel() {
   const toast = useToast()
   const dialog = useDialog()
   const keybind = useKeybind()
-  const dimensions = useTerminalDimensions()
   const { theme } = useTheme()
 
   const [section, setSection] = createSignal<Section>("commits")
   const [selected, setSelected] = createSignal(0)
   const [filterOpen, setFilterOpen] = createSignal(false)
   const [filterText, setFilterText] = createSignal("")
-  const [expandedBranch, setExpandedBranch] = createSignal(false)
 
   const directory = createMemo(() => sync.data.path.directory || sdk.directory || process.cwd())
   const [state, { refetch }] = createResource(directory, loadGitHubState)
@@ -726,6 +724,27 @@ export function GitHubPanel() {
       actionCopyHash()
       return
     }
+    if (isPlainShortcut(evt, "l")) {
+      evt.preventDefault()
+      if (section() === "branches") actionSwitchBranch()
+      return
+    }
+    if (isPlainShortcut(evt, "d")) {
+      evt.preventDefault()
+      if (section() === "branches") actionDeleteBranch()
+      return
+    }
+    if (isPlainShortcut(evt, "m")) {
+      evt.preventDefault()
+      if (section() === "prs") actionMergePR()
+      return
+    }
+    if (isPlainShortcut(evt, "x")) {
+      evt.preventDefault()
+      if (section() === "prs") actionClosePR()
+      else if (section() === "issues") actionCloseIssue()
+      return
+    }
     if (evt.name === "tab" || evt.name === "shift+tab") {
       evt.preventDefault()
       const tabs = sectionItems()
@@ -1059,7 +1078,7 @@ export function GitHubPanel() {
                       </text>
                       <Show when={!(item() as Branch).current}>
                         <text fg={theme.textMuted} wrapMode="none">
-                          Press c to switch, d to delete
+                          Press l to switch, d to delete
                         </text>
                       </Show>
                     </box>
@@ -1169,7 +1188,7 @@ export function GitHubPanel() {
                       </text>
                       <box flexDirection="row" gap={1} paddingTop={0}>
                         <text fg={theme.textMuted} wrapMode="word">
-                          o · open | m · merge | c · close
+                          o · open | m · merge | x · close
                         </text>
                       </box>
                     </box>
@@ -1220,7 +1239,7 @@ export function GitHubPanel() {
                       </Show>
                       <box flexDirection="row" gap={1} paddingTop={0}>
                         <text fg={theme.textMuted} wrapMode="word">
-                          o · open | c · close
+                          o · open | x · close
                         </text>
                       </box>
                     </box>
