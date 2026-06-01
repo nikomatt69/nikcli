@@ -222,7 +222,9 @@ export namespace SessionContext {
     const { paths, urls } = await collectSystemPaths(ctx, config).catch(() => ({ paths: new Set<string>(), urls: [] }))
     await Promise.all(
       Array.from(paths).map(async (p) => {
-        const text = await Bun.file(p).text().catch(() => "")
+        const text = await Bun.file(p)
+          .text()
+          .catch(() => "")
         if (!text) return
         const enabled = !disabledInstructions.has(p)
         sources.push({

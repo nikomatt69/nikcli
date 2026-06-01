@@ -2714,6 +2714,21 @@
                       "type": "string"
                     }
                   },
+                  "disabledInstructions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "disabledTools": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {
+                      "type": "boolean"
+                    }
+                  },
                   "github": {
                     "$ref": "#/components/schemas/SessionGithub"
                   },
@@ -3097,6 +3112,342 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.instructions({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/context": {
+      "get": {
+        "operationId": "session.context",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Get context usage breakdown",
+        "description": "Compute a per-source breakdown of estimated context tokens (system prompt, environment, instruction files, skills, MCP servers, built-in tools, agents, and conversation) along with the tokens last reported by the provider. Sources tagged togglable can be enabled/disabled to manage context.",
+        "tags": ["Session"],
+        "responses": {
+          "200": {
+            "description": "Context usage breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "object",
+                      "properties": {
+                        "providerID": {
+                          "type": "string"
+                        },
+                        "modelID": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "contextLimit": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["providerID", "modelID", "name", "contextLimit"]
+                    },
+                    "reported": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "reasoning": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["input", "output", "reasoning", "cacheRead", "cacheWrite", "total"]
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": ["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "string"
+                          },
+                          "tokens": {
+                            "type": "number"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "togglable": {
+                            "type": "boolean"
+                          },
+                          "toggleKind": {
+                            "type": "string",
+                            "enum": ["mcp", "skill", "instruction", "tool"]
+                          },
+                          "toggleKey": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["id", "category", "label", "tokens", "enabled", "togglable"]
+                      }
+                    },
+                    "estimatedTotal": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["reported", "sources", "estimatedTotal"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.context({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/session/{sessionID}/context/toggle": {
+      "post": {
+        "operationId": "session.contextToggle",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string",
+              "pattern": "^ses.*"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Enable or disable a context source",
+        "description": "Enable or disable a single context source for this session. Supports MCP servers (kind=mcp), active skills (kind=skill), instruction files (kind=instruction), and tools (kind=tool). Returns the recomputed context breakdown.",
+        "tags": ["Session"],
+        "responses": {
+          "200": {
+            "description": "Updated context usage breakdown",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "model": {
+                      "type": "object",
+                      "properties": {
+                        "providerID": {
+                          "type": "string"
+                        },
+                        "modelID": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "contextLimit": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["providerID", "modelID", "name", "contextLimit"]
+                    },
+                    "reported": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "reasoning": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "required": ["input", "output", "reasoning", "cacheRead", "cacheWrite", "total"]
+                    },
+                    "sources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "category": {
+                            "type": "string",
+                            "enum": ["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "detail": {
+                            "type": "string"
+                          },
+                          "tokens": {
+                            "type": "number"
+                          },
+                          "enabled": {
+                            "type": "boolean"
+                          },
+                          "togglable": {
+                            "type": "boolean"
+                          },
+                          "toggleKind": {
+                            "type": "string",
+                            "enum": ["mcp", "skill", "instruction", "tool"]
+                          },
+                          "toggleKey": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["id", "category", "label", "tokens", "enabled", "togglable"]
+                      }
+                    },
+                    "estimatedTotal": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["reported", "sources", "estimatedTotal"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": ["mcp", "skill", "instruction", "tool"]
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  }
+                },
+                "required": ["kind", "key", "enabled"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.session.contextToggle({\n  ...\n})"
           }
         ]
       }
@@ -17040,6 +17391,21 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          },
+          "disabledInstructions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "disabledTools": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "boolean"
             }
           },
           "revert": {

@@ -15,15 +15,7 @@ const BAR_WIDTH = 40
 type Breakdown = SessionContextResponse
 type Source = Breakdown["sources"][number]
 
-const CATEGORY_ORDER: Source["category"][] = [
-  "system",
-  "instructions",
-  "skills",
-  "mcp",
-  "tools",
-  "agents",
-  "messages",
-]
+const CATEGORY_ORDER: Source["category"][] = ["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]
 
 const CATEGORY_LABEL: Record<Source["category"], string> = {
   system: "System prompt",
@@ -182,10 +174,7 @@ export function DialogUsage() {
         when={data()?.model}
         fallback={
           <box>
-            <Show
-              when={!data.loading}
-              fallback={<text fg={theme.textMuted}>Computing context breakdown…</text>}
-            >
+            <Show when={!data.loading} fallback={<text fg={theme.textMuted}>Computing context breakdown…</text>}>
               <text fg={theme.textMuted}>No active session or no assistant messages yet.</text>
               <text fg={theme.textMuted}>Send a message to populate context usage.</text>
             </Show>
@@ -295,12 +284,8 @@ export function DialogUsage() {
 
             <Show when={data()?.reported && reportedTotal() > 0}>
               <box flexDirection="row" flexWrap="wrap" gap={2}>
-                <text fg={theme.textMuted}>
-                  cache read {Usage.formatTokens(data()!.reported.cacheRead)}
-                </text>
-                <text fg={theme.textMuted}>
-                  cache write {Usage.formatTokens(data()!.reported.cacheWrite)}
-                </text>
+                <text fg={theme.textMuted}>cache read {Usage.formatTokens(data()!.reported.cacheRead)}</text>
+                <text fg={theme.textMuted}>cache write {Usage.formatTokens(data()!.reported.cacheWrite)}</text>
                 <text fg={theme.textMuted}>output {Usage.formatTokens(data()!.reported.output)}</text>
                 <Show when={data()!.reported.reasoning > 0}>
                   <text fg={theme.textMuted}>reasoning {Usage.formatTokens(data()!.reported.reasoning)}</text>
