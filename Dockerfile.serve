@@ -94,9 +94,9 @@ COPY --from=build /app/packages/nikcli/dist /tmp/nikcli-dist
 
 ARG TARGETARCH
 RUN if [ "$TARGETARCH" = "arm64" ]; then \
-        cp /tmp/nikcli-dist/nikcli-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
+        cp /tmp/nikcli-dist/nikcli-ai-linux-arm64/bin/nikcli /usr/local/bin/nikcli; \
     else \
-        cp /tmp/nikcli-dist/nikcli-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
+        cp /tmp/nikcli-dist/nikcli-ai-linux-x64/bin/nikcli /usr/local/bin/nikcli; \
     fi && \
     chmod +x /usr/local/bin/nikcli && \
     rm -rf /tmp/nikcli-dist

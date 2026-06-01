@@ -43,7 +43,7 @@ ENV XDG_DATA_HOME=/data
 ENV XDG_CONFIG_HOME=/data/config
 ENV XDG_STATE_HOME=/data/state
 RUN cd /app/packages/nikcli && bun run script/build.ts --single --skip-install && \
-    set -- dist/nikcli-linux-*/bin/nikcli && cp "$1" /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
+    set -- dist/*-linux-*/bin/nikcli && cp "$1" /usr/local/bin/nikcli && chmod +x /usr/local/bin/nikcli
 
 # Default to the mobile host without auto-pairing
 CMD ["nikcli", "mobile", "serve", "--hostname", "0.0.0.0", "--port", "4096"]
