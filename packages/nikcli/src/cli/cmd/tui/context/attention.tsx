@@ -13,12 +13,14 @@ export type AttentionContext = {
 
 const ctx = createContext<AttentionContext>()
 
-export function AttentionProvider(props: ParentProps<{
-  renderer: {
-    on(event: "focus" | "blur", listener: () => void): unknown
-    off(event: "focus" | "blur", listener: () => void): unknown
-  }
-}>) {
+export function AttentionProvider(
+  props: ParentProps<{
+    renderer: {
+      on(event: "focus" | "blur", listener: () => void): unknown
+      off(event: "focus" | "blur", listener: () => void): unknown
+    }
+  }>,
+) {
   const [focus, setFocus] = createSignal<FocusState>("unknown")
   const onFocus = () => setFocus("focused")
   const onBlur = () => setFocus("blurred")
@@ -28,11 +30,7 @@ export function AttentionProvider(props: ParentProps<{
     props.renderer.off("focus", onFocus)
     props.renderer.off("blur", onBlur)
   })
-  return (
-    <ctx.Provider value={{ focus }}>
-      {props.children}
-    </ctx.Provider>
-  )
+  return <ctx.Provider value={{ focus }}>{props.children}</ctx.Provider>
 }
 
 export function useAttention(): AttentionContext {
