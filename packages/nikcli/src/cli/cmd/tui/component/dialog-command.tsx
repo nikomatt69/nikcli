@@ -50,7 +50,7 @@ function init() {
     const seen = new Set<string>()
     const unique: typeof all = []
     for (const item of all) {
-      const key = `${item.category ?? ""}|${item.value}` 
+      const key = `${item.category ?? ""}|${item.value}`
       if (seen.has(key)) continue
       seen.add(key)
       unique.push(item)
@@ -172,13 +172,6 @@ export function CommandProvider(props: ParentProps) {
     if (keybind.match("command_list", evt)) {
       evt.preventDefault()
       value.show()
-      return
-    }
-    // `?` outside the prompt opens help. Skipped while typing in the prompt
-    // because the prompt consumes the key event with preventDefault.
-    if (evt.name === "?" && !evt.shift && !evt.ctrl && !evt.option && !evt.meta) {
-      evt.preventDefault()
-      dialog.replace(() => <DialogHelp />)
       return
     }
   })
