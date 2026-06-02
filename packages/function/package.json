@@ -13,5 +13,5 @@
     "@cloudflare/workers-types": "catalog:",
     "wrangler": "^3.100.0"
   },
-  "version": "1.42.0"
+  "version": "1.48.0"
 }

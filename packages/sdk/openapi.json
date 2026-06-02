@@ -19539,6 +19539,47 @@
             "description": "Theme name to use for the interface",
             "type": "string"
           },
+          "locale": {
+            "description": "Localization: UI language, region, formatting, and model reply language",
+            "type": "object",
+            "properties": {
+              "language": {
+                "description": "UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'",
+                "type": "string"
+              },
+              "region": {
+                "description": "ISO-3166 country code, e.g. 'IT', 'US'",
+                "type": "string"
+              },
+              "locale": {
+                "description": "Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set",
+                "type": "string"
+              },
+              "timezone": {
+                "description": "IANA timezone, e.g. 'Europe/Rome'",
+                "type": "string"
+              },
+              "currency": {
+                "description": "ISO-4217 currency code, e.g. 'EUR'; defaults from region",
+                "type": "string"
+              },
+              "autoDetect": {
+                "description": "Auto-detect locale from environment and system (default true)",
+                "type": "boolean"
+              },
+              "replyLanguage": {
+                "description": "Instruct the model to reply in the user's language. true = detected language, a tag like 'it' = fixed language, false = off. Defaults to on for non-English locales.",
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          },
           "keybinds": {
             "$ref": "#/components/schemas/KeybindsConfig"
           },

@@ -23,8 +23,8 @@
    fallback). The user can pin any axis (`language`, `region`, `timezone`, `currency`) independently.
 4. **Reuse, don't reinvent.** Mirror the `app` i18n shape (`t(key, params)`, flat dot-keyed dictionaries,
    dictionary-parity test) so translations and tooling stay consistent across packages.
-5. **Two distinct outputs of "locale".** (a) *Our own UI strings* (i18n catalog) and (b) *the LLM's reply
-   language* (system-prompt instruction). They share the resolved locale but are wired separately.
+5. **Two distinct outputs of "locale".** (a) _Our own UI strings_ (i18n catalog) and (b) _the LLM's reply
+   language_ (system-prompt instruction). They share the resolved locale but are wired separately.
 6. **Incremental adoption.** Ship the resolver + LLM-language win first (highest leverage, lowest cost), then
    migrate UI strings file-by-file behind the same `t()` so nothing regresses.
 
@@ -32,15 +32,15 @@
 
 ## 1. Current state (verified)
 
-| Concern | Status in `packages/nikcli` | Evidence |
-| --- | --- | --- |
-| UI string i18n | **None** — all CLI/TUI copy is hardcoded English | grep of `src/cli/cmd/**` |
-| Locale formatting helper | Partial — `Locale` namespace, but `toLocaleString` with no explicit locale + hardcoded `K`/`M` | `src/util/locale.ts` |
-| Currency/number formatting | Hardcoded `new Intl.NumberFormat("en-US", { currency: "USD" })` in ~8 TUI files | `app.tsx:219`, `dialog-usage.tsx:14`, `prompt/index.tsx:89`, … |
-| Country / geo detection | **None** | no `geoip`/`ipapi`/`country` refs in `package.json` |
-| Config locale field | **None** | `Config.Info` schema, `config.ts:1258` |
-| LLM reply-language control | **None** — `<env>` block has cwd/platform/date only | `src/session/system.ts:63` `environmentImpl` |
-| App/UI i18n (reference impl) | **Mature** — `useLanguage().t()`, `en.ts`/`zh.ts`, 373 keys, parity test | `specs/06`, `specs/07` |
+| Concern                      | Status in `packages/nikcli`                                                                    | Evidence                                                       |
+| ---------------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| UI string i18n               | **None** — all CLI/TUI copy is hardcoded English                                               | grep of `src/cli/cmd/**`                                       |
+| Locale formatting helper     | Partial — `Locale` namespace, but `toLocaleString` with no explicit locale + hardcoded `K`/`M` | `src/util/locale.ts`                                           |
+| Currency/number formatting   | Hardcoded `new Intl.NumberFormat("en-US", { currency: "USD" })` in ~8 TUI files                | `app.tsx:219`, `dialog-usage.tsx:14`, `prompt/index.tsx:89`, … |
+| Country / geo detection      | **None**                                                                                       | no `geoip`/`ipapi`/`country` refs in `package.json`            |
+| Config locale field          | **None**                                                                                       | `Config.Info` schema, `config.ts:1258`                         |
+| LLM reply-language control   | **None** — `<env>` block has cwd/platform/date only                                            | `src/session/system.ts:63` `environmentImpl`                   |
+| App/UI i18n (reference impl) | **Mature** — `useLanguage().t()`, `en.ts`/`zh.ts`, 373 keys, parity test                       | `specs/06`, `specs/07`                                         |
 
 **Implication:** we are adding three new subsystems (Geo resolver, Locale service, i18n catalog) and wiring them
 into four existing seams (Config schema, `environmentImpl`, the `Intl` formatting call-sites, and the CLI/TUI
@@ -83,7 +83,7 @@ command surface).
 
 ## 3. Workstreams & tasks
 
-### WS-1 — Geo detection service (`src/geo/`)  *(new)*
+### WS-1 — Geo detection service (`src/geo/`) _(new)_
 
 The country/timezone resolver. Network is optional and gated.
 
@@ -113,7 +113,7 @@ opt-in enabled and network present, upgrades to `source:"geoip"`, `confidence:"h
 
 ---
 
-### WS-2 — Locale resolver service (`src/locale/`)  *(new — supersedes part of `util/locale.ts`)*
+### WS-2 — Locale resolver service (`src/locale/`) _(new — supersedes part of `util/locale.ts`)_
 
 Single source of truth for "what locale are we in". Consumes Geo; consumed by everything else.
 
@@ -134,7 +134,7 @@ default (no config, US env) yields identical output to today (`en-US`, `USD`) �
 
 ---
 
-### WS-3 — Config schema (`src/config/config.ts`)  *(extend)*
+### WS-3 — Config schema (`src/config/config.ts`) _(extend)_
 
 Add a top-level `locale` object to `Config.Info` (alongside `theme`, `model`, etc. at `config.ts:1258`),
 fully optional with sensible auto-detect default. Zod, with `.describe()` for the JSON schema:
@@ -166,21 +166,21 @@ locale: z
 
 ---
 
-### WS-4 — LLM reply-language injection (`src/session/system.ts`)  *(extend — highest leverage)*
+### WS-4 — LLM reply-language injection (`src/session/system.ts`) _(extend — highest leverage)_
 
 This is the cheapest, highest-impact change: teach the model the user's locale so answers come back in the
 right language with region-aware conventions. Extend `environmentImpl` (`system.ts:63`):
 
 ```ts
 async function environmentImpl(ctx: InstanceContext) {
-  const loc = await resolveLocale(ctx)        // via Locale.Service
+  const loc = await resolveLocale(ctx) // via Locale.Service
   const env = [
     `<env>`,
     `  Working directory: ${ctx.directory}`,
     `  Workspace root folder: ${ctx.worktree}`,
     `  Is directory a git repo: ${ctx.project.vcs === "git" ? "yes" : "no"}`,
     `  Platform: ${process.platform}`,
-    `  Today's date: ${loc.formatDate(new Date())}`,   // locale-aware
+    `  Today's date: ${loc.formatDate(new Date())}`, // locale-aware
     `  User locale: ${loc.locale}`,
     `  User region: ${loc.region}`,
     `  User timezone: ${loc.timezone}`,
@@ -190,8 +190,8 @@ async function environmentImpl(ctx: InstanceContext) {
   if (loc.replyLanguage) {
     parts.push(
       `<language>\nThe user's language is ${loc.languageName} (${loc.language}). ` +
-      `Unless they write to you in another language or explicitly ask otherwise, respond in ${loc.languageName}. ` +
-      `Keep code, identifiers, file paths, CLI commands, and technical terms in their original form.\n</language>`,
+        `Unless they write to you in another language or explicitly ask otherwise, respond in ${loc.languageName}. ` +
+        `Keep code, identifiers, file paths, CLI commands, and technical terms in their original form.\n</language>`,
     )
   }
   return parts
@@ -208,7 +208,7 @@ toggling `config.locale.replyLanguage=false` removes the block.
 
 ---
 
-### WS-5 — i18n catalog for CLI/TUI strings (`src/locale/i18n/`)  *(new + migration)*
+### WS-5 — i18n catalog for CLI/TUI strings (`src/locale/i18n/`) _(new + migration)_
 
 Mirror the proven `packages/app` shape so tooling and contributor muscle-memory transfer.
 
@@ -225,17 +225,18 @@ Mirror the proven `packages/app` shape so tooling and contributor muscle-memory 
   `t("…")` exactly like app's `useLanguage().t()`. Place context in `src/cli/cmd/tui/context/`.
 
 **Migration (incremental, per file — non-blocking for the rest of the plan):**
-  1. Generate `en.ts` by extracting strings; replace literals with `t("key")` file-by-file.
-  2. Priority order (mirror `specs/06`): auth flow → onboarding dialog → command palette → status/usage/help
-     dialogs → error messages → tips/footer hints. Each file is a self-contained PR-sized change.
-  3. Keep technical identifiers (MCP, LSP, URLs, model IDs, keycaps like `ESC`) untranslated by policy.
+
+1. Generate `en.ts` by extracting strings; replace literals with `t("key")` file-by-file.
+2. Priority order (mirror `specs/06`): auth flow → onboarding dialog → command palette → status/usage/help
+   dialogs → error messages → tips/footer hints. Each file is a self-contained PR-sized change.
+3. Keep technical identifiers (MCP, LSP, URLs, model IDs, keycaps like `ESC`) untranslated by policy.
 
 **Acceptance:** `en` parity test green; switching `config.locale.language=it` renders migrated surfaces in
 Italian; unmigrated surfaces stay English (no crash, graceful fallback).
 
 ---
 
-### WS-6 — Locale-aware formatting call-site migration  *(refactor)*
+### WS-6 — Locale-aware formatting call-site migration _(refactor)_
 
 Replace the ~8 hardcoded `new Intl.NumberFormat("en-US", { currency: "USD" })` instances with the
 `Locale.Service` formatters from WS-2.
@@ -243,7 +244,7 @@ Replace the ~8 hardcoded `new Intl.NumberFormat("en-US", { currency: "USD" })` i
 - Files: `cli/cmd/tui/app.tsx:219`, `feature-plugins/sidebar/context.tsx:7`, `component/dialog-analytics.tsx:42`,
   `component/dialog-usage.tsx:14`, `component/dialog-opentui-viz.tsx:196`, `component/prompt/index.tsx:89`,
   `routes/session/sidebar.tsx:57`, `routes/session/subagent-footer.tsx:47`.
-- **Important caveat:** money values are USD-denominated billing amounts. Localize the *number formatting*
+- **Important caveat:** money values are USD-denominated billing amounts. Localize the _number formatting_
   (separators, grouping) per locale, but **keep currency = USD** for billing unless we genuinely bill in local
   currency. Add `Locale.formatMoneyUSD()` (locale grouping, fixed USD symbol) vs `Locale.formatCurrency()`
   (region currency) so we don't mislead users about what they're charged.
@@ -305,14 +306,14 @@ the live TUI language without restart.
 
 ## 6. Rollout / phasing (dependency-ordered)
 
-| Phase | Deliverable | Depends on | Value |
-| --- | --- | --- | --- |
-| **P1** ✅ | WS-3 config schema + WS-2 resolver (env/Intl only, no network) + WS-4 LLM reply-language | — | **Immediate**: model replies in user's language with zero network and zero UI churn |
-| **P2** | WS-1 Geo service (local tz→country) + cache; upgrade resolver confidence | P1 | Accurate region offline; powers currency/date defaults |
-| **P3** 🟡 | WS-7 `nikcli locale` command + per-run env override + `/locale` TUI picker + consent | P1, P2 | User control & visibility |
-| **P4** | WS-1 opt-in GeoIP enrichment | P2, P3 (consent UI) | High-confidence country when env is ambiguous |
-| **P5** | WS-6 formatting call-site migration | P2 | Locale-correct numbers/dates; USD caveat preserved |
-| **P6** | WS-5 i18n catalog + per-file string migration (ongoing) | P1 | Fully localized CLI/TUI UI, file-by-file |
+| Phase     | Deliverable                                                                              | Depends on          | Value                                                                               |
+| --------- | ---------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| **P1** ✅ | WS-3 config schema + WS-2 resolver (env/Intl only, no network) + WS-4 LLM reply-language | —                   | **Immediate**: model replies in user's language with zero network and zero UI churn |
+| **P2**    | WS-1 Geo service (local tz→country) + cache; upgrade resolver confidence                 | P1                  | Accurate region offline; powers currency/date defaults                              |
+| **P3** 🟡 | WS-7 `nikcli locale` command + per-run env override + `/locale` TUI picker + consent     | P1, P2              | User control & visibility                                                           |
+| **P4**    | WS-1 opt-in GeoIP enrichment                                                             | P2, P3 (consent UI) | High-confidence country when env is ambiguous                                       |
+| **P5**    | WS-6 formatting call-site migration                                                      | P2                  | Locale-correct numbers/dates; USD caveat preserved                                  |
+| **P6**    | WS-5 i18n catalog + per-file string migration (ongoing)                                  | P1                  | Fully localized CLI/TUI UI, file-by-file                                            |
 
 P1 is shippable on its own and delivers the headline outcome ("CLI adapts to country & answers in the right
 language") before any UI-string migration. P6 is long-tail and parallelizable.
@@ -344,7 +345,7 @@ CLI surface for explicit control, shipped except the TUI picker:
 
 - **`nikcli locale [show|set|reset]`** — `src/cli/cmd/locale.ts`, registered in `index.ts`. `show` prints the
   fully-resolved locale (each axis + source); `set` persists overrides (`--language/--region/--locale/--timezone/
-  --currency/--reply-language/--no-auto-detect`, `--global` default true) by merging the `locale` key into
+--currency/--reply-language/--no-auto-detect`, `--global` default true) by merging the `locale` key into
   `nikcli.json` (same shape as `image-model`); `reset` clears it.
 - **Per-run override instead of a yargs global flag**: `NIKCLI_LOCALE` / `NIKCLI_LANGUAGE` / `NIKCLI_REGION` are
   read fresh inside `resolveLocale()` at **highest priority** (above persisted config). Cleaner than threading a
@@ -360,6 +361,7 @@ onboarding consent step. The headless surface (command + env override) is comple
 ## 7. File manifest (new vs touched)
 
 **New**
+
 - `src/geo/{geo,cache,tz-country,index}.ts` + tests
 - `src/locale/{locale,format,index}.ts` + tests
 - `src/locale/i18n/{index,en,it,zh}.ts` + `parity.test.ts`
@@ -369,6 +371,7 @@ onboarding consent step. The headless surface (command + env override) is comple
 - `script/gen-tz-country.ts` (build-time map generator)
 
 **Touched**
+
 - `src/config/config.ts` — add `locale` to `Info` (+ regen JSON schema)
 - `src/session/system.ts` — `environmentImpl` locale + `<language>` block
 - `src/util/locale.ts` — route formatting through resolved locale
