@@ -16,12 +16,16 @@ const toc = [
 >
   <section id="layout" class="mb-16 scroll-mt-24">
     <h2>Layout</h2>
-    <p>Storage is rooted under <code>Global.Path.data/storage</code> with JSON files per entity.</p>
+    <p>
+      Session and tool data are stored as JSON files under <code>Global.Path.data/storage</code>.
+      Structured data (users, accounts, workspace state, mobile tokens) is persisted in a SQLite
+      database managed by Drizzle ORM with schema migrations run at startup.
+    </p>
   </section>
 
   <section id="migrations" class="mb-16 scroll-mt-24">
     <h2>Migrations</h2>
-    <p>Migration logic lives in <code>Storage.MIGRATIONS</code> and runs once per storage version.</p>
+    <p>JSON-layer migrations live in <code>Storage.MIGRATIONS</code> and run once per storage version. SQLite schema migrations are handled by Drizzle and applied automatically.</p>
     <DocCallout type="warn" title="Destructive operations">
       <p>Migrations can rewrite or move session data. Always back up before manual edits.</p>
     </DocCallout>

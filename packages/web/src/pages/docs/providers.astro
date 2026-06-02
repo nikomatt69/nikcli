@@ -108,5 +108,13 @@ const bundledProviders = [
     <DocCallout type="warn" title="Bedrock credentials">
       <p>Bedrock prioritizes bearer tokens, then AWS credential chain (profile, access keys, IAM roles).</p>
     </DocCallout>
+    <DocCallout type="info" title="Image & Speak models">
+      <p>
+        Image generation uses providers that expose <code>imageModel()</code> (e.g. OpenAI, OpenRouter).
+        Text-to-speech uses providers configured under <code>config.speak</code>. Both are managed
+        separately from chat providers via <code>nikcli image-model</code> and
+        <code>nikcli speak-model</code>.
+      </p>
+    </DocCallout>
   </section>
 </DocsLayout>

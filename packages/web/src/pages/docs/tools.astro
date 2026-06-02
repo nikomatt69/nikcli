@@ -44,6 +44,13 @@ const toolIndex = [
   { id: "plan_enter", file: "src/tool/plan.ts", desc: "Enter plan mode." },
   { id: "plan_exit", file: "src/tool/plan.ts", desc: "Exit plan mode." },
   { id: "advisor", file: "src/tool/advisor.ts", desc: "Receive background strategic guidance." },
+  { id: "repo_clone", file: "src/tool/repo_clone.ts", desc: "Clone or update a Git repository into the managed repos directory." },
+  { id: "repo_overview", file: "src/tool/repo_overview.ts", desc: "Produce a high-level overview of a managed repository clone." },
+  { id: "search_tools", file: "src/tool/search_tools.ts", desc: "Search the tool registry by keyword to discover available tool IDs." },
+  { id: "exec_code", file: "src/tool/exec_code.ts", desc: "Execute JavaScript/TypeScript code with tool globals available as async functions." },
+  { id: "create_goal", file: "src/tool/goal.ts", desc: "Create a session goal with an objective and optional token budget." },
+  { id: "get_goal", file: "src/tool/goal.ts", desc: "Read the current goal state for this session." },
+  { id: "update_goal", file: "src/tool/goal.ts", desc: "Mark the session goal as complete or blocked." },
   { id: "invalid", file: "src/tool/invalid.ts", desc: "Placeholder for invalid tool calls." },
 ];
 ---
@@ -109,6 +116,18 @@ const toolIndex = [
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
       <DocCard title="context_* / memory_search" eyebrow="Workspace context">
         <p>Collect repo context, related files, diagnostics, and prior-session memory.</p>
+      </DocCard>
+      <DocCard title="repo_clone / repo_overview" eyebrow="External repositories">
+        <p>Clone or refresh a remote repository into the managed repos directory, then produce a high-level overview of its structure.</p>
+      </DocCard>
+      <DocCard title="create_goal / get_goal / update_goal" eyebrow="Session goals">
+        <p>Create a verifiable session goal with an optional token budget, read its current state, and mark it complete or blocked.</p>
+      </DocCard>
+      <DocCard title="search_tools" eyebrow="Discovery">
+        <p>Search the live tool registry by keyword to discover which tool IDs are available in the current session.</p>
+      </DocCard>
+      <DocCard title="exec_code" eyebrow="Code execution">
+        <p>Execute JavaScript/TypeScript code with all registered tools available as async globals, up to a configurable timeout.</p>
       </DocCard>
     </div>
   </section>

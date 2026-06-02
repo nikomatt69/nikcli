@@ -6,10 +6,11 @@ import DocCallout from "../../components/docs/DocCallout.astro";
 const toc = [
   { title: "Entry Point", href: "#entry-point", depth: 2 },
   { title: "Interactive Workflows", href: "#interactive-workflows", depth: 2 },
+  { title: "Autonomous & Scheduled", href: "#autonomous-scheduled", depth: 2 },
   { title: "Services & Remote", href: "#services-remote", depth: 2 },
   { title: "Integration & Automation", href: "#integration-automation", depth: 2 },
-  { title: "Models & Config", href: "#models-config", depth: 2 },
-  { title: "Maintenance", href: "#maintenance", depth: 2 },
+  { title: "Models, Locale & Config", href: "#models-locale-config", depth: 2 },
+  { title: "Diagnostics & Maintenance", href: "#diagnostics-maintenance", depth: 2 },
 ];
 ---
 
@@ -21,17 +22,21 @@ const toc = [
   <section id="entry-point" class="mb-16 scroll-mt-24">
     <h2>Entry Point</h2>
     <p>
-      Running <code>nikcli</code> without a subcommand opens the default terminal UI. From the same
-      binary you can also boot servers, attach to shared sessions, manage connectors, configure
-      models, and control companion or mobile workflows.
+      Running <code>nikcli</code> without a subcommand opens the default terminal UI (TUI) in the
+      current directory. Pass an optional project path to open the TUI in another directory. Global
+      flags <code>--print-logs</code> and <code>--log-level</code> apply to every command.
     </p>
     <DocCode language="bash">
-      nikcli
+      nikcli                    # open TUI in current directory
+      nikcli /path/to/project   # open TUI in another project
+      nikcli --help             # list all commands
+      nikcli completion         # generate shell completion script
     </DocCode>
     <DocCallout type="info" title="Default TUI">
       <p>
         The default TUI command is <code>$0 [project]</code> and accepts session, model, agent,
-        continue, prompt, and network flags.
+        continue, prompt, and network flags. All options available to <code>nikcli run</code> are
+        also accepted here.
       </p>
     </DocCallout>
   </section>
@@ -46,22 +51,46 @@ const toc = [
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>nikcli</code></td><td>Open the TUI in the current workspace.</td></tr>
-        <tr><td><code>nikcli [project]</code></td><td>Open the TUI in another project directory.</td></tr>
-        <tr><td><code>nikcli run [message..]</code></td><td>Run a one-shot prompt without entering the TUI.</td></tr>
-        <tr><td><code>nikcli attach &lt;url&gt;</code></td><td>Attach a local TUI to a shared session URL.</td></tr>
-        <tr><td><code>nikcli session</code></td><td>List, inspect, export, or import sessions.</td></tr>
-        <tr><td><code>nikcli debug</code></td><td>Print environment and runtime diagnostics.</td></tr>
+        <tr>
+          <td><code>nikcli [project]</code></td>
+          <td>Open the TUI in the current or specified project directory.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli run [message..]</code></td>
+          <td>Run a one-shot prompt without entering the TUI.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli attach &lt;url&gt;</code></td>
+          <td>Attach a local TUI to a shared remote session URL.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli session list</code></td>
+          <td>List past and active sessions.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli quickstart</code></td>
+          <td>Interactive walkthrough for first-time users. Accepts <code>--skip-checks</code> and <code>--dry-run</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli pr &lt;number&gt;</code></td>
+          <td>Fetch and checkout a GitHub PR branch, then launch nikcli in the resulting worktree.</td>
+        </tr>
       </tbody>
     </table>
     <DocCode language="bash">
       nikcli run "audit this repo and summarize risks"
       nikcli attach https://example.nikcli.store/share/abcd
+      nikcli quickstart --skip-checks
+      nikcli pr 42
     </DocCode>
   </section>
 
-  <section id="services-remote" class="mb-16 scroll-mt-24">
-    <h2>Services & Remote</h2>
+  <section id="autonomous-scheduled" class="mb-16 scroll-mt-24">
+    <h2>Autonomous &amp; Scheduled</h2>
+    <p>
+      <code>goal</code> drives the agent autonomously until a verifiable condition is met.
+      <code>routine</code> manages saved prompts with scheduled (cron) or API triggers.
+    </p>
     <table class="doc-table">
       <thead>
         <tr>
@@ -70,27 +99,145 @@ const toc = [
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>nikcli serve</code></td><td>Start the local HTTP API server.</td></tr>
-        <tr><td><code>nikcli web</code></td><td>Start the local web UI.</td></tr>
-        <tr><td><code>nikcli companion serve</code></td><td>Boot the server with the companion web UI enabled.</td></tr>
-        <tr><td><code>nikcli companion open</code></td><td>Open the companion UI in the browser.</td></tr>
-        <tr><td><code>nikcli mobile</code></td><td>Serve pairing, token, and mobile host flows.</td></tr>
-        <tr><td><code>nikcli workspace-serve</code></td><td>Expose workspace event streams for remote consumers.</td></tr>
-        <tr><td><code>nikcli remote</code></td><td>Start, inspect, share, or stop a remote session server.</td></tr>
-        <tr><td><code>nikcli acp</code></td><td>Start the ACP server.</td></tr>
-        <tr><td><code>nikcli mcp</code></td><td>Start the MCP server.</td></tr>
+        <tr>
+          <td><code>nikcli goal [condition..]</code></td>
+          <td>
+            Work autonomously until the stated condition is met. Flags: <code>--continue</code>,
+            <code>--session</code>, <code>--model</code>, <code>--agent</code>,
+            <code>--variant</code>, <code>--token-budget</code>, <code>--format</code>.
+          </td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine list</code></td>
+          <td>List all routines for the current project.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine create</code></td>
+          <td>Create a routine interactively or with flags. See the <a href="/docs/routines">Routines</a> page.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine get &lt;id&gt;</code></td>
+          <td>Show details of a specific routine.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine run &lt;id&gt;</code></td>
+          <td>Trigger an immediate run of a routine.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine pause &lt;id&gt;</code></td>
+          <td>Pause a routine (disables its scheduled triggers).</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine resume &lt;id&gt;</code></td>
+          <td>Resume a paused routine.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli routine delete &lt;id&gt;</code></td>
+          <td>Delete a routine (alias: <code>rm</code>). Prompts for confirmation unless <code>--yes</code> is passed.</td>
+        </tr>
       </tbody>
     </table>
-    <DocCallout type="info" title="Remote attach">
+    <DocCode language="bash">
+      nikcli goal "all tests pass and no lint errors"
+      nikcli goal --token-budget 50000 "fix the failing integration test"
+      nikcli routine create --name "daily review" --prompt "summarize recent changes" --cron @daily
+      nikcli routine run rtn_abc123
+    </DocCode>
+  </section>
+
+  <section id="services-remote" class="mb-16 scroll-mt-24">
+    <h2>Services &amp; Remote</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>nikcli serve</code></td>
+          <td>Start the local HTTP API server.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli web</code></td>
+          <td>Start the local web UI.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli companion serve</code></td>
+          <td>Boot the server with the companion web UI enabled.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli companion open</code></td>
+          <td>Open the companion UI in the browser.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mobile serve</code></td>
+          <td>Serve the mobile API host for app pairing.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mobile pair</code></td>
+          <td>Generate a mobile pairing QR code.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mobile token list</code></td>
+          <td>List active mobile pairing tokens.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mobile token revoke</code></td>
+          <td>Revoke a mobile pairing token.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli workspace-serve</code></td>
+          <td>Expose workspace event streams for remote consumers.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli remote start</code></td>
+          <td>Start a terminal or mobile remote control session.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli remote stop</code></td>
+          <td>Stop the active remote session.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli remote status [--json]</code></td>
+          <td>Show remote session status and QR code.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli remote share</code></td>
+          <td>Print the shareable session link and copy it to the clipboard.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli remote attach &lt;sessionId&gt;</code></td>
+          <td>Attach to an existing remote session by ID.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli acp</code></td>
+          <td>Start the ACP server.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli mcp</code></td>
+          <td>Start the MCP server.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      nikcli remote start --name my-session --mobile
+      nikcli remote start --cloud --cloud-url https://relay.example.com --cloud-token TOKEN
+      nikcli remote status --json
+      nikcli remote share
+      nikcli remote attach SESSION_ID
+    </DocCode>
+    <DocCallout type="note" title="remote attach">
       <p>
-        The <code>remote</code> command documents server lifecycle and sharing, but
-        <code>remote attach</code> is not implemented in the current command surface.
+        <code>remote attach &lt;sessionId&gt;</code> is registered in the command surface but the
+        underlying session-join flow is not yet implemented. The command prints a message and exits.
       </p>
     </DocCallout>
   </section>
 
   <section id="integration-automation" class="mb-16 scroll-mt-24">
-    <h2>Integration & Automation</h2>
+    <h2>Integration &amp; Automation</h2>
     <table class="doc-table">
       <thead>
         <tr>
@@ -99,18 +246,84 @@ const toc = [
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>nikcli connectors</code></td><td>Add, list, auth, or revoke service connectors.</td></tr>
-        <tr><td><code>nikcli bot</code></td><td>Manage chat bots for Slack, Discord, Teams, Google Chat, Linear, and GitHub.</td></tr>
-        <tr><td><code>nikcli plugin &lt;module&gt;</code></td><td>Install and merge a plugin module into config.</td></tr>
-        <tr><td><code>nikcli github</code></td><td>Install GitHub app integrations and helpers.</td></tr>
-        <tr><td><code>nikcli pr [number]</code></td><td>Inspect a pull request inside the CLI.</td></tr>
-        <tr><td><code>nikcli lovable build</code></td><td>Open a Lovable build flow from the terminal.</td></tr>
+        <tr>
+          <td><code>nikcli connectors list</code></td>
+          <td>List configured service connectors.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli connectors add</code></td>
+          <td>Add a new connector interactively.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli connectors auth &lt;name&gt;</code></td>
+          <td>Authenticate an existing connector.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli connectors logout &lt;name&gt;</code></td>
+          <td>Revoke connector credentials.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli bot list</code></td>
+          <td>List configured chat bots.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli bot add</code></td>
+          <td>Add a bot for Slack, Discord, Teams, Google Chat, Linear, or GitHub.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli bot start &lt;name&gt;</code></td>
+          <td>Start a bot process.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli bot stop &lt;name&gt;</code></td>
+          <td>Stop a running bot.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli bot webhook</code></td>
+          <td>Configure or display webhook URLs for a bot.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli plugin &lt;module&gt;</code></td>
+          <td>Install and merge a plugin module into config. Flags: <code>--global</code>, <code>--force</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli github install</code></td>
+          <td>Install the GitHub app integration.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli github run</code></td>
+          <td>Run a GitHub automation helper.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads create</code></td>
+          <td>Create a new ad entry in config.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads list</code></td>
+          <td>List configured ads.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads remove &lt;id&gt;</code></td>
+          <td>Remove an ad by ID.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads toggle &lt;id&gt;</code></td>
+          <td>Toggle an ad on or off.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads enable &lt;id&gt;</code></td>
+          <td>Enable a specific ad.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli ads disable &lt;id&gt;</code></td>
+          <td>Disable a specific ad.</td>
+        </tr>
       </tbody>
     </table>
   </section>
 
-  <section id="models-config" class="mb-16 scroll-mt-24">
-    <h2>Models & Config</h2>
+  <section id="models-locale-config" class="mb-16 scroll-mt-24">
+    <h2>Models, Locale &amp; Config</h2>
     <table class="doc-table">
       <thead>
         <tr>
@@ -119,26 +332,138 @@ const toc = [
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>nikcli auth</code></td><td>Manage provider credentials.</td></tr>
-        <tr><td><code>nikcli models [provider]</code></td><td>Inspect or refresh the model catalog.</td></tr>
-        <tr><td><code>nikcli agent</code></td><td>Inspect or update agent defaults.</td></tr>
-        <tr><td><code>nikcli image-model</code></td><td>List or set the default image generation provider and model.</td></tr>
-        <tr><td><code>nikcli speak-model</code></td><td>List or set the default text-to-speech provider and voice.</td></tr>
+        <tr>
+          <td><code>nikcli auth list</code></td>
+          <td>List authenticated providers.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli auth login</code></td>
+          <td>Authenticate with a provider.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli auth logout</code></td>
+          <td>Revoke provider credentials.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli account login</code></td>
+          <td>Log in to a nikcli account via device code.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli account logout</code></td>
+          <td>Log out from the current account.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli account list</code></td>
+          <td>List stored accounts.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli account switch</code></td>
+          <td>Switch the active account.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli account orgs</code></td>
+          <td>List organizations for the current account.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli models [provider]</code></td>
+          <td>Inspect or refresh the model catalog. Flags: <code>--refresh</code>, <code>--verbose</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli agent create</code></td>
+          <td>Create a new agent definition.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli agent list</code></td>
+          <td>List all defined agents.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli image-model [provider] [model]</code></td>
+          <td>List or set the default image generation provider and model.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli speak-model [provider] [model]</code></td>
+          <td>List or set the default text-to-speech provider and voice.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli locale [action]</code></td>
+          <td>
+            Show, set, or reset CLI language, region, and model reply language. Actions:
+            <code>show</code> (default), <code>set</code>, <code>reset</code>. See the
+            <a href="/docs/localization">Localization</a> page.
+          </td>
+        </tr>
       </tbody>
     </table>
+    <DocCode language="bash">
+      nikcli models anthropic --refresh
+      nikcli locale set --language ja --timezone Asia/Tokyo
+      nikcli locale set --reply-language fr
+      nikcli account login
+      nikcli account switch
+    </DocCode>
   </section>
 
-  <section id="maintenance" class="mb-16 scroll-mt-24">
-    <h2>Maintenance</h2>
+  <section id="diagnostics-maintenance" class="mb-16 scroll-mt-24">
+    <h2>Diagnostics &amp; Maintenance</h2>
     <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
       <tbody>
-        <tr><td><code>generate</code></td><td>Generate OpenAPI and related assets.</td></tr>
-        <tr><td><code>stats</code></td><td>Inspect usage and runtime statistics.</td></tr>
-        <tr><td><code>export [sessionID]</code></td><td>Export session data as JSON.</td></tr>
-        <tr><td><code>import &lt;file|url&gt;</code></td><td>Import session data from file or share URL.</td></tr>
-        <tr><td><code>upgrade [target]</code></td><td>Upgrade to the latest or a specific version.</td></tr>
-        <tr><td><code>uninstall</code></td><td>Remove nikcli with optional keep-config, keep-data, dry-run, and force flags.</td></tr>
+        <tr>
+          <td><code>nikcli doctor [--json]</code></td>
+          <td>Diagnose common setup issues: version, runtime, TTY, PATH, disk, config, server. Exits non-zero on failures.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli heap [--detailed]</code></td>
+          <td>Show heap and process memory metrics. <code>--detailed</code> (alias <code>-a</code>) shows all V8/Bun memory fields.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli usage</code></td>
+          <td>Show token usage with charts and visual breakdowns.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli stats</code></td>
+          <td>Show token usage and cost statistics across sessions.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli generate</code></td>
+          <td>Generate OpenAPI specs and related assets.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli export [sessionID]</code></td>
+          <td>Export session data as JSON. Omit the session ID to export the most recent session.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli import &lt;file&gt;</code></td>
+          <td>Import session data from a JSON file or URL.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli upgrade [target]</code></td>
+          <td>Upgrade to the latest release or a specific version target.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli uninstall</code></td>
+          <td>
+            Remove nikcli. Flags: <code>--keep-config</code>, <code>--keep-data</code>,
+            <code>--dry-run</code>, <code>--force</code>.
+          </td>
+        </tr>
       </tbody>
     </table>
+    <DocCode language="bash">
+      nikcli doctor
+      nikcli doctor --json
+      nikcli heap --detailed
+      nikcli stats
+      nikcli usage
+      nikcli export abc123 > session.json
+      nikcli import ./session.json
+      nikcli upgrade
+      nikcli uninstall --keep-config --dry-run
+    </DocCode>
   </section>
 </DocsLayout>

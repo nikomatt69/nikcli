@@ -13,12 +13,15 @@ const toc = [
 ];
 
 const directories = [
+  { name: "account", desc: "User account management and repository." },
   { name: "acp", desc: "Agent Client Protocol." },
   { name: "agent", desc: "Agent definitions, prompts, and generation." },
+  { name: "analytics", desc: "Analytics event ingestion." },
   { name: "auth", desc: "Credential storage and auth flows." },
+  { name: "background", desc: "Background task runner." },
   { name: "brain", desc: "Automatic consolidation and context features." },
   { name: "bus", desc: "Event bus and global broadcast." },
-  { name: "chatbot", desc: "Chat bot integrations (Slack, Discord, etc.)." },
+  { name: "chatbot", desc: "Chat bot integrations (Slack, Discord, Teams, Google Chat, Linear, GitHub)." },
   { name: "cli", desc: "CLI commands, UI, networking, and TUI." },
   { name: "command", desc: "Command templates and execution." },
   { name: "config", desc: "Config schema, parsing, and resolution." },
@@ -26,7 +29,10 @@ const directories = [
   { name: "delegation", desc: "Background delegation manager." },
   { name: "flag", desc: "Environment flag parsing." },
   { name: "global", desc: "Global paths and cache." },
+  { name: "ide", desc: "IDE detection and extension install helpers." },
+  { name: "image", desc: "Image generation provider and model selection." },
   { name: "installation", desc: "Installer detection and upgrades." },
+  { name: "locale", desc: "Language, region, timezone, and currency resolution." },
   { name: "lsp", desc: "Language server integration." },
   { name: "mcp", desc: "Model Context Protocol integration." },
   { name: "mobile", desc: "Mobile host server and session streaming." },
@@ -35,6 +41,10 @@ const directories = [
   { name: "plugin", desc: "Plugin loading and hooks." },
   { name: "project", desc: "Project discovery and instance context." },
   { name: "provider", desc: "Provider SDK adapters and model catalog." },
+  { name: "pty", desc: "Pseudo-terminal streaming." },
+  { name: "question", desc: "Interactive question prompts." },
+  { name: "sandbox", desc: "Tool sandboxing and escape detection." },
+  { name: "scheduler", desc: "Routine scheduling." },
   { name: "server", desc: "HTTP server, routes, and SSE." },
   { name: "session", desc: "Session lifecycle, messages, and storage." },
   { name: "share", desc: "Session sharing utilities." },
@@ -43,6 +53,7 @@ const directories = [
   { name: "storage", desc: "Persistent JSON storage and migrations." },
   { name: "tool", desc: "Tool definitions and registry." },
   { name: "util", desc: "Utility helpers." },
+  { name: "workspace", desc: "Workspace management, config, and session proxy." },
   { name: "worktree", desc: "Git worktree helpers." },
 ];
 ---

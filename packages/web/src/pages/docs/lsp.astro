@@ -1,11 +1,13 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
 
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
   { title: "Servers", href: "#servers", depth: 2 },
   { title: "Diagnostics & Symbols", href: "#diagnostics-symbols", depth: 2 },
   { title: "Config Fields", href: "#config-fields", depth: 2 },
+  { title: "Experimental Flags", href: "#experimental-flags", depth: 2 },
 ];
 ---
 
@@ -44,6 +46,30 @@ const toc = [
         <tr><td><code>disabled</code></td><td>Disable server when true.</td></tr>
         <tr><td><code>env</code></td><td>Environment overrides for the server process.</td></tr>
         <tr><td><code>initialization</code></td><td>Initialization payload override.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="experimental-flags" class="mb-16 scroll-mt-24">
+    <h2>Experimental Flags</h2>
+    <DocCallout type="info" title="LSP tool gate">
+      <p>
+        The LSP tool is only added to the tool registry when <code>NIKCLI_EXPERIMENTAL_LSP_TOOL</code> is
+        set (or when <code>NIKCLI_EXPERIMENTAL</code> is enabled). Without the flag the tool is absent
+        from the agent.
+      </p>
+    </DocCallout>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Flag</th>
+          <th>Effect</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>NIKCLI_EXPERIMENTAL_LSP_TOOL</code></td><td>Enable the LSP tool in the tool registry.</td></tr>
+        <tr><td><code>NIKCLI_EXPERIMENTAL_LSP_TY</code></td><td>Enable the experimental <code>ty</code> Python LSP server; disables pyright when set.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_LSP_DOWNLOAD</code></td><td>Disable automatic LSP server downloads.</td></tr>
       </tbody>
     </table>
   </section>

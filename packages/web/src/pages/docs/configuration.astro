@@ -113,8 +113,9 @@ const topFields = [
       <tbody>
         <tr><td>Remote</td><td><code>/.well-known/nikcli</code> for compatible OAuth providers.</td></tr>
         <tr><td>Global</td><td><code>~/.config/nikcli/nikcli.jsonc</code> and sibling config names.</td></tr>
-        <tr><td>Custom path/content</td><td><code>NIKCLI_CONFIG</code> or <code>NIKCLI_CONFIG_CONTENT</code>.</td></tr>
+        <tr><td>Custom path</td><td><code>NIKCLI_CONFIG</code> — path to an additional config file.</td></tr>
         <tr><td>Project</td><td><code>nikcli.jsonc</code> or <code>nikcli.json</code> discovered upward.</td></tr>
+        <tr><td>Inline content</td><td><code>NIKCLI_CONFIG_CONTENT</code> — highest precedence; inline JSON string.</td></tr>
       </tbody>
     </table>
     <DocCallout type="info" title="Config tokens">

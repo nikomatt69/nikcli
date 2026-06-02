@@ -34,14 +34,18 @@ const toc = [
   <section id="delegated-agents" class="mb-16 scroll-mt-24">
     <h2>Delegated Agents</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="general"><p>General-purpose delegated agent for multi-step work.</p></DocCard>
-      <DocCard title="explore"><p>Exploration agent optimized for codebase discovery.</p></DocCard>
-      <DocCard title="fast-explore"><p>Faster read-only exploration profile.</p></DocCard>
-      <DocCard title="planner"><p>Planning-oriented delegated agent.</p></DocCard>
-      <DocCard title="code-reviewer"><p>Reviews code for quality and safety.</p></DocCard>
-      <DocCard title="debugger"><p>Debugging-oriented agent with read, search, shell, and edit access.</p></DocCard>
-      <DocCard title="test-runner"><p>Runs tests, analyzes failures, and proposes fixes.</p></DocCard>
-      <DocCard title="refactor"><p>Applies safe cleanups without intended behavior changes.</p></DocCard>
+      <DocCard title="general"><p>General-purpose agent for researching complex questions and executing multiple units of work in parallel.</p></DocCard>
+      <DocCard title="explore"><p>Exploration agent optimized for codebase discovery with read, grep, glob, bash, webfetch, and search access.</p></DocCard>
+      <DocCard title="fast-explore"><p>Faster read-only exploration profile limited to read, grep, glob, list, and tree.</p></DocCard>
+      <DocCard title="planner"><p>Planning-oriented agent for multi-step implementation strategies; produces step-by-step plans without modifying files.</p></DocCard>
+      <DocCard title="scout"><p>Read-only research agent for external libraries, dependency source, documentation, and public repositories. Can clone remote repos via <code>repo_clone</code>. Requires the <code>NIKCLI_EXPERIMENTAL_SCOUT</code> flag.</p></DocCard>
+      <DocCard title="researcher"><p>Read-only background research agent that collects evidence and returns source-backed findings; can delegate subtasks to <code>fast-explore</code> or <code>planner</code>.</p></DocCard>
+      <DocCard title="code-reviewer"><p>Reviews code for quality and safety using read, grep, glob, list, and bash.</p></DocCard>
+      <DocCard title="ultrareview-reviewer"><p>Specialized reviewer for a single domain within a parallel ultrareview fleet; hidden from the primary agent picker.</p></DocCard>
+      <DocCard title="debugger"><p>Debugging-oriented agent with read, search, shell, and edit access; identifies root cause and applies minimal fixes.</p></DocCard>
+      <DocCard title="test-runner"><p>Runs tests, analyzes failures, and proposes fixes using read, grep, list, bash, and edit.</p></DocCard>
+      <DocCard title="refactor"><p>Applies safe cleanups without intended behavior changes using read, grep, glob, bash, edit, and write.</p></DocCard>
+      <DocCard title="delegator"><p>Coordination agent that synthesizes results from background subagent runs; operates as an internal helper and is hidden from the primary agent picker.</p></DocCard>
     </div>
   </section>
 

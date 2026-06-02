@@ -2,81 +2,475 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Host CLI", href: "#host-cli", depth: 2 },
-  { title: "Pairing & Auth", href: "#pairing-auth", depth: 2 },
-  { title: "App Capabilities", href: "#app-capabilities", depth: 2 },
-  { title: "Notifications & Live Activities", href: "#notifications-live", depth: 2 },
-  { title: "Tophat", href: "#tophat", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Host setup", href: "#host-setup", depth: 2 },
+  { title: "Connect the app", href: "#connect", depth: 2 },
+  { title: "Deep link & QR", href: "#deep-link", depth: 2 },
+  { title: "Login & accounts", href: "#login", depth: 2 },
+  { title: "Sessions list", href: "#sessions", depth: 2 },
+  { title: "Chat & composer", href: "#chat", depth: 2 },
+  { title: "Tool calls", href: "#tool-calls", depth: 2 },
+  { title: "Approvals & permissions", href: "#approvals", depth: 2 },
+  { title: "Files & diffs", href: "#files-diffs", depth: 2 },
+  { title: "Repos & GitHub", href: "#repos", depth: 2 },
+  { title: "Routines", href: "#routines", depth: 2 },
+  { title: "Terminal", href: "#terminal", depth: 2 },
+  { title: "Settings", href: "#settings", depth: 2 },
+  { title: "Profile & account", href: "#profile", depth: 2 },
+  { title: "Notifications", href: "#notifications", depth: 2 },
+  { title: "Offline", href: "#offline", depth: 2 },
+  { title: "Themes & preferences", href: "#themes", depth: 2 },
 ];
 ---
 
 <DocsLayout
-  title="Mobile"
-  subtitle="Host-side mobile commands in packages/nikcli and the Expo app in packages/mobile."
+  title="Mobile App"
+  subtitle="A complete guide to running and managing nikcli from the Expo app in packages/mobile against a host server."
   toc={toc}
 >
-  <section id="host-cli" class="mb-16 scroll-mt-24">
-    <h2>Host CLI</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      Mobile starts from the host machine. <code>nikcli mobile</code> serves the pairing and mobile
-      API surface, while <code>nikcli mobile tophat</code> helps push builds onto devices or simulators.
+      The nikcli mobile app is an Expo / React Native client that drives a running
+      <strong>nikcli mobile host</strong> over its <code>/mobile/*</code> HTTP + SSE API. You start a
+      host on your machine (or a cloud platform), pair the app with a token, and then work from your
+      phone: run agent sessions, approve tool actions, review diffs, import GitHub repos, manage
+      routines, and open interactive terminals.
     </p>
-    <DocCode language="bash">
-      nikcli mobile serve --pair
-      nikcli mobile token list
-      nikcli mobile token revoke
-    </DocCode>
+    <p>The app is organized into five tabs plus Settings and Profile:</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Sessions" eyebrow="Core"><p>Create and resume agent sessions with live SSE streaming, plan/code modes, approvals, and diffs.</p></DocCard>
+      <DocCard title="Repos" eyebrow="Workspaces"><p>Server worktrees and GitHub repos — import, sandbox, and launch GitHub-backed sessions.</p></DocCard>
+      <DocCard title="Routines" eyebrow="Automation"><p>Create, run, pause, and resume scheduled or API-triggered routines.</p></DocCard>
+      <DocCard title="Terminal" eyebrow="Shell"><p>Fully interactive PTYs running on the host, with multiple tabs and copy/paste.</p></DocCard>
+      <DocCard title="Settings & Profile" eyebrow="Management"><p>Providers, connectors, MCP, skills, agents, commands, memories, tokens, plugins, and account.</p></DocCard>
+    </div>
   </section>
 
-  <section id="pairing-auth" class="mb-16 scroll-mt-24">
-    <h2>Pairing & Auth</h2>
+  <section id="host-setup" class="mb-16 scroll-mt-24">
+    <h2>Host setup</h2>
     <p>
-      Mobile has three distinct auth layers: host pairing via bearer tokens, in-app user login, and
-      GitHub authentication for repo import and PR workflows.
+      The app connects to a host process exposing the mobile API. Two commands cover the common
+      cases. The server binds to <code>0.0.0.0</code> by default.
     </p>
-    <DocCallout type="info" title="Public exposure">
+    <h3>Start and pair in one step</h3>
+    <p>Use this to start the host and immediately print a pairing token + QR code.</p>
+    <DocCode language="bash">
+# Local network / Tailscale — no --public-url needed
+nikcli mobile serve --pair --pair-name iphone
+
+# Public endpoint (Railway, Fly, etc.)
+nikcli mobile serve \
+  --hostname 0.0.0.0 \
+  --port $PORT \
+  --public-url https://your-host.example.com \
+  --pair --pair-name iphone --pair-expiry-days 90
+    </DocCode>
+    <h3>Pair an already-running server</h3>
+    <p>
+      Use this to mint a new token for a server that is already up — e.g. to add a second device.
+      <code>--public-url</code> is required so the QR encodes the right address.
+    </p>
+    <DocCode language="bash">
+nikcli mobile pair \
+  --public-url https://your-host.example.com \
+  --name iphone --expiry-days 90 \
+  --directory /home/user/projects/myrepo
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Flag</th><th>Applies to</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>--hostname</code> / <code>--port</code></td><td>serve</td><td>Bind address and port. Defaults to <code>0.0.0.0</code>.</td></tr>
+        <tr><td><code>--public-url</code></td><td>serve, pair</td><td>HTTPS URL the app uses from outside your LAN/tailnet. Required for <code>pair</code>.</td></tr>
+        <tr><td><code>--pair</code></td><td>serve</td><td>Create a pairing token at startup and print token + QR.</td></tr>
+        <tr><td><code>--pair-name</code> / <code>--name</code></td><td>serve / pair</td><td>Label for the generated token.</td></tr>
+        <tr><td><code>--pair-expiry-days</code> / <code>--expiry-days</code></td><td>serve / pair</td><td>Optional token lifetime in days. Omit for a non-expiring token.</td></tr>
+        <tr><td><code>--directory</code></td><td>pair</td><td>Default working directory encoded into the QR; pre-fills the app's directory field.</td></tr>
+      </tbody>
+    </table>
+    <h3>Combined terminal + mobile host</h3>
+    <p>
+      <code>nikcli remote start --mobile</code> starts the mobile host alongside a terminal remote
+      session (or <code>--mobile-only</code> for just the mobile host) and prints a pairing QR. It
+      shares the same <code>--public-url</code>, <code>--pair</code>, and pairing flags.
+    </p>
+    <h3>Token management</h3>
+    <DocCode language="bash">
+nikcli mobile token list           # list issued pairing tokens
+nikcli mobile token revoke &lt;id&gt;     # revoke a token by ID
+    </DocCode>
+    <DocCallout type="warn" title="Public hosts must be secured">
       <p>
-        Public mobile servers should require additional protection such as basic auth instead of
-        exposing a raw host endpoint.
+        Public or LAN-facing hosting requires <code>NIKCLI_SERVER_PASSWORD</code> to be set. The
+        server refuses to start with a non-loopback address or <code>--public-url</code> unless this
+        variable is present (or Tailscale auth is active).
       </p>
     </DocCallout>
   </section>
 
-  <section id="app-capabilities" class="mb-16 scroll-mt-24">
-    <h2>App Capabilities</h2>
+  <section id="connect" class="mb-16 scroll-mt-24">
+    <h2>Connect the app</h2>
+    <p>
+      With no saved server, the app opens the <strong>Connect</strong> screen (root route
+      <code>/</code>) — a "Secure pairing" card with three fields and a
+      <strong>Validate and continue</strong> button.
+    </p>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Area</th>
-          <th>What ships today</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead>
       <tbody>
-        <tr><td>Sessions</td><td>Realtime SSE streaming, plan/code composer modes, slash suggestions, and command palette actions.</td></tr>
-        <tr><td>Approvals</td><td>Permission prompts and question responses rendered directly in the app.</td></tr>
-        <tr><td>Tool output</td><td>Dedicated tool call cards, attachment previews, and message history.</td></tr>
-        <tr><td>GitHub</td><td>Repo import, worktree creation, publish PR, cleanup, status, diff, stage, and commit flows.</td></tr>
-        <tr><td>Settings</td><td>Providers, connectors, MCP, skills, agents, commands, memories, tokens, GitHub, and plugin settings.</td></tr>
-        <tr><td>Offline</td><td>Queued send retry when the app returns to the foreground.</td></tr>
+        <tr><td><strong>Server URL</strong></td><td>Yes</td><td>Base address of the running host, e.g. <code>https://your-host.example.com</code>.</td></tr>
+        <tr><td><strong>Bearer token</strong></td><td>No</td><td>Pairing token; sent as <code>Authorization: Bearer …</code> on every request.</td></tr>
+        <tr><td><strong>Default server directory</strong></td><td>No</td><td>Server path that scopes file/git/session operations; sent as the <code>x-nikcli-directory</code> header.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Tapping <strong>Validate and continue</strong> calls <code>GET /mobile/bootstrap</code> with
+      the entered credentials. On success the config is saved to the device secure store and the app
+      routes to <code>/sessions</code> if a user token already exists, otherwise to <code>/login</code>.
+      On failure an inline error banner shows the server's message. On later launches the app
+      re-pings the saved host and skips Connect automatically when it responds.
+    </p>
+  </section>
+
+  <section id="deep-link" class="mb-16 scroll-mt-24">
+    <h2>Deep link & QR</h2>
+    <p>
+      Scanning the pairing QR opens a <code>nikcli://</code> URL that pre-fills the Connect fields.
+      The parser accepts two equivalent forms:
+    </p>
+    <DocCode language="text">
+nikcli://connect?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
+nikcli://?server=&lt;url&gt;&amp;token=&lt;token&gt;&amp;directory=&lt;dir&gt;
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Parameter</th><th>Required</th><th>Maps to</th></tr></thead>
+      <tbody>
+        <tr><td><code>server</code></td><td>Yes</td><td>Server URL</td></tr>
+        <tr><td><code>token</code></td><td>No</td><td>Bearer token</td></tr>
+        <tr><td><code>directory</code></td><td>No</td><td>Default server directory</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Deep links are handled both at cold start and while the app is open, so scanning with the app
+      already running also works. URLs with a non-<code>nikcli:</code> scheme are ignored.
+    </p>
+  </section>
+
+  <section id="login" class="mb-16 scroll-mt-24">
+    <h2>Login & accounts</h2>
+    <p>
+      After connecting, the app shows the <strong>Login</strong> screen. This is a second auth layer:
+      the pairing token authenticates the <em>device</em> to the host, while the user account token
+      authenticates the <em>person</em> and scopes their sessions and data.
+    </p>
+    <p>
+      The screen calls <code>GET /user/status</code> first. If no accounts exist yet it shows only a
+      <strong>Create account</strong> form; otherwise it offers <strong>Sign in</strong> and
+      <strong>Create account</strong>. Sign-in needs email + password; registration needs username,
+      email, and a password of at least 8 characters (display name optional). A
+      <strong>Remember me</strong> toggle (on by default) stores only your email — never the password
+      or token — and surfaces it as a tappable chip next time.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Layer</th><th>Created by</th><th>Sent as</th><th>Controls</th></tr></thead>
+      <tbody>
+        <tr><td>Pairing token</td><td><code>nikcli mobile pair</code> / <code>serve --pair</code></td><td><code>Authorization: Bearer</code> + <code>x-nikcli-directory</code></td><td>Device access to the host API</td></tr>
+        <tr><td>User session token</td><td><code>/user/login</code> or <code>/user/register</code></td><td>Managed by the app for user-scoped endpoints</td><td>Identity, roles, per-user data</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Stored securely">
+      <p>Both tokens are kept in <code>expo-secure-store</code> (iOS Keychain / Android Keystore), never in plain preferences.</p>
+    </DocCallout>
+  </section>
+
+  <section id="sessions" class="mb-16 scroll-mt-24">
+    <h2>Sessions list</h2>
+    <p>
+      The Sessions tab is the landing screen. A hero "Operations board" card doubles as the create
+      entry point and a live status summary, with chips for total sessions, busy, retry,
+      GitHub-linked, container-backed, the active provider/model, and the current project.
+    </p>
+    <ul>
+      <li><strong>Search</strong> — a debounced field filters sessions, repos, or branches via the host.</li>
+      <li><strong>New session</strong> — calls the host to create a session (using your configured execution target: local worktree or container sandbox) and opens it. Title, agent, and model are adjusted from inside the session.</li>
+      <li><strong>List items</strong> — show title, location (GitHub repo→branch or local path), an IDLE/BUSY/RETRY badge, file and additions/deletions chips, and an Open button.</li>
+      <li><strong>Actions</strong> — long-press or the overflow button opens a sheet: Open, Abort (when busy), or Delete (optimistic, re-fetches on error).</li>
+      <li><strong>Pull-to-refresh</strong> reloads the list.</li>
+    </ul>
+  </section>
+
+  <section id="chat" class="mb-16 scroll-mt-24">
+    <h2>Chat & composer</h2>
+    <p>
+      Inside a session the screen is a scrollable transcript above a fixed composer. The transcript
+      auto-follows new output while you are near the bottom; scrolling up pauses auto-follow.
+    </p>
+    <h3>Composer</h3>
+    <p>The composer capsule grows from 2 to 6 lines and exposes a toolbar:</p>
+    <ul>
+      <li><strong>Paperclip</strong> — attach files (staged and sent as data-URL file parts).</li>
+      <li><strong>Terminal icon</strong> — open the command palette (grouped: View, Session, Compose, GitHub, Memories, Presets, Skills, MCP, Subtasks, Commands).</li>
+      <li><strong>Git branch icon</strong> — open the Git review panel.</li>
+      <li><strong>Plus</strong> — open the tool drawer (models, skills, tools, MCP servers).</li>
+      <li><strong>Plan / Code toggle</strong> — a sliding segmented control.</li>
+      <li>Model label pill, optional <strong>MCP N</strong> badge, character count, and Send / Stop button.</li>
+    </ul>
+    <h3>Plan vs code mode</h3>
+    <p>
+      In <strong>Plan</strong> mode the host is asked to analyze and propose an approach without
+      making changes until you confirm; in <strong>Code</strong> mode the message is sent as-is. The
+      mode can be switched mid-session and its default is set in Settings.
+    </p>
+    <h3>Slash commands & sending</h3>
+    <p>
+      Typing <code>/</code> shows up to five matching commands with SKILL / MCP / TASK / arg badges;
+      tapping inserts the command. Plain messages stream the assistant reply over SSE
+      (<code>/mobile/session/:id/stream</code>) with reasoning, text, tool cards, and — when present —
+      a per-message cost and token count. The chosen model is only sent on the first message so the
+      host keeps its running model afterward. If a send fails offline, the input is restored and the
+      operation is queued for the next foreground.
+    </p>
+  </section>
+
+  <section id="tool-calls" class="mb-16 scroll-mt-24">
+    <h2>Tool calls</h2>
+    <p>
+      Each tool call renders as a collapsible card whose status dot cycles pending → running →
+      completed/error as stream events arrive. The collapsed header shows a status dot, a
+      tool-specific icon (terminal, file, folder, search, globe, or wrench), the tool name and
+      title, a status pill, and an elapsed-time badge.
+    </p>
+    <p>
+      Expanding the card reveals the <strong>Input</strong> key/value pairs and the
+      <strong>Output</strong> (or Error) — truncated to 400 characters with a "Show all" toggle and a
+      Copy button for the full text.
+    </p>
+  </section>
+
+  <section id="approvals" class="mb-16 scroll-mt-24">
+    <h2>Approvals & permissions</h2>
+    <p>
+      The app surfaces two approval flows that map to the host permission system: tool-execution
+      <strong>permission requests</strong> and structured <strong>question requests</strong>.
+    </p>
+    <h3>Permission cards</h3>
+    <p>
+      Pending permissions render above the transcript with the requested permission, an optional
+      description, command/path scope chips, the matching glob patterns, and three actions —
+      <strong>Reject</strong>, <strong>Allow once</strong>, <strong>Always allow</strong>. A compact
+      approval bar above the composer mirrors these actions and lets you page through queued requests.
+    </p>
+    <DocCallout type="warn" title="Always allow is temporary">
+      <p>"Always allow" is scoped on the host and persists only until nikcli restarts — it is not a permanent on-disk policy.</p>
+    </DocCallout>
+    <h3>Questions</h3>
+    <p>
+      Question requests show the prompt and option pills. Single-select submits on tap; multi-select
+      uses checkboxes and a submit arrow. A reject button dismisses the question. New permission and
+      question events also fire a local notification (deduplicated) and a haptic.
+    </p>
+  </section>
+
+  <section id="files-diffs" class="mb-16 scroll-mt-24">
+    <h2>Files & diffs</h2>
+    <h3>Patch diffs</h3>
+    <p>
+      When an assistant message includes a patch, a "Load diff" button fetches the file diffs and
+      renders one collapsible card per file with an added/deleted/modified badge and
+      <code>+N / -N</code> counts. Expanding shows a syntax-tinted line diff (additions green,
+      removals red, context muted).
+    </p>
+    <h3>File explorer</h3>
+    <p>
+      The folder icon in the session header opens the <strong>Repository tree</strong> for the
+      session's workspace: a filterable file tree with git status markers (A / M / D), workspace text
+      search (ripgrep-backed), fuzzy filename filtering, expand/collapse, and stat chips for files,
+      dirs, open, and changed.
+    </p>
+    <h3>Editor</h3>
+    <p>
+      Tapping a file opens an in-app editor with syntax highlighting, find-in-file (with case
+      toggle and match navigation), word-wrap, copy, and a View/Edit toggle (large files over ~5,000
+      lines open read-only). Edits are tracked locally; <strong>Save</strong> writes the file back to
+      the host, and leaving with unsaved changes prompts to Save, Discard, or Cancel.
+    </p>
+  </section>
+
+  <section id="repos" class="mb-16 scroll-mt-24">
+    <h2>Repos & GitHub</h2>
+    <p>
+      The Repos tab is a unified workspace portfolio: the <em>server worktrees</em> the host knows
+      about, and the <em>GitHub repos</em> from your connected account. A summary card shows live
+      counts, the active worktree, the execution target, and your GitHub login.
+    </p>
+    <DocCallout type="warn" title="Connect GitHub first">
+      <p>
+        GitHub browsing, import, and launch require GitHub to be connected (OAuth device flow or a
+        personal access token in Settings → GitHub). Until then the GitHub section shows a "Connect
+        GitHub first" empty state.
+      </p>
+    </DocCallout>
+    <ul>
+      <li><strong>Server worktrees</strong> — tap a worktree to make it the active directory (forwarded as the <code>x-nikcli-directory</code> header). The active one is highlighted.</li>
+      <li><strong>New sandbox</strong> — provision a fresh isolated server worktree before starting a task.</li>
+      <li><strong>Import a repo</strong> — "Import only" clones the repo to the host and sets it active without creating a session; "Use repo" switches to an already-imported clone.</li>
+      <li><strong>Guided launch</strong> — "Configure session" loads branches and opens a 3-step wizard (repo → branch → launch) to create a worktree and session in one go via the host GitHub API.</li>
+    </ul>
+    <h3>Git review</h3>
+    <p>
+      Git operations are exposed through the Git review panel launched from a session: view
+      <strong>status</strong> and <strong>diff</strong>, browse <strong>commits</strong> and
+      <strong>branches</strong>, <strong>stage</strong>/<strong>unstage</strong>/<strong>discard</strong>
+      files, <strong>commit</strong> and <strong>push</strong>, and — for GitHub-backed sessions —
+      <strong>publish a pull request</strong> or <strong>clean up</strong> the worktree. A status bar
+      widget shows branch, staged/unstaged/untracked counts, and ahead/behind. Discard affects only
+      tracked files.
+    </p>
+  </section>
+
+  <section id="routines" class="mb-16 scroll-mt-24">
+    <h2>Routines</h2>
+    <p>
+      The Routines tab is a full create/read/update/delete interface for saved prompts that run as
+      sessions — on a cron schedule, via an HTTP webhook, or on demand. The list shows active/paused
+      counts; each row shows the name, a prompt preview, a status chip, a trigger summary (cron and/or
+      <code>API</code>, or "manual only"), the last-run time, and <strong>Run now</strong> /
+      <strong>Edit</strong> buttons.
+    </p>
+    <p>The detail screen edits everything:</p>
+    <ul>
+      <li><strong>Name</strong> and <strong>Prompt</strong> (both required).</li>
+      <li><strong>Schedule</strong> — preset chips (@hourly, Every 6h, @daily, @weekly) or a custom cron expression, with an enable/disable toggle.</li>
+      <li><strong>API trigger</strong> — shows the endpoint <code>POST /mobile/routines/trigger/&lt;token&gt;</code> (no bearer token needed) with an enable/disable toggle.</li>
+      <li><strong>Run now / Pause / Resume / Delete</strong>, plus a link to the last run's session.</li>
+    </ul>
+    <DocCallout type="info" title="Also on the CLI">
+      <p>
+        The API trigger token is assigned by the host when the routine is created with
+        <code>--api</code> / <code>--api-token</code>. Everything here is also available via
+        <code>nikcli routine</code> — see <a href="/docs/routines">Routines</a>.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="terminal" class="mb-16 scroll-mt-24">
+    <h2>Terminal</h2>
+    <p>
+      The Terminal tab opens <strong>fully interactive PTYs</strong> running on the host — you can
+      type commands, use arrow keys, run editors, and see color output. Each tab is a terminal
+      emulator in a WebView connected to the host over a WebSocket; the auth token and active
+      directory are passed as query parameters (WebSockets can't send custom headers), and resizes are
+      synced back to the server PTY.
+    </p>
+    <ul>
+      <li><strong>Multiple tabs</strong> stay connected in the background; only the active one is visible.</li>
+      <li><strong>Toolbar</strong> shows the working directory and offers Copy (selection or visible text), Paste (sends clipboard into the PTY), New tab, and Close all.</li>
+      <li><strong>Reconnect</strong> — up to five automatic retries before a "Connection Failed" overlay with a Retry button.</li>
+    </ul>
+    <DocCallout type="warn" title="Server-local & non-persistent">
+      <p>
+        The PTY runs on the host (no local shell on the device), and tab state is not persisted across
+        app restarts — though host PTYs may keep running until they time out or are cleaned up.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="settings" class="mb-16 scroll-mt-24">
+    <h2>Settings</h2>
+    <p>
+      Settings is a single scrollable control plane; each section can be shown or hidden per device
+      from Appearance. Some areas open dedicated sub-screens. This is where you manage everything the
+      host exposes.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Area</th><th>What you manage</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Models / Providers</strong></td><td>Browse the host provider catalog, pick a default model for new mobile sessions, and save or remove provider API keys on the host.</td></tr>
+        <tr><td><strong>GitHub</strong></td><td>Connect via OAuth device flow (or save the OAuth client ID), view the connected login, disconnect, or save a manual <code>ghp_…</code> token.</td></tr>
+        <tr><td><strong>MCP</strong></td><td>Add remote (URL) or local (command) MCP servers; enable/disable, connect, authenticate (browser), or clear auth, with live status chips.</td></tr>
+        <tr><td><strong>Connectors</strong></td><td>Save/remove credentials for Figma, Slack, Discord, Microsoft Teams, Linear, Lovable, and Google Chat. Stored on the host.</td></tr>
+        <tr><td><strong>Skills</strong></td><td>Browse the host skill registry (sources: <code>.nikcli</code>, <code>.claude</code>, <code>.agents</code>) with name, category, version, and tags.</td></tr>
+        <tr><td><strong>Agents</strong></td><td>Browse built-in and custom agents with their tools and IDs; the default agent is marked.</td></tr>
+        <tr><td><strong>Commands</strong></td><td>Add/edit/remove host slash commands (template, optional agent/model override, subtask flag); manage local prompt presets and composer defaults.</td></tr>
+        <tr><td><strong>Memories</strong></td><td>Add/remove reusable host-backed snippets and browse recent prompt history.</td></tr>
+        <tr><td><strong>Tokens</strong></td><td>Create long-lived mobile bearer tokens (name + expiry), copy them once, view last-used/expiry, and revoke instantly.</td></tr>
+        <tr><td><strong>Plugins</strong></td><td>Save API keys for Codex (openai), Cursor, and GitHub Copilot on the host.</td></tr>
+        <tr><td><strong>Connection</strong></td><td>Server URL, bearer token, default directory; Save connection, Forget server, Sign out.</td></tr>
+        <tr><td><strong>Execution</strong></td><td>Execution target: local worktree (default) or container sandbox (when Docker/Podman is available).</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="notifications-live" class="mb-16 scroll-mt-24">
+  <section id="profile" class="mb-16 scroll-mt-24">
+    <h2>Profile & account</h2>
+    <p>
+      The Profile screen shows your identity (avatar, display name, <code>@username</code>, email,
+      role, member-since), account stats, and an edit form for display name and password. Admins
+      additionally get a <strong>User management</strong> list to promote/revoke admins and delete
+      accounts. A <strong>Sign out</strong> action (with confirmation) ends the session.
+    </p>
+    <DocCallout type="warn" title="Deletions are permanent">
+      <p>Deleting a user from the admin panel removes the account permanently on the host and cannot be undone.</p>
+    </DocCallout>
+  </section>
+
+  <section id="notifications" class="mb-16 scroll-mt-24">
     <h2>Notifications & Live Activities</h2>
     <p>
-      The app supports local notifications and iOS Live Activities for session readiness, approval
-      requests, and other foreground-worthy state changes.
+      Notifications are <strong>off by default</strong>. Enable them in Settings → Interaction →
+      Notifications; the app requests OS permission on enable. Three kinds gate on individual toggles:
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Kind</th><th>Toggle</th><th>Fires when</th></tr></thead>
+      <tbody>
+        <tr><td><code>sessionReady</code></td><td>Session ready</td><td>A session goes idle / ready for the next command.</td></tr>
+        <tr><td><code>permissions</code></td><td>Permission requests</td><td>A session is waiting for an approval.</td></tr>
+        <tr><td><code>failures</code></td><td>Failures</td><td>A session enters an error state.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Notifications are suppressed while the app is foregrounded and deduplicated within an 8-second
+      window. Android uses a dedicated <code>nikcli-mobile</code> channel. On iOS 16.2+ the app drives
+      <strong>Live Activities</strong> that show session state on the Lock Screen / Dynamic Island,
+      with a color tone derived from state (attention for approvals, countdown for retries, editorial
+      for GitHub publish/cleanup, work for running). Activities deep-link back into the session and are
+      reconciled on app foreground. Live Activities are iOS-only.
     </p>
   </section>
 
-  <section id="tophat" class="mb-16 scroll-mt-24">
-    <h2>Tophat</h2>
+  <section id="offline" class="mb-16 scroll-mt-24">
+    <h2>Offline behavior</h2>
     <p>
-      Tophat support is configurable under <code>config.mobile.tophat</code> and lets nikcli install
-      local or remote mobile build artifacts on iOS and Android targets.
+      When a send can't reach the host, the message is queued locally (in secure storage) and replayed
+      automatically the next time the app returns to the foreground. The queue is capped at 50 entries
+      (oldest evicted) and drained with per-operation retry — successful sends are removed, failures
+      stay for the next attempt.
     </p>
+  </section>
+
+  <section id="themes" class="mb-16 scroll-mt-24">
+    <h2>Themes & preferences</h2>
+    <p>
+      Settings → Appearance offers a color mode (System, Light, Dark) and a color theme picker with
+      100+ named themes (Nikcli default, plus Nord, Dracula, Tokyo Night, Catppuccin, Gruvbox,
+      Solarized, GitHub, One Dark, Kanagawa, Rose Pine, and many more). Mode and theme apply instantly
+      and persist on the device.
+    </p>
+    <p>Other persisted preferences you can manage in Settings include:</p>
+    <table class="doc-table">
+      <thead><tr><th>Preference</th><th>Default</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Notifications (master + per-kind)</td><td>Off / on per kind</td><td>Interaction → Notifications</td></tr>
+        <tr><td>Haptics (master + send/commands/permissions/errors)</td><td>On</td><td>Interaction → Haptics</td></tr>
+        <tr><td>Message gestures (swipe / long-press)</td><td>On</td><td>Interaction → Message gestures</td></tr>
+        <tr><td>Composer default mode</td><td>Code</td><td>Commands → Composer defaults</td></tr>
+        <tr><td>Auto-follow transcript</td><td>On</td><td>Commands → Composer defaults</td></tr>
+        <tr><td>Slash suggestions</td><td>On</td><td>Commands → Composer defaults</td></tr>
+        <tr><td>Visible settings sections</td><td>All visible</td><td>Appearance</td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

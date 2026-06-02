@@ -1,0 +1,219 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "nikcli web", href: "#nikcli-web", depth: 2 },
+  { title: "Web App (/app)", href: "#web-app", depth: 2 },
+  { title: "Studio Dashboard (/dashboard)", href: "#studio", depth: 2 },
+  { title: "Companion UI", href: "#companion", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Web App & Studio"
+  subtitle="Browser-based access to nikcli sessions, the Studio management dashboard, and the companion UI — all served from packages/web and packages/companion."
+  toc={toc}
+>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      The nikcli web surface has three distinct entry points, each suited to a different workflow:
+    </p>
+    <div class="not-prose mt-6 grid gap-4 sm:grid-cols-3">
+      <DocCard title="Web App" eyebrow="Browser SPA" href="#web-app">
+        <p>Full session client at <code>/app</code>. Drives the same headless mobile routes as the iOS/Android app against any hosted nikcli server.</p>
+      </DocCard>
+      <DocCard title="Studio" eyebrow="Admin dashboard" href="#studio">
+        <p>Management dashboard at <code>/dashboard</code>. Agents, sessions, config, MCP, skills, profiles, backup, users, and settings.</p>
+      </DocCard>
+      <DocCard title="Companion" eyebrow="Lightweight UI" href="#companion">
+        <p>Minimal session companion at <code>/companion</code>. Started via <code>nikcli companion serve</code> and opened with <code>nikcli companion open</code>.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="nikcli-web" class="mb-16 scroll-mt-24">
+    <h2><code>nikcli web</code></h2>
+    <p>
+      The <code>nikcli web</code> command starts the nikcli server and opens the web interface in
+      your default browser. It accepts the standard network options
+      (<code>--hostname</code>, <code>--port</code>, <code>--mdns</code>).
+    </p>
+    <DocCode language="bash">
+      nikcli web
+      nikcli web --hostname 0.0.0.0 --port 4096
+    </DocCode>
+    <p>
+      When bound to <code>0.0.0.0</code> the command prints both the localhost URL and any detected
+      LAN IP addresses. If mDNS is enabled it also advertises <code>nikcli.local:&lt;port&gt;</code>.
+      The browser is opened automatically to the localhost URL.
+    </p>
+    <DocCallout type="warn" title="NIKCLI_SERVER_PASSWORD">
+      <p>
+        If <code>NIKCLI_SERVER_PASSWORD</code> is not set, the server starts unsecured and prints a
+        warning. Always set a password before exposing the server beyond loopback.
+        <code>NIKCLI_SERVER_TAILSCALE_AUTH</code> is an alternative for loopback-bound hosts on a
+        tailnet; a warning is shown if it is set but the hostname is non-loopback.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="web-app" class="mb-16 scroll-mt-24">
+    <h2>Web App (<code>/app</code>)</h2>
+    <p>
+      The browser web app is a React SPA served at <code>/app/[...slug]</code>
+      (title <em>Nikcli Web App</em>). It mounts <code>AppShell</code> client-side and provides the
+      same headless mobile routes and bearer-token pairing flow as the iOS/Android app, but from a
+      browser-first interface.
+    </p>
+
+    <h3>Connecting</h3>
+    <p>
+      On the connect screen, paste either a plain server URL or the
+      <code>nikcli://connect?server=...&amp;token=...</code> deep link produced by
+      <code>nikcli mobile pair</code>. The client validates the bootstrap endpoint before saving
+      credentials to <code>localStorage</code>.
+    </p>
+    <DocCode language="bash">
+      # Generate a pairing link for the web app (90-day token)
+      nikcli mobile pair --public-url https://your-server.example.com --name web --expiry-days 90
+    </DocCode>
+    <DocCallout type="info" title="Same server, two clients">
+      <p>
+        The web app consumes the same <code>/mobile/*</code> API surface as the native app. No
+        server-side changes are needed: keep using <code>nikcli mobile serve</code> or your Railway
+        deployment, and the web client connects to it the same way.
+      </p>
+    </DocCallout>
+
+    <h3>Screens & Capabilities</h3>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Screen / Route</th>
+          <th>What it does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/app/connect</code></td><td>Paste server URL or pairing link, validate bootstrap, save credentials.</td></tr>
+        <tr><td><code>/app/sessions</code></td><td>Session board with status chips (busy / retry / idle), file-change counts, container and GitHub badges, and search.</td></tr>
+        <tr><td><code>/app/sessions/:id</code></td><td>Full session transcript with realtime SSE streaming; plan / code composer modes; slash-command suggestions; permission-prompt cards (allow once / always / reject); per-message diff viewer; publish and cleanup GitHub workflows; abort running session.</td></tr>
+        <tr><td><code>/app/repos</code></td><td>GitHub repository browser for selecting workspaces.</td></tr>
+        <tr><td><code>/app/settings</code></td><td>Provider, model, execution target (local / container), and directory preferences stored in <code>localStorage</code>.</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Session detail features</h3>
+    <ul>
+      <li>Realtime SSE event stream with orphan-part reconciliation for fast-arriving tool events.</li>
+      <li>Tool call cards showing name, status, input JSON, and output text (collapsible).</li>
+      <li>Reasoning block display (collapsible) and per-message token / cost summary.</li>
+      <li>On-demand diff loading per message via the <em>Load diff</em> button (before/after side-by-side).</li>
+      <li>PR publish modal: title, body, and commit message, posted to the GitHub worktree.</li>
+      <li>Cleanup button removes the worktree and resets the active directory to the base repo.</li>
+    </ul>
+  </section>
+
+  <section id="studio" class="mb-16 scroll-mt-24">
+    <h2>Studio Dashboard (<code>/dashboard</code>)</h2>
+    <p>
+      Studio is the admin and management layer of the nikcli web package. It is a server-rendered
+      Astro site that mounts React page components client-side inside a
+      <code>DashboardShell</code> layout. Auth is handled via the login / register pages before
+      accessing protected areas.
+    </p>
+
+    <h3>Auth</h3>
+    <DocCode language="bash">
+      # Studio login / register pages
+      /dashboard/login
+      /dashboard/register
+    </DocCode>
+
+    <h3>Dashboard areas</h3>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Route</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Overview</td><td><code>/dashboard</code></td><td>Top-level summary and status.</td></tr>
+        <tr><td>Agents</td><td><code>/dashboard/agents</code></td><td>Manage agent definitions and configurations.</td></tr>
+        <tr><td>Sessions</td><td><code>/dashboard/sessions</code></td><td>Browse, inspect, and manage all server sessions.</td></tr>
+        <tr><td>Config</td><td><code>/dashboard/config</code></td><td>View and edit the server configuration.</td></tr>
+        <tr><td>MCP</td><td><code>/dashboard/mcp</code></td><td>Model Context Protocol server registry and status.</td></tr>
+        <tr><td>Skills</td><td><code>/dashboard/skills</code></td><td>Skill library management.</td></tr>
+        <tr><td>Profiles</td><td><code>/dashboard/profiles</code></td><td>Named configuration profiles.</td></tr>
+        <tr><td>Backup</td><td><code>/dashboard/backup</code></td><td>Export and restore server data.</td></tr>
+        <tr><td>Settings</td><td><code>/dashboard/settings</code></td><td>Server-level settings.</td></tr>
+        <tr><td>Users</td><td><code>/dashboard/users</code></td><td>User management for multi-user deployments.</td></tr>
+      </tbody>
+    </table>
+
+    <DocCallout type="note" title="Studio title">
+      <p>
+        The dashboard shell renders under the title <em>Studio | nikcli</em>. The footer of the
+        main site links to <code>/dashboard</code> as "Studio".
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="companion" class="mb-16 scroll-mt-24">
+    <h2>Companion UI</h2>
+    <p>
+      The companion is a lightweight session UI in <code>packages/companion</code>
+      (<code>@nikcli-ai/companion</code>). It serves a minimal React SPA at <code>/companion</code>
+      backed by a WebSocket bridge to the nikcli server. It can run as a Bun server or deploy as a
+      Cloudflare Worker.
+    </p>
+
+    <h3>CLI commands</h3>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Command</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>nikcli companion serve</code></td>
+          <td>Start the nikcli server with the companion UI. Accepts <code>--port</code> (default <code>4096</code>) and <code>--host</code> (default <code>0.0.0.0</code>). Prints both the localhost URL and the LAN IP for mobile access at <code>http://&lt;lan-ip&gt;:&lt;port&gt;/companion</code>.</td>
+        </tr>
+        <tr>
+          <td><code>nikcli companion open</code></td>
+          <td>Open the companion UI in the default browser. Accepts <code>--port</code> (default <code>4096</code>) and <code>--session &lt;id&gt;</code> to deep-link directly into a specific session.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <DocCode language="bash">
+      nikcli companion serve --port 4096
+      nikcli companion open --port 4096 --session &lt;session-id&gt;
+    </DocCode>
+
+    <h3>How it works</h3>
+    <p>
+      The companion routes at <code>/companion/api/sessions</code> create or list WebSocket-bridged
+      session records. Each session gets a <code>wsUrl</code> and a <code>cliUrl</code> (WebSocket
+      endpoints) along with an <code>instructions</code> string that shows how to attach a nikcli
+      process to the session via <code>--sdk-url</code>. The React SPA at <code>/companion</code>
+      connects to these sockets to display and interact with the running agent.
+    </p>
+
+    <DocCallout type="info" title="Deployment">
+      <p>
+        The companion package includes a <code>wrangler.toml</code> for Cloudflare Worker deployment
+        alongside the Bun dev server. Use <code>bun run dev:worker</code> to test the Worker locally
+        and <code>bun run deploy</code> to publish.
+      </p>
+    </DocCallout>
+  </section>
+</DocsLayout>

@@ -20,8 +20,9 @@ const toc = [
     <h2>Permission Model</h2>
     <p>
       Permissions are evaluated per tool call. The ruleset merges defaults, agent-level
-      permissions, and session overrides. Core logic lives in
-      <code>packages/nikcli/src/permission/index.ts</code>.
+      permissions, and session overrides. Core logic is split across
+      <code>packages/nikcli/src/permission/evaluate.ts</code> (rule evaluation),
+      <code>schema.ts</code> (schema definitions), and <code>next.ts</code> (permission resolution).
     </p>
   </section>
 

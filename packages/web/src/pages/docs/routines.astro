@@ -1,0 +1,225 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "What Are Routines", href: "#what-are-routines", depth: 2 },
+  { title: "Triggers", href: "#triggers", depth: 2 },
+  { title: "Subcommands", href: "#subcommands", depth: 2 },
+  { title: "Creating a Routine", href: "#creating-a-routine", depth: 2 },
+  { title: "API Trigger", href: "#api-trigger", depth: 2 },
+  { title: "Lifecycle", href: "#lifecycle", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Routines"
+  subtitle="Saved prompts with schedule or API triggers, scoped per project. Source: packages/nikcli/src/cli/cmd/routine.ts."
+  toc={toc}
+>
+  <section id="what-are-routines" class="mb-16 scroll-mt-24">
+    <h2>What Are Routines</h2>
+    <p>
+      A routine pairs a saved prompt with one or more triggers. When a trigger fires, nikcli runs
+      the prompt as a background session and records the resulting session ID. Routines are scoped
+      to the current project directory — each project has its own routine list.
+    </p>
+    <p>
+      Two trigger types are supported:
+    </p>
+    <ul>
+      <li><strong>schedule</strong> — a cron expression that fires the routine on a timer.</li>
+      <li><strong>api</strong> — a secret token that lets external systems trigger the routine via HTTP.</li>
+    </ul>
+    <p>
+      A single routine can have both a schedule trigger and an API trigger at the same time.
+    </p>
+  </section>
+
+  <section id="triggers" class="mb-16 scroll-mt-24">
+    <h2>Triggers</h2>
+
+    <h3>Schedule trigger</h3>
+    <p>
+      The schedule trigger accepts the following cron patterns:
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Pattern</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>@hourly</code></td><td>Once per hour.</td></tr>
+        <tr><td><code>@daily</code></td><td>Once per day.</td></tr>
+        <tr><td><code>@weekly</code></td><td>Once per week.</td></tr>
+        <tr><td><code>*/N</code></td><td>Every N minutes (e.g. <code>*/30</code> = every 30 minutes).</td></tr>
+        <tr><td><code>0 */N * * *</code></td><td>Every N hours (e.g. <code>0 */6 * * *</code> = every 6 hours).</td></tr>
+      </tbody>
+    </table>
+
+    <DocCallout type="warn" title="Unrecognised cron patterns">
+      <p>
+        If the cron pattern you supply does not match one of the supported forms above, the routine
+        is created and saved but the schedule will <strong>not</strong> fire. nikcli prints a warning
+        at creation time and the trigger is stored as-is. You can still run the routine manually
+        with <code>nikcli routine run &lt;id&gt;</code>.
+      </p>
+    </DocCallout>
+
+    <h3>API trigger</h3>
+    <p>
+      API triggers attach a secret token to the routine. Any system that can make an HTTP POST
+      request can fire the routine without needing direct access to the machine running nikcli.
+    </p>
+    <DocCode language="bash">
+      POST /mobile/routines/trigger/&lt;token&gt;
+    </DocCode>
+    <p>
+      The token is generated automatically when you pass <code>--api</code> to
+      <code>routine create</code>, or you can supply your own with <code>--api-token</code>.
+      nikcli prints the full endpoint URL after the routine is created.
+    </p>
+  </section>
+
+  <section id="subcommands" class="mb-16 scroll-mt-24">
+    <h2>Subcommands</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Subcommand</th>
+          <th>Alias</th>
+          <th>Purpose</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>routine list</code></td>
+          <td><code>ls</code></td>
+          <td>List all routines for the current project. Accepts <code>--format table|json</code>.</td>
+        </tr>
+        <tr>
+          <td><code>routine create</code></td>
+          <td>—</td>
+          <td>Create a routine interactively or via flags. See flags below.</td>
+        </tr>
+        <tr>
+          <td><code>routine get &lt;id&gt;</code></td>
+          <td>—</td>
+          <td>Show full details of a routine. Accepts <code>--format text|json</code>.</td>
+        </tr>
+        <tr>
+          <td><code>routine run &lt;id&gt;</code></td>
+          <td>—</td>
+          <td>Trigger an immediate run. Accepts <code>--text</code> to append one-off context to this run.</td>
+        </tr>
+        <tr>
+          <td><code>routine pause &lt;id&gt;</code></td>
+          <td>—</td>
+          <td>Pause the routine; disables all scheduled triggers until resumed.</td>
+        </tr>
+        <tr>
+          <td><code>routine resume &lt;id&gt;</code></td>
+          <td>—</td>
+          <td>Resume a paused routine and re-enable its triggers.</td>
+        </tr>
+        <tr>
+          <td><code>routine delete &lt;id&gt;</code></td>
+          <td><code>rm</code></td>
+          <td>Delete the routine. Prompts for confirmation unless <code>--yes</code> / <code>-y</code> is passed.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="creating-a-routine" class="mb-16 scroll-mt-24">
+    <h2>Creating a Routine</h2>
+    <p>
+      Run <code>nikcli routine create</code> without flags to go through an interactive prompt for
+      name, prompt, and cron schedule. Pass flags to skip the interactive steps:
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Flag</th>
+          <th>Alias</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>--name</code></td><td><code>-n</code></td><td>Routine name.</td></tr>
+        <tr><td><code>--prompt</code></td><td><code>-p</code></td><td>Prompt text to run.</td></tr>
+        <tr><td><code>--cron</code></td><td>—</td><td>Cron schedule expression (see supported patterns above).</td></tr>
+        <tr><td><code>--api</code></td><td>—</td><td>Enable an API trigger with a randomly generated token.</td></tr>
+        <tr><td><code>--api-token</code></td><td>—</td><td>Enable an API trigger with a specific custom token.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      # Interactive creation
+      nikcli routine create
+
+      # Fully scripted — daily schedule + API trigger
+      nikcli routine create \
+        --name "daily-review" \
+        --prompt "Review recent changes and summarize any risks." \
+        --cron @daily \
+        --api
+
+      # Every 30 minutes, custom API token
+      nikcli routine create \
+        --name "health-check" \
+        --prompt "Run the test suite and report failures." \
+        --cron "*/30" \
+        --api-token "my-secret-token"
+    </DocCode>
+  </section>
+
+  <section id="api-trigger" class="mb-16 scroll-mt-24">
+    <h2>API Trigger</h2>
+    <p>
+      After creating a routine with <code>--api</code> or <code>--api-token</code>, nikcli prints
+      the trigger endpoint. Fire it from any HTTP client:
+    </p>
+    <DocCode language="bash">
+      # Trigger a routine from a CI pipeline or webhook
+      curl -X POST https://your-host/mobile/routines/trigger/nkr_abc123...
+
+      # View the token again
+      nikcli routine get &lt;id&gt;
+    </DocCode>
+    <DocCallout type="info" title="Token prefix">
+      <p>
+        Automatically generated tokens start with <code>nkr_</code> followed by 64 hex characters.
+        Custom tokens passed via <code>--api-token</code> are stored as-is.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="lifecycle" class="mb-16 scroll-mt-24">
+    <h2>Lifecycle</h2>
+    <p>
+      A routine moves through the following states:
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>State</th>
+          <th>Meaning</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>active</code></td><td>Triggers are enabled and will fire on schedule or API call.</td></tr>
+        <tr><td><code>paused</code></td><td>Triggers are disabled. The routine can still be run manually with <code>routine run</code>.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      nikcli routine list
+      nikcli routine pause rtn_abc123
+      nikcli routine resume rtn_abc123
+      nikcli routine run rtn_abc123 --text "focus on the auth module"
+      nikcli routine delete rtn_abc123 --yes
+    </DocCode>
+  </section>
+</DocsLayout>

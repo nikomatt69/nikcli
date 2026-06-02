@@ -21,8 +21,11 @@ const toc = [
   <section id="install-run" class="mb-16 scroll-mt-24 sm:mb-20 sm:scroll-mt-28">
     <h2>Install & Run</h2>
     <p>
-      nikcli is a Bun-based coding agent with a terminal UI, HTTP server, connector system, and a
-      mobile companion app. The CLI entrypoint is <code>packages/nikcli/src/index.ts</code>.
+      nikcli is a Bun-based coding agent with a terminal UI, HTTP server, connector system, a
+      browser web app, a Studio dashboard, and a mobile companion app. It also runs autonomously
+      toward verifiable goals, schedules and API-triggers <a href="/docs/routines">routines</a>, and
+      localizes both its interface and the model's replies. The CLI entrypoint is
+      <code>packages/nikcli/src/index.ts</code>.
     </p>
     <DocCode language="bash" title="Terminal">
       curl -fsSL https://nikcli.store/install | bash
@@ -85,27 +88,27 @@ const toc = [
     <div class="my-10 grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
       <DocCard title="CLI Reference" eyebrow="Commands" href="/docs/cli">
         <p>
-          Covers the default TUI flow plus <code>serve</code>, <code>remote</code>,
-          <code>companion</code>, <code>mobile</code>, <code>connectors</code>, and model commands.
+          Covers the default TUI flow plus <code>goal</code>, <code>routine</code>, <code>serve</code>,
+          <code>remote</code>, <code>companion</code>, <code>mobile</code>, <code>connectors</code>,
+          model, locale, and diagnostics commands.
         </p>
       </DocCard>
-      <DocCard title="Tools" eyebrow="Execution" href="/docs/tools">
+      <DocCard title="Web App & Studio" eyebrow="Browser" href="/docs/web-app">
         <p>
-          The registry includes <code>monitor</code>, <code>delegation</code>,
-          <code>delegator</code>, <code>advisor</code>, <code>generate_image</code>,
-          <code>speak</code>, and context tools.
-        </p>
-      </DocCard>
-      <DocCard title="Connectors" eyebrow="External services" href="/docs/connectors">
-        <p>
-          Figma, Slack, GitHub, Lovable, and bot transports are configured under
-          <code>config.connectors</code> and exposed through CLI and tool APIs.
+          Drive sessions from the browser via <code>nikcli web</code> and the <code>/app</code> SPA,
+          or manage agents, sessions, MCP, and config from the <code>/dashboard</code> Studio.
         </p>
       </DocCard>
       <DocCard title="Mobile" eyebrow="Host + app" href="/docs/mobile">
         <p>
           Documents host pairing, session streaming, approvals, notifications, offline retry, and
-          Tophat install flows.
+          the Tophat config feature.
+        </p>
+      </DocCard>
+      <DocCard title="Packages & Suite" eyebrow="Monorepo" href="/docs/packages">
+        <p>
+          <code>packages/nikcli</code> is the base; supporting packages include
+          <code>@nikcli-ai/llm</code>, <code>http-recorder</code>, the SDK, mobile, and web.
         </p>
       </DocCard>
     </div>

@@ -1,0 +1,235 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+
+const toc = [
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Actions", href: "#actions", depth: 2 },
+  { title: "Flags", href: "#flags", depth: 2 },
+  { title: "Reply Language", href: "#reply-language", depth: 2 },
+  { title: "Env Overrides", href: "#env-overrides", depth: 2 },
+  { title: "Examples", href: "#examples", depth: 2 },
+];
+---
+
+<DocsLayout
+  title="Localization"
+  subtitle="Language, region, timezone, and model reply-language settings via nikcli locale. Source: packages/nikcli/src/cli/cmd/locale.ts."
+  toc={toc}
+>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      The <code>locale</code> command controls the language and regional settings used by nikcli
+      and, optionally, the language in which the underlying model replies. Settings are stored in
+      the global nikcli config by default (<code>--global</code> is <code>true</code>). Pass
+      <code>--global false</code> to write to the project-level <code>nikcli.json</code> instead.
+    </p>
+    <p>
+      When no overrides are set, nikcli auto-detects locale from the environment
+      (<code>LANG</code>, <code>LC_ALL</code>, system timezone, etc.). Auto-detection can be
+      disabled permanently with <code>--no-auto-detect</code> in a <code>set</code> call, or
+      overridden for a single invocation with the environment variables described below.
+    </p>
+    <DocCode language="bash">
+      nikcli locale           # show resolved locale (same as "locale show")
+      nikcli locale show      # print current language, region, timezone, currency, reply language
+      nikcli locale set ...   # apply one or more overrides
+      nikcli locale reset     # clear all overrides and return to auto-detect
+    </DocCode>
+  </section>
+
+  <section id="actions" class="mb-16 scroll-mt-24">
+    <h2>Actions</h2>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>show</code> (default)</td>
+          <td>Print the fully resolved locale fields: locale tag, language name, region, timezone, currency, reply language, and source (<code>auto-detect</code>, <code>config</code>, or <code>override</code>).</td>
+        </tr>
+        <tr>
+          <td><code>set</code></td>
+          <td>Apply one or more locale overrides. Any flags that are not supplied are left unchanged.</td>
+        </tr>
+        <tr>
+          <td><code>reset</code></td>
+          <td>Delete all stored locale overrides and revert to auto-detection from the environment.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="flags" class="mb-16 scroll-mt-24">
+    <h2>Flags</h2>
+    <p>All flags apply to the <code>set</code> action. Unrecognised values are stored as-is and resolved at runtime.</p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Flag</th>
+          <th>Format</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>--language</code></td>
+          <td>BCP-47 language subtag (e.g. <code>it</code>, <code>ja</code>, <code>ar</code>)</td>
+          <td>Sets the primary language for display and model interaction.</td>
+        </tr>
+        <tr>
+          <td><code>--region</code></td>
+          <td>ISO-3166 country code (e.g. <code>IT</code>, <code>JP</code>, <code>US</code>)</td>
+          <td>Sets the regional variant used for formatting numbers, dates, and currency.</td>
+        </tr>
+        <tr>
+          <td><code>--locale</code></td>
+          <td>BCP-47 full tag (e.g. <code>it-IT</code>, <code>ja-JP</code>)</td>
+          <td>Sets both language and region in a single value. Overrides <code>--language</code> and <code>--region</code> when all three are supplied.</td>
+        </tr>
+        <tr>
+          <td><code>--timezone</code></td>
+          <td>IANA timezone (e.g. <code>Europe/Rome</code>, <code>Asia/Tokyo</code>, <code>America/New_York</code>)</td>
+          <td>Sets the timezone used in timestamps and date formatting.</td>
+        </tr>
+        <tr>
+          <td><code>--currency</code></td>
+          <td>ISO-4217 code (e.g. <code>EUR</code>, <code>JPY</code>, <code>USD</code>)</td>
+          <td>Sets the currency used in cost and usage displays.</td>
+        </tr>
+        <tr>
+          <td><code>--reply-language</code></td>
+          <td><code>true</code> | <code>false</code> | BCP-47 tag (e.g. <code>fr</code>, <code>de</code>)</td>
+          <td>Steers the model's answer language independently of the CLI display language. See <a href="#reply-language">Reply Language</a> below.</td>
+        </tr>
+        <tr>
+          <td><code>--no-auto-detect</code></td>
+          <td>boolean</td>
+          <td>Disables automatic locale detection from the environment. Only the stored config values are used.</td>
+        </tr>
+        <tr>
+          <td><code>--global</code></td>
+          <td>boolean (default <code>true</code>)</td>
+          <td>Write to the global config file. Pass <code>--global false</code> to write to the project-level <code>nikcli.json</code> instead.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="reply-language" class="mb-16 scroll-mt-24">
+    <h2>Reply Language</h2>
+    <p>
+      <code>--reply-language</code> controls the language in which the underlying model responds.
+      This is independent of the CLI display language — for example you can display the UI in
+      English while asking the model to answer in French.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Value</th>
+          <th>Behaviour</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>true</code> / <code>on</code> / <code>yes</code></td>
+          <td>The model replies in the same language as the configured <code>--language</code>.</td>
+        </tr>
+        <tr>
+          <td><code>false</code> / <code>off</code> / <code>no</code></td>
+          <td>Reply-language steering is disabled; the model answers in its default language (usually English).</td>
+        </tr>
+        <tr>
+          <td>A BCP-47 tag (e.g. <code>fr</code>, <code>de</code>, <code>zh-TW</code>)</td>
+          <td>The model is steered to respond in the specified language, regardless of the CLI display language.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      # CLI stays in English but model answers in French
+      nikcli locale set --reply-language fr
+
+      # Match reply language to the current --language setting
+      nikcli locale set --language ja --reply-language true
+
+      # Disable reply-language steering entirely
+      nikcli locale set --reply-language false
+    </DocCode>
+    <DocCallout type="info" title="Model support">
+      <p>
+        Reply-language steering is a best-effort instruction injected into the system prompt. Model
+        compliance varies by provider and model capability.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="env-overrides" class="mb-16 scroll-mt-24">
+    <h2>Environment Variable Overrides</h2>
+    <p>
+      Three environment variables override the stored config for a single invocation. They take
+      effect even if auto-detection is disabled. The resolved locale source shows <code>override</code>
+      when any of these is set.
+    </p>
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th>Variable</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>NIKCLI_LOCALE</code></td>
+          <td>Full BCP-47 locale tag, e.g. <code>it-IT</code>. Overrides both language and region.</td>
+        </tr>
+        <tr>
+          <td><code>NIKCLI_LANGUAGE</code></td>
+          <td>Language subtag only, e.g. <code>ja</code>.</td>
+        </tr>
+        <tr>
+          <td><code>NIKCLI_REGION</code></td>
+          <td>ISO-3166 country code only, e.g. <code>DE</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+      # One-off run in Italian, regardless of stored config
+      NIKCLI_LOCALE=it-IT nikcli run "spiega questo codice"
+
+      # Override just the language
+      NIKCLI_LANGUAGE=de nikcli run "erkläre diesen Code"
+    </DocCode>
+  </section>
+
+  <section id="examples" class="mb-16 scroll-mt-24">
+    <h2>Examples</h2>
+    <DocCode language="bash">
+      # Show the current resolved locale
+      nikcli locale
+
+      # Set Italian locale with Rome timezone and Euro currency
+      nikcli locale set --language it --region IT --timezone Europe/Rome --currency EUR
+
+      # Use the combined BCP-47 tag instead
+      nikcli locale set --locale it-IT --timezone Europe/Rome --currency EUR
+
+      # Ask the model to always reply in Japanese (CLI remains in English)
+      nikcli locale set --reply-language ja
+
+      # Set a project-level override (does not touch global config)
+      nikcli locale set --language fr --global false
+
+      # Disable auto-detection globally
+      nikcli locale set --no-auto-detect
+
+      # Reset all overrides and return to auto-detect
+      nikcli locale reset
+    </DocCode>
+  </section>
+</DocsLayout>
