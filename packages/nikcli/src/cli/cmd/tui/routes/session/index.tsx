@@ -184,7 +184,7 @@ export function Session() {
   })
 
   const dimensions = useTerminalDimensions()
-  const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "hide")
+  const [sidebar, setSidebar] = kv.signal<"auto" | "hide">("sidebar", "auto")
   const [sidebarOpen, setSidebarOpen] = createSignal(false)
   const [conceal, setConceal] = createSignal(true)
   const [showThinking, setShowThinking] = kv.signal("thinking_visibility", true)
@@ -648,6 +648,13 @@ export function Session() {
         name: "unshare",
       },
       onSelect: async (dialog) => {
+        const ok = await DialogConfirm.show(
+          dialog,
+          "Unshare session?",
+          "This will revoke the public share URL. Anyone with the old link will no longer be able to view this session.",
+          "confirm",
+        )
+        if (!ok) return
         await sdk.client.session
           .unshare({
             sessionID: route.sessionID,
@@ -1794,9 +1801,20 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
   const tight = createMemo(() => ctx.width < 84)
   const rendered = createMemo(() => wrapDiagramsInFences(props.part.text.trim()))
+
+  // O2: streaming tokens-per-sec indicator. Counts chars (4-chars-per-token
+  // heuristic) every second, shows the rolling rate as a small badge.
+  const streamingSpeed = createStreamingSpeed(rendered, () => !props.last)
+
   return (
     <Show when={props.part.text.trim()}>
       <box id={"text-" + props.part.id} paddingLeft={3} marginTop={1} flexShrink={0}>
+        <Show when={streamingSpeed.rate > 0}>
+          <box flexDirection="row" gap={1}>
+            <text fg={theme.textMuted}>●</text>
+            <text fg={theme.textMuted}>{streamingSpeed.rate} tok/s</text>
+          </box>
+        </Show>
         <markdown
           streaming={!props.last ? false : true}
           syntaxStyle={syntax()}
@@ -1817,6 +1835,59 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
       </box>
     </Show>
   )
+}
+
+/**
+ * Track the rendered text length over time and report a rolling tokens-per-
+ * second rate. Returns `{ rate, total }` where `rate` is 0 when not
+ * streaming. Uses a 2-sample rolling window updated every second.
+ */
+function createStreamingSpeed(text: () => string, isStreaming: () => boolean) {
+  const [rate, setRate] = createSignal(0)
+  const [total, setTotal] = createSignal(0)
+
+  let lastText = ""
+  let lastTime = 0
+  let timer: ReturnType<typeof setInterval> | undefined
+
+  const tick = () => {
+    const now = Date.now()
+    const len = text().length
+    const dt = now - lastTime
+    if (dt > 0 && len !== lastText.length) {
+      const dChars = len - lastText.length
+      // 4 chars per token is the standard English-text heuristic.
+      const dTokens = Math.max(0, dChars) / 4
+      const perSec = (dTokens / dt) * 1000
+      setRate(Math.round(perSec))
+    }
+    lastText = text()
+    lastTime = now
+    setTotal(Math.round(len / 4))
+  }
+
+  onMount(() => {
+    timer = setInterval(tick, 1000)
+  })
+  onCleanup(() => {
+    if (timer) clearInterval(timer)
+  })
+
+  // Reset when streaming ends.
+  createEffect(() => {
+    if (!isStreaming()) {
+      setTimeout(() => setRate(0), 2000)
+    }
+  })
+
+  return {
+    get rate() {
+      return rate()
+    },
+    get total() {
+      return total()
+    },
+  }
 }
 
 // Pending messages moved to individual tool pending functions

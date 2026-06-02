@@ -26,7 +26,7 @@ export namespace Account {
   // Configuration
   // ============================================================================
 
-  const DEFAULT_ACCOUNT_URL = process.env.NIKCLI_ACCOUNT_URL ?? "https://auth.nikcli.mintlify.app"
+  const DEFAULT_ACCOUNT_URL = process.env.NIKCLI_ACCOUNT_URL ?? "https://auth.nikcli.store"
 
   // ============================================================================
   // Token cache — with eviction and size limits

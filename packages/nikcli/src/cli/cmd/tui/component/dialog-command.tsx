@@ -1,5 +1,6 @@
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
+import { DialogHelp } from "@tui/ui/dialog-help"
 import {
   createContext,
   createMemo,
@@ -171,6 +172,13 @@ export function CommandProvider(props: ParentProps) {
     if (keybind.match("command_list", evt)) {
       evt.preventDefault()
       value.show()
+      return
+    }
+    // `?` outside the prompt opens help. Skipped while typing in the prompt
+    // because the prompt consumes the key event with preventDefault.
+    if (evt.name === "?" && !evt.shift && !evt.ctrl && !evt.option && !evt.meta) {
+      evt.preventDefault()
+      dialog.replace(() => <DialogHelp />)
       return
     }
   })

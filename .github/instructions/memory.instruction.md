@@ -525,6 +525,8 @@ Key catalog-pinned deps: `ai: 5.0.119`, `hono: 4.10.7`, `zod: 4.1.8`, `solid-js:
 
 ## Spec Files (`specs/`)
 
+Mobile/perf specs:
+
 - `01-persist-payload-limits.md` — payload limit optimization
 - `02-cache-eviction.md` — cache eviction strategy
 - `03-request-throttling.md` — request throttling
@@ -534,6 +536,14 @@ Key catalog-pinned deps: `ai: 5.0.119`, `hono: 4.10.7`, `zod: 4.1.8`, `solid-js:
 - `07-ui-i18n-audit.md` — UI i18n audit
 - `perf-roadmap.md` — performance roadmap
 - `project.md` — project/session API design spec
+
+`packages/nikcli/specs/` (the CLI/TUI/server package — separate from the mobile specs above):
+
+- `integration-master-plan.md` — authoritative internal-refactor roadmap (9 epochs, dependency-ordered).
+- `ux-roadmap.md` — user-facing UX / TUI / onboarding roadmap. 14+ themes (A–N) of UX items, plus 8 real bugs (theme M) found during the audit. Companion to the integration plan.
+- `tui-plugins.md`, `openapi-translation-cleanup.md` — targeted specs feeding the integration plan.
+- `effect/MASTER-PLAN.md` — Effect-migration master plan (superseded by `integration-master-plan.md` for sequencing; kept for detail).
+- `v2/` — v2 API surface, TUI keymaps, notifications, message-shape specs.
 
 ## Mobile Optimization Roadmap (2026-04-30 planner session — pending implementation)
 

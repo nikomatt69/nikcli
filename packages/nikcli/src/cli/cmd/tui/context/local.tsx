@@ -4,6 +4,7 @@ import { useSync } from "@tui/context/sync"
 import { useTheme } from "@tui/context/theme"
 import { useRoute } from "@tui/context/route"
 import { useSDK } from "@tui/context/sdk"
+import { useKV } from "@tui/context/kv"
 import { uniqueBy } from "remeda"
 import path from "path"
 import { Global } from "@/global"
@@ -20,6 +21,7 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
     const sync = useSync()
     const sdk = useSDK()
     const toast = useToast()
+    const kv = useKV()
 
     function isModelValid(model: { providerID: string; modelID: string }) {
       const provider = sync.data.provider.find((x) => x.id === model.providerID)
@@ -72,6 +74,21 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           const current = list.find((x) => x.name === agentStore.current)
           // Fallback to first agent if current is not found
           return current ?? list[0]
+        },
+        /** True when the user has not yet explicitly picked an agent via pickStarter. */
+        needsStarter() {
+          return !kv.get("agent.starter_picked", false)
+        },
+        /** Pick a starter agent and mark the choice as explicit. */
+        pickStarter(name: string) {
+          if (!agents().some((x) => x.name === name))
+            return toast.show({
+              variant: "warning",
+              message: `Agent not found: ${name}`,
+              duration: 3000,
+            })
+          setAgentStore("current", name)
+          kv.set("agent.starter_picked", true)
         },
         set(name: string) {
           if (!agents().some((x) => x.name === name))
@@ -251,6 +268,43 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         favorite() {
           return modelStore.favorite
         },
+        /**
+         * Resolved favorite models with full provider/model info. Filters out
+         * favorites whose provider or model is no longer available, so the UI
+         * does not have to defensively check.
+         */
+        favoriteResolved() {
+          return modelStore.favorite
+            .map((fav) => {
+              const provider = sync.data.provider.find((x) => x.id === fav.providerID)
+              const info = provider?.models[fav.modelID]
+              if (!provider || !info) return undefined
+              return {
+                providerID: fav.providerID,
+                modelID: fav.modelID,
+                providerName: provider.name,
+                modelName: info.name,
+                reasoning: info.capabilities?.reasoning ?? false,
+              }
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== undefined)
+        },
+        /**
+         * Rough USD cost estimate for a text payload against the current model.
+         * Token count uses a 4-chars-per-token heuristic; cost is per-million tokens.
+         * Returns undefined if no model is selected or no pricing is available.
+         */
+        estimateCost(text: string): { input: number; total: number } | undefined {
+          const m = currentModel()
+          if (!m) return undefined
+          const provider = sync.data.provider.find((x) => x.id === m.providerID)
+          const info = provider?.models[m.modelID]
+          const costInput = info?.cost?.input
+          if (typeof costInput !== "number" || costInput <= 0) return undefined
+          const tokens = Math.max(1, Math.ceil(text.length / 4))
+          const usd = (tokens / 1_000_000) * costInput
+          return { input: usd, total: usd }
+        },
         parsed: createMemo(() => {
           const value = currentModel()
           if (!value) {
@@ -366,6 +420,16 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
             const key = `${m.providerID}/${m.modelID}`
             return modelStore.variant[key]
           },
+          /**
+           * Returns the explicit variant if set, otherwise the first available
+           * variant for the current model. Useful for "default for new users".
+           */
+          currentOrDefault() {
+            const explicit = this.current()
+            if (explicit) return explicit
+            const list = this.list()
+            return list[0]
+          },
           list() {
             const m = currentModel()
             if (!m) return []
@@ -405,6 +469,18 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         const status = sync.data.mcp[name]
         return status?.status === "connected"
       },
+      /** Names of MCP servers currently in the "connected" state. */
+      connected() {
+        return Object.entries(sync.data.mcp)
+          .filter(([, status]) => status?.status === "connected")
+          .map(([name]) => name)
+      },
+      /** Names of MCP servers currently in a "failed" state. */
+      failed() {
+        return Object.entries(sync.data.mcp)
+          .filter(([, status]) => status?.status === "failed")
+          .map(([name]) => name)
+      },
       async toggle(name: string) {
         const status = sync.data.mcp[name]
         if (status?.status === "connected") {
@@ -422,6 +498,21 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         const entry = sync.data.config.connectors?.[name]
         if (!entry || typeof entry !== "object" || !("type" in entry)) return false
         return entry.enabled !== false
+      },
+      /**
+       * List all configured connectors (enabled and disabled). For surfacing in
+       * a `/connectors` command or a settings tab.
+       */
+      list() {
+        const map = sync.data.config.connectors
+        if (!map || typeof map !== "object") return []
+        return Object.entries(map)
+          .filter(([, entry]) => entry && typeof entry === "object" && "type" in entry)
+          .map(([name, entry]) => ({
+            name,
+            enabled: (entry as { enabled?: boolean }).enabled !== false,
+            type: (entry as { type: string }).type,
+          }))
       },
       async toggle(name: string) {
         const entry = sync.data.config.connectors?.[name]
@@ -510,6 +601,29 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
         return sessionStore.pinned.filter((id) => existing.has(id)).slice(0, 9)
       })
 
+      /**
+       * Most-recently-updated non-archived session, with `time.updated` parsed.
+       * Returns undefined if there are no sessions. Used by the "Continue where
+       * you left off" banner on the home route.
+       */
+      const mostRecent = createMemo(() => {
+        const sessions = sync.data.session.filter((x) => x.parentID === undefined)
+        if (sessions.length === 0) return undefined
+        const sorted = [...sessions].sort((a, b) => (b.time?.updated ?? 0) - (a.time?.updated ?? 0))
+        const top = sorted[0]
+        if (!top) return undefined
+        return { id: top.id, title: top.title, updated: top.time?.updated ?? 0 }
+      })
+
+      /** Total number of top-level (non-archived, non-child) sessions. */
+      const count = createMemo(() => sync.data.session.filter((x) => x.parentID === undefined).length)
+
+      /** True when there are no top-level sessions. */
+      const empty = createMemo(() => count() === 0)
+
+      /** Number of slots currently populated from the pinned list. */
+      const pinnedCount = createMemo(() => slots().length)
+
       function prune(sessionID: string) {
         batch(() => {
           if (sessionStore.pinned.includes(sessionID)) {
@@ -535,6 +649,10 @@ export const { use: useLocal, provider: LocalProvider } = createSimpleContext({
           return sessionStore.pinned
         },
         slots,
+        count,
+        empty,
+        pinnedCount,
+        mostRecent,
         isPinned(sessionID: string) {
           return sessionStore.pinned.includes(sessionID)
         },

@@ -3,7 +3,7 @@ import { useLocal } from "@tui/context/local"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { useDialog } from "@tui/ui/dialog"
 
-export function DialogAgent() {
+export function DialogAgent(props: { markStarterPicked?: boolean }) {
   const local = useLocal()
   const dialog = useDialog()
 
@@ -24,11 +24,12 @@ export function DialogAgent() {
 
   return (
     <DialogSelect
-      title="Select agent"
+      title={props.markStarterPicked ? "Pick a starter agent" : "Select agent"}
       current={local.agent.current().name}
       options={options()}
       onSelect={(option) => {
-        local.agent.set(option.value)
+        if (props.markStarterPicked) local.agent.pickStarter(option.value)
+        else local.agent.set(option.value)
         dialog.clear()
       }}
     />

@@ -188,12 +188,44 @@ export function DialogProvider() {
   const options = createDialogProviderOptions()
   const sync = useSync()
   const toast = useToast()
+  const dialog = useDialog()
   const disconnectProvider = useDisconnectProvider()
   const [pending, setPending] = createSignal(false)
+  const allOptions = createMemo(() => {
+    const base = options()
+    // A1: "Try without account" — surface OpenRouter's free models to
+    // first-time users. We open the openrouter provider's auth flow
+    // directly with a `:free` hint in the description.
+    if (sync.data.provider_next.connected.length === 0) {
+      return [
+        {
+          title: "Try for free (OpenRouter :free models)",
+          value: "openrouter.free",
+          description: "Free API key from openrouter.ai/settings/keys — works with any `:free` model.",
+          category: "Get started",
+          async onSelect() {
+            const methods = sync.data.provider_auth["openrouter"] ?? [{ type: "api", label: "API key" }]
+            const apiMethod = methods.find((m) => m.type === "api")
+            if (!apiMethod) {
+              toast.show({
+                variant: "warning",
+                message: "OpenRouter API-key auth is not available in this build of nikcli.",
+                duration: 5000,
+              })
+              return
+            }
+            dialog.replace(() => <OpenRouterFreeMethod title={apiMethod.label} />)
+          },
+        },
+        ...base,
+      ]
+    }
+    return base
+  })
   return (
     <DialogSelect
       title="Connect a provider"
-      options={options()}
+      options={allOptions()}
       keybind={[
         {
           keybind: Keybind.parse("ctrl+d")[0],
@@ -421,11 +453,69 @@ interface ApiMethodProps {
   providerID: string
   title: string
 }
+
+/**
+ * Variant of ApiMethod for the A1 "Try for free" flow. Renders a
+ * OpenRouter-specific description that points the user at the free API
+ * key page and shows the `:free` model naming convention. After auth,
+ * the same C8 fail-fast check runs.
+ */
+function OpenRouterFreeMethod(props: { title: string }) {
+  const dialog = useDialog()
+  const sdk = useSDK()
+  const sync = useSync()
+  const { theme } = useTheme()
+  const toast = useToast()
+
+  return (
+    <DialogPrompt
+      title="OpenRouter free tier"
+      placeholder="OpenRouter API key (any free key from openrouter.ai)"
+      description={
+        <box gap={1}>
+          <text fg={theme.textMuted}>
+            OpenRouter gives you a free API key at{" "}
+            <span style={{ fg: theme.primary }}>https://openrouter.ai/settings/keys</span>.
+          </text>
+          <text fg={theme.textMuted}>
+            After saving, the model picker filters to <span style={{ fg: theme.accent }}>`:free`</span> models
+            automatically.
+          </text>
+        </box>
+      }
+      onConfirm={async (value) => {
+        if (!value) return
+        await sdk.client.auth.set({
+          providerID: "openrouter",
+          auth: { type: "api", key: value },
+        })
+        await sdk.client.instance.dispose()
+        await sync.bootstrap()
+        await sync.refreshProviders()
+        const isConnected = sync.data.provider_next.connected.includes("openrouter")
+        if (!isConnected) {
+          toast.show({
+            variant: "error",
+            message: "Saved key, but openrouter did not come back connected. Check the key and try again.",
+            duration: 8000,
+          })
+          return
+        }
+        // After successful free-tier connect, jump straight to a `:free`
+        // After successful free-tier connect, jump straight to the model
+        // picker scoped to openrouter so the user can pick a `:free` model.
+        dialog.replace(() => <DialogModel providerID="openrouter" />)
+      }}
+    />
+  )
+}
+
 function ApiMethod(props: ApiMethodProps) {
   const dialog = useDialog()
   const sdk = useSDK()
   const sync = useSync()
   const { theme } = useTheme()
+  const toast = useToast()
 
   return (
     <DialogPrompt
@@ -447,14 +537,23 @@ function ApiMethod(props: ApiMethodProps) {
         if (!value) return
         await sdk.client.auth.set({
           providerID: props.providerID,
-          auth: {
-            type: "api",
-            key: value,
-          },
+          auth: { type: "api", key: value },
         })
         await sdk.client.instance.dispose()
         await sync.bootstrap()
         await sync.refreshProviders()
+        // C8: verify the provider actually shows as connected after the
+        // round-trip. If not, the key is bad — fail fast with a clear
+        // message and stay on the prompt so the user can re-enter.
+        const isConnected = sync.data.provider_next.connected.includes(props.providerID)
+        if (!isConnected) {
+          toast.show({
+            variant: "error",
+            message: `Saved key for ${props.providerID}, but the provider did not come back connected. Check the key and try again.`,
+            duration: 8000,
+          })
+          return
+        }
         dialog.replace(() => <DialogModel providerID={props.providerID} />)
       }}
     />

@@ -1259,6 +1259,32 @@ export namespace Config {
     .object({
       $schema: z.string().optional().describe("JSON schema reference for configuration validation"),
       theme: z.string().optional().describe("Theme name to use for the interface"),
+      locale: z
+        .object({
+          language: z
+            .string()
+            .optional()
+            .describe("UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'"),
+          region: z.string().optional().describe("ISO-3166 country code, e.g. 'IT', 'US'"),
+          locale: z
+            .string()
+            .optional()
+            .describe("Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set"),
+          timezone: z.string().optional().describe("IANA timezone, e.g. 'Europe/Rome'"),
+          currency: z.string().optional().describe("ISO-4217 currency code, e.g. 'EUR'; defaults from region"),
+          autoDetect: z
+            .boolean()
+            .optional()
+            .describe("Auto-detect locale from environment and system (default true)"),
+          replyLanguage: z
+            .union([z.boolean(), z.string()])
+            .optional()
+            .describe(
+              "Instruct the model to reply in the user's language. true = detected language, a tag like 'it' = fixed language, false = off. Defaults to on for non-English locales.",
+            ),
+        })
+        .optional()
+        .describe("Localization: UI language, region, formatting, and model reply language"),
       keybinds: Keybinds.optional().describe("Custom keybind configurations"),
       logLevel: Log.Level.optional().describe("Log level"),
       tui: TUI.optional().describe("TUI specific settings"),

@@ -4,7 +4,7 @@
  */
 export function normalizeServerUrl(input: string): string {
   if (!input) {
-    return "https://auth.nikcli.mintlify.app"
+    return "https://auth.nikcli.store"
   }
 
   let url: URL

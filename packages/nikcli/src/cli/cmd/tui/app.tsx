@@ -34,6 +34,8 @@ import { DialogThemeList } from "@tui/component/dialog-theme-list"
 import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogConfig } from "@tui/component/dialog-config"
 import { DialogHelp } from "./ui/dialog-help"
+import { DialogTour } from "@tui/component/dialog-tour"
+import { DialogQuickstartInfo, DialogDoctorInfo, openExternal } from "@tui/component/dialog-support"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
@@ -510,6 +512,52 @@ function App() {
 
   const connected = useConnected()
   command.register(() => [
+    {
+      title: "Take the 6-step tour",
+      value: "support.tour",
+      category: "Support",
+      suggested: sync.data.session.length < 3,
+      slash: { name: "tour" },
+      onSelect: () => {
+        dialog.replace(() => <DialogTour />)
+      },
+    },
+    {
+      title: "Show help",
+      value: "support.help",
+      category: "Support",
+      slash: { name: "help" },
+      onSelect: () => {
+        dialog.replace(() => <DialogHelp />)
+      },
+    },
+    {
+      title: "Run the interactive quickstart",
+      value: "support.quickstart",
+      category: "Support",
+      slash: { name: "quickstart", aliases: ["get-started"] },
+      onSelect: () => {
+        dialog.replace(() => <DialogQuickstartInfo />)
+      },
+    },
+    {
+      title: "Run nikcli doctor",
+      value: "support.doctor",
+      category: "Support",
+      slash: { name: "doctor" },
+      onSelect: () => {
+        dialog.replace(() => <DialogDoctorInfo />)
+      },
+    },
+    {
+      title: "Open the docs",
+      value: "support.docs",
+      category: "Support",
+      slash: { name: "docs" },
+      onSelect: () => {
+        openExternal("https://nikcli.store/docs")
+      },
+    },
     {
       title: "Switch session",
       value: "session.list",

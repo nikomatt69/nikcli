@@ -1000,6 +1000,7 @@ const CURSOR_MODELS: Record<
   "grok-4": { name: "Grok 4", family: "grok", context: 256_000, output: 16_000 },
   "grok-3": { name: "Grok 3", family: "grok", context: 131_072, output: 16_000 },
   "composer-1": { name: "Cursor Composer", family: "cursor", context: 200_000, output: 32_000 },
+  "composer-2.5": { name: "Cursor Composer 2.5", family: "cursor", context: 200_000, output: 32_000 },
   composer: { name: "Cursor Composer", family: "cursor", context: 200_000, output: 32_000 },
   auto: { name: "Auto (cursor-agent)", family: "cursor", context: 200_000, output: 32_000 },
 }

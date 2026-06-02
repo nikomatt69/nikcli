@@ -2,7 +2,9 @@
 
 Single authoritative document for all remaining work in `packages/nikcli`. Synthesized
 from every spec in `specs/effect/`, `specs/v2/`, `specs/openapi-translation-cleanup.md`,
-and `specs/tui-plugins.md`.
+`specs/tui-plugins.md`, and `specs/ux-roadmap.md`.
+
+> **User-facing companion:** [`specs/ux-roadmap.md`](./ux-roadmap.md) covers what end users see (onboarding, TUI, errors, sessions, theme picker, command palette). It complements the internal-refactor scope of this document and is sequenced independently. When a batch here lands a behavior change visible to users, the corresponding item in `ux-roadmap.md` should be updated or marked done.
 
 Runtime: **Bun only**. No Node.js shims, no `child_process`, no `fs` outside Effect
 services. Every async boundary uses Bun primitives or `@effect/platform-bun`.

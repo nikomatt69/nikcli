@@ -1,4 +1,5 @@
 import { Log } from "@/util/log"
+import { UserFacingError } from "@/util/user-error"
 import { ConfigMarkdown } from "@/config/markdown"
 import { Config } from "../config/config"
 import { MCP } from "../mcp"
@@ -8,6 +9,11 @@ import { UI } from "./ui"
 const log = Log.create({ service: "error-formatter" })
 
 export function FormatError(input: unknown): string | undefined {
+  if (input instanceof UserFacingError) {
+    log.debug("Formatting user-facing error", { title: input.title })
+    return input.format()
+  }
+
   if (input instanceof MCP.Failed) {
     log.debug("Formatting MCP error", { serverName: input.name })
     return `MCP server "${input.name}" failed. Note, nikcli does not support MCP authentication yet.`

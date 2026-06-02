@@ -35,6 +35,7 @@ import { Clipboard } from "../../util/clipboard"
 import type { AssistantMessage, FilePart } from "@nikcli-ai/sdk/v2"
 import { TuiEvent } from "../../event"
 import { iife } from "@/util/iife"
+import { userFacingParts } from "@/util/user-error"
 import { Locale } from "@/util/locale"
 import { formatDuration } from "@/util/format"
 import { createColors, createFrames } from "../../ui/spinner.ts"
@@ -1521,7 +1522,24 @@ export function Prompt(props: PromptProps) {
             })),
           ],
         })
-        .catch(() => {})
+        .catch((err) => {
+          console.error("Failed to send prompt:", err)
+          const userError = userFacingParts(err)
+          if (userError) {
+            toast.show({
+              title: userError.title,
+              message: `${userError.what}\nTry: ${userError.try}`,
+              variant: "error",
+              duration: 10000,
+            })
+          } else {
+            toast.show({
+              message: "Failed to send — check your connection or provider",
+              variant: "error",
+              duration: 5000,
+            })
+          }
+        })
     }
     history.append({
       ...store.prompt,
@@ -1949,7 +1967,14 @@ export function Prompt(props: PromptProps) {
                       const content = await file
                         .arrayBuffer()
                         .then((buffer) => Buffer.from(buffer).toString("base64"))
-                        .catch(() => {})
+                        .catch((err) => {
+                          console.error("Failed to send prompt:", err)
+                          toast.show({
+                            message: "Failed to send — check your connection or provider",
+                            variant: "error",
+                            duration: 5000,
+                          })
+                        })
                       if (content) {
                         await pasteImage({
                           filename: file.name,

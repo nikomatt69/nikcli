@@ -4,6 +4,7 @@ import fs from "fs/promises"
 import z from "zod"
 import { Lock } from "../util/lock"
 import { Log } from "../util/log"
+import { UserFacingError } from "../util/user-error"
 import { zod, zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
 
@@ -307,7 +308,7 @@ export namespace Auth {
     // Build refresh request
     const tokenUrl = oauth.enterpriseUrl
       ? `${oauth.enterpriseUrl}/oauth/token`
-      : "https://nikcli.mintlify.app/oauth/token"
+      : "https://auth.nikcli.store/oauth/token"
 
     log.info("refreshing token", { providerID })
 
@@ -326,6 +327,15 @@ export namespace Auth {
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error")
       log.error("token refresh failed", { providerID, status: response.status, error: errorText })
+      if (response.status === 401 || response.status === 400) {
+        throw new UserFacingError({
+          title: "Auth session expired",
+          what: `${providerID} rejected the refresh token (${response.status}).`,
+          try: `Run \`nikcli auth login ${providerID}\` to reconnect, or pick a different provider.`,
+          docs: "https://nikcli.store/docs/auth",
+          cause: { status: response.status, error: errorText },
+        })
+      }
       throw new Error(`Token refresh failed: ${response.status} ${errorText}`)
     }
 

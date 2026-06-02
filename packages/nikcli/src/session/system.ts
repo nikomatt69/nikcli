@@ -1,4 +1,5 @@
 import { Config } from "../config/config"
+import { resolveLocale } from "../locale/resolve"
 import { Log } from "../util/log"
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
 import PROMPT_ANTHROPIC_WITHOUT_TODO from "./prompt/qwen.txt"
@@ -60,9 +61,10 @@ export namespace SystemPrompt {
     return [PROMPT_ANTHROPIC_WITHOUT_TODO]
   }
 
-  async function environmentImpl(ctx: InstanceContext) {
+  async function environmentImpl(ctx: InstanceContext, config: Config.Info) {
     const project = ctx.project
-    return [
+    const loc = resolveLocale(config.locale)
+    const parts = [
       [
         `Here is some useful information about the environment you are running in:`,
         `<env>`,
@@ -71,9 +73,23 @@ export namespace SystemPrompt {
         `  Is directory a git repo: ${project.vcs === "git" ? "yes" : "no"}`,
         `  Platform: ${process.platform}`,
         `  Today's date: ${new Date().toDateString()}`,
+        `  User locale: ${loc.locale}`,
+        `  User region: ${loc.region}`,
+        `  User timezone: ${loc.timezone}`,
         `</env>`,
       ].join("\n"),
     ]
+    if (loc.replyLanguage) {
+      parts.push(
+        [
+          `<language>`,
+          `The user's language is ${loc.languageName} (${loc.replyLanguage}). Unless the user writes to you in another language or explicitly asks otherwise, write your responses in ${loc.languageName}.`,
+          `Keep code, identifiers, file paths, shell commands, and technical terms in their original form.`,
+          `</language>`,
+        ].join("\n"),
+      )
+    }
+    return parts
   }
 
   async function skillsImpl(skill: Skill.Interface, names: string[] = []) {
@@ -145,7 +161,11 @@ export namespace SystemPrompt {
 
       return Service.of({
         environment: () =>
-          InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => environmentImpl(ctx)))),
+          Effect.gen(function* () {
+            const ctx = yield* InstanceState.context
+            const cfg = yield* Effect.promise(() => configGet(ctx))
+            return yield* Effect.tryPromise(() => environmentImpl(ctx, cfg))
+          }),
         custom: (disabled = []) =>
           Effect.gen(function* () {
             const ctx = yield* InstanceState.context

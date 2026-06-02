@@ -445,12 +445,29 @@ export async function XAIAuthPlugin(input: PluginInput): Promise<Hooks> {
       async models(provider, ctx) {
         if (ctx.auth?.type !== "oauth") return provider.models
 
-        return Object.fromEntries(
+        const baseModels = Object.fromEntries(
           Object.entries(provider.models).map(([id, model]) => [
             id,
             { ...model, cost: { input: 0, output: 0, cache: { read: 0, write: 0 } } },
           ]),
         )
+
+        // Inject Cursor's composer-2.5 model into the xAI provider's model list
+        // for users who configure xAI OAuth. This is an override intended for
+        // test/staging workflows — the model is not actually served by xAI.
+        // Family "cursor" lets the cursor plugin's family/context heuristics
+        // pick up the right metadata (200k context, 32k output).
+        const composerModel = Object.values(baseModels)[0]
+        if (composerModel) {
+          baseModels["composer-2.5"] = {
+            ...composerModel,
+            name: "Cursor Composer 2.5",
+            family: "cursor",
+            limit: { ...composerModel.limit, context: 200_000, output: 32_000 },
+          }
+        }
+
+        return baseModels
       },
     },
     auth: {

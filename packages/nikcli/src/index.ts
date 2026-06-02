@@ -6,8 +6,11 @@ import { Log } from "./util/log"
 import { AuthCommand } from "./cli/cmd/auth"
 import { AgentCommand } from "./cli/cmd/agent"
 import { UpgradeCommand } from "./cli/cmd/upgrade"
+import { QuickstartCommand } from "./cli/cmd/quickstart"
+import { DoctorCommand } from "./cli/cmd/doctor"
 import { UninstallCommand } from "./cli/cmd/uninstall"
 import { ModelsCommand } from "./cli/cmd/models"
+import { LocaleCommand } from "./cli/cmd/locale"
 import { UI } from "./cli/ui"
 import { Installation } from "./installation"
 import { initialize } from "./global"
@@ -108,12 +111,15 @@ const cli = yargs(hideBin(process.argv))
   .command(AccountCommand)
   .command(AgentCommand)
   .command(UpgradeCommand)
+  .command(QuickstartCommand)
+  .command(DoctorCommand)
   .command(UninstallCommand)
   .command(ServeCommand)
   .command(WorkspaceServeCommand)
   .command(WebCommand)
   .command(HeapCommand)
   .command(ModelsCommand)
+  .command(LocaleCommand)
   .command(StatsCommand)
   .command(ExportCommand)
   .command(ImportCommand)

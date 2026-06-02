@@ -8,6 +8,7 @@ import { DialogProvider as DialogProviderList } from "@tui/component/dialog-prov
 import { Spinner } from "@tui/component/spinner"
 import { UserDB } from "@/db/users"
 import { Global } from "@/global"
+import { useSync } from "@tui/context/sync"
 
 // ─── Shared primitives ────────────────────────────────────────────────────────
 
@@ -50,7 +51,7 @@ function TwoColRow(props: { width: number; label: string; desc: string; labelFg?
 
 // ─── Step breadcrumb ──────────────────────────────────────────────────────────
 
-const STEP_NAMES = ["Welcome", "Create account", "Filesystem", "Connect"]
+const STEP_NAMES = ["Welcome", "Create account", "Filesystem", "Connect", "Test"]
 
 function WizardBreadcrumb(props: { current: number }) {
   const { theme } = useTheme()
@@ -438,15 +439,76 @@ function ProviderContent() {
   )
 }
 
-// ─── Wizard shell ─────────────────────────────────────────────────────────────
+function TestContent() {
+  const { theme } = useTheme()
+  return (
+    <box gap={2}>
+      <text fg={theme.textMuted} wrapMode="word">
+        Quick sanity check: we verify a provider is connected and ready to accept a request. This catches a mis-typed
+        API key or expired token before you send your first real prompt.
+      </text>
+      <TestResult />
+    </box>
+  )
+}
 
-const STEP_TITLES = ["Welcome to Nikcli", "Create your account", "Filesystem Footprint", "Connect a provider"]
+/**
+ * Live "checking / ready / failed" badge based on the current provider
+ * connection state. Reactive to `sync.data.provider_next.connected` and
+ * `sync.data.provider` so the user sees the status update in real time.
+ */
+/**
+ * Live "checking / ready / failed" badge based on the current provider
+ * connection state. Reactive to `sync.data.provider_next.connected` and
+ * `sync.data.provider` so the user sees the status update in real time.
+ */
+function TestResult() {
+  const { theme } = useTheme()
+  const sync = useSync()
+  const connected = createMemo(() => sync.data.provider_next.connected)
+  const hasModel = createMemo(() => sync.data.provider.some((p) => Object.keys(p.models ?? {}).length > 0))
+  const ok = createMemo(() => connected().length > 0 && hasModel())
+  return (
+    <box gap={1}>
+      <SectionLabel title="Status" />
+      <Show
+        when={ok()}
+        fallback={
+          <box flexDirection="row" gap={1}>
+            <text fg={theme.warning}>●</text>
+            <text fg={theme.text}>
+              <span style={{ fg: theme.textMuted }}>No provider connected</span> — go back to step 4 or run{" "}
+              <span style={{ fg: theme.accent }}>Ctrl+P → Connect provider</span>.
+            </text>
+          </box>
+        }
+      >
+        <box flexDirection="row" gap={1}>
+          <text fg={theme.success}>●</text>
+          <text fg={theme.text}>
+            <span style={{ fg: theme.success }}>Ready.</span> {connected().length} provider
+            {connected().length === 1 ? "" : "s"} connected.
+          </text>
+        </box>
+      </Show>
+    </box>
+  )
+}
+
+const STEP_TITLES = [
+  "Welcome to Nikcli",
+  "Create your account",
+  "Filesystem Footprint",
+  "Connect a provider",
+  "Test your setup",
+]
 
 const STEP_CONTINUE_LABELS = [
   "create account",
   "", // account step handles its own footer
   "view filesystem",
   "choose provider",
+  "finish",
 ]
 
 function OnboardingWizard(props: { onComplete: () => void }) {
@@ -486,6 +548,8 @@ function OnboardingWizard(props: { onComplete: () => void }) {
       case 2:
         return setStep(3)
       case 3:
+        return setStep(4)
+      case 4:
         dialog.replace(() => <DialogProviderList />)
         props.onComplete()
         break
@@ -545,6 +609,9 @@ function OnboardingWizard(props: { onComplete: () => void }) {
               <Match when={step() === 3}>
                 <ProviderContent />
               </Match>
+              <Match when={step() === 4}>
+                <TestContent />
+              </Match>
             </Switch>
           </scrollbox>
         </Match>
@@ -577,10 +644,25 @@ function OnboardingWizard(props: { onComplete: () => void }) {
         <Show when={step() === 1}>
           <text fg={theme.textMuted}>enter submit · esc cancel</text>
         </Show>
-        <text fg={theme.textMuted}>
-          <span style={{ fg: theme.borderSubtle }}>step </span>
-          {step() + 1}/{STEP_NAMES.length}
-        </text>
+        <box flexDirection="row" gap={2} alignItems="center">
+          <Show when={step() === 0}>
+            <box
+              paddingLeft={2}
+              paddingRight={2}
+              borderColor={theme.borderSubtle}
+              onMouseUp={() => {
+                setStep(3)
+                handleContinue()
+              }}
+            >
+              <text fg={theme.textMuted}>Skip — I have an account</text>
+            </box>
+          </Show>
+          <text fg={theme.textMuted}>
+            <span style={{ fg: theme.borderSubtle }}>step </span>
+            {step() + 1}/{STEP_NAMES.length}
+          </text>
+        </box>
       </box>
     </box>
   )

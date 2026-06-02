@@ -38,4 +38,4 @@ The team will send a response indicating the next steps in handling your report.
 
 ## Escalation
 
-If you do not receive an acknowledgement of your report within 6 business days, you may send an email to security@anoma.ly
+If you do not receive an acknowledgement of your report within 6 business days, you may escalate via GitHub Security Advisories on the project repository: https://github.com/nikomatt69/nikcli/security/advisories/new
