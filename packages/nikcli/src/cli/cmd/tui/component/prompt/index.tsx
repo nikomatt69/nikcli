@@ -186,6 +186,7 @@ export function Prompt(props: PromptProps) {
   const { theme, syntax } = useTheme()
   const kv = useKV()
   const editor = useEditorContext()
+  const [editorContextVisible, setEditorContextVisible] = kv.signal("editor_context_visibility", true)
   const editorPath = createMemo(() => editor.selection()?.filePath)
   const editorSelectionLabel = createMemo(() => {
     const selection = editor.selection()?.selection
@@ -1435,7 +1436,7 @@ export function Prompt(props: PromptProps) {
     // Capture mode before it gets reset
     const currentMode = store.mode
     const variant = local.model.variant.current()
-    const editorSelection = editor.selection()
+    const editorSelection = editorContextVisible() ? editor.selection() : undefined
     const editorParts = editorSelection
       ? [
           {
@@ -2247,7 +2248,7 @@ export function Prompt(props: PromptProps) {
                   </Switch>
                 </box>
               </Show>
-              <Show when={editorFileLabelDisplay()}>
+              <Show when={editorContextVisible() && editorFileLabelDisplay()}>
                 {(file) => (
                   <text fg={theme.secondary} flexShrink={0} wrapMode="none">
                     {file()}

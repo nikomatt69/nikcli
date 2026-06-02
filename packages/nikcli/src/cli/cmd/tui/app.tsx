@@ -158,11 +158,11 @@ export function tui(input: {
                                     <LocalProvider>
                                       <KeybindProvider>
                                         <PromptStashProvider>
-                                          <DialogProvider>
-                                            <CommandProvider>
-                                              <FrecencyProvider>
-                                                <PromptHistoryProvider>
-                                                  <EditorContextProvider>
+                                          <EditorContextProvider>
+                                            <DialogProvider>
+                                              <CommandProvider>
+                                                <FrecencyProvider>
+                                                  <PromptHistoryProvider>
                                                     <PromptRefProvider>
                                                       <UpgradeProvider upgradeNow={input.upgradeNow}>
                                                         <AttentionProvider renderer={renderer}>
@@ -170,11 +170,11 @@ export function tui(input: {
                                                         </AttentionProvider>
                                                       </UpgradeProvider>
                                                     </PromptRefProvider>
-                                                  </EditorContextProvider>
-                                                </PromptHistoryProvider>
-                                              </FrecencyProvider>
-                                            </CommandProvider>
-                                          </DialogProvider>
+                                                  </PromptHistoryProvider>
+                                                </FrecencyProvider>
+                                              </CommandProvider>
+                                            </DialogProvider>
+                                          </EditorContextProvider>
                                         </PromptStashProvider>
                                       </KeybindProvider>
                                     </LocalProvider>

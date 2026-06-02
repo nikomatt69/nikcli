@@ -6,6 +6,9 @@ import { useToast } from "@tui/ui/toast"
 import { useKeyboard, useTerminalDimensions } from "@opentui/solid"
 import { createMemo, createResource, createSignal, For, Show } from "solid-js"
 import { Usage } from "../util/usage"
+import { useEditorContext } from "../context/editor"
+import { useKV } from "../context/kv"
+import { Token } from "@/util/token"
 import type { SessionContextResponse } from "@nikcli-ai/sdk/v2"
 
 const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
@@ -13,7 +16,13 @@ const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD
 const BAR_WIDTH = 40
 
 type Breakdown = SessionContextResponse
-type Source = Breakdown["sources"][number]
+type ServerSource = Breakdown["sources"][number]
+type EditorToggleKind = "editor"
+type Source = Omit<ServerSource, "toggleKind"> & { toggleKind?: ServerSource["toggleKind"] | EditorToggleKind }
+
+const EDITOR_SOURCE_ID = "system:editor"
+const EDITOR_TOGGLE_KEY = "editor_context_visibility"
+const EDITOR_TOGGLE_KIND: EditorToggleKind = "editor"
 
 const CATEGORY_ORDER: Source["category"][] = ["system", "instructions", "skills", "mcp", "tools", "agents", "messages"]
 
@@ -27,12 +36,26 @@ const CATEGORY_LABEL: Record<Source["category"], string> = {
   messages: "Conversation",
 }
 
+function buildEditorNote(selection: NonNullable<ReturnType<ReturnType<typeof useEditorContext>["selection"]>>): string {
+  const start = selection.selection.start
+  const end = selection.selection.end
+  if (start.line === end.line && start.character === end.character) {
+    return `Note: The user opened the file "${selection.filePath}".`
+  }
+  if (start.line === end.line) {
+    return `Note: The user selected line ${start.line} from "${selection.filePath}": ${selection.text}`
+  }
+  return `Note: The user selected lines ${start.line} to ${end.line} from "${selection.filePath}": ${selection.text}`
+}
+
 export function DialogUsage() {
   const { theme } = useTheme()
   const route = useRoute()
   const sdk = useSDK()
   const toast = useToast()
   const dimensions = useTerminalDimensions()
+  const editor = useEditorContext()
+  const kv = useKV()
 
   const sessionID = createMemo(() => (route.data.type === "session" ? route.data.sessionID : undefined))
 
@@ -45,20 +68,72 @@ export function DialogUsage() {
   const [busy, setBusy] = createSignal(false)
   let scroll: ScrollBoxRenderable | undefined
 
-  // Sources ordered by category, in a stable display order.
+  // Editor context (IDE selection) is a client-side signal mirrored from the
+  // prompt footer. Surface it as a regular togglable source so users can switch
+  // it on/off from this dialog like every other context source.
+  const editorContextVisible = createMemo(() => kv.get(EDITOR_TOGGLE_KEY, true) as boolean)
+  const editorSource = createMemo<Source>(() => {
+    const selection = editor.selection()
+    const enabled = editorContextVisible()
+    if (!selection) {
+      return {
+        id: EDITOR_SOURCE_ID,
+        category: "system",
+        label: "Editor context",
+        detail: editor.connected() ? "No active selection" : "No editor connected",
+        tokens: 0,
+        enabled,
+        togglable: true,
+        toggleKind: EDITOR_TOGGLE_KIND,
+        toggleKey: EDITOR_TOGGLE_KEY,
+      }
+    }
+    const note = buildEditorNote(selection)
+    const label = (() => {
+      const filename = selection.filePath.split("/").pop() ?? selection.filePath
+      const start = selection.selection.start
+      const end = selection.selection.end
+      const range =
+        start.line === end.line && start.character === end.character
+          ? `:${start.line + 1}`
+          : `:${start.line + 1}-${end.line + 1}`
+      return `Editor · ${filename}${range}`
+    })()
+    return {
+      id: EDITOR_SOURCE_ID,
+      category: "system",
+      label,
+      detail: selection.filePath,
+      tokens: Token.estimate(note),
+      enabled,
+      togglable: true,
+      toggleKind: EDITOR_TOGGLE_KIND,
+      toggleKey: EDITOR_TOGGLE_KEY,
+    }
+  })
+
+  // Sources ordered by category, in a stable display order. The editor source
+  // is prepended so it always leads the "System prompt" section.
   const sources = createMemo(() => {
     const all = data()?.sources ?? []
-    return [...all].sort((a, b) => {
+    const sorted = [...all].sort((a, b) => {
       const ca = CATEGORY_ORDER.indexOf(a.category)
       const cb = CATEGORY_ORDER.indexOf(b.category)
       if (ca !== cb) return ca - cb
       return b.tokens - a.tokens
     })
+    return [editorSource(), ...sorted]
   })
 
   const contextLimit = createMemo(() => data()?.model?.contextLimit ?? 0)
   const reportedTotal = createMemo(() => data()?.reported.total ?? 0)
-  const estimatedTotal = createMemo(() => data()?.estimatedTotal ?? 0)
+  // The editor source lives client-side and is not part of the server-side
+  // breakdown, so add its enabled token cost to the local total.
+  const editorTokens = createMemo(() => {
+    const source = editorSource()
+    return source.enabled ? source.tokens : 0
+  })
+  const estimatedTotal = createMemo(() => (data()?.estimatedTotal ?? 0) + editorTokens())
 
   // Reserve a buffer for auto-compaction, matching the conversation runtime.
   const autocompactReserved = createMemo(() => (contextLimit() > 0 ? Math.min(20_000, contextLimit()) : 0))
@@ -106,9 +181,32 @@ export function DialogUsage() {
   async function toggle(source: Source) {
     if (!source.togglable || !source.toggleKind || !source.toggleKey) return
     const sid = sessionID()
-    if (!sid || busy()) return
-    setBusy(true)
+    if (busy()) return
     const nextEnabled = !source.enabled
+
+    // Client-side editor context toggle: persist to the local kv store and let
+    // the prompt component pick up the change reactively.
+    if (source.toggleKind === EDITOR_TOGGLE_KIND) {
+      setBusy(true)
+      try {
+        kv.set(source.toggleKey, nextEnabled)
+        toast.show({
+          message: `${source.label} ${nextEnabled ? "enabled" : "disabled"}`,
+          variant: "success",
+        })
+      } catch (err: any) {
+        toast.show({
+          message: `Failed to toggle ${source.label}: ${err?.message ?? err}`,
+          variant: "error",
+        })
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+
+    if (!sid) return
+    setBusy(true)
     try {
       const result = await sdk.client.session.contextToggle({
         sessionID: sid,
