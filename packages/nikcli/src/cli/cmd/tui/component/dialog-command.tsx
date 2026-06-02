@@ -50,7 +50,7 @@ function init() {
     const seen = new Set<string>()
     const unique: typeof all = []
     for (const item of all) {
-      const key = `${item.category ?? ""}|${item.value}`
+      const key = `${item.category ?? ""}|${item.value}` 
       if (seen.has(key)) continue
       seen.add(key)
       unique.push(item)
