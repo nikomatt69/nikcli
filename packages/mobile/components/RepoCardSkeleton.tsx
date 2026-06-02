@@ -5,11 +5,7 @@ export function RepoCardSkeleton({ count = 2 }: { count?: number }) {
   return (
     <View className="gap-3">
       {Array.from({ length: count }).map((_, index) => (
-        <View
-          key={index}
-          className="overflow-hidden rounded-[8px] border border-line/60 p-4"
-          style={{ gap: 12 }}
-        >
+        <View key={index} className="overflow-hidden rounded-[8px] border border-line/60 p-4" style={{ gap: 12 }}>
           <View className="flex-row items-start justify-between" style={{ gap: 12 }}>
             <View className="flex-1" style={{ gap: 8 }}>
               <SkeletonBox width={120} height={10} borderRadius={6} />
