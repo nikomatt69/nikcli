@@ -127,7 +127,7 @@ export namespace SessionProcessor {
 
   async function agentRequired(name: string) {
     const agent = await agentGet(name)
-    if (!agent) throw new Error(`Agent not found: ${name}`)
+    if (!agent) throw new Agent.NotFoundError({ name })
     return agent
   }
 

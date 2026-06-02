@@ -1,3 +1,5 @@
+import { Schema } from "effect"
+
 /**
  * Error class for errors that have a user-friendly presentation. Throw
  * `UserFacingError` from anywhere a regular `Error` would be thrown when the
@@ -7,21 +9,22 @@
  * The CLI's FormatError and the TUI toast pipeline recognize this class and
  * render its `title`, `what`, and `try` fields separately instead of dumping
  * a stack trace.
+ *
+ * Implemented as a `Schema.TaggedErrorClass` so it integrates with the Effect
+ * error channel: the instance carries `_tag === "UserFacingError"`,
+ * `instanceof UserFacingError` continues to work for plain `try/catch` paths,
+ * and `Effect.catchTag("UserFacingError", ...)` works on the Effect side.
  */
-export class UserFacingError extends Error {
-  readonly title: string
-  readonly what: string
-  readonly trySuggestion: string
-  readonly docs?: string
-
-  constructor(init: { title: string; what: string; try: string; docs?: string; cause?: unknown }) {
-    super(init.title)
-    this.name = "UserFacingError"
-    this.title = init.title
-    this.what = init.what
-    this.trySuggestion = init.try
-    this.docs = init.docs
-    if (init.cause !== undefined) this.cause = init.cause
+export class UserFacingError extends Schema.TaggedErrorClass<UserFacingError>()("UserFacingError", {
+  title: Schema.String,
+  what: Schema.String,
+  try: Schema.String,
+  docs: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Unknown),
+}) {
+  /** Alias for `try` so existing call sites can read `err.trySuggestion`. */
+  get trySuggestion(): string {
+    return this.try
   }
 
   /** Render a one-shot user-facing string (for CLI output). */

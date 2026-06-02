@@ -1,65 +1,286 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
   { title: "Overview", href: "#overview", depth: 2 },
-  { title: "Config", href: "#config", depth: 2 },
-  { title: "Auth", href: "#auth", depth: 2 },
-  { title: "CLI Commands", href: "#cli-commands", depth: 2 },
+  { title: "Add a server", href: "#add-server", depth: 2 },
+  { title: "Local stdio servers", href: "#local", depth: 2 },
+  { title: "Remote servers", href: "#remote", depth: 2 },
+  { title: "OAuth", href: "#oauth", depth: 2 },
+  { title: "Status model", href: "#status", depth: 2 },
+  { title: "Tools, prompts, resources", href: "#capabilities", depth: 2 },
+  { title: "API routes", href: "#api", depth: 2 },
+  { title: "Timeouts and headers", href: "#timeouts", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="MCP"
-  subtitle="Model Context Protocol integration in packages/nikcli/src/mcp."
+  subtitle="How nikcli connects local and remote Model Context Protocol servers, authenticates OAuth servers, and exposes MCP tools to agent sessions."
   toc={toc}
 >
   <section id="overview" class="mb-16 scroll-mt-24">
     <h2>Overview</h2>
     <p>
-      MCP clients are instantiated per configured server. Tools are dynamically converted into
-      AI SDK tools.
+      MCP support is implemented in <code>packages/nikcli/src/mcp/index.ts</code>. The service reads
+      <code>config.mcp</code>, creates local stdio or remote HTTP/SSE clients, records status,
+      converts server tools into AI SDK dynamic tools, and exposes prompts/resources to sessions.
     </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Local" eyebrow="stdio">
+        <p>Runs a command in the current instance directory with environment from the config entry.</p>
+      </DocCard>
+      <DocCard title="Remote" eyebrow="HTTP">
+        <p>Tries Streamable HTTP first, then SSE, with optional headers and OAuth provider support.</p>
+      </DocCard>
+      <DocCard title="OAuth" eyebrow="Auth">
+        <p>Stores tokens in <code>mcp-auth.json</code>, supports dynamic or configured client registration, and can open a browser for auth.</p>
+      </DocCard>
+      <DocCard title="Tools" eyebrow="Agent">
+        <p>MCP tool schemas are wrapped as strict dynamic tools with per-call timeout support.</p>
+      </DocCard>
+    </div>
   </section>
 
-  <section id="config" class="mb-16 scroll-mt-24">
-    <h2>Config</h2>
-    <p>Local MCP servers use <code>type: "local"</code>; remote servers use <code>type: "remote"</code>.</p>
+  <section id="add-server" class="mb-16 scroll-mt-24">
+    <h2>Add a server</h2>
+    <p>
+      Use <code>nikcli mcp add</code> for interactive config patching, or edit
+      <code>mcp</code> in <code>nikcli.json</code> directly. <code>nikcli mcp list</code> initializes
+      configured servers and shows status.
+    </p>
+    <DocCode language="bash">
+nikcli mcp add
+nikcli mcp list
+nikcli mcp auth remote-docs
+nikcli mcp auth list
+nikcli mcp logout remote-docs
+nikcli mcp debug remote-docs
+    </DocCode>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Field</th>
-          <th>Notes</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>type</code></td><td><code>local</code> or <code>remote</code>.</td></tr>
-        <tr><td><code>command</code></td><td>Local: command array to spawn server.</td></tr>
-        <tr><td><code>url</code></td><td>Remote: base URL for MCP server.</td></tr>
-        <tr><td><code>enabled</code></td><td>Disable with <code>false</code>.</td></tr>
-        <tr><td><code>oauth</code></td><td>Remote OAuth settings (clientId/clientSecret).</td></tr>
+        <tr><td><code>mcp list</code></td><td>Read config, connect servers, show connected/disabled/failed/auth status.</td></tr>
+        <tr><td><code>mcp add</code></td><td>Add a local or remote MCP entry to global or project config.</td></tr>
+        <tr><td><code>mcp auth</code></td><td>Start OAuth flow for a remote server with OAuth enabled.</td></tr>
+        <tr><td><code>mcp auth list</code></td><td>List OAuth-capable servers and token status.</td></tr>
+        <tr><td><code>mcp logout</code></td><td>Remove stored MCP auth for a server.</td></tr>
+        <tr><td><code>mcp debug</code></td><td>Inspect a configured server with a raw MCP client.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="auth" class="mb-16 scroll-mt-24">
-    <h2>Auth</h2>
-    <DocCallout type="info" title="OAuth">
-      <p>Remote MCP servers support OAuth via <code>McpOAuthProvider</code> and callback handlers.</p>
+  <section id="local" class="mb-16 scroll-mt-24">
+    <h2>Local stdio servers</h2>
+    <p>
+      Local servers use <code>StdioClientTransport</code>. The command runs with cwd set to the
+      current project directory. The environment is <code>process.env</code> plus configured
+      <code>environment</code>; when the command is <code>nikcli</code>, <code>BUN_BE_BUN=1</code>
+      is added.
+    </p>
+    <DocCode language="json" title="nikcli.json">
+&#123;
+  "mcp": &#123;
+    "filesystem": &#123;
+      "type": "local",
+      "command": ["bunx", "@modelcontextprotocol/server-filesystem", "."],
+      "environment": &#123;
+        "LOG_LEVEL": "info"
+      &#125;,
+      "timeout": 30000
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>type</code></td><td>Yes</td><td><code>local</code>.</td></tr>
+        <tr><td><code>command</code></td><td>Yes</td><td>Command array. First item is executable, rest are args.</td></tr>
+        <tr><td><code>environment</code></td><td>No</td><td>Extra environment variables passed to the child process.</td></tr>
+        <tr><td><code>enabled</code></td><td>No</td><td><code>false</code> keeps the server disabled.</td></tr>
+        <tr><td><code>timeout</code></td><td>No</td><td>Connect and tool-list timeout in milliseconds. Default is 30000.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="remote" class="mb-16 scroll-mt-24">
+    <h2>Remote servers</h2>
+    <p>
+      Remote servers use two transports in sequence. nikcli tries
+      <code>StreamableHTTPClientTransport</code> first, then <code>SSEClientTransport</code>. Both
+      receive configured headers and the OAuth auth provider when OAuth is enabled.
+    </p>
+    <DocCode language="json" title="remote MCP">
+&#123;
+  "mcp": &#123;
+    "remote-docs": &#123;
+      "type": "remote",
+      "url": "https://example.com/mcp",
+      "headers": &#123;
+        "X-Workspace": "docs"
+      &#125;,
+      "timeout": 45000
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Required</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>type</code></td><td>Yes</td><td><code>remote</code>.</td></tr>
+        <tr><td><code>url</code></td><td>Yes</td><td>Remote MCP endpoint URL.</td></tr>
+        <tr><td><code>headers</code></td><td>No</td><td>Static request headers for connect and capability calls.</td></tr>
+        <tr><td><code>oauth</code></td><td>No</td><td>OAuth config object, <code>false</code> to disable OAuth, or omitted to enable OAuth support.</td></tr>
+        <tr><td><code>enabled</code></td><td>No</td><td>Disable without deleting config.</td></tr>
+        <tr><td><code>timeout</code></td><td>No</td><td>Connection and capability-list timeout in milliseconds.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="oauth" class="mb-16 scroll-mt-24">
+    <h2>OAuth</h2>
+    <p>
+      Remote MCP OAuth is on by default unless <code>oauth</code> is <code>false</code>. The
+      <code>McpOAuthProvider</code> supports configured client id, client secret, and scope. Tokens,
+      client metadata, code verifier, OAuth state, and server URL are stored through
+      <code>McpAuth.Service</code> in <code>Global.Path.data/mcp-auth.json</code>.
+    </p>
+    <DocCode language="json" title="pre-registered client">
+&#123;
+  "mcp": &#123;
+    "corp-docs": &#123;
+      "type": "remote",
+      "url": "https://mcp.example.com",
+      "oauth": &#123;
+        "clientId": "client-id",
+        "clientSecret": "client-secret",
+        "scope": "read write"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <DocCallout type="info" title="Client registration errors">
+      <p>
+        If a server returns an unauthorized error mentioning registration or client id, nikcli reports
+        <code>needs_client_registration</code> and asks you to add <code>clientId</code> in config.
+      </p>
     </DocCallout>
   </section>
 
-  <section id="cli-commands" class="mb-16 scroll-mt-24">
-    <h2>CLI Commands</h2>
+  <section id="status" class="mb-16 scroll-mt-24">
+    <h2>Status model</h2>
     <table class="doc-table">
+      <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
       <tbody>
-        <tr><td><code>mcp list</code></td><td>List MCP servers and status.</td></tr>
-        <tr><td><code>mcp auth [name]</code></td><td>Run OAuth auth for a remote server.</td></tr>
-        <tr><td><code>mcp auth list</code></td><td>List OAuth-capable servers and their auth status.</td></tr>
-        <tr><td><code>mcp logout [name]</code></td><td>Remove stored MCP credentials.</td></tr>
-        <tr><td><code>mcp add</code></td><td>Interactive MCP config generator.</td></tr>
-        <tr><td><code>mcp debug &lt;name&gt;</code></td><td>Connect and list tools/resources.</td></tr>
+        <tr><td><code>connected</code></td><td>Client connected and <code>listTools</code> succeeded.</td></tr>
+        <tr><td><code>disabled</code></td><td>Config entry has <code>enabled: false</code> or the server was disconnected.</td></tr>
+        <tr><td><code>failed</code></td><td>Connection or initial tool-list failed. Error string is stored.</td></tr>
+        <tr><td><code>needs_auth</code></td><td>Remote server returned unauthorized and OAuth can continue.</td></tr>
+        <tr><td><code>needs_client_registration</code></td><td>Remote server requires configured OAuth client id.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The service keeps <code>status</code> and <code>clients</code> maps in instance state. When the
+      instance shuts down, all MCP clients are closed and pending OAuth transports are cleared.
+    </p>
+  </section>
+
+  <section id="capabilities" class="mb-16 scroll-mt-24">
+    <h2>Tools, prompts, resources</h2>
+    <p>
+      Connected MCP servers can contribute tools, prompts, and resources. Tool input schemas are
+      wrapped as strict JSON schemas with <code>additionalProperties: false</code>. Tool calls use
+      <code>resetTimeoutOnProgress</code> so long calls can continue when the server sends progress.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Capability</th><th>Service method</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Tools</td><td><code>tools</code></td><td>Fetches tool lists from connected clients and converts each MCP tool into an AI SDK dynamic tool.</td></tr>
+        <tr><td>Prompts</td><td><code>prompts</code></td><td>Lists prompts and names them as <code>client:prompt</code> after sanitizing names.</td></tr>
+        <tr><td>Resources</td><td><code>resources</code></td><td>Lists resources and attaches client name to each resource record.</td></tr>
+        <tr><td>Prompt read</td><td><code>getPrompt</code></td><td>Calls the selected client's prompt with optional string args.</td></tr>
+        <tr><td>Resource read</td><td><code>readResource</code></td><td>Reads a resource URI from the selected client.</td></tr>
+        <tr><td>Tool-list changed</td><td><code>mcp.tools.changed</code></td><td>Published when a server sends <code>ToolListChangedNotification</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="api" class="mb-16 scroll-mt-24">
+    <h2>API routes</h2>
+    <p>MCP has both classic Hono routes and typed HttpApi handlers.</p>
+    <table class="doc-table">
+      <thead><tr><th>Route</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /mcp</code></td><td>Status map.</td></tr>
+        <tr><td><code>POST /mcp</code></td><td>Add a server config and attempt connection.</td></tr>
+        <tr><td><code>POST /mcp/:name/auth</code></td><td>Start OAuth and return authorization URL in typed API.</td></tr>
+        <tr><td><code>POST /mcp/:name/auth/callback</code></td><td>Finish OAuth with authorization code.</td></tr>
+        <tr><td><code>POST /mcp/:name/auth/authenticate</code></td><td>Run full CLI/TUI OAuth flow where supported.</td></tr>
+        <tr><td><code>DELETE /mcp/:name/auth</code></td><td>Remove stored auth.</td></tr>
+        <tr><td><code>POST /mcp/:name/connect</code></td><td>Connect or reconnect a server.</td></tr>
+        <tr><td><code>POST /mcp/:name/disconnect</code></td><td>Close client and mark disabled.</td></tr>
+        <tr><td><code>POST /mcp/:name/toggle</code></td><td>Patch config enabled state and disconnect when disabling.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+curl http://127.0.0.1:4096/mcp
+
+curl -X POST http://127.0.0.1:4096/mcp/remote-docs/connect
+
+curl -X POST http://127.0.0.1:4096/mcp/remote-docs/toggle \
+  -H "Content-Type: application/json" \
+  -d '&#123;"enabled":false&#125;'
+    </DocCode>
+  </section>
+
+  <section id="timeouts" class="mb-16 scroll-mt-24">
+    <h2>Timeouts and headers</h2>
+    <p>
+      The default MCP timeout is 30000 ms. A server-specific <code>timeout</code> overrides connect,
+      initial <code>listTools</code>, and tool-call timeouts. Remote <code>headers</code> are passed
+      to both Streamable HTTP and SSE transports.
+    </p>
+    <DocCallout type="warn" title="Timeout failures remove tool availability">
+      <p>
+        If a connected client later fails to list tools, the MCP service records the failure and that
+        server's tools are not added to the agent tool set until it reconnects successfully.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>needs_auth</code></td><td>Remote server requires OAuth and no valid token is stored.</td><td>Run <code>nikcli mcp auth &lt;name&gt;</code>.</td></tr>
+        <tr><td><code>needs_client_registration</code></td><td>Server does not support dynamic client registration.</td><td>Add <code>oauth.clientId</code>, and client secret if required.</td></tr>
+        <tr><td>Local server failed</td><td>Command missing, bad args, bad cwd, or server did not initialize before timeout.</td><td>Run the command manually from the project directory and increase timeout if needed.</td></tr>
+        <tr><td>Connected but no tools</td><td><code>listTools</code> failed after connect.</td><td>Check server logs and tool-list response.</td></tr>
+        <tr><td>Browser did not open</td><td>Automatic browser open failed.</td><td>The CLI prints the auth URL through the <code>mcp.browser.open.failed</code> event path.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>MCP service</td><td><code>packages/nikcli/src/mcp/index.ts</code></td></tr>
+        <tr><td>MCP auth storage</td><td><code>packages/nikcli/src/mcp/auth.ts</code></td></tr>
+        <tr><td>OAuth provider and callback</td><td><code>packages/nikcli/src/mcp/oauth-provider.ts</code>, <code>packages/nikcli/src/mcp/oauth-callback.ts</code></td></tr>
+        <tr><td>CLI command</td><td><code>packages/nikcli/src/cli/cmd/mcp.ts</code></td></tr>
+        <tr><td>Classic routes</td><td><code>packages/nikcli/src/server/routes/mcp.ts</code></td></tr>
+        <tr><td>Typed routes</td><td><code>packages/nikcli/src/server/httpapi/mcp.ts</code></td></tr>
+        <tr><td>TUI dialog</td><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-mcp.tsx</code></td></tr>
       </tbody>
     </table>
   </section>

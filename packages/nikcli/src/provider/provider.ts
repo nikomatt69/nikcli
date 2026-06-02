@@ -131,7 +131,7 @@ export namespace Provider {
 
   function timeoutController(ms: number) {
     const ctl = new AbortController()
-    const id = setTimeout(() => ctl.abort(new ProviderError.HeaderTimeoutError(ms)), ms)
+    const id = setTimeout(() => ctl.abort(new ProviderError.HeaderTimeoutError({ ms })), ms)
     return {
       signal: ctl.signal,
       clear: () => clearTimeout(id),

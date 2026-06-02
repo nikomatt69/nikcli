@@ -83,7 +83,7 @@ export namespace Config {
           }),
         )
         if (!response.ok) {
-          throw new Error(`failed to fetch remote config from ${key}: ${response.status}`)
+          throw new Config.RemoteFetchError({ url: key, status: response.status })
         }
         const wellknown = (await response.json()) as { config?: Record<string, unknown> }
         const remoteConfig = wellknown.config ?? {}
@@ -1261,21 +1261,12 @@ export namespace Config {
       theme: z.string().optional().describe("Theme name to use for the interface"),
       locale: z
         .object({
-          language: z
-            .string()
-            .optional()
-            .describe("UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'"),
+          language: z.string().optional().describe("UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'"),
           region: z.string().optional().describe("ISO-3166 country code, e.g. 'IT', 'US'"),
-          locale: z
-            .string()
-            .optional()
-            .describe("Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set"),
+          locale: z.string().optional().describe("Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set"),
           timezone: z.string().optional().describe("IANA timezone, e.g. 'Europe/Rome'"),
           currency: z.string().optional().describe("ISO-4217 currency code, e.g. 'EUR'; defaults from region"),
-          autoDetect: z
-            .boolean()
-            .optional()
-            .describe("Auto-detect locale from environment and system (default true)"),
+          autoDetect: z.boolean().optional().describe("Auto-detect locale from environment and system (default true)"),
           replyLanguage: z
             .union([z.boolean(), z.string()])
             .optional()
@@ -1808,6 +1799,17 @@ export namespace Config {
     path: Schema.optional(Schema.String),
     issues: Schema.optional(Schema.Unknown),
     message: Schema.optional(Schema.String),
+  }) {}
+
+  /**
+   * Thrown when fetching a remote well-known config endpoint returns a
+   * non-2xx response. Tagged so the call site can use
+   * `Effect.catchTag("ConfigRemoteFetch", ...)` and the existing
+   * `instanceof Config.RemoteFetchError` continues to work.
+   */
+  export class RemoteFetchError extends Schema.TaggedErrorClass<RemoteFetchError>()("ConfigRemoteFetch", {
+    url: Schema.String,
+    status: Schema.Number,
   }) {}
 
   async function updateImpl(ctx: InstanceContext, config: Info) {

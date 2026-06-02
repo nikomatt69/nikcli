@@ -2,301 +2,412 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
-import { keybinds } from "../../data/keybinds";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Resolution Order", href: "#resolution-order", depth: 2 },
-  { title: "Config Schema", href: "#config-schema", depth: 2 },
-  { title: "Top-Level Fields", href: "#top-level-fields", depth: 2 },
-  { title: "Providers & Connectors", href: "#providers-connectors", depth: 2 },
-  { title: "Image & Speak", href: "#image-speak", depth: 2 },
-  { title: "Notifications & Mobile", href: "#notifications-mobile", depth: 2 },
-  { title: "Keybinds", href: "#keybinds", depth: 2 },
-  { title: "Flags & Env", href: "#flags-env", depth: 2 },
-  { title: "Experimental", href: "#experimental", depth: 2 },
-];
-
-const flags = [
-  { key: "NIKCLI_AUTO_SHARE", desc: "Enable automatic sharing for new sessions." },
-  { key: "NIKCLI_GIT_BASH_PATH", desc: "Override Git Bash install path (Windows)." },
-  { key: "NIKCLI_CONFIG", desc: "Custom config file path." },
-  { key: "NIKCLI_CONFIG_DIR", desc: "Additional config directory to scan." },
-  { key: "NIKCLI_CONFIG_CONTENT", desc: "Inline JSON config content." },
-  { key: "NIKCLI_DISABLE_AUTOUPDATE", desc: "Disable automatic upgrades." },
-  { key: "NIKCLI_DISABLE_PRUNE", desc: "Disable pruning of old tool outputs." },
-  { key: "NIKCLI_DISABLE_TERMINAL_TITLE", desc: "Disable terminal title updates." },
-  { key: "NIKCLI_PERMISSION", desc: "Inline JSON permission overrides." },
-  { key: "NIKCLI_DISABLE_DEFAULT_PLUGINS", desc: "Skip built-in plugins." },
-  { key: "NIKCLI_DISABLE_LSP_DOWNLOAD", desc: "Disable automatic LSP downloads." },
-  { key: "NIKCLI_ENABLE_EXPERIMENTAL_MODELS", desc: "Allow experimental models from catalog." },
-  { key: "NIKCLI_DISABLE_AUTOCOMPACT", desc: "Disable auto compaction." },
-  { key: "NIKCLI_DISABLE_MODELS_FETCH", desc: "Disable models.dev fetch." },
-  { key: "NIKCLI_DISABLE_CLAUDE_CODE", desc: "Disable Claude Code integrations." },
-  { key: "NIKCLI_DISABLE_CLAUDE_CODE_PROMPT", desc: "Disable Claude Code prompt injection." },
-  { key: "NIKCLI_DISABLE_CLAUDE_CODE_SKILLS", desc: "Disable Claude Code skills discovery." },
-  { key: "NIKCLI_DISABLE_PROJECT_CONFIG", desc: "Disable project-level config discovery." },
-  { key: "NIKCLI_FAKE_VCS", desc: "Force fake VCS mode." },
-  { key: "NIKCLI_CLIENT", desc: "Client type (cli/app/desktop)." },
-  { key: "NIKCLI_SERVER_PASSWORD", desc: "Enable basic auth for server mode." },
-  { key: "NIKCLI_SERVER_USERNAME", desc: "Override basic auth username." },
-  { key: "NIKCLI_EXPERIMENTAL", desc: "Enable experimental features." },
-  { key: "NIKCLI_EXPERIMENTAL_FILEWATCHER", desc: "Enable experimental file watcher." },
-  { key: "NIKCLI_EXPERIMENTAL_DISABLE_FILEWATCHER", desc: "Disable file watcher." },
-  { key: "NIKCLI_EXPERIMENTAL_ICON_DISCOVERY", desc: "Enable icon discovery." },
-  { key: "NIKCLI_EXPERIMENTAL_DISABLE_COPY_ON_SELECT", desc: "Disable copy-on-select." },
-  { key: "NIKCLI_ENABLE_EXA", desc: "Enable Exa-backed search tools." },
-  { key: "NIKCLI_EXPERIMENTAL_EXA", desc: "Enable Exa search in experimental mode." },
-  { key: "NIKCLI_EXPERIMENTAL_BASH_MAX_OUTPUT_LENGTH", desc: "Max bash output length." },
-  { key: "NIKCLI_EXPERIMENTAL_BASH_DEFAULT_TIMEOUT_MS", desc: "Default bash timeout in ms." },
-  { key: "NIKCLI_EXPERIMENTAL_OUTPUT_TOKEN_MAX", desc: "Max output tokens before truncation." },
-  { key: "NIKCLI_EXPERIMENTAL_OXFMT", desc: "Enable experimental formatter." },
-  { key: "NIKCLI_EXPERIMENTAL_LSP_TY", desc: "Enable experimental LSP server ty." },
-  { key: "NIKCLI_EXPERIMENTAL_LSP_TOOL", desc: "Enable LSP tool in registry." },
-  { key: "NIKCLI_DISABLE_FILETIME_CHECK", desc: "Disable file mtime checks." },
-  { key: "NIKCLI_EXPERIMENTAL_PLAN_MODE", desc: "Enable plan_enter/plan_exit tools." },
-  { key: "NIKCLI_EXPERIMENTAL_SECURITY_TOOL", desc: "Enable experimental security tool." },
-];
-
-const topFields = [
-  { key: "$schema", desc: "Schema URL for validation." },
-  { key: "theme", desc: "Theme name for the UI." },
-  { key: "logLevel", desc: "Log level (DEBUG/INFO/WARN/ERROR)." },
-  { key: "tui", desc: "TUI settings such as scroll and layout behavior." },
-  { key: "server", desc: "Server defaults for serve and web commands." },
-  { key: "remote", desc: "Remote session defaults and tunnel behavior." },
-  { key: "command", desc: "Command templates and presets." },
-  { key: "watcher", desc: "File watcher ignore rules." },
-  { key: "plugin", desc: "Plugin entrypoints to load." },
-  { key: "snapshot", desc: "Enable snapshot tracking." },
-  { key: "share", desc: "manual | auto | disabled." },
-  { key: "autoupdate", desc: "true | false | notify." },
-  { key: "disabled_providers", desc: "Disable providers by ID." },
-  { key: "enabled_providers", desc: "Enable only these providers." },
-  { key: "model", desc: "Default model in provider/model format." },
-  { key: "small_model", desc: "Small model for titles and summaries." },
-  { key: "default_agent", desc: "Primary agent name." },
-  { key: "username", desc: "Custom username label." },
-  { key: "agent", desc: "Agent configuration objects." },
-  { key: "provider", desc: "Provider config overrides." },
-  { key: "mcp", desc: "MCP server configs." },
-  { key: "connectors", desc: "External service connectors and auth targets." },
-  { key: "formatter", desc: "Formatter config or false." },
-  { key: "lsp", desc: "LSP config or false." },
-  { key: "instructions", desc: "Extra instruction files or patterns." },
-  { key: "permission", desc: "Permission ruleset." },
-  { key: "tools", desc: "Legacy tool allow/deny map." },
-  { key: "enterprise", desc: "Enterprise settings." },
-  { key: "compaction", desc: "Auto compaction settings." },
-  { key: "experimental", desc: "Experimental flags, hooks, and feature toggles." },
-  { key: "image", desc: "Image generation defaults." },
-  { key: "speak", desc: "Text-to-speech defaults." },
-  { key: "notifications", desc: "Todo and general notification settings." },
-  { key: "mobile", desc: "Mobile development settings including Tophat." },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Resolution order", href: "#resolution-order", depth: 2 },
+  { title: "Where files live", href: "#files", depth: 2 },
+  { title: "Config tokens", href: "#tokens", depth: 2 },
+  { title: "Minimal config", href: "#minimal", depth: 2 },
+  { title: "Top-level fields", href: "#top-level-fields", depth: 2 },
+  { title: "Providers", href: "#providers", depth: 2 },
+  { title: "Agents and commands", href: "#agents-commands", depth: 2 },
+  { title: "MCP and connectors", href: "#mcp-connectors", depth: 2 },
+  { title: "LSP and formatter", href: "#lsp-formatter", depth: 2 },
+  { title: "Permissions", href: "#permissions", depth: 2 },
+  { title: "TUI and keybinds", href: "#tui-keybinds", depth: 2 },
+  { title: "Notifications and mobile", href: "#notifications-mobile", depth: 2 },
+  { title: "Environment flags", href: "#env-flags", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Configuration"
-  subtitle="Config resolution and schema reference derived from packages/nikcli/src/config/config.ts."
+  subtitle="How nikcli discovers, parses, merges, validates, and applies config across global, project, and runtime sources."
   toc={toc}
 >
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      Config is resolved by <code>packages/nikcli/src/config/config.ts</code> with path discovery
+      from <code>config/paths.ts</code>. Files are JSONC, support trailing commas, and are validated
+      against <code>Config.Info</code>. Arrays for <code>plugin</code> and <code>instructions</code>
+      are concatenated and deduplicated instead of simply replaced.
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Global config" eyebrow="User">
+        <p>Loaded from <code>Global.Path.config/nikcli.json</code> and used for user-wide defaults.</p>
+      </DocCard>
+      <DocCard title="Project config" eyebrow="Repo">
+        <p>Discovered upward from the working directory and worktree unless project config is disabled.</p>
+      </DocCard>
+      <DocCard title="Config directories" eyebrow="Plugins">
+        <p>Directories ending in <code>.nikcli</code> and <code>NIKCLI_CONFIG_DIR</code> can provide config, commands, agents, modes, plugins, and instructions.</p>
+      </DocCard>
+      <DocCard title="Inline env config" eyebrow="Override">
+        <p><code>NIKCLI_CONFIG_CONTENT</code> is merged after global/custom/project config, before directory extras are loaded.</p>
+      </DocCard>
+    </div>
+  </section>
+
   <section id="resolution-order" class="mb-16 scroll-mt-24">
-    <h2>Resolution Order</h2>
-    <p>Configuration is merged in the following precedence order (lowest to highest):</p>
-    <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Layer</th>
-          <th>Source</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td>Remote</td><td><code>/.well-known/nikcli</code> for compatible OAuth providers.</td></tr>
-        <tr><td>Global</td><td><code>~/.config/nikcli/nikcli.jsonc</code> and sibling config names.</td></tr>
-        <tr><td>Custom path</td><td><code>NIKCLI_CONFIG</code> — path to an additional config file.</td></tr>
-        <tr><td>Project</td><td><code>nikcli.jsonc</code> or <code>nikcli.json</code> discovered upward.</td></tr>
-        <tr><td>Inline content</td><td><code>NIKCLI_CONFIG_CONTENT</code> — highest precedence; inline JSON string.</td></tr>
-      </tbody>
-    </table>
-    <DocCallout type="info" title="Config tokens">
-      <p>Values like <code>{`{env:VAR}`}</code> and <code>{`{file:path}`}</code> are expanded while parsing.</p>
+    <h2>Resolution order</h2>
+    <p>The current source order is precise and matters:</p>
+    <ol>
+      <li>Remote well-known config from saved auth records with type <code>wellknown</code>. This is the lowest-precedence layer.</li>
+      <li>Global config from <code>Global.Path.config/nikcli.json</code>.</li>
+      <li>Custom config file from <code>NIKCLI_CONFIG</code>.</li>
+      <li>Project config files discovered upward, unless <code>NIKCLI_DISABLE_PROJECT_CONFIG</code> is set.</li>
+      <li>Inline JSON from <code>NIKCLI_CONFIG_CONTENT</code>.</li>
+      <li>Config directories from <code>ConfigPaths.directories</code>, including global config dir, repo <code>.nikcli</code> dirs, home <code>.nikcli</code>, and <code>NIKCLI_CONFIG_DIR</code>.</li>
+      <li>Command, agent, mode, and plugin entries loaded from those directories.</li>
+      <li>Deprecated <code>mode</code> entries are migrated into <code>agent</code>.</li>
+      <li><code>NIKCLI_PERMISSION</code> merges into <code>permission</code>.</li>
+      <li>Legacy top-level <code>tools</code> is converted into permission rules.</li>
+      <li>Runtime flag overrides such as <code>NIKCLI_DISABLE_AUTOCOMPACT</code> and <code>NIKCLI_DISABLE_PRUNE</code> are applied.</li>
+    </ol>
+    <DocCallout type="warn" title="Directory extras load after inline config">
+      <p>
+        Even though <code>NIKCLI_CONFIG_CONTENT</code> is the highest file/content layer, later
+        directory scans still load command, agent, mode, plugin, and <code>.nikcli/nikcli.json</code>
+        entries from config directories.
+      </p>
     </DocCallout>
   </section>
 
-  <section id="config-schema" class="mb-16 scroll-mt-24">
-    <h2>Config Schema</h2>
-    <DocCode language="json">
-{`{
+  <section id="files" class="mb-16 scroll-mt-24">
+    <h2>Where files live</h2>
+    <table class="doc-table">
+      <thead><tr><th>Location</th><th>How found</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Global config dir</td><td><code>Global.Path.config</code></td><td>User-wide <code>nikcli.json</code>, command, agent, plugin, and skill files.</td></tr>
+        <tr><td>Project config</td><td><code>Filesystem.findUp("nikcli.json")</code></td><td>Repo or subdirectory-specific overrides.</td></tr>
+        <tr><td><code>.nikcli</code> directories</td><td><code>Filesystem.up</code> from directory/worktree and home</td><td>Local config modules and plugin entrypoints.</td></tr>
+        <tr><td><code>NIKCLI_CONFIG</code></td><td>Exact env path</td><td>Single custom config file.</td></tr>
+        <tr><td><code>NIKCLI_CONFIG_DIR</code></td><td>Exact env directory</td><td>Additional config directory, always included in directory scan.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+NIKCLI_CONFIG=/path/to/nikcli.json nikcli
+NIKCLI_CONFIG_DIR=/path/to/.nikcli nikcli
+NIKCLI_DISABLE_PROJECT_CONFIG=1 nikcli
+    </DocCode>
+  </section>
+
+  <section id="tokens" class="mb-16 scroll-mt-24">
+    <h2>Config tokens</h2>
+    <p>
+      Config text supports <code>&#123;env:VAR&#125;</code> and <code>&#123;file:path&#125;</code>
+      substitutions before JSONC parsing. Relative file paths resolve against the config file's
+      directory. Lines commented with <code>//</code> skip file-token expansion.
+    </p>
+    <DocCode language="json" title="nikcli.json">
+&#123;
+  "provider": &#123;
+    "openai": &#123;
+      "options": &#123;
+        "apiKey": "&#123;env:OPENAI_API_KEY&#125;"
+      &#125;
+    &#125;,
+    "openrouter": &#123;
+      "options": &#123;
+        "apiKey": "&#123;file:./secrets/openrouter.txt&#125;"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <DocCallout type="info" title="Well-known config is safer">
+      <p>
+        Remote well-known config only receives the saved token through an explicitly named env key
+        from the auth record. It does not freely read process env or local file references.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="minimal" class="mb-16 scroll-mt-24">
+    <h2>Minimal config</h2>
+    <DocCode language="json" title="nikcli.json">
+&#123;
   "$schema": "https://nikcli.store/config.json",
-  "model": "anthropic/claude-sonnet-4-20250514",
-  "small_model": "anthropic/claude-haiku-4-20250514",
+  "theme": "tokyonight",
+  "model": "openai/gpt-5",
+  "small_model": "openai/gpt-5-mini",
   "default_agent": "build",
   "share": "manual",
-  "provider": {
-    "anthropic": { "options": { "apiKey": "{env:ANTHROPIC_API_KEY}" } }
-  },
-  "connectors": {
-    "github": { "type": "github", "enabled": true }
-  },
-  "mcp": {
-    "filesystem": {
-      "type": "local",
-      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
-    }
-  },
-  "image": {
-    "provider": "openrouter",
-    "model": "openai/gpt-5-image"
-  },
-  "speak": {
-    "provider": "elevenlabs",
-    "model": "YOq2y2Up4RgXP2HyXjE5"
-  },
-  "notifications": {
-    "todo": { "enabled": true },
-    "notify": { "enabled": true, "events": { "permissionAsked": true } }
-  },
-  "mobile": {
-    "tophat": { "enabled": true, "defaultPlatform": "ios" }
-  },
-  "experimental": {
-    "primary_tools": ["bash", "task"],
-    "brain": true,
-    "memory": true
-  }
-}`}
+  "provider": &#123;
+    "openai": &#123;
+      "options": &#123;
+        "apiKey": "&#123;env:OPENAI_API_KEY&#125;"
+      &#125;
+    &#125;
+  &#125;,
+  "permission": &#123;
+    "bash": "ask",
+    "edit": "ask",
+    "webfetch": "ask"
+  &#125;
+&#125;
     </DocCode>
   </section>
 
   <section id="top-level-fields" class="mb-16 scroll-mt-24">
-    <h2>Top-Level Fields</h2>
+    <h2>Top-level fields</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Field</th>
-          <th>Description</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
       <tbody>
-        {topFields.map((field) => (
-          <tr>
-            <td><code>{field.key}</code></td>
-            <td>{field.desc}</td>
-          </tr>
-        ))}
+        <tr><td><code>$schema</code></td><td>Schema URL for editor validation.</td></tr>
+        <tr><td><code>theme</code>, <code>locale</code>, <code>username</code></td><td>Presentation, language, regional formatting, and displayed user label.</td></tr>
+        <tr><td><code>model</code>, <code>small_model</code></td><td>Default primary and helper model ids.</td></tr>
+        <tr><td><code>default_agent</code>, <code>agent</code></td><td>Default agent and agent-specific prompts/tools/mode config.</td></tr>
+        <tr><td><code>provider</code></td><td>Provider credentials, base URLs, models, variants, timeouts, allow/block lists.</td></tr>
+        <tr><td><code>mcp</code>, <code>connectors</code></td><td>External tool servers and service connectors.</td></tr>
+        <tr><td><code>formatter</code>, <code>lsp</code></td><td>Formatter and language server config or <code>false</code> to disable.</td></tr>
+        <tr><td><code>permission</code>, <code>tools</code></td><td>Current permission rules and legacy tool boolean compatibility.</td></tr>
+        <tr><td><code>plugin</code>, <code>instructions</code></td><td>Plugin specifiers and extra instruction files/patterns. Arrays concatenate across layers.</td></tr>
+        <tr><td><code>server</code>, <code>remote</code></td><td>Serve/web defaults and remote control behavior.</td></tr>
+        <tr><td><code>share</code>, <code>autoshare</code></td><td>Sharing mode. <code>autoshare</code> migrates to <code>share: auto</code>.</td></tr>
+        <tr><td><code>compaction</code></td><td>Auto compaction, prune, and reserved token buffer.</td></tr>
+        <tr><td><code>experimental</code></td><td>Feature flags such as hooks, brain, memory, MCP timeout, native LLM runtime.</td></tr>
+        <tr><td><code>image</code>, <code>attachment</code>, <code>speak</code></td><td>Media generation and attachment normalization config.</td></tr>
+        <tr><td><code>notifications</code>, <code>mobile</code></td><td>Todo/general notifications and mobile development helpers.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="providers-connectors" class="mb-16 scroll-mt-24">
-    <h2>Providers & Connectors</h2>
+  <section id="providers" class="mb-16 scroll-mt-24">
+    <h2>Providers</h2>
     <p>
-      Providers live under <code>provider</code>, MCP servers under <code>mcp</code>, and external
-      service integrations under <code>connectors</code>.
+      Provider entries are partial models.dev providers plus nikcli-specific options. Use
+      <code>enabled_providers</code> to allow only specific provider ids, or
+      <code>disabled_providers</code> to remove automatic providers.
     </p>
-    <DocCode language="json">
-{`{
-  "provider": {
-    "openai": { "options": { "apiKey": "{env:OPENAI_API_KEY}" } },
-    "amazon-bedrock": { "options": { "region": "us-east-1" } }
-  },
-  "connectors": {
-    "figma": { "type": "figma", "enabled": true },
-    "slack": { "type": "slack", "enabled": true },
-    "github": { "type": "github", "enabled": true }
-  },
-  "mcp": {
-    "remote-docs": { "type": "remote", "url": "https://example.com/mcp" }
-  }
-}`}
+    <DocCode language="json" title="provider config">
+&#123;
+  "enabled_providers": ["openai", "anthropic", "openrouter"],
+  "provider": &#123;
+    "anthropic": &#123;
+      "options": &#123;
+        "apiKey": "&#123;env:ANTHROPIC_API_KEY&#125;"
+      &#125;
+    &#125;,
+    "amazon-bedrock": &#123;
+      "options": &#123;
+        "region": "us-east-1",
+        "profile": "default"
+      &#125;
+    &#125;
+  &#125;
+&#125;
     </DocCode>
   </section>
 
-  <section id="image-speak" class="mb-16 scroll-mt-24">
-    <h2>Image & Speak</h2>
-    <DocCode language="json">
-{`{
-  "image": { "provider": "openrouter", "model": "openai/gpt-5-image" },
-  "speak": { "provider": "elevenlabs", "model": "YOq2y2Up4RgXP2HyXjE5" }
-}`}
+  <section id="agents-commands" class="mb-16 scroll-mt-24">
+    <h2>Agents and commands</h2>
+    <p>
+      <code>agent</code> config controls primary, subagent, and specialized agents. Deprecated
+      <code>mode</code> entries are migrated into <code>agent</code> with <code>mode: primary</code>.
+      Command templates are loaded from config and from config directories.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>agent.build</code>, <code>agent.plan</code></td><td>Primary code and plan agents.</td></tr>
+        <tr><td><code>agent.general</code>, <code>agent.explore</code>, <code>agent.scout</code></td><td>Subagent presets.</td></tr>
+        <tr><td><code>agent.title</code>, <code>agent.summary</code>, <code>agent.compaction</code></td><td>Specialized helper agents.</td></tr>
+        <tr><td><code>command</code></td><td>Named command templates available to CLI/TUI and prompt flows.</td></tr>
+        <tr><td><code>instructions</code></td><td>Additional instruction files or globs included in session context.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="mcp-connectors" class="mb-16 scroll-mt-24">
+    <h2>MCP and connectors</h2>
+    <DocCode language="json" title="external tools">
+&#123;
+  "mcp": &#123;
+    "filesystem": &#123;
+      "type": "local",
+      "command": ["bunx", "@modelcontextprotocol/server-filesystem", "."]
+    &#125;,
+    "remote-docs": &#123;
+      "type": "remote",
+      "url": "https://example.com/mcp",
+      "headers": &#123; "Authorization": "Bearer token" &#125;
+    &#125;
+  &#125;,
+  "connectors": &#123;
+    "github": &#123; "type": "github", "enabled": true &#125;,
+    "slack": &#123; "type": "slack", "enabled": true &#125;,
+    "figma": &#123; "type": "figma", "enabled": true &#125;
+  &#125;
+&#125;
     </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Config</th><th>Valid forms</th></tr></thead>
+      <tbody>
+        <tr><td><code>mcp.*</code></td><td>Local stdio command, remote URL with headers/OAuth, or enabled-only toggle patch.</td></tr>
+        <tr><td><code>connectors.*</code></td><td>Figma, Slack, GitHub, Lovable, Discord, Teams, Google Chat, Linear, or enabled-only toggle patch.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="lsp-formatter" class="mb-16 scroll-mt-24">
+    <h2>LSP and formatter</h2>
+    <p>
+      <code>lsp</code> can be <code>false</code>, can disable a built-in server by id, or can define
+      a custom server. Custom LSP servers must provide <code>extensions</code> unless they reuse a
+      known built-in id. Formatter config follows the same pattern: disable all with
+      <code>false</code>, override or disable named formatter entries otherwise.
+    </p>
+    <DocCode language="json" title="lsp config">
+&#123;
+  "lsp": &#123;
+    "pyright": &#123; "disabled": true &#125;,
+    "custom-ts": &#123;
+      "command": ["typescript-language-server", "--stdio"],
+      "extensions": [".ts", ".tsx"],
+      "env": &#123; "NODE_ENV": "development" &#125;
+    &#125;
+  &#125;,
+  "formatter": &#123;
+    "prettier": &#123;
+      "command": ["bunx", "prettier", "--write"],
+      "extensions": [".ts", ".tsx", ".json"]
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+  </section>
+
+  <section id="permissions" class="mb-16 scroll-mt-24">
+    <h2>Permissions</h2>
+    <p>
+      Permission config accepts either a single action for all permissions, a tool-to-action map, or
+      a tool-to-pattern map. Actions are <code>ask</code>, <code>allow</code>, and <code>deny</code>.
+      The legacy top-level <code>tools</code> boolean map is converted into permission actions.
+    </p>
+    <DocCode language="json" title="permission config">
+&#123;
+  "permission": &#123;
+    "bash": &#123;
+      "git status*": "allow",
+      "rm *": "deny",
+      "*": "ask"
+    &#125;,
+    "edit": "ask",
+    "webfetch": "ask",
+    "lsp": "ask"
+  &#125;
+&#125;
+    </DocCode>
+  </section>
+
+  <section id="tui-keybinds" class="mb-16 scroll-mt-24">
+    <h2>TUI and keybinds</h2>
+    <table class="doc-table">
+      <thead><tr><th>Field</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>tui.scroll_speed</code></td><td>Fixed scroll speed when scroll acceleration is disabled.</td></tr>
+        <tr><td><code>tui.scroll_acceleration.enabled</code></td><td>Enable macOS-style scroll acceleration.</td></tr>
+        <tr><td><code>tui.diff_style</code></td><td><code>auto</code> or <code>stacked</code> diff rendering.</td></tr>
+        <tr><td><code>tui.mouse</code></td><td>Enable or disable mouse capture. Default is true.</td></tr>
+        <tr><td><code>tui.sound</code></td><td>Enable ambient sound feedback.</td></tr>
+        <tr><td><code>tui.bg_pulse</code></td><td>Enable animated home-logo background pulse.</td></tr>
+        <tr><td><code>keybinds.command_list</code></td><td>Default <code>ctrl+p</code>.</td></tr>
+        <tr><td><code>keybinds.agent_cycle</code></td><td>Default <code>tab</code>.</td></tr>
+        <tr><td><code>keybinds.input_submit</code></td><td>Default <code>return</code>.</td></tr>
+        <tr><td><code>keybinds.input_newline</code></td><td>Default <code>shift+return,ctrl+return,alt+return,ctrl+j</code>.</td></tr>
+        <tr><td><code>keybinds.session_parent</code></td><td>Default <code>ctrl+b</code>, matching background/subagent parent behavior.</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section id="notifications-mobile" class="mb-16 scroll-mt-24">
-    <h2>Notifications & Mobile</h2>
-    <DocCode language="json">
-{`{
-  "notifications": {
-    "todo": {
+    <h2>Notifications and mobile</h2>
+    <p>
+      Notification config is read by built-in notification plugins. Mobile config currently focuses
+      on Tophat mobile project integration and defaults for platform/destination detection.
+    </p>
+    <DocCode language="json" title="notifications and mobile">
+&#123;
+  "notifications": &#123;
+    "todo": &#123;
       "enabled": true,
-      "slack": { "enabled": true, "connector": "slack", "channel": "#builds" }
-    },
-    "notify": {
+      "slack": &#123; "enabled": true, "connector": "slack", "channel": "#builds" &#125;
+    &#125;,
+    "notify": &#123;
       "enabled": true,
-      "events": { "sessionIdle": true, "permissionAsked": true }
-    }
-  },
-  "mobile": {
-    "tophat": {
+      "events": &#123; "sessionIdle": true, "permissionAsked": true &#125;,
+      "rateLimit": &#123; "windowMs": 60000, "maxPerWindow": 20 &#125;
+    &#125;
+  &#125;,
+  "mobile": &#123;
+    "tophat": &#123;
       "enabled": true,
       "defaultPlatform": "ios",
       "defaultDestination": "simulator"
-    }
-  }
-}`}
+    &#125;
+  &#125;
+&#125;
     </DocCode>
   </section>
 
-  <section id="keybinds" class="mb-16 scroll-mt-24">
-    <h2>Keybinds</h2>
-    <p>Default keybinds are defined in <code>KeybindsConfig</code> and can be overridden under <code>keybinds</code>.</p>
+  <section id="env-flags" class="mb-16 scroll-mt-24">
+    <h2>Environment flags</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Key</th>
-          <th>Default</th>
-          <th>Description</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Flag</th><th>Effect</th></tr></thead>
       <tbody>
-        {keybinds.map((item) => (
-          <tr>
-            <td><code>{item.key}</code></td>
-            <td><code>{item.default}</code></td>
-            <td>{item.describe}</td>
-          </tr>
-        ))}
+        <tr><td><code>NIKCLI_CONFIG</code></td><td>Load an explicit config file after global config.</td></tr>
+        <tr><td><code>NIKCLI_CONFIG_CONTENT</code></td><td>Merge inline JSON after project config.</td></tr>
+        <tr><td><code>NIKCLI_CONFIG_DIR</code></td><td>Add a config directory to directory scanning.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_PROJECT_CONFIG</code></td><td>Disable project-level file discovery and <code>.nikcli</code> project directories.</td></tr>
+        <tr><td><code>NIKCLI_PERMISSION</code></td><td>Inline permission overrides.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code></td><td>Skip built-in external plugins.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_EXTERNAL_SKILLS</code></td><td>Disable external skill discovery.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_LSP_DOWNLOAD</code></td><td>Prevent automatic LSP server downloads.</td></tr>
+        <tr><td><code>NIKCLI_ENABLE_EXPERIMENTAL_MODELS</code></td><td>Keep alpha models in provider catalog.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_AUTOCOMPACT</code></td><td>Force <code>compaction.auto</code> false.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_PRUNE</code></td><td>Force <code>compaction.prune</code> false.</td></tr>
+        <tr><td><code>NIKCLI_SERVER_PASSWORD</code></td><td>Enable Basic Auth for server mode.</td></tr>
+        <tr><td><code>NIKCLI_SERVER_TAILSCALE_AUTH</code></td><td>Trust loopback Tailscale identity headers.</td></tr>
+        <tr><td><code>NIKCLI_EXPERIMENTAL_HTTPAPI</code></td><td>Enable typed HttpApi bridge.</td></tr>
+        <tr><td><code>NIKCLI_EXPERIMENTAL_LSP_TOOL</code></td><td>Enable the LSP tool in the registry.</td></tr>
+        <tr><td><code>NIKCLI_EXPERIMENTAL_LSP_TY</code></td><td>Use ty and disable pyright in the built-in LSP set.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="flags-env" class="mb-16 scroll-mt-24">
-    <h2>Flags & Env</h2>
-    <p>Runtime flags are parsed from environment variables in <code>packages/nikcli/src/flag/flag.ts</code>.</p>
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Variable</th>
-          <th>Description</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
       <tbody>
-        {flags.map((flag) => (
-          <tr>
-            <td><code>{flag.key}</code></td>
-            <td>{flag.desc}</td>
-          </tr>
-        ))}
+        <tr><td>Config parse error includes JSONC input</td><td>Syntax error after token substitution.</td><td>Check the reported line/column and any <code>&#123;file:*&#125;</code> expansion.</td></tr>
+        <tr><td>Project config ignored</td><td><code>NIKCLI_DISABLE_PROJECT_CONFIG</code> is set.</td><td>Unset the flag or use <code>NIKCLI_CONFIG</code>.</td></tr>
+        <tr><td>Custom LSP rejected</td><td>Unknown LSP id has no <code>extensions</code>.</td><td>Add the extension list or use a known built-in id.</td></tr>
+        <tr><td>Plugin duplicated</td><td>Multiple layers append plugin arrays.</td><td>Config loader deduplicates plugin specs, but check versioned specs and force install behavior.</td></tr>
+        <tr><td>Permission does not match</td><td>Later rules or stored always approvals override earlier ones.</td><td>Check merge order and project permission storage.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="experimental" class="mb-16 scroll-mt-24">
-    <h2>Experimental</h2>
-    <p>
-      The <code>experimental</code> block now includes higher-level features such as
-      <code>primary_tools</code>, <code>brain</code>, <code>memory</code>, hook configuration, and
-      other runtime toggles in addition to env-gated flags.
-    </p>
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Config loading and schema</td><td><code>packages/nikcli/src/config/config.ts</code></td></tr>
+        <tr><td>Config path discovery</td><td><code>packages/nikcli/src/config/paths.ts</code></td></tr>
+        <tr><td>TUI config</td><td><code>packages/nikcli/src/config/tui.ts</code>, <code>packages/nikcli/src/config/tui-schema.ts</code></td></tr>
+        <tr><td>Environment flags</td><td><code>packages/nikcli/src/flag/flag.ts</code></td></tr>
+        <tr><td>Global paths</td><td><code>packages/nikcli/src/global/index.ts</code></td></tr>
+        <tr><td>Plugin install config patching</td><td><code>packages/nikcli/src/plugin/install.ts</code></td></tr>
+        <tr><td>Connector CLI config patching</td><td><code>packages/nikcli/src/cli/cmd/connectors.ts</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

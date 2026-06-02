@@ -1,147 +1,313 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
-import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Top-Level Entry", href: "#top-level-entry", depth: 2 },
-  { title: "CLI Commands", href: "#cli-commands", depth: 2 },
-  { title: "Core Runtime", href: "#core-runtime", depth: 2 },
-  { title: "Server & Routes", href: "#server-routes", depth: 2 },
-  { title: "Tools & Docs", href: "#tools-docs", depth: 2 },
-  { title: "Connectors & Bots", href: "#connectors-bots", depth: 2 },
-  { title: "Mobile", href: "#mobile", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Top-level entry", href: "#top-level-entry", depth: 2 },
+  { title: "Runtime domains", href: "#runtime-domains", depth: 2 },
+  { title: "CLI command map", href: "#cli-command-map", depth: 2 },
+  { title: "Server map", href: "#server-map", depth: 2 },
+  { title: "Session and LLM map", href: "#session-llm-map", depth: 2 },
+  { title: "Storage and config map", href: "#storage-config-map", depth: 2 },
+  { title: "Extension map", href: "#extension-map", depth: 2 },
+  { title: "TUI map", href: "#tui-map", depth: 2 },
+  { title: "Mobile map", href: "#mobile-map", depth: 2 },
+  { title: "Generated and package map", href: "#package-map", depth: 2 },
+  { title: "How to trace a feature", href: "#trace-feature", depth: 2 },
+  { title: "Directory table", href: "#directory-table", depth: 2 },
 ];
 
 const directories = [
-  { name: "account", desc: "User account management and repository." },
-  { name: "acp", desc: "Agent Client Protocol." },
-  { name: "agent", desc: "Agent definitions, prompts, and generation." },
-  { name: "analytics", desc: "Analytics event ingestion." },
-  { name: "auth", desc: "Credential storage and auth flows." },
-  { name: "background", desc: "Background task runner." },
-  { name: "brain", desc: "Automatic consolidation and context features." },
-  { name: "bus", desc: "Event bus and global broadcast." },
-  { name: "chatbot", desc: "Chat bot integrations (Slack, Discord, Teams, Google Chat, Linear, GitHub)." },
-  { name: "cli", desc: "CLI commands, UI, networking, and TUI." },
-  { name: "command", desc: "Command templates and execution." },
-  { name: "config", desc: "Config schema, parsing, and resolution." },
-  { name: "connectors", desc: "External service connectors and auth." },
-  { name: "delegation", desc: "Background delegation manager." },
-  { name: "flag", desc: "Environment flag parsing." },
-  { name: "global", desc: "Global paths and cache." },
+  { name: "account", desc: "Local user account records and auth helpers." },
+  { name: "acp", desc: "Agent Client Protocol integration." },
+  { name: "agent", desc: "Agent definitions, prompts, generated agent metadata, and selection." },
+  { name: "analytics", desc: "Usage and session analytics aggregation." },
+  { name: "auth", desc: "Provider and external auth storage used outside connector-specific auth." },
+  { name: "background", desc: "Background task runner and status." },
+  { name: "brain", desc: "Brain scheduler, consolidation, and long-term context features." },
+  { name: "bus", desc: "Event bus definitions used by server, TUI, sessions, MCP, and permissions." },
+  { name: "chatbot", desc: "Slack, Discord, Teams, Google Chat, Linear, and GitHub bot adapters." },
+  { name: "cli", desc: "Yargs command definitions, OpenTUI app, local UI, network helpers." },
+  { name: "command", desc: "Command templates, generated commands, and prompt commands." },
+  { name: "config", desc: "Config schema, path discovery, JSONC parsing, migrations, TUI config." },
+  { name: "connectors", desc: "External service connector status, credentials, tools, and operations." },
+  { name: "delegation", desc: "Background delegation manager and parent/worker ownership." },
+  { name: "env", desc: "Environment read/write helpers for provider code." },
+  { name: "file", desc: "File listing, search, content, status, and time helpers." },
+  { name: "filesystem", desc: "Effect filesystem helpers and compatibility wrappers." },
+  { name: "flag", desc: "Environment flag parsing and dynamic flag getters." },
+  { name: "format", desc: "Formatter detection and execution." },
+  { name: "git", desc: "Git helpers and command wrappers." },
+  { name: "global", desc: "Global data/cache/config/state/log/bin/repo paths and initialization." },
   { name: "ide", desc: "IDE detection and extension install helpers." },
   { name: "image", desc: "Image generation provider and model selection." },
-  { name: "installation", desc: "Installer detection and upgrades." },
-  { name: "locale", desc: "Language, region, timezone, and currency resolution." },
-  { name: "lsp", desc: "Language server integration." },
-  { name: "mcp", desc: "Model Context Protocol integration." },
-  { name: "mobile", desc: "Mobile host server and session streaming." },
-  { name: "monitor", desc: "Long-lived background process monitoring." },
-  { name: "permission", desc: "Permission model and rules." },
-  { name: "plugin", desc: "Plugin loading and hooks." },
-  { name: "project", desc: "Project discovery and instance context." },
-  { name: "provider", desc: "Provider SDK adapters and model catalog." },
-  { name: "pty", desc: "Pseudo-terminal streaming." },
-  { name: "question", desc: "Interactive question prompts." },
-  { name: "sandbox", desc: "Tool sandboxing and escape detection." },
-  { name: "scheduler", desc: "Routine scheduling." },
-  { name: "server", desc: "HTTP server, routes, and SSE." },
-  { name: "session", desc: "Session lifecycle, messages, and storage." },
-  { name: "share", desc: "Session sharing utilities." },
-  { name: "skill", desc: "Skill discovery and loading." },
-  { name: "snapshot", desc: "Snapshot and diff tracking." },
-  { name: "storage", desc: "Persistent JSON storage and migrations." },
-  { name: "tool", desc: "Tool definitions and registry." },
-  { name: "util", desc: "Utility helpers." },
-  { name: "workspace", desc: "Workspace management, config, and session proxy." },
-  { name: "worktree", desc: "Git worktree helpers." },
+  { name: "installation", desc: "Version, channel, update, and install/runtime metadata." },
+  { name: "locale", desc: "Language, region, timezone, currency, and locale resolution." },
+  { name: "lsp", desc: "Language server registry, lazy clients, diagnostics, symbols, references." },
+  { name: "mcp", desc: "Model Context Protocol clients, OAuth, tools, prompts, resources." },
+  { name: "mobile", desc: "Mobile auth, routines, Expo helpers, GitHub repo import, project detection." },
+  { name: "monitor", desc: "Long-lived process monitoring and cancellation." },
+  { name: "permission", desc: "Permission rules, pending requests, persisted always approvals." },
+  { name: "plugin", desc: "Server plugins, auth plugins, installer, package manifest detection." },
+  { name: "project", desc: "Project detection, instance context, VCS metadata." },
+  { name: "provider", desc: "Provider catalog, auth, AI SDK adapters, model cache, transformations." },
+  { name: "pty", desc: "Pseudo-terminal sessions and websocket I/O." },
+  { name: "question", desc: "Interactive question prompts and replies." },
+  { name: "sandbox", desc: "Sandbox and external directory checks for tool execution." },
+  { name: "scheduler", desc: "Scheduled routine helpers." },
+  { name: "server", desc: "Hono app, route groups, typed HttpApi bridge, proxying, mDNS." },
+  { name: "session", desc: "Session records, messages, prompt execution, summaries, revert, stats." },
+  { name: "share", desc: "Public share creation and public data retrieval." },
+  { name: "skill", desc: "Skill discovery, loading, and prompt material." },
+  { name: "snapshot", desc: "Snapshot and diff tracking for file changes." },
+  { name: "storage", desc: "JSON storage service, locks, migrations, SQLite/Drizzle helpers." },
+  { name: "tool", desc: "Built-in tool registry, definitions, prompts, and execution wrappers." },
+  { name: "util", desc: "Shared utilities such as logs, queues, locks, wildcard, timeout, process helpers." },
+  { name: "workspace", desc: "Workspace records, adaptors, remote/local targets, session proxy." },
+  { name: "worktree", desc: "Git worktree creation, reset, and removal helpers." },
 ];
 ---
 
 <DocsLayout
   title="Source Map"
-  subtitle="High-level map of packages/nikcli/src with directory-level entrypoints."
+  subtitle="A practical map for finding the real implementation behind CLI commands, API routes, TUI views, mobile flows, providers, plugins, and storage."
   toc={toc}
 >
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
+    <p>
+      The main runtime lives in <code>packages/nikcli/src</code>. The repo is a Bun monorepo, so
+      related packages also matter: <code>packages/sdk/js</code> for generated client types,
+      <code>packages/plugin</code> for plugin contracts, <code>packages/mobile</code> for the Expo
+      app, <code>packages/web</code> for this docs site, <code>packages/llm</code> for route-based
+      LLM providers, and <code>packages/remote</code> for remote execution support.
+    </p>
+    <p>
+      This map is meant for tracing behavior from a symptom to the source. Start at the command or
+      route entry, then follow service imports into the domain module.
+    </p>
+  </section>
+
   <section id="top-level-entry" class="mb-16 scroll-mt-24">
-    <h2>Top-Level Entry</h2>
+    <h2>Top-level entry</h2>
+    <p>
+      <code>packages/nikcli/src/index.ts</code> registers every CLI command with yargs, initializes
+      global directories, initializes logging, sets <code>AGENT=1</code> and <code>NIKCLI=1</code>,
+      and catches fatal errors for user-facing formatting.
+    </p>
+    <DocCode language="bash">
+bun run --cwd packages/nikcli --conditions=browser src/index.ts --help
+bun run --cwd packages/nikcli --conditions=browser src/index.ts serve --help
+bun run --cwd packages/nikcli --conditions=browser src/index.ts mcp --help
+    </DocCode>
     <table class="doc-table">
+      <thead><tr><th>Need</th><th>Start here</th><th>Then inspect</th></tr></thead>
       <tbody>
-        <tr><td><code>src/index.ts</code></td><td>CLI entrypoint and command registration via yargs.</td></tr>
-        <tr><td><code>src/cli/</code></td><td>All CLI commands, TUI, networking, and worker threads.</td></tr>
-        <tr><td><code>src/session/</code></td><td>Session lifecycle, messages, compaction, and storage.</td></tr>
-        <tr><td><code>src/tool/</code></td><td>Tool definitions and the public tool registry.</td></tr>
-        <tr><td><code>src/server/</code></td><td>HTTP + SSE server and all route groups.</td></tr>
+        <tr><td>Command registration</td><td><code>src/index.ts</code></td><td><code>src/cli/cmd/*.ts</code></td></tr>
+        <tr><td>Global paths</td><td><code>src/global/index.ts</code></td><td><code>NIKCLI_DATA_DIR</code>, XDG/AppData rules.</td></tr>
+        <tr><td>Logging</td><td><code>src/util/log.ts</code></td><td><code>--print-logs</code>, <code>--log-level</code>.</td></tr>
+        <tr><td>Error formatting</td><td><code>src/cli/error.ts</code></td><td>Command-specific thrown errors.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="cli-commands" class="mb-16 scroll-mt-24">
-    <h2>CLI Commands</h2>
-    <p>
-      Primary command implementations live in <code>src/cli/cmd</code>. The default command is
-      <code>$0 [project]</code> from <code>src/cli/cmd/tui/thread.ts</code>.
-    </p>
+  <section id="runtime-domains" class="mb-16 scroll-mt-24">
+    <h2>Runtime domains</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="CLI and TUI" eyebrow="Entry">
+        <p><code>src/cli/cmd</code> contains commands. <code>src/cli/cmd/tui</code> contains the OpenTUI/Solid renderer, worker RPC, routes, dialogs, plugins, and contexts.</p>
+      </DocCard>
+      <DocCard title="Server" eyebrow="HTTP">
+        <p><code>src/server/server.ts</code> owns middleware and route mounting. <code>src/server/routes</code> owns classic routes. <code>src/server/httpapi</code> owns typed route groups.</p>
+      </DocCard>
+      <DocCard title="Sessions" eyebrow="Agent">
+        <p><code>src/session</code> owns session lifecycle, prompt execution, LLM normalization, messages, status, revert, compaction, todo, and stats.</p>
+      </DocCard>
+      <DocCard title="Extensions" eyebrow="Tools">
+        <p><code>src/plugin</code>, <code>src/mcp</code>, <code>src/connectors</code>, <code>src/skill</code>, and <code>src/tool</code> expose extra capabilities to agents.</p>
+      </DocCard>
+    </div>
   </section>
 
-  <section id="core-runtime" class="mb-16 scroll-mt-24">
-    <h2>Core Runtime</h2>
+  <section id="cli-command-map" class="mb-16 scroll-mt-24">
+    <h2>CLI command map</h2>
+    <p>Every public command is imported and registered in <code>src/index.ts</code>.</p>
     <table class="doc-table">
+      <thead><tr><th>Command</th><th>File</th><th>Domain</th></tr></thead>
       <tbody>
-        <tr><td><code>src/agent/</code></td><td>Agent definitions and generation.</td></tr>
-        <tr><td><code>src/permission/</code></td><td>Permission prompts, rules, and responses.</td></tr>
-        <tr><td><code>src/brain/</code></td><td>Automatic consolidation and context features.</td></tr>
-        <tr><td><code>src/project/</code></td><td>Project discovery and instance context.</td></tr>
-        <tr><td><code>src/storage/</code></td><td>Persistent JSON storage and migrations.</td></tr>
-        <tr><td><code>src/monitor/</code></td><td>Long-lived shell job monitoring with persisted logs.</td></tr>
-        <tr><td><code>src/delegation/</code></td><td>Background subagent delegation manager.</td></tr>
+        <tr><td>Default TUI</td><td><code>cli/cmd/tui/thread.ts</code></td><td>Worker RPC, SDK fetch, OpenTUI app.</td></tr>
+        <tr><td><code>run</code></td><td><code>cli/cmd/run.ts</code></td><td>Headless prompt execution.</td></tr>
+        <tr><td><code>serve</code></td><td><code>cli/cmd/serve.ts</code></td><td>General HTTP API server.</td></tr>
+        <tr><td><code>mobile</code></td><td><code>cli/cmd/mobile.ts</code></td><td>Mobile host, pairing, token list/revoke.</td></tr>
+        <tr><td><code>remote</code></td><td><code>cli/cmd/remote.ts</code></td><td>Terminal remote plus optional mobile host.</td></tr>
+        <tr><td><code>mcp</code></td><td><code>cli/cmd/mcp.ts</code></td><td>MCP config, OAuth, list, debug, logout.</td></tr>
+        <tr><td><code>connectors</code></td><td><code>cli/cmd/connectors.ts</code></td><td>External service config and credentials.</td></tr>
+        <tr><td><code>plugin</code> / <code>plug</code></td><td><code>cli/cmd/plug.ts</code></td><td>Plugin install, manifest read, config patch.</td></tr>
+        <tr><td><code>models</code></td><td><code>cli/cmd/models.ts</code></td><td>Provider/model catalog.</td></tr>
+        <tr><td><code>debug</code></td><td><code>cli/cmd/debug</code></td><td>Config, LSP, skill, snapshot, search, file utilities.</td></tr>
+        <tr><td><code>routine</code></td><td><code>cli/cmd/routine.ts</code></td><td>Routine CRUD, run, pause, resume.</td></tr>
+        <tr><td><code>account</code></td><td><code>cli/cmd/account.ts</code></td><td>Local account management.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="server-routes" class="mb-16 scroll-mt-24">
-    <h2>Server & Routes</h2>
+  <section id="server-map" class="mb-16 scroll-mt-24">
+    <h2>Server map</h2>
     <p>
-      Routes are organized by capability in <code>src/server/routes</code>. See the
-      <a href="/docs/server-api">Server & API</a> page for a full route listing.
+      Server behavior starts in <code>src/server/server.ts</code>. The exact route order matters:
+      share routes, user auth middleware, server auth, CORS, <code>/global</code>, workspace context,
+      <code>/doc</code>, typed bridge, then classic route groups.
     </p>
-  </section>
-
-  <section id="tools-docs" class="mb-16 scroll-mt-24">
-    <h2>Tools</h2>
-    <p>
-      Tool descriptions live in <code>src/tool/*.txt</code> and are wired into the registry at
-      <code>src/tool/registry.ts</code>.
-    </p>
-  </section>
-
-  <section id="connectors-bots" class="mb-16 scroll-mt-24">
-    <h2>Connectors & Bots</h2>
-    <p>
-      External service integrations live under <code>src/connectors/</code> (Figma, Slack, GitHub,
-      Lovable) and <code>src/chatbot/</code> (Slack bots, Discord, Teams, Google Chat, Linear).
-      See the <a href="/docs/connectors">Connectors</a> page.
-    </p>
-  </section>
-
-  <section id="mobile" class="mb-16 scroll-mt-24">
-    <h2>Mobile</h2>
-    <p>
-      Mobile host server and session streaming are under <code>src/mobile/</code> and
-      <code>src/server/routes/mobile.ts</code>. The companion app is in
-      <code>packages/mobile</code>. See the <a href="/docs/mobile">Mobile</a> page.
-    </p>
-  </section>
-
-  <section id="directories" class="mb-16 scroll-mt-24">
-    <h2>Directory Index</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Directory</th>
-          <th>Responsibility</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Feature</th><th>Classic route</th><th>Typed route where present</th></tr></thead>
+      <tbody>
+        <tr><td>Session</td><td><code>server/routes/session.ts</code></td><td><code>server/httpapi/session.ts</code></td></tr>
+        <tr><td>File</td><td><code>server/routes/file.ts</code></td><td><code>server/httpapi/file.ts</code></td></tr>
+        <tr><td>Provider</td><td><code>server/routes/provider.ts</code></td><td><code>server/httpapi/provider.ts</code></td></tr>
+        <tr><td>MCP</td><td><code>server/routes/mcp.ts</code></td><td><code>server/httpapi/mcp.ts</code></td></tr>
+        <tr><td>Config</td><td><code>server/routes/config.ts</code></td><td><code>server/httpapi/config.ts</code></td></tr>
+        <tr><td>Workspace</td><td><code>server/routes/workspace.ts</code></td><td><code>server/httpapi/workspace.ts</code></td></tr>
+        <tr><td>Question</td><td><code>server/routes/question.ts</code></td><td><code>server/httpapi/question.ts</code></td></tr>
+        <tr><td>Permission</td><td><code>server/routes/permission.ts</code></td><td><code>server/httpapi/permission.ts</code></td></tr>
+        <tr><td>Mobile</td><td><code>server/routes/mobile.ts</code></td><td>Classic only.</td></tr>
+        <tr><td>Analytics</td><td><code>server/routes/analytics.ts</code></td><td>Classic only.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="session-llm-map" class="mb-16 scroll-mt-24">
+    <h2>Session and LLM map</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th><th>What to look for</th></tr></thead>
+      <tbody>
+        <tr><td>Create/list/update/remove</td><td><code>session/index.ts</code></td><td><code>Session.Service</code> methods and storage keys.</td></tr>
+        <tr><td>Prompt execution</td><td><code>session/prompt.ts</code></td><td>Tool setup, system prompt assembly, request loop.</td></tr>
+        <tr><td>LLM provider hot path</td><td><code>session/llm.ts</code></td><td>Message normalization, headers, provider transforms, tool conversion.</td></tr>
+        <tr><td>Native provider runtime</td><td><code>session/llm/native-runtime.ts</code></td><td><code>@nikcli-ai/llm</code> route-based streaming for supported providers.</td></tr>
+        <tr><td>Messages and parts</td><td><code>session/message-v2.ts</code></td><td>Message/part persistence and retrieval.</td></tr>
+        <tr><td>Status</td><td><code>session/status.ts</code></td><td>Busy, retry, idle state.</td></tr>
+        <tr><td>Diff and revert</td><td><code>session/summary.ts</code>, <code>session/revert.ts</code></td><td>File diff summaries and revert/unrevert actions.</td></tr>
+        <tr><td>Stats</td><td><code>session/stats.ts</code></td><td>Token/cost/session aggregate data.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="storage-config-map" class="mb-16 scroll-mt-24">
+    <h2>Storage and config map</h2>
+    <p>
+      Config and storage are separate. Config is resolved from well-known remote config, global
+      files, custom file env, project files, inline env content, and config directories. Storage is
+      durable JSON under <code>Global.Path.data/storage</code> plus SQLite/Drizzle databases under
+      <code>Global.Path.data</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Global paths</td><td><code>global/index.ts</code></td><td>XDG/AppData resolution, <code>NIKCLI_DATA_DIR</code>, cache version.</td></tr>
+        <tr><td>Config loading</td><td><code>config/config.ts</code></td><td>Merge order, plugin/command/agent loading, legacy tools migration.</td></tr>
+        <tr><td>Config paths</td><td><code>config/paths.ts</code></td><td>Project file discovery, directory list, JSONC substitution.</td></tr>
+        <tr><td>TUI config</td><td><code>config/tui.ts</code>, <code>config/tui-schema.ts</code></td><td>Keybinds, scroll, mouse, layout config.</td></tr>
+        <tr><td>JSON store</td><td><code>storage/storage.ts</code></td><td>Read/write/update/list/transaction, locks, cache, migrations.</td></tr>
+        <tr><td>SQLite</td><td><code>storage/db.ts</code></td><td>Drizzle client, WAL, migrations, PRAGMAs.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="extension-map" class="mb-16 scroll-mt-24">
+    <h2>Extension map</h2>
+    <table class="doc-table">
+      <thead><tr><th>Extension type</th><th>Source</th><th>Runtime hook</th></tr></thead>
+      <tbody>
+        <tr><td>Server plugin</td><td><code>plugin/index.ts</code></td><td>Internal plugins, configured plugins, built-ins, auth hooks, tool hooks, event hooks.</td></tr>
+        <tr><td>TUI plugin</td><td><code>cli/cmd/tui/plugin</code></td><td>Command, route, dialog, sidebar, and keybind registration.</td></tr>
+        <tr><td>MCP</td><td><code>mcp/index.ts</code></td><td>Local stdio and remote HTTP/SSE clients converted into agent tools.</td></tr>
+        <tr><td>Connectors</td><td><code>connectors/index.ts</code>, <code>connectors/registry.ts</code></td><td>External service status, health checks, dynamic tools, prompts.</td></tr>
+        <tr><td>Skills</td><td><code>skill/skill.ts</code></td><td>Skill discovery from config directories and external skill folders.</td></tr>
+        <tr><td>Built-in tools</td><td><code>tool/registry.ts</code></td><td>Model and flag gated tool set for sessions.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="tui-map" class="mb-16 scroll-mt-24">
+    <h2>TUI map</h2>
+    <p>
+      The TUI starts in <code>cli/cmd/tui/thread.ts</code>, creates a worker from
+      <code>cli/cmd/tui/worker.ts</code>, then renders <code>cli/cmd/tui/app.tsx</code>. With no
+      network options it uses direct RPC fetch and event source. With host/port options it starts a
+      real HTTP server and talks through the SDK.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Area</th><th>Files</th></tr></thead>
+      <tbody>
+        <tr><td>Route state</td><td><code>cli/cmd/tui/context/route.tsx</code></td></tr>
+        <tr><td>Session route</td><td><code>cli/cmd/tui/routes/session/index.tsx</code></td></tr>
+        <tr><td>Workspace route</td><td><code>cli/cmd/tui/routes/workspace</code>, <code>routes/changes</code>, <code>routes/tree</code>, <code>routes/git-graph</code>, <code>routes/github</code></td></tr>
+        <tr><td>Command palette</td><td><code>cli/cmd/tui/component/dialog-command.tsx</code></td></tr>
+        <tr><td>Remote control</td><td><code>server/routes/tui.ts</code>, <code>cli/cmd/tui/event.ts</code></td></tr>
+        <tr><td>Plugin runtime</td><td><code>cli/cmd/tui/plugin/runtime.ts</code>, <code>plugin/api.tsx</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="mobile-map" class="mb-16 scroll-mt-24">
+    <h2>Mobile map</h2>
+    <p>
+      The Expo app lives in <code>packages/mobile</code>, while the host API lives in
+      <code>packages/nikcli/src/server/routes/mobile.ts</code> and helpers under
+      <code>packages/nikcli/src/mobile</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>Host source</th><th>App source</th></tr></thead>
+      <tbody>
+        <tr><td>Pairing tokens</td><td><code>src/mobile/auth.ts</code>, <code>routes/mobile.ts</code></td><td><code>packages/mobile/app/connect.tsx</code></td></tr>
+        <tr><td>Session streaming</td><td><code>routes/mobile.ts</code></td><td><code>packages/mobile/hooks/use-session-stream.ts</code></td></tr>
+        <tr><td>GitHub repos</td><td><code>src/mobile/github-repo.ts</code></td><td><code>packages/mobile/app/(app)/repos</code></td></tr>
+        <tr><td>Routines</td><td><code>src/mobile/routine.ts</code></td><td><code>packages/mobile/app/(app)/routines</code></td></tr>
+        <tr><td>Terminal</td><td><code>routes/mobile.ts</code>, <code>src/pty</code></td><td><code>packages/mobile/app/(app)/terminal</code></td></tr>
+        <tr><td>Settings</td><td><code>routes/mobile.ts</code>, config/provider/MCP/connectors services</td><td><code>packages/mobile/app/(app)/settings</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="package-map" class="mb-16 scroll-mt-24">
+    <h2>Generated and package map</h2>
+    <table class="doc-table">
+      <thead><tr><th>Package</th><th>Purpose</th><th>When to inspect</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/sdk/js</code></td><td>Generated JavaScript SDK for server APIs.</td><td>After endpoint contract changes or SDK type failures.</td></tr>
+        <tr><td><code>packages/plugin</code></td><td>Plugin API package and TUI plugin contracts.</td><td>When implementing or debugging plugin manifest targets.</td></tr>
+        <tr><td><code>packages/llm</code></td><td>Route-based LLM provider package used by native runtime.</td><td>When provider streaming behavior differs from AI SDK path.</td></tr>
+        <tr><td><code>packages/mobile</code></td><td>Expo mobile application.</td><td>When a host route is correct but app behavior differs.</td></tr>
+        <tr><td><code>packages/web</code></td><td>Astro docs and dashboard pages.</td><td>When editing docs, dashboard, or public web pages.</td></tr>
+        <tr><td><code>packages/remote</code></td><td>Remote execution support.</td><td>When terminal remote or cloud relay behavior changes.</td></tr>
+        <tr><td><code>packages/inference</code></td><td>Inference provider/gateway package.</td><td>When nikcli-inference provider catalog or routing changes.</td></tr>
+        <tr><td><code>packages/http-recorder</code></td><td>HTTP recording utilities.</td><td>When fixture or provider request recording changes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="trace-feature" class="mb-16 scroll-mt-24">
+    <h2>How to trace a feature</h2>
+    <ol>
+      <li>Find the entry: command in <code>src/index.ts</code>, route in <code>server.ts</code>, or UI route in <code>tui/context/route.tsx</code>.</li>
+      <li>Read the domain service imported by that entry. Route files usually call services from <code>session</code>, <code>provider</code>, <code>config</code>, <code>mcp</code>, <code>connectors</code>, or <code>workspace</code>.</li>
+      <li>Check config and flags. Many features are enabled by config fields plus environment flags from <code>flag/flag.ts</code>.</li>
+      <li>Check storage. Durable behavior usually writes through <code>Storage.Service</code> or a SQLite helper.</li>
+      <li>For client behavior, trace generated SDK types in <code>packages/sdk/js/src/v2/gen</code> and UI code in <code>packages/mobile</code> or TUI route files.</li>
+    </ol>
+    <DocCode language="bash">
+rg -n "route-or-command-name" packages/nikcli/src
+rg -n "operationId|HttpApiEndpoint|get\\(|post\\(" packages/nikcli/src/server
+rg -n "Config\\.Service|Provider\\.Service|Session\\.Service" packages/nikcli/src
+    </DocCode>
+  </section>
+
+  <section id="directory-table" class="mb-16 scroll-mt-24">
+    <h2>Directory table</h2>
+    <table class="doc-table">
+      <thead><tr><th>Directory</th><th>Purpose</th></tr></thead>
       <tbody>
         {directories.map((dir) => (
           <tr>

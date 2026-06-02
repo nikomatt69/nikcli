@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto"
+import { Schema } from "effect"
 
 export namespace Process {
   export const RUN_ID_ENV = "NIKCLI_RUN_ID"
@@ -27,17 +28,15 @@ export namespace Process {
     return overrides ? Object.assign(env, overrides) : env
   }
 
-  export class RunFailedError extends Error {
-    readonly code: number
-    readonly stdout: Buffer
-    readonly stderr: Buffer
-
-    constructor(message: string, opts: { code: number; stdout: Buffer; stderr: Buffer }) {
-      super(message)
-      this.name = "RunFailedError"
-      this.code = opts.code
-      this.stdout = opts.stdout
-      this.stderr = opts.stderr
-    }
-  }
+  /**
+   * Thrown when a spawned process exits with a non-zero code. Tagged so it can
+   * be caught via `Effect.catchTag("ProcessRunFailed", ...)` while keeping
+   * `instanceof Process.RunFailedError` working for plain `try/catch` paths.
+   */
+  export class RunFailedError extends Schema.TaggedErrorClass<RunFailedError>()("ProcessRunFailed", {
+    message: Schema.String,
+    code: Schema.Number,
+    stdout: Schema.instanceOf(Buffer),
+    stderr: Schema.instanceOf(Buffer),
+  }) {}
 }

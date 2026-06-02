@@ -1,120 +1,316 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
-import DocCard from "../../components/docs/DocCard.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Provider Stack", href: "#provider-stack", depth: 2 },
-  { title: "Bundled Providers", href: "#bundled-providers", depth: 2 },
-  { title: "Custom Loaders", href: "#custom-loaders", depth: 2 },
-  { title: "Model Catalog", href: "#model-catalog", depth: 2 },
-  { title: "Auth & Env", href: "#auth-env", depth: 2 },
-];
-
-const bundledProviders = [
-  { id: "@ai-sdk/amazon-bedrock", name: "Amazon Bedrock" },
-  { id: "@ai-sdk/anthropic", name: "Anthropic" },
-  { id: "@ai-sdk/azure", name: "Azure OpenAI" },
-  { id: "@ai-sdk/google", name: "Google Generative AI" },
-  { id: "@ai-sdk/google-vertex", name: "Google Vertex AI" },
-  { id: "@ai-sdk/google-vertex/anthropic", name: "Vertex Anthropic" },
-  { id: "@ai-sdk/openai", name: "OpenAI" },
-  { id: "@ai-sdk/openai-compatible", name: "OpenAI-Compatible" },
-  { id: "@openrouter/ai-sdk-provider", name: "OpenRouter" },
-  { id: "@ai-sdk/xai", name: "xAI" },
-  { id: "@ai-sdk/mistral", name: "Mistral" },
-  { id: "@ai-sdk/groq", name: "Groq" },
-  { id: "@ai-sdk/deepinfra", name: "DeepInfra" },
-  { id: "@ai-sdk/cerebras", name: "Cerebras" },
-  { id: "@ai-sdk/cohere", name: "Cohere" },
-  { id: "@ai-sdk/gateway", name: "AI Gateway" },
-  { id: "@ai-sdk/togetherai", name: "Together AI" },
-  { id: "@ai-sdk/perplexity", name: "Perplexity" },
-  { id: "@ai-sdk/vercel", name: "Vercel AI Gateway" },
-  { id: "@gitlab/gitlab-ai-provider", name: "GitLab AI Provider" },
-  { id: "@ai-sdk/github-copilot", name: "GitHub Copilot (compat)" },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Provider resolution", href: "#resolution", depth: 2 },
+  { title: "Configure a provider", href: "#configure", depth: 2 },
+  { title: "Bundled SDK adapters", href: "#bundled", depth: 2 },
+  { title: "Dynamic providers", href: "#dynamic", depth: 2 },
+  { title: "Auth and credentials", href: "#auth", depth: 2 },
+  { title: "Model selection", href: "#models", depth: 2 },
+  { title: "Runtime streaming", href: "#runtime", depth: 2 },
+  { title: "Images and speech", href: "#media", depth: 2 },
+  { title: "Refresh and cache", href: "#refresh", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Providers"
-  subtitle="Provider orchestration and model loading as implemented in packages/nikcli/src/provider/provider.ts."
+  subtitle="How nikcli builds its model catalog, resolves credentials, selects runtime adapters, and streams requests."
   toc={toc}
 >
-  <section id="provider-stack" class="mb-16 scroll-mt-24">
-    <h2>Provider Stack</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      Providers are loaded via <code>Provider.list()</code> using bundled SDKs plus optional plugins.
-      Custom loader rules are defined in <code>CUSTOM_LOADERS</code> and influence autoload and model resolution.
+      Providers are resolved by <code>packages/nikcli/src/provider/provider.ts</code>. The service
+      starts with <code>models.dev</code>, layers local and gateway providers, applies user config
+      and saved auth, lets plugins modify providers, filters models, then caches SDK instances and
+      model loaders.
     </p>
-    <DocCallout type="info" title="Responses vs Chat">
-      <p>OpenAI + GitHub Copilot routes use the Responses API for GPT-5+ models when available.</p>
-    </DocCallout>
-  </section>
-
-  <section id="bundled-providers" class="mb-16 scroll-mt-24">
-    <h2>Bundled Providers</h2>
-    <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Provider ID</th>
-          <th>Notes</th>
-        </tr>
-      </thead>
-      <tbody>
-        {bundledProviders.map((p) => (
-          <tr>
-            <td><code>{p.id}</code></td>
-            <td>{p.name}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </section>
-
-  <section id="custom-loaders" class="mb-16 scroll-mt-24">
-    <h2>Custom Loaders</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
-      <DocCard title="anthropic" eyebrow="Headers">
-        <p>Injects Claude Code + interleaved thinking headers.</p>
+      <DocCard title="Catalog" eyebrow="Models">
+        <p><code>ModelsDev.get</code> provides the default provider/model database and API package metadata.</p>
       </DocCard>
-      <DocCard title="openai / github-copilot" eyebrow="Responses API">
-        <p>Uses Responses API for GPT-5+ (except gpt-5-mini).</p>
+      <DocCard title="Auth" eyebrow="Keys">
+        <p>Credentials can come from environment variables, saved auth records, or <code>config.provider.*.options</code>.</p>
       </DocCard>
-      <DocCard title="azure" eyebrow="Responses/Chat">
-        <p>Chooses responses vs chat based on <code>useCompletionUrls</code>.</p>
+      <DocCard title="SDK" eyebrow="Adapters">
+        <p>Known AI SDK packages are imported directly; unknown provider packages can still be loaded dynamically.</p>
       </DocCard>
-      <DocCard title="amazon-bedrock" eyebrow="Credentials">
-        <p>Supports bearer tokens and AWS credential chain with region/profile overrides.</p>
-      </DocCard>
-      <DocCard title="nikcli" eyebrow="Public">
-        <p>Filters paid models when no API key is present.</p>
+      <DocCard title="Runtime" eyebrow="Stream">
+        <p>Session execution enters <code>session/llm.ts</code>, then uses AI SDK or the native <code>@nikcli-ai/llm</code> runtime when supported.</p>
       </DocCard>
     </div>
   </section>
 
-  <section id="model-catalog" class="mb-16 scroll-mt-24">
-    <h2>Model Catalog</h2>
-    <p>
-      Model metadata is sourced from <code>models.dev</code> and cached under
-      <code>Global.Path.cache/models.json</code>. Refresh via
-      <code>nikcli models --refresh</code>.
-    </p>
-  </section>
-
-  <section id="auth-env" class="mb-16 scroll-mt-24">
-    <h2>Auth & Env</h2>
-    <p>Credential storage is handled by <code>packages/nikcli/src/auth</code> and surfaced by <code>nikcli auth</code>.</p>
-    <DocCallout type="warn" title="Bedrock credentials">
-      <p>Bedrock prioritizes bearer tokens, then AWS credential chain (profile, access keys, IAM roles).</p>
-    </DocCallout>
-    <DocCallout type="info" title="Image & Speak models">
+  <section id="resolution" class="mb-16 scroll-mt-24">
+    <h2>Provider resolution</h2>
+    <p>The provider service constructs the final catalog in this order:</p>
+    <ol>
+      <li>Load <code>models.dev</code> and convert each provider/model into nikcli provider records.</li>
+      <li>Apply <code>disabled_providers</code> and <code>enabled_providers</code> filters.</li>
+      <li>Probe dynamic local providers such as <code>ollama</code> and <code>nikcli-inference</code>.</li>
+      <li>Merge provider overrides from <code>config.provider</code>.</li>
+      <li>Merge saved API auth records from <code>Auth.Service</code>.</li>
+      <li>Run plugin auth loaders and plugin model loaders.</li>
+      <li>Filter alpha, deprecated, unavailable, allow-list, and block-list models.</li>
+      <li>Create provider/model caches for SDK instances, language models, and image models.</li>
+    </ol>
+    <DocCallout type="info" title="Filters are provider-level first">
       <p>
-        Image generation uses providers that expose <code>imageModel()</code> (e.g. OpenAI, OpenRouter).
-        Text-to-speech uses providers configured under <code>config.speak</code>. Both are managed
-        separately from chat providers via <code>nikcli image-model</code> and
-        <code>nikcli speak-model</code>.
+        <code>enabled_providers</code> means only listed providers survive. <code>disabled_providers</code>
+        removes providers from automatic loading. Model-level allow/block lists are applied later.
       </p>
     </DocCallout>
+  </section>
+
+  <section id="configure" class="mb-16 scroll-mt-24">
+    <h2>Configure a provider</h2>
+    <p>
+      Provider config is stored under <code>provider</code> in <code>nikcli.json</code>. The schema is
+      <code>ModelsDev.Provider.partial</code> plus nikcli options such as API key, base URL, timeout,
+      header timeout, chunk timeout, model variants, allow-lists, and block-lists.
+    </p>
+    <DocCode language="json" title="nikcli.json">
+&#123;
+  "$schema": "https://nikcli.store/config.json",
+  "model": "openrouter/openai/gpt-5",
+  "small_model": "openai/gpt-5-mini",
+  "provider": &#123;
+    "openrouter": &#123;
+      "options": &#123;
+        "apiKey": "&#123;env:OPENROUTER_API_KEY&#125;",
+        "baseURL": "https://openrouter.ai/api/v1",
+        "timeout": 300000,
+        "headerTimeout": 10000,
+        "chunkTimeout": 60000
+      &#125;
+    &#125;,
+    "ollama": &#123;
+      "options": &#123;
+        "baseURL": "http://127.0.0.1:11434/v1",
+        "apiKey": "ollama"
+      &#125;
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Option</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>options.apiKey</code></td><td>Explicit key used when no saved auth or provider-specific env key wins first.</td></tr>
+        <tr><td><code>options.baseURL</code></td><td>OpenAI-compatible or gateway URL, normalized by provider-specific loaders when needed.</td></tr>
+        <tr><td><code>options.timeout</code></td><td>Total request timeout in milliseconds, or <code>false</code> to disable.</td></tr>
+        <tr><td><code>options.headerTimeout</code></td><td>Maximum wait for response headers. OpenAI defaults to a configured provider value.</td></tr>
+        <tr><td><code>options.chunkTimeout</code></td><td>Maximum gap between SSE chunks before aborting a stream.</td></tr>
+        <tr><td><code>whitelist</code></td><td>Only keep matching model ids for this provider.</td></tr>
+        <tr><td><code>blacklist</code></td><td>Remove matching model ids for this provider.</td></tr>
+        <tr><td><code>models.*.variants</code></td><td>Variant-level config, including disabled variants.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="bundled" class="mb-16 scroll-mt-24">
+    <h2>Bundled SDK adapters</h2>
+    <p>
+      These provider packages are imported directly in <code>provider/provider.ts</code>, so they do
+      not require a dynamic package install at runtime.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Package</th><th>Factory</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>@ai-sdk/openai</code></td><td><code>createOpenAI</code></td><td>Uses Responses API through custom loader.</td></tr>
+        <tr><td><code>@ai-sdk/anthropic</code></td><td><code>createAnthropic</code></td><td>Adds Claude Code and fine-grained streaming beta headers.</td></tr>
+        <tr><td><code>@ai-sdk/azure</code></td><td><code>createAzure</code></td><td>Can choose chat or responses URL behavior.</td></tr>
+        <tr><td><code>@ai-sdk/google</code></td><td><code>createGoogleGenerativeAI</code></td><td>Google Generative AI provider.</td></tr>
+        <tr><td><code>@ai-sdk/google-vertex</code></td><td><code>createVertex</code></td><td>Vertex provider with project/location env handling.</td></tr>
+        <tr><td><code>@ai-sdk/google-vertex/anthropic</code></td><td><code>createVertexAnthropic</code></td><td>Anthropic on Vertex.</td></tr>
+        <tr><td><code>@ai-sdk/openai-compatible</code></td><td><code>createOpenAICompatible</code></td><td>Default fallback for compatible providers.</td></tr>
+        <tr><td><code>@openrouter/ai-sdk-provider</code></td><td><code>createOpenRouter</code></td><td>OpenRouter native adapter.</td></tr>
+        <tr><td><code>@ai-sdk/xai</code></td><td><code>createXai</code></td><td>xAI adapter.</td></tr>
+        <tr><td><code>@ai-sdk/amazon-bedrock</code></td><td><code>createAmazonBedrock</code></td><td>Credential chain, bearer token, region prefix logic.</td></tr>
+        <tr><td><code>@ai-sdk/gateway</code></td><td><code>createGateway</code></td><td>AI Gateway package support.</td></tr>
+        <tr><td><code>@ai-sdk/vercel</code></td><td><code>createVercel</code></td><td>Vercel AI Gateway package support.</td></tr>
+        <tr><td><code>@gitlab/gitlab-ai-provider</code></td><td><code>createGitLab</code></td><td>Uses OAuth/API/env token resolution.</td></tr>
+        <tr><td><code>@ai-sdk/github-copilot</code></td><td>Copilot compatibility factory</td><td>Switches between chat and responses for GPT-5 family models.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="dynamic" class="mb-16 scroll-mt-24">
+    <h2>Dynamic providers</h2>
+    <p>
+      nikcli also creates providers that are not just copied from <code>models.dev</code>.
+      The two important dynamic loaders are local Ollama and nikcli Inference Gateway.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Provider</th><th>Detection</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><code>ollama</code></td><td>Configured <code>provider.ollama.options.baseURL</code>, <code>OLLAMA_BASE_URL</code>, or local <code>127.0.0.1:11434</code> probe.</td><td>Builds OpenAI-compatible models from <code>/models</code> with conservative limits.</td></tr>
+        <tr><td><code>nikcli-inference</code></td><td><code>NIKCLI_INFERENCE_URL</code>, <code>NIKCLI_INFERENCE_KEY</code>, or config options.</td><td>Builds models from gateway <code>/models</code>, with pricing, context, thinking, and image input metadata.</td></tr>
+        <tr><td>Unknown configured provider</td><td>Entry exists in <code>config.provider</code> or has a key.</td><td>Creates a default provider record so custom compatible endpoints can appear.</td></tr>
+        <tr><td>Plugin provider</td><td>Plugin exposes auth or model hooks.</td><td>Merges options and model lists into the provider catalog.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="auth" class="mb-16 scroll-mt-24">
+    <h2>Auth and credentials</h2>
+    <p>
+      Provider credentials can come from three places: environment variables read from model metadata
+      and provider-specific loaders, saved auth records from <code>Auth.Service</code>, or explicit
+      config options.
+    </p>
+    <DocCode language="bash">
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENROUTER_API_KEY=sk-or-...
+export AWS_REGION=us-east-1
+export AWS_PROFILE=default
+export NIKCLI_INFERENCE_KEY=nik-...
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Provider family</th><th>Special handling</th></tr></thead>
+      <tbody>
+        <tr><td>Amazon Bedrock</td><td>Config region wins over <code>AWS_REGION</code>, bearer token can override credential chain, endpoint/baseURL can override endpoint.</td></tr>
+        <tr><td>Azure</td><td>Can use resource-name derived base URL and switch completion URLs through options.</td></tr>
+        <tr><td>GitLab</td><td>Uses saved OAuth, saved API key, or <code>GITLAB_TOKEN</code>; instance URL defaults to <code>https://gitlab.com</code>.</td></tr>
+        <tr><td>Cloudflare</td><td>Uses account/gateway env plus token and transforms auth/header behavior for AI Gateway.</td></tr>
+        <tr><td>GitHub Copilot</td><td>Built-in auth plugin can register personal or enterprise Copilot providers.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="models" class="mb-16 scroll-mt-24">
+    <h2>Model selection</h2>
+    <p>
+      The active model is a <code>provider/model</code> string. It can come from CLI flags,
+      session/TUI selection, config <code>model</code>, or defaults chosen by provider availability.
+      <code>small_model</code> is used for supporting tasks such as title generation.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Setting</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><code>model</code></td><td>Default primary model for agent turns.</td></tr>
+        <tr><td><code>small_model</code></td><td>Low-cost helper work such as title and summaries.</td></tr>
+        <tr><td><code>NIKCLI_ENABLE_EXPERIMENTAL_MODELS</code></td><td>Keeps alpha models in the catalog.</td></tr>
+        <tr><td><code>NIKCLI_DISABLE_MODELS_FETCH</code></td><td>Disables models.dev fetch path where supported.</td></tr>
+        <tr><td><code>provider.*.whitelist</code></td><td>Provider-local model allow-list.</td></tr>
+        <tr><td><code>provider.*.blacklist</code></td><td>Provider-local model block-list.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="Provider/model ids are exact">
+      <p>
+        <code>Provider.ModelNotFoundError</code> includes provider id, model id, and suggestions.
+        Check both sides of the slash before assuming the provider is unavailable.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="runtime" class="mb-16 scroll-mt-24">
+    <h2>Runtime streaming</h2>
+    <p>
+      Runtime ownership starts in <code>session/llm.ts</code>. It builds headers, normalizes messages,
+      converts tools, applies <code>ProviderTransform</code>, and streams output. A native runtime in
+      <code>session/llm/native-runtime.ts</code> can use <code>@nikcli-ai/llm</code> for OpenAI,
+      Anthropic, and OpenAI-compatible providers when requirements are met.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Step</th><th>Source</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Message repair</td><td><code>LLM.normalizeStreamMessages</code></td><td>Repairs UI-shaped messages that would otherwise trigger invalid prompt errors.</td></tr>
+        <tr><td>Headers</td><td><code>buildRequestHeaders</code></td><td>Adds nikcli request headers for nikcli providers and user agent for most others.</td></tr>
+        <tr><td>Provider options</td><td><code>ProviderTransform.providerOptions</code></td><td>Transforms model/provider options before SDK/native call.</td></tr>
+        <tr><td>Native runtime</td><td><code>native-runtime.ts</code></td><td>Requires supported provider family and configured API key.</td></tr>
+        <tr><td>AI SDK fallback</td><td><code>session/llm/ai-sdk.ts</code></td><td>General runtime path for all supported SDK adapters.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="media" class="mb-16 scroll-mt-24">
+    <h2>Images and speech</h2>
+    <p>
+      Image generation and speech use separate config sections so they can choose different providers
+      and models from chat. The tool implementations also read provider-specific environment
+      variables for OpenRouter and ElevenLabs.
+    </p>
+    <DocCode language="json" title="nikcli.json">
+&#123;
+  "image": &#123;
+    "provider": "openrouter",
+    "model": "openai/gpt-5-image"
+  &#125;,
+  "speak": &#123;
+    "provider": "elevenlabs",
+    "model": "voice-id",
+    "modelId": "eleven_v3",
+    "outputFormat": "mp3_44100_128"
+  &#125;
+&#125;
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Env</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td><code>NIKCLI_OPENROUTER_API_KEY</code> / <code>OPENROUTER_API_KEY</code></td><td>OpenRouter image, speech, and voice-related tools.</td></tr>
+        <tr><td><code>NIKCLI_ELEVENLABS_API_KEY</code> / <code>ELEVENLABS_API_KEY</code></td><td>ElevenLabs speech provider.</td></tr>
+        <tr><td><code>NIKCLI_OPENROUTER_BASE_URL</code></td><td>OpenRouter-compatible base URL override.</td></tr>
+        <tr><td><code>NIKCLI_ELEVENLABS_BASE_URL</code></td><td>ElevenLabs base URL override.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="refresh" class="mb-16 scroll-mt-24">
+    <h2>Refresh and cache</h2>
+    <p>
+      Provider service state is cached per instance. After writes that change auth or
+      <code>config.provider.*</code>, route handlers call provider refresh so subsequent list and
+      language-model reads see the new credentials and options.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Mutation</th><th>Refresh path</th></tr></thead>
+      <tbody>
+        <tr><td>Save provider API key</td><td><code>server/routes/provider.ts</code> or <code>httpapi/provider.ts</code> writes auth and refreshes provider cache.</td></tr>
+        <tr><td>Remove provider auth</td><td>Auth removal clears the saved record and refreshes.</td></tr>
+        <tr><td>Config provider update</td><td>Config route update invalidates provider state through route helper.</td></tr>
+        <tr><td>Plugin auth loader change</td><td>Provider service rebuilds plugin-derived options during refresh.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Check</th></tr></thead>
+      <tbody>
+        <tr><td>Provider absent from model list</td><td>Filtered by <code>enabled_providers</code>/<code>disabled_providers</code>, missing auth, or failed dynamic probe.</td><td>Inspect config filters and provider log entries.</td></tr>
+        <tr><td>Model id missing</td><td>Alpha/deprecated filtering, provider allow/block list, or no API key for paid nikcli models.</td><td>Enable experimental models only if the model status requires it.</td></tr>
+        <tr><td>Bedrock authentication failure</td><td>Region/profile/bearer token mismatch.</td><td>Check config region, <code>AWS_REGION</code>, <code>AWS_PROFILE</code>, bearer token, and endpoint.</td></tr>
+        <tr><td>OpenAI-compatible usage missing</td><td>Provider options disabled usage inclusion or compatible endpoint omits usage.</td><td>Check <code>includeUsage</code> and provider response.</td></tr>
+        <tr><td>Invalid prompt error</td><td>Malformed message shape reached runtime.</td><td>Verify <code>normalizeStreamMessages</code> input and message history.</td></tr>
+        <tr><td>Fresh key not used</td><td>Provider cache was not refreshed after auth/config write.</td><td>Call provider refresh or use route handlers that already do it.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Provider catalog and SDK cache</td><td><code>packages/nikcli/src/provider/provider.ts</code></td></tr>
+        <tr><td>Provider transforms</td><td><code>packages/nikcli/src/provider/transform.ts</code></td></tr>
+        <tr><td>Provider auth routes</td><td><code>packages/nikcli/src/server/routes/provider.ts</code>, <code>packages/nikcli/src/server/httpapi/provider.ts</code></td></tr>
+        <tr><td>Session runtime hot path</td><td><code>packages/nikcli/src/session/llm.ts</code></td></tr>
+        <tr><td>Native runtime</td><td><code>packages/nikcli/src/session/llm/native-runtime.ts</code></td></tr>
+        <tr><td>LLM package providers</td><td><code>packages/llm/src/providers</code></td></tr>
+        <tr><td>Image and speech tools</td><td><code>packages/nikcli/src/tool/generate_image.ts</code>, <code>packages/nikcli/src/tool/speak</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

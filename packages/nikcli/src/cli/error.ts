@@ -4,6 +4,7 @@ import { ConfigMarkdown } from "@/config/markdown"
 import { Config } from "../config/config"
 import { MCP } from "../mcp"
 import { Provider } from "../provider/provider"
+import { Agent } from "@/agent/agent"
 import { UI } from "./ui"
 
 const log = Log.create({ service: "error-formatter" })
@@ -12,6 +13,11 @@ export function FormatError(input: unknown): string | undefined {
   if (input instanceof UserFacingError) {
     log.debug("Formatting user-facing error", { title: input.title })
     return input.format()
+  }
+
+  if (input instanceof Agent.NotFoundError) {
+    log.debug("Formatting agent not found error", { name: input.name })
+    return `Agent not found: ${input.name}. Run \`nikcli agents\` to list configured agents.`
   }
 
   if (input instanceof MCP.Failed) {

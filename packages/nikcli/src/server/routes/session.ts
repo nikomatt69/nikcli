@@ -1412,7 +1412,30 @@ export const SessionRoutes = lazy(() =>
           Effect.gen(function* () {
             const sessionPrompt = yield* SessionPrompt.Service
             return yield* sessionPrompt.command({ ...body, sessionID })
-          }),
+          }).pipe(
+            // Translate the typed Session.BusyError at the route boundary so
+            // the onError middleware stays a thin unknown-defect fallback.
+            // The wire shape matches the legacy chain in server.ts:186-187
+            // exactly so the SDK and existing API consumers see no change.
+            // We use catchCause + isFailReason because the upstream effect
+            // still types its error channel as `unknown`; once the
+            // SessionPrompt service types are tightened (Phase A.2), this
+            // becomes `Effect.catchTag("SessionBusyError", ...)`.
+            Effect.catchCause((cause) => {
+              const fail = cause.reasons.find(Cause.isFailReason)
+              if (fail && fail.error instanceof Session.BusyError) {
+                const err = fail.error
+                return Effect.fail({
+                  __http: {
+                    status: 409,
+                    name: err._tag,
+                    data: { sessionID: err.sessionID, message: err.message },
+                  },
+                })
+              }
+              return Effect.failCause(cause)
+            }),
+          ),
         )
         return c.json(msg)
       },

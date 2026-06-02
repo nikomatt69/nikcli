@@ -1,60 +1,263 @@
 ---
-import DocsLayout from "../../layouts/DocsLayout.astro"
-import DocCallout from "../../components/docs/DocCallout.astro"
-import DocCode from "../../components/docs/DocCode.astro"
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Plugin Install", href: "#plugin-install", depth: 2 },
-  { title: "Config Patching", href: "#config-patching", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Install a plugin", href: "#install", depth: 2 },
+  { title: "Config patching", href: "#patching", depth: 2 },
+  { title: "Server runtime", href: "#server-runtime", depth: 2 },
+  { title: "TUI runtime", href: "#tui-runtime", depth: 2 },
+  { title: "Built-in plugins", href: "#built-ins", depth: 2 },
+  { title: "Plugin manifest", href: "#manifest", depth: 2 },
   { title: "Skills", href: "#skills", depth: 2 },
-  { title: "Built-ins", href: "#built-ins", depth: 2 },
-]
+  { title: "Notifications", href: "#notifications", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
+];
 ---
 
 <DocsLayout
-  title="Plugins & Skills"
-  subtitle="Plugin loading and skill discovery from packages/nikcli/src/plugin and packages/nikcli/src/skill."
+  title="Plugins"
+  subtitle="How nikcli installs plugins, patches server/TUI config, loads built-ins, and exposes plugin hooks."
   toc={toc}
 >
-  <section id="plugin-install" class="mb-16 scroll-mt-24">
-    <h2>Plugin Install</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      <code>nikcli plugin &lt;module&gt;</code> installs a module, reads its manifest, and merges the
-      plugin config into the chosen nikcli config file.
+      Plugins extend server-side agent behavior and TUI behavior. Server plugin loading is in
+      <code>packages/nikcli/src/plugin/index.ts</code>. Plugin installation and config patching are
+      in <code>packages/nikcli/src/plugin/install.ts</code>. TUI plugin runtime lives under
+      <code>packages/nikcli/src/cli/cmd/tui/plugin</code>.
     </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Server hooks" eyebrow="Runtime">
+        <p>Provider auth, tool hooks, event hooks, notifications, and session behavior load in the server plugin service.</p>
+      </DocCard>
+      <DocCard title="TUI hooks" eyebrow="UI">
+        <p>TUI plugins can register commands, routes, dialogs, keybinds, and sidebar features.</p>
+      </DocCard>
+      <DocCard title="Installer" eyebrow="CLI">
+        <p><code>nikcli plugin</code> installs a package, reads its manifest, and patches local or global config.</p>
+      </DocCard>
+      <DocCard title="Built-ins" eyebrow="Default">
+        <p>Internal auth and notification plugins always load; external built-ins load unless disabled.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="install" class="mb-16 scroll-mt-24">
+    <h2>Install a plugin</h2>
     <DocCode language="bash">
-      nikcli plugin my-nikcli-plugin
-      nikcli plugin my-nikcli-plugin --global
+nikcli plugin @scope/my-plugin
+nikcli plugin @scope/my-plugin --global
+nikcli plugin @scope/my-plugin@1.2.3 --force
+    </DocCode>
+    <p>The install task performs four steps:</p>
+    <ol>
+      <li>Resolve and install the package target.</li>
+      <li>Read plugin metadata from <code>package.json</code>.</li>
+      <li>Detect server and/or TUI targets from manifest or exports.</li>
+      <li>Patch <code>nikcli.json</code> and/or <code>tui.json</code> in the selected scope.</li>
+    </ol>
+    <table class="doc-table">
+      <thead><tr><th>Flag</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>--global</code></td><td>Patch global config under <code>Global.Path.config</code> instead of project config.</td></tr>
+        <tr><td><code>--force</code></td><td>Replace an existing plugin entry for the same package.</td></tr>
+        <tr><td>version suffix</td><td>Installer preserves the requested package spec and version.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="patching" class="mb-16 scroll-mt-24">
+    <h2>Config patching</h2>
+    <p>
+      <code>patchPluginConfig</code> uses <code>jsonc-parser</code> edits instead of string hacks.
+      It can patch server config <code>plugin</code> and TUI config depending on detected targets.
+      Duplicate detection compares package names, not only the full versioned spec.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Mode</th><th>When used</th></tr></thead>
+      <tbody>
+        <tr><td><code>add</code></td><td>No existing plugin entry for the package.</td></tr>
+        <tr><td><code>noop</code></td><td>Same plugin spec is already configured and force is false.</td></tr>
+        <tr><td><code>replace</code></td><td>Existing package entry differs and <code>--force</code> is set.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="json" title="server plugin config">
+&#123;
+  "plugin": [
+    "@scope/my-plugin"
+  ]
+&#125;
     </DocCode>
   </section>
 
-  <section id="config-patching" class="mb-16 scroll-mt-24">
-    <h2>Config Patching</h2>
+  <section id="server-runtime" class="mb-16 scroll-mt-24">
+    <h2>Server runtime</h2>
     <p>
-      The install flow can target project or global config, respects existing <code>nikcli.json</code>
-      files, and supports forceful merge paths when a plugin needs to write overlapping config.
+      Server plugin loading starts with internal plugins that are imported directly. Then configured
+      plugins plus external built-ins are loaded. If a plugin path is not <code>file://</code>, nikcli
+      installs the package before importing it.
     </p>
+    <ol>
+      <li>Build plugin input, including SDK client and runtime helpers.</li>
+      <li>Load internal auth/notification plugins.</li>
+      <li>Copy configured plugin specifiers from config.</li>
+      <li>Add external built-ins unless <code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> is set.</li>
+      <li>Ignore old Codex/Copilot auth plugin specs that are now first-party.</li>
+      <li>Install and import package specifiers.</li>
+      <li>Load v1 <code>server</code> export when present, otherwise invoke exported plugin functions.</li>
+      <li>Deduplicate duplicate function references from named and default exports.</li>
+    </ol>
+  </section>
+
+  <section id="tui-runtime" class="mb-16 scroll-mt-24">
+    <h2>TUI runtime</h2>
+    <p>
+      TUI plugin APIs are built in <code>cli/cmd/tui/plugin/api.tsx</code> and loaded by
+      <code>plugin/runtime.ts</code>. Plugins can add routes, commands, dialogs, keybinds, and UI
+      surfaces while the TUI app is running.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>API area</th><th>Capability</th></tr></thead>
+      <tbody>
+        <tr><td>Route</td><td>Navigate home, session, changes, tree, graph, GitHub, or plugin routes.</td></tr>
+        <tr><td>Command</td><td>Register command palette entries and key-triggered commands.</td></tr>
+        <tr><td>Dialog</td><td>Open, clear, size, and inspect dialog stack.</td></tr>
+        <tr><td>Keybind</td><td>Match, print, and create plugin keybind definitions.</td></tr>
+        <tr><td>Slots/features</td><td>Register sidebar or system plugin manager UI where supported.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="built-ins" class="mb-16 scroll-mt-24">
+    <h2>Built-in plugins</h2>
+    <p>
+      Internal built-ins are directly imported and do not depend on package installation. They include
+      Codex auth, GitHub Copilot auth, xAI auth, Cursor auth, Cloudflare Workers/Gateway auth, and
+      the notification plugin. External built-ins are appended from the built-in list unless disabled.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Built-in</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Codex auth</td><td>First-party Codex authentication support.</td></tr>
+        <tr><td>GitHub Copilot auth</td><td>Copilot and enterprise provider auth.</td></tr>
+        <tr><td>xAI auth</td><td>xAI provider auth integration.</td></tr>
+        <tr><td>Cursor auth</td><td>Cursor ACP/provider auth integration.</td></tr>
+        <tr><td>Cloudflare auth</td><td>Cloudflare Workers and AI Gateway auth flows.</td></tr>
+        <tr><td>Notify plugin</td><td>Session idle/error, permission, question, Slack, Discord, and macOS notifications.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+NIKCLI_DISABLE_DEFAULT_PLUGINS=1 nikcli
+    </DocCode>
+  </section>
+
+  <section id="manifest" class="mb-16 scroll-mt-24">
+    <h2>Plugin manifest</h2>
+    <p>
+      The installer reads package metadata with <code>readPluginPackage</code>. Target detection
+      accepts explicit plugin target metadata and also detects packages that expose
+      <code>./server</code> and/or <code>./tui</code> exports. A package with only <code>main</code>
+      or string <code>exports</code> is treated as a server plugin.
+    </p>
+    <DocCode language="json" title="package.json">
+&#123;
+  "name": "@scope/my-plugin",
+  "version": "1.0.0",
+  "exports": &#123;
+    "./server": "./dist/server.js",
+    "./tui": "./dist/tui.js"
+  &#125;,
+  "oc-plugin": ["server", "tui"]
+&#125;
+    </DocCode>
+    <DocCallout type="info" title="Tuple targets">
+      <p>
+        Target entries may also be tuples with target options, such as a TUI target plus plugin
+        options. The patcher preserves target options when adding config.
+      </p>
+    </DocCallout>
   </section>
 
   <section id="skills" class="mb-16 scroll-mt-24">
     <h2>Skills</h2>
     <p>
-      Skills are discovered via <code>{`{skill,skills}`}</code> globs in config directories, plus
-      <code>.claude/skills</code> and plugin-provided skill folders when available.
+      Skills are related but not the same as plugins. Skills are prompt/context assets discovered by
+      <code>skill/skill.ts</code>. The skill glob scans <code>skill/**/SKILL.md</code> and
+      <code>skills/**/SKILL.md</code> under config directories, plus external sources unless disabled.
     </p>
-    <DocCallout type="info" title="Skill format">
-      <p>
-        Each skill requires a <code>SKILL.md</code> with frontmatter <code>name</code> and <code>description</code>.
-      </p>
-    </DocCallout>
+    <table class="doc-table">
+      <thead><tr><th>Feature</th><th>Plugin</th><th>Skill</th></tr></thead>
+      <tbody>
+        <tr><td>Runtime code</td><td>Yes, imported and executed.</td><td>No, prompt/context instructions and assets.</td></tr>
+        <tr><td>Config field</td><td><code>plugin</code></td><td>Discovered from directories and external skill locations.</td></tr>
+        <tr><td>TUI manager</td><td>System plugin manager and plugin APIs.</td><td>Skills dialog and skill install/search UI.</td></tr>
+        <tr><td>Disable flag</td><td><code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> for default external plugins.</td><td><code>NIKCLI_DISABLE_EXTERNAL_SKILLS</code> for external skills.</td></tr>
+      </tbody>
+    </table>
   </section>
 
-  <section id="built-ins" class="mb-16 scroll-mt-24">
-    <h2>Built-ins</h2>
+  <section id="notifications" class="mb-16 scroll-mt-24">
+    <h2>Notifications</h2>
     <p>
-      nikcli also ships built-in plugin behavior for core auth and runtime integrations. Set
-      <code>NIKCLI_DISABLE_DEFAULT_PLUGINS</code> to skip those defaults when you need a tighter
-      environment.
+      Notifications are implemented as an internal plugin created by <code>createNotifyPlugin</code>.
+      It reads <code>notifications.notify</code> and <code>notifications.todo</code>, applies rate
+      limits, retry/backoff, circuit breaker behavior, quiet hours, and connector-backed Slack or
+      Discord delivery.
     </p>
+    <DocCode language="json" title="notify config">
+&#123;
+  "notifications": &#123;
+    "notify": &#123;
+      "enabled": true,
+      "events": &#123;
+        "sessionIdle": true,
+        "sessionError": true,
+        "permissionAsked": true,
+        "questionAsked": true
+      &#125;,
+      "slack": &#123; "enabled": true, "connector": "slack", "channel": "#builds" &#125;
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Install failed</td><td>Package resolution, registry auth, or unavailable version.</td><td>Check the error detail from <code>Process.RunFailedError</code> and npm registry settings.</td></tr>
+        <tr><td>No plugin targets found</td><td>Package lacks recognized manifest targets and exports.</td><td>Add <code>oc-plugin</code>, <code>./server</code>, <code>./tui</code>, <code>main</code>, or string exports.</td></tr>
+        <tr><td>Invalid JSON while patching</td><td>Target config file is not valid JSONC.</td><td>Fix reported line/column and rerun install.</td></tr>
+        <tr><td>Plugin loads twice</td><td>Package exports same function as named and default export.</td><td>Runtime deduplicates identical function references; check distinct functions if duplicates remain.</td></tr>
+        <tr><td>Built-in plugin install fails</td><td>External built-in package could not be installed.</td><td>Server publishes a session error and continues without that built-in.</td></tr>
+        <tr><td>TUI plugin route missing</td><td>Plugin route id was not registered or runtime disposed.</td><td>Check TUI plugin runtime status and route registration.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Server plugin runtime</td><td><code>packages/nikcli/src/plugin/index.ts</code></td></tr>
+        <tr><td>Plugin install and patching</td><td><code>packages/nikcli/src/plugin/install.ts</code></td></tr>
+        <tr><td>Plugin package parsing</td><td><code>packages/nikcli/src/plugin/shared.ts</code></td></tr>
+        <tr><td>CLI command</td><td><code>packages/nikcli/src/cli/cmd/plug.ts</code></td></tr>
+        <tr><td>TUI plugin API</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/api.tsx</code></td></tr>
+        <tr><td>TUI plugin runtime</td><td><code>packages/nikcli/src/cli/cmd/tui/plugin/runtime.ts</code></td></tr>
+        <tr><td>System plugin manager</td><td><code>packages/nikcli/src/cli/cmd/tui/feature-plugins/system</code></td></tr>
+        <tr><td>Plugin contracts package</td><td><code>packages/plugin</code></td></tr>
+        <tr><td>Skills</td><td><code>packages/nikcli/src/skill/skill.ts</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

@@ -128,7 +128,7 @@ export namespace SessionPrompt {
 
   async function agentRequired(name: string) {
     const agent = await agentGet(name)
-    if (!agent) throw new Error(`Agent not found: ${name}`)
+    if (!agent) throw new Agent.NotFoundError({ name })
     return agent
   }
 
@@ -2106,7 +2106,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         sessionID: input.sessionID,
         error: EventError.unknown(agentNotFoundMsg),
       })
-      throw new Error(agentNotFoundMsg)
+      throw new Agent.NotFoundError({ name: agentName })
     }
 
     const isSubtask = (agent.mode === "subagent" && command.subtask !== false) || command.subtask === true

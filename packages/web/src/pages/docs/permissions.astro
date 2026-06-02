@@ -2,92 +2,254 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Permission Model", href: "#permission-model", depth: 2 },
-  { title: "Rules & Patterns", href: "#rules-patterns", depth: 2 },
-  { title: "Responses", href: "#responses", depth: 2 },
-  { title: "Mobile Approvals", href: "#mobile-approvals", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Actions and rules", href: "#actions-rules", depth: 2 },
+  { title: "Config forms", href: "#config-forms", depth: 2 },
+  { title: "Evaluation order", href: "#evaluation", depth: 2 },
+  { title: "Ask and reply lifecycle", href: "#lifecycle", depth: 2 },
+  { title: "Always approvals", href: "#always", depth: 2 },
+  { title: "Tool integration", href: "#tools", depth: 2 },
+  { title: "API and mobile approvals", href: "#api-mobile", depth: 2 },
+  { title: "Common policies", href: "#policies", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Permissions"
-  subtitle="Runtime permission prompts and ruleset evaluation in packages/nikcli/src/permission."
+  subtitle="How nikcli evaluates allow, deny, and ask rules for tools, stores always approvals, and exposes pending requests to TUI and mobile."
   toc={toc}
 >
-  <section id="permission-model" class="mb-16 scroll-mt-24">
-    <h2>Permission Model</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      Permissions are evaluated per tool call. The ruleset merges defaults, agent-level
-      permissions, and session overrides. Core logic is split across
-      <code>packages/nikcli/src/permission/evaluate.ts</code> (rule evaluation),
-      <code>schema.ts</code> (schema definitions), and <code>next.ts</code> (permission resolution).
+      Permissions are implemented by <code>packages/nikcli/src/permission/next.ts</code>. The
+      service combines config rules with persisted project approvals, evaluates wildcard matches,
+      publishes pending requests, and resolves tool execution only after the user replies.
     </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Config rules" eyebrow="Static">
+        <p>Rules come from <code>config.permission</code> and legacy <code>tools</code> conversion.</p>
+      </DocCard>
+      <DocCard title="Pending requests" eyebrow="Live">
+        <p>Ask actions create <code>per*</code> requests stored in memory and broadcast through bus events.</p>
+      </DocCard>
+      <DocCard title="Always allow" eyebrow="Durable">
+        <p>Always replies append allow rules to project storage under <code>permission/:projectID</code>.</p>
+      </DocCard>
+      <DocCard title="Clients" eyebrow="UI">
+        <p>TUI, mobile, and API clients list and reply to pending permission requests.</p>
+      </DocCard>
+    </div>
   </section>
 
-  <section id="rules-patterns" class="mb-16 scroll-mt-24">
-    <h2>Rules & Patterns</h2>
-    <p>
-      Rules support wildcards for tool names and file path patterns. The legacy per-tool
-      <code>tools</code> config is converted into the permissions format during config parsing.
-    </p>
-    <DocCode language="json">
-{`{
-  "permission": {
-    "edit": "ask",
-    "bash": "ask",
-    "read": "allow",
-    "read *.env": "ask"
-  }
-}`}
-    </DocCode>
-    <DocCallout type="info" title="Edit permission">
-      <p>Write, edit, patch, and multiedit all map to the single <code>edit</code> permission.</p>
-    </DocCallout>
-  </section>
-
-  <section id="responses" class="mb-16 scroll-mt-24">
-    <h2>Responses</h2>
-    <p>
-      When a tool call triggers a permission prompt, the user or an automated response handler can
-      answer in three ways. These are defined in <code>Permission.Response</code>.
-    </p>
+  <section id="actions-rules" class="mb-16 scroll-mt-24">
+    <h2>Actions and rules</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Response</th>
-          <th>Effect</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Action</th><th>Behavior</th></tr></thead>
       <tbody>
-        <tr>
-          <td><code>once</code></td>
-          <td>Approves this call only. Future identical calls will prompt again.</td>
-        </tr>
-        <tr>
-          <td><code>always</code></td>
-          <td>Approves this and all future matching calls for the current session.</td>
-        </tr>
-        <tr>
-          <td><code>reject</code></td>
-          <td>Denies this call. The agent receives a <code>RejectedError</code> and can retry with different parameters.</td>
-        </tr>
+        <tr><td><code>allow</code></td><td>Tool execution proceeds without prompting when permission and pattern match.</td></tr>
+        <tr><td><code>deny</code></td><td>Tool execution fails immediately with <code>PermissionNext.DeniedError</code>.</td></tr>
+        <tr><td><code>ask</code></td><td>A pending request is created and execution waits for a reply.</td></tr>
       </tbody>
     </table>
     <p>
-      Responses are broadcast on the internal Bus so the TUI, companion UI, and mobile app all stay
-      in sync when a permission is answered.
+      A rule has <code>permission</code>, <code>pattern</code>, and <code>action</code>. The permission
+      is a tool or capability name. The pattern is tool-specific: command text for bash, file paths
+      for edit/read-style tools, or <code>*</code> for capability-wide matching.
     </p>
   </section>
 
-  <section id="mobile-approvals" class="mb-16 scroll-mt-24">
-    <h2>Mobile Approvals</h2>
+  <section id="config-forms" class="mb-16 scroll-mt-24">
+    <h2>Config forms</h2>
+    <p>The schema accepts three useful forms:</p>
+    <DocCode language="json" title="permission config">
+&#123;
+  "permission": "ask"
+&#125;
+    </DocCode>
+    <DocCode language="json" title="tool action map">
+&#123;
+  "permission": &#123;
+    "bash": "ask",
+    "edit": "ask",
+    "webfetch": "ask",
+    "lsp": "ask"
+  &#125;
+&#125;
+    </DocCode>
+    <DocCode language="json" title="pattern map">
+&#123;
+  "permission": &#123;
+    "bash": &#123;
+      "git status*": "allow",
+      "git diff*": "allow",
+      "rm *": "deny",
+      "*": "ask"
+    &#125;,
+    "edit": &#123;
+      "src/**": "ask",
+      "package.json": "ask",
+      ".env*": "deny"
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <DocCallout type="note" title="Home expansion">
+      <p>
+        Patterns that start with <code>~/</code>, <code>~</code>, or <code>$HOME</code> are expanded
+        to the user's home directory when config is converted to rules.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="evaluation" class="mb-16 scroll-mt-24">
+    <h2>Evaluation order</h2>
     <p>
-      When a session is connected to the mobile app, permission prompts surface in the app as
-      interactive approval cards. The same <code>once</code> / <code>always</code> /
-      <code>reject</code> responses are available from the app, and the result propagates back to
-      the host session in real time.
+      <code>PermissionNext.evaluate</code> merges all rulesets and uses the last matching rule.
+      A rule matches only when both the permission wildcard and the pattern wildcard match. If no
+      rule matches, the fallback action is <code>ask</code>.
     </p>
+    <ol>
+      <li>Config permission is converted with <code>PermissionNext.fromConfig</code>.</li>
+      <li>Persisted project approvals are loaded from storage.</li>
+      <li>Tool-specific extra rules can be merged by callers.</li>
+      <li>The service uses <code>findLast</code>, so later rules override earlier matching rules.</li>
+      <li>For each requested pattern, deny fails, ask prompts, allow continues.</li>
+    </ol>
+    <table class="doc-table">
+      <thead><tr><th>Rule set</th><th>Persistence</th><th>Typical source</th></tr></thead>
+      <tbody>
+        <tr><td>Config rules</td><td>Config files and env content</td><td><code>permission</code> field.</td></tr>
+        <tr><td>Always approvals</td><td><code>storage/permission/:projectID</code></td><td>User clicked or tapped always allow.</td></tr>
+        <tr><td>Extra runtime rules</td><td>In-memory for the ask call</td><td>Tool or session-specific constraints.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="lifecycle" class="mb-16 scroll-mt-24">
+    <h2>Ask and reply lifecycle</h2>
+    <ol>
+      <li>A tool calls <code>ctx.ask</code> or directly reaches <code>PermissionNext.ask</code>.</li>
+      <li>The request is parsed and assigned a permission id if none was supplied.</li>
+      <li>Each requested pattern is evaluated against config and stored approvals.</li>
+      <li>A deny immediately rejects execution.</li>
+      <li>An ask stores a pending request and publishes <code>permission.asked</code>.</li>
+      <li>The TUI, mobile app, or API client lists pending requests and sends a reply.</li>
+      <li>The reply publishes <code>permission.replied</code> and resolves, rejects, or persists approvals.</li>
+    </ol>
+    <table class="doc-table">
+      <thead><tr><th>Reply</th><th>Effect</th></tr></thead>
+      <tbody>
+        <tr><td><code>once</code></td><td>Resolve only the current pending request.</td></tr>
+        <tr><td><code>always</code></td><td>Append allow rules for the request's <code>always</code> patterns, persist them, then auto-resolve same-session requests that now match.</td></tr>
+        <tr><td><code>reject</code></td><td>Reject the request. If feedback text is supplied, the tool sees a correction error. Other pending requests in the same session are rejected too.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="always" class="mb-16 scroll-mt-24">
+    <h2>Always approvals</h2>
+    <p>
+      Always approvals are scoped to the current project id. They are not written into
+      <code>nikcli.json</code>. They live in the JSON storage service under a permission key and are
+      loaded into the permission service state when the project instance starts.
+    </p>
+    <DocCallout type="warn" title="Always does not mean global">
+      <p>
+        The persisted approval belongs to the current project. Another repo or project id does not
+        automatically inherit the same always approval.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="tools" class="mb-16 scroll-mt-24">
+    <h2>Tool integration</h2>
+    <p>Different tools provide different patterns and always scopes.</p>
+    <table class="doc-table">
+      <thead><tr><th>Permission</th><th>Typical pattern</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>bash</code></td><td>Command text or command prefix</td><td>Use narrow allow rules for harmless commands and ask/deny for destructive commands.</td></tr>
+        <tr><td><code>edit</code></td><td>File path</td><td>Used by write/edit/patch-style tools.</td></tr>
+        <tr><td><code>external_directory</code></td><td>Path outside project</td><td>Guards reads/writes outside the current worktree.</td></tr>
+        <tr><td><code>webfetch</code>, <code>websearch</code></td><td>URL or wildcard</td><td>Network-related tools can be forced to ask.</td></tr>
+        <tr><td><code>lsp</code></td><td><code>*</code></td><td>The LSP tool asks before running language-server operations.</td></tr>
+        <tr><td><code>task</code>, <code>subagents</code></td><td>Task or wildcard</td><td>Controls delegated/background work.</td></tr>
+        <tr><td><code>generate_image</code>, <code>speak</code></td><td>Provider/model or wildcard</td><td>Media generation tools can be separately controlled.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="api-mobile" class="mb-16 scroll-mt-24">
+    <h2>API and mobile approvals</h2>
+    <p>
+      Pending permissions are exposed by classic routes and typed HttpApi routes. Mobile routes
+      expose the same request/reply behavior inside the session composer approval controls.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Surface</th><th>Source</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Classic API</td><td><code>server/routes/permission.ts</code></td><td>List pending requests and reply.</td></tr>
+        <tr><td>Typed API</td><td><code>server/httpapi/permission.ts</code></td><td>Effect HttpApi list and reply endpoints.</td></tr>
+        <tr><td>TUI</td><td><code>cli/cmd/tui/routes/session/permission.tsx</code></td><td>Shows inline permission prompts in root sessions.</td></tr>
+        <tr><td>Mobile</td><td><code>server/routes/mobile.ts</code> and mobile composer components</td><td>Displays approval bars and sends replies from the phone.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+curl http://127.0.0.1:4096/permission
+
+curl -X POST http://127.0.0.1:4096/permission/per_example/reply \
+  -H "Content-Type: application/json" \
+  -d '&#123;"reply":"once"&#125;'
+    </DocCode>
+  </section>
+
+  <section id="policies" class="mb-16 scroll-mt-24">
+    <h2>Common policies</h2>
+    <table class="doc-table">
+      <thead><tr><th>Goal</th><th>Policy</th></tr></thead>
+      <tbody>
+        <tr><td>Ask before all shell and edits</td><td><code>bash: ask</code>, <code>edit: ask</code>.</td></tr>
+        <tr><td>Allow harmless git reads</td><td>Allow <code>git status*</code>, <code>git diff*</code>, <code>git log*</code>; ask for all other bash.</td></tr>
+        <tr><td>Protect secrets</td><td>Deny edit/read patterns such as <code>.env*</code> where appropriate.</td></tr>
+        <tr><td>Disable browsing</td><td>Set <code>webfetch</code> and <code>websearch</code> to <code>deny</code>.</td></tr>
+        <tr><td>Allow language queries</td><td>Set <code>lsp</code> to <code>allow</code> for trusted projects.</td></tr>
+        <tr><td>Keep delegated work explicit</td><td>Set <code>task</code> and <code>subagents</code> to <code>ask</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>Allowed command still asks</td><td>The command pattern does not match exactly or a later ask rule overrides it.</td><td>Check wildcard pattern and rule order.</td></tr>
+        <tr><td>Always approval not reused</td><td>The later request uses a different pattern or different project id.</td><td>Inspect the request's <code>always</code> patterns and current project.</td></tr>
+        <tr><td>Reject cancels more than one prompt</td><td>Reject intentionally rejects other pending requests in the same session.</td><td>Use once/always for approval; reject only when the session should stop that work.</td></tr>
+        <tr><td>Legacy tools config behaves differently</td><td><code>tools</code> booleans are converted to permission actions, with write/edit/patch aliases mapped to <code>edit</code>.</td><td>Migrate to explicit <code>permission</code> config.</td></tr>
+        <tr><td>Mobile shows no approval</td><td>The request belongs to a child session or was already hydrated/replied.</td><td>Check root session aggregation and pending permission list.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Permission service</td><td><code>packages/nikcli/src/permission/next.ts</code></td></tr>
+        <tr><td>Compatibility exports</td><td><code>packages/nikcli/src/permission/evaluate.ts</code></td></tr>
+        <tr><td>Permission schema</td><td><code>packages/nikcli/src/permission/schema.ts</code></td></tr>
+        <tr><td>Config permission schema and legacy tools migration</td><td><code>packages/nikcli/src/config/config.ts</code></td></tr>
+        <tr><td>API routes</td><td><code>packages/nikcli/src/server/routes/permission.ts</code>, <code>packages/nikcli/src/server/httpapi/permission.ts</code></td></tr>
+        <tr><td>TUI permission prompt</td><td><code>packages/nikcli/src/cli/cmd/tui/routes/session/permission.tsx</code></td></tr>
+        <tr><td>LSP tool permission example</td><td><code>packages/nikcli/src/tool/lsp.ts</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

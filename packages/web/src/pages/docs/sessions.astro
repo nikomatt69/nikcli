@@ -1,92 +1,288 @@
 ---
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
+import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Session Model", href: "#session-model", depth: 2 },
-  { title: "Storage & Streaming", href: "#storage-streaming", depth: 2 },
-  { title: "Background Work", href: "#background-work", depth: 2 },
-  { title: "Sharing & Mobile", href: "#sharing-mobile", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Create or continue", href: "#create-continue", depth: 2 },
+  { title: "Session record", href: "#session-record", depth: 2 },
+  { title: "Messages and parts", href: "#messages-parts", depth: 2 },
+  { title: "Prompt execution", href: "#prompt-execution", depth: 2 },
+  { title: "Status and events", href: "#status-events", depth: 2 },
+  { title: "Permissions and questions", href: "#permissions-questions", depth: 2 },
+  { title: "Fork, children, background", href: "#fork-background", depth: 2 },
+  { title: "Diff, revert, unrevert", href: "#diff-revert", depth: 2 },
+  { title: "Sharing and export", href: "#sharing-export", depth: 2 },
+  { title: "Mobile and workspace sessions", href: "#mobile-workspace", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Sessions"
-  subtitle="Session lifecycle, persistence, streaming, and sharing across nikcli surfaces."
+  subtitle="How nikcli creates, stores, streams, forks, reverts, and resumes agent sessions across CLI, TUI, mobile, and API clients."
   toc={toc}
 >
-  <section id="session-model" class="mb-16 scroll-mt-24">
-    <h2>Session Model</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      The <code>Session.Info</code> schema defines session metadata, timing, sharing, permissions,
-      and working-directory context. Sessions are the core unit shared by the TUI, companion UI,
-      HTTP API, and mobile app.
+      A session is the durable unit of work for an agent run. It owns the user and assistant message
+      timeline, tool parts, status, permissions, questions, diffs, todo state, background children,
+      workspace metadata, and share/export data.
     </p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Storage" eyebrow="Durable">
+        <p>Session info is stored through <code>Storage.Service</code> under the project-aware JSON store. Messages and parts use <code>MessageV2</code>.</p>
+      </DocCard>
+      <DocCard title="Execution" eyebrow="Runtime">
+        <p><code>SessionPrompt</code>, <code>SessionRunner</code>, and <code>LLM.stream</code> build context, call providers, run tools, and write streaming parts.</p>
+      </DocCard>
+      <DocCard title="State" eyebrow="Live">
+        <p><code>SessionStatus</code>, monitor records, delegation jobs, and bus events drive TUI/mobile busy, retry, and idle states.</p>
+      </DocCard>
+      <DocCard title="Control" eyebrow="API">
+        <p>Session routes expose create, list, prompt, abort, fork, children, diff, revert, share, export, and message mutation flows.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="create-continue" class="mb-16 scroll-mt-24">
+    <h2>Create or continue</h2>
+    <p>
+      Sessions can be created from the root TUI command, <code>nikcli run</code>, mobile, the web
+      app, or the API. The TUI entry command is <code>nikcli [project]</code>; it starts a worker,
+      validates any provided session id, then opens either a direct RPC UI or a network-backed UI.
+    </p>
+    <DocCode language="bash">
+nikcli                         # start TUI in the current directory
+nikcli ../repo --model openai/gpt-5
+nikcli --continue              # continue last session
+nikcli --session ses_example   # open a specific session
+nikcli run "fix the failing test"
+    </DocCode>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Field</th>
-          <th>Notes</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Input</th><th>Where handled</th><th>Result</th></tr></thead>
       <tbody>
-        <tr><td><code>id</code></td><td>Descending identifier.</td></tr>
-        <tr><td><code>slug</code></td><td>Human-friendly slug.</td></tr>
-        <tr><td><code>projectID</code></td><td>Project scope identifier.</td></tr>
-        <tr><td><code>directory</code></td><td>Working directory.</td></tr>
-        <tr><td><code>parentID</code></td><td>Parent session (forks).</td></tr>
-        <tr><td><code>summary</code></td><td>Diff stats and optional diffs list.</td></tr>
-        <tr><td><code>share</code></td><td>Share URL when shared.</td></tr>
-        <tr><td><code>title</code></td><td>Auto-generated when not set.</td></tr>
-        <tr><td><code>time</code></td><td>created/updated/compacting/archived timestamps.</td></tr>
-        <tr><td><code>workspaceID</code></td><td>Optional workspace scope.</td></tr>
-        <tr><td><code>permission</code></td><td>Optional per-session permission rules.</td></tr>
-        <tr><td><code>skills</code></td><td>Skill IDs active for this session.</td></tr>
-        <tr><td><code>disabledInstructions</code></td><td>Instruction file paths suppressed from the system prompt.</td></tr>
-        <tr><td><code>disabledTools</code></td><td>Tool IDs disabled for this session.</td></tr>
-        <tr><td><code>revert</code></td><td>Snapshot revert metadata.</td></tr>
+        <tr><td><code>--session</code></td><td><code>cli/cmd/tui/thread.ts</code></td><td>Validates the id through SDK <code>session.get</code> before rendering.</td></tr>
+        <tr><td><code>--continue</code></td><td>TUI args provider and local context</td><td>Resolves and opens the last usable session in the current project.</td></tr>
+        <tr><td><code>--prompt</code> or piped stdin</td><td>TUI thread prompt resolver</td><td>Seeds the composer or immediate run prompt.</td></tr>
+        <tr><td><code>POST /session</code></td><td><code>server/httpapi/session.ts</code></td><td>Creates a session with optional parent, title, permission, skills, GitHub data, and workspace id.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="storage-streaming" class="mb-16 scroll-mt-24">
-    <h2>Storage & Streaming</h2>
+  <section id="session-record" class="mb-16 scroll-mt-24">
+    <h2>Session record</h2>
     <p>
-      Sessions, messages, parts, and diffs are stored as JSON files. The same session state is also
-      streamed incrementally to clients such as the companion UI and the mobile app.
+      The session info object is defined in <code>packages/nikcli/src/session/index.ts</code>. It
+      carries identifiers, title, project/workspace metadata, directory, parent links, GitHub or
+      container metadata, timestamps, and summary fields.
     </p>
-    <DocCallout type="info" title="Mobile streaming">
+    <table class="doc-table">
+      <thead><tr><th>Field area</th><th>Meaning</th><th>Used by</th></tr></thead>
+      <tbody>
+        <tr><td>ID and parent</td><td><code>id</code>, optional <code>parentID</code></td><td>Forks, child navigation, background worker grouping.</td></tr>
+        <tr><td>Project context</td><td><code>projectID</code>, <code>directory</code>, optional <code>workspaceID</code></td><td>Server workspace context and storage paths.</td></tr>
+        <tr><td>Title and time</td><td><code>title</code>, created/updated/archived timestamps</td><td>Session list sorting, archive state, display title.</td></tr>
+        <tr><td>Execution metadata</td><td>Agent, model, mode, GitHub, workspace/container fields where present</td><td>TUI/mobile badges and future prompt defaults.</td></tr>
+        <tr><td>Summary</td><td>Diff totals and generated summaries</td><td>Lists, analytics, share/export, mobile cards.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="messages-parts" class="mb-16 scroll-mt-24">
+    <h2>Messages and parts</h2>
+    <p>
+      Messages are split from parts so streaming tool calls, text, reasoning, files, diffs, and
+      metadata can update independently. The API exposes both full message reads and part-level
+      mutation routes.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Route</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /session/:sessionID/message</code></td><td>List messages for a session, optionally with a limit.</td></tr>
+        <tr><td><code>GET /session/:sessionID/message/:messageID</code></td><td>Read one message with its parts.</td></tr>
+        <tr><td><code>DELETE /session/:sessionID/message/:messageID</code></td><td>Remove a message after validating the session exists.</td></tr>
+        <tr><td><code>DELETE /session/:sessionID/message/:messageID/part/:partID</code></td><td>Remove one part from a message.</td></tr>
+        <tr><td><code>PATCH /session/:sessionID/message/:messageID/part/:partID</code></td><td>Replace a part after body/path id consistency checks.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Streaming writes">
       <p>
-        The Expo app consumes session updates over SSE in
-        <code>packages/mobile/hooks/use-session-stream.ts</code>.
+        During prompt execution, assistant output and tool activity are written as incremental parts.
+        TUI and mobile screens subscribe to updates and render partial state before the assistant
+        message is complete.
       </p>
     </DocCallout>
   </section>
 
-  <section id="background-work" class="mb-16 scroll-mt-24">
-    <h2>Background Work</h2>
+  <section id="prompt-execution" class="mb-16 scroll-mt-24">
+    <h2>Prompt execution</h2>
+    <p>
+      Prompt execution combines agent config, system prompts, message history, tool registry, MCP
+      and connector tools, permissions, and provider selection. The hot path reaches
+      <code>packages/nikcli/src/session/llm.ts</code>, which normalizes message shapes before
+      calling the provider runtime.
+    </p>
+    <ol>
+      <li>User input is persisted as a user message and queued for the session.</li>
+      <li>Session services build system context from agent, config, instructions, tools, skills, project, and locale.</li>
+      <li>Tool availability is gated by model capability, config, MCP state, connector state, and experimental flags.</li>
+      <li>Permissions call <code>PermissionNext.ask</code> before risky actions such as edits, shell, or LSP.</li>
+      <li><code>LLM.stream</code> chooses provider/model, repairs UI-shaped messages when needed, and streams output.</li>
+      <li>Assistant text, reasoning, tool calls, results, and completion metadata update the message timeline.</li>
+    </ol>
+  </section>
+
+  <section id="status-events" class="mb-16 scroll-mt-24">
+    <h2>Status and events</h2>
+    <p>
+      <code>SessionStatus</code> exposes busy, idle, and retry state. The typed API returns a status
+      map at <code>GET /session/status</code>. The TUI reads status through the sync context and
+      mobile displays status chips in lists and cards.
+    </p>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Feature</th>
-          <th>Purpose</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Status</th><th>Meaning</th><th>Typical UI</th></tr></thead>
       <tbody>
-        <tr><td><code>task</code> + <code>delegation</code></td><td>Launch background subagents and read or cancel their results.</td></tr>
-        <tr><td><code>monitor</code></td><td>Run long-lived shell jobs with persisted logs and wake-up behavior.</td></tr>
-        <tr><td><code>todowrite</code></td><td>Track structured task progress inside a session.</td></tr>
-        <tr><td><code>notifications.todo</code></td><td>Emit native, Slack, or Discord notifications for todo state changes.</td></tr>
+        <tr><td><code>busy</code></td><td>A prompt, tool, monitor, or delegated worker is active.</td><td>Stop/Abort controls and live transcript follow.</td></tr>
+        <tr><td><code>retry</code></td><td>A retryable provider/tool path is waiting or reattempting.</td><td>Retry badge with attempt or message.</td></tr>
+        <tr><td><code>idle</code></td><td>No active execution is tracked for the session.</td><td>Composer is ready for new input.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+curl "http://127.0.0.1:4096/session/status?directory=$PWD"
+    </DocCode>
+  </section>
+
+  <section id="permissions-questions" class="mb-16 scroll-mt-24">
+    <h2>Permissions and questions</h2>
+    <p>
+      Pending permissions and questions are session-scoped live prompts. The TUI aggregates pending
+      requests across a root session and its children; mobile exposes approval and question bars in
+      the composer. Permission replies can approve once, approve always, or reject with optional
+      correction feedback.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Flow</th><th>Service</th><th>Persistence</th></tr></thead>
+      <tbody>
+        <tr><td>Ask permission</td><td><code>PermissionNext.ask</code></td><td>Pending in memory, published through bus events.</td></tr>
+        <tr><td>Always allow</td><td><code>PermissionNext.reply</code></td><td>Allowed rules are written under <code>storage/permission/:projectID</code>.</td></tr>
+        <tr><td>Ask question</td><td><code>Question.Service</code></td><td>Pending until the user replies or rejects.</td></tr>
+        <tr><td>Hydrate after reconnect</td><td>Permission and question route services</td><td>Used by mobile/TUI sync to rebuild visible pending prompts.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="sharing-mobile" class="mb-16 scroll-mt-24">
-    <h2>Sharing & Mobile</h2>
+  <section id="fork-background" class="mb-16 scroll-mt-24">
+    <h2>Fork, children, background</h2>
     <p>
-      Shared sessions expose URLs that can be reopened via <code>nikcli attach</code> or the
-      companion UI. The same session can also be resumed on mobile, where approvals, tool output,
-      attachments, and GitHub actions are rendered against the live host session.
+      A fork creates a new child session from an existing session and optional message boundary.
+      Background task tools also create worker sessions and attach them to a parent. The session UI
+      treats root sessions and children differently so parent-level permission/question prompts are
+      not duplicated inside child routes.
     </p>
+    <table class="doc-table">
+      <thead><tr><th>Capability</th><th>Route or source</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Fork</td><td><code>POST /session/:sessionID/fork</code></td><td>Creates a new session optionally rooted at a message id.</td></tr>
+        <tr><td>Children</td><td><code>GET /session/:sessionID/children</code></td><td>Lists sessions linked to the same parent.</td></tr>
+        <tr><td>Background worker</td><td><code>delegation/manager</code> and task tool</td><td>Runs child work without taking over the root route.</td></tr>
+        <tr><td>Abort</td><td><code>POST /session/:sessionID/abort</code></td><td>Cancels prompt, owned delegation jobs, and monitors together.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="diff-revert" class="mb-16 scroll-mt-24">
+    <h2>Diff, revert, unrevert</h2>
+    <p>
+      Diffs are produced from snapshots, VCS state, and message/tool output. The summary diff route
+      can scope to a message id. Revert and unrevert operate through <code>SessionRevert</code> and
+      return the updated session info.
+    </p>
+    <DocCode language="bash">
+curl "http://127.0.0.1:4096/session/ses_example/diff?messageID=msg_example"
+
+curl -X POST http://127.0.0.1:4096/session/ses_example/revert \
+  -H "Content-Type: application/json" \
+  -d '&#123;"messageID":"msg_example"&#125;'
+
+curl -X POST http://127.0.0.1:4096/session/ses_example/unrevert
+    </DocCode>
+    <DocCallout type="warn" title="Reverts are real file operations">
+      <p>
+        Revert endpoints apply changes to the current workspace. Review the diff first and make sure
+        the request is scoped to the intended directory or workspace.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="sharing-export" class="mb-16 scroll-mt-24">
+    <h2>Sharing and export</h2>
+    <p>
+      Sharing is controlled by config and environment flags. New root sessions may auto-share when
+      <code>NIKCLI_AUTO_SHARE</code> is set or config <code>share</code> is <code>auto</code>. Public
+      share reads are intentionally mounted before auth at <code>/s/:shareID</code>,
+      <code>/share/:shareID</code>, and <code>/api/share/:shareID</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Feature</th><th>Source</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Auto share</td><td><code>session/index.ts</code></td><td>Runs for root sessions when config or env enables it.</td></tr>
+        <tr><td>Public data</td><td><code>share/share-next.ts</code></td><td>Served without server auth by explicit public share routes.</td></tr>
+        <tr><td>Export</td><td><code>cli/cmd/export.ts</code> and TUI export dialogs</td><td>Formats transcript and related session data for local output.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="mobile-workspace" class="mb-16 scroll-mt-24">
+    <h2>Mobile and workspace sessions</h2>
+    <p>
+      Mobile sessions use the same core session services but route through <code>/mobile/*</code>
+      endpoints that bundle status, git stats, project metadata, and execution target information.
+      Workspace-backed sessions carry <code>workspaceID</code>, letting the server route later
+      session requests to a local or remote workspace target.
+    </p>
+    <ul>
+      <li>Mobile lists pair <code>Session.Info</code> with optional <code>SessionStatus.Info</code>.</li>
+      <li>Container-backed workspaces report runtime availability from <code>workspace/adaptors</code>.</li>
+      <li>Remote workspace requests are proxied before the route group handlers execute locally.</li>
+      <li>Route-session lookup lets <code>/session/:id</code> requests recover the original workspace context even when the caller omits workspace headers.</li>
+    </ul>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>Session.BusyError</code></td><td>A prompt is already running.</td><td>Use abort, wait for idle, or fork a new child session.</td></tr>
+        <tr><td>Session not found in TUI</td><td>Invalid id or session belongs to another directory/workspace.</td><td>Validate the id and pass the correct project path or workspace header.</td></tr>
+        <tr><td>Assistant stream fails with invalid prompt</td><td>Malformed UI-shaped messages reached the provider path.</td><td><code>LLM.normalizeStreamMessages</code> repairs known UI-message shapes before streaming.</td></tr>
+        <tr><td>Always approval does not apply</td><td>The persisted pattern does not match the later permission pattern.</td><td>Check stored rules under the project permission storage key.</td></tr>
+        <tr><td>Abort leaves work running</td><td>External process is owned by a monitor or delegated worker not tied to the session id.</td><td>Inspect monitors and background jobs for ownership.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Session service and schema</td><td><code>packages/nikcli/src/session/index.ts</code></td></tr>
+        <tr><td>Prompt execution</td><td><code>packages/nikcli/src/session/prompt.ts</code>, <code>packages/nikcli/src/session/runner.ts</code></td></tr>
+        <tr><td>LLM stream hot path</td><td><code>packages/nikcli/src/session/llm.ts</code></td></tr>
+        <tr><td>Message storage</td><td><code>packages/nikcli/src/session/message-v2.ts</code></td></tr>
+        <tr><td>Status</td><td><code>packages/nikcli/src/session/status.ts</code></td></tr>
+        <tr><td>Revert and diff</td><td><code>packages/nikcli/src/session/revert.ts</code>, <code>packages/nikcli/src/session/summary.ts</code></td></tr>
+        <tr><td>Typed API</td><td><code>packages/nikcli/src/server/httpapi/session.ts</code></td></tr>
+        <tr><td>Classic routes</td><td><code>packages/nikcli/src/server/routes/session.ts</code></td></tr>
+        <tr><td>TUI session view</td><td><code>packages/nikcli/src/cli/cmd/tui/routes/session/index.tsx</code></td></tr>
+        <tr><td>Mobile session routes</td><td><code>packages/nikcli/src/server/routes/mobile.ts</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

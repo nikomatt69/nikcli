@@ -2,73 +2,256 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "Connector Model", href: "#connector-model", depth: 2 },
-  { title: "CLI Workflow", href: "#cli-workflow", depth: 2 },
-  { title: "Tool Operations", href: "#tool-operations", depth: 2 },
-  { title: "Chat Bots", href: "#chat-bots", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Connector types", href: "#types", depth: 2 },
+  { title: "Add and authenticate", href: "#add-auth", depth: 2 },
+  { title: "Credential resolution", href: "#credentials", depth: 2 },
+  { title: "Tool operations", href: "#tools", depth: 2 },
+  { title: "Bot connectors", href: "#bots", depth: 2 },
+  { title: "API routes", href: "#api", depth: 2 },
+  { title: "Caches and invalidation", href: "#cache", depth: 2 },
+  { title: "Config examples", href: "#config", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="Connectors"
-  subtitle="External service connectors, auth flows, and operations in packages/nikcli/src/connectors and packages/nikcli/src/cli/cmd/connectors.ts."
+  subtitle="How nikcli connects external services, stores credentials, exposes connector tools, and receives bot webhooks."
   toc={toc}
 >
-  <section id="connector-model" class="mb-16 scroll-mt-24">
-    <h2>Connector Model</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      Connectors are declared in <code>config.connectors</code> and authenticated separately from the
-      JSON config file. Built-in types include Figma, Slack, GitHub, Lovable, plus bot-oriented
-      transports such as Discord, Teams, Google Chat, and Linear.
+      Connectors are service-specific integrations configured under <code>connectors</code> in
+      <code>nikcli.json</code>. The runtime lives in <code>packages/nikcli/src/connectors</code>.
+      It checks credentials, runs health checks, creates AI SDK tools for services with operations,
+      exposes prompts, and caches status/tool results.
     </p>
-    <DocCallout type="info" title="Config vs credentials">
-      <p>
-        Config stores connector metadata and enablement. Credentials are resolved through the
-        connector auth layer and can be refreshed without rewriting the whole config.
-      </p>
-    </DocCallout>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Tool connectors" eyebrow="Agent">
+        <p>Figma, Slack, GitHub, and Lovable expose operations as dynamic agent tools.</p>
+      </DocCard>
+      <DocCard title="Bot connectors" eyebrow="Webhook">
+        <p>Discord, Teams, Google Chat, Linear, GitHub, and Slack are also used by chatbot webhook routes.</p>
+      </DocCard>
+      <DocCard title="Credential store" eyebrow="Secrets">
+        <p>Saved connector credentials are written to <code>Global.Path.data/connectors-auth.json</code> with <code>0600</code> on Unix.</p>
+      </DocCard>
+      <DocCard title="Config first, auth second" eyebrow="Resolution">
+        <p>Environment flags win, then inline config credentials, then saved connector auth records.</p>
+      </DocCard>
+    </div>
   </section>
 
-  <section id="cli-workflow" class="mb-16 scroll-mt-24">
-    <h2>CLI Workflow</h2>
-    <p>
-      The connector CLI supports list, add, auth, and logout flows so users can manage integrations
-      without editing raw JSON by hand.
-    </p>
-    <DocCode language="bash">
-      nikcli connectors list
-      nikcli connectors add
-      nikcli connectors auth github
-    </DocCode>
-  </section>
-
-  <section id="tool-operations" class="mb-16 scroll-mt-24">
-    <h2>Tool Operations</h2>
+  <section id="types" class="mb-16 scroll-mt-24">
+    <h2>Connector types</h2>
     <table class="doc-table">
-      <thead>
-        <tr>
-          <th>Connector</th>
-          <th>Operations</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Type</th><th>Credential</th><th>Health check</th><th>Agent tools</th></tr></thead>
       <tbody>
-        <tr><td><code>figma</code></td><td><code>figma_get_file</code>, <code>figma_get_components</code>, <code>figma_get_styles</code>, <code>figma_get_comments</code></td></tr>
-        <tr><td><code>slack</code></td><td><code>slack_list_channels</code>, <code>slack_send_message</code>, <code>slack_search_messages</code>, <code>slack_get_channel_info</code>, <code>slack_reply_to_thread</code></td></tr>
-        <tr><td><code>github</code></td><td><code>github_get_repo</code>, <code>github_get_file</code>, <code>github_create_issue</code>, <code>github_list_issues</code>, <code>github_search_code</code>, <code>github_list_repos</code></td></tr>
-        <tr><td><code>lovable</code></td><td><code>lovable_get_projects</code>, <code>lovable_get_project</code>, <code>lovable_get_chats</code>, <code>lovable_send_message</code>, <code>lovable_get_project_files</code>, <code>lovable_run_prompt</code></td></tr>
+        <tr><td><code>figma</code></td><td>Personal access token</td><td><code>FigmaApi.getMe</code></td><td>File, components, styles, comments.</td></tr>
+        <tr><td><code>slack</code></td><td>Bot token</td><td><code>SlackApi.listUsers</code></td><td>List channels, send message, search, channel info, thread reply.</td></tr>
+        <tr><td><code>github</code></td><td>Personal access token</td><td><code>GithubApi.getUser</code></td><td>Repo, file, issue, issue list, code search, repo list.</td></tr>
+        <tr><td><code>lovable</code></td><td>Token or API key</td><td><code>LovableApi.getProjects</code></td><td>Projects, project, chats, send message, files, run prompt.</td></tr>
+        <tr><td><code>discord</code></td><td>Bot token</td><td>No-op health check</td><td>No connector tools; bot/webhook use.</td></tr>
+        <tr><td><code>teams</code></td><td>Bot token</td><td>No-op health check</td><td>No connector tools; bot/webhook use.</td></tr>
+        <tr><td><code>gchat</code></td><td>Bot token</td><td>No-op health check</td><td>No connector tools; bot/webhook use.</td></tr>
+        <tr><td><code>linear</code></td><td>Bot token</td><td>No-op health check</td><td>No connector tools; bot/webhook use.</td></tr>
       </tbody>
     </table>
   </section>
 
-  <section id="chat-bots" class="mb-16 scroll-mt-24">
-    <h2>Chat Bots</h2>
+  <section id="add-auth" class="mb-16 scroll-mt-24">
+    <h2>Add and authenticate</h2>
     <p>
-      The separate <code>nikcli bot</code> command manages webhook-backed bots. Supported platforms
-      are <code>discord</code>, <code>slack</code>, <code>teams</code>, <code>gchat</code> (Google
-      Chat), <code>linear</code>, and <code>github</code>. Those bots build on the same connector
-      registry but focus on chat-driven automation instead of direct tool calls.
+      <code>nikcli connectors add</code> patches either the current project config or global config.
+      If you provide a credential during the wizard, it writes the credential to the connector auth
+      store, not into the config file. <code>auth</code> and <code>logout</code> manage that store.
     </p>
+    <DocCode language="bash">
+nikcli connectors add
+nikcli connectors list
+nikcli connectors auth github
+nikcli connectors logout github
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Command</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>connectors add</code></td><td>Select scope, name, type, enabled state, optional credential.</td></tr>
+        <tr><td><code>connectors list</code></td><td>Show configured connector status and saved credential hint.</td></tr>
+        <tr><td><code>connectors auth [name]</code></td><td>Save a token, bot token, or API key for the selected connector.</td></tr>
+        <tr><td><code>connectors logout [name]</code></td><td>Remove saved credentials from <code>connectors-auth.json</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="credentials" class="mb-16 scroll-mt-24">
+    <h2>Credential resolution</h2>
+    <p>
+      <code>resolveCredential</code> uses a strict order: environment flag, config inline credential,
+      saved auth record, then no credential.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Type</th><th>Env flag</th><th>Config field</th><th>Saved field</th></tr></thead>
+      <tbody>
+        <tr><td><code>figma</code></td><td><code>NIKCLI_FIGMA_TOKEN</code></td><td><code>token</code></td><td><code>token</code></td></tr>
+        <tr><td><code>github</code></td><td><code>NIKCLI_GITHUB_TOKEN</code></td><td><code>token</code></td><td><code>token</code></td></tr>
+        <tr><td><code>slack</code></td><td><code>NIKCLI_SLACK_BOT_TOKEN</code></td><td><code>botToken</code></td><td><code>botToken</code></td></tr>
+        <tr><td><code>lovable</code></td><td><code>NIKCLI_LOVABLE_TOKEN</code> or <code>NIKCLI_LOVABLE_API_KEY</code></td><td><code>token</code> or <code>apiKey</code></td><td><code>token</code> or <code>apiKey</code></td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="Inline config credentials are supported but not preferred">
+      <p>
+        The CLI wizard stores credentials separately so project config can be shared without tokens.
+        Use inline credentials only when you intentionally want config-managed secrets.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="tools" class="mb-16 scroll-mt-24">
+    <h2>Tool operations</h2>
+    <p>
+      Tool-capable connectors generate names by prefixing the configured connector name and operation
+      name. For a connector named <code>github</code>, operation <code>github_get_repo</code> becomes
+      <code>github_github_get_repo</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Connector</th><th>Operations</th></tr></thead>
+      <tbody>
+        <tr><td>Figma</td><td><code>figma_get_file</code>, <code>figma_get_components</code>, <code>figma_get_styles</code>, <code>figma_get_comments</code>.</td></tr>
+        <tr><td>Slack</td><td><code>slack_list_channels</code>, <code>slack_send_message</code>, <code>slack_search_messages</code>, <code>slack_get_channel_info</code>, <code>slack_reply_to_thread</code>.</td></tr>
+        <tr><td>GitHub</td><td><code>github_get_repo</code>, <code>github_get_file</code>, <code>github_create_issue</code>, <code>github_list_issues</code>, <code>github_search_code</code>, <code>github_list_repos</code>.</td></tr>
+        <tr><td>Lovable</td><td><code>lovable_get_projects</code>, <code>lovable_get_project</code>, <code>lovable_get_chats</code>, <code>lovable_send_message</code>, <code>lovable_get_project_files</code>, <code>lovable_run_prompt</code>.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      Each operation is wrapped as a dynamic tool with a JSON schema built from the operation args.
+      Results are returned as strings or pretty JSON.
+    </p>
+  </section>
+
+  <section id="bots" class="mb-16 scroll-mt-24">
+    <h2>Bot connectors</h2>
+    <p>
+      Bot/webhook platforms are mounted under <code>/chatbot</code>. The route file exposes webhook
+      handlers for Discord, Slack, Teams, Google Chat, Linear, and GitHub. These are separate from
+      connector tool operations even when they share the same service name.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Webhook route</th><th>Platform</th></tr></thead>
+      <tbody>
+        <tr><td><code>POST /chatbot/discord/:name</code></td><td>Discord</td></tr>
+        <tr><td><code>POST /chatbot/slack/:name</code></td><td>Slack</td></tr>
+        <tr><td><code>POST /chatbot/teams/:name</code></td><td>Microsoft Teams</td></tr>
+        <tr><td><code>POST /chatbot/gchat/:name</code></td><td>Google Chat</td></tr>
+        <tr><td><code>POST /chatbot/linear/:name</code></td><td>Linear</td></tr>
+        <tr><td><code>POST /chatbot/github/:name</code></td><td>GitHub</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="api" class="mb-16 scroll-mt-24">
+    <h2>API routes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Route</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /connectors/status</code></td><td>Return status for configured connectors.</td></tr>
+        <tr><td><code>POST /connectors/:name/auth</code></td><td>Set token, bot token, or API key for a connector.</td></tr>
+        <tr><td><code>DELETE /connectors/:name/auth</code></td><td>Remove connector auth entry.</td></tr>
+        <tr><td><code>POST /connectors/:name/invalidate</code></td><td>Invalidate cached status/tools for one connector.</td></tr>
+      </tbody>
+    </table>
+    <DocCode language="bash">
+curl http://127.0.0.1:4096/connectors/status
+
+curl -X POST http://127.0.0.1:4096/connectors/github/auth \
+  -H "Content-Type: application/json" \
+  -d '&#123;"token":"ghp_example"&#125;'
+
+curl -X POST http://127.0.0.1:4096/connectors/github/invalidate
+    </DocCode>
+  </section>
+
+  <section id="cache" class="mb-16 scroll-mt-24">
+    <h2>Caches and invalidation</h2>
+    <p>
+      Connector status and tool creation are cached based on the active config. Auth writes,
+      removals, and explicit invalidation should clear the relevant cache so the next list/tool call
+      rechecks credentials and health.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Cache</th><th>Invalidated by</th></tr></thead>
+      <tbody>
+        <tr><td>Status</td><td><code>invalidateStatusCache</code> and connector invalidation.</td></tr>
+        <tr><td>Tools</td><td><code>invalidateToolsCache</code> and connector invalidation.</td></tr>
+        <tr><td>One connector</td><td><code>invalidateConnectorCache(name)</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="config" class="mb-16 scroll-mt-24">
+    <h2>Config examples</h2>
+    <DocCode language="json" title="connectors config">
+&#123;
+  "connectors": &#123;
+    "github": &#123;
+      "type": "github",
+      "enabled": true
+    &#125;,
+    "figma-design": &#123;
+      "type": "figma",
+      "enabled": true
+    &#125;,
+    "slack-builds": &#123;
+      "type": "slack",
+      "enabled": true
+    &#125;,
+    "linear-bot": &#123;
+      "type": "linear",
+      "enabled": true
+    &#125;
+  &#125;
+&#125;
+    </DocCode>
+    <p>
+      Use distinct names when the same service is used for different contexts, such as
+      <code>slack-builds</code> and <code>slack-support</code>. Tool names include the connector name,
+      so a descriptive name helps the model choose the correct integration.
+    </p>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td><code>needs_auth</code></td><td>No env, config, or saved credential resolved.</td><td>Run <code>nikcli connectors auth &lt;name&gt;</code> or set the provider env flag.</td></tr>
+        <tr><td><code>failed</code></td><td>Health check failed or connector type is unknown.</td><td>Check token scope and service API response.</td></tr>
+        <tr><td>Tools missing</td><td>Connector disabled, not authenticated, or type has no operations.</td><td>Check status and remember bot-only connectors have no agent tools.</td></tr>
+        <tr><td>Old credential still used</td><td>Status/tool cache was not invalidated after credential change.</td><td>Invalidate connector or restart the process.</td></tr>
+        <tr><td>Lovable token ignored</td><td>Credential stored as API key but type resolution expected token.</td><td>Lovable supports token fallback to API key; verify saved field and config field.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>Need</th><th>File</th></tr></thead>
+      <tbody>
+        <tr><td>Connector service</td><td><code>packages/nikcli/src/connectors/index.ts</code></td></tr>
+        <tr><td>Connector registry and tools</td><td><code>packages/nikcli/src/connectors/registry.ts</code></td></tr>
+        <tr><td>Credential resolution</td><td><code>packages/nikcli/src/connectors/credentials.ts</code></td></tr>
+        <tr><td>Credential store</td><td><code>packages/nikcli/src/connectors/auth.ts</code></td></tr>
+        <tr><td>CLI command</td><td><code>packages/nikcli/src/cli/cmd/connectors.ts</code></td></tr>
+        <tr><td>Server routes</td><td><code>packages/nikcli/src/server/routes/connectors.ts</code></td></tr>
+        <tr><td>Chatbot routes</td><td><code>packages/nikcli/src/server/routes/chatbot.ts</code></td></tr>
+        <tr><td>Service APIs</td><td><code>packages/nikcli/src/connectors/api</code></td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

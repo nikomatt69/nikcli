@@ -1,6 +1,5 @@
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect, type DialogSelectOption, type DialogSelectRef } from "@tui/ui/dialog-select"
-import { DialogHelp } from "@tui/ui/dialog-help"
 import {
   createContext,
   createMemo,

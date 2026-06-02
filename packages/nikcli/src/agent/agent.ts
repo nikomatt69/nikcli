@@ -48,6 +48,16 @@ When you identify a knowledge gap, outdated external dependency question, missin
 `
 
 export namespace Agent {
+  /**
+   * Thrown by helpers like `agentRequired` when the named agent does not exist
+   * in the resolved agent list. Tagged so the call site can use
+   * `Effect.catchTag("AgentNotFound", ...)` and the existing `instanceof
+   * Agent.NotFoundError` continues to work.
+   */
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AgentNotFound", {
+    name: Schema.String,
+  }) {}
+
   const ModelRefSchema = Schema.Struct({
     modelID: Schema.String,
     providerID: Schema.String,

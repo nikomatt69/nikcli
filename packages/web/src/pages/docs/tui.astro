@@ -2,84 +2,363 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import DocCallout from "../../components/docs/DocCallout.astro";
 import DocCode from "../../components/docs/DocCode.astro";
+import DocCard from "../../components/docs/DocCard.astro";
 
 const toc = [
-  { title: "TUI Entry", href: "#tui-entry", depth: 2 },
-  { title: "Worker Model", href: "#worker-model", depth: 2 },
-  { title: "Companion UI", href: "#companion-ui", depth: 2 },
-  { title: "Remote Control", href: "#remote-control", depth: 2 },
-  { title: "Attach", href: "#attach", depth: 2 },
+  { title: "Overview", href: "#overview", depth: 2 },
+  { title: "Default command", href: "#default-command", depth: 2 },
+  { title: "Worker model", href: "#worker-model", depth: 2 },
+  { title: "Transport modes", href: "#transport-modes", depth: 2 },
+  { title: "Renderer tree", href: "#renderer-tree", depth: 2 },
+  { title: "Routes", href: "#routes", depth: 2 },
+  { title: "Commands and keybinds", href: "#commands-keybinds", depth: 2 },
+  { title: "Event flow", href: "#event-flow", depth: 2 },
+  { title: "HTTP control routes", href: "#http-control", depth: 2 },
+  { title: "Config and plugins", href: "#config-plugins", depth: 2 },
+  { title: "Remote and attach", href: "#remote-attach", depth: 2 },
+  { title: "Operational checks", href: "#operational-checks", depth: 2 },
+  { title: "Failure modes", href: "#failure-modes", depth: 2 },
+  { title: "Source anchors", href: "#source-anchors", depth: 2 },
 ];
 ---
 
 <DocsLayout
   title="TUI"
-  subtitle="Terminal UI entrypoint and worker model in packages/nikcli/src/cli/cmd/tui."
+  subtitle="Terminal UI entrypoint, worker RPC, OpenTUI renderer, command registry, routes, event streams, and remote control wiring."
   toc={toc}
 >
-  <section id="tui-entry" class="mb-16 scroll-mt-24">
-    <h2>TUI Entry</h2>
+  <section id="overview" class="mb-16 scroll-mt-24">
+    <h2>Overview</h2>
     <p>
-      The TUI is the default CLI route. It spawns a worker thread and communicates with it over an
-      RPC channel. The entrypoint is <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code> and the
-      command is registered as <code>$0 [project]</code>.
+      The nikcli terminal UI is the default command registered by
+      <code>packages/nikcli/src/cli/cmd/tui/thread.ts</code>. It is not only a renderer. The TUI is a
+      split runtime: the main thread owns terminal input, OpenTUI rendering, dialogs, routes, and
+      local process lifecycle, while a Bun worker owns the server app, project instances, SDK fetches,
+      event streams, upgrades, and cleanup.
     </p>
-    <DocCallout type="info" title="Local vs server mode">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 my-8">
+      <DocCard title="Default route" eyebrow="$0 [project]">
+        <p>The bare <code>nikcli</code> command starts the TUI, resolves the working directory, validates any requested session, and passes initial args into the renderer.</p>
+      </DocCard>
+      <DocCard title="Worker RPC" eyebrow="Bun Worker">
+        <p>The worker exposes fetch, server startup, event subscription, reload, upgrade, and shutdown methods through <code>Rpc.client</code>.</p>
+      </DocCard>
+      <DocCard title="OpenTUI renderer" eyebrow="Solid">
+        <p><code>app.tsx</code> builds the Solid provider tree, command registry, route switch, dialogs, plugin routes, and keyboard handling.</p>
+      </DocCard>
+      <DocCard title="SDK surface" eyebrow="@nikcli-ai/sdk/v2">
+        <p>The UI talks to the same Hono app as external clients, either through in-process fetch or through an HTTP server when network access is enabled.</p>
+      </DocCard>
+    </div>
+  </section>
+
+  <section id="default-command" class="mb-16 scroll-mt-24">
+    <h2>Default command</h2>
+    <p>
+      <code>TuiThreadCommand</code> is registered in <code>packages/nikcli/src/index.ts</code> before
+      the one-shot run command. The command name is <code>$0 [project]</code>, which makes it the
+      default yargs route. It accepts project path, model, continue, session, prompt, and agent
+      options, plus shared network flags from <code>withNetworkOptions</code>.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Input</th><th>Runtime effect</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td><code>[project]</code></td><td>Resolved by <code>resolveThreadDirectory</code>; relative paths are based on <code>PWD</code> so shell <code>--cwd</code> behavior stays intact.</td><td><code>thread.ts</code></td></tr>
+        <tr><td><code>--model</code></td><td>Forwarded into the TUI args context as the initial provider/model selection.</td><td><code>thread.ts</code>, <code>context/args</code></td></tr>
+        <tr><td><code>--continue</code></td><td>Signals that the UI should continue the latest session instead of starting from an empty home route.</td><td><code>thread.ts</code>, session route code</td></tr>
+        <tr><td><code>--session</code></td><td>Validated with <code>Session.ID.safeParse</code> and <code>sdk.session.get</code> before the renderer starts.</td><td><code>validateSession</code></td></tr>
+        <tr><td><code>--prompt</code></td><td>Combined with piped stdin when stdin is not interactive, then passed into <code>ArgsProvider</code>.</td><td><code>thread.ts</code></td></tr>
+        <tr><td><code>--agent</code></td><td>Forwarded into the args context so session startup can select the requested agent.</td><td><code>thread.ts</code></td></tr>
+        <tr><td><code>--port</code>, <code>--hostname</code>, <code>--mdns</code></td><td>Switch the TUI from in-process RPC transport to a worker-hosted HTTP server.</td><td><code>resolveNetworkOptions</code></td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="PTY detection matters">
       <p>
-        The TUI can run fully locally or connect to an existing nikcli server via network flags.
-        When <code>--server</code> flags are present, the TUI boots an HTTP server and uses events
-        to stream state to connected clients.
+        Mobile and nikcli-managed PTYs set <code>NIKCLI_TERMINAL=1</code>. The TUI treats that as an
+        interactive terminal even if Bun reports <code>stdin.isTTY</code> as false, avoiding the
+        piped-stdin path that would otherwise block renderer startup.
       </p>
     </DocCallout>
   </section>
 
   <section id="worker-model" class="mb-16 scroll-mt-24">
-    <h2>Worker Model</h2>
+    <h2>Worker model</h2>
     <p>
-      The worker process runs the session engine, agent loops, tool execution, and permission
-      evaluation off the main thread. The main thread handles UI rendering and user I/O.
+      The main process chooses <code>NIKCLI_WORKER_PATH</code>, the built worker file, or the local
+      TypeScript worker source. It then starts a Bun <code>Worker</code> with a sanitized environment
+      where <code>Process.ROLE_ENV</code> is <code>worker</code> and a run id is guaranteed. The worker
+      calls <code>Process.ensureMetadata("worker")</code>, initializes logging, listens for global
+      bus events, and exposes an RPC object.
     </p>
-  </section>
-
-  <section id="companion-ui" class="mb-16 scroll-mt-24">
-    <h2>Companion UI</h2>
-    <p>
-      nikcli ships a web-based companion UI that runs in the browser and connects to the same
-      session stream as the TUI.
-    </p>
-    <DocCode language="bash">
-      nikcli companion serve
-      nikcli companion open
-    </DocCode>
-    <p>
-      This is distinct from the mobile app; the companion UI targets desktop browser access to a
-      nikcli session.
-    </p>
-  </section>
-
-  <section id="remote-control" class="mb-16 scroll-mt-24">
-    <h2>Remote Control</h2>
-    <p>
-      Remote Control exposes a running nikcli session to remote clients over a tunneled URL. Inside
-      a TUI session, use the <code>/remote-control</code> (alias <code>/rc</code>) slash command.
-    </p>
-    <DocCallout type="info" title="Slash commands">
+    <table class="doc-table">
+      <thead><tr><th>RPC method</th><th>Purpose</th><th>Operational detail</th></tr></thead>
+      <tbody>
+        <tr><td><code>fetch</code></td><td>Runs SDK requests against <code>Server.App().fetch</code>.</td><td>Adds Basic Auth from server flags when configured and returns status, headers, and text body.</td></tr>
+        <tr><td><code>server</code></td><td>Starts or restarts a Bun Hono server from the worker.</td><td>Stops the old server before replacing it; returns the concrete URL.</td></tr>
+        <tr><td><code>subscribe</code></td><td>Starts an event stream for a project directory.</td><td>Creates an SDK client against <code>http://nikcli.local</code> using worker-local fetch and emits each event back through RPC.</td></tr>
+        <tr><td><code>unsubscribe</code></td><td>Stops a worker event stream.</td><td>Aborts the matching stream controller and removes it from the stream map.</td></tr>
+        <tr><td><code>checkUpgrade</code></td><td>Runs passive upgrade checks after the renderer starts.</td><td>Executes inside <code>Instance.provide</code> for the current directory.</td></tr>
+        <tr><td><code>upgradeNow</code></td><td>Runs an explicit upgrade requested by the TUI.</td><td>Delegates to <code>upgradeNow(method, version)</code> inside the project instance.</td></tr>
+        <tr><td><code>reload</code></td><td>Disposes all project instances after <code>SIGUSR2</code>.</td><td>Used by development reload flows.</td></tr>
+        <tr><td><code>shutdown</code></td><td>Stops event streams, disposes instances, and stops the HTTP server.</td><td>The main thread waits up to five seconds before terminating the worker.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="warn" title="Shutdown is explicit">
       <p>
-        Use <code>/remote-control</code> (or alias <code>/rc</code>) inside a TUI session to open the
-        Remote Control dialog. Legacy alias <code>/remote</code> is still supported.
+        The TUI does not rely on worker process exit for cleanup. <code>onExit</code> calls worker
+        shutdown, <code>onBeforeExit</code> disposes TUI plugin runtime state, and the main thread
+        terminates the worker only after the RPC shutdown path returns or times out.
       </p>
     </DocCallout>
+  </section>
+
+  <section id="transport-modes" class="mb-16 scroll-mt-24">
+    <h2>Transport modes</h2>
     <p>
-      If a remote session already exists for the running instance, nikcli reuses it and keeps the
-      share URL in sync. Remote defaults are configurable under <code>config.remote</code>.
+      The TUI has two runtime transports. Both use the generated SDK surface, but they differ in how
+      requests and events reach the server app.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Mode</th><th>When used</th><th>Fetch path</th><th>Event path</th></tr></thead>
+      <tbody>
+        <tr><td>Direct worker transport</td><td>No explicit port, hostname, mdns, or non-local configured server values.</td><td><code>createWorkerFetch</code> forwards the request over RPC to <code>worker.fetch</code>.</td><td><code>createEventSource</code> subscribes through worker RPC and receives <code>event</code> emissions.</td></tr>
+        <tr><td>Worker HTTP server</td><td>Network options request an externally reachable server.</td><td>The SDK uses normal <code>fetch</code> against the returned HTTP URL.</td><td><code>SDKProvider</code> opens server SSE through <code>sdk.event.subscribe</code>.</td></tr>
+      </tbody>
+    </table>
+    <DocCallout type="info" title="Server on demand">
+      <p>
+        Even when the TUI starts in direct mode, the session UI can later call the
+        <code>startServer</code> callback. That asks the worker to bind a local server on port
+        <code>0</code> and returns the URL for local share or preview flows.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="renderer-tree" class="mb-16 scroll-mt-24">
+    <h2>Renderer tree</h2>
+    <p>
+      <code>packages/nikcli/src/cli/cmd/tui/app.tsx</code> creates an OpenTUI renderer with a 45 FPS
+      target, Kitty keyboard support, mouse support from TUI config, copy selection handling, and
+      explicit Ctrl-C behavior. The Solid app is mounted inside an error boundary and a deep provider
+      stack.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Provider group</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>ArgsProvider</code>, <code>ExitProvider</code>, <code>ServerProvider</code></td><td>Expose command args, restart/exit hooks, server startup, and plugin disposal on exit.</td></tr>
+        <tr><td><code>SDKProvider</code>, <code>ProjectProvider</code>, <code>SyncProvider</code></td><td>Create the SDK client, subscribe to project/server events, and keep synchronized runtime state.</td></tr>
+        <tr><td><code>AnalyticsProvider</code>, <code>KVProvider</code>, <code>LocalProvider</code></td><td>Expose usage, local preferences, model favorites, and small local state to routes and dialogs.</td></tr>
+        <tr><td><code>ThemeProvider</code>, <code>KeybindProvider</code>, <code>AttentionProvider</code></td><td>Apply terminal palette mode, user keybinds, and attention/notification handling.</td></tr>
+        <tr><td><code>DialogProvider</code>, <code>CommandProvider</code>, <code>ToastProvider</code></td><td>Manage dialogs, slash commands, keyboard command triggers, and toast rendering.</td></tr>
+        <tr><td><code>PromptHistoryProvider</code>, <code>PromptStashProvider</code>, <code>PromptRefProvider</code></td><td>Power prompt history, frecency, stash, and imperative prompt operations.</td></tr>
+        <tr><td><code>EditorContextProvider</code>, <code>UpgradeProvider</code></td><td>Expose editor integration state and interactive upgrade actions.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="routes" class="mb-16 scroll-mt-24">
+    <h2>Routes</h2>
+    <p>
+      The TUI route state lives in <code>context/route.tsx</code>. It is a Solid store initialized
+      from <code>NIKCLI_ROUTE</code> when present, otherwise from the home route. Route changes are
+      in-memory UI navigation, not browser history.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Route type</th><th>Fields</th><th>Used for</th></tr></thead>
+      <tbody>
+        <tr><td><code>home</code></td><td><code>initialPrompt</code>, <code>workspaceID</code></td><td>Default landing route and empty prompt state.</td></tr>
+        <tr><td><code>session</code></td><td><code>sessionID</code>, <code>initialPrompt</code>, <code>workspaceID</code></td><td>Main transcript and prompt view for one session.</td></tr>
+        <tr><td><code>workspace</code></td><td><code>tab</code>, <code>sessionID</code>, <code>workspaceID</code></td><td>Unified workspace panel with tree, changes, graph, and GitHub tabs.</td></tr>
+        <tr><td><code>tree</code>, <code>changes</code>, <code>git-graph</code>, <code>github</code></td><td><code>sessionID</code>, <code>workspaceID</code></td><td>Legacy route shapes redirected into the workspace view when needed.</td></tr>
+        <tr><td><code>plugin</code></td><td><code>id</code>, <code>data</code>, <code>workspaceID</code></td><td>TUI plugin routes registered through the plugin runtime.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The app keeps a mutable plugin route map and a reactive route key. When plugin routes change,
+      the key is bumped so the route switch re-renders. Missing plugin routes render
+      <code>PluginRouteMissing</code> with a home navigation action instead of crashing the TUI.
     </p>
   </section>
 
-  <section id="attach" class="mb-16 scroll-mt-24">
-    <h2>Attach</h2>
+  <section id="commands-keybinds" class="mb-16 scroll-mt-24">
+    <h2>Commands and keybinds</h2>
     <p>
-      <code>nikcli attach &lt;url&gt;</code> connects a local TUI to a shared session hosted by a
-      remote nikcli server.
+      <code>CommandProvider</code> owns the command registry. Components register command options with
+      titles, descriptions, optional keybind names, optional slash aliases, categories, visibility,
+      and an <code>onSelect</code> callback. The registry deduplicates by category plus value, merges
+      local and global registrations, and exposes command palette, slash, and trigger APIs.
     </p>
+    <table class="doc-table">
+      <thead><tr><th>Mechanism</th><th>Behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Command palette</td><td>The configured <code>command_list</code> keybind opens a <code>DialogSelect</code> of visible commands.</td></tr>
+        <tr><td>Direct keybinds</td><td>The provider listens to keyboard events, skips disabled commands and active dialogs, and calls the matching command callback.</td></tr>
+        <tr><td>Slash commands</td><td>Visible command options with <code>slash</code> metadata become prompt slash entries with aliases.</td></tr>
+        <tr><td>Programmatic trigger</td><td><code>command.trigger(name)</code> runs the matching command; TUI HTTP events use this path.</td></tr>
+        <tr><td>Suspension</td><td><code>keybinds(false)</code> increments a suspend counter so dialogs or text inputs can temporarily suppress command shortcuts.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="event-flow" class="mb-16 scroll-mt-24">
+    <h2>Event flow</h2>
+    <p>
+      <code>SDKProvider</code> creates a generated SDK client and an event emitter keyed by event
+      type. It batches event delivery inside Solid <code>batch</code> calls, flushing immediately
+      unless another flush happened in the last 16 milliseconds.
+    </p>
+    <ol>
+      <li><strong>Direct mode</strong> passes a custom <code>EventSource</code> from <code>thread.ts</code>; the worker opens the SDK event stream and emits events over RPC.</li>
+      <li><strong>HTTP mode</strong> calls <code>sdk.event.subscribe</code> directly and retries with exponential backoff from 250 ms to 5 seconds.</li>
+      <li><strong>Queueing</strong> batches received events to keep bursty server updates from forcing one render per event.</li>
+      <li><strong>TUI commands</strong> listen for <code>tui.command.execute</code>, <code>tui.toast.show</code>, and <code>tui.session.select</code> events and map them to local UI actions.</li>
+      <li><strong>Cleanup</strong> aborts the SDK signal, active SSE controller, and pending flush timer on provider unmount.</li>
+    </ol>
+    <table class="doc-table">
+      <thead><tr><th>TUI event</th><th>Payload</th><th>Local action</th></tr></thead>
+      <tbody>
+        <tr><td><code>tui.prompt.append</code></td><td><code>text</code></td><td>Append text to the active prompt.</td></tr>
+        <tr><td><code>tui.command.execute</code></td><td><code>command</code></td><td>Trigger a registered command such as session list, submit prompt, page up, compact, or agent cycle.</td></tr>
+        <tr><td><code>tui.toast.show</code></td><td><code>title</code>, <code>message</code>, <code>variant</code>, <code>duration</code></td><td>Render an info, success, warning, or error toast.</td></tr>
+        <tr><td><code>tui.session.select</code></td><td><code>sessionID</code></td><td>Navigate to the requested session after the server validates it exists.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="http-control" class="mb-16 scroll-mt-24">
+    <h2>HTTP control routes</h2>
+    <p>
+      <code>packages/nikcli/src/server/routes/tui.ts</code> exposes routes that remote clients,
+      companion surfaces, and automation can use to nudge the running TUI. Most routes publish a
+      typed <code>TuiEvent</code> onto the bus. <code>/tui/control</code> is a queue bridge for
+      request/response handoff.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Route</th><th>Publishes or returns</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td><code>POST /tui/append-prompt</code></td><td><code>TuiEvent.PromptAppend</code></td><td>Append text into the active prompt input.</td></tr>
+        <tr><td><code>POST /tui/open-help</code></td><td><code>help.show</code></td><td>Open the help dialog.</td></tr>
+        <tr><td><code>POST /tui/open-sessions</code></td><td><code>session.list</code></td><td>Open session selection.</td></tr>
+        <tr><td><code>POST /tui/open-themes</code></td><td><code>theme.switch</code></td><td>Open theme selection.</td></tr>
+        <tr><td><code>POST /tui/open-models</code></td><td><code>model.list</code></td><td>Open model selection.</td></tr>
+        <tr><td><code>POST /tui/submit-prompt</code></td><td><code>prompt.submit</code></td><td>Submit the current prompt.</td></tr>
+        <tr><td><code>POST /tui/clear-prompt</code></td><td><code>prompt.clear</code></td><td>Clear prompt input.</td></tr>
+        <tr><td><code>POST /tui/execute-command</code></td><td>Mapped command name</td><td>Translate legacy remote names such as <code>agent_cycle</code> into current command ids.</td></tr>
+        <tr><td><code>POST /tui/show-toast</code></td><td><code>TuiEvent.ToastShow</code></td><td>Show a notification in the terminal.</td></tr>
+        <tr><td><code>POST /tui/publish</code></td><td>Any typed <code>TuiEvent</code></td><td>Generic event publish endpoint with zod validation.</td></tr>
+        <tr><td><code>POST /tui/select-session</code></td><td><code>TuiEvent.SessionSelect</code></td><td>Validate a session through <code>Session.Service</code>, then navigate the TUI.</td></tr>
+        <tr><td><code>GET /tui/control/next</code></td><td>Queued TUI request</td><td>Pull the next queued control request.</td></tr>
+        <tr><td><code>POST /tui/control/response</code></td><td><code>true</code></td><td>Push the response for a pending queued request.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="config-plugins" class="mb-16 scroll-mt-24">
+    <h2>Config and plugins</h2>
+    <p>
+      TUI-specific configuration is loaded by <code>packages/nikcli/src/config/tui.ts</code>. The
+      loader reads global config directory files, <code>NIKCLI_TUI_CONFIG</code>, project TUI files,
+      <code>.nikcli</code> config directories, and managed config. It migrates old TUI config, flattens
+      nested <code>tui</code> objects, parses keybinds, deduplicates plugin specs, and records plugin
+      metadata with local or global scope.
+    </p>
+    <table class="doc-table">
+      <thead><tr><th>Config area</th><th>Runtime use</th></tr></thead>
+      <tbody>
+        <tr><td><code>mouse</code></td><td>Controls OpenTUI mouse support; defaults to enabled.</td></tr>
+        <tr><td><code>keybinds</code></td><td>Parsed through shared config keybind parsing and consumed by <code>KeybindProvider</code>.</td></tr>
+        <tr><td><code>scroll_speed</code>, <code>scroll_acceleration</code></td><td>Consumed by session route scroll logic.</td></tr>
+        <tr><td><code>diff_style</code></td><td>Used by session permission and diff rendering components.</td></tr>
+        <tr><td><code>plugin</code></td><td>Feeds <code>TuiPluginRuntime.init</code> through <code>createTuiApi</code>.</td></tr>
+        <tr><td><code>plugin_meta</code></td><td>Records whether each plugin came from local or global config and the source file.</td></tr>
+      </tbody>
+    </table>
+    <p>
+      The TUI plugin API can register commands, plugin routes, and UI contributions. Runtime cleanup
+      is tied to exit through <code>TuiPluginRuntime.dispose()</code>, so plugins should not depend on
+      process exit for teardown.
+    </p>
+  </section>
+
+  <section id="remote-attach" class="mb-16 scroll-mt-24">
+    <h2>Remote and attach</h2>
+    <p>
+      The TUI can either host its own local server for external access or attach to an existing
+      server. <code>nikcli attach &lt;url&gt;</code> calls the same <code>tui</code> renderer with the
+      provided URL instead of starting a local worker server. Remote Control uses TUI commands and
+      server routes to drive the active prompt, sessions, scrolling, compacting, sharing, and
+      interruption flows.
+    </p>
+    <DocCode language="bash">
+nikcli --port 4096 --hostname 127.0.0.1
+nikcli attach http://127.0.0.1:4096
+curl -X POST http://127.0.0.1:4096/tui/open-sessions
+curl -X POST http://127.0.0.1:4096/tui/execute-command -H 'content-type: application/json' -d '&#123;"command":"agent_cycle"&#125;'
+    </DocCode>
+    <DocCallout type="info" title="Companion is separate">
+      <p>
+        <code>nikcli companion serve</code> and <code>nikcli companion open</code> start the desktop
+        browser companion surface. It connects to the same server/event model, but it is not the
+        terminal renderer and it is distinct from the mobile host.
+      </p>
+    </DocCallout>
+  </section>
+
+  <section id="operational-checks" class="mb-16 scroll-mt-24">
+    <h2>Operational checks</h2>
+    <p>Use these checks when debugging TUI startup, remote control, or event delivery.</p>
+    <DocCode language="bash">
+NIKCLI_TERMINAL=1 bun run dev
+nikcli --print-logs --log-level DEBUG
+nikcli --port 0 --hostname 127.0.0.1
+nikcli attach http://127.0.0.1:4096
+curl -i http://127.0.0.1:4096/global
+curl -i -X POST http://127.0.0.1:4096/tui/open-help
+    </DocCode>
+    <table class="doc-table">
+      <thead><tr><th>Check</th><th>What it proves</th></tr></thead>
+      <tbody>
+        <tr><td>Start without network flags</td><td>Direct worker fetch and worker event subscription work.</td></tr>
+        <tr><td>Start with <code>--port</code></td><td>Worker server startup, HTTP fetch, and server-side SSE work.</td></tr>
+        <tr><td>Call <code>/tui/open-help</code></td><td>HTTP route can publish a TUI command event and the renderer is subscribed.</td></tr>
+        <tr><td>Call <code>/global</code></td><td>Server auth, request middleware, and basic SDK reachability are healthy.</td></tr>
+        <tr><td>Use <code>SIGUSR2</code></td><td>Worker reload disposes project instances without restarting the renderer process.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="failure-modes" class="mb-16 scroll-mt-24">
+    <h2>Failure modes</h2>
+    <table class="doc-table">
+      <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>TUI hangs before drawing</td><td>Bun reports non-TTY stdin and no <code>NIKCLI_TERMINAL=1</code>, so the command is waiting for piped stdin.</td><td>Run from an interactive terminal, set <code>NIKCLI_TERMINAL=1</code> for managed PTYs, or provide stdin intentionally.</td></tr>
+        <tr><td>Session id rejected before UI starts</td><td><code>--session</code> failed schema parsing or <code>sdk.session.get</code> returned an error.</td><td>Use a valid <code>ses...</code> id from <code>nikcli session list</code> and confirm the data root/project matches.</td></tr>
+        <tr><td>Remote button does nothing</td><td>The TUI is in direct mode and no local HTTP server has been started yet, or the server callback failed.</td><td>Start with <code>--port</code> or trigger the on-demand local server path and inspect worker logs.</td></tr>
+        <tr><td>HTTP TUI route returns true but UI does not change</td><td>The server published the event, but the renderer SDK event subscription is disconnected.</td><td>Check SSE reconnect logs, server auth flags, and whether the TUI is attached to the same server URL.</td></tr>
+        <tr><td>Keyboard shortcut ignored</td><td>A dialog or text input has suspended command keybinds, or the command is disabled for the current route.</td><td>Close the dialog, check route-specific command registration, and inspect TUI keybind config.</td></tr>
+        <tr><td>Plugin route missing</td><td>A plugin navigated to a route id that is not registered in the current plugin route map.</td><td>Verify the TUI plugin was loaded from config and registered its route before navigation.</td></tr>
+        <tr><td>Worker does not exit cleanly</td><td>A server, event stream, or instance finalizer is still shutting down after the five-second timeout.</td><td>Inspect worker logs and confirm server/event streams stop through <code>shutdown</code>.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="source-anchors" class="mb-16 scroll-mt-24">
+    <h2>Source anchors</h2>
+    <table class="doc-table">
+      <thead><tr><th>File</th><th>What to inspect</th></tr></thead>
+      <tbody>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/thread.ts</code></td><td>Default command, worker startup, network mode selection, session validation, prompt input, restart, and shutdown.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/worker.ts</code></td><td>RPC server, worker fetch, event stream bridge, server startup, reload, upgrade, and cleanup.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/app.tsx</code></td><td>OpenTUI renderer config, provider tree, route rendering, dialogs, command registration, plugin runtime, and event handlers.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/sdk.tsx</code></td><td>SDK client creation, direct event source support, SSE retry loop, event batching, and cleanup.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/context/route.tsx</code></td><td>Route shapes, route store initialization from <code>NIKCLI_ROUTE</code>, navigation, and override provider.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/component/dialog-command.tsx</code></td><td>Command registry, slash command projection, keybind handling, suspension, and palette dialog.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/event.ts</code></td><td>Typed TUI bus events and zod payload schemas.</td></tr>
+        <tr><td><code>packages/nikcli/src/server/routes/tui.ts</code></td><td>Remote TUI control HTTP routes and queue bridge.</td></tr>
+        <tr><td><code>packages/nikcli/src/config/tui.ts</code></td><td>TUI config loading, migration, keybind parsing, plugin deduplication, and plugin metadata.</td></tr>
+        <tr><td><code>packages/nikcli/src/cli/cmd/tui/attach.ts</code></td><td>Attach command path for connecting the renderer to an existing server URL.</td></tr>
+      </tbody>
+    </table>
   </section>
 </DocsLayout>

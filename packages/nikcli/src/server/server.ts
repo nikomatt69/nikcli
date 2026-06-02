@@ -183,6 +183,16 @@ export namespace Server {
           log.error("failed", {
             error: err,
           })
+          // Per-route Effect.catchTag handlers wrap expected domain failures
+          // in a `__http` marker. Honor it first so the route controls its
+          // own status/body and the middleware stays a thin fallback.
+          if (typeof err === "object" && err !== null && "__http" in err) {
+            const marker = (err as { __http: { status: number; name: string; data: Record<string, unknown> } }).__http
+            // Hono's c.json expects a literal ContentfulStatusCode; the
+            // marker carries a runtime number from the route, so we cast
+            // through `as never` to keep the call ergonomic.
+            return c.json({ name: marker.name, data: marker.data }, { status: marker.status as never })
+          }
           if (err instanceof Session.BusyError)
             return c.json({ name: err._tag, data: { sessionID: err.sessionID, message: err.message } }, { status: 409 })
           if (err instanceof Storage.NotFoundError)

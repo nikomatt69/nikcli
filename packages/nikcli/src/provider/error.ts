@@ -1,11 +1,18 @@
 import { APICallError } from "ai"
+import { Schema } from "effect"
 
 export namespace ProviderError {
-  export class HeaderTimeoutError extends Error {
-    override readonly name = "ProviderHeaderTimeoutError"
-
-    constructor(readonly ms: number) {
-      super(`Provider response headers timed out after ${ms}ms`)
+  /**
+   * Thrown when a provider's response headers do not arrive within the configured
+   * timeout window. Tagged so the call site can use
+   * `Effect.catchTag("ProviderHeaderTimeout", ...)` and the existing
+   * `instanceof ProviderError.HeaderTimeoutError` continues to work.
+   */
+  export class HeaderTimeoutError extends Schema.TaggedErrorClass<HeaderTimeoutError>()("ProviderHeaderTimeout", {
+    ms: Schema.Number,
+  }) {
+    override get message() {
+      return `Provider response headers timed out after ${this.ms}ms`
     }
   }
 
