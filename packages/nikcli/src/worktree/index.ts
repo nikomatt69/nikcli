@@ -73,6 +73,19 @@ export namespace Worktree {
     message: Schema.String,
   }) {}
 
+  /**
+   * Union of all errors that any `Worktree.Service` method can fail with. Use
+   * this in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   */
+  export type Error =
+    | NotGitError
+    | NameGenerationFailedError
+    | CreateFailedError
+    | StartCommandFailedError
+    | RemoveFailedError
+    | ResetFailedError
+
   const ADJECTIVES = [
     "brave",
     "calm",
@@ -192,12 +205,28 @@ export namespace Worktree {
   export class Service extends Context.Service<
     Service,
     {
-      create(input?: CreateInput): Effect.Effect<Info, unknown>
-      remove(input: RemoveInput): Effect.Effect<boolean, unknown>
-      reset(input: ResetInput): Effect.Effect<boolean, unknown>
-      list(): Effect.Effect<Info[], unknown>
+      create(input?: CreateInput): Effect.Effect<Info, Error>
+      remove(input: RemoveInput): Effect.Effect<boolean, Error>
+      reset(input: ResetInput): Effect.Effect<boolean, Error>
+      list(): Effect.Effect<Info[], Error>
     }
   >()("Worktree.Service") {}
+
+  /**
+   * Preserve the typed worktree error thrown by an impl. Falls back to
+   * `CreateFailedError` for unexpected non-`Worktree.Error` rejections so the
+   * service's Effect error channel stays typed at the `Worktree.Error` union.
+   */
+  function asWorktreeError(e: unknown): Error {
+    if (e instanceof NotGitError) return e
+    if (e instanceof NameGenerationFailedError) return e
+    if (e instanceof CreateFailedError) return e
+    if (e instanceof StartCommandFailedError) return e
+    if (e instanceof RemoveFailedError) return e
+    if (e instanceof ResetFailedError) return e
+    if (e instanceof Error) return new CreateFailedError({ message: e.message })
+    return new CreateFailedError({ message: String(e) })
+  }
 
   export const layer = Layer.succeed(
     Service,
@@ -205,19 +234,28 @@ export namespace Worktree {
       create(input) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => createImpl(ctx, CreateInput.optional().parse(input)))
+          return yield* Effect.tryPromise({
+            try: () => createImpl(ctx, CreateInput.optional().parse(input)),
+            catch: asWorktreeError,
+          })
         })
       },
       remove(input) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => removeImpl(ctx, RemoveInput.parse(input)))
+          return yield* Effect.tryPromise({
+            try: () => removeImpl(ctx, RemoveInput.parse(input)),
+            catch: asWorktreeError,
+          })
         })
       },
       reset(input) {
         return Effect.gen(function* () {
           const ctx = yield* InstanceState.context
-          return yield* Effect.tryPromise(() => resetImpl(ctx, ResetInput.parse(input)))
+          return yield* Effect.tryPromise({
+            try: () => resetImpl(ctx, ResetInput.parse(input)),
+            catch: asWorktreeError,
+          })
         })
       },
       list() {
@@ -225,8 +263,7 @@ export namespace Worktree {
           const ctx = yield* InstanceState.context
           return yield* Effect.tryPromise({
             try: () => listImpl(ctx),
-            // Preserve typed worktree errors instead of being wrapped in Effect's UnknownError
-            catch: (error) => error,
+            catch: asWorktreeError,
           })
         })
       },

@@ -48,6 +48,52 @@ export namespace Skill {
     actual: Schema.String,
   }) {}
 
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("SkillNotFoundError", {
+    name: Schema.String,
+  }) {}
+
+  export class AlreadyExistsError extends Schema.TaggedErrorClass<AlreadyExistsError>()("SkillAlreadyExistsError", {
+    name: Schema.String,
+    location: Schema.String,
+  }) {}
+
+  /**
+   * Union of all errors that any `Skill.Service` method can fail with. Use
+   * this in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   *
+   * `ConfigMarkdown.FrontmatterError` is included because `Skill.load` parses
+   * the skill file through `ConfigMarkdown.parse`, which throws a tagged
+   * frontmatter error on YAML failure.
+   */
+  export type Error =
+    | InvalidError
+    | NameMismatchError
+    | NotFoundError
+    | AlreadyExistsError
+    | ConfigMarkdown.FrontmatterError
+
+  /**
+   * Map an arbitrary thrown value from a Skill operation to a tagged
+   * `Skill.Error`. The frontmatter error is recognized first (the
+   * `ConfigMarkdown.parse` call throws a tagged error directly); anything
+   * else becomes `InvalidError` so the error channel stays typed.
+   */
+  function mapError(e: unknown): Error {
+    if (e instanceof ConfigMarkdown.FrontmatterError) return e
+    if (e instanceof Error) {
+      return new InvalidError({
+        path: "skill",
+        message: e.message,
+        issues: { cause: e },
+      })
+    }
+    return new InvalidError({
+      path: "skill",
+      message: String(e),
+    })
+  }
+
   // External skill directories to search for (project-level and global)
   // These follow the directory layout used by Claude Code and other agents.
   const EXTERNAL_DIRS = [".claude", ".agents"]
@@ -82,15 +128,15 @@ export namespace Skill {
   type State = Record<string, Info>
 
   export interface Interface {
-    readonly get: (name: string) => Effect.Effect<Info | undefined, unknown>
-    readonly all: () => Effect.Effect<Info[], unknown>
+    readonly get: (name: string) => Effect.Effect<Info | undefined, never>
+    readonly all: () => Effect.Effect<Info[], never>
     readonly resolve: (
       name: string,
       candidates?: Info[],
-    ) => Effect.Effect<{ skill: Info | undefined; suggestions: string[] }, unknown>
-    readonly load: (name: string) => Effect.Effect<Loaded | undefined, unknown>
-    readonly create: (input: CreateInput) => Effect.Effect<Info, unknown>
-    readonly remove: (name: string) => Effect.Effect<boolean, unknown>
+    ) => Effect.Effect<{ skill: Info | undefined; suggestions: string[] }, never>
+    readonly load: (name: string) => Effect.Effect<Loaded | undefined, Error>
+    readonly create: (input: CreateInput) => Effect.Effect<Info, Error>
+    readonly remove: (name: string) => Effect.Effect<boolean, Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("@nikcli/Skill") {}
@@ -269,7 +315,10 @@ export namespace Skill {
         const skill = yield* get(name)
         if (!skill) return undefined
 
-        const parsed = yield* Effect.promise(() => ConfigMarkdown.parse(skill.location))
+        const parsed = yield* Effect.tryPromise({
+          try: () => ConfigMarkdown.parse(skill.location),
+          catch: mapError,
+        })
         return {
           ...skill,
           dir: path.dirname(skill.location),
@@ -282,7 +331,12 @@ export namespace Skill {
         const skills = yield* InstanceState.get(state)
 
         if (skills[parsed.name]) {
-          throw new Error(`Skill "${parsed.name}" already exists at ${skills[parsed.name].location}`)
+          return yield* Effect.fail(
+            new AlreadyExistsError({
+              name: parsed.name,
+              location: skills[parsed.name].location,
+            }),
+          )
         }
 
         const directory = yield* InstanceState.directory
@@ -291,7 +345,10 @@ export namespace Skill {
             ? path.join(Global.Path.config, "skills", slug(parsed.name))
             : path.join(directory, ".nikcli", "skill", slug(parsed.name))
 
-        yield* Effect.promise(() => fs.mkdir(skillDir, { recursive: true }))
+        yield* Effect.tryPromise({
+          try: () => fs.mkdir(skillDir, { recursive: true }),
+          catch: mapError,
+        })
         const skillFile = path.join(skillDir, "SKILL.md")
 
         const frontmatter: string[] = [
@@ -306,7 +363,10 @@ export namespace Skill {
         frontmatter.push("---", "")
 
         const body = parsed.content ?? `# ${parsed.name}\n\n${parsed.description}\n`
-        yield* Effect.promise(() => Bun.write(skillFile, frontmatter.join("\n") + body))
+        yield* Effect.tryPromise({
+          try: () => Bun.write(skillFile, frontmatter.join("\n") + body),
+          catch: mapError,
+        })
 
         const info: Info = {
           name: parsed.name,
@@ -324,10 +384,13 @@ export namespace Skill {
         const skills = yield* InstanceState.get(state)
         const skill = skills[name]
         if (!skill) {
-          throw new Error(`Skill "${name}" not found`)
+          return yield* Effect.fail(new NotFoundError({ name }))
         }
 
-        yield* Effect.promise(() => fs.rm(path.dirname(skill.location), { recursive: true, force: true }))
+        yield* Effect.tryPromise({
+          try: () => fs.rm(path.dirname(skill.location), { recursive: true, force: true }),
+          catch: mapError,
+        })
         delete skills[name]
         return true
       })

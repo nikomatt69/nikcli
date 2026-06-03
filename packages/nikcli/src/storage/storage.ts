@@ -60,17 +60,17 @@ export namespace Storage {
   export type TransactionOp<T = unknown> = WriteOp<T> | RemoveOp
 
   export interface Interface {
-    remove(key: string[]): Effect.Effect<void, unknown>
-    read<T>(key: string[]): Effect.Effect<T, unknown>
-    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, unknown>
-    write<T>(key: string[], content: T): Effect.Effect<void, unknown>
-    list(prefix: string[]): Effect.Effect<string[][], unknown>
+    remove(key: string[]): Effect.Effect<void, Error>
+    read<T>(key: string[]): Effect.Effect<T, Error>
+    update<T>(key: string[], fn: (draft: T) => void): Effect.Effect<T, Error>
+    write<T>(key: string[], content: T): Effect.Effect<void, Error>
+    list(prefix: string[]): Effect.Effect<string[][], Error>
     /**
      * Execute multiple operations atomically.
      * All operations succeed or all fail together.
      * Uses a single lock for efficiency and consistency.
      */
-    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, unknown>
+    transaction<T extends TransactionOp[]>(ops: T): Effect.Effect<void, Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Storage.Service") {}
@@ -78,6 +78,19 @@ export namespace Storage {
   export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("NotFoundError", {
     message: Schema.String,
   }) {}
+
+  export class IOError extends Schema.TaggedErrorClass<IOError>()("StorageIOError", {
+    message: Schema.String,
+    path: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown),
+  }) {}
+
+  /**
+   * Union of all errors that any `Storage.Service` method can fail with.
+   * Use this in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   */
+  export type Error = NotFoundError | IOError
 
   const MIGRATIONS: Migration[] = [
     async (dir) => {
@@ -221,18 +234,40 @@ export namespace Storage {
     }
   })
 
+  /**
+   * Map an unknown error thrown by a storage implementation into a tagged
+   * `Storage.Error`. Keeps the storage service's Effect error channel
+   * typed — `ENONENT` becomes `NotFoundError`, anything else becomes `IOError`.
+   */
+  function mapError(e: unknown): Error {
+    if (e instanceof NotFoundError) return e
+    if (e instanceof IOError) return e
+    if (e instanceof Error) {
+      const errnoException = e as ErrnoException
+      if (errnoException.code === "ENOENT") {
+        return new NotFoundError({
+          message: `Resource not found: ${errnoException.path ?? e.message}`,
+        })
+      }
+      return new IOError({
+        message: e.message,
+        ...(errnoException.path ? { path: errnoException.path } : {}),
+        cause: e,
+      })
+    }
+    return new IOError({ message: String(e) })
+  }
+
   async function removeImpl(dir: string, key: string[]) {
     const cacheKey = key.join("/")
     Cache.invalidate(cacheKey)
     const target = path.join(dir, ...key) + ".json"
-    return withErrorHandling(async () => {
-      try {
-        await Bun.file(target).delete()
-      } catch (e: any) {
-        // Only ignore ENOENT (file doesn't exist) - other errors should propagate
-        if (e?.code !== "ENOENT") throw e
-      }
-    })
+    try {
+      await Bun.file(target).delete()
+    } catch (e: any) {
+      // Only ignore ENOENT (file doesn't exist) - other errors should propagate
+      if (e?.code !== "ENOENT") throw e
+    }
   }
 
   async function readImpl<T>(dir: string, key: string[]) {
@@ -241,44 +276,27 @@ export namespace Storage {
     if (cached !== undefined) return cached
 
     const target = path.join(dir, ...key) + ".json"
-    return withErrorHandling(async () => {
-      using _ = await Lock.read(target)
-      const result = await Bun.file(target).json()
-      Cache.set(cacheKey, result as T)
-      return result as T
-    })
+    using _ = await Lock.read(target)
+    const result = await Bun.file(target).json()
+    Cache.set(cacheKey, result as T)
+    return result as T
   }
 
   async function updateImpl<T>(dir: string, key: string[], fn: (draft: T) => void) {
     const target = path.join(dir, ...key) + ".json"
-    return withErrorHandling(async () => {
-      using _ = await Lock.write(target)
-      const content = structuredClone(await Bun.file(target).json())
-      fn(content)
-      await Bun.write(target, JSON.stringify(content, null, 2))
-      Cache.set(key.join("/"), content as T)
-      return content as T
-    })
+    using _ = await Lock.write(target)
+    const content = structuredClone(await Bun.file(target).json())
+    fn(content)
+    await Bun.write(target, JSON.stringify(content, null, 2))
+    Cache.set(key.join("/"), content as T)
+    return content as T
   }
 
   async function writeImpl<T>(dir: string, key: string[], content: T) {
     const target = path.join(dir, ...key) + ".json"
-    return withErrorHandling(async () => {
-      using _ = await Lock.write(target)
-      await Bun.write(target, JSON.stringify(content, null, 2))
-      Cache.set(key.join("/"), content)
-    })
-  }
-
-  async function withErrorHandling<T>(body: () => Promise<T>) {
-    return body().catch((e) => {
-      if (!(e instanceof Error)) throw e
-      const errnoException = e as ErrnoException
-      if (errnoException.code === "ENOENT") {
-        throw new NotFoundError({ message: `Resource not found: ${errnoException.path}` })
-      }
-      throw e
-    })
+    using _ = await Lock.write(target)
+    await Bun.write(target, JSON.stringify(content, null, 2))
+    Cache.set(key.join("/"), content)
   }
 
   const glob = new Bun.Glob("**/*")
@@ -372,32 +390,50 @@ export namespace Storage {
         remove: (key) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => removeImpl(dir, key))
+            return yield* Effect.tryPromise({
+              try: () => removeImpl(dir, key),
+              catch: mapError,
+            })
           }),
         read: <T>(key: string[]) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => readImpl<T>(dir, key))
+            return yield* Effect.tryPromise<T, Error>({
+              try: () => readImpl<T>(dir, key),
+              catch: mapError,
+            })
           }),
         update: <T>(key: string[], fn: (draft: T) => void) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => updateImpl<T>(dir, key, fn))
+            return yield* Effect.tryPromise<T, Error>({
+              try: () => updateImpl<T>(dir, key, fn),
+              catch: mapError,
+            })
           }),
         write: (key, content) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => writeImpl(dir, key, content))
+            return yield* Effect.tryPromise<void, Error>({
+              try: () => writeImpl(dir, key, content),
+              catch: mapError,
+            })
           }),
         list: (prefix) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => listImpl(dir, prefix))
+            return yield* Effect.tryPromise<string[][], Error>({
+              try: () => listImpl(dir, prefix),
+              catch: mapError,
+            })
           }),
         transaction: (ops) =>
           Effect.gen(function* () {
             const { dir } = yield* cachedState
-            return yield* Effect.tryPromise(() => transactionImpl(dir, ops))
+            return yield* Effect.tryPromise<void, Error>({
+              try: () => transactionImpl(dir, ops),
+              catch: mapError,
+            })
           }),
       })
     }),

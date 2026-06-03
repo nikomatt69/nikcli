@@ -1019,19 +1019,19 @@ export namespace Provider {
   }
 
   export interface Interface {
-    list(): Effect.Effect<Record<string, Info>, unknown>
-    getProvider(providerID: string): Effect.Effect<Info | undefined, unknown>
-    getModel(providerID: string, modelID: string): Effect.Effect<Model, unknown>
-    getLanguage(model: Model): Effect.Effect<LanguageModelV2, unknown>
-    getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, unknown>
+    list(): Effect.Effect<Record<string, Info>, never>
+    getProvider(providerID: string): Effect.Effect<Info | undefined, never>
+    getModel(providerID: string, modelID: string): Effect.Effect<Model, Error>
+    getLanguage(model: Model): Effect.Effect<LanguageModelV2, Error>
+    getImageModel(model: Model): Effect.Effect<ReturnType<SDK["imageModel"]>, Error>
     /** Resolve a model to a @nikcli-ai/llm ModelRef for the route-based provider system. */
-    getModelRef(model: Model): Effect.Effect<ModelRef | undefined, unknown>
+    getModelRef(model: Model): Effect.Effect<ModelRef | undefined, never>
     closest(
       providerID: string,
       query: string[],
-    ): Effect.Effect<{ providerID: string; modelID: string } | undefined, unknown>
-    getSmallModel(providerID: string): Effect.Effect<Model | undefined, unknown>
-    defaultModel(): Effect.Effect<{ providerID: string; modelID: string }, unknown>
+    ): Effect.Effect<{ providerID: string; modelID: string } | undefined, never>
+    getSmallModel(providerID: string): Effect.Effect<Model | undefined, Error>
+    defaultModel(): Effect.Effect<{ providerID: string; modelID: string }, never>
     /**
      * Invalidate the cached provider state for the current instance directory.
      * Call this after writes that change auth or `config.provider.*` so the
@@ -1039,7 +1039,7 @@ export namespace Provider {
      * the new auth + config. Without this, a freshly-connected provider stays
      * invisible until the process restarts.
      */
-    refresh(): Effect.Effect<void, unknown>
+    refresh(): Effect.Effect<void, never>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Provider.Service") {}
@@ -1772,27 +1772,33 @@ export namespace Provider {
         if (s.models.has(key)) return s.models.get(key)!
 
         const provider = s.providers[model.providerID]
-        const sdk = yield* Effect.tryPromise(() => getSDK(s, model))
+        const sdk = yield* Effect.tryPromise({
+          try: () => getSDK(s, model),
+          catch: asProviderError,
+        })
 
-        return yield* Effect.tryPromise(async () => {
-          try {
-            const language = s.modelLoaders[model.providerID]
-              ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
-              : sdk.languageModel(model.api.id)
-            s.models.set(key, language as LanguageModelV2)
-            return language as LanguageModelV2
-          } catch (e) {
-            if (e instanceof NoSuchModelError) {
-              throw Object.assign(
-                new ModelNotFoundError({
-                  modelID: model.id,
-                  providerID: model.providerID,
-                }),
-                { cause: e },
-              )
+        return yield* Effect.tryPromise<LanguageModelV2, Error>({
+          try: async () => {
+            try {
+              const language = s.modelLoaders[model.providerID]
+                ? await s.modelLoaders[model.providerID](sdk, model.api.id, provider.options)
+                : sdk.languageModel(model.api.id)
+              s.models.set(key, language as LanguageModelV2)
+              return language as LanguageModelV2
+            } catch (e) {
+              if (e instanceof NoSuchModelError) {
+                throw Object.assign(
+                  new ModelNotFoundError({
+                    modelID: model.id,
+                    providerID: model.providerID,
+                  }),
+                  { cause: e },
+                )
+              }
+              throw e
             }
-            throw e
-          }
+          },
+          catch: asProviderError,
         })
       })
 
@@ -1801,48 +1807,51 @@ export namespace Provider {
         const key = `${model.providerID}/${model.id}`
         if (s.images.has(key)) return s.images.get(key)!
 
-        return yield* Effect.tryPromise(async () => {
-          const providerID = model.providerID ?? ""
-          const apiNpm = model.api?.npm ?? ""
+        return yield* Effect.tryPromise<ReturnType<SDK["imageModel"]>, Error>({
+          try: async () => {
+            const providerID = model.providerID ?? ""
+            const apiNpm = model.api?.npm ?? ""
 
-          if (
-            providerID.includes("openrouter") ||
-            apiNpm.includes("openrouter") ||
-            apiNpm.includes("openai-compatible")
-          ) {
-            const { createOpenAI } = await import("@ai-sdk/openai")
-            const provider = s.providers[providerID] || s.providers["openrouter"]
-            const openrouterApi = "https://openrouter.ai/api/v1"
-            const baseURL = model.api?.url || (providerID.includes("openrouter") ? openrouterApi : undefined)
+            if (
+              providerID.includes("openrouter") ||
+              apiNpm.includes("openrouter") ||
+              apiNpm.includes("openai-compatible")
+            ) {
+              const { createOpenAI } = await import("@ai-sdk/openai")
+              const provider = s.providers[providerID] || s.providers["openrouter"]
+              const openrouterApi = "https://openrouter.ai/api/v1"
+              const baseURL = model.api?.url || (providerID.includes("openrouter") ? openrouterApi : undefined)
 
-            const openaiSDK = createOpenAI({
-              name: providerID,
-              baseURL,
-              apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
-            })
+              const openaiSDK = createOpenAI({
+                name: providerID,
+                baseURL,
+                apiKey: provider?.key ?? (provider as any)?.options?.apiKey,
+              })
 
-            const image = openaiSDK.imageModel(model.api.id)
-            s.images.set(key, image)
-            return image
-          }
-
-          const sdk = await getSDK(s, model)
-          try {
-            const image = sdk.imageModel(model.api.id)
-            s.images.set(key, image)
-            return image
-          } catch (e) {
-            if (e instanceof NoSuchModelError) {
-              throw Object.assign(
-                new ModelNotFoundError({
-                  modelID: model.id,
-                  providerID: model.providerID,
-                }),
-                { cause: e },
-              )
+              const image = openaiSDK.imageModel(model.api.id)
+              s.images.set(key, image)
+              return image
             }
-            throw e
-          }
+
+            const sdk = await getSDK(s, model)
+            try {
+              const image = sdk.imageModel(model.api.id)
+              s.images.set(key, image)
+              return image
+            } catch (e) {
+              if (e instanceof NoSuchModelError) {
+                throw Object.assign(
+                  new ModelNotFoundError({
+                    modelID: model.id,
+                    providerID: model.providerID,
+                  }),
+                  { cause: e },
+                )
+              }
+              throw e
+            }
+          },
+          catch: asProviderError,
         })
       })
 
@@ -1993,4 +2002,33 @@ export namespace Provider {
   export class InitError extends Schema.TaggedErrorClass<InitError>()("ProviderInitError", {
     providerID: Schema.String,
   }) {}
+
+  /**
+   * Union of all errors that any `Provider.Service` method can fail with.
+   * Use this in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   *
+   * `ProviderError.HeaderTimeoutError` is included because a hung provider
+   * header request is a typed failure surfaced by `getLanguage` /
+   * `getImageModel`.
+   */
+  export type Error = ModelNotFoundError | InitError | ProviderError.HeaderTimeoutError
+
+  /**
+   * Preserve the typed provider error thrown by an impl. Falls back to
+   * `InitError` for unexpected non-`Provider.Error` rejections so the
+   * service's Effect error channel stays typed at the `Provider.Error`
+   * union. Header timeouts from the underlying SDK are mapped to
+   * `ProviderError.HeaderTimeoutError` for caller-side `catchTag`.
+   */
+  export function asProviderError(e: unknown): Error {
+    if (e instanceof ModelNotFoundError) return e
+    if (e instanceof InitError) return e
+    if (e instanceof ProviderError.HeaderTimeoutError) return e
+    if (e instanceof Error) {
+      const message = (e as { code?: string; message?: string }).message ?? e.message
+      return new InitError({ providerID: message })
+    }
+    return new InitError({ providerID: String(e) })
+  }
 }

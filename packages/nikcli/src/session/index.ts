@@ -879,6 +879,16 @@ export namespace Session {
     }
   }
 
+  /**
+   * Union of all errors that any `Session.Service` method can fail with. Use
+   * this in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   *
+   * `Storage.NotFoundError` is included because the session storage helpers
+   * throw a `NotFoundError` when a session ID does not exist.
+   */
+  export type Error = BusyError | Storage.NotFoundError | Storage.IOError
+
   async function initializeImpl(ctx: InstanceContext, input: InitializeInput) {
     await runSessionPrompt(
       Effect.gen(function* () {
@@ -896,32 +906,49 @@ export namespace Session {
   }
 
   export interface Interface {
-    create(input?: CreateInput): Effect.Effect<Info, unknown>
-    fork(input: ForkInput): Effect.Effect<Info, unknown>
-    touch(sessionID: string): Effect.Effect<void, unknown>
-    createNext(input: CreateNextInput): Effect.Effect<Info, unknown>
+    create(input?: CreateInput): Effect.Effect<Info, Error>
+    fork(input: ForkInput): Effect.Effect<Info, Error>
+    touch(sessionID: string): Effect.Effect<void, Error>
+    createNext(input: CreateNextInput): Effect.Effect<Info, Error>
     plan(input: { slug: string; time: { created: number } }): Effect.Effect<string>
-    get(id: string): Effect.Effect<Info, unknown>
-    getAnyProject(id: string): Effect.Effect<Info, unknown>
-    getShare(id: string): Effect.Effect<ShareInfo, unknown>
-    share(id: string): Effect.Effect<ShareInfo, unknown>
-    unshare(id: string): Effect.Effect<void, unknown>
-    update(id: string, editor: (session: Info) => void, options?: { touch?: boolean }): Effect.Effect<Info, unknown>
-    diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], unknown>
-    messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], unknown>
+    get(id: string): Effect.Effect<Info, Error>
+    getAnyProject(id: string): Effect.Effect<Info, Error>
+    getShare(id: string): Effect.Effect<ShareInfo, Error>
+    share(id: string): Effect.Effect<ShareInfo, Error>
+    unshare(id: string): Effect.Effect<void, Error>
+    update(id: string, editor: (session: Info) => void, options?: { touch?: boolean }): Effect.Effect<Info, Error>
+    diff(sessionID: string): Effect.Effect<Snapshot.FileDiff[], Error>
+    messages(input: MessagesInput): Effect.Effect<MessageV2.WithParts[], Error>
     list(): Effect.Effect<AsyncIterable<Info>>
-    children(parentID: string): Effect.Effect<Info[], unknown>
-    remove(sessionID: string): Effect.Effect<void, unknown>
-    removeMessageWithParts(sessionID: string, messageID: string): Effect.Effect<void, unknown>
-    updateMessage(msg: MessageV2.Info): Effect.Effect<MessageV2.Info, unknown>
-    removeMessage(input: RemoveMessageInput): Effect.Effect<string, unknown>
-    removePart(input: RemovePartInput): Effect.Effect<string, unknown>
-    updatePart(input: z.input<typeof UpdatePartInput>): Effect.Effect<MessageV2.Part, unknown>
-    getUsage(input: UsageInput): Effect.Effect<ReturnType<typeof getUsage>, unknown>
-    initialize(input: InitializeInput): Effect.Effect<void, unknown>
+    children(parentID: string): Effect.Effect<Info[], Error>
+    remove(sessionID: string): Effect.Effect<void, Error>
+    removeMessageWithParts(sessionID: string, messageID: string): Effect.Effect<void, Error>
+    updateMessage(msg: MessageV2.Info): Effect.Effect<MessageV2.Info, Error>
+    removeMessage(input: RemoveMessageInput): Effect.Effect<string, Error>
+    removePart(input: RemovePartInput): Effect.Effect<string, Error>
+    updatePart(input: z.input<typeof UpdatePartInput>): Effect.Effect<MessageV2.Part, Error>
+    getUsage(input: UsageInput): Effect.Effect<ReturnType<typeof getUsage>, never>
+    initialize(input: InitializeInput): Effect.Effect<void, Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Session.Service") {}
+
+  /**
+   * Preserve the typed session error thrown by an impl. The session helpers
+   * primarily surface `Storage.NotFoundError` (when a session ID does not
+   * exist) and `Storage.IOError` (on disk failures); any other rejection
+   * becomes an `IOError` so the service's Effect error channel stays typed
+   * at the `Session.Error` union.
+   */
+  function asSessionError(e: unknown): Error {
+    if (e instanceof BusyError) return e
+    if (e instanceof Storage.NotFoundError) return e
+    if (e instanceof Storage.IOError) return e
+    if (e instanceof Error) {
+      return new Storage.IOError({ message: e.message, cause: e })
+    }
+    return new Storage.IOError({ message: String(e) })
+  }
 
   export const layer = Layer.succeed(
     Service,
@@ -929,68 +956,188 @@ export namespace Session {
       create: (input) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>
-            Effect.tryPromise(() =>
-              createNextImpl(ctx, {
-                parentID: input?.parentID,
-                directory: ctx.directory,
-                title: input?.title,
-                permission: input?.permission,
-                skills: input?.skills,
-                disabledInstructions: input?.disabledInstructions,
-                disabledTools: input?.disabledTools,
-                github: input?.github,
-                workspaceID: input?.workspaceID,
-              }),
-            ),
+            Effect.tryPromise({
+              try: () =>
+                createNextImpl(ctx, {
+                  parentID: input?.parentID,
+                  directory: ctx.directory,
+                  title: input?.title,
+                  permission: input?.permission,
+                  skills: input?.skills,
+                  disabledInstructions: input?.disabledInstructions,
+                  disabledTools: input?.disabledTools,
+                  github: input?.github,
+                  workspaceID: input?.workspaceID,
+                }),
+              catch: asSessionError,
+            }),
           ),
         ),
       fork: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => forkImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => forkImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       touch: (sessionID) =>
         InstanceState.context.pipe(
           Effect.flatMap((ctx) =>
-            Effect.tryPromise(() =>
-              updateImpl(ctx, sessionID, (draft) => {
-                draft.time.updated = Date.now()
-              }),
-            ).pipe(Effect.asVoid),
+            Effect.tryPromise({
+              try: () =>
+                updateImpl(ctx, sessionID, (draft) => {
+                  draft.time.updated = Date.now()
+                }),
+              catch: asSessionError,
+            }).pipe(Effect.asVoid),
           ),
         ),
       createNext: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => createNextImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => createNextImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       plan: (input) => InstanceState.context.pipe(Effect.map((ctx) => planImpl(ctx, input))),
-      get: (id) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => getImpl(ctx, id)))),
+      get: (id) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => getImpl(ctx, id),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       getAnyProject: (id) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => getAnyProjectImpl(ctx, id)))),
-      getShare: (id) => Effect.tryPromise(() => storageRead<ShareInfo>(["session_share", id])),
-      share: (id) => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => shareImpl(ctx, id)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => getAnyProjectImpl(ctx, id),
+              catch: asSessionError,
+            }),
+          ),
+        ),
+      getShare: (id) =>
+        Effect.tryPromise({
+          try: () => storageRead<ShareInfo>(["session_share", id]),
+          catch: asSessionError,
+        }),
+      share: (id) =>
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => shareImpl(ctx, id),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       unshare: (id) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => unshareImpl(ctx, id)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => unshareImpl(ctx, id),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       update: (id, editor, options) =>
         InstanceState.context.pipe(
-          Effect.flatMap((ctx) => Effect.tryPromise(() => updateImpl(ctx, id, editor, options))),
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => updateImpl(ctx, id, editor, options),
+              catch: asSessionError,
+            }),
+          ),
         ),
-      diff: (sessionID) => Effect.tryPromise(() => diffImpl(sessionID)),
+      diff: (sessionID) =>
+        Effect.tryPromise({
+          try: () => diffImpl(sessionID),
+          catch: asSessionError,
+        }),
       messages: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => messagesImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => messagesImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       list: () => InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.sync(() => listImpl(ctx)))),
       children: (parentID) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => childrenImpl(ctx, parentID)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => childrenImpl(ctx, parentID),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       remove: (sessionID) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removeImpl(ctx, sessionID)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => removeImpl(ctx, sessionID),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       removeMessageWithParts: (sessionID, messageID) =>
-        Effect.tryPromise(() => removeMessageWithPartsImpl(sessionID, messageID)),
+        Effect.tryPromise({
+          try: () => removeMessageWithPartsImpl(sessionID, messageID),
+          catch: asSessionError,
+        }),
       updateMessage: (msg) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => updateMessageImpl(ctx, msg)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => updateMessageImpl(ctx, msg),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       removeMessage: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removeMessageImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => removeMessageImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       removePart: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => removePartImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => removePartImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       updatePart: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => updatePartImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => updatePartImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
       getUsage: (input) => Effect.sync(() => getUsage(input)),
       initialize: (input) =>
-        InstanceState.context.pipe(Effect.flatMap((ctx) => Effect.tryPromise(() => initializeImpl(ctx, input)))),
+        InstanceState.context.pipe(
+          Effect.flatMap((ctx) =>
+            Effect.tryPromise({
+              try: () => initializeImpl(ctx, input),
+              catch: asSessionError,
+            }),
+          ),
+        ),
     }),
   )
 

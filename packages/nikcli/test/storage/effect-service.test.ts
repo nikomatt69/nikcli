@@ -2,14 +2,13 @@ import fs from "fs/promises"
 import os from "os"
 import path from "path"
 import { afterAll, describe, expect, it } from "bun:test"
-import { Effect } from "effect"
+import { Effect, Exit } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+import { Storage } from "@/storage/storage"
 
 const testHome = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-storage-effect-home-"))
 process.env.NIKCLI_TEST_HOME = testHome
 process.env.NIKCLI_DISABLE_PROJECT_CONFIG = "1"
-
-const { Storage } = await import("@/storage/storage")
 
 function runStorage<A, E>(effect: Effect.Effect<A, E, any>) {
   return runPromiseWithLayer(Storage.defaultLayer, effect)
@@ -41,6 +40,45 @@ describe("Storage.Service", () => {
         yield* storage.remove(key)
         const missing = yield* storage.read(key).pipe(Effect.exit)
         expect(missing._tag).toBe("Failure")
+      }),
+    )
+  })
+
+  it("surfaces a tagged Storage.NotFoundError when reading a missing key", async () => {
+    await runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        const exit = yield* storage.read(["missing", "key"]).pipe(Effect.exit)
+        expect(Exit.isFailure(exit)).toBe(true)
+        if (Exit.isFailure(exit)) {
+          const cause = exit.cause
+          const fail = cause.reasons.find((r) => r._tag === "Fail")
+          expect(fail).toBeDefined()
+          const err = (fail as { error: unknown }).error
+          expect(err).toBeInstanceOf(Storage.NotFoundError)
+          expect((err as Storage.NotFoundError)._tag).toBe("NotFoundError")
+          expect((err as Storage.NotFoundError).message).toContain("Resource not found")
+        }
+      }),
+    )
+  })
+
+  it("error union contains both NotFoundError and IOError", () => {
+    // Compile-time check: an `Effect<X, Storage.Error>` channel is assignable
+    // to a `Effect<X, Storage.NotFoundError | Storage.IOError>` channel.
+    const a: Effect.Effect<number, Storage.Error> = Effect.succeed(1)
+    const b: Effect.Effect<number, Storage.NotFoundError | Storage.IOError> = a
+    expect(b).toBe(a)
+  })
+
+  it("catches NotFoundError via Effect.catchTag with the literal _tag", async () => {
+    await runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        const recovered = yield* storage
+          .read(["absent"])
+          .pipe(Effect.catchTag("NotFoundError", (err) => Effect.succeed(err._tag)))
+        expect(recovered).toBe("NotFoundError")
       }),
     )
   })

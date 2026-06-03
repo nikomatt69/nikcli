@@ -9,24 +9,26 @@ import { UI } from "./ui"
 
 const log = Log.create({ service: "error-formatter" })
 
-export function FormatError(input: unknown): string | undefined {
-  if (input instanceof UserFacingError) {
-    log.debug("Formatting user-facing error", { title: input.title })
-    return input.format()
-  }
+/**
+ * Dispatch table keyed by the error's `_tag` discriminator.
+ *
+ * Each entry receives the typed error instance and returns the user-facing
+ * string the CLI should print. Adding a new domain error is one line:
+ * declare the `Schema.TaggedErrorClass`, then add a formatter here.
+ *
+ * Falls through to `defaultFormat` (which keeps the `UserFacingError.format()`
+ * legacy path) when `_tag` is not present.
+ */
+type Formatter = (input: any) => string | undefined
 
-  if (input instanceof Agent.NotFoundError) {
-    log.debug("Formatting agent not found error", { name: input.name })
-    return `Agent not found: ${input.name}. Run \`nikcli agents\` to list configured agents.`
-  }
-
-  if (input instanceof MCP.Failed) {
-    log.debug("Formatting MCP error", { serverName: input.name })
-    return `MCP server "${input.name}" failed. Note, nikcli does not support MCP authentication yet.`
-  }
-
-  if (input instanceof Provider.ModelNotFoundError) {
-    const { providerID, modelID, suggestions } = input
+const formatters: Record<string, Formatter> = {
+  // Provider
+  ProviderHeaderTimeout: (e) => {
+    log.debug("Formatting provider header timeout error", { ms: e.ms })
+    return `Provider response headers timed out after ${e.ms}ms`
+  },
+  ProviderModelNotFoundError: (e) => {
+    const { providerID, modelID, suggestions } = e
     const message = [
       `Model not found: ${providerID}/${modelID}`,
       ...(Array.isArray(suggestions) && suggestions.length ? ["Did you mean: " + suggestions.join(", ")] : []),
@@ -35,44 +37,79 @@ export function FormatError(input: unknown): string | undefined {
     ].join("\n")
     log.debug("Formatting model not found error", { providerID, modelID })
     return message
-  }
+  },
+  ProviderInitError: (e) => {
+    log.debug("Formatting provider init error", { providerID: e.providerID })
+    return `Failed to initialize provider "${e.providerID}". Check credentials and configuration.`
+  },
 
-  if (input instanceof Provider.InitError) {
-    log.debug("Formatting provider init error", { providerID: input.providerID })
-    return `Failed to initialize provider "${input.providerID}". Check credentials and configuration.`
-  }
+  // Agent
+  AgentNotFound: (e) => {
+    log.debug("Formatting agent not found error", { name: e.name })
+    return `Agent not found: ${e.name}. Run \`nikcli agents\` to list configured agents.`
+  },
 
-  if (input instanceof Config.JsonError) {
-    const message = `Config file at ${input.path} is not valid JSON(C)` + (input.message ? `: ${input.message}` : "")
-    log.warn("Config JSON error", { path: input.path, message: input.message })
+  // MCP
+  MCPFailed: (e) => {
+    log.debug("Formatting MCP error", { serverName: e.name })
+    return `MCP server "${e.name}" failed. Note, nikcli does not support MCP authentication yet.`
+  },
+
+  // Config
+  ConfigJsonError: (e) => {
+    const message = `Config file at ${e.path} is not valid JSON(C)` + (e.message ? `: ${e.message}` : "")
+    log.warn("Config JSON error", { path: e.path, message: e.message })
     return message
-  }
-
-  if (input instanceof Config.ConfigDirectoryTypoError) {
+  },
+  ConfigDirectoryTypoError: (e) => {
     log.debug("Formatting config directory typo error", {
-      dir: input.dir,
-      suggestion: input.suggestion,
+      dir: e.dir,
+      suggestion: e.suggestion,
     })
-    return `Directory "${input.dir}" in ${input.path} is not valid. Rename the directory to "${input.suggestion}" or remove it. This is a common typo.`
-  }
-
-  if (input instanceof ConfigMarkdown.FrontmatterError) {
-    log.debug("Formatting frontmatter error", { message: input.message })
-    return input.message
-  }
-
-  if (input instanceof Config.InvalidError) {
-    const issues = input.issues as Array<{ message: string; path: string[] }> | undefined
-    log.debug("Formatting config invalid error", { path: input.path, issues: issues?.length })
+    return `Directory "${e.dir}" in ${e.path} is not valid. Rename the directory to "${e.suggestion}" or remove it. This is a common typo.`
+  },
+  ConfigInvalidError: (e) => {
+    const issues = e.issues as Array<{ message: string; path: string[] }> | undefined
+    log.debug("Formatting config invalid error", { path: e.path, issues: issues?.length })
     return [
-      `Configuration is invalid${input.path && input.path !== "config" ? ` at ${input.path}` : ""}` +
-        (input.message ? `: ${input.message}` : ""),
+      `Configuration is invalid${e.path && e.path !== "config" ? ` at ${e.path}` : ""}` +
+        (e.message ? `: ${e.message}` : ""),
       ...(issues?.map((issue) => "↳ " + issue.message + " " + issue.path.join(".")) ?? []),
     ].join("\n")
+  },
+  ConfigFrontmatterError: (e) => {
+    log.debug("Formatting frontmatter error", { message: e.message })
+    return e.message
+  },
+
+  // UI
+  UICancelledError: () => "",
+
+  // User-facing
+  UserFacingError: (e) => {
+    log.debug("Formatting user-facing error", { title: e.title })
+    return e.format()
+  },
+}
+
+export function FormatError(input: unknown): string | undefined {
+  if (input === null || input === undefined) return undefined
+
+  // Fast path: tagged error classes expose `_tag`. Dispatch on the literal
+  // discriminator so new tagged classes are caught here without a code change
+  // to the CLI diagnostics path.
+  if (typeof input === "object" && "_tag" in input) {
+    const tag = (input as { _tag: unknown })._tag
+    if (typeof tag === "string" && tag in formatters) {
+      return formatters[tag](input)
+    }
   }
 
-  if (input instanceof UI.CancelledError) {
-    return ""
+  // Safety net: keep `UserFacingError.format()` working for any path that
+  // produces a UserFacingError without a recognized `_tag` mapping (e.g. older
+  // bundled SDKs or third-party consumers).
+  if (input instanceof UserFacingError) {
+    return input.format()
   }
 
   return undefined
@@ -90,7 +127,7 @@ export function FormatUnknownError(input: unknown): string {
       log.debug("Serialized object error", { keys: Object.keys(input) })
       return serialized
     } catch {
-      log.debug("Failed to serialize error object")
+      log.debug("Failed to serialize object error")
       return "Unexpected error (unserializable)"
     }
   }
