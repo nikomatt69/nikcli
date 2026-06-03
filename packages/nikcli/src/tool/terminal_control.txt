@@ -1,0 +1,28 @@
+Control, inspect and capture real terminal applications (TUIs) — like vim, htop, top, less, or any interactive CLI — by driving a PTY-backed session and reading its rendered screen.
+
+Unlike the `bash` tool (which runs a command and returns its raw stdout), this tool emulates a full terminal: it parses ANSI/VT output into a screen grid, so you can read exactly what a user would see, send keystrokes, and synchronize on screen content. Sessions are named and persist across calls.
+
+Actions (set via `action`):
+- start: launch a TUI. Provide `command` (+ optional `args`, `cwd`, `cols`, `rows`). Returns the session name (auto-generated if `name` omitted).
+- send: send input to a session. `input` is text (mode='text', default) or whitespace-separated key names (mode='keys'), e.g. "ctrl+c", "enter", "down down enter", "q".
+- capture: render the current screen. `format`: 'text' (default), 'ansi', 'json', 'svg', or 'png'. svg/png are returned as image attachments.
+- wait: block until a condition. `until`: 'text' (provide `value`), 'stable' (output settled, default), or 'timeout'. Optional `timeout` ms.
+- resize: change a session's `cols`/`rows`.
+- list: show all active sessions.
+- stop: kill and remove a session.
+- restart: relaunch a session with the same command/size.
+- logs: return the raw, un-emulated output buffer (optionally last `lines`).
+
+Recording (timeline capture & replay):
+- record: start recording a session's output timeline.
+- marker: label the current moment with `marker_name` (for clipping/navigation).
+- stop_recording: stop and summarize the recording.
+- export: render the recording. `export_format`: 'asciicast' (asciinema v2, default) and 'json' return text; 'svganim' is a self-contained animated SVG attachment (no external tools); 'frames' writes a PNG sequence under .nikcli/terminal-control; 'gif'/'mp4' need ffmpeg. Tune with `fps` and `speed`.
+
+Typical flow: start → wait (for a known string) → capture (text) → send (keys) → capture → stop.
+Recording flow: start → record → (send/wait/marker …) → stop_recording → export (svganim/asciicast/mp4).
+
+Notes:
+- Always `stop` sessions you no longer need.
+- Prefer `wait` with until='text' before `capture` so the screen is fully drawn.
+- Use `bash` instead for non-interactive commands where you only need stdout.
