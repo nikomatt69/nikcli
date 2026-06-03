@@ -72,8 +72,8 @@ export namespace Command {
   }
 
   export interface Interface {
-    readonly get: (name: string) => Effect.Effect<Info | undefined, unknown>
-    readonly list: () => Effect.Effect<Info[], unknown>
+    readonly get: (name: string) => Effect.Effect<Info | undefined, never>
+    readonly list: () => Effect.Effect<Info[], never>
   }
 
   export class Service extends Context.Service<Service, Interface>()("@nikcli/Command") {}

@@ -26,6 +26,11 @@ export namespace LSPClient {
     serverID: Schema.String,
   }) {}
 
+  /**
+   * Union of all errors that any `LSPClient` method can fail with.
+   */
+  export type Error = InitializeError
+
   export const Event = {
     Diagnostics: BusEvent.define(
       "lsp.client.diagnostics",

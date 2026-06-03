@@ -74,15 +74,31 @@ export namespace Pty {
     readonly onClose: () => void
   }
 
+  export class CreateError extends Schema.TaggedErrorClass<CreateError>()("PtyCreateError", {
+    command: Schema.String,
+    cause: Schema.optional(Schema.Unknown),
+  }) {
+    override get message() {
+      return `Failed to create PTY session for command: ${this.command}`
+    }
+  }
+
+  /**
+   * Union of all errors that any `Pty.Service` method can fail with. Use this
+   * in the Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   */
+  export type Error = CreateError
+
   export interface Interface {
-    readonly list: () => Effect.Effect<Info[], unknown>
-    readonly get: (id: string) => Effect.Effect<Info | undefined, unknown>
-    readonly create: (input: CreateInput) => Effect.Effect<Info, unknown>
-    readonly update: (id: string, input: UpdateInput) => Effect.Effect<Info | undefined, unknown>
-    readonly remove: (id: string) => Effect.Effect<void, unknown>
-    readonly resize: (id: string, cols: number, rows: number) => Effect.Effect<void, unknown>
-    readonly write: (id: string, data: string) => Effect.Effect<void, unknown>
-    readonly connect: (id: string, ws: WSContext) => Effect.Effect<Connection | undefined, unknown>
+    readonly list: () => Effect.Effect<Info[], never>
+    readonly get: (id: string) => Effect.Effect<Info | undefined, never>
+    readonly create: (input: CreateInput) => Effect.Effect<Info, Error>
+    readonly update: (id: string, input: UpdateInput) => Effect.Effect<Info | undefined, never>
+    readonly remove: (id: string) => Effect.Effect<void, never>
+    readonly resize: (id: string, cols: number, rows: number) => Effect.Effect<void, never>
+    readonly write: (id: string, data: string) => Effect.Effect<void, never>
+    readonly connect: (id: string, ws: WSContext) => Effect.Effect<Connection | undefined, never>
   }
 
   export class Service extends Context.Service<Service, Interface>()("@nikcli/Pty") {}
@@ -139,10 +155,14 @@ export namespace Pty {
         log.info("creating session", { id, cmd: command, args, cwd })
 
         const spawn = yield* cachedSpawn
-        const ptyProcess = spawn(command, args, {
-          name: "xterm-256color",
-          cwd,
-          env,
+        const ptyProcess = yield* Effect.try({
+          try: () =>
+            spawn(command, args, {
+              name: "xterm-256color",
+              cwd,
+              env,
+            }),
+          catch: (cause) => new CreateError({ command, cause }),
         })
 
         const info = {

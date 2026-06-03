@@ -69,15 +69,83 @@ export namespace Auth {
     }),
   )
 
+  /**
+   * Tagged errors that the auth service can surface through the Effect
+   * error channel. Each is a `Schema.TaggedErrorClass` so call sites can use
+   * `Effect.catchTag("AuthNotFound", ...)` and `instanceof` continues to
+   * work for plain `try/catch` paths.
+   */
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AuthNotFound", {
+    message: Schema.String,
+    providerID: Schema.String,
+  }) {}
+
+  export class NotOAuthProviderError extends Schema.TaggedErrorClass<NotOAuthProviderError>()("AuthNotOAuthProvider", {
+    message: Schema.String,
+    providerID: Schema.String,
+  }) {}
+
+  export class TokenRefreshError extends Schema.TaggedErrorClass<TokenRefreshError>()("AuthTokenRefresh", {
+    message: Schema.String,
+    providerID: Schema.String,
+    status: Schema.optional(Schema.Number),
+    responseBody: Schema.optional(Schema.String),
+  }) {}
+
+  export class WellKnownError extends Schema.TaggedErrorClass<WellKnownError>()("AuthWellKnown", {
+    message: Schema.String,
+  }) {}
+
+  export class IOError extends Schema.TaggedErrorClass<IOError>()("AuthIOError", {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Unknown),
+  }) {}
+
+  /**
+   * Union of all errors that any `Auth.Service` method can fail with.
+   * Includes `UserFacingError` for the user-presentable 401/400 path on
+   * token refresh.
+   */
+  export type Error =
+    | NotFoundError
+    | NotOAuthProviderError
+    | TokenRefreshError
+    | WellKnownError
+    | IOError
+    | UserFacingError
+
+  /**
+   * Preserve typed auth errors thrown by the impl. Anything we recognize
+   * passes through unchanged; untyped `Error` instances become
+   * `Auth.IOError`; everything else is wrapped in `IOError` so the Effect
+   * error channel stays typed at the `Auth.Error` union.
+   */
+  function asAuthError(e: unknown): Error {
+    if (
+      e instanceof NotFoundError ||
+      e instanceof NotOAuthProviderError ||
+      e instanceof TokenRefreshError ||
+      e instanceof WellKnownError ||
+      e instanceof IOError ||
+      e instanceof UserFacingError
+    ) {
+      return e
+    }
+    if (e instanceof Error) {
+      return new IOError({ message: e.message, cause: e })
+    }
+    return new IOError({ message: String(e) })
+  }
+
   export interface Interface {
-    fetchWellKnown(baseURL: string): Effect.Effect<Response, unknown>
-    fetchWellKnownToken(baseURL: string, command: string[]): Effect.Effect<string, unknown>
-    get(providerID: string): Effect.Effect<Info | undefined, unknown>
-    all(): Effect.Effect<Record<string, Info>, unknown>
-    set(key: string, info: Info): Effect.Effect<void, unknown>
-    remove(key: string): Effect.Effect<void, unknown>
-    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, unknown>
-    getValid(providerID: string): Effect.Effect<Info | undefined, unknown>
+    fetchWellKnown(baseURL: string): Effect.Effect<Response, Error>
+    fetchWellKnownToken(baseURL: string, command: string[]): Effect.Effect<string, Error>
+    get(providerID: string): Effect.Effect<Info | undefined, never>
+    all(): Effect.Effect<Record<string, Info>, never>
+    set(key: string, info: Info): Effect.Effect<void, Error>
+    remove(key: string): Effect.Effect<void, Error>
+    refresh(providerID: string): Effect.Effect<z.infer<typeof Oauth>, Error>
+    getValid(providerID: string): Effect.Effect<Info | undefined, Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Auth.Service") {}
@@ -85,14 +153,15 @@ export namespace Auth {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      fetchWellKnown: (baseURL) => Effect.tryPromise(() => fetchWellKnownImpl(baseURL)),
-      fetchWellKnownToken: (baseURL, command) => Effect.tryPromise(() => fetchWellKnownTokenImpl(baseURL, command)),
-      get: (providerID) => Effect.tryPromise(() => getImpl(providerID)),
-      all: () => Effect.tryPromise(() => allImpl()),
-      set: (key, info) => Effect.tryPromise(() => setImpl(key, info)),
-      remove: (key) => Effect.tryPromise(() => removeImpl(key)),
-      refresh: (providerID) => Effect.tryPromise(() => refreshImpl(providerID)),
-      getValid: (providerID) => Effect.tryPromise(() => getValidImpl(providerID)),
+      fetchWellKnown: (baseURL) => Effect.tryPromise({ try: () => fetchWellKnownImpl(baseURL), catch: asAuthError }),
+      fetchWellKnownToken: (baseURL, command) =>
+        Effect.tryPromise({ try: () => fetchWellKnownTokenImpl(baseURL, command), catch: asAuthError }),
+      get: (providerID) => Effect.promise(() => getImpl(providerID)),
+      all: () => Effect.promise(() => allImpl()),
+      set: (key, info) => Effect.tryPromise({ try: () => setImpl(key, info), catch: asAuthError }),
+      remove: (key) => Effect.tryPromise({ try: () => removeImpl(key), catch: asAuthError }),
+      refresh: (providerID) => Effect.tryPromise({ try: () => refreshImpl(providerID), catch: asAuthError }),
+      getValid: (providerID) => Effect.tryPromise({ try: () => getValidImpl(providerID), catch: asAuthError }),
     }),
   )
 
@@ -153,22 +222,22 @@ export namespace Auth {
 
       const location = response.headers.get("location")
       if (!location) {
-        throw new Error("Well-known endpoint returned a redirect without a location")
+        throw new WellKnownError({ message: "Well-known endpoint returned a redirect without a location" })
       }
 
       if (redirects === maxRedirects) {
-        throw new Error("Too many well-known redirects")
+        throw new WellKnownError({ message: "Too many well-known redirects" })
       }
 
       const next = new URL(location, current)
       if (next.origin !== origin) {
-        throw new Error("Cross-origin well-known redirects are not allowed")
+        throw new WellKnownError({ message: "Cross-origin well-known redirects are not allowed" })
       }
 
       current = next.toString()
     }
 
-    throw new Error("Too many well-known redirects")
+    throw new WellKnownError({ message: "Too many well-known redirects" })
   }
 
   async function fetchWellKnownImpl(baseURL: string) {
@@ -184,12 +253,12 @@ export namespace Auth {
           : undefined
 
     if (!url) {
-      throw new Error("Unsupported or unsafe well-known auth command")
+      throw new WellKnownError({ message: "Unsupported or unsafe well-known auth command" })
     }
 
     const response = await fetchSameOrigin(url)
     if (!response.ok) {
-      throw new Error(`Failed to fetch well-known auth token (${response.status})`)
+      throw new WellKnownError({ message: `Failed to fetch well-known auth token (${response.status})` })
     }
 
     return (await response.text()).trim()
@@ -296,11 +365,14 @@ export namespace Auth {
     const current = await getImpl(normalized)
 
     if (!current) {
-      throw new Error(`No auth found for provider: ${providerID}`)
+      throw new NotFoundError({ message: `No auth found for provider: ${providerID}`, providerID })
     }
 
     if (current.type !== "oauth") {
-      throw new Error(`Provider ${providerID} is not an OAuth provider`)
+      throw new NotOAuthProviderError({
+        message: `Provider ${providerID} is not an OAuth provider`,
+        providerID,
+      })
     }
 
     const oauth = current as z.infer<typeof Oauth>
@@ -336,7 +408,12 @@ export namespace Auth {
           cause: { status: response.status, error: errorText },
         })
       }
-      throw new Error(`Token refresh failed: ${response.status} ${errorText}`)
+      throw new TokenRefreshError({
+        message: `Token refresh failed: ${response.status} ${errorText}`,
+        providerID,
+        status: response.status,
+        responseBody: errorText,
+      })
     }
 
     const result = (await response.json()) as {

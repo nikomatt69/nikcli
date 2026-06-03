@@ -33,6 +33,23 @@ export namespace Ide {
     stderr: Schema.String,
   }) {}
 
+  /**
+   * Thrown when the IDE identifier passed to `install` does not match any
+   * entry in `SUPPORTED_IDES`. Tagged so the call site can use
+   * `Effect.catchTag("UnknownIdeError", ...)` and the existing `instanceof
+   * Ide.UnknownIdeError` continues to work.
+   */
+  export class UnknownIdeError extends Schema.TaggedErrorClass<UnknownIdeError>()("UnknownIdeError", {
+    ide: Schema.String,
+  }) {}
+
+  /**
+   * Union of all errors that `Ide.install` can fail with. Use this in the
+   * Effect error channel of downstream consumers so they can
+   * `Effect.catchTag` against the specific error class.
+   */
+  export type Error = UnknownIdeError | InstallFailedError | AlreadyInstalledError
+
   export function ide() {
     if (process.env["TERM_PROGRAM"] === "vscode") {
       const v = process.env["GIT_ASKPASS"]

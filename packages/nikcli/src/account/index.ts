@@ -17,10 +17,96 @@ import {
   type RefreshToken,
   type UserCode,
 } from "./schema"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 export namespace Account {
   const log = Log.create({ service: "account" })
+
+  /**
+   * Tagged errors that the account service can surface through the Effect
+   * error channel. Each is a `Schema.TaggedErrorClass` so call sites can use
+   * `Effect.catchTag("AccountNotFound", ...)` and `instanceof` continues to
+   * work for plain `try/catch` paths.
+   */
+  export class NotFoundError extends Schema.TaggedErrorClass<NotFoundError>()("AccountNotFound", {
+    message: Schema.String,
+    accountID: Schema.String,
+  }) {}
+
+  export class LoginFlowError extends Schema.TaggedErrorClass<LoginFlowError>()("AccountLoginFlow", {
+    message: Schema.String,
+    status: Schema.optional(Schema.Number),
+    responseBody: Schema.optional(Schema.String),
+  }) {}
+
+  export class LoginTimeoutError extends Schema.TaggedErrorClass<LoginTimeoutError>()("AccountLoginTimeout", {
+    message: Schema.String,
+  }) {}
+
+  export class LoginDeniedError extends Schema.TaggedErrorClass<LoginDeniedError>()("AccountLoginDenied", {
+    message: Schema.String,
+  }) {}
+
+  export class TokenExpiredError extends Schema.TaggedErrorClass<TokenExpiredError>()("AccountTokenExpired", {
+    message: Schema.String,
+  }) {}
+
+  export class TokenRefreshError extends Schema.TaggedErrorClass<TokenRefreshError>()("AccountTokenRefresh", {
+    message: Schema.String,
+    accountID: Schema.String,
+    status: Schema.optional(Schema.Number),
+    responseBody: Schema.optional(Schema.String),
+  }) {}
+
+  export class FetchOrgsError extends Schema.TaggedErrorClass<FetchOrgsError>()("AccountFetchOrgs", {
+    message: Schema.String,
+    accountID: Schema.String,
+    status: Schema.optional(Schema.Number),
+    responseBody: Schema.optional(Schema.String),
+  }) {}
+
+  export class IOError extends Schema.TaggedErrorClass<IOError>()("AccountIOError", {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Unknown),
+  }) {}
+
+  /**
+   * Union of all errors that any `Account.Service` method can fail with.
+   */
+  export type Error =
+    | NotFoundError
+    | LoginFlowError
+    | LoginTimeoutError
+    | LoginDeniedError
+    | TokenExpiredError
+    | TokenRefreshError
+    | FetchOrgsError
+    | IOError
+
+  /**
+   * Preserve typed account errors thrown by the impl. Anything we recognize
+   * passes through unchanged; untyped `Error` instances become
+   * `Account.IOError`; everything else is wrapped in `IOError` so the Effect
+   * error channel stays typed at the `Account.Error` union.
+   */
+  function asAccountError(e: unknown): Error {
+    if (
+      e instanceof NotFoundError ||
+      e instanceof LoginFlowError ||
+      e instanceof LoginTimeoutError ||
+      e instanceof LoginDeniedError ||
+      e instanceof TokenExpiredError ||
+      e instanceof TokenRefreshError ||
+      e instanceof FetchOrgsError ||
+      e instanceof IOError
+    ) {
+      return e
+    }
+    if (e instanceof Error) {
+      return new IOError({ message: e.message, cause: e })
+    }
+    return new IOError({ message: String(e) })
+  }
 
   // ============================================================================
   // Configuration
@@ -87,22 +173,22 @@ export namespace Account {
   }
 
   export interface Interface {
-    login(options?: LoginOptions): Effect.Effect<LoginStartResult, unknown>
+    login(options?: LoginOptions): Effect.Effect<LoginStartResult, Error>
     poll(
       deviceCode: DeviceCode,
       options?: { serverUrl?: string; onPending?: () => void },
     ): Effect.Effect<
       { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
-      unknown
+      Error
     >
     loginFull(
       options?: LoginOptions & { onPending?: (userCode: UserCode) => void },
     ): Effect.Effect<
       { accountID: AccountID; accessToken: string; refreshToken: RefreshToken; expiresIn: number },
-      unknown
+      Error
     >
-    token(accountID: AccountID): Effect.Effect<string, unknown>
-    orgs(accountID: AccountID): Effect.Effect<Org[], unknown>
+    token(accountID: AccountID): Effect.Effect<string, Error>
+    orgs(accountID: AccountID): Effect.Effect<Org[], Error>
     active(): Effect.Effect<Info | undefined>
     get(accountID: AccountID): Effect.Effect<Info | undefined>
     list(): Effect.Effect<Info[]>
@@ -116,11 +202,12 @@ export namespace Account {
   export const layer = Layer.succeed(
     Service,
     Service.of({
-      login: (options) => Effect.tryPromise(() => loginImpl(options)),
-      poll: (deviceCode, options) => Effect.tryPromise(() => pollImpl(deviceCode, options)),
-      loginFull: (options) => Effect.tryPromise(() => loginFullImpl(options)),
-      token: (accountID) => Effect.tryPromise(() => tokenImpl(accountID)),
-      orgs: (accountID) => Effect.tryPromise(() => orgsImpl(accountID)),
+      login: (options) => Effect.tryPromise({ try: () => loginImpl(options), catch: asAccountError }),
+      poll: (deviceCode, options) =>
+        Effect.tryPromise({ try: () => pollImpl(deviceCode, options), catch: asAccountError }),
+      loginFull: (options) => Effect.tryPromise({ try: () => loginFullImpl(options), catch: asAccountError }),
+      token: (accountID) => Effect.tryPromise({ try: () => tokenImpl(accountID), catch: asAccountError }),
+      orgs: (accountID) => Effect.tryPromise({ try: () => orgsImpl(accountID), catch: asAccountError }),
       active: () => Effect.sync(() => activeImpl()),
       get: (accountID) => Effect.sync(() => getImpl(accountID)),
       list: () => Effect.sync(() => listImpl()),
@@ -156,7 +243,11 @@ export namespace Account {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "Unknown error")
-      throw new Error(`Failed to start device code flow: ${response.status} ${errorText}`)
+      throw new LoginFlowError({
+        message: `Failed to start device code flow: ${response.status} ${errorText}`,
+        status: response.status,
+        responseBody: errorText,
+      })
     }
 
     const data = (await response.json()) as DeviceCodeResponse
@@ -200,7 +291,11 @@ export namespace Account {
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => "Unknown error")
-        throw new Error(`Failed to poll device code: ${response.status} ${errorText}`)
+        throw new LoginFlowError({
+          message: `Failed to poll device code: ${response.status} ${errorText}`,
+          status: response.status,
+          responseBody: errorText,
+        })
       }
 
       const result = (await response.json()) as PollResult

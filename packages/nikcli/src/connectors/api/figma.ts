@@ -1,6 +1,11 @@
 import { ConnectorAuth } from "../auth"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+
+export class FigmaApiError extends Schema.TaggedErrorClass<FigmaApiError>()("FigmaApiError", {
+  message: Schema.String,
+  status: Schema.optional(Schema.Number),
+}) {}
 
 function connectorAuthGet(name: string) {
   return runPromiseWithLayer(
@@ -20,7 +25,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -30,7 +38,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -40,7 +51,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -50,7 +64,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -63,7 +80,10 @@ export namespace FigmaApi {
       },
     )
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -73,7 +93,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -83,7 +106,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -93,7 +119,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -103,7 +132,10 @@ export namespace FigmaApi {
       headers: { "X-Figma-Token": token },
     })
     if (!response.ok) {
-      throw new Error(`Figma API error: ${response.status} ${response.statusText}`)
+      throw new FigmaApiError({
+        message: `Figma API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }

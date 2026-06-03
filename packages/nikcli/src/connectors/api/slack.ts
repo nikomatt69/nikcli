@@ -1,6 +1,10 @@
 import { ConnectorAuth } from "../auth"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+
+export class SlackApiError extends Schema.TaggedErrorClass<SlackApiError>()("SlackApiError", {
+  message: Schema.String,
+}) {}
 
 function connectorAuthGet(name: string) {
   return runPromiseWithLayer(
@@ -29,7 +33,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -40,7 +44,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -52,7 +56,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -66,7 +70,7 @@ export namespace SlackApi {
     )
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -77,7 +81,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -98,7 +102,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -121,7 +125,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }
@@ -132,7 +136,7 @@ export namespace SlackApi {
     })
     const result = await response.json()
     if (!result.ok) {
-      throw new Error(`Slack API error: ${result.error}`)
+      throw new SlackApiError({ message: `Slack API error: ${result.error}` })
     }
     return result
   }

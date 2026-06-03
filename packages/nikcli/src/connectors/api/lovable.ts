@@ -1,6 +1,11 @@
 import { ConnectorAuth } from "../auth"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+
+export class LovableApiError extends Schema.TaggedErrorClass<LovableApiError>()("LovableApiError", {
+  message: Schema.String,
+  status: Schema.optional(Schema.Number),
+}) {}
 
 function connectorAuthGet(name: string) {
   return runPromiseWithLayer(

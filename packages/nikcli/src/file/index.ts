@@ -33,6 +33,35 @@ export namespace File {
 
   export type Info = z.infer<typeof Info>
 
+  /**
+   * Thrown when a caller tries to read or list a path that escapes the
+   * instance directory or its worktree. Carries the resolved path that was
+   * rejected for diagnostics. Tagged so the Effect channel can be narrowed
+   * and call sites can use `Effect.catchTag("FileAccessDenied", ...)`.
+   */
+  export class AccessDeniedError extends Schema.TaggedErrorClass<AccessDeniedError>()("FileAccessDenied", {
+    path: Schema.String,
+    message: Schema.String,
+  }) {}
+
+  /**
+   * Generic filesystem or git failure surfaced from one of the file service
+   * methods. Carries the original cause so `Effect.catchTag` handlers can
+   * still inspect the underlying error if needed.
+   */
+  export class IOError extends Schema.TaggedErrorClass<IOError>()("FileIOError", {
+    message: Schema.String,
+    path: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Unknown),
+  }) {}
+
+  /**
+   * Union of all errors that any `File.Service` method can fail with.
+   * Use this in downstream Effect error channels so the channel is narrowed
+   * from `unknown` to a tagged union instead of an opaque error blob.
+   */
+  export type Error = AccessDeniedError | IOError
+
   const NodeSchema = Schema.Struct({
     name: Schema.String,
     path: Schema.String,
@@ -140,19 +169,37 @@ export namespace File {
   }
 
   export interface Interface {
-    init(): Effect.Effect<void, unknown>
-    status(): Effect.Effect<Info[], unknown>
-    read(file: string): Effect.Effect<Content, unknown>
-    list(dir?: string): Effect.Effect<Node[], unknown>
+    init(): Effect.Effect<void, Error>
+    status(): Effect.Effect<Info[], Error>
+    read(file: string): Effect.Effect<Content, Error>
+    list(dir?: string): Effect.Effect<Node[], Error>
     search(input: {
       query: string
       limit?: number
       dirs?: boolean
       type?: "file" | "directory"
-    }): Effect.Effect<string[], unknown>
+    }): Effect.Effect<string[], Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("File.Service") {}
+
+  /**
+   * Map an arbitrary error thrown by a file service implementation into the
+   * `File.Error` union. The pre-tagged error classes pass through unchanged so
+   * `Effect.catchTag` can still match them; everything else collapses to
+   * `IOError` with the original cause preserved.
+   */
+  function mapError(e: unknown): Error {
+    if (e instanceof AccessDeniedError) return e
+    if (e instanceof IOError) return e
+    if (e instanceof Error) {
+      return new IOError({
+        message: e.message,
+        cause: e,
+      })
+    }
+    return new IOError({ message: String(e) })
+  }
 
   const state = InstanceState.make<State>((ctx) =>
     Effect.gen(function* () {
@@ -379,7 +426,7 @@ export namespace File {
     // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
     // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
     if (!containsPath(ctx, full)) {
-      throw new Error(`Access denied: path escapes project directory`)
+      throw new AccessDeniedError({ path: full, message: "Access denied: path escapes project directory" })
     }
 
     const bunFile = Bun.file(full)
@@ -439,7 +486,10 @@ export namespace File {
     // TODO: Filesystem.contains is lexical only - symlinks inside the project can escape.
     // TODO: On Windows, cross-drive paths bypass this check. Consider realpath canonicalization.
     if (!containsPath(ctx, resolved)) {
-      throw new Error(`Access denied: path escapes project directory`)
+      throw new AccessDeniedError({
+        path: resolved,
+        message: "Access denied: path escapes project directory",
+      })
     }
 
     const nodes: Node[] = []
@@ -546,17 +596,26 @@ export namespace File {
 
       const status = Effect.fn("File.status")(function* () {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => statusImpl(s.context))
+        return yield* Effect.tryPromise({
+          try: () => statusImpl(s.context),
+          catch: mapError,
+        })
       })
 
       const read = Effect.fn("File.read")(function* (file: string) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => readImpl(s.context, file))
+        return yield* Effect.tryPromise({
+          try: () => readImpl(s.context, file),
+          catch: mapError,
+        })
       })
 
       const list = Effect.fn("File.list")(function* (dir?: string) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => listImpl(s.context, dir))
+        return yield* Effect.tryPromise({
+          try: () => listImpl(s.context, dir),
+          catch: mapError,
+        })
       })
 
       const search = Effect.fn("File.search")(function* (input: {
@@ -566,7 +625,10 @@ export namespace File {
         type?: "file" | "directory"
       }) {
         const s = yield* InstanceState.get(scopedState)
-        return yield* Effect.tryPromise(() => searchImpl(s, input))
+        return yield* Effect.tryPromise({
+          try: () => searchImpl(s, input),
+          catch: mapError,
+        })
       })
 
       return Service.of({

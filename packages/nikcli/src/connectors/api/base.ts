@@ -1,3 +1,5 @@
+import { Schema } from "effect"
+
 export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
   protected abstract baseUrl: string
 
@@ -31,9 +33,10 @@ export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "")
-      throw new Error(
-        `${this.constructor.name} error: ${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ""}`,
-      )
+      throw new ApiError({
+        message: `${response.status} ${response.statusText}${errorText ? ` - ${errorText}` : ""}`,
+        status: response.status,
+      })
     }
 
     return response.json()
@@ -63,13 +66,7 @@ export abstract class BaseApiClient<AuthConfig extends Record<string, string>> {
   }
 }
 
-export class ApiError extends Error {
-  constructor(
-    public readonly service: string,
-    public readonly status: number,
-    public override readonly message: string,
-  ) {
-    super(`${service} error: ${status} ${message}`)
-    this.name = "ApiError"
-  }
-}
+export class ApiError extends Schema.TaggedErrorClass<ApiError>()("ApiError", {
+  message: Schema.String,
+  status: Schema.optional(Schema.Number),
+}) {}

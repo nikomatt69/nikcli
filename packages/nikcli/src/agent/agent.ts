@@ -133,8 +133,8 @@ export namespace Agent {
 
   export interface Interface {
     get(agent: string): Effect.Effect<Info | undefined>
-    list(): Effect.Effect<Info[], unknown>
-    defaultAgent(): Effect.Effect<string, unknown>
+    list(): Effect.Effect<Info[], never>
+    defaultAgent(): Effect.Effect<string, NotFoundError>
     generate(input: { description: string; model?: { providerID: string; modelID: string } }): Effect.Effect<
       {
         identifier: string
@@ -816,16 +816,14 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
 
             if (cfg.default_agent) {
               const agent = agents[cfg.default_agent]
-              if (!agent) return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" not found`))
-              if (agent.mode === "subagent")
-                return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" is a subagent`))
-              if (agent.hidden === true)
-                return yield* Effect.fail(new Error(`default agent "${cfg.default_agent}" is hidden`))
+              if (!agent) return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
+              if (agent.mode === "subagent") return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
+              if (agent.hidden === true) return yield* Effect.fail(new NotFoundError({ name: cfg.default_agent }))
               return agent.name
             }
 
             const primaryVisible = (yield* list()).find((a: Info) => a.mode !== "subagent" && a.hidden !== true)
-            if (!primaryVisible) return yield* Effect.fail(new Error("no primary visible agent found"))
+            if (!primaryVisible) return yield* Effect.fail(new NotFoundError({ name: "" }))
             return primaryVisible.name
           }),
         generate: (input) =>

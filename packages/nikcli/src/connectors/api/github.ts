@@ -1,6 +1,11 @@
 import { ConnectorAuth } from "../auth"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { runPromiseWithLayer } from "@/effect"
+
+export class GithubApiError extends Schema.TaggedErrorClass<GithubApiError>()("GithubApiError", {
+  message: Schema.String,
+  status: Schema.optional(Schema.Number),
+}) {}
 
 function connectorAuthGet(name: string) {
   return runPromiseWithLayer(
@@ -23,7 +28,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -45,7 +53,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -68,7 +79,10 @@ export namespace GithubApi {
     })
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`GitHub API error: ${response.status} - ${error}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} - ${error}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -81,7 +95,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -99,7 +116,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -114,7 +134,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -133,7 +156,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -146,7 +172,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -165,7 +194,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -178,7 +210,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -200,7 +235,10 @@ export namespace GithubApi {
       },
     )
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     const pulls = (await response.json()) as any[]
     return pulls[0]
@@ -226,7 +264,10 @@ export namespace GithubApi {
     })
     if (!response.ok) {
       const error = await response.text()
-      throw new Error(`GitHub API error: ${response.status} - ${error}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} - ${error}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -239,7 +280,10 @@ export namespace GithubApi {
       },
     })
     if (!response.ok) {
-      throw new Error(`GitHub API error: ${response.status} ${response.statusText}`)
+      throw new GithubApiError({
+        message: `GitHub API error: ${response.status} ${response.statusText}`,
+        status: response.status,
+      })
     }
     return response.json()
   }
@@ -249,7 +293,7 @@ export namespace GithubApi {
     if (content.encoding === "base64" && content.content) {
       return Buffer.from(content.content, "base64").toString("utf-8")
     }
-    throw new Error("Unable to decode file content")
+    throw new GithubApiError({ message: "Unable to decode file content" })
   }
 }
 
