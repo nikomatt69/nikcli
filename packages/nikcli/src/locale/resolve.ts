@@ -136,13 +136,7 @@ export function resolveLocale(cfg?: LocaleConfig): ResolvedLocale {
   // A full locale tag (override or config) overrides language + region together
   const cfgParsed = cfg?.locale ? parseLocaleString(cfg.locale) : {}
 
-  const language = (
-    override.language ||
-    cfg?.language ||
-    cfgParsed.language ||
-    signals.language ||
-    "en"
-  ).toLowerCase()
+  const language = (override.language || cfg?.language || cfgParsed.language || signals.language || "en").toLowerCase()
   const region = (override.region || cfg?.region || cfgParsed.region || signals.region || "US").toUpperCase()
   const locale = override.locale || cfg?.locale || `${language}-${region}`
   const timezone = cfg?.timezone || signals.timezone || "UTC"
