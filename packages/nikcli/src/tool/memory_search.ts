@@ -81,14 +81,18 @@ export const MemorySearchTool = Tool.define<typeof parameters, { count: number }
         for (const part of msg.parts) {
           if (part.type !== "text") continue
           if (part.ignored) continue
-          const score = scoreText(part.text, terms)
+          // Lower-case the text once and reuse for both scoring and snippet.
+          // (Previously `scoreText` and `makeSnippet` each called `text.toLowerCase()`
+          // on the same string, doubling the per-part CPU cost.)
+          const lower = part.text.toLowerCase()
+          const score = scoreText(lower, terms)
           if (score <= 0) continue
           results.push({
             sessionID: msg.info.sessionID,
             messageID: msg.info.id,
             score,
             role: msg.info.role,
-            snippet: makeSnippet(part.text, terms),
+            snippet: makeSnippet(part.text, lower, terms),
             time: msg.info.time.created,
           })
           if (results.length >= limit) break
@@ -127,15 +131,13 @@ function splitTerms(query: string) {
     .filter(Boolean)
 }
 
-function scoreText(text: string, terms: string[]) {
-  const lower = text.toLowerCase()
+function scoreText(lower: string, terms: string[]) {
   const hits = terms.reduce((sum, term) => sum + (lower.includes(term) ? 1 : 0), 0)
   if (hits === 0) return 0
   return hits / terms.length
 }
 
-function makeSnippet(text: string, terms: string[]) {
-  const lower = text.toLowerCase()
+function makeSnippet(text: string, lower: string, terms: string[]) {
   const indexes = terms
     .map((term) => lower.indexOf(term))
     .filter((value) => value >= 0)

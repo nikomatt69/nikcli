@@ -73,7 +73,6 @@ export namespace Delegation {
   }
 
   const DEFAULT_TIMEOUT_MS = 15 * 60 * 1000 // 15 min default (aligned with TIMEOUTS.default)
-  const DEFAULT_MAX_ITERATIONS = 3
 
   // Configuration constants
   const FORCE_FINALIZE_DELAY_MS = 1000
@@ -453,7 +452,7 @@ export namespace Delegation {
     })
 
     entry.activeDelegations.set(record.id, record)
-    setTimer(record.id)
+    setTimer(record.id, getTimeoutForSource(validated.source))
     setHeartbeat(record.id)
 
     log.info(`Created delegation ${record.id} for agent ${params.agent}`)
@@ -797,72 +796,6 @@ export namespace Delegation {
 
       void check()
     })
-  }
-
-  /**
-   * Smart wait for a job to settle using per-source timeouts.
-   * Returns true if all delegations settled normally, false if timeout.
-   */
-  export async function waitForJobSettled(
-    jobID: string,
-    options: { maxIterations?: number; defaultTimeoutMs?: number } = {},
-  ): Promise<{ settled: boolean; iterations: number; timedOut: boolean }> {
-    const maxIterations = options.maxIterations ?? DEFAULT_MAX_ITERATIONS
-    const defaultTimeoutMs = options.defaultTimeoutMs ?? DEFAULT_TIMEOUT_MS
-
-    for (let i = 0; i < maxIterations; i++) {
-      const records = await BackgroundRun.listForJob(jobID)
-      const running = records.filter((r) => r.status === "running")
-
-      if (running.length === 0) {
-        return { settled: true, iterations: i + 1, timedOut: false }
-      }
-
-      // Use max timeout from running delegations
-      const maxTimeout = Math.max(...running.map((r) => getTimeoutForSource(r.source)))
-      let timedOut = false
-
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          const timer = setTimeout(() => {
-            timedOut = true
-            resolve()
-          }, maxTimeout)
-        }),
-        new Promise<void>((resolve) => {
-          const unsubscribe = Bus.subscribe(Event.Completed, (event) => {
-            const jobRecords = records.filter((r) => r.parentSessionID === event.properties.parentSessionID)
-            if (jobRecords.length > 0 && jobRecords.every((r) => r.status !== "running")) {
-              unsubscribe()
-              resolve()
-            }
-          })
-        }),
-      ])
-
-      if (timedOut) {
-        log.warn("Job iteration timed out", { jobID, iteration: i + 1 })
-      }
-    }
-
-    const records = await BackgroundRun.listForJob(jobID)
-    const stillRunning = records.filter((r) => r.status === "running")
-
-    if (stillRunning.length > 0) {
-      log.error("Job did not settle within max iterations", {
-        jobID,
-        maxIterations,
-        stillRunning: stillRunning.map((r) => r.id),
-      })
-      // Force finalization for stuck delegations
-      await Promise.all(
-        stillRunning.map((r) =>
-          BackgroundRun.finalize(r.id, "timeout", "", "Max iterations reached").catch(() => undefined),
-        ),
-      )
-    }
-
-    return { settled: stillRunning.length === 0, iterations: maxIterations, timedOut: true }
   }
 
   /**

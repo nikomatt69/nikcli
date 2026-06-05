@@ -9,25 +9,35 @@ on:
 jobs:
   nikcli:
     if: |
-      contains(github.event.comment.body, ' /nik') ||
-      startsWith(github.event.comment.body, '/nik') ||
-      contains(github.event.comment.body, ' /nikcli') ||
-      startsWith(github.event.comment.body, '/nikcli')
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      (
+        contains(github.event.comment.body, ' /nik ') ||
+        startsWith(github.event.comment.body, '/nik ') ||
+        github.event.comment.body == '/nik' ||
+        contains(github.event.comment.body, ' /nikcli ') ||
+        startsWith(github.event.comment.body, '/nikcli ') ||
+        github.event.comment.body == '/nikcli'
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
-      id-token: write
-      contents: read
-      pull-requests: read
-      issues: read
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          fetch-depth: 0
           persist-credentials: false
 
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
       - name: Run nikcli
-        uses: nikomatt69/nikcli/github@latest
+        run: bun github/index.ts
         env:
+          MODEL: minimax-coding-plan/MiniMax-M3
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        with:
-          model: minimax-coding-plan/MiniMax-M2.7
+          NIKCLI_PERMISSION: '{"*": "allow"}'
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}

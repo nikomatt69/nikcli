@@ -53,7 +53,7 @@ jobs:
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
         with:
-          model: minimax-coding-plan/MiniMax-M2.7
+          model: minimax-coding-plan/MiniMax-M3
           agent: docs
           prompt: |
             Review the following commits from the last ${{ env.LOOKBACK_HOURS }} hours and identify any new features that may need documentation.

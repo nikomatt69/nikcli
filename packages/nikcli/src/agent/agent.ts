@@ -37,6 +37,13 @@ const PRIMARY_AGENT_DELEGATION_AWARENESS = `
 ${PROMPT_DELEGATION}
 `
 
+const MONITOR_TOOL_AWARENESS = `
+
+For typecheck, builds, test suites, dev servers, and any long-running or potentially long-running command, use the monitor tool instead of bash. The bash tool blocks the turn and will hang on commands that take a while or never exit; the monitor tool runs the command in the background, persists its output, and wakes the session when it finishes so you can keep working. Reserve bash for short, fast, clearly-bounded commands (a few seconds at most).
+
+The monitor tool only streams a short preview of the output. The full results are written to a log file on disk (the "Log file:" path returned when the job starts). To read the complete output of a background job — for example to inspect typecheck or build errors — read that log file from the filesystem with the read tool once the job has produced output or finished, rather than relying on the streamed preview alone.
+`
+
 const PRIMARY_AGENT_RESEARCH_AWARENESS = `
 
 When you identify a knowledge gap, outdated external dependency question, missing docs context, or a decision that needs evidence, proactively launch a background research run with the task tool using subagent_type: "researcher".
@@ -193,7 +200,7 @@ You have access to subagents that can be launched as background tasks.${PRIMARY_
         prompt: `You are a build agent focused on creating and implementing features.
 
 You are aware of the project context (directory, worktree) and can use all available tools.
-You have access to subagents that can be launched as background tasks.${PRIMARY_AGENT_DELEGATION_AWARENESS}${PRIMARY_AGENT_RESEARCH_AWARENESS}`,
+You have access to subagents that can be launched as background tasks.${MONITOR_TOOL_AWARENESS}${PRIMARY_AGENT_DELEGATION_AWARENESS}${PRIMARY_AGENT_RESEARCH_AWARENESS}`,
         options: {},
         permission: PermissionNext.merge(
           defaults,

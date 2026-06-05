@@ -35,7 +35,7 @@ jobs:
               "webfetch": "deny"
             }
         run: |
-          nikcli run -m minimax-coding-plan/MiniMax-M2.7 "A new issue has been created:
+          nikcli run -m minimax-coding-plan/MiniMax-M3 "A new issue has been created:
 
           Issue number: ${{ github.event.issue.number }}
 
@@ -137,7 +137,7 @@ jobs:
               "webfetch": "deny"
             }
         run: |
-          nikcli run -m minimax-coding-plan/MiniMax-M2.7 "Issue #${{ github.event.issue.number }} was previously flagged as non-compliant and has been edited.
+          nikcli run -m minimax-coding-plan/MiniMax-M3 "Issue #${{ github.event.issue.number }} was previously flagged as non-compliant and has been edited.
 
           Lookup this issue with gh issue view ${{ github.event.issue.number }}.
 

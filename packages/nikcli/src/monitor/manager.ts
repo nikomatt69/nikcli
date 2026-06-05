@@ -8,6 +8,7 @@ import { SessionPrompt } from "@/session/prompt"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
 import { Runtime } from "@/util/runtime"
+import { throttleTrailing } from "@/util/throttle"
 import { Shell } from "@/shell/shell"
 import { spawn, type ChildProcess } from "child_process"
 import { createWriteStream, type WriteStream } from "fs"
@@ -22,6 +23,10 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 const OUTPUT_EVENT_MAX_BYTES = 32 * 1024
 const OUTPUT_TAIL_MAX_BYTES = 64 * 1024
 const OUTPUT_FLUSH_MS = 150
+// The output delta streams to the UI every flush (above), but persisting the
+// record (disk write + tool-part sync) only needs to keep up coarsely — coalesce
+// it so a chatty process doesn't write to disk ~7×/s per monitor.
+const RECORD_PERSIST_THROTTLE_MS = 1000
 const PART_SYNC_RETRY_MS = 100
 const PART_SYNC_RETRY_MAX = 30
 const PREVIEW_MAX_CHARS = 220
@@ -56,6 +61,15 @@ function storageWrite<T>(key: string[], content: T) {
     Effect.gen(function* () {
       const storage = yield* Storage.Service
       yield* storage.write(key, content)
+    }),
+  )
+}
+
+function storageList(prefix: string[]) {
+  return runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(prefix)
     }),
   )
 }
@@ -158,6 +172,7 @@ export namespace Monitor {
     }
     exited: boolean
     finalizing?: boolean
+    persistThrottle: ReturnType<typeof throttleTrailing>
   }
 
   const state = Instance.state(
@@ -295,36 +310,42 @@ export namespace Monitor {
     Bus.publish(Event.Updated, { sessionID: record.sessionID, record })
   }
 
-  async function flushRuntime(runtime: ActiveRuntime) {
+  function flushRuntime(runtime: ActiveRuntime) {
     runtime.flushTimer = undefined
     const delta = runtime.pendingDelta
     runtime.pendingDelta = ""
     runtime.record.time.updated = Date.now()
     runtime.record.preview = buildPreview(runtime.outputTail)
-    await publishUpdated(runtime.record)
-    if (!delta) return
 
-    let payload = delta
-    if (Buffer.byteLength(payload) > OUTPUT_EVENT_MAX_BYTES) {
-      const buffer = Buffer.from(payload)
-      payload = buffer.subarray(buffer.length - OUTPUT_EVENT_MAX_BYTES).toString("utf8")
+    // Stream the output delta immediately so the UI stays live...
+    if (delta) {
+      let payload = delta
+      if (Buffer.byteLength(payload) > OUTPUT_EVENT_MAX_BYTES) {
+        const buffer = Buffer.from(payload)
+        payload = buffer.subarray(buffer.length - OUTPUT_EVENT_MAX_BYTES).toString("utf8")
+      }
+      Bus.publish(Event.Output, {
+        sessionID: runtime.record.sessionID,
+        monitorID: runtime.record.id,
+        delta: payload,
+        preview: runtime.record.preview,
+        bytes: runtime.record.bytes ?? 0,
+        status: runtime.record.status,
+      })
     }
-    Bus.publish(Event.Output, {
-      sessionID: runtime.record.sessionID,
-      monitorID: runtime.record.id,
-      delta: payload,
-      preview: runtime.record.preview,
-      bytes: runtime.record.bytes ?? 0,
-      status: runtime.record.status,
-    })
+
+    // ...but coalesce the heavier record persist (disk write + tool-part sync).
+    runtime.persistThrottle.call()
   }
 
   function scheduleFlush(runtime: ActiveRuntime) {
     if (runtime.flushTimer) return
     runtime.flushTimer = setTimeout(() => {
-      void flushRuntime(runtime).catch((error) => {
+      try {
+        flushRuntime(runtime)
+      } catch (error) {
         log.error("failed to flush monitor output", { error: String(error), monitorID: runtime.record.id })
-      })
+      }
     }, OUTPUT_FLUSH_MS)
   }
 
@@ -333,6 +354,7 @@ export namespace Monitor {
     if (runtime.timeoutTimer) clearTimeout(runtime.timeoutTimer)
     runtime.flushTimer = undefined
     runtime.timeoutTimer = undefined
+    runtime.persistThrottle.cancel()
   }
 
   async function finalize(
@@ -348,7 +370,7 @@ export namespace Monitor {
     clearRuntimeTimers(runtime)
 
     if (runtime.pendingDelta) {
-      await flushRuntime(runtime)
+      flushRuntime(runtime)
     }
 
     const finalStatus = runtime.requestedFinalization?.status ?? status
@@ -369,6 +391,9 @@ export namespace Monitor {
       runtime.logStream.end(() => resolve())
     }).catch(() => {})
 
+    // Drop any pending throttled persist; this explicit call writes the
+    // authoritative final record.
+    runtime.persistThrottle.cancel()
     await publishUpdated(runtime.record)
 
     state().delete(key(runtime.record.id))
@@ -451,6 +476,9 @@ export namespace Monitor {
           const sessionPrompt = yield* SessionPrompt.Service
           return yield* sessionPrompt.prompt({
             sessionID: record.sessionID,
+            // Preserve the agent that started the monitor so a completion wake
+            // doesn't silently switch the session to the default agent.
+            ...(record.agent ? { agent: record.agent } : {}),
             parts: [
               {
                 type: "text",
@@ -565,6 +593,11 @@ export namespace Monitor {
       pendingDelta: "",
       outputTail: "",
       exited: false,
+      persistThrottle: throttleTrailing(() => {
+        void publishUpdated(record).catch((error) => {
+          log.error("failed to persist monitor record", { error: String(error), monitorID: record.id })
+        })
+      }, RECORD_PERSIST_THROTTLE_MS),
     }
 
     state().set(key(record.id), runtime)
@@ -640,5 +673,51 @@ export namespace Monitor {
   export async function cancelAll(sessionID: string): Promise<void> {
     const activeMonitors = Array.from(state().values()).filter((runtime) => runtime.record.sessionID === sessionID)
     await Promise.all(activeMonitors.map((runtime) => cancel(sessionID, runtime.record.id)))
+  }
+
+  /** Whether a process is still alive. EPERM means it exists but we can't signal it. */
+  function pidAlive(pid: number): boolean {
+    try {
+      process.kill(pid, 0)
+      return true
+    } catch (error) {
+      return (error as NodeJS.ErrnoException)?.code === "EPERM"
+    }
+  }
+
+  /**
+   * Mark monitors left "running" by a previous (crashed) process as errored.
+   * The in-memory `ActiveRuntime` map does not survive a restart, so a record
+   * persisted as "running" whose process is gone would otherwise stay "running"
+   * forever. We key off the persisted `pid`: a record not owned by this process
+   * (absent from `state()`) whose pid is no longer alive is finalized. Records
+   * whose pid is still alive are left untouched so a concurrent nikcli process
+   * keeps ownership of its monitors.
+   */
+  export async function reconcile(): Promise<void> {
+    const keys = await storageList(["monitor"]).catch(() => [])
+    for (const itemKey of keys) {
+      const record = await storageRead<Record>(itemKey).catch(() => undefined)
+      if (!record || record.status !== "running") continue
+      if (state().get(key(record.id))) continue
+      if (record.pid && pidAlive(record.pid)) continue
+
+      record.status = "error"
+      record.time.completed = Date.now()
+      record.time.updated = record.time.completed
+      await persist(record).catch((error) => {
+        log.error("failed to reconcile monitor", { error: String(error), monitorID: record.id })
+      })
+      void syncToolPart(record)
+      Bus.publish(Event.Completed, {
+        sessionID: record.sessionID,
+        monitorID: record.id,
+        title: record.title,
+        status: record.status,
+        exitCode: record.exitCode ?? null,
+        logPath: record.logPath,
+        wake: false,
+      })
+    }
   }
 }

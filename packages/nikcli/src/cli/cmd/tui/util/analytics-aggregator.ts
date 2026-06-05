@@ -205,7 +205,9 @@ export interface DayStats {
   cacheWrite: number
   cost: number
   messages: number
-  models: { modelKey: string; tokens: number; cost: number; messages: number }[]
+  // Map<modelKey, modelRow> for O(1) lookups during aggregation; preserved as Map in the
+  // public type since no external consumer mutates it (they only iterate / map / clone).
+  models: Map<string, { modelKey: string; tokens: number; cost: number; messages: number }>
 }
 
 export interface AggregatedStats {
@@ -243,7 +245,7 @@ function emptyDayStats(date: string): DayStats {
     cacheWrite: 0,
     cost: 0,
     messages: 0,
-    models: [],
+    models: new Map(),
   }
 }
 
@@ -509,13 +511,13 @@ export function aggregateAnalytics(data: SyncData): AggregatedStats {
       dStats.cost += cost
       dStats.messages++
 
-      const existingModelDay = dStats.models.find((item) => item.modelKey === modelKey)
+      const existingModelDay = dStats.models.get(modelKey)
       if (existingModelDay) {
         existingModelDay.tokens += total
         existingModelDay.cost += cost
         existingModelDay.messages++
       } else {
-        dStats.models.push({ modelKey, tokens: total, cost, messages: 1 })
+        dStats.models.set(modelKey, { modelKey, tokens: total, cost, messages: 1 })
       }
       dayMap.set(msgDateKey, dStats)
     }
@@ -784,30 +786,30 @@ function historicalDailyToDayStats(hd: HistoricalDailyData): DayStats {
     cacheWrite: hd.tokens.cacheWrite,
     cost: hd.cost,
     messages: hd.messages,
-    models: Object.entries(hd.models).map(([modelKey, stats]) => ({
-      modelKey,
-      tokens: stats.tokens,
-      cost: stats.cost,
-      messages: stats.messages,
-    })),
+    models: new Map(
+      Object.entries(hd.models).map(([modelKey, stats]) => [
+        modelKey,
+        { modelKey, tokens: stats.tokens, cost: stats.cost, messages: stats.messages },
+      ]),
+    ),
   }
 }
 
-function mergeDayModelRows(a: DayStats["models"][number][], b: DayStats["models"][number][]): DayStats["models"] {
+function mergeDayModelRows(a: DayStats["models"], b: DayStats["models"]): DayStats["models"] {
   const m = new Map<string, { modelKey: string; tokens: number; cost: number; messages: number }>()
-  for (const row of a) {
-    m.set(row.modelKey, { ...row })
+  for (const [key, row] of a) {
+    m.set(key, { ...row })
   }
-  for (const row of b) {
-    const ex = m.get(row.modelKey)
-    if (!ex) m.set(row.modelKey, { ...row })
+  for (const [key, row] of b) {
+    const ex = m.get(key)
+    if (!ex) m.set(key, { ...row })
     else {
       ex.tokens = Math.max(ex.tokens, row.tokens)
       ex.cost = Math.max(ex.cost, row.cost)
       ex.messages = Math.max(ex.messages, row.messages)
     }
   }
-  return Array.from(m.values())
+  return m
 }
 
 /** When a date exists in both TUI (subset of messages loaded) and storage, take per-metric max. */
@@ -1103,13 +1105,13 @@ export function augmentAggregatedStatsFromPersistedSessions(
     cur.tokens = cur.input + cur.output + cur.reasoning
     const dayModelKey = mk
     const t = s.tokens.input + s.tokens.output + s.tokens.reasoning
-    const prevModel = cur.models.find((m) => m.modelKey === dayModelKey)
+    const prevModel = cur.models.get(dayModelKey)
     if (prevModel) {
       prevModel.tokens += t
       prevModel.cost += s.cost
       prevModel.messages += s.messages
     } else {
-      cur.models.push({ modelKey: dayModelKey, tokens: t, cost: s.cost, messages: s.messages })
+      cur.models.set(dayModelKey, { modelKey: dayModelKey, tokens: t, cost: s.cost, messages: s.messages })
     }
     sessionDays.set(dayDate, cur)
   }
@@ -1118,13 +1120,13 @@ export function augmentAggregatedStatsFromPersistedSessions(
   for (const d of stats.days) {
     dayMap.set(d.date, {
       ...d,
-      models: d.models.map((m) => ({ ...m })),
+      models: new Map(Array.from(d.models, ([k, v]) => [k, { ...v }])),
     })
   }
   for (const [date, sd] of sessionDays) {
     const ex = dayMap.get(date)
     if (!ex) {
-      dayMap.set(date, { ...sd, models: sd.models.map((m) => ({ ...m })) })
+      dayMap.set(date, { ...sd, models: new Map(Array.from(sd.models, ([k, v]) => [k, { ...v }])) })
     } else {
       dayMap.set(date, mergeOverlappingDayStats(ex, sd))
     }

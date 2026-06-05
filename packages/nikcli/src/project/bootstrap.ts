@@ -14,6 +14,7 @@ import { Snapshot } from "../snapshot"
 import { Truncate } from "../tool/truncation"
 import { Todo } from "../session/todo"
 import { Delegation } from "@/delegation/manager"
+import { Monitor } from "@/monitor/manager"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
@@ -113,6 +114,9 @@ export async function InstanceBootstrap() {
     ),
   )
   await Delegation.init()
+  await Monitor.reconcile().catch((error) => {
+    Log.Default.warn("failed to reconcile monitors on startup", { error })
+  })
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {
     if (payload.properties.name === Command.Default.INIT) {

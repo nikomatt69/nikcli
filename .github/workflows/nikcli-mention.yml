@@ -9,26 +9,32 @@ on:
 jobs:
   nikcli:
     if: |
-      contains(github.event.comment.body, ' /nc') ||
-      startsWith(github.event.comment.body, '/nc') ||
-      contains(github.event.comment.body, ' /nikcli') ||
-      startsWith(github.event.comment.body, '/nikcli')
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
+      (
+        contains(github.event.comment.body, ' /nc ') ||
+        startsWith(github.event.comment.body, '/nc ') ||
+        github.event.comment.body == '/nc'
+      )
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
-      id-token: write
-      contents: read
-      pull-requests: read
-      issues: read
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-      - uses: ./.github/actions/setup-bun
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
 
       - name: Run nikcli
-        uses: nikomatt69/nikcli/github@main
+        run: bun github/index.ts
         env:
-          NIKCLI_API_KEY: ${{ secrets.NIKCLI_API_KEY }}
-          NIKCLI_PERMISSION: '{"bash": "deny"}'
-        with:
-          model: minimax-coding-plan/MiniMax-M2.7
+          MODEL: minimax-coding-plan/MiniMax-M3
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          NIKCLI_PERMISSION: '{"*": "allow"}'
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}

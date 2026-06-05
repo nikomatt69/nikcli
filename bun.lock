@@ -39,6 +39,7 @@
         "@nikcli-ai/sdk": "workspace:*",
         "@octokit/graphql": "9.0.1",
         "@octokit/rest": "catalog:",
+        "@octokit/webhooks-types": "7.6.1",
       },
       "devDependencies": {
         "@types/bun": "catalog:",

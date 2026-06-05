@@ -78,6 +78,16 @@ export namespace SystemPrompt {
         `  User timezone: ${loc.timezone}`,
         `</env>`,
       ].join("\n"),
+      [
+        `<monitor_tool_usage>`,
+        `For typecheck, builds, test suites, dev servers, log tails, and any long-running or potentially long-running command, use the monitor tool instead of bash.`,
+        `The bash tool blocks the current turn and will hang on commands that take a while or never exit (e.g. \`bun run typecheck\`, \`bun run build\`, test runs, watchers, servers).`,
+        `The monitor tool runs the command in the background, persists its stdout/stderr to a log file, streams live status, and wakes the session when the command finishes so you can keep working.`,
+        `Only a short preview of the output is streamed back into the session. The full results live in the log file on disk (the "Log file:" path returned when the job starts).`,
+        `To read the complete output of a background job — e.g. to inspect the full typecheck or build errors — read that log file from the filesystem with the read tool once the job has produced output or finished, instead of relying on the streamed preview alone.`,
+        `Reserve bash for short, fast, clearly-bounded commands that complete in a few seconds at most.`,
+        `</monitor_tool_usage>`,
+      ].join("\n"),
     ]
     if (loc.replyLanguage) {
       parts.push(
