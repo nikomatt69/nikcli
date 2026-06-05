@@ -7,6 +7,7 @@ import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { Storage } from "@/storage/storage"
 import { Log } from "@/util/log"
+import { Runtime } from "@/util/runtime"
 import { Shell } from "@/shell/shell"
 import { spawn, type ChildProcess } from "child_process"
 import { createWriteStream, type WriteStream } from "fs"
@@ -513,7 +514,10 @@ export namespace Monitor {
     await fs.writeFile(commandPath, input.command, "utf8")
     await fs.writeFile(logPath, "", "utf8")
 
-    const proc = spawn(input.command, {
+    // Reuse the Bun runtime instead of spawning a separate Node one when the
+    // monitored command is a JS runner (`node`/`npm`/`npx`) and Bun is present.
+    const command = Runtime.preferBun(input.command)
+    const proc = spawn(command, {
       shell: Shell.acceptable(),
       cwd: input.cwd,
       env: {
