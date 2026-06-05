@@ -401,7 +401,7 @@ ${result}
       draft.ownerID = OWNER_ID
       draft.ownerPID = process.pid
       draft.heartbeatAt = Date.now()
-    }).finally(() => invalidateListCache())
+    }).finally(() => invalidateListCacheSoon())
   }
 
   export async function setDelegatorID(id: string, delegatorID: string) {
@@ -450,6 +450,24 @@ ${result}
   /** Invalidate the list cache after a mutation (create, finalize, update). */
   function invalidateListCache() {
     listCache = undefined
+    if (pendingInvalidate) {
+      clearTimeout(pendingInvalidate)
+      pendingInvalidate = undefined
+    }
+  }
+
+  // Coalesce rapid-fire invalidations (e.g. many parallel progress updates) so
+  // the next reader does not pay for one full reload per mutation. A short
+  // debounce window is enough because callers see a slightly stale view for at
+  // most DEBOUNCE_INVALIDATE_MS, which is well within the existing 2s TTL.
+  const DEBOUNCE_INVALIDATE_MS = 100
+  let pendingInvalidate: ReturnType<typeof setTimeout> | undefined
+  function invalidateListCacheSoon() {
+    if (pendingInvalidate) return
+    pendingInvalidate = setTimeout(() => {
+      pendingInvalidate = undefined
+      listCache = undefined
+    }, DEBOUNCE_INVALIDATE_MS)
   }
 
   async function filtered(predicate: (record: Record) => boolean): Promise<Record[]> {

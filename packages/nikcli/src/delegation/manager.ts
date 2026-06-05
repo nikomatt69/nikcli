@@ -282,9 +282,19 @@ export namespace Delegation {
     const delegator = sorted.find((record) => BackgroundRun.getRole(record) === "delegator")
     const running = sorted.filter((record) => record.status === "running")
     const runningNonDelegators = running.filter((record) => BackgroundRun.getRole(record) !== "delegator")
-    const latest = [...sorted].sort((a, b) => b.updatedAt - a.updatedAt)[0]
-    const completedAt = Math.max(...sorted.map((record) => record.completedAt ?? 0)) || undefined
-    const lastActivityAt = Math.max(...sorted.map((record) => record.lastActivityAt ?? 0)) || undefined
+    // Single-pass accumulation for the maxes and the latest record.
+    // Replaces the previous `[...sorted].sort(...)[0]` + two `Math.max(...arr.map())`
+    // which each did an O(N log N) sort and an O(N) array allocation.
+    let latest = sorted[0]
+    let completedAt = 0
+    let lastActivityAt = 0
+    for (const record of sorted) {
+      if (record.updatedAt > latest.updatedAt) latest = record
+      const c = record.completedAt ?? 0
+      if (c > completedAt) completedAt = c
+      const a = record.lastActivityAt ?? 0
+      if (a > lastActivityAt) lastActivityAt = a
+    }
     const errorRecord = [...sorted].reverse().find((record) => record.error)
     const progressSummary =
       (delegator?.status === "running" ? delegator.progressSummary : undefined) ??

@@ -20,6 +20,13 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 const OUTPUT_EVENT_MAX_BYTES = 32 * 1024
 const OUTPUT_TAIL_MAX_BYTES = 64 * 1024
+// Hard cap on the in-memory publish buffer between flushes. Chatty processes
+// (e.g. `tail -f` on a busy log) can produce megabytes in a single 150ms
+// window; without this cap pendingDelta grows unboundedly and the next flush
+// allocates+copies the whole buffer. The on-disk log file is not affected
+// (writeStream is independent), and the published delta is still bounded by
+// OUTPUT_EVENT_MAX_BYTES at flush time.
+const PENDING_DELTA_MAX_CHARS = OUTPUT_EVENT_MAX_BYTES * 8
 const OUTPUT_FLUSH_MS = 150
 const PART_SYNC_RETRY_MS = 100
 const PART_SYNC_RETRY_MAX = 30
@@ -149,6 +156,10 @@ export namespace Monitor {
     logStream: WriteStream
     pendingDelta: string
     outputTail: string
+    // Set whenever the tail is mutated, cleared once the preview has been
+    // rebuilt. Lets flushRuntime skip an expensive split/strip/slice/join
+    // when the tail did not change since the last flush.
+    previewDirty: boolean
     flushTimer?: NodeJS.Timeout
     timeoutTimer?: NodeJS.Timeout
     requestedFinalization?: {
@@ -211,6 +222,18 @@ export namespace Monitor {
     return buffer.subarray(buffer.length - OUTPUT_TAIL_MAX_BYTES).toString("utf8")
   }
 
+  // Bounded variant for the publish buffer: keeps the most recent
+  // PENDING_DELTA_MAX_CHARS of pending output. String length is a close
+  // upper bound on byte length for our payload (UTF-8 chunks from spawn
+  // are usually ASCII-ish), and the final flush still slices to
+  // OUTPUT_EVENT_MAX_BYTES before the Bus event is emitted.
+  function appendPending(current: string, chunk: string) {
+    const next = current.length + chunk.length
+    if (next <= PENDING_DELTA_MAX_CHARS) return current + chunk
+    if (chunk.length >= PENDING_DELTA_MAX_CHARS) return chunk.slice(-PENDING_DELTA_MAX_CHARS)
+    return current.slice(-(PENDING_DELTA_MAX_CHARS - chunk.length)) + chunk
+  }
+
   async function ensureMonitorDir(sessionID: string, monitorID: string) {
     const dir = monitorDir(sessionID, monitorID)
     await fs.mkdir(dir, { recursive: true })
@@ -258,7 +281,15 @@ export namespace Monitor {
   async function syncToolPart(record: Record, attempt: number = 0): Promise<void> {
     const part = await resolveToolPart(record)
     if (!part || part.state.status !== "completed") {
-      if (attempt < PART_SYNC_RETRY_MAX) {
+      // Bound the retry storm: a Monitor that completes before its ToolPart
+      // exists would otherwise schedule 30 timers (3s) per instance, which
+      // adds up when many monitors complete in the same tick. After
+      // PART_SYNC_RETRY_HARD_CAP attempts the part either will not appear
+      // at all (and `publishUpdated` already wrote the record) or it will
+      // appear later — in which case the next call from `publishUpdated`
+      // will pick it up. Either way we stop burning timers.
+      const PART_SYNC_RETRY_HARD_CAP = 5
+      if (attempt < PART_SYNC_RETRY_MAX && attempt < PART_SYNC_RETRY_HARD_CAP) {
         setTimeout(() => {
           void syncToolPart(record, attempt + 1)
         }, PART_SYNC_RETRY_MS)
@@ -291,7 +322,7 @@ export namespace Monitor {
   async function publishUpdated(record: Record) {
     await persist(record)
     void syncToolPart(record)
-    Bus.publish(Event.Updated, { sessionID: record.sessionID, record })
+    await Bus.publish(Event.Updated, { sessionID: record.sessionID, record })
   }
 
   async function flushRuntime(runtime: ActiveRuntime) {
@@ -299,7 +330,13 @@ export namespace Monitor {
     const delta = runtime.pendingDelta
     runtime.pendingDelta = ""
     runtime.record.time.updated = Date.now()
-    runtime.record.preview = buildPreview(runtime.outputTail)
+    // Only rebuild the preview if the tail actually changed since the last
+    // flush. For long-running monitors that are quiet (no output between
+    // flushes), this saves O(tail size) per OUTPUT_FLUSH_MS.
+    if (runtime.previewDirty) {
+      runtime.record.preview = buildPreview(runtime.outputTail)
+      runtime.previewDirty = false
+    }
     await publishUpdated(runtime.record)
     if (!delta) return
 
@@ -308,7 +345,7 @@ export namespace Monitor {
       const buffer = Buffer.from(payload)
       payload = buffer.subarray(buffer.length - OUTPUT_EVENT_MAX_BYTES).toString("utf8")
     }
-    Bus.publish(Event.Output, {
+    await Bus.publish(Event.Output, {
       sessionID: runtime.record.sessionID,
       monitorID: runtime.record.id,
       delta: payload,
@@ -372,7 +409,7 @@ export namespace Monitor {
 
     state().delete(key(runtime.record.id))
 
-    Bus.publish(Event.Completed, {
+    await Bus.publish(Event.Completed, {
       sessionID: runtime.record.sessionID,
       monitorID: runtime.record.id,
       title: runtime.record.title,
@@ -403,7 +440,8 @@ export namespace Monitor {
       if (!text) return
       runtime.record.bytes = (runtime.record.bytes ?? 0) + Buffer.byteLength(text)
       runtime.outputTail = appendTail(runtime.outputTail, text)
-      runtime.pendingDelta += text
+      runtime.pendingDelta = appendPending(runtime.pendingDelta, text)
+      runtime.previewDirty = true
       runtime.logStream.write(text)
       scheduleFlush(runtime)
     }
@@ -412,8 +450,9 @@ export namespace Monitor {
     runtime.process.stderr?.on("data", handleChunk)
     runtime.process.once("error", (error) => {
       const text = `\n[monitor error] ${error instanceof Error ? error.message : String(error)}\n`
-      runtime.pendingDelta += text
+      runtime.pendingDelta = appendPending(runtime.pendingDelta, text)
       runtime.outputTail = appendTail(runtime.outputTail, text)
+      runtime.previewDirty = true
       runtime.logStream.write(text)
       scheduleFlush(runtime)
       void finalize(runtime, "error", 1, null)
@@ -560,13 +599,14 @@ export namespace Monitor {
       logStream: createWriteStream(logPath, { flags: "a" }),
       pendingDelta: "",
       outputTail: "",
+      previewDirty: true,
       exited: false,
     }
 
     state().set(key(record.id), runtime)
     await persist(record)
     void syncToolPart(record)
-    Bus.publish(Event.Created, { sessionID: record.sessionID, record })
+    await Bus.publish(Event.Created, { sessionID: record.sessionID, record })
     attach(runtime)
     return record
   }
@@ -621,7 +661,7 @@ export namespace Monitor {
     record.time.updated = record.time.completed
     await fs.writeFile(record.exitCodePath, "", "utf8").catch(() => {})
     await publishUpdated(record)
-    Bus.publish(Event.Completed, {
+    await Bus.publish(Event.Completed, {
       sessionID: record.sessionID,
       monitorID: record.id,
       title: record.title,
