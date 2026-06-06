@@ -62,7 +62,7 @@ export async function collectSystemPaths(
 
   if (!Flag.NIKCLI_DISABLE_PROJECT_CONFIG) {
     for (const file of LOCAL_RULE_FILES) {
-      const matches = await Filesystem.findUp(file, ctx.directory, ctx.worktree)
+      const matches = await Filesystem.findUp(file, ctx.directory, ctx.worktree).catch(() => [])
       if (matches.length > 0) {
         matches.forEach((p) => {
           if (!disabled.has(p)) paths.add(p)

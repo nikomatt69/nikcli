@@ -23,8 +23,11 @@ export function SubagentFooter() {
 
     if (!s.parentID) return { label, index: 0, total: 0 }
 
+    // Only count real subagent sessions. Delegations also create sibling
+    // sessions sharing the same parentID (delegator + follow-up), which must
+    // not be counted here.
     const siblings = sync.data.session
-      .filter((x) => x.parentID === s.parentID)
+      .filter((x) => x.parentID === s.parentID && /@\w+ subagent/.test(x.title))
       .toSorted((a, b) => a.time.created - b.time.created)
     const index = siblings.findIndex((x) => x.id === s.id)
 

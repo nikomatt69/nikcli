@@ -58,6 +58,11 @@ process.on("uncaughtException", (e) => {
   })
 })
 
+// Ensure the process exits on terminal hangup (e.g. closing the terminal tab).
+// Without this, long-running commands like `serve` block on a never-resolving
+// promise and survive as orphaned processes.
+process.on("SIGHUP", () => process.exit())
+
 const cli = yargs(hideBin(process.argv))
   .parserConfiguration({ "populate--": true })
   .scriptName("nikcli")

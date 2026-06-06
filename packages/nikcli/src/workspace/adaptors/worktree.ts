@@ -1,10 +1,11 @@
 import { existsSync } from "fs"
 import path from "path"
 import { Worktree } from "@/worktree"
+import { Project } from "@/project/project"
 import type { Config } from "../config"
 import type { Adaptor } from "./types"
 import { Log } from "@/util/log"
-import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, InstanceState } from "@/effect"
 import { Effect } from "effect"
 
 const log = Log.create({ service: "worktree.adaptor" })
@@ -23,6 +24,18 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
         return yield* worktree.create(branch ? { branch } : undefined)
       }),
     )
+    // Track the new worktree as a project directory ("working copy") so it shows up
+    // in workspace/move listings immediately, the same way opencode tracks project copies.
+    // Best-effort: never block worktree creation if tracking fails.
+    await runPromiseWithLayer(
+      Project.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const project = yield* Project.Service
+          yield* project.fromDirectory(next.directory)
+        }),
+      ),
+    ).catch((error) => log.warn("failed to track worktree as project directory", { directory: next.directory, error }))
     return {
       config: {
         type: "worktree",
@@ -39,6 +52,17 @@ export const WorktreeAdaptor: Adaptor<WorktreeConfig> = {
         return yield* worktree.remove({ directory: config.directory })
       }),
     )
+    // Untrack the worktree directory from the project, mirroring opencode's copy lifecycle.
+    await runPromiseWithLayer(
+      Project.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const ctx = yield* InstanceState.context
+          const project = yield* Project.Service
+          yield* project.removeSandbox(ctx.project.id, config.directory)
+        }),
+      ),
+    ).catch((error) => log.warn("failed to untrack worktree directory", { directory: config.directory, error }))
   },
   target(config: WorktreeConfig) {
     return { type: "local" as const, directory: config.directory }

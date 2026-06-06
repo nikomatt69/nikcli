@@ -368,13 +368,20 @@ export namespace Worktree {
    */
   async function parseWorktrees(ctx: InstanceContext, cwd?: string): Promise<Info[]> {
     const entries = await listWorktrees(ctx, cwd)
-    return entries
-      .filter((e) => e.path)
-      .map((entry) => {
-        const name = path.basename(entry.path!)
-        const branch = entry.branch?.replace(/^refs\/heads\//, "") ?? ""
-        return Info.parse({ name, branch, directory: entry.path })
-      })
+    const primary = await canonicalPath(ctx.worktree)
+    const primaryName = path.basename(primary).toLowerCase()
+    const result: Info[] = []
+    for (const entry of entries) {
+      if (!entry.path) continue
+      const base = path.basename(entry.path)
+      // When a worktree's folder name collides with the primary worktree's name,
+      // disambiguate by using its parent folder name instead.
+      const isPrimary = (await canonicalPath(entry.path)) === primary
+      const name = !isPrimary && base.toLowerCase() === primaryName ? path.basename(path.dirname(entry.path)) : base
+      const branch = entry.branch?.replace(/^refs\/heads\//, "") ?? ""
+      result.push(Info.parse({ name, branch, directory: entry.path }))
+    }
+    return result
   }
 
   async function findWorktreeEntry(
