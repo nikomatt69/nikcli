@@ -8,17 +8,19 @@ applications (TUIs)** programmatically, so an agent can drive a TUI and read its
 rendered screen state.
 
 The upstream project is **Rust**. nikcli is **TypeScript/Bun**, so we re-implement
-the concept *su misura* (custom-built) in TS. We already have most of the substrate:
+the concept _su misura_ (custom-built) in TS. We already have most of the substrate:
+
 - `packages/nikcli/src/pty/index.ts` — a `bun-pty`-backed PTY service (spawn, write, resize, buffer, events).
 - `bun-pty@0.4.4` and `strip-ansi@7.1.2` are already dependencies.
 - A clean tool system (`Tool.define`) and registry (`packages/nikcli/src/tool/registry.ts`).
 
 What's **missing** and is the heart of terminal-control: a **VT/ANSI emulator** that
-turns a raw PTY byte stream into a *screen grid* (a "Frame" — a 2D array of styled
+turns a raw PTY byte stream into a _screen grid_ (a "Frame" — a 2D array of styled
 cells), plus **renderers** (text / ansi / json / svg / png) and a **named-session
 manager** that keeps TUIs alive across calls.
 
 **Decisions confirmed with user:**
+
 - VT engine: **custom hand-rolled** TS emulator (no heavy emulator dependency).
 - Output formats: **all** like upstream — `text`, `ansi`, `json`, `svg`, `png`.
 - Scope v1: **full core** (session lifecycle + frame + render + nikcli tool). Recording/video deferred to v2.
@@ -34,6 +36,7 @@ Framework-agnostic library (no Effect dependency) so it stays reusable and testa
 Location: `packages/terminal-control/`.
 
 ### A.1 Package scaffolding
+
 - `packages/terminal-control/package.json` — mirror `packages/util/package.json`:
   - `name: "@nikcli-ai/terminal-control"`, `version: "1.42.0"`, `private: true`, `type: module`,
     `exports: { "./*": "./src/*.ts" }`, `scripts.typecheck: "tsc --noEmit"`.
@@ -67,6 +70,7 @@ render/
 ```
 
 ### A.3 Key design notes
+
 - **`frame.ts`**: `Cell = { char: string; fg: Color; bg: Color; bold; italic; underline; inverse }`.
   `Frame = { cols; rows; cursor: {x,y,visible}; cells: Cell[][]; title?: string }`. Provide `blankCell()`, `emptyFrame(cols,rows)`.
 - **`vt/parser.ts`**: focused VT100/xterm state machine covering the common TUI subset:
@@ -87,6 +91,7 @@ render/
 - **`manager.ts`**: in-memory `Map`. Pure class; the Effect lifecycle/singleton lives in nikcli (Part B).
 
 ### A.4 Tests (`packages/terminal-control/test/`, `bun test`)
+
 - `screen.test.ts` — feed canonical sequences, assert grid/cursor (CUP, ED/EL, SGR colors, autowrap, scroll).
 - `render.test.ts` — round-trip a known frame to text/ansi/json; assert SVG contains expected glyphs.
 - `session.test.ts` — start `printf`/`echo`, `wait` for text, `snapshot`, assert content; `stop`.
@@ -96,7 +101,9 @@ render/
 ## Part B — nikcli integration
 
 ### B.1 Effect service wrapper — `packages/nikcli/src/terminal/index.ts`
+
 Mirror `packages/nikcli/src/pty/index.ts` exactly (the proven pattern):
+
 - `namespace Terminal` with `class Service extends Context.Service<...>()("@nikcli/Terminal")`.
 - `layer = Layer.effect(Service, ...)` using `InstanceState.make` to hold one
   `SessionManager` per instance (so sessions persist across tool calls; auto-cleaned on release like `closeSessions`).
@@ -105,6 +112,7 @@ Mirror `packages/nikcli/src/pty/index.ts` exactly (the proven pattern):
 - `export const defaultLayer = layer`.
 
 ### B.2 The tool — `packages/nikcli/src/tool/terminal_control.ts` (+ `.txt`)
+
 Follow `Tool.define` + Effect-service-call convention used in `server/routes/pty.ts`:
 `runPromiseWithLayer(Terminal.defaultLayer, withCurrentInstance(effect))`.
 
@@ -123,22 +131,26 @@ Follow `Tool.define` + Effect-service-call convention used in `server/routes/pty
 - `description` loaded from `terminal_control.txt` (concise usage like other `.txt` files).
 
 ### B.3 Register the tool — `packages/nikcli/src/tool/registry.ts`
+
 - `import { TerminalControlTool } from "./terminal_control"`.
 - Add `TerminalControlTool` to the `all()` array (near `BashTool`/`MonitorTool`).
 - (Not added to `SLIM_TOOLS` — it's a specialized tool, discoverable via `search_tools`.)
 
 ### B.4 (Optional, low-cost) server route
+
 Not required for the tool to work. Skip in v1 unless desired; the tool path is self-contained.
 
 ---
 
 ## Critical files
+
 - **New:** `packages/terminal-control/{package.json,tsconfig.json,README.md}` and all of `src/**` + `test/**` above.
 - **New:** `packages/nikcli/src/terminal/index.ts`, `packages/nikcli/src/tool/terminal_control.ts`, `packages/nikcli/src/tool/terminal_control.txt`.
 - **Edit:** `packages/nikcli/src/tool/registry.ts` (import + add to `all()`).
 - **Edit:** `packages/nikcli/package.json` (add `@nikcli-ai/terminal-control` workspace dep).
 
 ## Reuse (don't reinvent)
+
 - `bun-pty` spawn + env setup — copy the recipe from `packages/nikcli/src/pty/index.ts:122-156`.
 - Tool shape & live metadata — pattern from `packages/nikcli/src/tool/bash.ts`.
 - Service+InstanceState lifecycle — pattern from `packages/nikcli/src/pty/index.ts:102-285`.
@@ -146,6 +158,7 @@ Not required for the tool to work. Skip in v1 unless desired; the tool path is s
 - zod-from-Schema helper — `zod`/`zodObject` from `@/util/effect-zod` (as in `bash.ts`, `pty/index.ts`).
 
 ## Verification
+
 1. **Library unit tests:** `cd packages/terminal-control && bun test` — screen/render/session pass.
 2. **Typecheck:** `bun run typecheck` in `packages/terminal-control` and `packages/nikcli`
    (per memory: nikcli uses `bun run typecheck` → `tsgo`).
