@@ -69,3 +69,43 @@ export async function workMap<T, R>(concurrency: number, items: T[], fn: (item: 
   )
   return results as R[]
 }
+
+/**
+ * Counting semaphore that caps how many async operations run concurrently.
+ * Callers past the limit wait (FIFO) until an in-flight operation releases a
+ * permit. Used to bound the number of background agent loops running at once.
+ */
+export class Semaphore {
+  private active = 0
+  private readonly waiters: (() => void)[] = []
+
+  constructor(private readonly max: number) {}
+
+  async acquire(): Promise<void> {
+    if (this.active < this.max) {
+      this.active++
+      return
+    }
+    // At capacity: wait until a release hands us the freed permit. The active
+    // count stays held across the hand-off so the slot is never double-booked.
+    await new Promise<void>((resolve) => this.waiters.push(resolve))
+  }
+
+  release(): void {
+    const next = this.waiters.shift()
+    if (next) {
+      next()
+      return
+    }
+    this.active = Math.max(0, this.active - 1)
+  }
+
+  async run<T>(fn: () => Promise<T>): Promise<T> {
+    await this.acquire()
+    try {
+      return await fn()
+    } finally {
+      this.release()
+    }
+  }
+}

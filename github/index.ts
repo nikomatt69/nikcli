@@ -231,7 +231,16 @@ function createNikcli() {
   const host = "127.0.0.1"
   const port = 4096
   const url = `http://${host}:${port}`
-  const proc = spawn(`nikcli`, [`serve`, `--hostname=${host}`, `--port=${port}`])
+  const nikcliRoot = path.resolve(import.meta.dir, "../packages/nikcli")
+  const proc = spawn(
+    process.execPath,
+    ["run", "--conditions=browser", "src/index.ts", "serve", `--hostname=${host}`, `--port=${port}`],
+    {
+      cwd: nikcliRoot,
+      env: process.env,
+      stdio: "inherit",
+    },
+  )
   const client = createNikcliClient({ baseUrl: url })
 
   return {
@@ -243,8 +252,8 @@ function createNikcli() {
 function assertPayloadKeyword() {
   const payload = useContext().payload as IssueCommentEvent | PullRequestReviewCommentEvent
   const body = payload.comment.body.trim()
-  if (!body.match(/(?:^|\s)(?:\/nikcli|\/oc)(?=$|\s)/)) {
-    throw new Error("Comments must mention `/nikcli` or `/oc`")
+  if (!body.match(/(?:^|\s)(?:\/nikcli|\/nik|\/nc|\/oc)(?=$|\s)/)) {
+    throw new Error("Comments must mention `/nikcli`, `/nik`, or `/nc`")
   }
 }
 
@@ -421,19 +430,19 @@ async function getUserPrompt() {
 
   let prompt = (() => {
     const body = payload.comment.body.trim()
-    if (body === "/nikcli" || body === "/oc") {
+    if (body === "/nikcli" || body === "/nik" || body === "/nc" || body === "/oc") {
       if (reviewContext) {
         return `Review this code change and suggest improvements for the commented lines:\n\nFile: ${reviewContext.file}\nLines: ${reviewContext.line}\n\n${reviewContext.diffHunk}`
       }
       return "Summarize this thread"
     }
-    if (body.includes("/nikcli") || body.includes("/oc")) {
+    if (body.includes("/nikcli") || body.includes("/nik") || body.includes("/nc") || body.includes("/oc")) {
       if (reviewContext) {
         return `${body}\n\nContext: You are reviewing a comment on file "${reviewContext.file}" at line ${reviewContext.line}.\n\nDiff context:\n${reviewContext.diffHunk}`
       }
       return body
     }
-    throw new Error("Comments must mention `/nikcli` or `/oc`")
+    throw new Error("Comments must mention `/nikcli`, `/nik`, or `/nc`")
   })()
 
   // Handle images

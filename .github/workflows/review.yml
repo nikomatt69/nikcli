@@ -51,7 +51,7 @@ jobs:
           PR_TITLE: ${{ steps.pr-details.outputs.title }}
         run: |
           PR_BODY=$(jq -r .body pr_data.json)
-          nikcli run -m minimax-coding-plan/MiniMax-M2.7 --variant medium "A new pull request has been created: '${PR_TITLE}'
+          nikcli run -m minimax-coding-plan/MiniMax-M3 "A new pull request has been created: '${PR_TITLE}'
 
           <pr-number>
           ${{ steps.pr-number.outputs.number }}

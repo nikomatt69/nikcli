@@ -21,6 +21,7 @@ on:
 jobs:
   agent:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     permissions:
       contents: write
       pull-requests: write
@@ -28,26 +29,26 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
-      - name: Install dependencies
-        run: bun install
-
       - name: Run NikCLI Headless
         env:
-          NIKCLI_MODEL: minimax-coding-plan/MiniMax-M2.7
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          NIKCLI_MODEL: minimax-coding-plan/MiniMax-M3
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          NIKCLI_PERMISSION: '{"*": "allow"}'
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: nikcli-agent[bot]
+          GIT_AUTHOR_EMAIL: nikcli-agent[bot]@users.noreply.github.com
+          GIT_COMMITTER_NAME: nikcli-agent[bot]
+          GIT_COMMITTER_EMAIL: nikcli-agent[bot]@users.noreply.github.com
           PROMPT: ${{ github.event.inputs.prompt || github.event.client_payload.prompt }}
           SLACK_CHANNEL: ${{ github.event.inputs.channel || github.event.client_payload.channel }}
           SLACK_THREAD_TS: ${{ github.event.inputs.thread_ts || github.event.client_payload.thread_ts }}
-        run: |
-          echo "Received command: $PROMPT"
-          bun run script/run-headless.ts "$PROMPT" "$SLACK_CHANNEL" "$SLACK_THREAD_TS"
+        run: bun run script/run-headless.ts "$PROMPT" "$SLACK_CHANNEL" "$SLACK_THREAD_TS"

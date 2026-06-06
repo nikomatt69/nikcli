@@ -16,6 +16,21 @@ import { Instance } from "../project/instance"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Semaphore } from "@/util/queue"
+import { throttleTrailing } from "@/util/throttle"
+
+// Background delegations run in-process as concurrent agent loops (LLM calls +
+// tool execution). Without a bound, a fan-out of subtasks pins the CPU. Cap the
+// number of heavy agent loops (workers, delegators and follow-ups) that run at
+// once; the rest queue and start as permits free up.
+const MAX_CONCURRENT_BACKGROUND_AGENTS = 5
+const backgroundAgentLimit = new Semaphore(MAX_CONCURRENT_BACKGROUND_AGENTS)
+
+// PartUpdated fires once per streaming token. Coalesce the side effects it
+// drives (progress persistence, live metadata) so they run on a time budget
+// instead of per token.
+const PROGRESS_WRITE_THROTTLE_MS = 1000
+const FOREGROUND_METADATA_THROTTLE_MS = 200
 
 const parameters = z.object({
   description: z.string().describe("A short (3-5 words) description of the task"),
@@ -499,11 +514,13 @@ async function runBackgroundDelegation(params: {
   Instance.registerDisposer(unsubProgress)
 
   try {
-    const result = await runSessionPrompt(
-      Effect.gen(function* () {
-        const sessionPrompt = yield* SessionPrompt.Service
-        return yield* sessionPrompt.prompt(promptInput)
-      }),
+    const result = await backgroundAgentLimit.run(() =>
+      runSessionPrompt(
+        Effect.gen(function* () {
+          const sessionPrompt = yield* SessionPrompt.Service
+          return yield* sessionPrompt.prompt(promptInput)
+        }),
+      ),
     )
     const summary = await summarizeSubtaskSession(params.session.id, result)
     const error = summary.assistant?.error
@@ -528,7 +545,13 @@ async function runBackgroundDelegation(params: {
 function subscribeDelegationProgress(sessionID: string, delegationID: string) {
   let lastSummary: string | undefined = "Starting background task"
   void Delegation.updateProgress(delegationID, lastSummary)
-  return Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
+  // The progress summary is persisted to disk (storageUpdate) on every call.
+  // PartUpdated fires per streaming token, so writing on each event hammers the
+  // filesystem — coalesce to at most one write per PROGRESS_WRITE_THROTTLE_MS.
+  const throttled = throttleTrailing((summary: string) => {
+    void Delegation.updateProgress(delegationID, summary).catch(() => undefined)
+  }, PROGRESS_WRITE_THROTTLE_MS)
+  const unsubscribe = Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
     if (evt.properties.part.sessionID !== sessionID) return
     const part = evt.properties.part
     let nextSummary: string | undefined
@@ -541,8 +564,12 @@ function subscribeDelegationProgress(sessionID: string, delegationID: string) {
     }
     if (!nextSummary || nextSummary === lastSummary) return
     lastSummary = nextSummary
-    await Delegation.updateProgress(delegationID, nextSummary).catch(() => undefined)
+    throttled.call(nextSummary)
   })
+  return () => {
+    throttled.flush()
+    unsubscribe()
+  }
 }
 
 async function wakeParentSession(
@@ -703,22 +730,24 @@ async function launchBackgroundSubtask(params: {
           iteration,
         })
 
-        const delegatorResult = await runSessionPrompt(
-          Effect.gen(function* () {
-            const sessionPrompt = yield* SessionPrompt.Service
-            return yield* sessionPrompt.prompt({
-              messageID: Identifier.ascending("message"),
-              sessionID: delegatorSession.id,
-              model: params.model,
-              agent: "delegator",
-              tools: {
-                todowrite: false,
-                todoread: false,
-                task: false,
-              },
-              parts: [{ type: "text" as const, text: wakeText }],
-            })
-          }),
+        const delegatorResult = await backgroundAgentLimit.run(() =>
+          runSessionPrompt(
+            Effect.gen(function* () {
+              const sessionPrompt = yield* SessionPrompt.Service
+              return yield* sessionPrompt.prompt({
+                messageID: Identifier.ascending("message"),
+                sessionID: delegatorSession.id,
+                model: params.model,
+                agent: "delegator",
+                tools: {
+                  todowrite: false,
+                  todoread: false,
+                  task: false,
+                },
+                parts: [{ type: "text" as const, text: wakeText }],
+              })
+            }),
+          ),
         )
 
         const delegatorSummary = await summarizeSubtaskSession(delegatorSession.id, delegatorResult)
@@ -1012,7 +1041,9 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
   using _ = defer(() => ctx.abort.removeEventListener("abort", cancel))
   const parts: Record<string, ToolSummaryItem> = {}
   let liveSummary: string | undefined
-  const updateForegroundMetadata = () => {
+  // Sorting + publishing metadata on every token is wasteful; coalesce so the
+  // foreground UI still feels live but the work runs on a budget.
+  const foregroundMetadata = throttleTrailing(() => {
     ctx.metadata({
       title: params.description,
       metadata: {
@@ -1023,7 +1054,8 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
         question: researchMetadata?.question,
       },
     })
-  }
+  }, FOREGROUND_METADATA_THROTTLE_MS)
+  const updateForegroundMetadata = () => foregroundMetadata.call()
   const unsub = Bus.subscribe(MessageV2.Event.PartUpdated, async (evt) => {
     if (evt.properties.part.sessionID !== session.id) return
     const part = evt.properties.part
@@ -1079,6 +1111,7 @@ export async function runSubtask(params: TaskParams, ctx: Tool.Context<TaskMetad
       output: formatTaskOutput(summary.text, session.id),
     }
   } finally {
+    foregroundMetadata.flush()
     unsub()
   }
 }

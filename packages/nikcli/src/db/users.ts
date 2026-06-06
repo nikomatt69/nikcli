@@ -162,6 +162,9 @@ export namespace UserDB {
 
   const sessionCache = new Map<string, { user: PublicUser; expiresAt: number | null; cachedAt: number }>()
   const SESSION_CACHE_TTL = 60_000 // 1 minute
+  // Hard cap to prevent unbounded growth from session-token bombing within the TTL window.
+  // Once the cap is reached, the oldest entry is evicted on each insertion (insertion-order LRU).
+  const SESSION_CACHE_MAX_SIZE = 10_000
 
   /**
    * Invalidate session cache entries.
@@ -174,6 +177,23 @@ export namespace UserDB {
         if (val.user.id === userId) sessionCache.delete(key)
       }
     }
+  }
+
+  /**
+   * Insert into the session cache, evicting the oldest entry when the cap is reached.
+   * Uses Map's insertion-order iteration as a cheap LRU approximation (new entries move
+   * to the "most recent" position; the oldest entry is the first key when iterated).
+   */
+  function sessionCacheSet(key: string, value: { user: PublicUser; expiresAt: number | null; cachedAt: number }) {
+    if (sessionCache.has(key)) {
+      // Refresh recency: delete + re-insert so the entry moves to the back.
+      sessionCache.delete(key)
+    } else if (sessionCache.size >= SESSION_CACHE_MAX_SIZE) {
+      // Evict oldest (first key in insertion order).
+      const oldest = sessionCache.keys().next().value
+      if (oldest !== undefined) sessionCache.delete(oldest)
+    }
+    sessionCache.set(key, value)
   }
 
   // ============================================================================
@@ -382,8 +402,8 @@ export namespace UserDB {
       updated_at: row.updatedAt,
     }
 
-    // Populate cache
-    sessionCache.set(hash, { user: publicUser, expiresAt: row.expiresAt, cachedAt: now })
+    // Populate cache (with LRU cap)
+    sessionCacheSet(hash, { user: publicUser, expiresAt: row.expiresAt, cachedAt: now })
     return publicUser
   }
 

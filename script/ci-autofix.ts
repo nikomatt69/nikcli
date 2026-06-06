@@ -126,7 +126,7 @@ async function main() {
   console.log("✅ nikcli installed")
 
   // Step 3: Run nikcli headless repair
-  const model = process.env.NIKCLI_AUTOFIX_MODEL || "minimax-coding-plan/MiniMax-M2.7"
+  const model = process.env.NIKCLI_AUTOFIX_MODEL || "minimax-coding-plan/MiniMax-M3"
   const prompt = [
     "Reproduce and fix the validation failure shown below.",
     "Make the SMALLEST possible change to fix the issue.",

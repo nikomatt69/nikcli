@@ -6,6 +6,7 @@ import { FileWatcher } from "@/file/watcher"
 import { Git } from "@/git"
 import { InstanceState } from "@/effect"
 import { zodObject } from "@/util/effect-zod"
+import { throttleTrailing } from "@/util/throttle"
 import { Context, Effect, Layer, Schema } from "effect"
 
 const log = Log.create({ service: "vcs" })
@@ -80,17 +81,32 @@ export namespace Vcs {
           let current = yield* Effect.promise(() => currentBranch())
           log.info("initialized", { branch: current })
 
-          const unsubscribe = Bus.subscribe(FileWatcher.Event.Updated, async (evt) => {
-            if (evt.properties.file.endsWith("HEAD")) return
-            const next = await currentBranch()
-            if (next !== current) {
-              log.info("branch changed", { from: current, to: next })
-              current = next
-              Bus.publish(Event.BranchUpdated, { branch: next })
-            }
+          // The current branch only changes when `.git/HEAD` is rewritten.
+          // Reacting to every file event spawned a `git branch` subprocess per
+          // save — a process storm under active editing or a build watcher.
+          // Gate strictly on HEAD and debounce so rapid rewrites (rebase,
+          // checkout) collapse into a single check.
+          const refreshBranch = throttleTrailing(() => {
+            void currentBranch()
+              .then((next) => {
+                if (next === current) return
+                log.info("branch changed", { from: current, to: next })
+                current = next
+                Bus.publish(Event.BranchUpdated, { branch: next })
+              })
+              .catch(() => undefined)
+          }, 250)
+          const unsubscribe = Bus.subscribe(FileWatcher.Event.Updated, (evt) => {
+            if (!evt.properties.file.endsWith("HEAD")) return
+            refreshBranch.call()
           })
 
-          yield* Effect.addFinalizer(() => Effect.sync(() => unsubscribe()))
+          yield* Effect.addFinalizer(() =>
+            Effect.sync(() => {
+              refreshBranch.cancel()
+              unsubscribe()
+            }),
+          )
 
           return {
             branch: async () => current,

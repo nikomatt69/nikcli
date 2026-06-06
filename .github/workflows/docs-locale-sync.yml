@@ -67,7 +67,7 @@ jobs:
               }
             }
         run: |
-          nikcli run --agent docs --model minimax-coding-plan/MiniMax-M2.7 <<'EOF'
+          nikcli run --agent docs --model minimax-coding-plan/MiniMax-M3 <<'EOF'
             Update localized docs to match the latest English docs changes.
 
             Changed English doc files:

@@ -1,57 +1,78 @@
 import { App } from "@slack/bolt"
 
 const [prompt, channel, thread_ts] = Bun.argv.slice(2)
+const model = process.env.NIKCLI_MODEL ?? "minimax-coding-plan/MiniMax-M3"
 
-console.log("Headless NikCLI execution started.")
-console.log(`Prompt: ${prompt}`)
-console.log(`Channel: ${channel}`)
-console.log(`Thread: ${thread_ts}`)
+if (!prompt?.trim()) {
+  console.error("A non-empty prompt is required")
+  process.exit(1)
+}
 
-// Initialize Slack App to post updates
-const app = new App({
-  token: process.env.SLACK_BOT_TOKEN,
-  signingSecret: "dummy_secret", // Not needed for sending messages
-})
+const app = process.env.SLACK_BOT_TOKEN
+  ? new App({
+      token: process.env.SLACK_BOT_TOKEN,
+      signingSecret: "not-used-for-outbound-messages",
+    })
+  : undefined
+
+async function postToSlack(text: string) {
+  if (!app || !channel || !thread_ts) return
+  try {
+    await app.client.chat.postMessage({
+      channel,
+      thread_ts,
+      text: text.slice(0, 39_000),
+    })
+  } catch (error) {
+    console.error("Failed to post Slack update:", error)
+  }
+}
 
 async function main() {
   try {
-    if (channel && thread_ts && process.env.SLACK_BOT_TOKEN) {
-      await app.client.chat.postMessage({
-        channel: channel,
-        thread_ts: thread_ts,
-        text: "⚙️ *GitHub Actions*: Ricevuto il comando! Sto avviando un container per eseguire la task in autonomia sulla repository...",
-      })
-    }
+    console.log(`Running nikcli with model ${model}`)
+    await postToSlack(`NikCLI GitHub Actions: task avviata con \`${model}\`.`)
 
-    // Qui andrebbe l'inizializzazione del core di nikcli in modalità "auto-approve"
-    // Dato che nikcli richiede conferme per tool_call, in GH Actions dovremmo usare
-    // un client pre-configurato per accettare automaticamente comandi sicuri (es. git, npm)
+    const child = Bun.spawn(
+      [
+        process.execPath,
+        "run",
+        "--cwd",
+        "packages/nikcli",
+        "--conditions=browser",
+        "src/index.ts",
+        "run",
+        "--model",
+        model,
+        "--format",
+        "default",
+        prompt,
+      ],
+      {
+        cwd: process.cwd(),
+        env: process.env,
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    )
 
-    // Simulazione di lavoro e PR creation
-    console.log("Simulating autonomous work on codebase...")
-    await new Promise((resolve) => setTimeout(resolve, 3000))
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
 
-    const prUrl = "https://github.com/nikomatt69/nikcli/pull/123"
-    console.log(`Created PR: ${prUrl}`)
+    if (stdout) process.stdout.write(stdout)
+    if (stderr) process.stderr.write(stderr)
+    if (exitCode !== 0) throw new Error(stderr.trim() || `nikcli exited with code ${exitCode}`)
 
-    if (channel && thread_ts && process.env.SLACK_BOT_TOKEN) {
-      await app.client.chat.postMessage({
-        channel: channel,
-        thread_ts: thread_ts,
-        text: `✅ *GitHub Actions*: Ho finito! Ho analizzato il codice, fatto le modifiche e aperto una Pull Request per te:\n${prUrl}`,
-      })
-    }
+    const summary = stdout.trim() || "Task completata senza output testuale."
+    await postToSlack(`NikCLI GitHub Actions: task completata.\n\n${summary}`)
   } catch (error) {
     console.error("Error during execution:", error)
-    if (channel && thread_ts && process.env.SLACK_BOT_TOKEN) {
-      await app.client.chat.postMessage({
-        channel: channel,
-        thread_ts: thread_ts,
-        text: `❌ *GitHub Actions*: Si è verificato un errore durante l'esecuzione del task:\n\`${String(error)}\``,
-      })
-    }
+    await postToSlack(`NikCLI GitHub Actions: task fallita.\n\`${String(error)}\``)
     process.exit(1)
   }
 }
 
-main()
+await main()
