@@ -117,7 +117,7 @@ let accessToken: string
 let octoRest: Octokit
 let octoGraph: typeof graphql
 let commentId: number
-let gitConfig: string
+let gitConfig: string | undefined
 let session: { id: string; title: string; version: string }
 let shareId: string | undefined
 let exitCode = 0
@@ -671,12 +671,17 @@ async function configureGit(appToken: string) {
 
   console.log("Configuring git...")
   const config = "http.https://github.com/.extraheader"
-  const ret = await $`git config --local --get ${config}`
-  gitConfig = ret.stdout.toString().trim()
+  // `git config --get` exits 1 when the key is missing (and Bun's `$` throws on
+  // non-zero), so read with `.nothrow()`. Leave `gitConfig` undefined when the
+  // key isn't set so `restoreGitConfig()` skips it instead of writing an empty
+  // header.
+  const ret = await $`git config --local --get ${config}`.nothrow()
+  if (ret.exitCode === 0) gitConfig = ret.stdout.toString().trim()
 
   const newCredentials = Buffer.from(`x-access-token:${appToken}`, "utf8").toString("base64")
 
-  await $`git config --local --unset-all ${config}`
+  // `--unset-all` exits non-zero when the key doesn't exist; ignore that.
+  await $`git config --local --unset-all ${config}`.nothrow()
   await $`git config --local ${config} "AUTHORIZATION: basic ${newCredentials}"`
   await $`git config --global user.name "nikcli-agent[bot]"`
   await $`git config --global user.email "nikcli-agent[bot]@users.noreply.github.com"`
