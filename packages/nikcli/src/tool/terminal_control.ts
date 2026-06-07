@@ -55,12 +55,22 @@ const parameters = z.object({
   cwd: z.string().optional().describe("[start] Working directory. Defaults to the project directory."),
   cols: z.number().int().optional().describe("[start|resize] Terminal width in columns. Default 80."),
   rows: z.number().int().optional().describe("[start|resize] Terminal height in rows. Default 24."),
-  input: z.string().optional().describe("[send] Text to type, or whitespace-separated key names when mode='keys' (e.g. 'ctrl+c', 'enter', 'down down enter')."),
-  mode: z.enum(["text", "keys"]).optional().describe("[send] 'text' writes verbatim; 'keys' translates key names. Default 'text'."),
+  input: z
+    .string()
+    .optional()
+    .describe(
+      "[send] Text to type, or whitespace-separated key names when mode='keys' (e.g. 'ctrl+c', 'enter', 'down down enter').",
+    ),
+  mode: z
+    .enum(["text", "keys"])
+    .optional()
+    .describe("[send] 'text' writes verbatim; 'keys' translates key names. Default 'text'."),
   format: z
     .enum(["text", "ansi", "json", "svg", "png"])
     .optional()
-    .describe("[capture] Output format. 'text' (default) is the rendered screen; 'svg'/'png' are returned as image attachments."),
+    .describe(
+      "[capture] Output format. 'text' (default) is the rendered screen; 'svg'/'png' are returned as image attachments.",
+    ),
   until: z.enum(["text", "stable", "timeout"]).optional().describe("[wait] Condition type. Default 'stable'."),
   value: z.string().optional().describe("[wait] Text to wait for when until='text'."),
   timeout: z.number().int().optional().describe("[wait] Timeout in ms (text/stable). Default 10000."),
@@ -72,8 +82,15 @@ const parameters = z.object({
     .describe(
       "[export] Output format. 'asciicast' (asciinema v2, default) and 'json' return text; 'svganim' is a self-contained animated SVG attachment; 'frames' writes a PNG sequence; 'gif'/'mp4' need ffmpeg.",
     ),
-  fps: z.number().int().optional().describe("[export] Frames per second to sample for svganim/frames/gif/mp4. Default 8."),
-  speed: z.number().optional().describe("[export] Playback speed multiplier for svganim/gif/mp4 (>1 = faster). Default 1."),
+  fps: z
+    .number()
+    .int()
+    .optional()
+    .describe("[export] Frames per second to sample for svganim/frames/gif/mp4. Default 8."),
+  speed: z
+    .number()
+    .optional()
+    .describe("[export] Playback speed multiplier for svganim/gif/mp4 (>1 = faster). Default 1."),
 })
 
 type Params = z.infer<typeof parameters>
@@ -89,7 +106,8 @@ function imageAttachment(
   bytes: Uint8Array | string,
   filename: string,
 ): MessageV2.FilePart {
-  const base64 = typeof bytes === "string" ? Buffer.from(bytes).toString("base64") : Buffer.from(bytes).toString("base64")
+  const base64 =
+    typeof bytes === "string" ? Buffer.from(bytes).toString("base64") : Buffer.from(bytes).toString("base64")
   return {
     id: Identifier.ascending("part"),
     sessionID: ctx.sessionID,
@@ -253,12 +271,7 @@ export const TerminalControlTool = Tool.define("terminal_control", async () => {
                 return { svg: undefined as string | undefined, png, textPreview: preview }
               }),
             ).then((r) => ({
-              attachment: imageAttachment(
-                ctx,
-                mime,
-                format === "svg" ? r.svg! : r.png!,
-                `${name}-screen.${ext}`,
-              ),
+              attachment: imageAttachment(ctx, mime, format === "svg" ? r.svg! : r.png!, `${name}-screen.${ext}`),
               textPreview: r.textPreview,
             }))
             ctx.metadata({ title: `capture ${name} (${format})`, metadata: { action: "capture", name, format } })
@@ -342,7 +355,9 @@ export const TerminalControlTool = Tool.define("terminal_control", async () => {
             sessions.length === 0
               ? "No active terminal sessions."
               : sessions
-                  .map((s) => `- ${s.name} [${s.status}] pid=${s.pid} ${s.cols}x${s.rows}: ${s.command} ${s.args.join(" ")}`.trim())
+                  .map((s) =>
+                    `- ${s.name} [${s.status}] pid=${s.pid} ${s.cols}x${s.rows}: ${s.command} ${s.args.join(" ")}`.trim(),
+                  )
                   .join("\n")
           return {
             title: `Terminal sessions (${sessions.length})`,

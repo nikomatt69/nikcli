@@ -422,12 +422,10 @@ export namespace Workspace {
       await Promise.all(
         listAdaptors().map(({ type, adaptor }) =>
           adaptor.list
-            ? adaptor
-                .list()
-                .catch((error) => {
-                  log.warn("workspace adaptor list failed", { type, error })
-                  return []
-                })
+            ? adaptor.list().catch((error) => {
+                log.warn("workspace adaptor list failed", { type, error })
+                return []
+              })
             : Promise.resolve([]),
         ),
       )

@@ -1485,6 +1485,173 @@
         ]
       }
     },
+    "/experimental/workspace/warp": {
+      "post": {
+        "operationId": "experimental.workspace.warp",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Warp session into workspace",
+        "description": "Move a session to a target workspace, or detach it back to the local project.",
+        "responses": {
+          "204": {
+            "description": "Session warped"
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BadRequestError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotFoundError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "^wrk.*"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "sessionID": {
+                    "type": "string",
+                    "pattern": "^ses.*"
+                  },
+                  "copyChanges": {
+                    "type": "boolean"
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": ["id", "sessionID"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.warp({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/workspace/sync-list": {
+      "post": {
+        "operationId": "experimental.workspace.syncList",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Sync workspace list",
+        "description": "Register missing workspaces returned by workspace adaptors.",
+        "responses": {
+          "204": {
+            "description": "Workspace list synced"
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.syncList({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/experimental/workspace/status": {
+      "get": {
+        "operationId": "experimental.workspace.status",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "Workspace status",
+        "description": "Get connection status for workspaces in the current project.",
+        "responses": {
+          "200": {
+            "description": "Workspace connection statuses",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceConnectionStatus"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.status({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/experimental/workspace/{id}": {
       "post": {
         "operationId": "experimental.workspace.create",
@@ -1868,95 +2035,6 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.session.restore({\n  ...\n})"
-          }
-        ]
-      }
-    },
-    "/experimental/workspace/warp": {
-      "post": {
-        "operationId": "experimental.workspace.warp",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "Warp session into workspace",
-        "description": "Move a session to a target workspace, or detach it back to the local project.",
-        "responses": {
-          "204": {
-            "description": "Session warped"
-          },
-          "400": {
-            "description": "Bad request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BadRequestError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/NotFoundError"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "id": {
-                    "anyOf": [
-                      {
-                        "type": "string",
-                        "pattern": "^wrk.*"
-                      },
-                      {
-                        "type": "null"
-                      }
-                    ]
-                  },
-                  "sessionID": {
-                    "type": "string",
-                    "pattern": "^ses.*"
-                  },
-                  "copyChanges": {
-                    "type": "boolean"
-                  },
-                  "timeoutMs": {
-                    "type": "integer",
-                    "exclusiveMinimum": 0,
-                    "maximum": 9007199254740991
-                  }
-                },
-                "required": ["id", "sessionID"]
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.experimental.workspace.warp({\n  ...\n})"
           }
         ]
       }
@@ -19539,6 +19617,47 @@
             "description": "Theme name to use for the interface",
             "type": "string"
           },
+          "locale": {
+            "description": "Localization: UI language, region, formatting, and model reply language",
+            "type": "object",
+            "properties": {
+              "language": {
+                "description": "UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'",
+                "type": "string"
+              },
+              "region": {
+                "description": "ISO-3166 country code, e.g. 'IT', 'US'",
+                "type": "string"
+              },
+              "locale": {
+                "description": "Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set",
+                "type": "string"
+              },
+              "timezone": {
+                "description": "IANA timezone, e.g. 'Europe/Rome'",
+                "type": "string"
+              },
+              "currency": {
+                "description": "ISO-4217 currency code, e.g. 'EUR'; defaults from region",
+                "type": "string"
+              },
+              "autoDetect": {
+                "description": "Auto-detect locale from environment and system (default true)",
+                "type": "boolean"
+              },
+              "replyLanguage": {
+                "description": "Instruct the model to reply in the user's language. true = detected language, a tag like 'it' = fixed language, false = off. Defaults to on for non-English locales.",
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            }
+          },
           "keybinds": {
             "$ref": "#/components/schemas/KeybindsConfig"
           },
@@ -20740,7 +20859,7 @@
             "type": "string"
           }
         },
-        "required": ["name", "branch", "directory"],
+        "required": ["name", "directory"],
         "additionalProperties": false
       },
       "WorktreeCreateInput": {
@@ -20767,12 +20886,49 @@
         },
         "additionalProperties": false
       },
+      "WorkspaceConnectionStatus": {
+        "type": "object",
+        "properties": {
+          "workspaceID": {
+            "type": "string",
+            "pattern": "^wrk.*"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "connecting"
+              },
+              {
+                "type": "string",
+                "const": "connected"
+              },
+              {
+                "type": "string",
+                "const": "disconnected"
+              },
+              {
+                "type": "string",
+                "const": "error"
+              }
+            ]
+          }
+        },
+        "required": ["workspaceID", "status"],
+        "additionalProperties": false
+      },
       "Workspace": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^wrk.*"
+          },
+          "name": {
+            "type": "string"
+          },
+          "timeUsed": {
+            "type": "number"
           },
           "branch": {
             "anyOf": [
@@ -20868,7 +21024,7 @@
             ]
           }
         },
-        "required": ["id", "branch", "projectID", "config"],
+        "required": ["id", "name", "timeUsed", "branch", "projectID", "config"],
         "additionalProperties": false
       },
       "Workspace.Restore": {
