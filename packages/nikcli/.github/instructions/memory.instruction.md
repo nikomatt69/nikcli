@@ -1241,6 +1241,7 @@ CommandProvider > FrecencyProvider > PromptHistoryProvider > EditorContextProvid
 ```
 
 **Key contexts** (all in `context/`):
+
 | Context | File | Purpose |
 |---------|------|---------|
 | `RouteProvider` | `route.tsx` | Navigation |
@@ -2377,3 +2378,211 @@ The full TUI teardown sequence (aligned with OpenCode):
 - Handles circular references (JSON throws)
 - Preserves BigInt, Date, Typed arrays (JSON corrupts/strips)
 - Prevents cache corruption from shared references in mutating `fn(content)`
+
+## Brain Pass (2026-06-07)
+
+### Parallel Investigation Matrix
+
+Today ran 4 parallel `@explore` agents (via `task(background: true)`) for a comprehensive read-only code audit. All four hit the 10-minute timeout but supervisors confirmed full delivery of comprehensive reports:
+
+| Agent | Topic | Key contribution |
+|---|---|---|
+| `rising-aquamarine-pinniped` | Core architecture (boot, CLI, server, Instance, Effect) | Full file:line references for boot, upgrade, CLI dispatch |
+| `conscious-magenta-cow` | Tool registry + Agents + Permissions + Plugins | Default tool allowlists per agent (table) |
+| `adjacent-chocolate-salmon` | Session v1/v2 + LLM streaming + Stepper | **First detailed v1/v2 split** |
+| `short-amaranth-swallow` | TUI + Storage + Provider + Bus + MCP + Brain + DB | Provider.parseModel, DB tables, Brain module |
+
+**Pattern**: 10-min agent timeout is common for deep audits. Trust the supervisor's `Action: finalize` synthesis note (returned via the wake summary) — work was delivered; only the `delegation(action="read")` artifact is unavailable. Cross-check with own direct reads when possible.
+
+### Session v1 vs v2 Split (CRITICAL — was undocumented)
+
+Two parallel session systems coexist, share on-disk storage, but expose different shapes:
+
+| Aspect | v1 (`MessageV2` / `Session`) — production path | v2 (`SessionV2` / `SessionEntry`) — newer model |
+|---|---|---|
+| Top-level type | `Session.Info` (Zod) | `Session.Info` (re-uses v1 record) + `SessionEntry.Entry[]` |
+| Message shape | `MessageV2.User` / `MessageV2.Assistant` | `SessionEntry.User` / `Synthetic` / `Assistant` |
+| Part shape | `MessageV2.Part` discriminated union | Aligned with AI SDK UIMessage parts |
+| State | Effect `Service` + `Session.defaultLayer` (singleton per project) | `Map<sessionID, Stepper.MemoryState>` in `src/session/v2/index.ts:56` (in-memory) + Immer reducer |
+| Persistence | Storage namespace `["session", projectID, id]`, `["message", ...]`, `["part", ...]` | Reuses v1 storage; v2 entries derived via `toEntries()` on read |
+
+- `src/session/v2/index.ts:85` — `SessionV2.create` delegates to v1 `Session.Service.createNext` for persistence, then initialises a v2 `MemoryState`.
+- `src/session/v2/index.ts:182` — `toEntries()` walks v1 `MessageV2.WithParts[]` and converts to v2 entries (read-side shim).
+- The **processor / LLM / tool loop all run on the v1 representation**. v2 is a parallel event-log / reducer (`Stepper.reduce` in `src/session/v2/stepper.ts:106`) that has not yet replaced v1 in the main code path.
+- Legacy v1 namespace `Message` lives in `src/session/message.ts` (not imported by `index.ts:17` — uses `MessageV2` from `./message-v2`). Remains for backward compat.
+
+### TUI: thread.ts vs app.tsx vs worker.ts
+
+Three distinct files often confused in the TUI subsystem:
+
+| File | Role | Key responsibilities |
+|---|---|---|
+| `src/cli/cmd/tui/thread.ts` (297 lines) | CLI command file (registered as `TuiThreadCommand`) | Spawns Bun Worker pointing to `worker.ts`; sets up RPC client; decides between **direct-RPC mode** (no HTTP) and **HTTP server mode** (when `--port`/`--hostname`/`--mdns` given); parses args (project, model, continue, session, prompt, agent); dynamically imports `./app`; handles `SIGUSR2` for hot-reload |
+| `src/cli/cmd/tui/app.tsx` (1300+ lines) | SolidJS + OpenTUI renderer entry | Exports `tui(input)` async function; creates CLI renderer via `createCliRenderer` (FPS=45, mouse+kitty); mounts deep provider tree (ArgsProvider > ExitProvider > ... > PromptRefProvider); reads route from `useRoute()` and renders via `<Switch>/<Match>` |
+| `src/cli/cmd/tui/worker.ts` | Bun Worker hosting the server (RPC + optional HTTP) | Subscribes to `GlobalBus` events; exposes RPC surface (`fetch`, `server`, `checkUpgrade`, `upgradeNow`, `reload`, `subscribe`, `unsubscribe`, `shutdown`); initializes `Log` with `worker` metadata |
+
+### TUI: Three Connection Modes
+
+| Mode | When | Mechanism |
+|---|---|---|
+| **Direct RPC (no HTTP)** | Default (no `--port`/`--hostname`) | `url = "http://nikcli.local"`; `customFetch = createWorkerFetch(client)` translates every HTTP call into `Rpc.client.call("fetch", ...)`; `events = createEventSource(client)` fakes `EventSource` with `subscribe()` returning id; events routed through `Rpc.emit("event", {id, event})` |
+| **HTTP server mode** | `--port`, `--hostname`, or `--mdns` set | `client.call("server", networkOpts)` returns real URL; SDK does regular HTTP + SSE; TUI still has `startServer` fallback for "Open WebUI" command |
+| **Attach mode** | `nikcli attach <url>` | Calls `tui({url, args, directory})` with no worker at all; user runs `nikcli serve` separately |
+
+### TUI: Provider Nesting (app.tsx, outer→inner)
+
+```
+<ErrorBoundary>
+  <ArgsProvider>           ← CLI args (--model, --prompt, --session, --agent)
+    <ExitProvider>         ← exit / restart hooks
+      <ServerProvider>     ← server URL/start fallback
+        <KVProvider>       ← TUI key-value state
+          <ToastProvider>
+            <RouteProvider>    ← current page
+              <SDKProvider>    ← wraps @nikcli-ai/sdk/v2 + event stream
+                <ProjectProvider>
+                  <SyncProvider>      ← server data store
+                    <AnalyticsProvider>
+                      <ThemeProvider>  ← theme + dark/light
+                        <LocalProvider>   ← model/agent selection
+                          <KeybindProvider>
+                            <PromptStashProvider>
+                              <EditorContextProvider>
+                                <DialogProvider>
+                                  <CommandProvider>
+                                    ...
+                                    <App />
+```
+
+### Provider System: parseModel() Semantics
+
+`Provider.parseModel(input: string)` splits a `provider/model` reference at the **first** `/` into `{providerID, modelID}`. E.g. `"anthropic/claude-3-5-sonnet"` → `{providerID: "anthropic", modelID: "claude-3-5-sonnet"}`.
+
+**Bundled providers (17 total in nikcli package)** — imported in `src/provider/provider.ts:26-46`:
+
+- `createAmazonBedrock`, `createAnthropic`, `createAzure`, `createGoogle`, `createGoogleVertex`, `createVertexAnthropic`
+- `createOpenAI`, `createOpenAICompatible`, `createOpenRouter`, `createXAI`
+- `createMistral`, `createGroq`, `createDeepInfra`, `createCerebras`, `createCohere`, `createGateway`, `createTogetherAI`, `createPerplexity`, `createVercel`, `createGitLab`
+- Internal GitHub Copilot at `src/provider/sdk/copilot/`
+- Also imports factory objects from `@nikcli-ai/llm/providers` (`:51-61`)
+
+**`Provider.Service` Effect API** (`:1021-1043`): `list`, `getProvider`, `getModel`, `getLanguage`, `getImageModel`, `getModelRef`, `getSmallModel`, `defaultModel`, `closest`, `refresh`.
+
+### Storage Backend
+
+Hybrid: **filesystem JSON + SQLite (Drizzle ORM, Bun driver)**.
+
+- `Storage` namespace (`src/storage/storage.ts:62-86`) — JSON file ops with `["collection", "id", ...]` key format
+- `src/storage/db.ts` — SQLite with Drizzle, PRAGMAs: `journal_mode=WAL`, `synchronous=NORMAL`, `busy_timeout=5000`, `cache_size=-64000`, `foreign_keys=ON`
+- **DB tables** (from `src/db/` schema): `users`, `account`, `workspace`, `mobile_tokens`, `chat`
+- `BUNDLED_PROVIDERS` map in `src/provider/provider.ts:385`
+
+### Config Loading Precedence (lowest → highest)
+
+1. Well-known (compile-time) defaults
+2. Global user (`<XDG_CONFIG_HOME>/nikcli/nikcli.json`)
+3. `NIKCLI_CONFIG` env (file path) / `NIKCLI_CONFIG_CONTENT` env (inline JSON)
+4. Project walk-up: `<cwd>/nikcli.json` → `<cwd>/.nikcli/nikcli.json` → ... → `NIKCLI_CONFIG_DIR`
+5. Config directory fragments: `agent/`, `command/`, `plugin/`
+6. CLI flags
+
+Supports **JSONC** (JSON with comments) and **variable substitution** (`{env:VAR}`, `{file:path}`). Uses `mergeDeep` from `remeda` for array concatenation on `plugin`/`instructions` fields.
+
+### MCP Integration (per-instance)
+
+`MCP.Service` lives in `src/mcp/index.ts`, instantiated per project instance. Three transports:
+
+- `StreamableHTTPClientTransport` (remote, primary)
+- `SSEClientTransport` (remote, fallback)
+- `StdioClientTransport` (local subprocess)
+
+OAuth 2.0 with dynamic client registration. States: `needs_auth`, `needs_client_registration`, `connected`, `disabled`, `failed`. Token storage at `Global.Path.data/mcp-auth.json` (0o600). Built-in callback handler on **port 19876**.
+
+### Event Bus Architecture
+
+```
+Local instance publishes (Bus.publish)
+  ├─→ Local subscribers (exact + * wildcard)
+  └─→ GlobalBus.emit("event", {directory, payload})
+        ├─→ SSE route (server/routes/global.ts:81)
+        ├─→ Workspace SSE (workspace/workspace-server/routes.ts:30)
+        ├─→ Mobile stream (server/routes/mobile.ts:2073)
+        └─→ Worker RPC (cli/cmd/tui/worker.ts:36-38) → Rpc.emit("global.event")
+              └─→ TUI SDK context → SolidJS emitter → component subscriptions
+```
+
+`Bus.Service` uses `Context.Tag` for DI, `InstanceState.make` for per-instance subscription storage, `Layer.scoped` for lifecycle. Subscribers stored in `InstanceState<{ subscriptions: Map<string, Subscription[]> }>`.
+
+### Brain Module (THIS module — meta)
+
+`src/brain/` runs an **hourly memory consolidation session** that writes to `.github/instructions/memory.instruction.md` (this file). The Brain component is essentially the persistence layer for institutional memory across agent sessions — when invoked, it:
+
+1. Reads the current memory file
+2. Gathers recent signal from session transcripts
+3. Consolidates by merging new findings, converting relative dates to absolute, deleting contradicted facts
+4. Prunes for conciseness
+
+This is the agent that produced every "Brain Pass (...)" section in this file.
+
+### opentui Tool — Current Open Work (2026-06-07)
+
+User reported the `opentui` tool fails too often. Investigation traced the full schema-to-JSON pipeline:
+
+**Phase 1 — Schema construction**:
+1. Effect Schema `Parameters` in `opentui.ts:422-434` (title, subtitle, components: Array of union of 20 types)
+2. `zod(Parameters)` (`opentui.ts:438`) — walker in `effect-zod.ts:489` produces `z.ZodType`. The `Schema.Union(...)` becomes `z.union([...])` **flat** (effect-zod.ts:372) — weak point
+3. `z.toJSONSchema(item.parameters)` (`session/tools.ts:147`) — Zod v4 converts to JSON Schema 7. Flat `z.union` becomes `{ "anyOf": [ {…table}, {…stat}, … 20 schemi … ] }` **without discriminator**
+4. `ProviderTransform.schema(model, ...)` (`provider/transform.ts:1312`) — sanitizes JSON Schema for provider quirks
+5. `tool({inputSchema: jsonSchema(schema)})` (`session/tools.ts:149-152`) — AI SDK packages schema + description
+
+**Phase 2 — Model generation**: Provider does constrained-decoding but **no discriminator** on a 20-branch anyOf means the model must guess which form to fill.
+
+**Phase 3 — Validation**: AI SDK parses, validates against inputSchema; then `executeAsync(args)` calls `execute` which re-validates via `authored.parameters.parse(args)` (`tool.ts:120`) — if fails, generic message `tool.ts:125-128`.
+
+**Root cause**: flat `z.union` at step 2 → flat anyOf at step 3 → model can't constrain choice AND Zod aggregates 20 errors at validation.
+
+**Fix path (planned)**:
+- **A**: Convert to `z.discriminatedUnion("type", [...])` — produces `oneOf+discriminator` JSON Schema; Zod returns single issue on error (not 20-branch invalid_union). Zod 4.1.8 supports this.
+- **B**: Improve `formatValidationError` to surface actionable messages (existing pattern in `batch.ts`, `skill.ts`).
+- **C**: User requested move from "display read-only dashboard" to "**vere e proppie interfacce**" (proper interactive interfaces — AI-generated mini-app TUIs). This is a design workstream: needs foundation in existing interactivity (prompt/ask mechanism, TUI primitives, dialog system).
+
+**Render-side facts**:
+- Renderer: `src/cli/cmd/tui/component/dialog-opentui-viz.tsx` (1856 lines)
+- Dispatch: from `session/index.tsx:2427`
+- `Schema.check` cross-field refinements get dropped by `effect-zod` walker (fallback in `effect-zod.ts:421-433`); must be applied in `execute` not schema.
+
+### Vercel AI SDK Integration
+
+- `streamText` (re-exported via `LLMCore.stream` at `src/session/llm.ts:435-500`) is the primary streaming call
+- `wrapLanguageModel` (`:481`) — applies middleware: `ProviderTransform.messageMiddleware` + `extractReasoningMiddleware({tagName: "think"})`
+- `tool()`, `jsonSchema()` (`:411-415`)
+- `convertToModelMessages` / `modelMessageSchema` (`:6-17`)
+- LiteLLM hack: when provider is LiteLLM proxy with tool history but no active tools, inject `_noop` tool to pass proxy's tool-history validation
+- Codex sessions: pack everything into the first user message `{role:"user", content:system}` (OpenAI codex endpoint ignores system role); pass `SystemPrompt.instructions()` as `options.instructions` instead
+
+### Effect Tool-State Machine (processor.ts)
+
+| Phase | Stream event | ToolPart state | Action |
+|---|---|---|---|
+| 0 | — | n/a | Tool registry built from `Agent.tools` × `Agent.permission` filter |
+| 1 | `tool-input-start` | `pending` (input:{}, raw:"") | Part persisted; `toolcalls[value.id] = part` |
+| 2 | `tool-input-delta` | `pending` | Streamed JSON, not persisted yet |
+| 3 | `tool-call` | `running` (input set, time.start) | `detectDoomLoop()` (DOOM_LOOP_THRESHOLD=3) |
+| 4 | `tool-result` | `completed` (output set, time.end) | Persistence |
+| 5 | `tool-error` | `error` (error set) | If `PermissionRejectedError`/`QuestionRejectedError` → `blocked` |
+
+### Agent Default Tool Allowlists (from agent.ts)
+
+| Agent | Default tool allowlist | Mode |
+|---|---|---|
+| `plan` | `plan` only | primary |
+| `planner` | `read, grep, glob, list, tree, websearch, codesearch, webfetch` | subagent |
+| `scout` | planner + `repo_clone`, `repo_overview` | subagent |
+| `explore` | `read, grep, glob, list, bash, webfetch, websearch, codesearch` | all |
+| `fast-explore` | `read, grep, glob, list, tree` (no bash, no web) | all |
+| `researcher` | read/search/docs/memory/context tools + task + delegation + delegator | subagent |
+| `code-reviewer` | `read, grep, glob, list, bash` | all |
+| `debugger` | read/grep/glob/list/bash + edit | all |
+| `test-runner` | read/grep/list/bash + edit + write | all |
+| `refactor` | read/grep/glob/list/bash + edit + write + apply_patch | all |
+| `delegator` | (synthesizes background results) | subagent |

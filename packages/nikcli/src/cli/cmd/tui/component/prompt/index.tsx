@@ -187,7 +187,7 @@ export function Prompt(props: PromptProps) {
   const { theme, syntax } = useTheme()
   const kv = useKV()
   const editor = useEditorContext()
-  const [editorContextVisible, setEditorContextVisible] = kv.signal("editor_context_visibility", true)
+  const editorContextVisible = createMemo(() => kv.get("editor_context_visibility", true) as boolean)
   const editorPath = createMemo(() => editor.selection()?.filePath)
   const editorSelectionLabel = createMemo(() => {
     const selection = editor.selection()?.selection

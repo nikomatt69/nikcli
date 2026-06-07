@@ -33,6 +33,7 @@ const EXCLUDED = new Set([
   "delegator",
   "delegation",
   "opentui",
+  "tui_app",
   "speak",
 ])
 

@@ -83,6 +83,7 @@ interface RefAnnotation {
   schemaId?: string | symbol
   override?: ZodOverrideFn
   objectMode?: ZodObjectMode
+  discriminator?: string
 }
 
 // Effect's primitive keywords (`Schema.String`, `Schema.Number`, etc.) carry default
@@ -156,7 +157,38 @@ function readAnnotations(ast: AST | undefined): RefAnnotation {
   if (typeof override === "function") out.override = override as ZodOverrideFn
   const objectMode = annotations?.[ZodObjectModeId]
   if (objectMode === "strict" || objectMode === "strip" || objectMode === "passthrough") out.objectMode = objectMode
+  const discriminator = annotations?.discriminator
+  if (typeof discriminator === "string") out.discriminator = discriminator
   return out
+}
+
+/**
+ * When a Union is annotated with `discriminator: "<key>"` and every variant is a
+ * `z.ZodObject` carrying that key as a single-value `z.ZodLiteral` with values
+ * unique across variants, emit `z.discriminatedUnion`. This produces a JSON
+ * Schema `oneOf` and — crucially — makes both Zod validation and any consuming
+ * LLM pick exactly one branch, so errors point at the real field instead of
+ * aggregating every arm. Returns `undefined` (caller falls back to `z.union`)
+ * when the variants don't qualify.
+ */
+function tryDiscriminatedUnion(variants: ReadonlyArray<z.ZodType>, key: string): z.ZodType | undefined {
+  if (variants.length < 2) return undefined
+  const literalValues: unknown[] = []
+  for (const variant of variants) {
+    if (!(variant instanceof z.ZodObject)) return undefined
+    const shape = (variant as any).def?.shape ?? (variant as any).shape
+    const field = shape?.[key]
+    if (!(field instanceof z.ZodLiteral)) return undefined
+    const values = (field as any).def?.values ?? ((field as any).def?.value !== undefined ? [(field as any).def.value] : undefined)
+    if (!Array.isArray(values) || values.length !== 1) return undefined
+    literalValues.push(values[0])
+  }
+  if (new Set(literalValues).size !== literalValues.length) return undefined
+  try {
+    return z.discriminatedUnion(key, variants as [z.ZodObject, z.ZodObject, ...z.ZodObject[]])
+  } catch {
+    return undefined
+  }
 }
 
 function applyAnnotations<T extends z.ZodType>(zodType: T, ann: RefAnnotation): z.ZodType {
@@ -369,6 +401,10 @@ function walk(ast: AST): z.ZodType {
       if (filtered.length === 0) return finalize(z.never())
       const variants = filtered.map((t) => walk(t))
       if (variants.length === 1) return finalize(variants[0])
+      if (ann.discriminator) {
+        const discriminated = tryDiscriminatedUnion(variants, ann.discriminator)
+        if (discriminated) return finalize(discriminated)
+      }
       return finalize(z.union(variants as [z.ZodType, z.ZodType, ...z.ZodType[]]))
     }
     case "Arrays": {

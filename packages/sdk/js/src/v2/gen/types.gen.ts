@@ -2468,6 +2468,10 @@ export type Config = {
      */
     brainMinSessions?: number
     /**
+     * Model to use for the Brain memory consolidation session in the format of provider/model, e.g. anthropic/claude-sonnet-4-5. Falls back to the default model when unset.
+     */
+    brainModel?: string
+    /**
      * Enable memory file support for session context
      */
     memory?: boolean

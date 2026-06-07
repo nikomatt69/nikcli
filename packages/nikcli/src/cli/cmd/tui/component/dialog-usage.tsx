@@ -127,6 +127,17 @@ export function DialogUsage() {
 
   const contextLimit = createMemo(() => data()?.model?.contextLimit ?? 0)
   const reportedTotal = createMemo(() => data()?.reported.total ?? 0)
+  // Cache hit rate = share of the input-side prompt served from cache this turn.
+  // cacheRead are hits (~0.1x cost); cacheWrite are fresh writes (~1.25x/2x); input
+  // is the uncached remainder (full price). 0% read across turns with a stable
+  // prefix means a silent invalidator (model/tool switch, volatile system prompt).
+  const cacheHitRate = createMemo(() => {
+    const r = data()?.reported
+    if (!r) return undefined
+    const inputSide = r.cacheRead + r.cacheWrite + r.input
+    if (inputSide <= 0) return undefined
+    return r.cacheRead / inputSide
+  })
   // The editor source lives client-side and is not part of the server-side
   // breakdown, so add its enabled token cost to the local total.
   const editorTokens = createMemo(() => {
@@ -384,6 +395,11 @@ export function DialogUsage() {
               <box flexDirection="row" flexWrap="wrap" gap={2}>
                 <text fg={theme.textMuted}>cache read {Usage.formatTokens(data()!.reported.cacheRead)}</text>
                 <text fg={theme.textMuted}>cache write {Usage.formatTokens(data()!.reported.cacheWrite)}</text>
+                <Show when={cacheHitRate() !== undefined}>
+                  <text fg={cacheHitRate()! >= 0.5 ? theme.success : cacheHitRate()! > 0 ? theme.warning : theme.error}>
+                    cache hit {Usage.formatPct(data()!.reported.cacheRead, data()!.reported.cacheRead + data()!.reported.cacheWrite + data()!.reported.input)}
+                  </text>
+                </Show>
                 <text fg={theme.textMuted}>output {Usage.formatTokens(data()!.reported.output)}</text>
                 <Show when={data()!.reported.reasoning > 0}>
                   <text fg={theme.textMuted}>reasoning {Usage.formatTokens(data()!.reported.reasoning)}</text>

@@ -54,6 +54,43 @@ describe("effect-zod walker", () => {
     expect(s.safeParse(true).success).toBe(false)
   })
 
+  describe("discriminated union", () => {
+    const A = Schema.Struct({ type: Schema.Literal("a"), x: Schema.Number })
+    const B = Schema.Struct({ type: Schema.Literal("b"), y: Schema.String })
+
+    it("annotated union validates by discriminator and reports one targeted issue", () => {
+      const s = zod(Schema.Union([A, B]).annotate({ discriminator: "type" }))
+      expect(s.safeParse({ type: "a", x: 1 }).success).toBe(true)
+      expect(s.safeParse({ type: "b", y: "ok" }).success).toBe(true)
+      const r = s.safeParse({ type: "a", x: "nope" })
+      expect(r.success).toBe(false)
+      if (!r.success) {
+        // discriminated → exactly the failing field, not an aggregated invalid_union
+        expect(r.error.issues).toHaveLength(1)
+        expect(r.error.issues[0]!.path).toEqual(["x"])
+      }
+    })
+
+    it("without the annotation it stays a plain union", () => {
+      const s = zod(Schema.Union([A, B]))
+      const r = s.safeParse({ type: "a", x: "nope" })
+      expect(r.success).toBe(false)
+      if (!r.success) expect(r.error.issues[0]!.code).toBe("invalid_union")
+    })
+
+    it("falls back to plain union when variants are not discriminable", () => {
+      // string arm is not an object → cannot discriminate; must not throw
+      const s = zod(Schema.Union([A, Schema.String]).annotate({ discriminator: "type" }))
+      expect(s.safeParse({ type: "a", x: 1 }).success).toBe(true)
+      expect(s.safeParse("hello").success).toBe(true)
+    })
+
+    it("produces JSON Schema without throwing", () => {
+      const s = zod(Schema.Union([A, B]).annotate({ discriminator: "type" }))
+      expect(() => z.toJSONSchema(s)).not.toThrow()
+    })
+  })
+
   it("nullable via NullOr", () => {
     const s = zod(Schema.NullOr(Schema.String))
     expect(s.safeParse(null).success).toBe(true)

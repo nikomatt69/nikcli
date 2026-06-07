@@ -97,8 +97,8 @@ creating a parallel schema source of truth.
 
 ## Escape hatches
 
-The walker in `@/util/effect-zod` exposes two explicit escape hatches for
-cases the pure-Schema path cannot express. Each one stays in the codebase
+The walker in `@/util/effect-zod` exposes explicit escape hatches and opt-in
+annotations for cases the pure-Schema path cannot express. Each one stays in the codebase
 only as long as its upstream or local dependency requires it — inline
 comments document when each can be deleted.
 
@@ -110,6 +110,23 @@ Replaces the entire derivation with a hand-crafted zod schema. Used when:
   `config/model-id.ts` points at `https://models.dev/...`)
 - the target is a zod-only schema that cannot yet be expressed as Schema
   (e.g. `ConfigAgent.Info`, `Log.Level`)
+
+### `discriminator` annotation on unions
+
+`Schema.Union([...]).annotate({ discriminator: "<key>" })` makes the walker
+emit `z.discriminatedUnion("<key>", [...])` instead of a flat `z.union([...])`,
+**when every variant is a struct carrying `<key>` as a single-value
+`Schema.Literal` with values unique across variants**. If the variants don't
+qualify the walker falls back to `z.union` (never throws).
+
+Why it matters: a flat union of N tagged structs validates by trying every arm
+and, on failure, aggregates an `invalid_union` issue containing all N arms'
+errors — unusable for both error messages and any LLM emitting the value. The
+discriminated form restores O(1) tag dispatch and yields a single targeted
+issue at the real field (e.g. `body[0].options: expected array`). This directly
+reduces tool-call failures for large tagged unions (`src/interaction/spec.ts`,
+and applicable to `src/tool/opentui.ts`). It is opt-in, so existing schemas are
+unaffected unless annotated. Covered by `test/util/effect-zod.test.ts`.
 
 ### Local `DeepMutable<T>` in `config/config.ts`
 
@@ -412,7 +429,7 @@ piecewise.
 
 ## Notes
 
-- **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`), Suspend/lazy, Declaration surrogates, Enums. Validated by `bun test test/util/effect-zod.test.ts` (18 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
+- **Walker now available**: `src/util/effect-zod.ts` ships the Effect Schema → Zod walker. Exports: `zod(schema)`, `zodObject(schema)`, `withStatics(...)`, `zodOverride(fn)`, `ZodOverrideId`, `DeepMutable<T>`. Coverage: structs, arrays, unions, literals, records, NullOr, optional, primitives, the canonical refinements (`isInt`, `isGreaterThan*`, `isLessThan*`, `isPattern`, `isUUID`, `isMinLength`, `isMaxLength`), Suspend/lazy, Declaration surrogates, Enums, and opt-in discriminated unions (`.annotate({ discriminator: "<key>" })` → `z.discriminatedUnion`). Validated by `bun test test/util/effect-zod.test.ts` (28 tests). Constructs not yet supported fall back to `z.unknown()`; extend the walker switch when a new construct first appears in `src/`.
 - Use `@/util/effect-zod` for all Schema → Zod conversion.
 - Prefer one canonical schema definition. Avoid maintaining parallel Zod and
   Effect definitions for the same domain type.
