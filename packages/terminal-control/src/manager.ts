@@ -2,7 +2,14 @@
  * SessionManager — an in-memory registry of named {@link Session}s. Framework
  * agnostic; nikcli wraps this in an Effect service for per-instance lifecycle.
  */
-import { Session, type SessionInfo, type SessionOptions, type SendMode, type WaitCondition, type WaitResult } from "./session"
+import {
+  Session,
+  type SessionInfo,
+  type SessionOptions,
+  type SendMode,
+  type WaitCondition,
+  type WaitResult,
+} from "./session"
 import type { Frame } from "./frame"
 import type { RecordingData, RecordingMarker } from "./recording"
 

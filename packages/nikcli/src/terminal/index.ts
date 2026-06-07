@@ -93,8 +93,7 @@ export namespace Terminal {
           return manager.start(input)
         })
 
-      const list: Interface["list"] = () =>
-        InstanceState.get(state).pipe(Effect.map((manager) => manager.list()))
+      const list: Interface["list"] = () => InstanceState.get(state).pipe(Effect.map((manager) => manager.list()))
 
       const info: Interface["info"] = (name) => tryWith("info", (m) => m.info(name))
 

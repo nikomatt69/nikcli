@@ -179,7 +179,8 @@ function tryDiscriminatedUnion(variants: ReadonlyArray<z.ZodType>, key: string):
     const shape = (variant as any).def?.shape ?? (variant as any).shape
     const field = shape?.[key]
     if (!(field instanceof z.ZodLiteral)) return undefined
-    const values = (field as any).def?.values ?? ((field as any).def?.value !== undefined ? [(field as any).def.value] : undefined)
+    const values =
+      (field as any).def?.values ?? ((field as any).def?.value !== undefined ? [(field as any).def.value] : undefined)
     if (!Array.isArray(values) || values.length !== 1) return undefined
     literalValues.push(values[0])
   }

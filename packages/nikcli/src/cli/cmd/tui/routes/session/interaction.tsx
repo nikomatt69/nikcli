@@ -6,13 +6,7 @@ import { useKeybind } from "../../context/keybind"
 import { tint, useTheme } from "../../context/theme"
 import { useTextareaKeybindings } from "../../component/textarea-keybindings"
 import { useDialog } from "../../ui/dialog"
-import type {
-  AppSpecType,
-  BodyComponentType,
-  WidgetLeaf,
-  StateValueType,
-  InteractionColor,
-} from "@/interaction/spec"
+import type { AppSpecType, BodyComponentType, WidgetLeaf, StateValueType, InteractionColor } from "@/interaction/spec"
 
 type AnyWidget = Extract<BodyComponentType, { type: string }>
 
@@ -186,7 +180,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
   }
 
   function toggleMulti(w: any, optValue: string) {
-    const cur = Array.isArray(getVal(w.id)) ? ([...(getVal(w.id) as string[])]) : []
+    const cur = Array.isArray(getVal(w.id)) ? [...(getVal(w.id) as string[])] : []
     const idx = cur.indexOf(optValue)
     if (idx === -1) cur.push(optValue)
     else cur.splice(idx, 1)
@@ -437,7 +431,9 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
                   const onCursor = () => isFocused() && store.cursor === i()
                   return (
                     <text
-                      fg={onCursor() ? accent() : checked() ? theme.success : isFocused() ? theme.text : theme.textMuted}
+                      fg={
+                        onCursor() ? accent() : checked() ? theme.success : isFocused() ? theme.text : theme.textMuted
+                      }
                     >
                       {onCursor() ? "›" : " "} [{checked() ? "✓" : " "}] {opt.label ?? opt.value}
                     </text>
@@ -460,7 +456,9 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
         <Match when={w.type === "slider"}>
           <Field label={w.label} help={w.help} focused={isFocused()}>
             <box flexDirection="row" gap={1}>
-              <text fg={isFocused() ? theme.text : theme.textMuted}>{sliderBar(w, Number(getVal(w.id) ?? w.min ?? 0))}</text>
+              <text fg={isFocused() ? theme.text : theme.textMuted}>
+                {sliderBar(w, Number(getVal(w.id) ?? w.min ?? 0))}
+              </text>
               <text fg={accent()}>
                 {String(getVal(w.id) ?? w.min ?? 0)}
                 {w.unit ?? ""}
@@ -559,10 +557,7 @@ export function DialogInteractionApp(props: { spec: AppSpecType }) {
             <text fg={theme.textMuted}>{spec().subtitle}</text>
           </Show>
         </box>
-        <Show
-          when={spec().screens.length > 1}
-          fallback={<text fg={theme.textMuted}>esc cancel</text>}
-        >
+        <Show when={spec().screens.length > 1} fallback={<text fg={theme.textMuted}>esc cancel</text>}>
           <text fg={theme.textMuted}>
             {currentScreen()?.title ?? store.screen} ({spec().screens.findIndex((s) => s.id === store.screen) + 1}/
             {spec().screens.length}) · esc

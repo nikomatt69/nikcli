@@ -397,7 +397,11 @@ export function DialogUsage() {
                 <text fg={theme.textMuted}>cache write {Usage.formatTokens(data()!.reported.cacheWrite)}</text>
                 <Show when={cacheHitRate() !== undefined}>
                   <text fg={cacheHitRate()! >= 0.5 ? theme.success : cacheHitRate()! > 0 ? theme.warning : theme.error}>
-                    cache hit {Usage.formatPct(data()!.reported.cacheRead, data()!.reported.cacheRead + data()!.reported.cacheWrite + data()!.reported.input)}
+                    cache hit{" "}
+                    {Usage.formatPct(
+                      data()!.reported.cacheRead,
+                      data()!.reported.cacheRead + data()!.reported.cacheWrite + data()!.reported.input,
+                    )}
                   </text>
                 </Show>
                 <text fg={theme.textMuted}>output {Usage.formatTokens(data()!.reported.output)}</text>
