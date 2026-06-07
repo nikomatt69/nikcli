@@ -52,8 +52,7 @@ export function DialogSessionWarp(props: { sessionID: string }) {
     for (const ws of workspaces) {
       const label = ws.name || ws.id
       items.push({
-        title:
-          toDelete() === ws.id ? `Delete ${label}? Press ${keybind.print("session_delete")} again` : label,
+        title: toDelete() === ws.id ? `Delete ${label}? Press ${keybind.print("session_delete")} again` : label,
         value: ws.id,
         description: ws.id === current ? "Current location" : ws.config.type,
       })

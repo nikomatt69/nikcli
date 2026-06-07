@@ -216,31 +216,35 @@ export function DialogWorkspaceList() {
       description: "Use the local machine",
       footer: `${localCount()} session${localCount() === 1 ? "" : "s"}`,
     },
-    ...sync.data.workspaceList.toSorted((a, b) => (a.name || a.id).localeCompare(b.name || b.id)).map((workspace) => {
-      const count = counts()[workspace.id]
-      const label = workspace.name || workspace.id
-      const status = project.workspace.status(workspace.id)
-      return {
-        title:
-          removing() === workspace.id
-            ? "Deleting..."
-            : toDelete() === workspace.id
-              ? `Delete ${label}? Press ${keybind.print("session_delete")} again`
-              : label,
-        value: workspace.id,
-        category: workspace.config.type,
-        description: workspace.branch ? `Branch ${workspace.branch}` : undefined,
-        gutter: (
-          <text fg={status === "connected" ? theme.success : status === "error" ? theme.error : theme.textMuted}>●</text>
-        ),
-        footer:
-          count === undefined
-            ? "Loading sessions..."
-            : count === null
-              ? "Sessions unavailable"
-              : `${count} session${count === 1 ? "" : "s"}`,
-      }
-    }),
+    ...sync.data.workspaceList
+      .toSorted((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+      .map((workspace) => {
+        const count = counts()[workspace.id]
+        const label = workspace.name || workspace.id
+        const status = project.workspace.status(workspace.id)
+        return {
+          title:
+            removing() === workspace.id
+              ? "Deleting..."
+              : toDelete() === workspace.id
+                ? `Delete ${label}? Press ${keybind.print("session_delete")} again`
+                : label,
+          value: workspace.id,
+          category: workspace.config.type,
+          description: workspace.branch ? `Branch ${workspace.branch}` : undefined,
+          gutter: (
+            <text fg={status === "connected" ? theme.success : status === "error" ? theme.error : theme.textMuted}>
+              ●
+            </text>
+          ),
+          footer:
+            count === undefined
+              ? "Loading sessions..."
+              : count === null
+                ? "Sessions unavailable"
+                : `${count} session${count === 1 ? "" : "s"}`,
+        }
+      }),
     {
       title: "+ New workspace",
       value: "__create__",

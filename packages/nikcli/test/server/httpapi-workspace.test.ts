@@ -213,16 +213,20 @@ describe("Workspace HttpApi bridge", () => {
     const warped = (await request(`/session/${session.id}`, directory)) as { workspaceID?: string }
     expect(warped.workspaceID).toBe(workspaceID)
 
-    const beforeSessionUse = ((await request("/experimental/workspace", directory)) as Array<{
-      id: string
-      timeUsed: number
-    }>).find((workspace) => workspace.id === workspaceID)!.timeUsed
+    const beforeSessionUse = (
+      (await request("/experimental/workspace", directory)) as Array<{
+        id: string
+        timeUsed: number
+      }>
+    ).find((workspace) => workspace.id === workspaceID)!.timeUsed
     await Bun.sleep(2)
     await post("/session", directory, { title: "Workspace usage session", workspaceID })
-    const afterSessionUse = ((await request("/experimental/workspace", directory)) as Array<{
-      id: string
-      timeUsed: number
-    }>).find((workspace) => workspace.id === workspaceID)!.timeUsed
+    const afterSessionUse = (
+      (await request("/experimental/workspace", directory)) as Array<{
+        id: string
+        timeUsed: number
+      }>
+    ).find((workspace) => workspace.id === workspaceID)!.timeUsed
     expect(afterSessionUse).toBeGreaterThan(beforeSessionUse)
 
     expect(HttpApiBridge.supports(`/experimental/workspace/${workspaceID}`, "DELETE")).toBe(true)

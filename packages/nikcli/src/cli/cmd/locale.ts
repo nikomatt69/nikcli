@@ -101,14 +101,16 @@ function printResolved(cfg: LocaleConfig | undefined) {
   UI.println(`  source:         ${r.source}`)
   if (r.source === "override") {
     UI.println("")
-    UI.println(UI.Style.TEXT_DIM + "  (from NIKCLI_LOCALE / NIKCLI_LANGUAGE / NIKCLI_REGION — this run only)" + UI.Style.TEXT_NORMAL)
+    UI.println(
+      UI.Style.TEXT_DIM +
+        "  (from NIKCLI_LOCALE / NIKCLI_LANGUAGE / NIKCLI_REGION — this run only)" +
+        UI.Style.TEXT_NORMAL,
+    )
   }
 }
 
 async function saveLocale(locale: LocaleConfig | undefined, globalFlag: boolean) {
-  const configPath = globalFlag
-    ? path.join(Global.Path.config, "nikcli.json")
-    : path.join(process.cwd(), "nikcli.json")
+  const configPath = globalFlag ? path.join(Global.Path.config, "nikcli.json") : path.join(process.cwd(), "nikcli.json")
 
   const current = await Bun.file(configPath)
     .text()

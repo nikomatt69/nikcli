@@ -107,7 +107,9 @@ export function ffmpegAvailable(): boolean {
  */
 export async function exportVideo(rec: RecordingData, options: ExportVideoOptions): Promise<ExportVideoResult> {
   if (!ffmpegAvailable()) {
-    throw new Error("Video export requires the 'ffmpeg' binary on PATH. Use format 'svganim' for a dependency-free alternative.")
+    throw new Error(
+      "Video export requires the 'ffmpeg' binary on PATH. Use format 'svganim' for a dependency-free alternative.",
+    )
   }
   const format = options.format ?? "mp4"
   const fps = Math.max(1, options.fps ?? 8)

@@ -16,11 +16,7 @@ export interface SvgOptions {
 }
 
 function escapeXml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 }
 
 function effectiveColors(cell: Cell, resolve: ResolveOptions) {
@@ -102,7 +98,9 @@ export function svgLayers(frame: Frame, options: SvgOptions = {}): SvgLayers {
       if (hex !== pageBg) {
         const x = padding + runStart * cellW
         const w = (endX - runStart) * cellW
-        rects.push(`<rect x="${x.toFixed(2)}" y="${(padding + y * cellH).toFixed(2)}" width="${w.toFixed(2)}" height="${cellH.toFixed(2)}" fill="${hex}"/>`)
+        rects.push(
+          `<rect x="${x.toFixed(2)}" y="${(padding + y * cellH).toFixed(2)}" width="${w.toFixed(2)}" height="${cellH.toFixed(2)}" fill="${hex}"/>`,
+        )
       }
     }
     for (let x = 1; x < frame.cols; x++) {

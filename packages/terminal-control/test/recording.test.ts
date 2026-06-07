@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test"
-import { Recorder, frameAt, finalFrame, sampleFrames, duration, clipBetweenMarkers, toAsciicast, fromJSON } from "../src/recording"
+import {
+  Recorder,
+  frameAt,
+  finalFrame,
+  sampleFrames,
+  duration,
+  clipBetweenMarkers,
+  toAsciicast,
+  fromJSON,
+} from "../src/recording"
 import { renderText } from "../src/render/text"
 import { renderAnimatedSvg } from "../src/render/video"
 import { SessionManager } from "../src/manager"
@@ -133,7 +142,13 @@ describe("replay", () => {
 describe("SessionManager recording integration", () => {
   test("records a live session and exports asciicast", async () => {
     const manager = new SessionManager()
-    manager.start({ name: "rec", command: "/bin/sh", args: ["-c", "printf 'ONE'; sleep 0.3; printf 'TWO'; sleep 1"], cols: 20, rows: 4 })
+    manager.start({
+      name: "rec",
+      command: "/bin/sh",
+      args: ["-c", "printf 'ONE'; sleep 0.3; printf 'TWO'; sleep 1"],
+      cols: 20,
+      rows: 4,
+    })
     manager.startRecording("rec")
     await manager.wait("rec", { type: "text", value: "ONE", timeout: 3000 })
     manager.marker("rec", "saw-one")
