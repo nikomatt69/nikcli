@@ -1,4 +1,4 @@
-import { createSignal, onMount } from "solid-js"
+import { createMemo, createSignal, onMount } from "solid-js"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useToast } from "../../ui/toast"
 import { useDialog } from "@tui/ui/dialog"
@@ -6,8 +6,9 @@ import { Config } from "@/config/config"
 import { useSync } from "../../context/sync"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 import { Effect } from "effect"
+import { DialogModel } from "../dialog-model"
 
-type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled"
+type BrainOption = "enabled" | "minHours" | "minSessions" | "memoryEnabled" | "model" | "resetModel"
 
 function configUpdate(config: Config.Info) {
   return runPromiseWithLayer(
@@ -31,6 +32,7 @@ export function DialogSettingsBrain() {
   const [memoryEnabled, setMemoryEnabled] = createSignal(true)
   const [minHours, setMinHours] = createSignal(24)
   const [minSessions, setMinSessions] = createSignal(5)
+  const [brainModel, setBrainModel] = createSignal<{ providerID: string; modelID: string } | undefined>(undefined)
 
   onMount(async () => {
     try {
@@ -40,9 +42,18 @@ export function DialogSettingsBrain() {
       setMemoryEnabled(config.memoryEnabled)
       setMinHours(config.minHours)
       setMinSessions(config.minSessions)
+      setBrainModel(config.model)
     } catch {
       // use defaults
     }
+  })
+
+  const modelDescription = createMemo(() => {
+    const m = brainModel()
+    if (!m) return "Default"
+    const provider = sync.data.provider.find((x) => x.id === m.providerID)
+    const info = provider?.models[m.modelID]
+    return `${info?.name ?? m.modelID} (${provider?.name ?? m.providerID})`
   })
 
   const options = (): DialogSelectOption<BrainOption>[] => [
@@ -66,13 +77,27 @@ export function DialogSettingsBrain() {
       value: "minSessions",
       description: `${minSessions()} sessions`,
     },
+    {
+      title: "Model",
+      value: "model",
+      description: modelDescription(),
+    },
   ]
+
+  if (brainModel()) {
+    options().push({
+      title: "Reset Model to Default",
+      value: "resetModel",
+      description: "Use the default model for Brain",
+    })
+  }
 
   const persist = async (
     patch: {
       brain?: boolean
       brainMinHours?: number
       brainMinSessions?: number
+      brainModel?: string
       memory?: boolean
     },
     success: string,
@@ -89,6 +114,27 @@ export function DialogSettingsBrain() {
         variant: "error",
       })
     }
+  }
+
+  const setBrainModelPersisted = async (model: { providerID: string; modelID: string } | undefined) => {
+    const previous = brainModel()
+    setBrainModel(model)
+    const modelString = model ? `${model.providerID}/${model.modelID}` : undefined
+    await persist(
+      { brainModel: modelString },
+      model ? `Brain model set to ${model.providerID}/${model.modelID}` : "Brain model reset to default",
+      () => setBrainModel(previous),
+    )
+  }
+
+  const openModelPicker = () => {
+    dialog.replace(() => (
+      <DialogModel
+        onSelect={(model) => {
+          void setBrainModelPersisted(model)
+        }}
+      />
+    ))
   }
 
   const cycleValue = async (option: BrainOption) => {
@@ -123,6 +169,14 @@ export function DialogSettingsBrain() {
         await persist({ brainMinSessions: next }, `Brain minimum sessions set to ${next}`, () =>
           setMinSessions(previous),
         )
+        break
+      }
+      case "model": {
+        openModelPicker()
+        break
+      }
+      case "resetModel": {
+        await setBrainModelPersisted(undefined)
         break
       }
     }

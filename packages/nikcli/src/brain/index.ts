@@ -41,6 +41,47 @@ function defaultProviderModel() {
   )
 }
 
+function providerGetModel(providerID: string, modelID: string) {
+  return runPromiseWithLayer(
+    Provider.defaultLayer,
+    withCurrentInstance(
+      Effect.gen(function* () {
+        const provider = yield* Provider.Service
+        return yield* provider.getModel(providerID, modelID)
+      }),
+    ),
+  )
+}
+
+/**
+ * Resolve the model that Brain should use to run the consolidation session.
+ *
+ * - If the user configured `experimental.brainModel` and the model is available,
+ *   it is used as-is.
+ * - If the configured model is unknown, missing providers/models, or the lookup
+ *   throws, we silently fall back to the user's default model so the Brain pass
+ *   still runs instead of failing the whole flow.
+ */
+export async function getBrainProviderModel(): Promise<{
+  providerID: string
+  modelID: string
+}> {
+  const cfg = await getBrainConfig()
+  if (cfg.model) {
+    try {
+      await providerGetModel(cfg.model.providerID, cfg.model.modelID)
+      return cfg.model
+    } catch (e) {
+      Log.create({ service: "brain" }).warn("configured brainModel unavailable, falling back to default", {
+        providerID: cfg.model.providerID,
+        modelID: cfg.model.modelID,
+        error: String(e),
+      })
+    }
+  }
+  return defaultProviderModel()
+}
+
 function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
   return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
 }
@@ -63,6 +104,7 @@ export type BrainConfig = {
   minSessions: number
   enabled: boolean
   memoryEnabled: boolean
+  model?: { providerID: string; modelID: string }
 }
 
 const DEFAULTS: BrainConfig = {
@@ -165,12 +207,28 @@ export async function updateMemory(content: string): Promise<void> {
 export async function getBrainConfig(): Promise<BrainConfig> {
   const config = await configGet()
   const experimental = config.experimental ?? {}
+  const model = parseBrainModel(experimental.brainModel)
   return {
     minHours: typeof experimental.brainMinHours === "number" ? experimental.brainMinHours : DEFAULTS.minHours,
     minSessions:
       typeof experimental.brainMinSessions === "number" ? experimental.brainMinSessions : DEFAULTS.minSessions,
     enabled: experimental.brain !== undefined ? experimental.brain !== false : DEFAULTS.enabled,
     memoryEnabled: experimental.memory !== undefined ? experimental.memory !== false : DEFAULTS.memoryEnabled,
+    model,
+  }
+}
+
+function parseBrainModel(value: unknown): { providerID: string; modelID: string } | undefined {
+  if (typeof value !== "string" || value.trim() === "") return undefined
+  const trimmed = value.trim()
+  const slash = trimmed.indexOf("/")
+  if (slash <= 0 || slash === trimmed.length - 1) {
+    Log.create({ service: "brain" }).warn("ignoring malformed brainModel config", { value: trimmed })
+    return undefined
+  }
+  return {
+    providerID: trimmed.slice(0, slash),
+    modelID: trimmed.slice(slash + 1),
   }
 }
 
@@ -222,7 +280,10 @@ export namespace Brain {
     const sessionIds = await listSessionsSince(lastAt)
 
     if (sessionIds.length < cfg.minSessions) {
-      log.debug("insufficient sessions", { have: sessionIds.length, need: cfg.minSessions })
+      log.debug("insufficient sessions", {
+        have: sessionIds.length,
+        need: cfg.minSessions,
+      })
       return false
     }
 
@@ -245,27 +306,50 @@ export namespace Brain {
     const log = Log.create({ service: "brain" })
 
     if (!(await isBrainEnabled())) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: "brain disabled" }
+      return {
+        success: false,
+        sessionsReviewed: 0,
+        hoursSinceLastBrain: 0,
+        error: "brain disabled",
+      }
     }
 
     if (!(await isMemoryEnabled())) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: "memory disabled" }
+      return {
+        success: false,
+        sessionsReviewed: 0,
+        hoursSinceLastBrain: 0,
+        error: "memory disabled",
+      }
     }
 
     let lastAt: number
     try {
       lastAt = await readLastBrainAt()
     } catch (e) {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: 0, error: String(e) }
+      return {
+        success: false,
+        sessionsReviewed: 0,
+        hoursSinceLastBrain: 0,
+        error: String(e),
+      }
     }
 
     const hoursSince = (Date.now() - lastAt) / HOUR_MS
 
     let lease: Flock.Lease
     try {
-      lease = await Flock.acquire("brain", { staleMs: LOCK_DURATION_MS, timeoutMs: 100 })
+      lease = await Flock.acquire("brain", {
+        staleMs: LOCK_DURATION_MS,
+        timeoutMs: 100,
+      })
     } catch {
-      return { success: false, sessionsReviewed: 0, hoursSinceLastBrain: hoursSince, error: "lock held" }
+      return {
+        success: false,
+        sessionsReviewed: 0,
+        hoursSinceLastBrain: hoursSince,
+        error: "lock held",
+      }
     }
 
     let sessionIds = await listSessionsSince(lastAt)
@@ -282,11 +366,21 @@ export namespace Brain {
 
       if (before !== after) {
         await recordBrain()
-        log.info("brain completed", { sessionsReviewed: sessionIds.length, memoryUpdated: true })
-        return { success: true, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, sessionID }
+        log.info("brain completed", {
+          sessionsReviewed: sessionIds.length,
+          memoryUpdated: true,
+        })
+        return {
+          success: true,
+          sessionsReviewed: sessionIds.length,
+          hoursSinceLastBrain: hoursSince,
+          sessionID,
+        }
       }
 
-      log.warn("brain did not update memory file", { sessionsReviewed: sessionIds.length })
+      log.warn("brain did not update memory file", {
+        sessionsReviewed: sessionIds.length,
+      })
       return {
         success: false,
         sessionsReviewed: sessionIds.length,
@@ -296,7 +390,12 @@ export namespace Brain {
       }
     } catch (e) {
       log.error("brain failed", { error: String(e) })
-      return { success: false, sessionsReviewed: sessionIds.length, hoursSinceLastBrain: hoursSince, error: String(e) }
+      return {
+        success: false,
+        sessionsReviewed: sessionIds.length,
+        hoursSinceLastBrain: hoursSince,
+        error: String(e),
+      }
     } finally {
       const released = await lease.release().catch((err) => {
         log.warn("failed to release brain lock", { error: String(err) })
@@ -318,7 +417,10 @@ export namespace Brain {
       const reviews = await buildSessionReviews(sessionIds)
 
       const prompt = buildBrainPrompt(memoryFile, reviews, memory)
-      log.info("brain prompt built", { promptLength: prompt.length, sessionCount: sessionIds.length })
+      log.info("brain prompt built", {
+        promptLength: prompt.length,
+        sessionCount: sessionIds.length,
+      })
 
       try {
         const session = await runSession(
@@ -342,7 +444,11 @@ export namespace Brain {
           }),
         )
         log.info("brain session created", { sessionID: session.id })
-        const model = await defaultProviderModel()
+        const model = await getBrainProviderModel()
+        log.info("brain model selected", {
+          providerID: model.providerID,
+          modelID: model.modelID,
+        })
         const parts = await runSessionPrompt(
           Effect.gen(function* () {
             const sessionPrompt = yield* SessionPrompt.Service
@@ -351,7 +457,9 @@ export namespace Brain {
         )
 
         const timeout = setTimeout(() => {
-          log.warn("brain session timed out, cancelling", { sessionID: session.id })
+          log.warn("brain session timed out, cancelling", {
+            sessionID: session.id,
+          })
           void runSessionPrompt(
             Effect.gen(function* () {
               const sessionPrompt = yield* SessionPrompt.Service
@@ -377,7 +485,9 @@ export namespace Brain {
 
         return session.id
       } catch (sessionError) {
-        log.warn("could not run brain session", { error: String(sessionError) })
+        log.warn("could not run brain session", {
+          error: String(sessionError),
+        })
         return "brain-session-not-created"
       }
     } catch (e) {
