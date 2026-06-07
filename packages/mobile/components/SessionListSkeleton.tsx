@@ -5,11 +5,7 @@ export function SessionListSkeleton({ count = 6 }: { count?: number }) {
   return (
     <View className="gap-3">
       {Array.from({ length: count }).map((_, index) => (
-        <View
-          key={index}
-          className="overflow-hidden rounded-[8px] border border-line/60 p-4"
-          style={{ gap: 10 }}
-        >
+        <View key={index} className="overflow-hidden rounded-[8px] border border-line/60 p-4" style={{ gap: 10 }}>
           <View className="flex-row items-center justify-between" style={{ gap: 12 }}>
             <SkeletonBox width="60%" height={15} borderRadius={6} />
             <SkeletonBox width={56} height={11} borderRadius={6} />
