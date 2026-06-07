@@ -6,6 +6,7 @@ import { createMemo, createSignal, createResource, onMount } from "solid-js"
 import { Locale } from "@/util/locale"
 import { useKeybind } from "../context/keybind"
 import { useTheme } from "../context/theme"
+import { useLocal } from "../context/local"
 import { useSDK } from "../context/sdk"
 import { DialogSessionRename } from "./dialog-session-rename"
 import { createDebouncedSignal } from "../util/signal"
@@ -22,6 +23,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
   const sync = useSync()
   const keybind = useKeybind()
   const { theme } = useTheme()
+  const local = useLocal()
   const sdk = useSDK()
   const toast = useToast()
 
@@ -100,13 +102,20 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
         if (props.localOnly) return !x.workspaceID
         return true
       })
-      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .toSorted((a, b) => {
+        // Pinned sessions float to the top, then most-recently-updated first.
+        const pinDelta = (local.session.isPinned(b.id) ? 1 : 0) - (local.session.isPinned(a.id) ? 1 : 0)
+        if (pinDelta !== 0) return pinDelta
+        return b.time.updated - a.time.updated
+      })
       .map((x) => {
         const date = new Date(x.time.updated)
+        const pinned = local.session.isPinned(x.id)
         let category = date.toDateString()
         if (category === today) {
           category = "Today"
         }
+        if (pinned) category = "Pinned"
         const isDeleting = toDelete() === x.id
         const status = sync.data.session_status?.[x.id]
         const isWorking = status?.type === "busy"
@@ -119,7 +128,7 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
 
         const footer = x.workspaceID
           ? workspace
-            ? `${workspace.config.type}: ${workspace.id}`
+            ? `${workspace.config.type}: ${workspace.name || workspace.id}`
             : "unknown workspace"
           : Locale.time(x.time.updated)
 
@@ -127,6 +136,8 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           <Spinner />
         ) : workspaceStatus ? (
           <text fg={workspaceStatus === "connected" ? theme.success : theme.textMuted}>■</text>
+        ) : pinned ? (
+          <text fg={theme.warning}>★</text>
         ) : undefined
 
         return {
@@ -200,6 +211,19 @@ export function DialogSessionList(props: { workspaceID?: string; localOnly?: boo
           title: "rename",
           onTrigger: async (option) => {
             dialog.replace(() => <DialogSessionRename session={option.value} workspaceID={props.workspaceID} />)
+          },
+        },
+        {
+          keybind: keybind.all.session_pin_toggle?.[0],
+          title: "pin/unpin",
+          onTrigger: (option) => {
+            const wasPinned = local.session.isPinned(option.value)
+            local.session.togglePin(option.value)
+            toast.show({
+              message: wasPinned ? "Session unpinned" : "Session pinned",
+              variant: "info",
+              duration: 2000,
+            })
           },
         },
         {

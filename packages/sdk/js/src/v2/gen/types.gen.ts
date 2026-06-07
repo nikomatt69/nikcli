@@ -4098,6 +4098,44 @@ export type ExperimentalWorkspaceAdaptorListResponses = {
 export type ExperimentalWorkspaceAdaptorListResponse =
   ExperimentalWorkspaceAdaptorListResponses[keyof ExperimentalWorkspaceAdaptorListResponses]
 
+export type ExperimentalWorkspaceWarpData = {
+  body?: {
+    id: string | null
+    sessionID: string
+    copyChanges?: boolean
+    timeoutMs?: number
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/warp"
+}
+
+export type ExperimentalWorkspaceWarpErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type ExperimentalWorkspaceWarpError = ExperimentalWorkspaceWarpErrors[keyof ExperimentalWorkspaceWarpErrors]
+
+export type ExperimentalWorkspaceWarpResponses = {
+  /**
+   * Session warped
+   */
+  204: void
+}
+
+export type ExperimentalWorkspaceWarpResponse =
+  ExperimentalWorkspaceWarpResponses[keyof ExperimentalWorkspaceWarpResponses]
+
 export type ExperimentalWorkspaceSyncListData = {
   body?: never
   path?: never
@@ -4295,44 +4333,6 @@ export type ExperimentalWorkspaceSessionRestoreResponses = {
 
 export type ExperimentalWorkspaceSessionRestoreResponse =
   ExperimentalWorkspaceSessionRestoreResponses[keyof ExperimentalWorkspaceSessionRestoreResponses]
-
-export type ExperimentalWorkspaceWarpData = {
-  body?: {
-    id: string | null
-    sessionID: string
-    copyChanges?: boolean
-    timeoutMs?: number
-  }
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/experimental/workspace/warp"
-}
-
-export type ExperimentalWorkspaceWarpErrors = {
-  /**
-   * Bad request
-   */
-  400: BadRequestError
-  /**
-   * Not found
-   */
-  404: NotFoundError
-}
-
-export type ExperimentalWorkspaceWarpError = ExperimentalWorkspaceWarpErrors[keyof ExperimentalWorkspaceWarpErrors]
-
-export type ExperimentalWorkspaceWarpResponses = {
-  /**
-   * Session warped
-   */
-  204: void
-}
-
-export type ExperimentalWorkspaceWarpResponse =
-  ExperimentalWorkspaceWarpResponses[keyof ExperimentalWorkspaceWarpResponses]
 
 export type ExperimentalWorkspaceSessionWarpData = {
   body?: {

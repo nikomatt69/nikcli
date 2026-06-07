@@ -1203,6 +1203,53 @@ export class Session extends HeyApiClient {
 
 export class Workspace extends HeyApiClient {
   /**
+   * Warp session into workspace
+   *
+   * Move a session to a target workspace, or detach it back to the local project.
+   */
+  public warp<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      id?: string | null
+      sessionID?: string
+      copyChanges?: boolean
+      timeoutMs?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "id" },
+            { in: "body", key: "sessionID" },
+            { in: "body", key: "copyChanges" },
+            { in: "body", key: "timeoutMs" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<
+      ExperimentalWorkspaceWarpResponses,
+      ExperimentalWorkspaceWarpErrors,
+      ThrowOnError
+    >({
+      url: "/experimental/workspace/warp",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
    * Sync workspace list
    *
    * Register missing workspaces returned by workspace adaptors.
@@ -1394,53 +1441,6 @@ export class Workspace extends HeyApiClient {
       url: "/experimental/workspace/{id}/restore",
       ...options,
       ...params,
-    })
-  }
-
-  /**
-   * Warp session into workspace
-   *
-   * Move a session to a target workspace, or detach it back to the local project.
-   */
-  public warp<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-      id?: string | null
-      sessionID?: string
-      copyChanges?: boolean
-      timeoutMs?: number
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-            { in: "body", key: "id" },
-            { in: "body", key: "sessionID" },
-            { in: "body", key: "copyChanges" },
-            { in: "body", key: "timeoutMs" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).post<
-      ExperimentalWorkspaceWarpResponses,
-      ExperimentalWorkspaceWarpErrors,
-      ThrowOnError
-    >({
-      url: "/experimental/workspace/warp",
-      ...options,
-      ...params,
-      headers: {
-        "Content-Type": "application/json",
-        ...options?.headers,
-        ...params.headers,
-      },
     })
   }
 

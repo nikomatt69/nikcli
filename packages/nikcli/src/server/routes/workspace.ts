@@ -45,6 +45,44 @@ export const WorkspaceRoutes = lazy(() =>
         )
       },
     )
+    // NOTE: `/warp` must be registered before the dynamic `/:id` create route,
+    // otherwise `POST /warp` is matched as create-with-id="warp" and 400s.
+    .post(
+      "/warp",
+      describeRoute({
+        summary: "Warp session into workspace",
+        description: "Move a session to a target workspace, or detach it back to the local project.",
+        operationId: "experimental.workspace.warp",
+        responses: {
+          204: {
+            description: "Session warped",
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "json",
+        z.object({
+          // `.nullable()` short-circuits on null; a raw z.union([wrkString, null])
+          // lets the custom id schema reject null with a misleading "must start
+          // with wrk" 400, which broke detach-to-local warps.
+          id: Workspace.Info.shape.id.nullable(),
+          sessionID: Identifier.schema("session"),
+          copyChanges: z.boolean().optional(),
+          timeoutMs: z.number().int().positive().optional(),
+        }),
+      ),
+      async (c) => {
+        const body = c.req.valid("json")
+        await Workspace.sessionWarp({
+          sessionID: body.sessionID,
+          workspaceID: body.id,
+          copyChanges: body.copyChanges,
+          timeoutMs: body.timeoutMs ?? 30_000,
+        })
+        return c.body(null, 204)
+      },
+    )
     .post(
       "/sync-list",
       describeRoute({
@@ -211,39 +249,6 @@ export const WorkspaceRoutes = lazy(() =>
       },
     )
     .post(
-      "/warp",
-      describeRoute({
-        summary: "Warp session into workspace",
-        description: "Move a session to a target workspace, or detach it back to the local project.",
-        operationId: "experimental.workspace.warp",
-        responses: {
-          204: {
-            description: "Session warped",
-          },
-          ...errors(400, 404),
-        },
-      }),
-      validator(
-        "json",
-        z.object({
-          id: z.union([Workspace.Info.shape.id, z.null()]),
-          sessionID: Identifier.schema("session"),
-          copyChanges: z.boolean().optional(),
-          timeoutMs: z.number().int().positive().optional(),
-        }),
-      ),
-      async (c) => {
-        const body = c.req.valid("json")
-        await Workspace.sessionWarp({
-          sessionID: body.sessionID,
-          workspaceID: body.id,
-          copyChanges: body.copyChanges,
-          timeoutMs: body.timeoutMs ?? 30_000,
-        })
-        return c.body(null, 204)
-      },
-    )
-    .post(
       "/session/:sessionID/warp",
       describeRoute({
         summary: "Warp session between workspaces",
@@ -271,7 +276,7 @@ export const WorkspaceRoutes = lazy(() =>
       validator(
         "json",
         z.object({
-          workspaceID: z.union([Workspace.Info.shape.id, z.null()]),
+          workspaceID: Workspace.Info.shape.id.nullable(),
           copyChanges: z.boolean().optional(),
           timeoutMs: z.number().int().positive().optional(),
         }),
