@@ -67,7 +67,6 @@ if (!Script.preview) {
   // so we must use a separate env var name (GH_PUSH_TOKEN) to avoid the conflict.
   const pushToken = process.env.GH_PUSH_TOKEN || process.env.GITHUB_TOKEN || process.env.SST_GITHUB_TOKEN
   await $`git remote set-url origin https://x-access-token:${pushToken}@github.com/nikomatt69/nikcli`
-  await $`git fetch origin ${branch}`
   // Drop any unintended modifications to workflow/action YAML — GitHub blocks
   // GITHUB_TOKEN from pushing changes under .github/workflows/* by design.
   // If prettier/format steps touched them, restore from index to keep the release push clean.
@@ -76,8 +75,27 @@ if (!Script.preview) {
   await $`git commit -am "release: v${Script.version}"`
   await $`git add -A`
   await $`git commit --amend --no-edit`
+
+  // Publishing takes several minutes, during which `${branch}` may receive new
+  // commits — a plain push then rejects with "non-fast-forward". Rebase the
+  // release commit onto the latest remote tip and retry the branch push.
+  let branchPushed = false
+  for (let attempt = 0; attempt < 5 && !branchPushed; attempt++) {
+    await $`git fetch origin ${branch}`
+    const rebase = await $`git rebase origin/${branch}`.nothrow()
+    if (rebase.exitCode !== 0) {
+      await $`git rebase --abort`.nothrow()
+      throw new Error(`Failed to rebase release commit onto origin/${branch}`)
+    }
+    const push = await $`git push origin HEAD:${branch}`.nothrow()
+    branchPushed = push.exitCode === 0
+    if (!branchPushed) await new Promise((resolve) => setTimeout(resolve, 2_000))
+  }
+  if (!branchPushed) throw new Error(`Failed to push release commit to ${branch} after retries`)
+
+  // Tag the settled commit and push the tag separately.
   await $`git tag v${Script.version}`
-  await $`git push origin HEAD:${branch} v${Script.version}`
+  await $`git push origin v${Script.version}`
   await new Promise((resolve) => setTimeout(resolve, 5_000))
   await $`gh release create v${Script.version} -d --title "v${Script.version}" --notes ${notes.join("\n") || "No notable changes"} ./packages/nikcli/dist/*.zip ./packages/nikcli/dist/*.tar.gz`
   const release = await $`gh release view v${Script.version} --json id,tagName`.json()
