@@ -5,11 +5,15 @@ import { useSync } from "@tui/context/sync"
 import { createEffect, createMemo, createSignal, onMount } from "solid-js"
 import type { Session } from "@nikcli-ai/sdk/v2"
 import { createNikcliClient } from "@nikcli-ai/sdk/v2"
-import { Identifier } from "@/id/id"
 import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { useKeybind } from "../context/keybind"
 import { DialogSessionList } from "./dialog-session-list"
+import { useTheme } from "../context/theme"
+import { DialogWorkspaceCreate } from "./dialog-workspace-create"
+import { useProject } from "../context/project"
+
+export { DialogWorkspaceCreate } from "./dialog-workspace-create"
 
 export async function openWorkspace(input: {
   dialog: ReturnType<typeof useDialog>
@@ -95,80 +99,6 @@ export async function openWorkspace(input: {
   input.dialog.clear()
 }
 
-export function DialogWorkspaceCreate(props: { onSelect: (workspaceID: string) => Promise<void> }) {
-  const dialog = useDialog()
-  const sync = useSync()
-  const sdk = useSDK()
-  const toast = useToast()
-  const [creating, setCreating] = createSignal(false)
-
-  onMount(() => {
-    dialog.setSize("medium")
-  })
-
-  const options = createMemo(() => {
-    if (creating()) {
-      return [
-        {
-          title: "Creating workspace...",
-          value: "creating" as const,
-          description: "This may take a moment while the worktree is prepared",
-        },
-      ]
-    }
-    return [
-      {
-        title: "Worktree",
-        value: "worktree" as const,
-        description: "Create a local git worktree",
-      },
-    ]
-  })
-
-  const createWorkspace = async () => {
-    if (creating()) return
-    setCreating(true)
-
-    const id = Identifier.ascending("workspace")
-    const result = await sdk.client.experimental.workspace
-      .create({
-        id,
-        branch: null,
-        config: {
-          type: "worktree",
-          directory: sync.data.path.directory || sdk.directory || process.cwd(),
-        },
-      })
-      .catch(() => undefined)
-
-    const workspace = result?.data
-    if (!workspace) {
-      setCreating(false)
-      toast.show({
-        message: "Failed to create workspace",
-        variant: "error",
-      })
-      return
-    }
-
-    await sync.workspace.sync()
-    await props.onSelect(workspace.id)
-    setCreating(false)
-  }
-
-  return (
-    <DialogSelect
-      title={creating() ? "Creating Workspace" : "New Workspace"}
-      skipFilter={true}
-      options={options()}
-      onSelect={(option) => {
-        if (option.value === "creating") return
-        void createWorkspace()
-      }}
-    />
-  )
-}
-
 export function DialogWorkspaceList() {
   const dialog = useDialog()
   const route = useRoute()
@@ -176,6 +106,8 @@ export function DialogWorkspaceList() {
   const sdk = useSDK()
   const toast = useToast()
   const keybind = useKeybind()
+  const { theme } = useTheme()
+  const project = useProject()
 
   function scoped(workspaceID?: string) {
     return createNikcliClient({
@@ -186,7 +118,13 @@ export function DialogWorkspaceList() {
     })
   }
   const [toDelete, setToDelete] = createSignal<string>()
+  const [removing, setRemoving] = createSignal<string>()
   const [counts, setCounts] = createSignal<Record<string, number | null | undefined>>({})
+
+  async function syncWorkspaces() {
+    await sdk.client.experimental.workspace.syncList().catch(() => undefined)
+    await Promise.all([sync.workspace.sync(), project.workspace.sync()])
+  }
 
   const open = (workspaceID: string, forceCreate?: boolean) =>
     openWorkspace({
@@ -278,16 +216,23 @@ export function DialogWorkspaceList() {
       description: "Use the local machine",
       footer: `${localCount()} session${localCount() === 1 ? "" : "s"}`,
     },
-    ...sync.data.workspaceList.map((workspace) => {
+    ...sync.data.workspaceList.toSorted((a, b) => (a.name || a.id).localeCompare(b.name || b.id)).map((workspace) => {
       const count = counts()[workspace.id]
+      const label = workspace.name || workspace.id
+      const status = project.workspace.status(workspace.id)
       return {
         title:
-          toDelete() === workspace.id
-            ? `Delete ${workspace.id}? Press ${keybind.print("session_delete")} again`
-            : workspace.id,
+          removing() === workspace.id
+            ? "Deleting..."
+            : toDelete() === workspace.id
+              ? `Delete ${label}? Press ${keybind.print("session_delete")} again`
+              : label,
         value: workspace.id,
         category: workspace.config.type,
         description: workspace.branch ? `Branch ${workspace.branch}` : undefined,
+        gutter: (
+          <text fg={status === "connected" ? theme.success : status === "error" ? theme.error : theme.textMuted}>●</text>
+        ),
         footer:
           count === undefined
             ? "Loading sessions..."
@@ -306,7 +251,7 @@ export function DialogWorkspaceList() {
 
   onMount(() => {
     dialog.setSize("large")
-    void sync.workspace.sync()
+    void syncWorkspaces()
   })
 
   return (
@@ -332,13 +277,16 @@ export function DialogWorkspaceList() {
           title: "delete",
           onTrigger: async (option) => {
             if (option.value === "__create__" || option.value === "__local__") return
+            if (removing()) return
             if (toDelete() !== option.value) {
               setToDelete(option.value)
               return
             }
+            setRemoving(option.value)
             const result = await sdk.client.experimental.workspace.remove({ id: option.value }).catch(() => undefined)
             setToDelete(undefined)
             if (result?.error) {
+              setRemoving(undefined)
               toast.show({
                 message: "Failed to delete workspace",
                 variant: "error",
@@ -350,7 +298,9 @@ export function DialogWorkspaceList() {
                 type: "home",
               })
             }
-            await sync.workspace.sync()
+            await syncWorkspaces()
+            await sync.bootstrap().catch(() => undefined)
+            setRemoving(undefined)
           },
         },
       ]}

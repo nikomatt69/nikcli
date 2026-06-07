@@ -12,7 +12,7 @@ async function read(rel: string): Promise<string> {
 // The bracketed patterns appear escaped in both the workflow regex and the JS RegExp source.
 const ANTI_LOOP_PATTERNS = ["nikcli autofix", "release: v", "chore: generate", "skip ci"]
 const REDACTION_TOKENS = ["ghp_", "gho_", "github_pat_", "sk-", "npm_", "x-access-token:"]
-const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M2.7"
+const DEFAULT_MODEL = "minimax-coding-plan/MiniMax-M3"
 const SUMMARY_PATH = "tmp/ci-validation-summary.md"
 
 const PIPELINE_YML = ".github/workflows/ci-pipeline.yml"
@@ -310,7 +310,8 @@ describe("railway-deploy coherence", () => {
     const yml = await read(PIPELINE_YML)
     const rdIdx = yml.indexOf("\n  railway-deploy:")
     const after = yml.slice(rdIdx, rdIdx + 1500)
-    expect(after).toContain(">/dev/null 2>&1")
+    // Output is redirected to a log file (not /dev/null) so failures can be
+    // tailed for diagnosis, while success stays a single one-line status.
     expect(after).toContain(">tmp/railway.log")
     expect(after).toContain("✓ Railway deploy triggered")
   })

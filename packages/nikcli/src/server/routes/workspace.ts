@@ -5,6 +5,7 @@ import { Identifier } from "../../id/id"
 import { Instance } from "../../project/instance"
 import { lazy } from "../../util/lazy"
 import { Workspace } from "../../workspace"
+import { listAdaptors } from "../../workspace/adaptors"
 import { errors } from "../error"
 
 const AdaptorInfo = z.object({
@@ -34,10 +35,52 @@ export const WorkspaceRoutes = lazy(() =>
         },
       }),
       async (c) => {
-        return c.json([
-          { type: "worktree", name: "Worktree", description: "Create a local git worktree", available: true },
-          { type: "container", name: "Container", description: "Docker/Podman container", available: true },
-        ])
+        return c.json(
+          listAdaptors().map(({ type, adaptor }) => ({
+            type,
+            name: adaptor.name,
+            description: adaptor.description,
+            available: true,
+          })),
+        )
+      },
+    )
+    .post(
+      "/sync-list",
+      describeRoute({
+        summary: "Sync workspace list",
+        description: "Register missing workspaces returned by workspace adaptors.",
+        operationId: "experimental.workspace.syncList",
+        responses: {
+          204: {
+            description: "Workspace list synced",
+          },
+        },
+      }),
+      async (c) => {
+        await Workspace.syncList(Instance.project)
+        return c.body(null, 204)
+      },
+    )
+    .get(
+      "/status",
+      describeRoute({
+        summary: "Workspace status",
+        description: "Get connection status for workspaces in the current project.",
+        operationId: "experimental.workspace.status",
+        responses: {
+          200: {
+            description: "Workspace connection statuses",
+            content: {
+              "application/json": {
+                schema: resolver(z.array(Workspace.ConnectionStatusInfo)),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => {
+        return c.json(await Workspace.statuses(Instance.project))
       },
     )
     .post(

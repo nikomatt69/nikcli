@@ -24,6 +24,7 @@ import type { Provider } from "@/provider/provider"
 import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import { WorkspaceContext } from "../workspace/workspace-context"
+import { WorkspaceDB } from "../workspace/db"
 import {
   InstanceState,
   locallyInstance,
@@ -512,6 +513,7 @@ export namespace Session {
     }
     log.info("created", result)
     await storageWrite(["session", ctx.project.id, result.id], result)
+    if (result.workspaceID) WorkspaceDB.touch(result.workspaceID, result.time.created)
     await publishBus(ctx, Event.Created, {
       info: result,
     })

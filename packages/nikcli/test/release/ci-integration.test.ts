@@ -163,7 +163,7 @@ describe("ci-autofix.ts", () => {
 
     it("uses MiniMax model as default (not costly providers)", async () => {
       const content = await fs.readFile(path.join(scriptsDir, "ci-autofix.ts"), "utf8")
-      expect(content).toContain("minimax-coding-plan/MiniMax-M2.7")
+      expect(content).toContain("minimax-coding-plan/MiniMax-M3")
       expect(content).not.toContain("claude-sonnet-4")
     })
 
@@ -450,7 +450,7 @@ describe("workflow YAML integration", () => {
 
   it("autofix uses MiniMax as default model", async () => {
     const content = await readRoot(".github/workflows/ci-pipeline.yml")
-    expect(content).toContain("minimax-coding-plan/MiniMax-M2.7")
+    expect(content).toContain("minimax-coding-plan/MiniMax-M3")
   })
 
   it("autofix uses SST_GITHUB_TOKEN for push (not GITHUB_TOKEN)", async () => {

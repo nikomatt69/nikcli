@@ -47,12 +47,23 @@ export const { use: useProject, provider: ProjectProvider } = createSimpleContex
     }
 
     async function syncWorkspace() {
-      const listed = await sdk.client.experimental.workspace.list().catch((err) => {
-        log.warn("workspace list sync failed", { error: err })
-        return undefined
-      })
+      const [listed, statuses] = await Promise.all([
+        sdk.client.experimental.workspace.list().catch((err) => {
+          log.warn("workspace list sync failed", { error: err })
+          return undefined
+        }),
+        sdk.client.experimental.workspace.status().catch((err) => {
+          log.warn("workspace status sync failed", { error: err })
+          return undefined
+        }),
+      ])
       const list = listed?.data ?? []
-      setStore("workspace", "list", reconcile(list))
+      const status = Object.fromEntries((statuses?.data ?? []).map((item) => [item.workspaceID, item.status]))
+      batch(() => {
+        setStore("workspace", "list", reconcile(list))
+        setStore("workspace", "status", reconcile(status))
+        if (!list.some((item) => item.id === store.workspace.current)) setStore("workspace", "current", undefined)
+      })
     }
 
     function setCurrentWorkspace(id: string | undefined) {
@@ -73,6 +84,10 @@ export const { use: useProject, provider: ProjectProvider } = createSimpleContex
       void syncWorkspace()
     })
     onCleanup(off)
+    const offWorkspaceStatus = sdk.event.on("workspace.status", (event) => {
+      setWorkspaceStatus(event.properties.workspaceID, event.properties.status)
+    })
+    onCleanup(offWorkspaceStatus)
 
     return {
       project: {
@@ -85,7 +100,8 @@ export const { use: useProject, provider: ProjectProvider } = createSimpleContex
       workspace: {
         current: () => store.workspace.current,
         list: () => store.workspace.list,
-        status: () => store.workspace.status,
+        status: (id: string) => store.workspace.status[id],
+        statuses: () => store.workspace.status,
         set: setCurrentWorkspace,
         setStatus: setWorkspaceStatus,
         sync: syncWorkspace,

@@ -14,7 +14,7 @@ import { SessionStatus } from "@/session/status"
 import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
-import { getAdaptor } from "./adaptors"
+import { getAdaptor, listAdaptors } from "./adaptors"
 import { ConfigSchema } from "./config"
 import { parseSSE } from "./sse"
 import { SandboxRegistry } from "@/sandbox/registry"
@@ -62,6 +62,13 @@ export namespace Workspace {
   export const ConnectionStatus = zod(ConnectionStatusSchema)
   export type ConnectionStatus = Schema.Schema.Type<typeof ConnectionStatusSchema>
 
+  const ConnectionStatusInfoSchema = Schema.Struct({
+    workspaceID: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
+    status: ConnectionStatusSchema,
+  }).annotate({ identifier: "WorkspaceConnectionStatus" })
+  export const ConnectionStatusInfo = zodObject(ConnectionStatusInfoSchema)
+  export type ConnectionStatusInfo = Schema.Schema.Type<typeof ConnectionStatusInfoSchema>
+
   export const Event = {
     Ready: BusEvent.define(
       "workspace.ready",
@@ -86,6 +93,8 @@ export namespace Workspace {
 
   const InfoSchema = Schema.Struct({
     id: Schema.String.pipe(Schema.check(Schema.isStartsWith("wrk"))),
+    name: Schema.String,
+    timeUsed: Schema.Number,
     branch: Schema.NullOr(Schema.String),
     projectID: Schema.String,
     config: ConfigSchema,
@@ -138,9 +147,21 @@ export namespace Workspace {
   export const SessionRestore = zodObject(SessionRestoreSchema)
   export type SessionRestore = Schema.Schema.Type<typeof SessionRestoreSchema>
 
+  /**
+   * Human-friendly workspace name. Mirrors opencode: the worktree directory's
+   * basename (its slug). Falls back to the directory basename for any adaptor.
+   */
+  function deriveName(config: WorkspaceDB.Info["config"]): string {
+    const directory = config.directory
+    if (!directory) return ""
+    return directory.split(/[\\/]/).filter(Boolean).pop() ?? ""
+  }
+
   function fromRow(row: WorkspaceDB.Info): Info {
     return Info.parse({
       ...row,
+      name: row.name ?? "",
+      timeUsed: row.timeUsed ?? Date.now(),
       branch: row.branch ?? null,
     })
   }
@@ -314,11 +335,14 @@ export namespace Workspace {
     async (input) => {
       const id = Identifier.ascending("workspace", input.id)
 
-      const { config, init } = await getAdaptor(input.config).create(input.config, input.branch, id)
+      const created = await getAdaptor(input.config).create(input.config, input.branch, id)
+      const { config, init } = created
 
       const info: Info = {
         id,
         projectID: input.projectID,
+        name: created.name ?? deriveName(config),
+        timeUsed: Date.now(),
         branch: input.branch,
         config,
       }
@@ -380,6 +404,61 @@ export namespace Workspace {
     return WorkspaceDB.list(project.id).map(fromRow)
   }
 
+  /**
+   * Auto-discover workspaces that exist for the project (e.g. git worktrees) but
+   * are not yet tracked in the DB, and register them. Mirrors opencode's
+   * `Workspace.syncList`: every adaptor with a `list()` is asked to enumerate
+   * its live workspaces, and any whose directory isn't already tracked is
+   * inserted into the DB and (for non-worktree types) wired into the sync loop.
+   */
+  export async function syncList(project: Project.Info) {
+    const existing = await list(project)
+    const knownDirectories = new Set(
+      existing.map((space) => space.config.directory).filter((directory): directory is string => Boolean(directory)),
+    )
+    const knownNames = new Set(existing.map((space) => space.name).filter(Boolean))
+
+    const discovered = (
+      await Promise.all(
+        listAdaptors().map(({ type, adaptor }) =>
+          adaptor.list
+            ? adaptor
+                .list()
+                .catch((error) => {
+                  log.warn("workspace adaptor list failed", { type, error })
+                  return []
+                })
+            : Promise.resolve([]),
+        ),
+      )
+    ).flat()
+
+    for (const item of discovered) {
+      if (item.config.directory && knownDirectories.has(item.config.directory)) continue
+      if (item.name && knownNames.has(item.name)) continue
+      knownDirectories.add(item.config.directory ?? "")
+      knownNames.add(item.name)
+
+      const info: Info = {
+        id: Identifier.ascending("workspace"),
+        projectID: project.id,
+        name: item.name || deriveName(item.config),
+        timeUsed: Date.now(),
+        branch: item.branch,
+        config: item.config,
+      }
+      WorkspaceDB.upsert(info)
+      WorkspaceDB.updateState(info.id, {
+        status: info.config.type === "worktree" ? "connected" : "connecting",
+        events: [],
+        eventLimit: info.config.eventLimit,
+      })
+      startSpaceSync(info)
+    }
+
+    return list(project)
+  }
+
   export const get = fn(Identifier.schema("workspace"), async (id) => {
     await WorkspaceDB.migrateFromStorage()
     const row = WorkspaceDB.get(id)
@@ -405,6 +484,17 @@ export namespace Workspace {
     const info = await get(id)
     if (info) {
       stopSpaceSync(id)
+      for (const sessionID of await listRootSessions(id)) {
+        await runSession(
+          Effect.gen(function* () {
+            const session = yield* Session.Service
+            yield* session.remove(sessionID)
+          }),
+        ).catch((error) => {
+          if (error instanceof Storage.NotFoundError) return
+          throw error
+        })
+      }
       await getAdaptor(info.config).remove(info.config)
       WorkspaceDB.remove(id)
       SandboxRegistry.invalidateWorkspace(id)
@@ -476,8 +566,20 @@ export namespace Workspace {
 
   export function startSyncing(project: Project.Info) {
     void (async () => {
-      const spaces = (await list(project)).filter((space) => space.config.type !== "worktree")
-      spaces.forEach(startSpaceSync)
+      // Discover any untracked worktrees first (opencode parity), then start
+      // sync loops for the non-worktree workspaces.
+      const spaces = await syncList(project).catch(async (error) => {
+        log.warn("workspace syncList failed", { project: project.id, error })
+        return list(project)
+      })
+      for (const space of spaces) {
+        if (space.config.type !== "worktree") {
+          startSpaceSync(space)
+          continue
+        }
+        const healthy = await Promise.resolve(getAdaptor(space.config).healthCheck?.(space.config)).catch(() => false)
+        setStatus(space.id, healthy === false ? "error" : "connected")
+      }
     })()
 
     return {
@@ -492,6 +594,13 @@ export namespace Workspace {
     for (const id of [...syncControllers.keys()]) {
       stopSpaceSync(id)
     }
+  }
+
+  export async function statuses(project: Project.Info): Promise<ConnectionStatusInfo[]> {
+    return (await list(project)).map((space) => ({
+      workspaceID: space.id,
+      status: status(space.id),
+    }))
   }
 
   // Cleanup global state on process exit

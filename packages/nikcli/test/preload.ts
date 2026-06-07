@@ -4,6 +4,11 @@ import path from "path"
 import { initialize as initGlobal } from "../src/global"
 import { recordBenchmark, flushBenchmarkRun, beginBenchmarkRun } from "./benchmarks/runner"
 
+// Keep the whole suite hermetic: skip the `bun add @nikcli-ai/plugin` bootstrap
+// step, which requires the npm registry and otherwise hangs/trips timeouts when
+// tests run offline. Individual tests can still override if needed.
+process.env.NIKCLI_TEST_MODE ??= "1"
+
 // Ensure global directories are created before tests run
 let globalInitPromise = initGlobal()
 

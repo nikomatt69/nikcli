@@ -1,4 +1,4 @@
-import { createMemo, createSignal } from "solid-js"
+import { createMemo, createSignal, onMount } from "solid-js"
 import { useDialog } from "@tui/ui/dialog"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { useRoute } from "@tui/context/route"
@@ -7,7 +7,7 @@ import { useSDK } from "../context/sdk"
 import { useToast } from "../ui/toast"
 import { useKeybind } from "../context/keybind"
 import { Identifier } from "@/id/id"
-import { DialogWorkspaceCreate } from "./dialog-workspace-list"
+import { DialogWorkspaceCreate } from "./dialog-workspace-create"
 import { DialogWorkspaceFileChanges } from "./dialog-workspace-file-changes"
 
 function moveReminderText(directory: string) {
@@ -36,8 +36,10 @@ export function DialogSessionWarp(props: { sessionID: string }) {
   const currentValue = createMemo(() => currentWorkspaceID() ?? "__local__")
 
   const options = createMemo<DialogSelectOption<string>[]>(() => {
-    // Newest workspaces first (ids are monotonically ascending).
-    const workspaces = [...(sync.data.workspaceList ?? [])].sort((a, b) => b.id.localeCompare(a.id))
+    // Keep the most recently used workspaces first, matching upstream discovery behavior.
+    const workspaces = [...(sync.data.workspaceList ?? [])].sort(
+      (a, b) => b.timeUsed - a.timeUsed || (a.name || a.id).localeCompare(b.name || b.id),
+    )
     const current = currentValue()
     const items: DialogSelectOption<string>[] = []
 
@@ -48,9 +50,10 @@ export function DialogSessionWarp(props: { sessionID: string }) {
     })
 
     for (const ws of workspaces) {
+      const label = ws.name || ws.id
       items.push({
         title:
-          toDelete() === ws.id ? `Delete ${ws.id}? Press ${keybind.print("session_delete")} again` : ws.id,
+          toDelete() === ws.id ? `Delete ${label}? Press ${keybind.print("session_delete")} again` : label,
         value: ws.id,
         description: ws.id === current ? "Current location" : ws.config.type,
       })
@@ -158,6 +161,13 @@ export function DialogSessionWarp(props: { sessionID: string }) {
       setPending(false)
     }
   }
+
+  onMount(() => {
+    void (async () => {
+      await sdk.client.experimental.workspace.syncList().catch(() => undefined)
+      await sync.workspace.sync()
+    })()
+  })
 
   return (
     <DialogSelect

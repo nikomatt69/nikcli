@@ -1531,6 +1531,8 @@ export const MobileRoutes = lazy(() =>
             })
           }),
         )
+        if (!worktree.branch) throw new Error("GitHub mobile worktree must have a branch")
+        const githubWorktree = { ...worktree, branch: worktree.branch }
 
         try {
           workspace = await createExecutionWorkspace({
@@ -1559,7 +1561,7 @@ export const MobileRoutes = lazy(() =>
                         cloneUrl: imported.import.cloneUrl,
                         htmlUrl: body.htmlUrl,
                         private: body.private,
-                        worktree,
+                        worktree: githubWorktree,
                       },
                     })
                   }),

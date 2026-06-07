@@ -32,7 +32,7 @@ export namespace ExperimentalHttpApi {
   const WorktreeList = Schema.Array(Schema.String).annotate({ identifier: "WorktreeList" })
   const WorktreeInfo = Schema.Struct({
     name: Schema.String,
-    branch: Schema.String,
+    branch: Schema.optional(Schema.String),
     directory: Schema.String,
   }).annotate({ identifier: "Worktree" })
   const WorktreeCreateInput = Schema.Struct({

@@ -143,9 +143,16 @@ export namespace Config {
         result.plugin ??= []
       }
 
-      const exists = existsSync(path.join(dir, "node_modules"))
-      const installing = installDependencies(dir)
-      if (!exists) await installing
+      // Only install when deps are missing. Running `bun install` when
+      // node_modules already exists (e.g. a worktree whose node_modules is
+      // symlinked to the main checkout) fails with EEXIST while linking
+      // packages — noise that previously also corrupted the TUI.
+      if (!existsSync(path.join(dir, "node_modules"))) await installDependencies(dir)
+
+      // The directory may not exist yet (e.g. when the plugin-install bootstrap
+      // that creates it is skipped). Nothing to load from a missing dir, and the
+      // glob scanners below would throw ENOENT on a non-existent cwd.
+      if (!existsSync(dir)) continue
 
       result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
       result.agent = mergeDeep(result.agent, await loadAgent(dir))
@@ -232,19 +239,20 @@ export namespace Config {
     const hasGitIgnore = await Bun.file(gitignore).exists()
     if (!hasGitIgnore) await Bun.write(gitignore, ["node_modules", "package.json", "bun.lock", ".gitignore"].join("\n"))
 
+    // Never write to stdout/stderr here: it corrupts the TUI render. Log instead.
     await BunProc.run(
       ["add", "@nikcli-ai/plugin@" + (Installation.isLocal() ? "latest" : Installation.VERSION), "--exact"],
       {
         cwd: dir,
       },
     ).catch((err) => {
-      console.error("Install failed:", err)
+      log.warn("plugin install failed", { dir, error: String(err) })
     })
 
     // Install any additional dependencies defined in the package.json
     // This allows local plugins and custom tools to use external packages
     await BunProc.run(["install"], { cwd: dir }).catch((err) => {
-      console.error("Install failed:", err)
+      log.warn("dependency install failed", { dir, error: String(err) })
     })
   }
 
@@ -261,15 +269,25 @@ export namespace Config {
     return ext.length ? file.slice(0, -ext.length) : file
   }
 
+  /**
+   * Scan `dir` with `glob`, tolerating a missing directory. Returns nothing when
+   * the directory doesn't exist (or the underlying scan reports ENOENT), so a
+   * config dir that was never created doesn't crash config loading.
+   */
+  async function* safeScan(glob: Bun.Glob, dir: string) {
+    if (!existsSync(dir)) return
+    try {
+      yield* glob.scan({ absolute: true, followSymlinks: true, dot: true, cwd: dir })
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return
+      throw err
+    }
+  }
+
   const COMMAND_GLOB = new Bun.Glob("{command,commands}/**/*.md")
   async function loadCommand(dir: string) {
     const result: Record<string, Command> = {}
-    for await (const item of COMMAND_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
-      cwd: dir,
-    })) {
+    for await (const item of safeScan(COMMAND_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
         const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse command ${item}`
         const { Session } = await import("@/session")
@@ -302,12 +320,7 @@ export namespace Config {
   async function loadAgent(dir: string) {
     const result: Record<string, Agent> = {}
 
-    for await (const item of AGENT_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
-      cwd: dir,
-    })) {
+    for await (const item of safeScan(AGENT_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
         const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse agent ${item}`
         const { Session } = await import("@/session")
@@ -339,12 +352,7 @@ export namespace Config {
   const MODE_GLOB = new Bun.Glob("{mode,modes}/*.md")
   async function loadMode(dir: string) {
     const result: Record<string, Agent> = {}
-    for await (const item of MODE_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
-      cwd: dir,
-    })) {
+    for await (const item of safeScan(MODE_GLOB, dir)) {
       const md = await ConfigMarkdown.parse(item).catch(async (err) => {
         const message = err instanceof ConfigMarkdown.FrontmatterError ? err.message : `Failed to parse mode ${item}`
         const { Session } = await import("@/session")
@@ -375,12 +383,7 @@ export namespace Config {
   async function loadPlugin(dir: string) {
     const plugins: string[] = []
 
-    for await (const item of PLUGIN_GLOB.scan({
-      absolute: true,
-      followSymlinks: true,
-      dot: true,
-      cwd: dir,
-    })) {
+    for await (const item of safeScan(PLUGIN_GLOB, dir)) {
       plugins.push(pathToFileURL(item).href)
     }
     return plugins

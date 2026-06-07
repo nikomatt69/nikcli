@@ -2170,6 +2170,39 @@ export type Config = {
    * Theme name to use for the interface
    */
   theme?: string
+  /**
+   * Localization: UI language, region, formatting, and model reply language
+   */
+  locale?: {
+    /**
+     * UI and reply language as a BCP-47 primary subtag, e.g. 'it', 'en'
+     */
+    language?: string
+    /**
+     * ISO-3166 country code, e.g. 'IT', 'US'
+     */
+    region?: string
+    /**
+     * Full BCP-47 tag, e.g. 'it-IT'; overrides language + region when set
+     */
+    locale?: string
+    /**
+     * IANA timezone, e.g. 'Europe/Rome'
+     */
+    timezone?: string
+    /**
+     * ISO-4217 currency code, e.g. 'EUR'; defaults from region
+     */
+    currency?: string
+    /**
+     * Auto-detect locale from environment and system (default true)
+     */
+    autoDetect?: boolean
+    /**
+     * Instruct the model to reply in the user's language. true = detected language, a tag like 'it' = fixed language, false = off. Defaults to on for non-English locales.
+     */
+    replyLanguage?: boolean | string
+  }
   keybinds?: KeybindsConfig
   logLevel?: LogLevel
   /**
@@ -2727,7 +2760,7 @@ export type ToolList = Array<ToolListItem>
 
 export type Worktree = {
   name: string
-  branch: string
+  branch?: string
   directory: string
 }
 
@@ -2740,8 +2773,15 @@ export type WorktreeCreateInput = {
   startCommand?: string
 }
 
+export type WorkspaceConnectionStatus = {
+  workspaceID: string
+  status: "connecting" | "connected" | "disconnected" | "error"
+}
+
 export type Workspace = {
   id: string
+  name: string
+  timeUsed: number
   branch: string | null
   projectID: string
   config:
@@ -4057,6 +4097,46 @@ export type ExperimentalWorkspaceAdaptorListResponses = {
 
 export type ExperimentalWorkspaceAdaptorListResponse =
   ExperimentalWorkspaceAdaptorListResponses[keyof ExperimentalWorkspaceAdaptorListResponses]
+
+export type ExperimentalWorkspaceSyncListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/sync-list"
+}
+
+export type ExperimentalWorkspaceSyncListResponses = {
+  /**
+   * Workspace list synced
+   */
+  204: void
+}
+
+export type ExperimentalWorkspaceSyncListResponse =
+  ExperimentalWorkspaceSyncListResponses[keyof ExperimentalWorkspaceSyncListResponses]
+
+export type ExperimentalWorkspaceStatusData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/experimental/workspace/status"
+}
+
+export type ExperimentalWorkspaceStatusResponses = {
+  /**
+   * Workspace connection statuses
+   */
+  200: Array<WorkspaceConnectionStatus>
+}
+
+export type ExperimentalWorkspaceStatusResponse =
+  ExperimentalWorkspaceStatusResponses[keyof ExperimentalWorkspaceStatusResponses]
 
 export type ExperimentalWorkspaceRemoveData = {
   body?: never

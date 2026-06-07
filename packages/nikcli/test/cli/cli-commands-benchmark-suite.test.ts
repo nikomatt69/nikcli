@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from "bun:test"
+import { afterAll, beforeAll, describe, expect, it } from "bun:test"
 import { flushBenchmarkRun, recordBenchmark, recordVisualArtifact } from "../benchmarks/runner"
 
 type CommandLike = {
@@ -119,56 +119,73 @@ function isCommandLike(value: unknown): value is CommandLike {
   return true
 }
 
-const moduleImports: ModuleImport[] = await Promise.all(
-  cliModulePaths.map(async (modulePath) => {
-    try {
-      const module = (await import(modulePath)) as Record<string, unknown>
-      return { modulePath, module }
-    } catch (error) {
-      return { modulePath, error: String(error) }
-    }
-  }),
-)
+type ModuleSummary = {
+  modulePath: string
+  commandCount: number
+  commandExports: CommandExport[]
+  error?: string
+}
 
-const commandExports: CommandExport[] = moduleImports.flatMap((entry) => {
-  if (!entry.module) return []
-
-  return Object.entries(entry.module)
-    .filter(([, value]) => isCommandLike(value))
-    .map(([exportName, value]) => ({
-      modulePath: entry.modulePath,
-      exportName,
-      command: value as CommandLike,
-    }))
-})
-
-const modulesSummary = moduleImports.map((entry) => {
-  const commands = commandExports.filter((item) => item.modulePath === entry.modulePath)
-  return {
-    modulePath: entry.modulePath,
-    commandCount: commands.length,
-    commandExports: commands,
-    error: entry.error,
-  }
-})
+// Loaded in `beforeAll` (not at module top-level): bun does not await a test
+// file's top-level `await` before running it, so any `describe()` after a
+// top-level await races with "test run completed". Keeping registration
+// synchronous and loading here avoids that.
+let moduleImports: ModuleImport[] = []
+let commandExports: CommandExport[] = []
+let modulesSummary: ModuleSummary[] = []
 
 describe("CLI command suite", () => {
-  it.each(modulesSummary)("loads module $modulePath", ({ modulePath, error, commandCount }) => {
-    if (error) {
-      expect(commandCount).toBe(0)
-    } else {
-      expect(error).toBeUndefined()
+  beforeAll(async () => {
+    moduleImports = await Promise.all(
+      cliModulePaths.map(async (modulePath) => {
+        try {
+          const module = (await import(modulePath)) as Record<string, unknown>
+          return { modulePath, module }
+        } catch (error) {
+          return { modulePath, error: String(error) }
+        }
+      }),
+    )
+
+    commandExports = moduleImports.flatMap((entry) => {
+      if (!entry.module) return []
+      return Object.entries(entry.module)
+        .filter(([, value]) => isCommandLike(value))
+        .map(([exportName, value]) => ({
+          modulePath: entry.modulePath,
+          exportName,
+          command: value as CommandLike,
+        }))
+    })
+
+    modulesSummary = moduleImports.map((entry) => {
+      const commands = commandExports.filter((item) => item.modulePath === entry.modulePath)
+      return {
+        modulePath: entry.modulePath,
+        commandCount: commands.length,
+        commandExports: commands,
+        error: entry.error,
+      }
+    })
+  })
+
+  it("loads every CLI module", () => {
+    for (const { modulePath, error, commandCount } of modulesSummary) {
+      if (error) {
+        expect(commandCount).toBe(0)
+      } else {
+        expect(error).toBeUndefined()
+      }
+      expect(modulePath).toContain("/cli/")
     }
-    expect(modulePath).toContain("/cli/")
   })
 
   it("extracts at least 40 command contracts", () => {
     expect(commandExports.length).toBeGreaterThanOrEqual(40)
   })
 
-  it.each(commandExports)(
-    "validates command contract for $modulePath.$exportName",
-    ({ modulePath, exportName, command }) => {
+  it("validates every command contract", () => {
+    for (const { modulePath, exportName, command } of commandExports) {
       expect(command.command).toBeTruthy()
       expect(typeof command.command).toBe("string")
       expect(command.command.trim().length).toBeGreaterThan(0)
@@ -195,159 +212,168 @@ describe("CLI command suite", () => {
 
       expect(exportName).toBeTruthy()
       expect(modulePath).toContain("cmd")
-    },
-  )
-
-  it.each(commandExports)("benchmark command metadata lookup: %s.%s", ({ modulePath, exportName, command }) => {
-    const iterations = 2_500
-    const start = performance.now()
-
-    let checksum = 0
-    for (let i = 0; i < iterations; i += 1) {
-      checksum += command.command.length
-      if (command.aliases) checksum += command.aliases.length
-      if (typeof command.describe === "string") checksum += command.describe.length
-      if (typeof command.describe === "function") checksum += command.describe().length
-      if (typeof command.builder === "object" && command.builder !== null)
-        checksum += Object.keys(command.builder).length
-      if (typeof command.handler === "function") checksum += 1
     }
-
-    const elapsed = performance.now() - start
-    recordBenchmark({
-      suite: "cli-command",
-      module: modulePath,
-      scenario: `${exportName} contract read`,
-      iterations,
-      value: elapsed,
-      unit: "ms",
-      metadata: {
-        checksum,
-        describeType: typeof command.describe === "function" ? "function" : "string",
-        hasAliases: !!command.aliases?.length,
-      },
-    })
-
-    expect(checksum).toBeGreaterThan(0)
-    expect(elapsed).toBeGreaterThanOrEqual(0)
   })
 
-  it.each(modulesSummary)("visual + performance bench for module %s", ({ modulePath, commandExports }) => {
-    const iterations = 3_000
-    const lines = commandExports.map((item) => `${item.exportName} => ${item.command.command}`)
-    const visual =
-      lines.length > 0
-        ? [
-            `# Module ${modulePath}`,
-            `Commands: ${commandExports.length}`,
-            "",
-            ...lines,
-            "",
-            "## Snapshot score",
-            `line count: ${lines.length}`,
-            `iterations: ${iterations}`,
-          ].join("\n")
-        : `# Module ${modulePath}\nNo command exports discovered`
+  it("benchmarks command metadata lookup", () => {
+    for (const { modulePath, exportName, command } of commandExports) {
+      const iterations = 2_500
+      const start = performance.now()
 
-    let score = 0
-    const start = performance.now()
-    for (let i = 0; i < iterations; i += 1) {
-      for (const line of lines) {
-        score += line.length
+      let checksum = 0
+      for (let i = 0; i < iterations; i += 1) {
+        checksum += command.command.length
+        if (command.aliases) checksum += command.aliases.length
+        if (typeof command.describe === "string") checksum += command.describe.length
+        if (typeof command.describe === "function") checksum += command.describe().length
+        if (typeof command.builder === "object" && command.builder !== null)
+          checksum += Object.keys(command.builder).length
+        if (typeof command.handler === "function") checksum += 1
       }
-      score = score % 1_000_000
+
+      const elapsed = performance.now() - start
+      recordBenchmark({
+        suite: "cli-command",
+        module: modulePath,
+        scenario: `${exportName} contract read`,
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: {
+          checksum,
+          describeType: typeof command.describe === "function" ? "function" : "string",
+          hasAliases: !!command.aliases?.length,
+        },
+      })
+
+      expect(checksum).toBeGreaterThan(0)
+      expect(elapsed).toBeGreaterThanOrEqual(0)
     }
-    const elapsed = performance.now() - start
-
-    recordBenchmark({
-      suite: "cli-module",
-      module: modulePath,
-      scenario: "command-map visual scan",
-      iterations,
-      value: elapsed,
-      unit: "ms",
-      metadata: {
-        commandCount: commandExports.length,
-        visualLength: visual.length,
-        score,
-      },
-    })
-
-    recordVisualArtifact({
-      suite: "cli-module",
-      module: modulePath,
-      scenario: "command-map",
-      content: visual,
-      extension: "md",
-    })
-
-    expect(commandExports.length).toBeGreaterThanOrEqual(0)
-    expect(elapsed).toBeGreaterThanOrEqual(0)
   })
 
-  it.each(modulesSummary)("records module import summary for %s", ({ modulePath, commandExports }) => {
-    const iterations = 1_000
-    let checksum = modulePath.length
-    const start = performance.now()
+  it("runs visual + performance bench for each module", () => {
+    for (const { modulePath, commandExports: moduleCommands } of modulesSummary) {
+      const iterations = 3_000
+      const lines = moduleCommands.map((item) => `${item.exportName} => ${item.command.command}`)
+      const visual =
+        lines.length > 0
+          ? [
+              `# Module ${modulePath}`,
+              `Commands: ${moduleCommands.length}`,
+              "",
+              ...lines,
+              "",
+              "## Snapshot score",
+              `line count: ${lines.length}`,
+              `iterations: ${iterations}`,
+            ].join("\n")
+          : `# Module ${modulePath}\nNo command exports discovered`
 
-    for (let i = 0; i < iterations; i += 1) {
-      checksum = (checksum * 33 + commandExports.length + i) % 1_000_003
+      let score = 0
+      const start = performance.now()
+      for (let i = 0; i < iterations; i += 1) {
+        for (const line of lines) {
+          score += line.length
+        }
+        score = score % 1_000_000
+      }
+      const elapsed = performance.now() - start
+
+      recordBenchmark({
+        suite: "cli-module",
+        module: modulePath,
+        scenario: "command-map visual scan",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: {
+          commandCount: moduleCommands.length,
+          visualLength: visual.length,
+          score,
+        },
+      })
+
+      recordVisualArtifact({
+        suite: "cli-module",
+        module: modulePath,
+        scenario: "command-map",
+        content: visual,
+        extension: "md",
+      })
+
+      expect(moduleCommands.length).toBeGreaterThanOrEqual(0)
+      expect(elapsed).toBeGreaterThanOrEqual(0)
     }
-
-    const elapsed = performance.now() - start
-    recordBenchmark({
-      suite: "cli-module",
-      module: modulePath,
-      scenario: "import summary benchmark",
-      iterations,
-      value: elapsed,
-      unit: "ms",
-      metadata: {
-        checksum,
-        commandCount: commandExports.length,
-      },
-    })
-
-    expect(elapsed).toBeGreaterThanOrEqual(0)
-    expect(checksum).toBeGreaterThanOrEqual(0)
   })
 
-  it.each(commandExports)("benchmarks command handler metadata for %s.%s", ({ modulePath, exportName, command }) => {
-    const iterations = 2_500
-    const start = performance.now()
-    let aliasChars = 0
-    let hasHandler = 0
+  it("records module import summaries", () => {
+    for (const { modulePath, commandExports: moduleCommands } of modulesSummary) {
+      const iterations = 1_000
+      let checksum = modulePath.length
+      const start = performance.now()
 
-    for (let i = 0; i < iterations; i += 1) {
-      aliasChars += command.aliases ? command.aliases.join("|").length : 0
-      if (command.handler) hasHandler += 1
+      for (let i = 0; i < iterations; i += 1) {
+        checksum = (checksum * 33 + moduleCommands.length + i) % 1_000_003
+      }
+
+      const elapsed = performance.now() - start
+      recordBenchmark({
+        suite: "cli-module",
+        module: modulePath,
+        scenario: "import summary benchmark",
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: {
+          checksum,
+          commandCount: moduleCommands.length,
+        },
+      })
+
+      expect(elapsed).toBeGreaterThanOrEqual(0)
+      expect(checksum).toBeGreaterThanOrEqual(0)
     }
-
-    const elapsed = performance.now() - start
-    recordBenchmark({
-      suite: "cli-command",
-      module: modulePath,
-      scenario: `${exportName} handler metadata scan`,
-      iterations,
-      value: elapsed,
-      unit: "ms",
-      metadata: {
-        aliasChars,
-        hasHandler,
-      },
-    })
-
-    expect(hasHandler).toBeGreaterThanOrEqual(0)
-    expect(elapsed).toBeGreaterThanOrEqual(0)
   })
 
-  it.each(commandExports)("validates alias uniqueness for $modulePath.$exportName", ({ command }) => {
-    if (!command.aliases) {
-      expect(command.aliases).toBeUndefined()
-      return
-    }
+  it("benchmarks command handler metadata", () => {
+    for (const { modulePath, exportName, command } of commandExports) {
+      const iterations = 2_500
+      const start = performance.now()
+      let aliasChars = 0
+      let hasHandler = 0
 
-    expect(new Set(command.aliases).size).toBe(command.aliases.length)
+      for (let i = 0; i < iterations; i += 1) {
+        aliasChars += command.aliases ? command.aliases.join("|").length : 0
+        if (command.handler) hasHandler += 1
+      }
+
+      const elapsed = performance.now() - start
+      recordBenchmark({
+        suite: "cli-command",
+        module: modulePath,
+        scenario: `${exportName} handler metadata scan`,
+        iterations,
+        value: elapsed,
+        unit: "ms",
+        metadata: {
+          aliasChars,
+          hasHandler,
+        },
+      })
+
+      expect(hasHandler).toBeGreaterThanOrEqual(0)
+      expect(elapsed).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it("validates alias uniqueness", () => {
+    for (const { command } of commandExports) {
+      if (!command.aliases) {
+        expect(command.aliases).toBeUndefined()
+        continue
+      }
+      expect(new Set(command.aliases).size).toBe(command.aliases.length)
+    }
   })
 
   it("supports multi-agent parallel discovery simulation", async () => {

@@ -108,6 +108,8 @@ export namespace PublicHttpApi {
   const WorkspaceHandlersLive = HttpApiBuilder.group(Api, "workspace", (handlers) =>
     handlers
       .handle("adaptors", () => WorkspaceHttpApi.handlers.adaptors())
+      .handle("syncList", () => WorkspaceHttpApi.handlers.syncList())
+      .handle("status", () => WorkspaceHttpApi.handlers.status())
       .handle("create", (request) => WorkspaceHttpApi.handlers.create(request))
       .handle("list", () => WorkspaceHttpApi.handlers.list())
       .handle("remove", (request) => WorkspaceHttpApi.handlers.remove(request))

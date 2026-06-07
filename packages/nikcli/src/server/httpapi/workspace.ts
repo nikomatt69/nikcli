@@ -2,6 +2,7 @@ import { HttpApi, HttpApiBuilder, HttpApiEndpoint, HttpApiGroup, HttpApiSchema }
 import { Effect, Layer, Schema } from "effect"
 import { InstanceState } from "@/effect"
 import { Workspace } from "@/workspace"
+import { listAdaptors } from "@/workspace/adaptors"
 
 export namespace WorkspaceHttpApi {
   const AdaptorInfo = Schema.Struct({
@@ -32,6 +33,8 @@ export namespace WorkspaceHttpApi {
 
   const WorkspaceInfo = Schema.Struct({
     id: Schema.String,
+    name: Schema.String,
+    timeUsed: Schema.Number,
     branch: Schema.NullOr(Schema.String),
     projectID: Schema.String,
     config: WorkspaceConfig,
@@ -70,9 +73,15 @@ export namespace WorkspaceHttpApi {
     copyChanges: Schema.optional(Schema.Boolean),
     timeoutMs: Schema.optional(Schema.Number),
   }).annotate({ identifier: "WorkspaceWarpInput" })
+  const ConnectionStatus = Schema.Struct({
+    workspaceID: Schema.String,
+    status: Schema.Literals(["connected", "connecting", "disconnected", "error"]),
+  }).annotate({ identifier: "WorkspaceConnectionStatus" })
 
   export const Group = HttpApiGroup.make("workspace")
     .add(HttpApiEndpoint.get("adaptors", "/adaptor", { success: Schema.Array(AdaptorInfo) }))
+    .add(HttpApiEndpoint.post("syncList", "/sync-list", { success: HttpApiSchema.NoContent }))
+    .add(HttpApiEndpoint.get("status", "/status", { success: Schema.Array(ConnectionStatus) }))
     .add(
       HttpApiEndpoint.post("create", "/:id", {
         params: WorkspacePath,
@@ -110,15 +119,24 @@ export namespace WorkspaceHttpApi {
 
   export const handlers = {
     adaptors: () =>
-      Effect.succeed([
-        {
-          type: "worktree",
-          name: "Worktree",
-          description: "Create a local git worktree or COW clone",
+      Effect.sync(() =>
+        listAdaptors().map(({ type, adaptor }) => ({
+          type,
+          name: adaptor.name,
+          description: adaptor.description,
           available: true,
-        },
-        { type: "container", name: "Container", description: "Docker/Podman container", available: true },
-      ]),
+        })),
+      ),
+    syncList: () =>
+      Effect.gen(function* () {
+        const ctx = yield* InstanceState.context
+        yield* Effect.promise(() => Workspace.syncList(ctx.project))
+      }).pipe(Effect.asVoid, Effect.orDie),
+    status: () =>
+      Effect.gen(function* () {
+        const ctx = yield* InstanceState.context
+        return yield* Effect.promise(() => Workspace.statuses(ctx.project))
+      }).pipe(Effect.orDie),
     list: () =>
       Effect.gen(function* () {
         const ctx = yield* InstanceState.context
@@ -173,6 +191,8 @@ export namespace WorkspaceHttpApi {
   export const HandlersLive = HttpApiBuilder.group(Api, "workspace", (builder) =>
     builder
       .handle("adaptors", () => handlers.adaptors())
+      .handle("syncList", () => handlers.syncList())
+      .handle("status", () => handlers.status())
       .handle("create", (request) => handlers.create(request))
       .handle("list", () => handlers.list())
       .handle("remove", (request) => handlers.remove(request))

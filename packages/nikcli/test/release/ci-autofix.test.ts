@@ -73,8 +73,8 @@ describe("ci-autofix script", () => {
     expect(script).toContain("run")
     expect(script).toContain("--command")
     expect(script).toContain("--model")
-    expect(script).toContain("NIKCLI_MODEL")
+    expect(script).toContain("NIKCLI_AUTOFIX_MODEL")
     // Default fallback model must be MiniMax, not a costly provider
-      expect(script).toContain("minimax-coding-plan/MiniMax-M3") 
+    expect(script).toContain("minimax-coding-plan/MiniMax-M3")
   })
 })

@@ -416,7 +416,7 @@ function unsupportedParts(msgs: ModelMessage[], model: Provider.Model): ModelMes
       const filename = part.type === "file" ? part.filename : undefined
       const modality = mimeToModality(mime)
       if (!modality) return part
-      if (model.capabilities.input[modality]) return part
+      if (model.capabilities?.input?.[modality]) return part
 
       const name = filename ? `"${filename}"` : modality
       return {
@@ -1269,7 +1269,7 @@ export function maxOutputTokens(model: Provider.Model, outputTokenMax = OUTPUT_T
 // bedrock) handle type: "content" with media parts natively.
 export function supportsMediaInToolResults(model: Provider.Model): boolean {
   // Check if the model supports images as input (a prerequisite for media in tool results)
-  if (!model.capabilities.input.image) return false
+  if (!model.capabilities?.input?.image) return false
 
   // Native providers that support media in tool results via type: "content" parts
   const nativeProviders = [

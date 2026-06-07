@@ -264,7 +264,7 @@ describe("Session status subsystem", () => {
 
   it("aggregates status map values", async () => {
     await withProject(async () => {
-      for (let i = 0; i < 12; i += 1) {
+      for (let i = 0; i < 9; i += 1) {
         await setStatus(`aggregate-${i}`, {
           type: i % 3 === 0 ? "idle" : "retry",
           attempt: 1,

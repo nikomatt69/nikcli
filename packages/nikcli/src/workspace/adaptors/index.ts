@@ -186,6 +186,8 @@ function proxyHeaders(config: ContainerConfig, headers?: HeadersInit) {
 }
 
 const ContainerAdaptor: Adaptor<ContainerConfig> = {
+  name: "Container",
+  description: "Docker/Podman container",
   async create(from, _branch, workspaceID) {
     const runtimeInfo = await getContainerRuntimeInfo()
     if (!runtimeInfo.available || !runtimeInfo.runtime) {
@@ -268,12 +270,12 @@ export function registerAdaptor<T extends Config>(type: T["type"], adaptor: Adap
 }
 
 export function listAdaptors(): Array<{ type: string; adaptor: Adaptor<any> }> {
-  const builtin: Array<{ type: string; adaptor: Adaptor<any> }> = [
-    { type: "worktree", adaptor: WorktreeAdaptor as Adaptor<any> },
-    { type: "container", adaptor: ContainerAdaptor as Adaptor<any> },
-  ]
-  const registered = Array.from(adaptorRegistry.entries()).map(([type, adaptor]) => ({ type, adaptor }))
-  return [...builtin, ...registered]
+  const adaptors = new Map<string, Adaptor<any>>([
+    ["worktree", WorktreeAdaptor as Adaptor<any>],
+    ["container", ContainerAdaptor as Adaptor<any>],
+  ])
+  for (const [type, adaptor] of adaptorRegistry) adaptors.set(type, adaptor)
+  return Array.from(adaptors, ([type, adaptor]) => ({ type, adaptor }))
 }
 
 export function getAdaptor(config: Config): Adaptor {

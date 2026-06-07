@@ -9,11 +9,13 @@ export const workspace = sqliteTable(
   {
     id: text("id").primaryKey(),
     projectId: text("project_id").notNull(),
+    name: text("name").notNull().default(""),
     branch: text("branch"),
     config: text("config").notNull(),
     status: text("status"),
     events: text("events"),
     eventLimit: integer("event_limit"),
+    timeUsed: integer("time_used").notNull().default(0),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },

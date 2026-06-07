@@ -18,6 +18,7 @@ import type { Agent } from "../agent/agent"
 import { Tool } from "./tool"
 import { Config } from "../config/config"
 import path from "path"
+import { existsSync } from "fs"
 import { type ToolDefinition } from "@nikcli-ai/plugin"
 import z from "zod"
 import { Plugin } from "../plugin"
@@ -172,6 +173,8 @@ export namespace ToolRegistry {
           const ctx = yield* InstanceState.context
 
           for (const dir of yield* Effect.promise(() => configDirectories(ctx))) {
+            // The config dir may not exist yet; scanning a missing dir throws ENOENT.
+            if (!existsSync(dir)) continue
             const matches = yield* Effect.promise(() =>
               Array.fromAsync(
                 glob.scan({

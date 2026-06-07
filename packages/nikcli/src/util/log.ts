@@ -85,12 +85,14 @@ export namespace Log {
 
   async function cleanup(dir: string) {
     const glob = new Bun.Glob("????-??-??T??????.log")
+    // The log dir may not exist yet; scanning a missing dir throws ENOENT
+    // (surfacing as an unhandled rejection since cleanup runs in the background).
     const files = await Array.fromAsync(
       glob.scan({
         cwd: dir,
         absolute: true,
       }),
-    )
+    ).catch(() => [] as string[])
     if (files.length <= 5) return
 
     const filesToDelete = files.slice(0, -10)

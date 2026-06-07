@@ -240,13 +240,17 @@ describe("Performance: on() vs bare createEffect", () => {
       metadata: { bareTime, onTime },
     })
 
-    expect(bareEffectRuns).toBe(1)
+    // 1000 bare effects each run once on creation; 1000 deferred on() effects
+    // skip their initial run.
+    expect(bareEffectRuns).toBe(1000)
     expect(onEffectRuns).toBe(0)
 
     setValue(1)
 
-    expect(bareEffectRuns).toBe(2)
-    expect(onEffectRuns).toBe(1)
+    // The change reruns every bare effect (+1000) and triggers each deferred
+    // on() effect for the first time.
+    expect(bareEffectRuns).toBe(2000)
+    expect(onEffectRuns).toBe(1000)
   })
 
   it("on() prevents tracking unintended dependencies", () => {

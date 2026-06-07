@@ -46,11 +46,13 @@ export namespace WorkspaceDB {
   export type Row = {
     id: string
     project_id: string
+    name: string
     branch: string | null
     config: Config
     status?: string
     events?: unknown[]
     eventLimit?: number
+    time_used: number
     created_at: number
     updated_at: number
   }
@@ -58,6 +60,8 @@ export namespace WorkspaceDB {
   export type Info = {
     id: string
     projectID: string
+    name: string
+    timeUsed: number
     branch: string | null
     config: Config
   }
@@ -117,6 +121,10 @@ export namespace WorkspaceDB {
     const columns = database.query("PRAGMA table_info(workspace)").all() as Array<{ name?: string }>
     const names = new Set(columns.map((column) => column.name).filter(Boolean))
 
+    if (!names.has("name")) {
+      database.exec("ALTER TABLE workspace ADD COLUMN name TEXT NOT NULL DEFAULT ''")
+    }
+
     if (!names.has("status")) {
       database.exec("ALTER TABLE workspace ADD COLUMN status TEXT")
     }
@@ -127,6 +135,11 @@ export namespace WorkspaceDB {
 
     if (!names.has("event_limit")) {
       database.exec("ALTER TABLE workspace ADD COLUMN event_limit INTEGER")
+    }
+
+    if (!names.has("time_used")) {
+      database.exec("ALTER TABLE workspace ADD COLUMN time_used INTEGER NOT NULL DEFAULT 0")
+      database.exec("UPDATE workspace SET time_used = updated_at WHERE time_used = 0")
     }
   }
 
@@ -139,6 +152,8 @@ export namespace WorkspaceDB {
     return {
       id: row.id,
       projectID: row.projectId,
+      name: row.name ?? "",
+      timeUsed: row.timeUsed,
       branch: row.branch,
       config: JSON.parse(row.config) as Config,
     }
@@ -194,8 +209,10 @@ export namespace WorkspaceDB {
       .values({
         id: info.id,
         projectId: info.projectID,
+        name: info.name ?? "",
         branch: info.branch,
         config: JSON.stringify(info.config),
+        timeUsed: info.timeUsed ?? now,
         createdAt: now,
         updatedAt: now,
       })
@@ -203,8 +220,10 @@ export namespace WorkspaceDB {
         target: workspace.id,
         set: {
           projectId: info.projectID,
+          name: info.name ?? "",
           branch: info.branch,
           config: JSON.stringify(info.config),
+          timeUsed: info.timeUsed ?? now,
           updatedAt: now,
         },
       })
@@ -235,6 +254,11 @@ export namespace WorkspaceDB {
       .run()
 
     return next
+  }
+
+  export function touch(id: string, timeUsed = Date.now()): boolean {
+    const result = db().update(workspace).set({ timeUsed }).where(eq(workspace.id, id)).run()
+    return getChanges(result) > 0
   }
 
   export function applyEventLimit(events: unknown[], event: unknown, eventLimit?: number): unknown[] {
@@ -277,9 +301,11 @@ export namespace WorkspaceDB {
           .values({
             id: row.id,
             projectId: row.projectID,
+            name: row.name ?? "",
             branch: row.branch ?? null,
             config: JSON.stringify(row.config),
             eventLimit: row.config.eventLimit ?? null,
+            timeUsed: row.timeUsed ?? now,
             createdAt: now,
             updatedAt: now,
           })

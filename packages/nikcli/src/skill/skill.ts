@@ -245,14 +245,21 @@ export namespace Skill {
           }
 
           for (const dir of await configDirectories(ctx)) {
-            for await (const match of NIKCLI_SKILL_GLOB.scan({
-              cwd: dir,
-              absolute: true,
-              onlyFiles: true,
-              followSymlinks: true,
-            })) {
-              await addSkill(match)
-            }
+            // The config dir may not exist yet; scanning a missing dir throws
+            // ENOENT and would crash instance creation, so skip/tolerate it.
+            if (!(await Filesystem.isDir(dir))) continue
+            await Array.fromAsync(
+              NIKCLI_SKILL_GLOB.scan({
+                cwd: dir,
+                absolute: true,
+                onlyFiles: true,
+                followSymlinks: true,
+              }),
+            )
+              .then((matches) => Promise.all(matches.map(addSkill)))
+              .catch((error) => {
+                log.error("failed to scan nikcli skills", { dir, error })
+              })
           }
 
           return skills
