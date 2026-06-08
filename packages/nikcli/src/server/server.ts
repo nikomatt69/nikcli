@@ -21,6 +21,7 @@ import { Flag } from "../flag/flag"
 import { Command } from "../command"
 import { Global } from "../global"
 import { ProjectRoutes } from "./routes/project"
+import { LoopRoutes } from "./routes/loop"
 import { SessionRoutes } from "./routes/session"
 import { PtyRoutes } from "./routes/pty"
 import { McpRoutes } from "./routes/mcp"
@@ -187,26 +188,50 @@ export namespace Server {
           // in a `__http` marker. Honor it first so the route controls its
           // own status/body and the middleware stays a thin fallback.
           if (typeof err === "object" && err !== null && "__http" in err) {
-            const marker = (err as { __http: { status: number; name: string; data: Record<string, unknown> } }).__http
+            const marker = (
+              err as {
+                __http: {
+                  status: number
+                  name: string
+                  data: Record<string, unknown>
+                }
+              }
+            ).__http
             // Hono's c.json expects a literal ContentfulStatusCode; the
             // marker carries a runtime number from the route, so we cast
             // through `as never` to keep the call ergonomic.
             return c.json({ name: marker.name, data: marker.data }, { status: marker.status as never })
           }
           if (err instanceof Session.BusyError)
-            return c.json({ name: err._tag, data: { sessionID: err.sessionID, message: err.message } }, { status: 409 })
+            return c.json(
+              {
+                name: err._tag,
+                data: { sessionID: err.sessionID, message: err.message },
+              },
+              { status: 409 },
+            )
           if (err instanceof Storage.NotFoundError)
             return c.json({ name: err._tag, data: { message: err.message } }, { status: 404 })
           if (err instanceof Provider.ModelNotFoundError)
             return c.json(
               {
                 name: err._tag,
-                data: { providerID: err.providerID, modelID: err.modelID, suggestions: err.suggestions },
+                data: {
+                  providerID: err.providerID,
+                  modelID: err.modelID,
+                  suggestions: err.suggestions,
+                },
               },
               { status: 400 },
             )
           if (err instanceof Vcs.PatchApplyError)
-            return c.json({ name: err._tag, data: { message: err.message, reason: err.reason } }, { status: 400 })
+            return c.json(
+              {
+                name: err._tag,
+                data: { message: err.message, reason: err.reason },
+              },
+              { status: 400 },
+            )
           if (err instanceof Error && err.name.startsWith("Worktree"))
             return c.json({ name: err.name, data: { message: err.message } }, { status: 400 })
           if (err instanceof HTTPException) return err.getResponse()
@@ -429,7 +454,15 @@ export namespace Server {
             },
           }),
         )
-        .use(validator("query", z.object({ directory: z.string().optional(), workspace: z.string().optional() })))
+        .use(
+          validator(
+            "query",
+            z.object({
+              directory: z.string().optional(),
+              workspace: z.string().optional(),
+            }),
+          ),
+        )
         .use(async (c, next) => {
           if (!Flag.NIKCLI_EXPERIMENTAL_HTTPAPI || !HttpApiBridge.supports(c.req.path, c.req.method)) {
             return next()
@@ -437,6 +470,7 @@ export namespace Server {
           return HttpApiBridge.handle(c.req.raw)
         })
         .route("/project", ProjectRoutes())
+        .route("/loop", LoopRoutes())
         .route("/pty", PtyRoutes())
         .route("/config", ConfigRoutes())
         .route("/experimental", ExperimentalRoutes())
@@ -598,7 +632,9 @@ export namespace Server {
                 return yield* vcs.diffRaw()
               }),
             )
-            return c.text(patch, 200, { "content-type": "text/x-diff; charset=utf-8" })
+            return c.text(patch, 200, {
+              "content-type": "text/x-diff; charset=utf-8",
+            })
           },
         )
         .post(

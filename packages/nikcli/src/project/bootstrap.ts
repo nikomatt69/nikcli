@@ -15,6 +15,7 @@ import { Truncate } from "../tool/truncation"
 import { Todo } from "../session/todo"
 import { Delegation } from "@/delegation/manager"
 import { Monitor } from "@/monitor/manager"
+import * as LoopEngine from "@/loop/engine"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
 
@@ -116,6 +117,10 @@ export async function InstanceBootstrap() {
   await Delegation.init()
   await Monitor.reconcile().catch((error) => {
     Log.Default.warn("failed to reconcile monitors on startup", { error })
+  })
+  // Restore headless interval loops for this instance. Safe to call repeatedly.
+  await LoopEngine.restore().catch((error) => {
+    Log.Default.warn("failed to restore loops on startup", { error })
   })
 
   Bus.subscribe(Command.Event.Executed, async (payload) => {

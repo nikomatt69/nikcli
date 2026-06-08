@@ -24,15 +24,25 @@ export const MAX_CONCURRENT_RUNS = 3
 
 export type LoopTrigger = { kind: "manual" } | { kind: "interval"; everyMs: number }
 
-export type LoopDefinition = {
-  id: string
+/**
+ * One step of a loop's pipeline. Each stage drives the Goal system with its own
+ * agent/model/objective; stages run sequentially in the same session so context
+ * flows from one to the next (e.g. explore → plan → implement → review).
+ */
+export type LoopStage = {
   name: string
-  objective: string
   agent: string
   /** Model in "providerID/modelID" form. Unset => the session's default model. */
   model?: string
-  trigger: LoopTrigger
+  objective: string
   tokenBudget?: number
+}
+
+export type LoopDefinition = {
+  id: string
+  name: string
+  stages: LoopStage[]
+  trigger: LoopTrigger
   /** Temporal cap for interval loops: stop after this many runs (undefined = unlimited). */
   maxRuns?: number
   enabled: boolean
@@ -45,15 +55,21 @@ export type KvLike = {
   set: (key: string, value: unknown) => void
 }
 
-export type LoopDraft = {
+/** Draft for a single stage (fields optional while being collected in the UI). */
+export type StageDraft = {
   name?: string
-  objective: string
   agent?: string
   /** "providerID/modelID"; undefined => session default model. */
   model?: string
+  objective: string
+  tokenBudget?: number
+}
+
+export type LoopDraft = {
+  name?: string
+  stages: StageDraft[]
   /** undefined => manual trigger. */
   intervalMs?: number
-  tokenBudget?: number
   maxRuns?: number
 }
 
@@ -113,29 +129,41 @@ export function formatDuration(ms: number): string {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
-/** Validate a draft. Returns a human error message, or undefined when valid. */
-export function validateDraft(draft: LoopDraft): string | undefined {
-  if (!draft.objective || !draft.objective.trim()) return "Objective is required"
-  const objective = draft.objective.trim()
+/** Validate a single stage. Returns a human error message, or undefined when valid. */
+export function validateStage(stage: StageDraft): string | undefined {
+  if (!stage.objective || !stage.objective.trim()) return "Stage objective is required"
+  const objective = stage.objective.trim()
   if (RESERVED_OBJECTIVES.has(objective.toLowerCase())) {
     return `Objective cannot be the reserved word "${objective}"`
   }
   if (TOKEN_BUDGET_FLAG.test(objective)) {
     return 'Objective cannot contain "--token-budget" (use the token budget field instead)'
   }
+  if (stage.name !== undefined && !stage.name.trim()) return "Stage name cannot be blank"
+  if (stage.agent !== undefined && !stage.agent.trim()) return "Stage agent cannot be blank"
+  if (stage.model !== undefined && !isValidModel(stage.model)) {
+    return 'Model must be in "providerID/modelID" form'
+  }
+  if (stage.tokenBudget !== undefined && (!Number.isInteger(stage.tokenBudget) || stage.tokenBudget <= 0)) {
+    return "Token budget must be a positive integer"
+  }
+  return undefined
+}
+
+/** Validate a whole loop draft (stages + loop-level fields). */
+export function validateDraft(draft: LoopDraft): string | undefined {
+  if (!draft.stages || draft.stages.length === 0) return "A loop needs at least one stage"
+  for (const stage of draft.stages) {
+    const error = validateStage(stage)
+    if (error) return error
+  }
   if (draft.name !== undefined && !draft.name.trim()) return "Name cannot be blank"
   if (draft.intervalMs !== undefined) {
     if (!Number.isFinite(draft.intervalMs)) return "Interval is not a valid duration"
     if (draft.intervalMs < MIN_INTERVAL_MS) return `Interval must be at least ${formatDuration(MIN_INTERVAL_MS)}`
   }
-  if (draft.tokenBudget !== undefined && (!Number.isInteger(draft.tokenBudget) || draft.tokenBudget <= 0)) {
-    return "Token budget must be a positive integer"
-  }
   if (draft.maxRuns !== undefined && (!Number.isInteger(draft.maxRuns) || draft.maxRuns <= 0)) {
     return "Max runs must be a positive integer"
-  }
-  if (draft.model !== undefined && !isValidModel(draft.model)) {
-    return 'Model must be in "providerID/modelID" form'
   }
   return undefined
 }
@@ -144,34 +172,176 @@ export function generateId(): string {
   return `loop_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
-function deriveName(objective: string): string {
-  const single = objective.trim().replace(/\s+/g, " ")
+function deriveName(text: string): string {
+  const single = text.trim().replace(/\s+/g, " ")
   return single.length <= 48 ? single : `${single.slice(0, 47)}…`
+}
+
+/** Build a fully-formed stage from a (validated) draft, applying defaults. */
+export function stageFromDraft(draft: StageDraft): LoopStage {
+  return {
+    name: draft.name?.trim() || deriveName(draft.objective),
+    agent: draft.agent?.trim() || DEFAULT_AGENT,
+    ...(draft.model ? { model: draft.model } : {}),
+    objective: draft.objective.trim(),
+    ...(draft.tokenBudget !== undefined ? { tokenBudget: draft.tokenBudget } : {}),
+  }
 }
 
 /** Build a fully-formed definition from a validated draft. */
 export function createDefinition(draft: LoopDraft): LoopDefinition {
   const error = validateDraft(draft)
   if (error) throw new Error(error)
+  const stages = draft.stages.map(stageFromDraft)
   return {
     id: generateId(),
-    name: draft.name?.trim() || deriveName(draft.objective),
-    objective: draft.objective.trim(),
-    agent: draft.agent?.trim() || DEFAULT_AGENT,
-    ...(draft.model ? { model: draft.model } : {}),
+    name: draft.name?.trim() || stages[0].name,
+    stages,
     trigger: draft.intervalMs === undefined ? { kind: "manual" } : { kind: "interval", everyMs: draft.intervalMs },
-    ...(draft.tokenBudget !== undefined ? { tokenBudget: draft.tokenBudget } : {}),
     ...(draft.maxRuns !== undefined ? { maxRuns: draft.maxRuns } : {}),
     enabled: true,
     createdAt: Date.now(),
   }
 }
 
-/** Narrow unknown persisted data back to a valid definition, or undefined if corrupt. */
+// ── Templates & generation ────────────────────────────────────────────────────
+
+/** A starter pipeline the user can instantiate from the wizard. */
+export type LoopTemplate = { id: string; title: string; description: string; draft: LoopDraft }
+
+export const LOOP_TEMPLATES: LoopTemplate[] = [
+  {
+    id: "babysit-pr",
+    title: "Babysit PR",
+    description: "Watch CI on the current PR and fix failures until green",
+    draft: {
+      name: "babysit PR",
+      stages: [
+        { name: "watch", agent: "general", objective: "Check CI status on the current PR and report any failing checks" },
+        { name: "fix", agent: "ralph", objective: "Diagnose and fix the failing CI checks until the pipeline is green" },
+      ],
+    },
+  },
+  {
+    id: "keep-tests-green",
+    title: "Keep tests green",
+    description: "Run the test suite and fix failures until it passes",
+    draft: {
+      name: "keep tests green",
+      stages: [
+        { name: "run", agent: "general", objective: "Run the test suite and identify the failing tests" },
+        { name: "fix", agent: "ralph", objective: "Fix the failing tests until the whole suite passes" },
+      ],
+    },
+  },
+  {
+    id: "docs-sync",
+    title: "Docs sync",
+    description: "Find docs drifted from the code and update them",
+    draft: {
+      name: "docs sync",
+      stages: [
+        { name: "audit", agent: "general", objective: "Find documentation that is out of date with recent code changes" },
+        { name: "update", agent: "build", objective: "Update the outdated documentation to match the current code" },
+      ],
+    },
+  },
+  {
+    id: "nightly-qa",
+    title: "Nightly QA",
+    description: "Periodically review recent changes for regressions",
+    draft: {
+      name: "nightly QA",
+      intervalMs: 60 * 60_000,
+      stages: [
+        {
+          name: "review",
+          agent: "general",
+          objective: "Review the most recent changes for bugs and regressions and report findings",
+        },
+      ],
+    },
+  },
+]
+
+/** Pull the first balanced JSON object out of arbitrary model text (handles code fences/prose). */
+function extractJsonObject(text: string): string | undefined {
+  const start = text.indexOf("{")
+  const end = text.lastIndexOf("}")
+  if (start === -1 || end === -1 || end < start) return undefined
+  return text.slice(start, end + 1)
+}
+
+/**
+ * Parse a model-generated pipeline description into a validated LoopDraft.
+ * Expects a JSON object `{ name?, stages: [{ name?, agent?, model?, objective, tokenBudget? }] }`,
+ * optionally wrapped in prose/code fences. Throws with a clear message on failure.
+ */
+export function parseGeneratedDraft(text: string): LoopDraft {
+  const json = extractJsonObject(text)
+  if (!json) throw new Error("The model did not return a JSON pipeline")
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    throw new Error("The model's response was not valid JSON")
+  }
+  if (typeof parsed !== "object" || parsed === null) throw new Error("Generated pipeline is not an object")
+  const v = parsed as Record<string, unknown>
+  const rawStages = Array.isArray(v.stages) ? v.stages : []
+  const stages: StageDraft[] = rawStages
+    .filter((s): s is Record<string, unknown> => typeof s === "object" && s !== null)
+    .map((s) => ({
+      objective: typeof s.objective === "string" ? s.objective : "",
+      ...(typeof s.name === "string" && s.name.trim() ? { name: s.name } : {}),
+      ...(typeof s.agent === "string" && s.agent.trim() ? { agent: s.agent } : {}),
+      ...(typeof s.model === "string" && isValidModel(s.model) ? { model: s.model } : {}),
+      ...(typeof s.tokenBudget === "number" ? { tokenBudget: s.tokenBudget } : {}),
+    }))
+  const draft: LoopDraft = { stages, ...(typeof v.name === "string" && v.name.trim() ? { name: v.name } : {}) }
+  const error = validateDraft(draft)
+  if (error) throw new Error(error)
+  return draft
+}
+
+/** Narrow one persisted stage, or undefined if it lacks an objective. */
+function sanitizeStage(value: unknown): LoopStage | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  const v = value as Record<string, unknown>
+  if (typeof v.objective !== "string" || !v.objective.trim()) return undefined
+  return {
+    name: typeof v.name === "string" && v.name.trim() ? v.name : deriveName(v.objective),
+    agent: typeof v.agent === "string" && v.agent.trim() ? v.agent : DEFAULT_AGENT,
+    ...(typeof v.model === "string" && isValidModel(v.model) ? { model: v.model } : {}),
+    objective: v.objective,
+    ...(typeof v.tokenBudget === "number" && v.tokenBudget > 0 ? { tokenBudget: v.tokenBudget } : {}),
+  }
+}
+
+/**
+ * Narrow unknown persisted data back to a valid definition, or undefined if
+ * corrupt. Migrates legacy single-objective loops into a one-stage pipeline.
+ */
 function sanitize(value: unknown): LoopDefinition | undefined {
   if (typeof value !== "object" || value === null) return undefined
   const v = value as Record<string, unknown>
-  if (typeof v.id !== "string" || typeof v.objective !== "string") return undefined
+  if (typeof v.id !== "string") return undefined
+
+  let stages: LoopStage[]
+  if (Array.isArray(v.stages)) {
+    stages = v.stages.map(sanitizeStage).filter((s): s is LoopStage => s !== undefined)
+  } else {
+    // Legacy migration: a single top-level objective becomes one stage.
+    const legacy = sanitizeStage({
+      objective: v.objective,
+      agent: v.agent,
+      model: v.model,
+      tokenBudget: v.tokenBudget,
+    })
+    stages = legacy ? [legacy] : []
+  }
+  if (stages.length === 0) return undefined
+
   const trigger = v.trigger as Record<string, unknown> | undefined
   const normalizedTrigger: LoopTrigger =
     trigger?.kind === "interval" && typeof trigger.everyMs === "number" && trigger.everyMs >= MIN_INTERVAL_MS
@@ -179,12 +349,9 @@ function sanitize(value: unknown): LoopDefinition | undefined {
       : { kind: "manual" }
   return {
     id: v.id,
-    name: typeof v.name === "string" && v.name.trim() ? v.name : deriveName(v.objective),
-    objective: v.objective,
-    agent: typeof v.agent === "string" && v.agent.trim() ? v.agent : DEFAULT_AGENT,
-    ...(typeof v.model === "string" && isValidModel(v.model) ? { model: v.model } : {}),
+    name: typeof v.name === "string" && v.name.trim() ? v.name : stages[0].name,
+    stages,
     trigger: normalizedTrigger,
-    ...(typeof v.tokenBudget === "number" && v.tokenBudget > 0 ? { tokenBudget: v.tokenBudget } : {}),
     ...(typeof v.maxRuns === "number" && v.maxRuns > 0 ? { maxRuns: v.maxRuns } : {}),
     enabled: v.enabled !== false,
     createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
@@ -230,7 +397,17 @@ export function setEnabled(kv: KvLike, id: string, enabled: boolean): LoopDefini
 
 // ── Run history ──────────────────────────────────────────────────────────────
 
-/** One recorded execution of a loop. Diff totals are the session's cumulative diff at run end. */
+/** Per-stage outcome within a run. Diff totals are this stage's own contribution. */
+export type LoopStageResult = {
+  name: string
+  ok: boolean
+  error?: string
+  additions: number
+  deletions: number
+  files: number
+}
+
+/** One recorded execution of a loop. Diff totals are the run's own contribution (delta). */
 export type LoopRun = {
   startedAt: number
   endedAt: number
@@ -239,14 +416,35 @@ export type LoopRun = {
   additions: number
   deletions: number
   files: number
+  /** Session the run executed in, for opening it from the history. */
+  sessionID?: string
+  /** Per-stage breakdown (omitted for legacy single-stage runs). */
+  stages?: LoopStageResult[]
 }
 
 type HistoryMap = Record<string, LoopRun[]>
+
+function sanitizeStageResult(value: unknown): LoopStageResult | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  const v = value as Record<string, unknown>
+  if (typeof v.ok !== "boolean") return undefined
+  return {
+    name: typeof v.name === "string" ? v.name : "stage",
+    ok: v.ok,
+    ...(typeof v.error === "string" ? { error: v.error } : {}),
+    additions: typeof v.additions === "number" ? v.additions : 0,
+    deletions: typeof v.deletions === "number" ? v.deletions : 0,
+    files: typeof v.files === "number" ? v.files : 0,
+  }
+}
 
 function sanitizeRun(value: unknown): LoopRun | undefined {
   if (typeof value !== "object" || value === null) return undefined
   const v = value as Record<string, unknown>
   if (typeof v.startedAt !== "number" || typeof v.endedAt !== "number" || typeof v.ok !== "boolean") return undefined
+  const stages = Array.isArray(v.stages)
+    ? v.stages.map(sanitizeStageResult).filter((s): s is LoopStageResult => s !== undefined)
+    : undefined
   return {
     startedAt: v.startedAt,
     endedAt: v.endedAt,
@@ -255,6 +453,8 @@ function sanitizeRun(value: unknown): LoopRun | undefined {
     additions: typeof v.additions === "number" ? v.additions : 0,
     deletions: typeof v.deletions === "number" ? v.deletions : 0,
     files: typeof v.files === "number" ? v.files : 0,
+    ...(typeof v.sessionID === "string" ? { sessionID: v.sessionID } : {}),
+    ...(stages && stages.length > 0 ? { stages } : {}),
   }
 }
 
@@ -288,6 +488,29 @@ export function clearHistory(kv: KvLike, id: string): void {
     delete map[id]
     kv.set(LOOPS_HISTORY_KV_KEY, map)
   }
+}
+
+/** Per-file cumulative diff counts for a session, keyed by file path. */
+export type DiffSnapshot = Record<string, { additions: number; deletions: number }>
+
+/**
+ * Compute a run's own contribution as the delta between two cumulative session
+ * snapshots. Per-file so a file edited across runs is not double-counted; only
+ * the increase since `before` is attributed to this run.
+ */
+export function diffDelta(before: DiffSnapshot, after: DiffSnapshot): { additions: number; deletions: number; files: number } {
+  let additions = 0
+  let deletions = 0
+  let files = 0
+  for (const [file, a] of Object.entries(after)) {
+    const b = before[file] ?? { additions: 0, deletions: 0 }
+    const da = Math.max(0, a.additions - b.additions)
+    const dd = Math.max(0, a.deletions - b.deletions)
+    additions += da
+    deletions += dd
+    if (da > 0 || dd > 0) files += 1
+  }
+  return { additions, deletions, files }
 }
 
 export type LoopStats = { total: number; ok: number; successRate: number; additions: number; deletions: number }

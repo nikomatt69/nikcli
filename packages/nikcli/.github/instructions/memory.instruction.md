@@ -2589,3 +2589,111 @@ User reported the `opentui` tool fails too often. Investigation traced the full 
 | `test-runner`   | read/grep/list/bash + edit + write                                    | all      |
 | `refactor`      | read/grep/glob/list/bash + edit + write + apply_patch                 | all      |
 | `delegator`     | (synthesizes background results)                                      | subagent |
+
+## Brain Pass (2026-06-08)
+
+### Loops Feature Plugin — Headless Scheduling Integration (in progress 2026-06-08)
+
+**Location**: `packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/`
+
+**Files**:
+
+- `index.tsx` — sidebar widget + manager entry; subscribes to bus events on init
+- `store.ts` — KV-backed storage for `LoopDefinition`, history, stats
+- `runner.ts` — Scheduler + Goal wiring; runs loops on a tick
+- `dialogs.tsx` — wizard (multi-step create) + manager (list/edit/delete) dialogs
+
+**Integration pattern (decided 2026-06-08)**:
+
+- Core engine (server-side scheduler) uses **Effect** via `Effect.gen` + `runPromiseWithLayer` helpers (`runSession`, `runSessionPrompt`) — pattern matches `mobile/routine.ts`
+- TUI plugin side uses **Promise-based SDK** via `api.client.loop.*` — this is the documented plugin pattern (see `feature-plugins/loops` neighbors, `system/plugins.tsx`, `context/sync.tsx`)
+- User feedback ("non dovrebbe usare effect?") confirmed: server uses Effect, plugins use Promise SDK calls
+
+**SDK call conventions (2026-06-08)**:
+
+- SDK is generated with `paramsStructure: "flat"` → calls are flat, NOT nested
+- ✅ `client.loop.get({ id })` — correct
+- ❌ `client.loop.get({ params: { id } })` — wrong (this was an early mistake in the loops plugin)
+- Server's `PUT /` upsert route calls `generateID()` for new definitions — **ignores client-provided IDs**. So the pattern is: create with `Store.createDefinition()` locally, then call `Runner.persist(api, def)` which handles upsert + sync in one step
+
+**Bus event types (typed, in SDK `Event` union)**:
+
+- `loop.upserted` — definition created or updated
+- `loop.removed` — definition deleted
+- `loop.run.started` / `loop.run.completed` / `loop.run.failed` — execution lifecycle
+- `loop.runtime.changed` — runtime config updates
+
+**TuiEventBus.on signature**:
+
+```typescript
+on: <Type extends Event["type"]>(type: Type, handler: (event: Extract<Event, { type: Type }>) => void) => () => void
+```
+
+`Type` is constrained to `Event["type"]` (the union of all event type strings from the generated SDK). `as never` cast is NOT needed when subscribing to typed events — that was a wrong workaround in the first iteration of the loops plugin. The correct pattern is to use the typed string directly: `bus.on("loop.upserted", (e) => …)`.
+
+**Loops feature plugin status (2026-06-08)**:
+
+- Headless scheduling integration actively being built (session ID `ses_156b89753ffeQRoJvkgpRJY0T9`)
+- Wizard, store, and runner are wired through SDK with flat params
+- Bus subscription in `index.tsx` initial sync from server
+- `Runner.persist(api, def)` consolidates `Store.upsert` + `Runner.syncAll` into one call
+
+### Effect / Instance Runtime Foundation (`src/effect/`)
+
+Cross-cutting foundation used by every "Service" in the codebase:
+
+| File                  | Purpose                                                                                                                                                                                                                                                                                                                                                                          |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instance-ref.ts`     | `InstanceRef` and `WorkspaceRef` Effect service tags. `locallyInstance(ctx, effect)` and `locallyWorkspace(ctx, effect)` wrap `provideService`. `currentInstance` / `instance` Effects yield or fail with "No active nikcli instance in Effect context"                                                                                                                       |
+| `instance-state.ts`   | `make<S>(init)` returns a per-directory scoped cache. Cache key is `ctx.directory`; values scoped to calling `Scope`. Used by `permission/next.ts`, `question/index.ts`, `agent/agent.ts`, `skill/skill.ts`, `tool/registry.ts`                                                                                                                                              |
+| `instance-scope.ts`   | `InstanceScope.with({ directory, workspaceID? }, effect)` — `Effect.tryPromise` wrapping `Instance.provide({ directory, fn })`                                                                                                                                                                                                                                                    |
+| `runtime.ts`          | `sharedMemoMap = Layer.makeMemoMap()`, `AppRuntime = makeRuntime(Layer.empty)`, `runtimeFor(layer)` (WeakMap cache of ManagedRuntimes per Layer identity), `runPromiseWithLayer(layer, effect)`, `withCurrentInstance(effect)`                                                                                                                                              |
+| `with-instance.ts`    | Two entry points: `withInstance(input, effect)` (Effect path) and `withInstanceAsync(input, fn)` (async path; falls back to legacy `Instance.provide({ init, fn })` when `input.init` is set for one-time per-directory bootstraps like `InstanceBootstrap`)                                                                                                                |
+
+**Semantics of every `withInstanceAsync({ directory }, …)` call site**: "resolve the project at `directory`, set up the `Instance` singleton, build an `InstanceContext` from it, and run my effect/fn with `InstanceRef` and `WorkspaceRef` provided in the Effect context."
+
+### Agent System Service Layer (2026-06-08 deep-dive)
+
+**File**: `src/agent/agent.ts` (919 lines, June 2026)
+
+- `InfoSchema` — `name, description?, mode, native?, hidden?, topP?, temperature?, color?, permission: PermissionNext.RuleSchema[], model?, advisor?, variant?, prompt?, options, steps?` — annotated with `identifier: "Agent"`
+- `Info` exported as `zodObject(InfoSchema)`; `type Info = DeepMutable<…>` strips Effect's `Readonly` so consumers can mutate fields when composing
+- `NotFoundError` — `Schema.TaggedErrorClass` with tag `"AgentNotFound"`, name field → catchable via `Effect.catchTag("AgentNotFound", …)` AND `instanceof`
+- `Interface`: `get(agent)`, `list()`, `defaultAgent()`, `generate({ description, model? })`
+- `Service` extends `Context.Service<Service, Interface>()("Agent.Service")`; `defaultLayer` is the effect implementation
+- `SUBAGENT_TOOLSETS` (lines 98–139) is informational; actual gating happens through each agent's `permission` array
+
+**Agent selection precedence**: default = `build`; overrideable by `--agent` flag, subagent invocation (`task` tool), or config. Agent prompts can include `PRIMARY_AGENT_DELEGATION_AWARENESS` (how to use `task`/`delegation`/`delegator`) and `PRIMARY_AGENT_RESEARCH_AWARENESS` (when to launch background `researcher`) fragments.
+
+### Tool System — Authoring Surface (2026-06-08 deep-dive)
+
+**File**: `src/tool/tool.ts` (~180 lines)
+
+- `Tool.Metadata = Record<string, unknown>` (loose); `Tool.StrictMetadata extends z.ZodType<Record<string, unknown>>` (future: Zod-validated metadata)
+- `Tool.InitContext = { agent?: Agent.Info }` — passed to `init(ctx)` for per-agent specialization (e.g. `skill` and `task` filter visible items by the caller's permission ruleset)
+- `Tool.Context` — see existing table; built **per call** by `context(args, options)` factory in `session/tools.ts:106`
+- `Tool.AuthoredDef.execute(args, ctx): Promise<Result> | Effect<Result, Error>` — author can return either; `Tool.define` normalizes via `asEffect`
+- `Tool.Def.execute(args, ctx): Effect<Result, Error>` is the normalized form; `executeAsync` is a `Effect.runPromise` shim for legacy/ai-sdk callers
+
+**Full 5-phase execution flow** (confirmed 2026-06-08):
+
+```
+model output
+  → ai-sdk tool dispatcher (session/tools.ts)
+  → ToolRegistry.ids() → registry.tools() → Tool.init(ctx)
+  → build AITool, attach execute() that constructs a Tool.Context
+  → AI provider returns tool-call → onCall(toolId, args, {abortSignal, toolCallId})
+  → context(args, options) builds per-call Tool.Context
+  → plugin.trigger("tool.execute.before")
+  → item.executeAsync(args, ctx)            ← Effect.runPromise(execute(args, ctx))
+  → parameters.parse(args)                  ← Zod / Effect Schema
+  → wrappedCtx.metadata(...)                ← in-place override for "truncated" default
+  → authoredExecute(args, wrappedCtx) → asEffect(Promise|Effect)
+  → Truncate.output(result.output, {}, agent)  ← unless metadata.truncated already set
+  → plugin.trigger("tool.execute.after")
+  → return to model as toModelOutput
+```
+
+**Truncation policy**: `MAX_LINES = 2000`, `MAX_BYTES = 50KB`, output stored to `~/.nikcli/tool-output/{tool_id}` for 7 days. The wrapper in `Tool.define` injects `metadata.truncated: false` by default; the tool body can call `ctx.metadata({ truncated: true })` to override.
+
+**`ctx.ask({ permission, patterns, always, metadata })`** — escalates to `PermissionNext.ask`. Resolves when user replies or an in-memory "approved" ruleset already permits the pattern. Throws `PermissionNext.RejectedError` / `CorrectedError` / `DeniedError` on rejection. Works in subagent context — propagates to the parent TUI via the bus, not blocked at the subagent boundary.

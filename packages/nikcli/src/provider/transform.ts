@@ -293,7 +293,10 @@ function normalizeMessages(
       if (msg.role !== "assistant") return msg
       if (Array.isArray(msg.content)) {
         if (msg.content.some((part) => part.type === "reasoning")) return msg
-        return { ...msg, content: [...msg.content, { type: "reasoning", text: "" }] }
+        return {
+          ...msg,
+          content: [...msg.content, { type: "reasoning", text: "" }],
+        }
       }
       return {
         ...msg,
@@ -465,7 +468,10 @@ export function message(msgs: ModelMessage[], model: Provider.Model, options: Re
         providerOptions: remap(msg.providerOptions),
         content: msg.content.map((part) => {
           const partObj = part as unknown as Record<string, unknown>
-          return { ...partObj, providerOptions: remap(partObj.providerOptions as any) }
+          return {
+            ...partObj,
+            providerOptions: remap(partObj.providerOptions as any),
+          }
         }),
       } as typeof msg
     })
@@ -607,6 +613,10 @@ function anthropicAdaptiveEfforts(apiId: string): string[] | null {
   if (["opus-4-6", "opus-4.6", "sonnet-4-6", "sonnet-4.6"].some((v) => apiId.includes(v))) {
     return ["low", "medium", "high", "max"]
   }
+  // MiniMax-M3 is Anthropic-compatible and accepts the adaptive thinking format.
+  if (apiId.toLowerCase().includes("minimax-m3")) {
+    return ["low", "medium", "high", "max"]
+  }
   return null
 }
 
@@ -636,7 +646,9 @@ export function variants(model: Provider.Model): Record<string, Record<string, a
     id.includes("deepseek-reasoner") ||
     id.includes("deepseek-r1") ||
     id.includes("deepseek-v3") ||
-    id.includes("minimax") ||
+    // MiniMax M2.x leaks reasoning into content and has no usable thinking
+    // controls; M3 is Anthropic-compatible and handled via adaptiveEfforts below.
+    (id.includes("minimax") && !id.includes("minimax-m3")) ||
     id.includes("glm") ||
     id.includes("kimi") ||
     id.includes("k2p") ||

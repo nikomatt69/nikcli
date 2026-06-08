@@ -13,15 +13,31 @@ function makeModel(overrides: Partial<Provider.Model> = {}): Provider.Model {
   return {
     id: "m1",
     providerID: "minimax-coding-plan",
-    api: { id: "MiniMax-M2.7", url: "https://api.minimax.io", npm: "@ai-sdk/anthropic" },
+    api: {
+      id: "MiniMax-M2.7",
+      url: "https://api.minimax.io",
+      npm: "@ai-sdk/anthropic",
+    },
     name: "MiniMax-M2.7",
     capabilities: {
       temperature: true,
       reasoning: true,
       attachment: false,
       toolcall: true,
-      input: { text: true, audio: false, image: false, video: false, pdf: false },
-      output: { text: true, audio: false, image: false, video: false, pdf: false },
+      input: {
+        text: true,
+        audio: false,
+        image: false,
+        video: false,
+        pdf: false,
+      },
+      output: {
+        text: true,
+        audio: false,
+        image: false,
+        video: false,
+        pdf: false,
+      },
       interleaved: false,
     },
     cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },
@@ -74,7 +90,11 @@ describe("ProviderError", () => {
   it("parseAPICallError returns api_error with retryable flag", () => {
     const parsed = ProviderError.parseAPICallError({
       providerID: "openai",
-      error: apiError({ message: "Rate limited", statusCode: 429, isRetryable: true }),
+      error: apiError({
+        message: "Rate limited",
+        statusCode: 429,
+        isRetryable: true,
+      }),
     })
     expect(parsed.type).toBe("api_error")
     if (parsed.type === "api_error") {
@@ -112,7 +132,11 @@ describe("ProviderError", () => {
     expect(ProviderError.isContextOverflowError(o)).toBe(true)
 
     expect(ProviderError.isContextOverflowError("maximum context length is 8000 tokens")).toBe(true)
-    expect(ProviderError.isContextOverflowError({ data: { type: "context_overflow" } })).toBe(true)
+    expect(
+      ProviderError.isContextOverflowError({
+        data: { type: "context_overflow" },
+      }),
+    ).toBe(true)
     expect(ProviderError.isContextOverflowError(new Error("unrelated"))).toBe(false)
   })
 
@@ -145,15 +169,24 @@ describe("ProviderTransform", () => {
   })
 
   it("providerOptions nests under sdk key for copilot", () => {
-    const m = makeModel({ providerID: "github-copilot", api: { id: "x", url: "u", npm: "@ai-sdk/github-copilot" } })
-    expect(ProviderTransform.providerOptions(m, { foo: 1 })).toEqual({ copilot: { foo: 1 } })
+    const m = makeModel({
+      providerID: "github-copilot",
+      api: { id: "x", url: "u", npm: "@ai-sdk/github-copilot" },
+    })
+    expect(ProviderTransform.providerOptions(m, { foo: 1 })).toEqual({
+      copilot: { foo: 1 },
+    })
   })
 
   it("emits OpenRouter reasoning variants for GPT and Claude families", () => {
     const gpt = makeModel({
       id: "openai/gpt-5.2",
       providerID: "openrouter",
-      api: { id: "openai/gpt-5.2", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+      api: {
+        id: "openai/gpt-5.2",
+        url: "https://openrouter.ai/api/v1",
+        npm: "@openrouter/ai-sdk-provider",
+      },
     })
     expect(Object.keys(ProviderTransform.variants(gpt))).toEqual(["none", "low", "medium", "high", "xhigh"])
 
@@ -166,25 +199,70 @@ describe("ProviderTransform", () => {
         npm: "@openrouter/ai-sdk-provider",
       },
     })
-    expect(ProviderTransform.variants(claude).medium).toEqual({ reasoning: { effort: "medium" } })
+    expect(ProviderTransform.variants(claude).medium).toEqual({
+      reasoning: { effort: "medium" },
+    })
+  })
+
+  it("MiniMax M2.x stays excluded (no adaptive thinking)", () => {
+    const m2 = makeModel({
+      id: "minimax-coding-plan/MiniMax-M2.7",
+      providerID: "minimax-coding-plan",
+      api: {
+        id: "MiniMax-M2.7",
+        url: "https://api.minimax.io/anthropic",
+        npm: "@ai-sdk/anthropic",
+      },
+    })
+    expect(ProviderTransform.variants(m2)).toEqual({})
+  })
+
+  it("MiniMax-M3 returns adaptive thinking options", () => {
+    const m3 = makeModel({
+      id: "minimax-coding-plan/MiniMax-M3",
+      providerID: "minimax-coding-plan",
+      api: {
+        id: "MiniMax-M3",
+        url: "https://api.minimax.io/anthropic",
+        npm: "@ai-sdk/anthropic",
+      },
+    })
+    const result = ProviderTransform.variants(m3)
+    expect(Object.keys(result)).toEqual(["low", "medium", "high", "max"])
+    expect(result.medium).toEqual({
+      thinking: {
+        type: "adaptive",
+      },
+      effort: "medium",
+    })
   })
 
   it("smallOptions relies on the first configured variant", () => {
     const model = makeModel({
       providerID: "openrouter",
-      api: { id: "openai/gpt-5.2", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+      api: {
+        id: "openai/gpt-5.2",
+        url: "https://openrouter.ai/api/v1",
+        npm: "@openrouter/ai-sdk-provider",
+      },
       variants: {
         low: { reasoning: { effort: "low" } },
         high: { reasoning: { effort: "high" } },
       },
     })
-    expect(ProviderTransform.smallOptions(model)).toEqual({ reasoning: { effort: "low" } })
+    expect(ProviderTransform.smallOptions(model)).toEqual({
+      reasoning: { effort: "low" },
+    })
   })
 
   it("preserves OpenRouter reasoning details in message content", () => {
     const model = makeModel({
       providerID: "openrouter",
-      api: { id: "deepseek/deepseek-v4", url: "https://openrouter.ai/api/v1", npm: "@openrouter/ai-sdk-provider" },
+      api: {
+        id: "deepseek/deepseek-v4",
+        url: "https://openrouter.ai/api/v1",
+        npm: "@openrouter/ai-sdk-provider",
+      },
       capabilities: {
         ...makeModel().capabilities,
         interleaved: { field: "reasoning_details" },
@@ -197,7 +275,11 @@ describe("ProviderTransform", () => {
           {
             type: "reasoning",
             text: "thinking",
-            providerOptions: { openrouter: { reasoning_details: [{ type: "reasoning.text", text: "thinking" }] } },
+            providerOptions: {
+              openrouter: {
+                reasoning_details: [{ type: "reasoning.text", text: "thinking" }],
+              },
+            },
           },
           { type: "text", text: "answer" },
         ],
@@ -220,7 +302,11 @@ describe("ProviderTransform", () => {
     const o1 = ProviderTransform.options({
       model: makeModel({
         providerID: "openai",
-        api: { id: "gpt-4", url: "https://api.openai.com", npm: "@ai-sdk/openai" },
+        api: {
+          id: "gpt-4",
+          url: "https://api.openai.com",
+          npm: "@ai-sdk/openai",
+        },
       }),
       sessionID: "s1",
     })
@@ -245,7 +331,10 @@ describe("ProviderTransform", () => {
   })
 
   it("schema converts integer enums to strings for google models", () => {
-    const m = makeModel({ providerID: "google", api: { id: "gemini-2.0", url: "u", npm: "@ai-sdk/google" } })
+    const m = makeModel({
+      providerID: "google",
+      api: { id: "gemini-2.0", url: "u", npm: "@ai-sdk/google" },
+    })
     const jsonSchema: Record<string, unknown> = {
       type: "object",
       properties: {
@@ -264,7 +353,13 @@ describe("ProviderTransform", () => {
       api: { id: "text-only", url: "u", npm: "@ai-sdk/openai" },
       capabilities: {
         ...makeModel().capabilities,
-        input: { text: true, audio: false, image: false, video: false, pdf: false },
+        input: {
+          text: true,
+          audio: false,
+          image: false,
+          video: false,
+          pdf: false,
+        },
       },
     })
     const msgs: ModelMessage[] = [
@@ -295,7 +390,10 @@ describe("ProviderTransform", () => {
 
 describe("Provider pure helpers", () => {
   it("parseModel splits first segment as provider and remainder as model id", () => {
-    expect(Provider.parseModel("a/b/c")).toEqual({ providerID: "a", modelID: "b/c" })
+    expect(Provider.parseModel("a/b/c")).toEqual({
+      providerID: "a",
+      modelID: "b/c",
+    })
     expect(Provider.parseModel("openrouter/anthropic/claude-3.5-sonnet")).toEqual({
       providerID: "openrouter",
       modelID: "anthropic/claude-3.5-sonnet",
@@ -340,7 +438,10 @@ describe("ModelsDev schemas", () => {
 
 describe("ProviderAuth contracts", () => {
   it("Method and Authorization parse", () => {
-    expect(ProviderAuth.Method.parse({ type: "api", label: "Key" })).toEqual({ type: "api", label: "Key" })
+    expect(ProviderAuth.Method.parse({ type: "api", label: "Key" })).toEqual({
+      type: "api",
+      label: "Key",
+    })
     expect(
       ProviderAuth.Authorization.parse({
         url: "https://x",
@@ -405,8 +506,20 @@ describe("Provider.Model and Provider.Info", () => {
         reasoning: false,
         attachment: false,
         toolcall: true,
-        input: { text: true, audio: false, image: false, video: false, pdf: false },
-        output: { text: true, audio: false, image: false, video: false, pdf: false },
+        input: {
+          text: true,
+          audio: false,
+          image: false,
+          video: false,
+          pdf: false,
+        },
+        output: {
+          text: true,
+          audio: false,
+          image: false,
+          video: false,
+          pdf: false,
+        },
         interleaved: false,
       },
       cost: { input: 0, output: 0, cache: { read: 0, write: 0 } },

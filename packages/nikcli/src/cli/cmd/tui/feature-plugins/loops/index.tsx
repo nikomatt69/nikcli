@@ -3,15 +3,19 @@
  *
  * Adds first-class autonomous loops to the TUI: define an objective + trigger
  * once, and nikcli drives the existing Goal system toward it on a schedule (or
- * on demand), with a live sidebar and a `/loops` manager. Self-contained — it
- * uses only the documented plugin `api` surface and persists definitions in the
- * durable plugin KV store, so it introduces no changes to the core.
+ * on demand), with a live sidebar and a `/loops` manager.
+ *
+ * Loops are persisted server-side (see `src/loop/`) so they keep running with
+ * the TUI closed; the plugin reads its data through the SDK and subscribes to
+ * the engine's bus events for live updates. A local cache keeps the sidebar
+ * snappy when the server is unreachable.
  */
 import type { TuiPlugin, TuiPluginApi, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 import { createMemo, For, Show } from "solid-js"
 import * as Store from "./store"
 import * as Runner from "./runner"
 import { openManager, openWizard, toneColor } from "./dialogs"
+import { LoopApi } from "./sdk"
 
 const id = "internal:loops"
 
@@ -54,9 +58,16 @@ function Sidebar(props: { api: TuiPluginApi }) {
 }
 
 const tui: TuiPlugin = async (api) => {
-  // Re-arm enabled interval loops for this TUI session, and clean up on exit.
-  Runner.syncAll(api)
-  api.lifecycle.onDispose(() => Runner.disposeAll())
+  // Pull the server's view into the local cache so the sidebar reflects any
+  // headless activity (e.g. intervals fired while the TUI was closed), then
+  // arm local interval timers for snappy UI feedback. The server is the
+  // source of truth; the local timer just makes the sidebar feel live.
+  await Runner.syncAll(api)
+  const unsubscribeBus = Runner.subscribeEvents(api)
+  api.lifecycle.onDispose(() => {
+    Runner.disposeAll()
+    unsubscribeBus()
+  })
 
   api.command.register(() => [
     {
@@ -73,7 +84,7 @@ const tui: TuiPlugin = async (api) => {
       title: "New loop",
       value: "loops.new",
       category: "Loops",
-      description: "Define a new autonomous loop",
+      description: "Define a new autonomous loop (template, blank, or AI-generated)",
       onSelect() {
         openWizard(api)
       },
@@ -88,6 +99,10 @@ const tui: TuiPlugin = async (api) => {
       },
     },
   })
+
+  // Touch the import so the SDK stays reachable from this file even if a
+  // future refactor removes the direct usage.
+  void LoopApi
 }
 
 const plugin: TuiPluginModule & { id: string } = {

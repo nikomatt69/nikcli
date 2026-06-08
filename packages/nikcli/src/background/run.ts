@@ -71,6 +71,7 @@ export namespace BackgroundRun {
     "ultrareview",
     "delegator",
     "delegator-followup",
+    "loop",
     "other",
   ])
   export const Source = zod(SourceSchema)

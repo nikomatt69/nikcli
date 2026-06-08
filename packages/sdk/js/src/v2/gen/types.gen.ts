@@ -1056,6 +1056,47 @@ export type EventSessionError = {
   }
 }
 
+export type EventLoopUpserted = {
+  type: "loop.upserted"
+  properties: {
+    loopID: string
+  }
+}
+
+export type EventLoopRemoved = {
+  type: "loop.removed"
+  properties: {
+    loopID: string
+  }
+}
+
+export type EventLoopRunStarted = {
+  type: "loop.run.started"
+  properties: {
+    loopID: string
+    runID: string
+    sessionID?: string
+  }
+}
+
+export type EventLoopRunFinished = {
+  type: "loop.run.finished"
+  properties: {
+    loopID: string
+    runID: string
+    status: string
+    ok: boolean
+    error?: string
+  }
+}
+
+export type EventLoopRuntimeChanged = {
+  type: "loop.runtime.changed"
+  properties: {
+    loopID: string
+  }
+}
+
 export type Pty = {
   id: string
   title: string
@@ -1140,6 +1181,11 @@ export type Event =
   | EventSessionDeleted
   | EventSessionDiff
   | EventSessionError
+  | EventLoopUpserted
+  | EventLoopRemoved
+  | EventLoopRunStarted
+  | EventLoopRunFinished
+  | EventLoopRuntimeChanged
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
@@ -1163,6 +1209,68 @@ export type NotFoundError = {
   data: {
     message: string
   }
+}
+
+export type LoopDefinition = {
+  id: string
+  name: string
+  stages: Array<{
+    name: string
+    agent: string
+    model?: string
+    objective: string
+    tokenBudget?: number
+  }>
+  trigger:
+    | {
+        kind: "manual"
+      }
+    | {
+        kind: "interval"
+        everyMs: number
+      }
+  maxRuns?: number
+  enabled: boolean
+  createdAt: number
+}
+
+export type LoopRuntime = {
+  loopID: string
+  status: "idle" | "running" | "paused" | "error"
+  runs: number
+  lastRunAt?: number
+  lastError?: string
+  sessionID?: string
+}
+
+export type LoopTemplate = {
+  id: string
+  title: string
+  description: string
+  draft: {
+    name?: string
+    stages: Array<{
+      name?: string
+      agent?: string
+      model?: string
+      objective: string
+      tokenBudget?: number
+    }>
+    intervalMs?: number
+    maxRuns?: number
+  }
+}
+
+export type LoopRun = {
+  id: string
+  loopID: string
+  startedAt: number
+  endedAt?: number
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  ok: boolean
+  error?: string
+  sessionID?: string
+  backgroundRunID?: string
 }
 
 /**
@@ -3608,6 +3716,407 @@ export type ProjectUpdateResponses = {
 }
 
 export type ProjectUpdateResponse = ProjectUpdateResponses[keyof ProjectUpdateResponses]
+
+export type LoopListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop"
+}
+
+export type LoopListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type LoopListError = LoopListErrors[keyof LoopListErrors]
+
+export type LoopListResponses = {
+  /**
+   * All loops with runtime status
+   */
+  200: {
+    loops: Array<LoopDefinition>
+    runtimes: Array<LoopRuntime>
+  }
+}
+
+export type LoopListResponse = LoopListResponses[keyof LoopListResponses]
+
+export type LoopUpsertData = {
+  body?: {
+    name: string
+    stages: Array<{
+      name: string
+      agent: string
+      model?: string
+      objective: string
+      tokenBudget?: number
+    }>
+    trigger:
+      | {
+          kind: "manual"
+        }
+      | {
+          kind: "interval"
+          everyMs: number
+        }
+    maxRuns?: number
+    enabled: boolean
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop"
+}
+
+export type LoopUpsertErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type LoopUpsertError = LoopUpsertErrors[keyof LoopUpsertErrors]
+
+export type LoopUpsertResponses = {
+  /**
+   * Persisted loop
+   */
+  200: LoopDefinition
+}
+
+export type LoopUpsertResponse = LoopUpsertResponses[keyof LoopUpsertResponses]
+
+export type LoopTemplatesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/templates"
+}
+
+export type LoopTemplatesResponses = {
+  /**
+   * Templates
+   */
+  200: {
+    templates: Array<LoopTemplate>
+  }
+}
+
+export type LoopTemplatesResponse = LoopTemplatesResponses[keyof LoopTemplatesResponses]
+
+export type LoopGenerateData = {
+  body?: {
+    /**
+     * Natural-language description of the loop
+     */
+    description: string
+    /**
+     * Optional model override (providerID/modelID)
+     */
+    model?: string
+    /**
+     * Default agent if the model doesn't pick one
+     */
+    agent?: string
+  }
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/generate"
+}
+
+export type LoopGenerateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type LoopGenerateError = LoopGenerateErrors[keyof LoopGenerateErrors]
+
+export type LoopGenerateResponses = {
+  /**
+   * Generated loop definition
+   */
+  200: LoopDefinition
+}
+
+export type LoopGenerateResponse = LoopGenerateResponses[keyof LoopGenerateResponses]
+
+export type LoopDeleteData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}"
+}
+
+export type LoopDeleteErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopDeleteResponses = {
+  /**
+   * Deleted
+   */
+  200: unknown
+}
+
+export type LoopGetData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}"
+}
+
+export type LoopGetErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopGetResponses = {
+  /**
+   * The loop
+   */
+  200: {
+    loop: LoopDefinition
+    runtime: LoopRuntime
+  }
+}
+
+export type LoopGetResponse = LoopGetResponses[keyof LoopGetResponses]
+
+export type LoopUpdateData = {
+  body?: {
+    id: string
+    name: string
+    stages: Array<{
+      name: string
+      agent: string
+      model?: string
+      objective: string
+      tokenBudget?: number
+    }>
+    trigger:
+      | {
+          kind: "manual"
+        }
+      | {
+          kind: "interval"
+          everyMs: number
+        }
+    maxRuns?: number
+    enabled: boolean
+    createdAt: number
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}"
+}
+
+export type LoopUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type LoopUpdateError = LoopUpdateErrors[keyof LoopUpdateErrors]
+
+export type LoopUpdateResponses = {
+  /**
+   * Updated loop
+   */
+  200: LoopDefinition
+}
+
+export type LoopUpdateResponse = LoopUpdateResponses[keyof LoopUpdateResponses]
+
+export type LoopToggleData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}/toggle"
+}
+
+export type LoopToggleErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopToggleResponses = {
+  /**
+   * Updated loop
+   */
+  200: unknown
+}
+
+export type LoopRunData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}/run"
+}
+
+export type LoopRunErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopRunResponses = {
+  /**
+   * Run started
+   */
+  200: unknown
+}
+
+export type LoopPauseData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}/pause"
+}
+
+export type LoopPauseResponses = {
+  /**
+   * Paused
+   */
+  200: unknown
+}
+
+export type LoopResumeData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/loop/{id}/resume"
+}
+
+export type LoopResumeErrors = {
+  /**
+   * Loop not found
+   */
+  404: unknown
+}
+
+export type LoopResumeResponses = {
+  /**
+   * Resumed
+   */
+  200: unknown
+}
+
+export type LoopRunsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/loop/{id}/runs"
+}
+
+export type LoopRunsResponses = {
+  /**
+   * Runs
+   */
+  200: {
+    runs: Array<LoopRun>
+  }
+}
+
+export type LoopRunsResponse = LoopRunsResponses[keyof LoopRunsResponses]
+
+export type LoopRunsRecentData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/loop/runs/recent"
+}
+
+export type LoopRunsRecentResponses = {
+  /**
+   * Recent runs
+   */
+  200: {
+    runs: Array<LoopRun>
+  }
+}
+
+export type LoopRunsRecentResponse = LoopRunsRecentResponses[keyof LoopRunsRecentResponses]
 
 export type PtyListData = {
   body?: never

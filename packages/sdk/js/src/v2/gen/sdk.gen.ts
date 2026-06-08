@@ -76,6 +76,28 @@ import type {
   GlobalEventResponses,
   GlobalHealthResponses,
   InstanceDisposeResponses,
+  LoopDeleteErrors,
+  LoopDeleteResponses,
+  LoopGenerateErrors,
+  LoopGenerateResponses,
+  LoopGetErrors,
+  LoopGetResponses,
+  LoopListErrors,
+  LoopListResponses,
+  LoopPauseResponses,
+  LoopResumeErrors,
+  LoopResumeResponses,
+  LoopRunErrors,
+  LoopRunResponses,
+  LoopRunsRecentResponses,
+  LoopRunsResponses,
+  LoopTemplatesResponses,
+  LoopToggleErrors,
+  LoopToggleResponses,
+  LoopUpdateErrors,
+  LoopUpdateResponses,
+  LoopUpsertErrors,
+  LoopUpsertResponses,
   LspStatusResponses,
   ManagedWorktreeAncestorsErrors,
   ManagedWorktreeAncestorsResponses,
@@ -550,6 +572,511 @@ export class Project extends HeyApiClient {
         ...params.headers,
       },
     })
+  }
+}
+
+export class Runs extends HeyApiClient {
+  /**
+   * List recent loop runs across all loops
+   *
+   * Most-recent-first runs from every loop in the project, useful for a global activity view.
+   */
+  public recent<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopRunsRecentResponses, unknown, ThrowOnError>({
+      url: "/loop/runs/recent",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Loop extends HeyApiClient {
+  /**
+   * List loops
+   *
+   * List all loops defined for the current project, with live runtime status.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopListResponses, LoopListErrors, ThrowOnError>({
+      url: "/loop",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create or update a loop
+   *
+   * Persist a loop definition. Generates the id and createdAt for new loops.
+   */
+  public upsert<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      name?: string
+      stages?: Array<{
+        name: string
+        agent: string
+        model?: string
+        objective: string
+        tokenBudget?: number
+      }>
+      trigger?:
+        | {
+            kind: "manual"
+          }
+        | {
+            kind: "interval"
+            everyMs: number
+          }
+      maxRuns?: number
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "name" },
+            { in: "body", key: "stages" },
+            { in: "body", key: "trigger" },
+            { in: "body", key: "maxRuns" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).put<LoopUpsertResponses, LoopUpsertErrors, ThrowOnError>({
+      url: "/loop",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List loop templates
+   *
+   * Built-in starter pipelines the user can instantiate from the wizard.
+   */
+  public templates<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopTemplatesResponses, unknown, ThrowOnError>({
+      url: "/loop/templates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate a loop from a description
+   *
+   * Send a natural-language description to an AI and parse the response back into a fully-formed loop definition. The response is a draft — the user still confirms before persistence.
+   */
+  public generate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      description?: string
+      model?: string
+      agent?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "description" },
+            { in: "body", key: "model" },
+            { in: "body", key: "agent" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopGenerateResponses, LoopGenerateErrors, ThrowOnError>({
+      url: "/loop/generate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete a loop
+   *
+   * Remove a loop and its run history. Disarms its scheduler entry.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<LoopDeleteResponses, LoopDeleteErrors, ThrowOnError>({
+      url: "/loop/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get a loop
+   *
+   * Fetch a single loop definition by id, including its live runtime status.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopGetResponses, LoopGetErrors, ThrowOnError>({
+      url: "/loop/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update a loop
+   *
+   * Replace a loop definition. Re-arms its scheduler entry if trigger/enabled changed.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      path_id: string
+      directory?: string
+      workspace?: string
+      body_id?: string
+      name?: string
+      stages?: Array<{
+        name: string
+        agent: string
+        model?: string
+        objective: string
+        tokenBudget?: number
+      }>
+      trigger?:
+        | {
+            kind: "manual"
+          }
+        | {
+            kind: "interval"
+            everyMs: number
+          }
+      maxRuns?: number
+      enabled?: boolean
+      createdAt?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            {
+              in: "path",
+              key: "path_id",
+              map: "id",
+            },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            {
+              in: "body",
+              key: "body_id",
+              map: "id",
+            },
+            { in: "body", key: "name" },
+            { in: "body", key: "stages" },
+            { in: "body", key: "trigger" },
+            { in: "body", key: "maxRuns" },
+            { in: "body", key: "enabled" },
+            { in: "body", key: "createdAt" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopUpdateResponses, LoopUpdateErrors, ThrowOnError>({
+      url: "/loop/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Enable or disable a loop
+   *
+   * Set the loop's enabled flag. Disarmed timers are removed when disabling.
+   */
+  public toggle<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopToggleResponses, LoopToggleErrors, ThrowOnError>({
+      url: "/loop/{id}/toggle",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Run a loop once
+   *
+   * Trigger an immediate run of the loop, ignoring its schedule.
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopRunResponses, LoopRunErrors, ThrowOnError>({
+      url: "/loop/{id}/run",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Pause a loop
+   *
+   * Set runtime status to paused; the scheduler entry is removed until resumed.
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopPauseResponses, unknown, ThrowOnError>({
+      url: "/loop/{id}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume a loop
+   *
+   * Clear the paused state and re-arm the scheduler entry if the loop has an interval trigger.
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<LoopResumeResponses, LoopResumeErrors, ThrowOnError>({
+      url: "/loop/{id}/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * List a loop's runs
+   *
+   * Most-recent-first run history for a loop, capped server-side.
+   */
+  public runs<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopRunsResponses, unknown, ThrowOnError>({
+      url: "/loop/{id}/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _runs?: Runs
+  get runs2(): Runs {
+    return (this._runs ??= new Runs({ client: this.client }))
   }
 }
 
@@ -8103,6 +8630,11 @@ export class NikcliClient extends HeyApiClient {
   private _project?: Project
   get project(): Project {
     return (this._project ??= new Project({ client: this.client }))
+  }
+
+  private _loop?: Loop
+  get loop(): Loop {
+    return (this._loop ??= new Loop({ client: this.client }))
   }
 
   private _pty?: Pty
