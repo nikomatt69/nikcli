@@ -263,6 +263,44 @@ Untouched on purpose: the Goal system (`session/goal.ts`, `tool/goal.ts`,
 
 ---
 
+## 9. Implementation notes (v1 — shipped)
+
+The v1 ships as a **self-contained internal TUI plugin** with **zero core changes**,
+which gives the strongest possible "no regressions" guarantee (purely additive).
+
+Files:
+
+- `src/cli/cmd/tui/feature-plugins/loops/store.ts` — `LoopDefinition` model, duration
+  parsing/formatting, draft validation, and KV-backed CRUD with corrupt-data
+  sanitization. Pure (no OpenTUI/Solid imports) and unit-tested.
+- `src/cli/cmd/tui/feature-plugins/loops/runner.ts` — the runtime engine: interval
+  timers, single-flight + global concurrency back-pressure, run-cap enforcement,
+  reactive status store, and lifecycle teardown. Drives runs via
+  `client.session.command({ command: "goal", arguments: objective })`.
+- `src/cli/cmd/tui/feature-plugins/loops/dialogs.tsx` — `/loops` manager (list +
+  quick keybinds run/toggle/delete), per-loop actions menu, and the chained
+  creation wizard (objective → name → schedule → budget).
+- `src/cli/cmd/tui/feature-plugins/loops/index.tsx` — plugin module: `/loops`
+  command (alias `/loop`), `New loop` palette entry, and a live sidebar panel.
+- Registered in `src/cli/cmd/tui/plugin/internal.ts`.
+- `test/tui/loops-store.test.ts` — unit tests for the pure store logic.
+
+**Why TUI-plugin rather than a core engine.** The `Scheduler`/`BackgroundRun`
+primitives live in the core (server) process, while the TUI is a separate process
+that talks to the server over the SDK client. Driving a core `LoopEngine` from the
+TUI would require new server routes + SDK regeneration — a large, regression-prone,
+hard-to-verify surface. Routing the whole feature through the documented plugin
+`api` instead keeps it additive and verifiable, and still reuses the real
+autonomous engine: the **Goal system** runs server-side exactly as for an
+interactive `/goal`, so each loop run is a genuine until-done autonomous run.
+
+**Known v1 limitation.** Interval triggers are driven by in-TUI timers, so scheduled
+loops run while the TUI session is open (manual runs and the Goal-driven iteration
+are unaffected). Headless, always-on scheduling is the natural Phase 2/3 upgrade:
+move the trigger into the core `Scheduler` behind server routes, persisting
+definitions in `Storage` and re-arming via `InstanceBootstrap` (alongside
+`BackgroundRun.reconcileInterrupted`).
+
 ## 8. Open questions
 
 1. **Scope of persistence**: per-project (`.nikcli/loops/`) only, or also global

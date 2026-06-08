@@ -6,6 +6,7 @@ import SidebarTodo from "../feature-plugins/sidebar/todo"
 import SidebarFiles from "../feature-plugins/sidebar/files"
 import SidebarFooter from "../feature-plugins/sidebar/footer"
 import PluginManager from "../feature-plugins/system/plugins"
+import Loops from "../feature-plugins/loops"
 
 import type { TuiPlugin, TuiPluginModule } from "@nikcli-ai/plugin/tui"
 
@@ -23,4 +24,5 @@ export const INTERNAL_TUI_PLUGINS: InternalTuiPlugin[] = [
   SidebarFiles,
   SidebarFooter,
   PluginManager,
+  Loops,
 ]
