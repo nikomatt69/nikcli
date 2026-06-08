@@ -54,6 +54,20 @@ function unref(timer: ReturnType<typeof setInterval>): void {
   t.unref?.()
 }
 
+/** Best-effort snapshot of a session's cumulative diff totals. */
+function diffTotals(api: TuiPluginApi, sessionID: string): { additions: number; deletions: number; files: number } {
+  try {
+    const files = api.state.session.diff(sessionID)
+    return {
+      additions: files.reduce((sum, f) => sum + f.additions, 0),
+      deletions: files.reduce((sum, f) => sum + f.deletions, 0),
+      files: files.length,
+    }
+  } catch {
+    return { additions: 0, deletions: 0, files: 0 }
+  }
+}
+
 /**
  * Run a single iteration of a loop: ensure a session exists, then kick the goal
  * command. Resolves once the autonomous goal run completes (or errors).
@@ -65,6 +79,7 @@ export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts
   if (runningCount() >= Store.MAX_CONCURRENT_RUNS) return // global back-pressure
 
   patch(def.id, (prev) => ({ ...prev, status: "running", lastError: undefined }))
+  const startedAt = Date.now()
 
   try {
     let sessionID = runtimeOf(def.id).sessionID
@@ -85,6 +100,8 @@ export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts
     })
     if (result.error) throw new Error(describeError(result.error))
 
+    const totals = diffTotals(api, sessionID)
+    Store.recordRun(api.kv, def.id, { startedAt, endedAt: Date.now(), ok: true, ...totals })
     patch(def.id, (prev) => ({ ...prev, status: "idle", runs: prev.runs + 1, lastRunAt: Date.now() }))
 
     if (def.maxRuns !== undefined && runtimeOf(def.id).runs >= def.maxRuns) {
@@ -93,6 +110,9 @@ export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts
     }
   } catch (error) {
     const message = describeError(error)
+    const sessionID = runtimeOf(def.id).sessionID
+    const totals = sessionID ? diffTotals(api, sessionID) : { additions: 0, deletions: 0, files: 0 }
+    Store.recordRun(api.kv, def.id, { startedAt, endedAt: Date.now(), ok: false, error: message, ...totals })
     // Drop the cached session so the next run starts fresh rather than reusing a
     // session that may be aborted or in a bad state.
     patch(def.id, (prev) => ({ ...prev, status: "error", lastError: message, sessionID: undefined }))

@@ -26,11 +26,12 @@ export function toneColor(theme: TuiPluginApi["theme"]["current"], tone: Runner.
 function footer(api: TuiPluginApi, def: Store.LoopDefinition) {
   const rt = Runner.runtimeOf(def.id)
   const info = Runner.statusInfo(def, rt)
-  const runs = rt.runs > 0 ? ` · ${rt.runs} run${rt.runs === 1 ? "" : "s"}` : ""
+  const stats = Store.loopStats(Store.loadHistory(api.kv, def.id))
+  const success = stats.total > 0 ? ` · ${Math.round(stats.successRate * 100)}% of ${stats.total}` : ""
   return (
     <span style={{ fg: toneColor(api.theme.current, info.tone) }}>
       {info.label}
-      {runs}
+      {success}
     </span>
   )
 }
@@ -80,7 +81,18 @@ export function openManager(api: TuiPluginApi): void {
 
 function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
   const rt = Runner.runtimeOf(def.id)
-  type Action = "run" | "pause" | "resume" | "toggle" | "objective" | "schedule" | "model" | "delete" | "back"
+  type Action =
+    | "run"
+    | "pause"
+    | "resume"
+    | "toggle"
+    | "objective"
+    | "schedule"
+    | "model"
+    | "history"
+    | "delete"
+    | "back"
+  const stats = Store.loopStats(Store.loadHistory(api.kv, def.id))
   const options: DialogSelectOption<Action>[] = [
     { title: "Run now", value: "run", description: "Kick one autonomous goal run immediately" },
   ]
@@ -100,6 +112,14 @@ function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
       description: def.trigger.kind === "interval" ? `every ${Store.formatDuration(def.trigger.everyMs)}` : "manual",
     },
     { title: "Edit model", value: "model", description: modelLabel(api, def.model) },
+    {
+      title: "History & stats",
+      value: "history",
+      description:
+        stats.total === 0
+          ? "no runs yet"
+          : `${stats.ok}/${stats.total} ok · ${Math.round(stats.successRate * 100)}% · +${stats.additions}/-${stats.deletions}`,
+    },
     { title: "Delete", value: "delete", description: "Remove this loop" },
     { title: "← Back", value: "back", description: "Return to the loop list" },
   )
@@ -138,6 +158,9 @@ function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
           case "model":
             editModel(api, def)
             break
+          case "history":
+            openHistory(api, def)
+            break
           case "delete":
             confirmDelete(api, def)
             break
@@ -158,6 +181,7 @@ function confirmDelete(api: TuiPluginApi, def: Store.LoopDefinition): void {
       onConfirm={() => {
         void Runner.stop(api, def.id)
         Store.removeById(api.kv, def.id)
+        Store.clearHistory(api.kv, def.id)
         Runner.syncAll(api)
         api.ui.toast({ variant: "success", message: `Deleted "${def.name}"` })
         openManager(api)
@@ -277,6 +301,62 @@ function editModel(api: TuiPluginApi, def: Store.LoopDefinition): void {
     api.ui.toast({ variant: "success", message: `Model set to ${modelLabel(api, model)}` })
     openManager(api)
   })
+}
+
+// ── Run history & stats hub ──────────────────────────────────────────────────
+
+function relativeTime(timestamp: number): string {
+  const delta = Date.now() - timestamp
+  if (delta < 60_000) return "just now"
+  if (delta < 3_600_000) return `${Math.floor(delta / 60_000)}m ago`
+  if (delta < 86_400_000) return `${Math.floor(delta / 3_600_000)}h ago`
+  return `${Math.floor(delta / 86_400_000)}d ago`
+}
+
+function openHistory(api: TuiPluginApi, def: Store.LoopDefinition): void {
+  const runs = Store.loadHistory(api.kv, def.id)
+  const stats = Store.loopStats(runs)
+  const pct = stats.total === 0 ? "—" : `${Math.round(stats.successRate * 100)}%`
+  const subtitle =
+    stats.total === 0
+      ? "no runs yet"
+      : `${stats.ok}/${stats.total} ok · ${pct} · +${stats.additions}/-${stats.deletions}`
+
+  type HistoryValue = { kind: "run"; index: number } | { kind: "clear" } | { kind: "back" }
+  const options: DialogSelectOption<HistoryValue>[] = runs.map((run, index) => {
+    const glyph = run.ok ? "✓" : "✗"
+    const duration = Store.formatDuration(Math.max(0, run.endedAt - run.startedAt))
+    const diff = run.additions || run.deletions ? ` · +${run.additions}/-${run.deletions} (${run.files}f)` : ""
+    return {
+      title: `${glyph} ${relativeTime(run.endedAt)}`,
+      value: { kind: "run", index } as HistoryValue,
+      description: `${duration}${diff}${run.error ? ` · ${run.error}` : ""}`,
+      category: "Runs",
+      footer: (
+        <span style={{ fg: run.ok ? api.theme.current.success : api.theme.current.error }}>{run.ok ? "ok" : "error"}</span>
+      ),
+    }
+  })
+  if (runs.length > 0) {
+    options.push({ title: "Clear history", value: { kind: "clear" }, description: "Forget recorded runs", category: "Actions" })
+  }
+  options.push({ title: "← Back", value: { kind: "back" }, description: "Return to actions", category: "Actions" })
+
+  api.ui.dialog.replace(() => (
+    <DialogSelect<HistoryValue>
+      title={`${def.name} · ${subtitle}`}
+      options={options}
+      onSelect={(opt) => {
+        if (opt.value.kind === "clear") {
+          Store.clearHistory(api.kv, def.id)
+          api.ui.toast({ variant: "success", message: "History cleared" })
+          openHistory(api, def)
+        } else if (opt.value.kind === "back") {
+          openActions(api, def)
+        }
+      }}
+    />
+  ))
 }
 
 // ── Creation wizard (chained prompts) ───────────────────────────────────────

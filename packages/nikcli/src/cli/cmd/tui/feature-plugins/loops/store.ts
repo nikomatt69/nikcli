@@ -11,6 +11,10 @@
  */
 
 export const LOOPS_KV_KEY = "loops"
+export const LOOPS_HISTORY_KV_KEY = "loops:history"
+
+/** How many recent runs to retain per loop. */
+export const HISTORY_LIMIT = 20
 
 /** Lower bound for interval triggers — guards against accidental hot loops. */
 export const MIN_INTERVAL_MS = 30_000
@@ -222,4 +226,77 @@ export function setEnabled(kv: KvLike, id: string, enabled: boolean): LoopDefini
   const next = { ...def, enabled }
   upsert(kv, next)
   return next
+}
+
+// ── Run history ──────────────────────────────────────────────────────────────
+
+/** One recorded execution of a loop. Diff totals are the session's cumulative diff at run end. */
+export type LoopRun = {
+  startedAt: number
+  endedAt: number
+  ok: boolean
+  error?: string
+  additions: number
+  deletions: number
+  files: number
+}
+
+type HistoryMap = Record<string, LoopRun[]>
+
+function sanitizeRun(value: unknown): LoopRun | undefined {
+  if (typeof value !== "object" || value === null) return undefined
+  const v = value as Record<string, unknown>
+  if (typeof v.startedAt !== "number" || typeof v.endedAt !== "number" || typeof v.ok !== "boolean") return undefined
+  return {
+    startedAt: v.startedAt,
+    endedAt: v.endedAt,
+    ok: v.ok,
+    ...(typeof v.error === "string" ? { error: v.error } : {}),
+    additions: typeof v.additions === "number" ? v.additions : 0,
+    deletions: typeof v.deletions === "number" ? v.deletions : 0,
+    files: typeof v.files === "number" ? v.files : 0,
+  }
+}
+
+function loadHistoryMap(kv: KvLike): HistoryMap {
+  const raw = kv.get<unknown>(LOOPS_HISTORY_KV_KEY, {})
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return {}
+  const out: HistoryMap = {}
+  for (const [id, runs] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(runs)) continue
+    out[id] = runs.map(sanitizeRun).filter((r): r is LoopRun => r !== undefined)
+  }
+  return out
+}
+
+/** Most-recent-first run history for a loop. */
+export function loadHistory(kv: KvLike, id: string): LoopRun[] {
+  return [...(loadHistoryMap(kv)[id] ?? [])].sort((a, b) => b.endedAt - a.endedAt)
+}
+
+/** Append a run, trimming to HISTORY_LIMIT (oldest dropped). */
+export function recordRun(kv: KvLike, id: string, run: LoopRun): void {
+  const map = loadHistoryMap(kv)
+  const list = [...(map[id] ?? []), run]
+  map[id] = list.slice(-HISTORY_LIMIT)
+  kv.set(LOOPS_HISTORY_KV_KEY, map)
+}
+
+export function clearHistory(kv: KvLike, id: string): void {
+  const map = loadHistoryMap(kv)
+  if (id in map) {
+    delete map[id]
+    kv.set(LOOPS_HISTORY_KV_KEY, map)
+  }
+}
+
+export type LoopStats = { total: number; ok: number; successRate: number; additions: number; deletions: number }
+
+/** Aggregate stats over a loop's recorded runs. successRate is 0..1 (0 when no runs). */
+export function loopStats(runs: LoopRun[]): LoopStats {
+  const total = runs.length
+  const ok = runs.filter((r) => r.ok).length
+  const additions = runs.reduce((sum, r) => sum + r.additions, 0)
+  const deletions = runs.reduce((sum, r) => sum + r.deletions, 0)
+  return { total, ok, successRate: total === 0 ? 0 : ok / total, additions, deletions }
 }

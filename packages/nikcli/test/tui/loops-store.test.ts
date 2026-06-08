@@ -166,3 +166,62 @@ describe("loops/store · CRUD", () => {
     expect(Store.loadAll(kv)).toEqual([])
   })
 })
+
+describe("loops/store · run history", () => {
+  const run = (over: Partial<Store.LoopRun> = {}): Store.LoopRun => ({
+    startedAt: 1_000,
+    endedAt: 2_000,
+    ok: true,
+    additions: 0,
+    deletions: 0,
+    files: 0,
+    ...over,
+  })
+
+  it("records runs most-recent-first and isolates loops", () => {
+    const kv = fakeKv()
+    expect(Store.loadHistory(kv, "a")).toEqual([])
+    Store.recordRun(kv, "a", run({ endedAt: 100 }))
+    Store.recordRun(kv, "a", run({ endedAt: 300 }))
+    Store.recordRun(kv, "b", run({ endedAt: 200 }))
+    const a = Store.loadHistory(kv, "a")
+    expect(a.map((r) => r.endedAt)).toEqual([300, 100])
+    expect(Store.loadHistory(kv, "b")).toHaveLength(1)
+  })
+
+  it("caps history at HISTORY_LIMIT, dropping the oldest", () => {
+    const kv = fakeKv()
+    for (let i = 0; i < Store.HISTORY_LIMIT + 5; i++) Store.recordRun(kv, "a", run({ startedAt: i, endedAt: i }))
+    const a = Store.loadHistory(kv, "a")
+    expect(a).toHaveLength(Store.HISTORY_LIMIT)
+    // oldest (endedAt 0..4) dropped; newest retained
+    expect(a[0].endedAt).toBe(Store.HISTORY_LIMIT + 4)
+    expect(Math.min(...a.map((r) => r.endedAt))).toBe(5)
+  })
+
+  it("computes aggregate stats", () => {
+    const kv = fakeKv()
+    Store.recordRun(kv, "a", run({ ok: true, additions: 10, deletions: 2 }))
+    Store.recordRun(kv, "a", run({ ok: false, additions: 5, deletions: 1 }))
+    Store.recordRun(kv, "a", run({ ok: true, additions: 0, deletions: 0 }))
+    const stats = Store.loopStats(Store.loadHistory(kv, "a"))
+    expect(stats.total).toBe(3)
+    expect(stats.ok).toBe(2)
+    expect(Math.round(stats.successRate * 100)).toBe(67)
+    expect(stats.additions).toBe(15)
+    expect(stats.deletions).toBe(3)
+  })
+
+  it("clears history for one loop only", () => {
+    const kv = fakeKv()
+    Store.recordRun(kv, "a", run())
+    Store.recordRun(kv, "b", run())
+    Store.clearHistory(kv, "a")
+    expect(Store.loadHistory(kv, "a")).toEqual([])
+    expect(Store.loadHistory(kv, "b")).toHaveLength(1)
+  })
+
+  it("loopStats on no runs is zeroed", () => {
+    expect(Store.loopStats([])).toEqual({ total: 0, ok: 0, successRate: 0, additions: 0, deletions: 0 })
+  })
+})

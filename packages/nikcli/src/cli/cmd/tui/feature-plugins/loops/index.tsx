@@ -18,25 +18,35 @@ const id = "internal:loops"
 function Row(props: { api: TuiPluginApi; def: Store.LoopDefinition }) {
   const theme = () => props.api.theme.current
   const info = createMemo(() => Runner.statusInfo(props.def, Runner.runtimeOf(props.def.id)))
+  const right = createMemo(() => {
+    const stats = Store.loopStats(Store.loadHistory(props.api.kv, props.def.id))
+    return stats.total > 0 ? `${info().label} · ${Math.round(stats.successRate * 100)}%` : info().label
+  })
   return (
     <box flexDirection="row" gap={1} justifyContent="space-between">
       <box flexDirection="row" gap={1} flexShrink={1}>
         <text fg={toneColor(theme(), info().tone)}>●</text>
         <text fg={theme().text}>{props.def.name}</text>
       </box>
-      <text fg={toneColor(theme(), info().tone)}>{info().label}</text>
+      <text fg={toneColor(theme(), info().tone)}>{right()}</text>
     </box>
   )
 }
 
 function Sidebar(props: { api: TuiPluginApi }) {
   const loops = createMemo(() => Store.loadAll(props.api.kv))
+  const running = createMemo(() => loops().filter((d) => Runner.runtimeOf(d.id).status === "running").length)
   return (
     <Show when={loops().length > 0}>
       <box>
-        <text fg={props.api.theme.current.text}>
-          <b>Loops</b>
-        </text>
+        <box flexDirection="row" gap={1} justifyContent="space-between">
+          <text fg={props.api.theme.current.text}>
+            <b>Loops</b>
+          </text>
+          <Show when={running() > 0}>
+            <text fg={props.api.theme.current.warning}>{running()} running</text>
+          </Show>
+        </box>
         <For each={loops()}>{(def) => <Row api={props.api} def={def} />}</For>
       </box>
     </Show>
