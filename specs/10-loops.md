@@ -17,10 +17,10 @@ already exist and are battle-tested.
 
 ## 1. Two natures of a loop (and the primitives that already cover them)
 
-| Nature | Meaning | Existing primitive | File |
-| --- | --- | --- | --- |
-| **Temporal** (recurring trigger) | "every 10m, do X" | `Scheduler.register({ interval, run })` | `src/scheduler/index.ts` |
-| **Agentic** (until-done) | "iterate until a verifiable condition holds" | **Goal system** + `/goal` command + `ralph` agent | `src/session/goal.ts`, `src/session/prompt.ts`, `src/command/index.ts`, `src/agent/agent.ts` |
+| Nature                           | Meaning                                      | Existing primitive                                | File                                                                                         |
+| -------------------------------- | -------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Temporal** (recurring trigger) | "every 10m, do X"                            | `Scheduler.register({ interval, run })`           | `src/scheduler/index.ts`                                                                     |
+| **Agentic** (until-done)         | "iterate until a verifiable condition holds" | **Goal system** + `/goal` command + `ralph` agent | `src/session/goal.ts`, `src/session/prompt.ts`, `src/command/index.ts`, `src/agent/agent.ts` |
 
 A "complete" loop (Cherny's sense) = a **temporal trigger** that kicks an
 **agentic until-done run**, tracked and persisted. Both halves exist; the Loop
@@ -31,7 +31,7 @@ abstraction binds them and adds UX.
 `src/session/goal.ts` already implements the until-done engine:
 
 - `State`: `objective`, `status` (`active | paused | blocked | usage_limited |
-  budget_limited | complete`), `iterationCount`, `tokenBudget`, `tokensUsed`,
+budget_limited | complete`), `iterationCount`, `tokenBudget`, `tokensUsed`,
   time tracking; `MAX_ITERATIONS = 50`.
 - `src/session/prompt.ts:269` `nextGoalPrompt()` is the continuation loop: after
   each assistant turn it checks `isGoalContinueNeeded`, calls
@@ -40,11 +40,11 @@ abstraction binds them and adds UX.
 - Tools `create_goal` / `get_goal` / `update_goal` (`src/tool/goal.ts`) let the
   agent itself declare the goal `complete` or `blocked` (with a repeated-blocker
   guard of 3 consecutive turns).
-- `/goal` command (`src/command/index.ts:140`, `Default.GOAL`): *"work
-  autonomously until a verifiable goal condition is met"*, with subcommands
+- `/goal` command (`src/command/index.ts:140`, `Default.GOAL`): _"work
+  autonomously until a verifiable goal condition is met"_, with subcommands
   `pause | resume | clear | status` and `--token-budget N` (`SessionGoal.parseArguments`).
 
-**Implication:** the agentic half of a loop is *already shipped* as `/goal`. The
+**Implication:** the agentic half of a loop is _already shipped_ as `/goal`. The
 Loops feature should drive `/goal` (or `create_goal`) under the hood, not invent
 a parallel iteration mechanism. "Use the goal command" is the load-bearing
 principle of this design.
@@ -85,20 +85,20 @@ how nikcli loads `command/` and `agent/`), with runtime registry in storage key
 type LoopDefinition = {
   id: string
   name: string
-  objective: string            // becomes the Goal objective (the /goal argument)
-  agent: string                // default "ralph"
+  objective: string // becomes the Goal objective (the /goal argument)
+  agent: string // default "ralph"
   trigger:
-    | { kind: "manual" }                       // run on demand from the manager
-    | { kind: "interval"; every: string }      // "10m", "1h" -> Scheduler interval
-    | { kind: "event"; on: Event["type"] }     // bus event (Phase 3)
+    | { kind: "manual" } // run on demand from the manager
+    | { kind: "interval"; every: string } // "10m", "1h" -> Scheduler interval
+    | { kind: "event"; on: Event["type"] } // bus event (Phase 3)
   stop: {
     // agentic completion is delegated to the Goal system (update_goal complete/blocked)
-    maxIterations?: number     // default 50, forwarded to the goal cap
-    tokenBudget?: number       // forwarded to /goal --token-budget
-    maxRuns?: number           // temporal cap: how many times the trigger may fire
+    maxIterations?: number // default 50, forwarded to the goal cap
+    tokenBudget?: number // forwarded to /goal --token-budget
+    maxRuns?: number // temporal cap: how many times the trigger may fire
   }
   guardrails: {
-    requireApproval?: boolean   // gate each run via the permission system
+    requireApproval?: boolean // gate each run via the permission system
     maxCostUSD?: number
   }
   enabled: boolean
@@ -125,7 +125,7 @@ namespace LoopEngine {
     if (def.trigger.kind === "interval") {
       Scheduler.register({
         id: `loop:${def.id}`,
-        interval: parseDuration(def.trigger.every),   // "10m" -> ms
+        interval: parseDuration(def.trigger.every), // "10m" -> ms
         skipInitialRun: true,
         async run() {
           if (await overTemporalCap(def)) return stop(def, "maxRuns")
@@ -139,19 +139,21 @@ namespace LoopEngine {
     if (def.guardrails.requireApproval && !(await askApproval(def))) return
 
     const run = await BackgroundRun.create({
-      parentSessionID, agent: def.agent, prompt: def.objective, source: "loop",
-      title: def.name, metadata: { loopID: def.id },
+      parentSessionID,
+      agent: def.agent,
+      prompt: def.objective,
+      source: "loop",
+      title: def.name,
+      metadata: { loopID: def.id },
     })
 
     const session = await client.session.create({ workspaceID })
     // Drive the EXISTING goal command — this is the agentic until-done loop.
     await client.session.command({
       sessionID: session.id,
-      agent: def.agent,                                 // "ralph"
+      agent: def.agent, // "ralph"
       command: "goal",
-      arguments: def.stop.tokenBudget
-        ? `${def.objective} --token-budget ${def.stop.tokenBudget}`
-        : def.objective,
+      arguments: def.stop.tokenBudget ? `${def.objective} --token-budget ${def.stop.tokenBudget}` : def.objective,
     })
 
     // nextGoalPrompt() in prompt.ts iterates the session until the agent calls
@@ -169,7 +171,7 @@ namespace LoopEngine {
 Why this is safe:
 
 - **No runaway**: bounded by the Goal `MAX_ITERATIONS`/budget caps, by the loop's
-  `maxRuns` temporal cap, *and* by the permission system's existing doom-loop
+  `maxRuns` temporal cap, _and_ by the permission system's existing doom-loop
   detection (`src/permission/next.ts`).
 - **Crash-safe**: `Scheduler` timers are `unref()`'d and rebuilt on boot from the
   persisted registry; in-flight iterations are recovered by

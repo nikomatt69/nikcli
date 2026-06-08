@@ -58,7 +58,11 @@ function unref(timer: ReturnType<typeof setInterval>): void {
  * Run a single iteration of a loop: ensure a session exists, then kick the goal
  * command. Resolves once the autonomous goal run completes (or errors).
  */
-export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts?: { manual?: boolean }): Promise<void> {
+export async function runOnce(
+  api: TuiPluginApi,
+  def: Store.LoopDefinition,
+  opts?: { manual?: boolean },
+): Promise<void> {
   const current = runtimeOf(def.id)
   if (current.status === "running") return // single-flight per loop
   if (current.status === "paused" && !opts?.manual) return
@@ -169,6 +173,7 @@ export function statusInfo(def: Store.LoopDefinition, rt: LoopRuntime): { label:
   if (rt.status === "error") return { label: "error", tone: "error" }
   if (rt.status === "paused") return { label: "paused", tone: "muted" }
   if (!def.enabled) return { label: "disabled", tone: "muted" }
-  if (def.trigger.kind === "interval") return { label: `every ${Store.formatDuration(def.trigger.everyMs)}`, tone: "ok" }
+  if (def.trigger.kind === "interval")
+    return { label: `every ${Store.formatDuration(def.trigger.everyMs)}`, tone: "ok" }
   return { label: "manual", tone: "muted" }
 }
