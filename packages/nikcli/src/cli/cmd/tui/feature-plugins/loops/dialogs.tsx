@@ -80,7 +80,7 @@ export function openManager(api: TuiPluginApi): void {
 
 function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
   const rt = Runner.runtimeOf(def.id)
-  type Action = "run" | "pause" | "resume" | "toggle" | "objective" | "schedule" | "delete" | "back"
+  type Action = "run" | "pause" | "resume" | "toggle" | "objective" | "schedule" | "model" | "delete" | "back"
   const options: DialogSelectOption<Action>[] = [
     { title: "Run now", value: "run", description: "Kick one autonomous goal run immediately" },
   ]
@@ -99,6 +99,7 @@ function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
       value: "schedule",
       description: def.trigger.kind === "interval" ? `every ${Store.formatDuration(def.trigger.everyMs)}` : "manual",
     },
+    { title: "Edit model", value: "model", description: modelLabel(api, def.model) },
     { title: "Delete", value: "delete", description: "Remove this loop" },
     { title: "← Back", value: "back", description: "Return to the loop list" },
   )
@@ -133,6 +134,9 @@ function openActions(api: TuiPluginApi, def: Store.LoopDefinition): void {
             break
           case "schedule":
             editSchedule(api, def)
+            break
+          case "model":
+            editModel(api, def)
             break
           case "delete":
             confirmDelete(api, def)
@@ -218,9 +222,66 @@ function editSchedule(api: TuiPluginApi, def: Store.LoopDefinition): void {
   ))
 }
 
+// ── Model selection (mirrors the advisor model picker) ──────────────────────
+
+/** Resolve a "providerID/modelID" reference to a friendly label, or "default model". */
+export function modelLabel(api: TuiPluginApi, model?: string): string {
+  if (!model) return "default model"
+  const slash = model.indexOf("/")
+  const providerID = model.slice(0, slash)
+  const modelID = model.slice(slash + 1)
+  const provider = api.state.provider.find((p) => p.id === providerID)
+  return provider?.models[modelID]?.name ?? modelID
+}
+
+/**
+ * Open a model picker built from the available providers. Calls `onPick` with the
+ * chosen "providerID/modelID", or undefined for the session default.
+ */
+function pickModel(api: TuiPluginApi, current: string | undefined, onPick: (model: string | undefined) => void): void {
+  const options: DialogSelectOption<string>[] = [
+    {
+      value: "__default__",
+      title: "Use default model",
+      description: "Inherit the session's default model",
+      category: "Action",
+    },
+  ]
+  for (const provider of api.state.provider) {
+    for (const [modelID, info] of Object.entries(provider.models)) {
+      if (info.status === "deprecated") continue
+      const value = `${provider.id}/${modelID}`
+      options.push({
+        value,
+        title: info.name ?? modelID,
+        description: value === current ? "(current)" : undefined,
+        category: provider.name,
+      })
+    }
+  }
+  api.ui.dialog.replace(() => (
+    <DialogSelect<string>
+      title="Select model"
+      placeholder="Search models…"
+      current={current ?? "__default__"}
+      options={options}
+      onSelect={(opt) => onPick(opt.value === "__default__" ? undefined : opt.value)}
+    />
+  ))
+}
+
+function editModel(api: TuiPluginApi, def: Store.LoopDefinition): void {
+  pickModel(api, def.model, (model) => {
+    Store.upsert(api.kv, { ...def, ...(model ? { model } : { model: undefined }) })
+    Runner.syncAll(api)
+    api.ui.toast({ variant: "success", message: `Model set to ${modelLabel(api, model)}` })
+    openManager(api)
+  })
+}
+
 // ── Creation wizard (chained prompts) ───────────────────────────────────────
 
-type WizardDraft = { objective?: string; name?: string; intervalMs?: number; tokenBudget?: number }
+type WizardDraft = { objective?: string; name?: string; model?: string; intervalMs?: number; tokenBudget?: number }
 
 export function openWizard(api: TuiPluginApi): void {
   askObjective(api, {})
@@ -301,11 +362,15 @@ function askBudget(api: TuiPluginApi, draft: WizardDraft): void {
           }
           tokenBudget = parsed
         }
-        finalize(api, { ...draft, tokenBudget })
+        askModel(api, { ...draft, tokenBudget })
       }}
       onCancel={() => api.ui.dialog.clear()}
     />
   ))
+}
+
+function askModel(api: TuiPluginApi, draft: WizardDraft): void {
+  pickModel(api, draft.model, (model) => finalize(api, { ...draft, model }))
 }
 
 function finalize(api: TuiPluginApi, draft: WizardDraft): void {
@@ -313,6 +378,7 @@ function finalize(api: TuiPluginApi, draft: WizardDraft): void {
     const def = Store.createDefinition({
       objective: draft.objective ?? "",
       name: draft.name,
+      model: draft.model,
       intervalMs: draft.intervalMs,
       tokenBudget: draft.tokenBudget,
     })

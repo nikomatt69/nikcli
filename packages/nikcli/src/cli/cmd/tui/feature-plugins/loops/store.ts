@@ -25,6 +25,8 @@ export type LoopDefinition = {
   name: string
   objective: string
   agent: string
+  /** Model in "providerID/modelID" form. Unset => the session's default model. */
+  model?: string
   trigger: LoopTrigger
   tokenBudget?: number
   /** Temporal cap for interval loops: stop after this many runs (undefined = unlimited). */
@@ -43,10 +45,18 @@ export type LoopDraft = {
   name?: string
   objective: string
   agent?: string
+  /** "providerID/modelID"; undefined => session default model. */
+  model?: string
   /** undefined => manual trigger. */
   intervalMs?: number
   tokenBudget?: number
   maxRuns?: number
+}
+
+/** A model reference is valid when it has the "providerID/modelID" shape. */
+export function isValidModel(model: string): boolean {
+  const slash = model.indexOf("/")
+  return slash > 0 && slash < model.length - 1
 }
 
 export const DEFAULT_AGENT = "ralph"
@@ -120,6 +130,9 @@ export function validateDraft(draft: LoopDraft): string | undefined {
   if (draft.maxRuns !== undefined && (!Number.isInteger(draft.maxRuns) || draft.maxRuns <= 0)) {
     return "Max runs must be a positive integer"
   }
+  if (draft.model !== undefined && !isValidModel(draft.model)) {
+    return 'Model must be in "providerID/modelID" form'
+  }
   return undefined
 }
 
@@ -141,6 +154,7 @@ export function createDefinition(draft: LoopDraft): LoopDefinition {
     name: draft.name?.trim() || deriveName(draft.objective),
     objective: draft.objective.trim(),
     agent: draft.agent?.trim() || DEFAULT_AGENT,
+    ...(draft.model ? { model: draft.model } : {}),
     trigger: draft.intervalMs === undefined ? { kind: "manual" } : { kind: "interval", everyMs: draft.intervalMs },
     ...(draft.tokenBudget !== undefined ? { tokenBudget: draft.tokenBudget } : {}),
     ...(draft.maxRuns !== undefined ? { maxRuns: draft.maxRuns } : {}),
@@ -164,6 +178,7 @@ function sanitize(value: unknown): LoopDefinition | undefined {
     name: typeof v.name === "string" && v.name.trim() ? v.name : deriveName(v.objective),
     objective: v.objective,
     agent: typeof v.agent === "string" && v.agent.trim() ? v.agent : DEFAULT_AGENT,
+    ...(typeof v.model === "string" && isValidModel(v.model) ? { model: v.model } : {}),
     trigger: normalizedTrigger,
     ...(typeof v.tokenBudget === "number" && v.tokenBudget > 0 ? { tokenBudget: v.tokenBudget } : {}),
     ...(typeof v.maxRuns === "number" && v.maxRuns > 0 ? { maxRuns: v.maxRuns } : {}),

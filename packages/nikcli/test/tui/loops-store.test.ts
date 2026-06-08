@@ -66,6 +66,13 @@ describe("loops/store · validateDraft", () => {
     expect(Store.validateDraft({ objective: "x", tokenBudget: 100, maxRuns: 3 })).toBeUndefined()
   })
 
+  it("validates the optional model reference shape", () => {
+    expect(Store.validateDraft({ objective: "x", model: "anthropic/claude-sonnet-4-5" })).toBeUndefined()
+    expect(Store.validateDraft({ objective: "x", model: "no-slash" })).toBeDefined()
+    expect(Store.validateDraft({ objective: "x", model: "/leading" })).toBeDefined()
+    expect(Store.validateDraft({ objective: "x", model: "trailing/" })).toBeDefined()
+  })
+
   it("rejects objectives that collide with the goal command grammar", () => {
     // exact subcommand words would be misparsed by /goal
     expect(Store.validateDraft({ objective: "pause" })).toBeDefined()
@@ -91,6 +98,13 @@ describe("loops/store · createDefinition", () => {
     const def = Store.createDefinition({ objective: "x", intervalMs: 600_000, tokenBudget: 1000 })
     expect(def.trigger).toEqual({ kind: "interval", everyMs: 600_000 })
     expect(def.tokenBudget).toBe(1000)
+  })
+
+  it("carries an optional model and omits it when unset", () => {
+    expect(Store.createDefinition({ objective: "x", model: "anthropic/claude-opus-4-8" }).model).toBe(
+      "anthropic/claude-opus-4-8",
+    )
+    expect(Store.createDefinition({ objective: "x" }).model).toBeUndefined()
   })
 
   it("throws on an invalid draft", () => {

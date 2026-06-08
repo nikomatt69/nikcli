@@ -81,6 +81,7 @@ export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts
       command: "goal",
       arguments: args,
       agent: def.agent,
+      ...(def.model ? { model: def.model } : {}),
     })
     if (result.error) throw new Error(describeError(result.error))
 
