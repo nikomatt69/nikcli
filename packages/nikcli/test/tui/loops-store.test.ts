@@ -65,6 +65,16 @@ describe("loops/store · validateDraft", () => {
     expect(Store.validateDraft({ objective: "x", maxRuns: -1 })).toBeDefined()
     expect(Store.validateDraft({ objective: "x", tokenBudget: 100, maxRuns: 3 })).toBeUndefined()
   })
+
+  it("rejects objectives that collide with the goal command grammar", () => {
+    // exact subcommand words would be misparsed by /goal
+    expect(Store.validateDraft({ objective: "pause" })).toBeDefined()
+    expect(Store.validateDraft({ objective: "STATUS" })).toBeDefined()
+    // multi-word objectives that merely contain a subcommand word are fine
+    expect(Store.validateDraft({ objective: "pause the failing job" })).toBeUndefined()
+    // the budget flag must not appear in the objective text
+    expect(Store.validateDraft({ objective: "add a --token-budget flag" })).toBeDefined()
+  })
 })
 
 describe("loops/store · createDefinition", () => {

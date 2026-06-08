@@ -5,7 +5,6 @@
  */
 import type { TuiPluginApi } from "@nikcli-ai/plugin/tui"
 import type { RGBA } from "@opentui/core"
-import { Keybind } from "@/util/keybind"
 import { DialogSelect, type DialogSelectOption } from "@tui/ui/dialog-select"
 import { DialogPrompt } from "@tui/ui/dialog-prompt"
 import * as Store from "./store"
@@ -57,47 +56,23 @@ function loopOptions(api: TuiPluginApi): DialogSelectOption<ManagerValue>[] {
 }
 
 export function openManager(api: TuiPluginApi): void {
-  const run = (id: string, fn: (def: Store.LoopDefinition) => void) => {
-    const def = Store.getById(api.kv, id)
-    if (def) fn(def)
-  }
+  // Selecting a loop opens its actions submenu (run/pause/toggle/edit/delete).
+  // We deliberately avoid single-letter quick keybinds here: DialogSelect matches
+  // keybinds on every keystroke without checking filter focus, so a bare "d"/"r"
+  // would fire while the user is typing in the search box (e.g. an accidental
+  // delete). Routing through the submenu also keeps deletion behind a confirm.
   api.ui.dialog.replace(() => (
     <DialogSelect<ManagerValue>
       title="Loops"
       placeholder="Search loops…"
       options={loopOptions(api)}
-      keybind={[
-        {
-          title: "run",
-          keybind: Keybind.parse("r").at(0),
-          onTrigger: (opt) => {
-            if (opt.value.kind === "loop") run(opt.value.id, (def) => void Runner.runOnce(api, def, { manual: true }))
-          },
-        },
-        {
-          title: "toggle",
-          keybind: Keybind.parse("space").at(0),
-          onTrigger: (opt) => {
-            if (opt.value.kind !== "loop") return
-            const next = Store.setEnabled(api.kv, opt.value.id, !(Store.getById(api.kv, opt.value.id)?.enabled ?? true))
-            if (next) {
-              Runner.syncAll(api)
-              api.ui.toast({ variant: "info", message: `${next.name} ${next.enabled ? "enabled" : "disabled"}` })
-            }
-            openManager(api)
-          },
-        },
-        {
-          title: "delete",
-          keybind: Keybind.parse("d").at(0),
-          onTrigger: (opt) => {
-            if (opt.value.kind === "loop") run(opt.value.id, (def) => confirmDelete(api, def))
-          },
-        },
-      ]}
       onSelect={(opt) => {
-        if (opt.value.kind === "new") openWizard(api)
-        else run(opt.value.id, (def) => openActions(api, def))
+        if (opt.value.kind === "new") {
+          openWizard(api)
+          return
+        }
+        const def = Store.getById(api.kv, opt.value.id)
+        if (def) openActions(api, def)
       }}
     />
   ))

@@ -92,7 +92,9 @@ export async function runOnce(api: TuiPluginApi, def: Store.LoopDefinition, opts
     }
   } catch (error) {
     const message = describeError(error)
-    patch(def.id, (prev) => ({ ...prev, status: "error", lastError: message }))
+    // Drop the cached session so the next run starts fresh rather than reusing a
+    // session that may be aborted or in a bad state.
+    patch(def.id, (prev) => ({ ...prev, status: "error", lastError: message, sessionID: undefined }))
     api.ui.toast({ variant: "error", message: `Loop "${def.name}" failed: ${message}` })
   }
 }

@@ -51,6 +51,15 @@ export type LoopDraft = {
 
 export const DEFAULT_AGENT = "ralph"
 
+/**
+ * Words the `/goal` command treats as subcommands, and the budget flag it parses
+ * out of its arguments. An objective equal to a subcommand — or containing the
+ * budget flag — would be misparsed by the goal grammar, so we reject it up front
+ * with a clear message instead of letting a run fail cryptically later.
+ */
+const RESERVED_OBJECTIVES = new Set(["pause", "resume", "clear", "status"])
+const TOKEN_BUDGET_FLAG = /--token-budget\b/
+
 const DURATION_UNIT_MS = { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 } as const
 
 /**
@@ -93,6 +102,13 @@ export function formatDuration(ms: number): string {
 /** Validate a draft. Returns a human error message, or undefined when valid. */
 export function validateDraft(draft: LoopDraft): string | undefined {
   if (!draft.objective || !draft.objective.trim()) return "Objective is required"
+  const objective = draft.objective.trim()
+  if (RESERVED_OBJECTIVES.has(objective.toLowerCase())) {
+    return `Objective cannot be the reserved word "${objective}"`
+  }
+  if (TOKEN_BUDGET_FLAG.test(objective)) {
+    return 'Objective cannot contain "--token-budget" (use the token budget field instead)'
+  }
   if (draft.name !== undefined && !draft.name.trim()) return "Name cannot be blank"
   if (draft.intervalMs !== undefined) {
     if (!Number.isFinite(draft.intervalMs)) return "Interval is not a valid duration"
