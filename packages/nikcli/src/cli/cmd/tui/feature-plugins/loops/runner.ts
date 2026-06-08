@@ -118,7 +118,8 @@ export function disarm(id: string): void {
 export function syncAll(api: TuiPluginApi): void {
   const defs = Store.loadAll(api.kv)
   const ids = new Set(defs.map((d) => d.id))
-  for (const id of [...timers.keys()]) if (!ids.has(id)) disarm(id)
+  // Snapshot keys first — disarm() mutates the timers map.
+  for (const id of Array.from(timers.keys())) if (!ids.has(id)) disarm(id)
   for (const def of defs) arm(api, def)
 }
 
@@ -154,7 +155,8 @@ export async function stop(api: TuiPluginApi, id: string): Promise<void> {
 
 /** Tear down every timer (plugin disposal). */
 export function disposeAll(): void {
-  for (const id of [...timers.keys()]) disarm(id)
+  for (const timer of timers.values()) clearInterval(timer)
+  timers.clear()
 }
 
 export type LoopTone = "muted" | "running" | "error" | "ok"
