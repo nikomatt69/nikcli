@@ -1075,7 +1075,7 @@ export type EventLoopRunStarted = {
   properties: {
     loopID: string
     runID: string
-    sessionID?: string
+    sessionID: string
   }
 }
 
@@ -1084,9 +1084,13 @@ export type EventLoopRunFinished = {
   properties: {
     loopID: string
     runID: string
-    status: string
+    sessionID?: string
+    status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
     ok: boolean
     error?: string
+    additions?: number
+    deletions?: number
+    files?: number
   }
 }
 
@@ -1094,6 +1098,15 @@ export type EventLoopRuntimeChanged = {
   type: "loop.runtime.changed"
   properties: {
     loopID: string
+  }
+}
+
+export type EventLoopAborted = {
+  type: "loop.aborted"
+  properties: {
+    loopID: string
+    runID?: string
+    reason: string
   }
 }
 
@@ -1186,6 +1199,7 @@ export type Event =
   | EventLoopRunStarted
   | EventLoopRunFinished
   | EventLoopRuntimeChanged
+  | EventLoopAborted
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
@@ -1236,7 +1250,7 @@ export type LoopDefinition = {
 
 export type LoopRuntime = {
   loopID: string
-  status: "idle" | "running" | "paused" | "error"
+  status: "idle" | "running" | "paused" | "error" | "cancelling"
   runs: number
   lastRunAt?: number
   lastError?: string
@@ -3260,6 +3274,95 @@ export type MobileGithubPublishInput = {
   commitMessage?: string
 }
 
+export type MobileLoop = {
+  id: string
+  name: string
+  stages: Array<{
+    name: string
+    agent: string
+    model?: string
+    objective: string
+    tokenBudget?: number
+  }>
+  trigger:
+    | {
+        kind: "manual"
+      }
+    | {
+        kind: "interval"
+        everyMs: number
+      }
+  maxRuns?: number
+  enabled: boolean
+  createdAt: number
+}
+
+export type MobileLoopRuntime = {
+  loopID: string
+  status: "idle" | "running" | "paused" | "error" | "cancelling"
+  runs: number
+  lastRunAt?: number
+  lastError?: string
+  sessionID?: string
+}
+
+export type MobileLoopTemplate = {
+  id: string
+  title: string
+  description: string
+  draft: {
+    name?: string
+    stages: Array<{
+      name?: string
+      agent?: string
+      model?: string
+      objective: string
+      tokenBudget?: number
+    }>
+    intervalMs?: number
+    maxRuns?: number
+  }
+}
+
+export type MobileLoopGenerateInput = {
+  description: string
+  model?: string
+  agent?: string
+}
+
+export type MobileLoopRun = {
+  id: string
+  loopID: string
+  startedAt: number
+  endedAt?: number
+  status: "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+  backgroundRunID?: string
+  sessionID?: string
+  error?: string
+  ok: boolean
+}
+
+export type MobileLoopWriteInput = {
+  name: string
+  stages: Array<{
+    name: string
+    agent: string
+    model?: string
+    objective: string
+    tokenBudget?: number
+  }>
+  trigger:
+    | {
+        kind: "manual"
+      }
+    | {
+        kind: "interval"
+        everyMs: number
+      }
+  maxRuns?: number
+  enabled: boolean
+}
+
 export type RoutineTriggerSchedule = {
   type: "schedule"
   cron: string
@@ -4096,7 +4199,7 @@ export type LoopRunsResponses = {
 
 export type LoopRunsResponse = LoopRunsResponses[keyof LoopRunsResponses]
 
-export type LoopRunsRecentData = {
+export type LoopRecentRunsData = {
   body?: never
   path?: never
   query?: {
@@ -4107,7 +4210,7 @@ export type LoopRunsRecentData = {
   url: "/loop/runs/recent"
 }
 
-export type LoopRunsRecentResponses = {
+export type LoopRecentRunsResponses = {
   /**
    * Recent runs
    */
@@ -4116,7 +4219,7 @@ export type LoopRunsRecentResponses = {
   }
 }
 
-export type LoopRunsRecentResponse = LoopRunsRecentResponses[keyof LoopRunsRecentResponses]
+export type LoopRecentRunsResponse = LoopRecentRunsResponses[keyof LoopRecentRunsResponses]
 
 export type PtyListData = {
   body?: never
@@ -8482,6 +8585,465 @@ export type MobileGitPullResponses = {
 }
 
 export type MobileGitPullResponse = MobileGitPullResponses[keyof MobileGitPullResponses]
+
+export type MobileLoopListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops"
+}
+
+export type MobileLoopListErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileLoopListError = MobileLoopListErrors[keyof MobileLoopListErrors]
+
+export type MobileLoopListResponses = {
+  /**
+   * Loop list and runtimes
+   */
+  200: {
+    loops: Array<MobileLoop>
+    runtimes: Array<MobileLoopRuntime>
+  }
+}
+
+export type MobileLoopListResponse = MobileLoopListResponses[keyof MobileLoopListResponses]
+
+export type MobileLoopCreateData = {
+  body?: MobileLoopWriteInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops"
+}
+
+export type MobileLoopCreateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileLoopCreateError = MobileLoopCreateErrors[keyof MobileLoopCreateErrors]
+
+export type MobileLoopCreateResponses = {
+  /**
+   * Created loop
+   */
+  200: MobileLoop
+}
+
+export type MobileLoopCreateResponse = MobileLoopCreateResponses[keyof MobileLoopCreateResponses]
+
+export type MobileLoopTemplatesData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/templates"
+}
+
+export type MobileLoopTemplatesResponses = {
+  /**
+   * Loop templates
+   */
+  200: {
+    templates: Array<MobileLoopTemplate>
+  }
+}
+
+export type MobileLoopTemplatesResponse = MobileLoopTemplatesResponses[keyof MobileLoopTemplatesResponses]
+
+export type MobileLoopGenerateData = {
+  body?: MobileLoopGenerateInput
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/generate"
+}
+
+export type MobileLoopGenerateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileLoopGenerateError = MobileLoopGenerateErrors[keyof MobileLoopGenerateErrors]
+
+export type MobileLoopGenerateResponses = {
+  /**
+   * Generated loop draft
+   */
+  200: MobileLoop
+}
+
+export type MobileLoopGenerateResponse = MobileLoopGenerateResponses[keyof MobileLoopGenerateResponses]
+
+export type MobileLoopRunsRecentData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/mobile/loops/runs/recent"
+}
+
+export type MobileLoopRunsRecentErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileLoopRunsRecentError = MobileLoopRunsRecentErrors[keyof MobileLoopRunsRecentErrors]
+
+export type MobileLoopRunsRecentResponses = {
+  /**
+   * Recent loop runs
+   */
+  200: {
+    runs: Array<MobileLoopRun>
+  }
+}
+
+export type MobileLoopRunsRecentResponse = MobileLoopRunsRecentResponses[keyof MobileLoopRunsRecentResponses]
+
+export type MobileLoopDeleteData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}"
+}
+
+export type MobileLoopDeleteErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopDeleteError = MobileLoopDeleteErrors[keyof MobileLoopDeleteErrors]
+
+export type MobileLoopDeleteResponses = {
+  /**
+   * Deletion result
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileLoopDeleteResponse = MobileLoopDeleteResponses[keyof MobileLoopDeleteResponses]
+
+export type MobileLoopGetData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}"
+}
+
+export type MobileLoopGetErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopGetError = MobileLoopGetErrors[keyof MobileLoopGetErrors]
+
+export type MobileLoopGetResponses = {
+  /**
+   * Loop detail
+   */
+  200: {
+    loop: MobileLoop
+    runtime: MobileLoopRuntime
+  }
+}
+
+export type MobileLoopGetResponse = MobileLoopGetResponses[keyof MobileLoopGetResponses]
+
+export type MobileLoopUpdateData = {
+  body?: MobileLoopWriteInput
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}"
+}
+
+export type MobileLoopUpdateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopUpdateError = MobileLoopUpdateErrors[keyof MobileLoopUpdateErrors]
+
+export type MobileLoopUpdateResponses = {
+  /**
+   * Updated loop
+   */
+  200: MobileLoop
+}
+
+export type MobileLoopUpdateResponse = MobileLoopUpdateResponses[keyof MobileLoopUpdateResponses]
+
+export type MobileLoopRunsData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+    limit?: number
+  }
+  url: "/mobile/loops/{id}/runs"
+}
+
+export type MobileLoopRunsErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+}
+
+export type MobileLoopRunsError = MobileLoopRunsErrors[keyof MobileLoopRunsErrors]
+
+export type MobileLoopRunsResponses = {
+  /**
+   * Loop runs
+   */
+  200: {
+    runs: Array<MobileLoopRun>
+  }
+}
+
+export type MobileLoopRunsResponse = MobileLoopRunsResponses[keyof MobileLoopRunsResponses]
+
+export type MobileLoopRunData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}/run"
+}
+
+export type MobileLoopRunErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopRunError = MobileLoopRunErrors[keyof MobileLoopRunErrors]
+
+export type MobileLoopRunResponses = {
+  /**
+   * Run accepted
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileLoopRunResponse = MobileLoopRunResponses[keyof MobileLoopRunResponses]
+
+export type MobileLoopAbortData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}/abort"
+}
+
+export type MobileLoopAbortErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopAbortError = MobileLoopAbortErrors[keyof MobileLoopAbortErrors]
+
+export type MobileLoopAbortResponses = {
+  /**
+   * Abort completed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileLoopAbortResponse = MobileLoopAbortResponses[keyof MobileLoopAbortResponses]
+
+export type MobileLoopToggleData = {
+  body?: {
+    enabled: boolean
+  }
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}/toggle"
+}
+
+export type MobileLoopToggleErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopToggleError = MobileLoopToggleErrors[keyof MobileLoopToggleErrors]
+
+export type MobileLoopToggleResponses = {
+  /**
+   * Updated loop
+   */
+  200: MobileLoop
+}
+
+export type MobileLoopToggleResponse = MobileLoopToggleResponses[keyof MobileLoopToggleResponses]
+
+export type MobileLoopPauseData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}/pause"
+}
+
+export type MobileLoopPauseErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopPauseError = MobileLoopPauseErrors[keyof MobileLoopPauseErrors]
+
+export type MobileLoopPauseResponses = {
+  /**
+   * Pause completed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileLoopPauseResponse = MobileLoopPauseResponses[keyof MobileLoopPauseResponses]
+
+export type MobileLoopResumeData = {
+  body?: never
+  path: {
+    id: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/loops/{id}/resume"
+}
+
+export type MobileLoopResumeErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type MobileLoopResumeError = MobileLoopResumeErrors[keyof MobileLoopResumeErrors]
+
+export type MobileLoopResumeResponses = {
+  /**
+   * Resume completed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileLoopResumeResponse = MobileLoopResumeResponses[keyof MobileLoopResumeResponses]
 
 export type MobileRoutineListData = {
   body?: never

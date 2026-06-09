@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react"
 import { useColorScheme } from "nativewind"
-import AsyncStorage from "@react-native-async-storage/async-storage"
+import { getThemePreferences, setStoredColorScheme, setStoredTheme } from "./storage"
 
 import abyss from "./themes/abyss.json"
 import arctic from "./themes/arctic.json"
@@ -751,10 +751,6 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | null>(null)
 
-// Storage keys
-const THEME_STORAGE_KEY = "@nikcli/theme"
-const COLOR_SCHEME_STORAGE_KEY = "@nikcli/colorScheme"
-
 // Default theme
 const DEFAULT_THEME = "nikcli"
 const DEFAULT_COLOR_SCHEME = "system"
@@ -769,7 +765,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Load saved preferences
   // Note: themeId/colorSchemePreference are populated asynchronously from
-  // AsyncStorage, which can't run during a useState lazy initializer.
+  // SecureStore, which can't run during a useState lazy initializer.
   // The "isLoaded" gate below prevents rendering with stale defaults
   // before storage has been read. This is the standard React Native
   // pattern for persisted UI preferences.
@@ -777,15 +773,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadPreferences = async () => {
       try {
-        const [savedTheme, savedScheme] = await Promise.all([
-          AsyncStorage.getItem(THEME_STORAGE_KEY),
-          AsyncStorage.getItem(COLOR_SCHEME_STORAGE_KEY),
-        ])
-        if (savedTheme && THEMES[savedTheme]) {
-          setThemeId(savedTheme)
+        const preferences = await getThemePreferences()
+        if (preferences.themeId && THEMES[preferences.themeId]) {
+          setThemeId(preferences.themeId)
         }
-        if (savedScheme && (savedScheme === "light" || savedScheme === "dark" || savedScheme === "system")) {
-          setColorSchemePreference(savedScheme)
+        if (preferences.colorScheme) {
+          setColorSchemePreference(preferences.colorScheme)
         }
       } catch (error) {
         console.warn("Failed to load theme preferences:", error)
@@ -812,7 +805,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (THEMES[newThemeId]) {
       setThemeId(newThemeId)
       try {
-        await AsyncStorage.setItem(THEME_STORAGE_KEY, newThemeId)
+        await setStoredTheme(newThemeId)
       } catch (error) {
         console.warn("Failed to save theme preference:", error)
       }
@@ -822,7 +815,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setColorScheme = async (scheme: "light" | "dark" | "system") => {
     setColorSchemePreference(scheme)
     try {
-      await AsyncStorage.setItem(COLOR_SCHEME_STORAGE_KEY, scheme)
+      await setStoredColorScheme(scheme)
     } catch (error) {
       console.warn("Failed to save color scheme preference:", error)
     }

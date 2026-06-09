@@ -133,6 +133,61 @@ export async function setEnabled(id: string, enabled: boolean): Promise<LoopDefi
   return upsert(next)
 }
 
+/**
+ * Mark a `running` run as `orphaned` (process died mid-run; recovered on next
+ * boot). Returns the updated run, or `undefined` if the run was not found.
+ */
+export async function orphanRun(
+  loopID: string,
+  runID: string,
+  endedAt: number = Date.now(),
+): Promise<LoopRun | undefined> {
+  try {
+    return await runStorage(
+      Effect.gen(function* () {
+        const storage = yield* Storage.Service
+        return yield* storage.update<LoopRun>(runKey(loopID, runID), (draft) => {
+          if (draft.status === "running") {
+            draft.status = "orphaned"
+            draft.ok = false
+            draft.endedAt = endedAt
+            draft.error = draft.error ?? "Process exited before the run finished"
+          }
+        })
+      }),
+    )
+  } catch (error) {
+    log.warn("orphanRun failed", { loopID, runID, error })
+    return undefined
+  }
+}
+
+/** Find every run across every loop that is still in `"running"` status. */
+export async function listRunningRuns(): Promise<LoopRun[]> {
+  const keys = await runStorage(
+    Effect.gen(function* () {
+      const storage = yield* Storage.Service
+      return yield* storage.list(runListAllPrefix())
+    }),
+  ).catch(() => [] as string[][])
+  const records = await Promise.all(
+    keys.map(async (k) => {
+      try {
+        const raw = await runStorage(
+          Effect.gen(function* () {
+            const storage = yield* Storage.Service
+            return yield* storage.read<unknown>(k)
+          }),
+        )
+        return sanitizeRun(raw)
+      } catch {
+        return undefined
+      }
+    }),
+  )
+  return records.filter((r): r is LoopRun => r !== undefined && r.status === "running")
+}
+
 export async function countRuns(loopID: string): Promise<number> {
   try {
     const keys = await runStorage(

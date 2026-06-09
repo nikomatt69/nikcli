@@ -788,6 +788,83 @@ export type RoutineCreateInput = {
 
 export type RoutineUpdateInput = Partial<RoutineCreateInput> & { paused?: boolean }
 
+// ── Loops ─────────────────────────────────────────────────────────────────────
+
+export type LoopTrigger = { kind: "manual" } | { kind: "interval"; everyMs: number }
+
+export type LoopStage = {
+  name: string
+  agent: string
+  model?: string
+  objective: string
+  tokenBudget?: number
+}
+
+export type LoopDefinition = {
+  id: string
+  name: string
+  stages: LoopStage[]
+  trigger: LoopTrigger
+  maxRuns?: number
+  enabled: boolean
+  createdAt: number
+}
+
+export type LoopWriteInput = Omit<LoopDefinition, "id" | "createdAt">
+
+export type LoopRuntimeStatus = "idle" | "running" | "paused" | "error" | "cancelling"
+
+export type LoopRuntime = {
+  loopID: string
+  status: LoopRuntimeStatus
+  runs: number
+  lastRunAt?: number
+  lastError?: string
+  sessionID?: string
+}
+
+export type LoopRunStatus = "running" | "complete" | "error" | "timeout" | "cancelled" | "orphaned"
+
+export type LoopRun = {
+  id: string
+  loopID: string
+  startedAt: number
+  endedAt?: number
+  status: LoopRunStatus
+  backgroundRunID?: string
+  sessionID?: string
+  error?: string
+  ok: boolean
+}
+
+export type LoopTemplate = {
+  id: string
+  title: string
+  description: string
+  draft: {
+    name?: string
+    stages: Array<{
+      name?: string
+      agent?: string
+      model?: string
+      objective: string
+      tokenBudget?: number
+    }>
+    intervalMs?: number
+    maxRuns?: number
+  }
+}
+
+export type LoopListResult = {
+  loops: LoopDefinition[]
+  runtimes: LoopRuntime[]
+}
+
+export type LoopDetailResult = {
+  loop: LoopDefinition
+  runtime: LoopRuntime
+}
+
 // ── PTY (Terminal) ────────────────────────────────────────────────────────────
 
 export type PtyInfo = {

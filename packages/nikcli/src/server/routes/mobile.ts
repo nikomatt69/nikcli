@@ -27,6 +27,16 @@ import { Global } from "@/global"
 import { MobileAuth } from "@/mobile/auth"
 import { MobileGithubRepo } from "@/mobile/github-repo"
 import { Routine } from "@/mobile/routine"
+import * as LoopEngine from "@/loop/engine"
+import * as LoopManager from "@/loop/manager"
+import {
+  LOOP_TEMPLATES,
+  LoopDefinitionSchema,
+  LoopRunSchema,
+  generateID as generateLoopID,
+  validateDefinition as validateLoopDefinition,
+  type LoopDefinition,
+} from "@/loop/schema"
 import { Expo } from "@/mobile/expo"
 import { MobileProjectDetect } from "@/mobile/project-detect"
 import { Storage } from "@/storage/storage"
@@ -39,6 +49,7 @@ import { getContainerRuntimeInfo } from "@/workspace/adaptors"
 import { proxyWorkspaceRequest } from "@/workspace/session-proxy-middleware"
 import { PromptStashStore } from "@/prompt/stash-store"
 import { errors } from "../error"
+import { generateFromDescription as generateLoopFromDescription } from "./loop"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
@@ -444,6 +455,53 @@ const MobileRoutineCreateInput = Routine.CreateInput.meta({ ref: "MobileRoutineC
 const MobileRoutineUpdateInput = Routine.UpdateInput.meta({ ref: "MobileRoutineUpdateInput" })
 const MobileRoutineRunInput = z.object({ text: z.string().optional() }).meta({ ref: "MobileRoutineRunInput" })
 const MobileRoutineTriggerInput = z.object({ text: z.string().optional() }).meta({ ref: "MobileRoutineTriggerInput" })
+
+const MobileLoopRuntime = z
+  .object({
+    loopID: z.string(),
+    status: z.enum(["idle", "running", "paused", "error", "cancelling"]),
+    runs: z.number(),
+    lastRunAt: z.number().optional(),
+    lastError: z.string().optional(),
+    sessionID: z.string().optional(),
+  })
+  .meta({ ref: "MobileLoopRuntime" })
+const MobileLoop = LoopDefinitionSchema.meta({ ref: "MobileLoop" })
+const MobileLoopRun = LoopRunSchema.meta({ ref: "MobileLoopRun" })
+const MobileLoopWriteInput = LoopDefinitionSchema.omit({ id: true, createdAt: true }).meta({
+  ref: "MobileLoopWriteInput",
+})
+const MobileLoopGenerateInput = z
+  .object({
+    description: z.string().trim().min(1),
+    model: z
+      .string()
+      .regex(/^[^/]+\/[^/]+$/)
+      .optional(),
+    agent: z.string().trim().min(1).optional(),
+  })
+  .meta({ ref: "MobileLoopGenerateInput" })
+const MobileLoopTemplate = z
+  .object({
+    id: z.string(),
+    title: z.string(),
+    description: z.string(),
+    draft: z.object({
+      name: z.string().optional(),
+      stages: z.array(
+        z.object({
+          name: z.string().optional(),
+          agent: z.string().optional(),
+          model: z.string().optional(),
+          objective: z.string(),
+          tokenBudget: z.number().optional(),
+        }),
+      ),
+      intervalMs: z.number().optional(),
+      maxRuns: z.number().optional(),
+    }),
+  })
+  .meta({ ref: "MobileLoopTemplate" })
 
 function currentToken(c: any) {
   return (c.get("mobileAuth") as MobileAuth.PublicToken | undefined) ?? undefined
@@ -3322,6 +3380,381 @@ export const MobileRoutes = lazy(() =>
             }
             return c.json({ success: true as const, pulled: false })
           }
+        })
+      },
+    )
+    // ── Loops ────────────────────────────────────────────────────────────────
+    .get(
+      "/loops",
+      describeRoute({
+        summary: "List loops for mobile",
+        description: "List all autonomous loops for the current project with their live runtime state.",
+        operationId: "mobile.loop.list",
+        responses: {
+          200: {
+            description: "Loop list and runtimes",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    loops: z.array(MobileLoop),
+                    runtimes: z.array(MobileLoopRuntime),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400),
+        },
+      }),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const loops = await LoopManager.list()
+          return c.json({
+            loops,
+            runtimes: loops.map((loop) => ({
+              loopID: loop.id,
+              ...LoopEngine.getRuntime(loop.id),
+            })),
+          })
+        })
+      },
+    )
+    .get(
+      "/loops/templates",
+      describeRoute({
+        summary: "List loop templates for mobile",
+        description: "List built-in loop starters that can be applied in the mobile loop editor.",
+        operationId: "mobile.loop.templates",
+        responses: {
+          200: {
+            description: "Loop templates",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ templates: z.array(MobileLoopTemplate) })),
+              },
+            },
+          },
+        },
+      }),
+      async (c) => c.json({ templates: LOOP_TEMPLATES }),
+    )
+    .post(
+      "/loops/generate",
+      describeRoute({
+        summary: "Generate a loop for mobile",
+        description: "Generate a loop draft from a natural-language description.",
+        operationId: "mobile.loop.generate",
+        responses: {
+          200: {
+            description: "Generated loop draft",
+            content: { "application/json": { schema: resolver(MobileLoop) } },
+          },
+          ...errors(400, 500),
+        },
+      }),
+      validator("json", MobileLoopGenerateInput),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const body = c.req.valid("json")
+          return c.json(
+            await generateLoopFromDescription(body.description, {
+              model: body.model,
+              agent: body.agent,
+            }),
+          )
+        })
+      },
+    )
+    .get(
+      "/loops/runs/recent",
+      describeRoute({
+        summary: "List recent loop runs for mobile",
+        description: "List recent runs across all loops in the current project.",
+        operationId: "mobile.loop.runs.recent",
+        responses: {
+          200: {
+            description: "Recent loop runs",
+            content: { "application/json": { schema: resolver(z.object({ runs: z.array(MobileLoopRun) })) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("query", z.object({ limit: z.coerce.number().int().positive().max(200).optional() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          return c.json({ runs: await LoopManager.listAllRunsAcrossLoops(c.req.valid("query").limit ?? 50) })
+        })
+      },
+    )
+    .post(
+      "/loops",
+      describeRoute({
+        summary: "Create loop for mobile",
+        description: "Create and arm a new autonomous loop.",
+        operationId: "mobile.loop.create",
+        responses: {
+          200: {
+            description: "Created loop",
+            content: { "application/json": { schema: resolver(MobileLoop) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("json", MobileLoopWriteInput),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const body = c.req.valid("json")
+          const loop: LoopDefinition = {
+            ...body,
+            id: generateLoopID(),
+            createdAt: Date.now(),
+            enabled: body.enabled ?? true,
+          }
+          const validationError = validateLoopDefinition(loop)
+          if (validationError) return c.json({ error: validationError }, 400)
+          const saved = await LoopManager.upsert(loop)
+          await LoopEngine.sync(saved.id)
+          void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: saved.id })
+          return c.json(saved)
+        })
+      },
+    )
+    .get(
+      "/loops/:id",
+      describeRoute({
+        summary: "Get loop for mobile",
+        description: "Get a loop definition and its live runtime.",
+        operationId: "mobile.loop.get",
+        responses: {
+          200: {
+            description: "Loop detail",
+            content: {
+              "application/json": {
+                schema: resolver(z.object({ loop: MobileLoop, runtime: MobileLoopRuntime })),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          const loop = await LoopManager.get(id)
+          if (!loop) return c.json({ error: `Loop "${id}" not found` }, 404)
+          return c.json({ loop, runtime: { loopID: id, ...LoopEngine.getRuntime(id) } })
+        })
+      },
+    )
+    .patch(
+      "/loops/:id",
+      describeRoute({
+        summary: "Update loop for mobile",
+        description: "Replace a loop definition and synchronize its schedule.",
+        operationId: "mobile.loop.update",
+        responses: {
+          200: {
+            description: "Updated loop",
+            content: { "application/json": { schema: resolver(MobileLoop) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      validator("json", MobileLoopWriteInput),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          const existing = await LoopManager.get(id)
+          if (!existing) return c.json({ error: `Loop "${id}" not found` }, 404)
+          const next: LoopDefinition = {
+            ...c.req.valid("json"),
+            id,
+            createdAt: existing.createdAt,
+          }
+          const validationError = validateLoopDefinition(next)
+          if (validationError) return c.json({ error: validationError }, 400)
+          const saved = await LoopManager.upsert(next)
+          await LoopEngine.sync(id)
+          void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
+          return c.json(saved)
+        })
+      },
+    )
+    .delete(
+      "/loops/:id",
+      describeRoute({
+        summary: "Delete loop for mobile",
+        description: "Cancel, disarm, and delete a loop and its run history.",
+        operationId: "mobile.loop.delete",
+        responses: {
+          200: {
+            description: "Deletion result",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          await LoopEngine.cancelRun(id)
+          await LoopManager.remove(id)
+          LoopEngine.disarm(id)
+          void Bus.publish(LoopEngine.LoopEvent.Removed, { loopID: id })
+          return c.json({ success: true as const })
+        })
+      },
+    )
+    .get(
+      "/loops/:id/runs",
+      describeRoute({
+        summary: "List loop runs for mobile",
+        description: "List the most recent runs for one loop.",
+        operationId: "mobile.loop.runs",
+        responses: {
+          200: {
+            description: "Loop runs",
+            content: { "application/json": { schema: resolver(z.object({ runs: z.array(MobileLoopRun) })) } },
+          },
+          ...errors(400),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      validator("query", z.object({ limit: z.coerce.number().int().positive().max(200).optional() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          return c.json({ runs: await LoopManager.listRuns(id, c.req.valid("query").limit ?? 50) })
+        })
+      },
+    )
+    .post(
+      "/loops/:id/run",
+      describeRoute({
+        summary: "Run loop from mobile",
+        description: "Trigger an immediate run of a loop.",
+        operationId: "mobile.loop.run",
+        responses: {
+          200: {
+            description: "Run accepted",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          void LoopEngine.runOnce(id)
+          return c.json({ success: true as const })
+        })
+      },
+    )
+    .post(
+      "/loops/:id/abort",
+      describeRoute({
+        summary: "Abort loop from mobile",
+        description: "Cancel the currently running iteration of a loop.",
+        operationId: "mobile.loop.abort",
+        responses: {
+          200: {
+            description: "Abort completed",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          await LoopEngine.cancelRun(id)
+          return c.json({ success: true as const })
+        })
+      },
+    )
+    .post(
+      "/loops/:id/toggle",
+      describeRoute({
+        summary: "Enable or disable loop from mobile",
+        description: "Enable or disable a loop and synchronize its schedule.",
+        operationId: "mobile.loop.toggle",
+        responses: {
+          200: {
+            description: "Updated loop",
+            content: { "application/json": { schema: resolver(MobileLoop) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      validator("json", z.object({ enabled: z.boolean() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          const next = await LoopManager.setEnabled(id, c.req.valid("json").enabled)
+          if (!next) return c.json({ error: `Loop "${id}" not found` }, 404)
+          await LoopEngine.sync(id)
+          void Bus.publish(LoopEngine.LoopEvent.Upserted, { loopID: id })
+          return c.json(next)
+        })
+      },
+    )
+    .post(
+      "/loops/:id/pause",
+      describeRoute({
+        summary: "Pause loop from mobile",
+        description: "Pause a loop's interval scheduling.",
+        operationId: "mobile.loop.pause",
+        responses: {
+          200: {
+            description: "Pause completed",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          LoopEngine.disarm(id)
+          LoopEngine.setRuntimeStatus(id, "paused")
+          return c.json({ success: true as const })
+        })
+      },
+    )
+    .post(
+      "/loops/:id/resume",
+      describeRoute({
+        summary: "Resume loop from mobile",
+        description: "Resume a paused loop and re-arm its interval schedule.",
+        operationId: "mobile.loop.resume",
+        responses: {
+          200: {
+            description: "Resume completed",
+            content: { "application/json": { schema: resolver(z.object({ success: z.literal(true) })) } },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator("param", z.object({ id: z.string() })),
+      async (c) => {
+        return withInstanceAsync({ directory: Instance.directory }, async () => {
+          const { id } = c.req.valid("param")
+          if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
+          LoopEngine.setRuntimeStatus(id, "idle")
+          await LoopEngine.sync(id)
+          return c.json({ success: true as const })
         })
       },
     )

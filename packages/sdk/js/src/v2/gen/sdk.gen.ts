@@ -85,11 +85,11 @@ import type {
   LoopListErrors,
   LoopListResponses,
   LoopPauseResponses,
+  LoopRecentRunsResponses,
   LoopResumeErrors,
   LoopResumeResponses,
   LoopRunErrors,
   LoopRunResponses,
-  LoopRunsRecentResponses,
   LoopRunsResponses,
   LoopTemplatesResponses,
   LoopToggleErrors,
@@ -175,6 +175,35 @@ import type {
   MobileGitStageResponses,
   MobileGitStatusResponses,
   MobileGitUnstageResponses,
+  MobileLoopAbortErrors,
+  MobileLoopAbortResponses,
+  MobileLoopCreateErrors,
+  MobileLoopCreateResponses,
+  MobileLoopDeleteErrors,
+  MobileLoopDeleteResponses,
+  MobileLoopGenerateErrors,
+  MobileLoopGenerateInput,
+  MobileLoopGenerateResponses,
+  MobileLoopGetErrors,
+  MobileLoopGetResponses,
+  MobileLoopListErrors,
+  MobileLoopListResponses,
+  MobileLoopPauseErrors,
+  MobileLoopPauseResponses,
+  MobileLoopResumeErrors,
+  MobileLoopResumeResponses,
+  MobileLoopRunErrors,
+  MobileLoopRunResponses,
+  MobileLoopRunsErrors,
+  MobileLoopRunsRecentErrors,
+  MobileLoopRunsRecentResponses,
+  MobileLoopRunsResponses,
+  MobileLoopTemplatesResponses,
+  MobileLoopToggleErrors,
+  MobileLoopToggleResponses,
+  MobileLoopUpdateErrors,
+  MobileLoopUpdateResponses,
+  MobileLoopWriteInput,
   MobileMemoryHistoryResponses,
   MobileMemorySearchResponses,
   MobileMemoryStashCreateErrors,
@@ -575,40 +604,6 @@ export class Project extends HeyApiClient {
   }
 }
 
-export class Runs extends HeyApiClient {
-  /**
-   * List recent loop runs across all loops
-   *
-   * Most-recent-first runs from every loop in the project, useful for a global activity view.
-   */
-  public recent<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-      limit?: number
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-            { in: "query", key: "limit" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<LoopRunsRecentResponses, unknown, ThrowOnError>({
-      url: "/loop/runs/recent",
-      ...options,
-      ...params,
-    })
-  }
-}
-
 export class Loop extends HeyApiClient {
   /**
    * List loops
@@ -772,7 +767,7 @@ export class Loop extends HeyApiClient {
   /**
    * Delete a loop
    *
-   * Remove a loop and its run history. Disarms its scheduler entry.
+   * Remove a loop and its run history. Cancels any in-flight run, disarms its scheduler entry, and cascade-deletes run records.
    */
   public delete<ThrowOnError extends boolean = false>(
     parameters: {
@@ -1074,9 +1069,36 @@ export class Loop extends HeyApiClient {
     })
   }
 
-  private _runs?: Runs
-  get runs2(): Runs {
-    return (this._runs ??= new Runs({ client: this.client }))
+  /**
+   * List recent loop runs across all loops
+   *
+   * Most-recent-first runs from every loop in the project, useful for a global activity view.
+   */
+  public recentRuns<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<LoopRecentRunsResponses, unknown, ThrowOnError>({
+      url: "/loop/runs/recent",
+      ...options,
+      ...params,
+    })
   }
 }
 
@@ -5980,6 +6002,489 @@ export class Git extends HeyApiClient {
   }
 }
 
+export class Runs extends HeyApiClient {
+  /**
+   * List recent loop runs for mobile
+   *
+   * List recent runs across all loops in the current project.
+   */
+  public recent<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<
+      MobileLoopRunsRecentResponses,
+      MobileLoopRunsRecentErrors,
+      ThrowOnError
+    >({
+      url: "/mobile/loops/runs/recent",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Loop2 extends HeyApiClient {
+  /**
+   * List loops for mobile
+   *
+   * List all autonomous loops for the current project with their live runtime state.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileLoopListResponses, MobileLoopListErrors, ThrowOnError>({
+      url: "/mobile/loops",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Create loop for mobile
+   *
+   * Create and arm a new autonomous loop.
+   */
+  public create<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileLoopWriteInput?: MobileLoopWriteInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileLoopWriteInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopCreateResponses, MobileLoopCreateErrors, ThrowOnError>({
+      url: "/mobile/loops",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List loop templates for mobile
+   *
+   * List built-in loop starters that can be applied in the mobile loop editor.
+   */
+  public templates<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileLoopTemplatesResponses, unknown, ThrowOnError>({
+      url: "/mobile/loops/templates",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Generate a loop for mobile
+   *
+   * Generate a loop draft from a natural-language description.
+   */
+  public generate<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+      mobileLoopGenerateInput?: MobileLoopGenerateInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileLoopGenerateInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopGenerateResponses, MobileLoopGenerateErrors, ThrowOnError>({
+      url: "/mobile/loops/generate",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Delete loop for mobile
+   *
+   * Cancel, disarm, and delete a loop and its run history.
+   */
+  public delete<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).delete<MobileLoopDeleteResponses, MobileLoopDeleteErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Get loop for mobile
+   *
+   * Get a loop definition and its live runtime.
+   */
+  public get<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileLoopGetResponses, MobileLoopGetErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Update loop for mobile
+   *
+   * Replace a loop definition and synchronize its schedule.
+   */
+  public update<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      mobileLoopWriteInput?: MobileLoopWriteInput
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { key: "mobileLoopWriteInput", map: "body" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).patch<MobileLoopUpdateResponses, MobileLoopUpdateErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * List loop runs for mobile
+   *
+   * List the most recent runs for one loop.
+   */
+  public runs<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      limit?: number
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "query", key: "limit" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileLoopRunsResponses, MobileLoopRunsErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/runs",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Run loop from mobile
+   *
+   * Trigger an immediate run of a loop.
+   */
+  public run<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopRunResponses, MobileLoopRunErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/run",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Abort loop from mobile
+   *
+   * Cancel the currently running iteration of a loop.
+   */
+  public abort<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopAbortResponses, MobileLoopAbortErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/abort",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Enable or disable loop from mobile
+   *
+   * Enable or disable a loop and synchronize its schedule.
+   */
+  public toggle<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+      enabled?: boolean
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+            { in: "body", key: "enabled" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopToggleResponses, MobileLoopToggleErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/toggle",
+      ...options,
+      ...params,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+        ...params.headers,
+      },
+    })
+  }
+
+  /**
+   * Pause loop from mobile
+   *
+   * Pause a loop's interval scheduling.
+   */
+  public pause<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopPauseResponses, MobileLoopPauseErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/pause",
+      ...options,
+      ...params,
+    })
+  }
+
+  /**
+   * Resume loop from mobile
+   *
+   * Resume a paused loop and re-arm its interval schedule.
+   */
+  public resume<ThrowOnError extends boolean = false>(
+    parameters: {
+      id: string
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "path", key: "id" },
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).post<MobileLoopResumeResponses, MobileLoopResumeErrors, ThrowOnError>({
+      url: "/mobile/loops/{id}/resume",
+      ...options,
+      ...params,
+    })
+  }
+
+  private _runs?: Runs
+  get runs2(): Runs {
+    return (this._runs ??= new Runs({ client: this.client }))
+  }
+}
+
 export class Routine extends HeyApiClient {
   /**
    * List routines
@@ -6389,6 +6894,11 @@ export class Mobile extends HeyApiClient {
   private _git?: Git
   get git(): Git {
     return (this._git ??= new Git({ client: this.client }))
+  }
+
+  private _loop?: Loop2
+  get loop(): Loop2 {
+    return (this._loop ??= new Loop2({ client: this.client }))
   }
 
   private _routine?: Routine

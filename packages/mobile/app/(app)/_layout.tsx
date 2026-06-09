@@ -34,6 +34,7 @@ export default function AppLayout() {
         <Tabs.Screen name="repos" options={{ title: "Repos" }} />
         <Tabs.Screen name="settings" options={{ title: "Settings", href: null }} />
         <Tabs.Screen name="routines" options={{ title: "Routines" }} />
+        <Tabs.Screen name="loops" options={{ title: "Loops" }} />
         <Tabs.Screen name="terminal" options={{ title: "Terminal" }} />
         <Tabs.Screen name="user" options={{ title: "Profile", href: null }} />
       </Tabs>

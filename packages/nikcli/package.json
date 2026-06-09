@@ -95,7 +95,6 @@
     "@nikcli-ai/plugin": "workspace:*",
     "@nikcli-ai/remote": "workspace:*",
     "@nikcli-ai/script": "workspace:*",
-    "@nikcli-ai/terminal-control": "workspace:*",
     "@nikcli-ai/util": "workspace:*",
     "@octokit/graphql": "9.0.2",
     "@octokit/rest": "catalog:",

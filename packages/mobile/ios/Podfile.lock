@@ -35,6 +35,8 @@ PODS:
     - ExpoModulesCore
   - ExpoAsset (10.0.10):
     - ExpoModulesCore
+  - ExpoBlur (14.0.3):
+    - ExpoModulesCore
   - ExpoClipboard (7.0.1):
     - ExpoModulesCore
   - ExpoCrypto (14.0.2):
@@ -59,6 +61,8 @@ PODS:
   - ExpoImagePicker (16.0.6):
     - ExpoModulesCore
   - ExpoKeepAwake (14.0.3):
+    - ExpoModulesCore
+  - ExpoLinearGradient (14.0.2):
     - ExpoModulesCore
   - ExpoLinking (7.0.5):
     - ExpoModulesCore
@@ -1351,6 +1355,51 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-context-menu-view (1.16.0):
+    - React
+  - react-native-keyboard-controller (1.17.5):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - react-native-keyboard-controller/common (= 1.17.5)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - react-native-keyboard-controller/common (1.17.5):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-safe-area-context (4.12.0):
     - DoubleConversion
     - glog
@@ -1417,6 +1466,8 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-segmented-control (2.5.7):
+    - React-Core
   - react-native-webview (13.16.1):
     - DoubleConversion
     - glog
@@ -1705,7 +1756,115 @@ PODS:
     - React-logger (= 0.76.7)
     - React-perflogger (= 0.76.7)
     - React-utils (= 0.76.7)
+  - RNFlashList (1.7.4):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - RNGestureHandler (2.20.2):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - RNReanimated (3.16.7):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNReanimated/reanimated (= 3.16.7)
+    - RNReanimated/worklets (= 3.16.7)
+    - Yoga
+  - RNReanimated/reanimated (3.16.7):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - RNReanimated/reanimated/apple (= 3.16.7)
+    - Yoga
+  - RNReanimated/reanimated/apple (3.16.7):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
+  - RNReanimated/worklets (3.16.7):
     - DoubleConversion
     - glog
     - hermes-engine
@@ -1838,16 +1997,18 @@ DEPENDENCIES:
   - "EXNotifications (from `../../../node_modules/.bun/expo-notifications@0.29.14+2e248e749e59b09f/node_modules/expo-notifications/ios`)"
   - "Expo (from `../../../node_modules/.bun/expo@52.0.49+2e248e749e59b09f/node_modules/expo`)"
   - "ExpoAsset (from `../../../node_modules/.bun/expo-asset@10.0.10+2e248e749e59b09f/node_modules/expo-asset/ios`)"
+  - "ExpoBlur (from `../../../node_modules/.bun/expo-blur@14.0.3+2e248e749e59b09f/node_modules/expo-blur/ios`)"
   - "ExpoClipboard (from `../../../node_modules/.bun/expo-clipboard@7.0.1+2e248e749e59b09f/node_modules/expo-clipboard/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.bun/expo-crypto@14.0.2+2e248e749e59b09f/node_modules/expo-crypto/ios`)"
   - "ExpoDocumentPicker (from `../../../node_modules/.bun/expo-document-picker@13.0.3+2e248e749e59b09f/node_modules/expo-document-picker/ios`)"
   - "ExpoFileSystem (from `../../../node_modules/.bun/expo-file-system@18.0.12+2e248e749e59b09f/node_modules/expo-file-system/ios`)"
   - "ExpoFont (from `../../../node_modules/.bun/expo-font@13.0.4+2e248e749e59b09f/node_modules/expo-font/ios`)"
   - "ExpoHaptics (from `../../../node_modules/.bun/expo-haptics@14.0.1+2e248e749e59b09f/node_modules/expo-haptics/ios`)"
-  - "ExpoHead (from `../../../node_modules/.bun/expo-router@4.0.22+2fc713b09579bf21/node_modules/expo-router/ios`)"
+  - "ExpoHead (from `../../../node_modules/.bun/expo-router@4.0.22+de5a284f33e9e080/node_modules/expo-router/ios`)"
   - "ExpoImage (from `../../../node_modules/.bun/expo-image@2.4.1+b923cc8b4b8563df/node_modules/expo-image/ios`)"
   - "ExpoImagePicker (from `../../../node_modules/.bun/expo-image-picker@16.0.6+2e248e749e59b09f/node_modules/expo-image-picker/ios`)"
   - "ExpoKeepAwake (from `../../../node_modules/.bun/expo-keep-awake@14.0.3+541c8e18387bd8d5/node_modules/expo-keep-awake/ios`)"
+  - "ExpoLinearGradient (from `../../../node_modules/.bun/expo-linear-gradient@14.0.2+2e248e749e59b09f/node_modules/expo-linear-gradient/ios`)"
   - "ExpoLinking (from `../../../node_modules/.bun/expo-linking@7.0.5+2e248e749e59b09f/node_modules/expo-linking/ios`)"
   - "ExpoLiveActivity (from `../../../node_modules/.bun/expo-live-activity@0.4.2+2e248e749e59b09f/node_modules/expo-live-activity/ios`)"
   - "ExpoModulesCore (from `../../../node_modules/.bun/expo-modules-core@2.2.3/node_modules/expo-modules-core`)"
@@ -1889,7 +2050,10 @@ DEPENDENCIES:
   - "React-logger (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/logger`)"
   - "React-Mapbuffer (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon`)"
   - "React-microtasksnativemodule (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
+  - react-native-context-menu-view (from `../node_modules/react-native-context-menu-view`)
+  - react-native-keyboard-controller (from `../node_modules/react-native-keyboard-controller`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
+  - "react-native-segmented-control (from `../node_modules/@react-native-segmented-control/segmented-control`)"
   - react-native-webview (from `../node_modules/react-native-webview`)
   - "React-nativeconfig (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon`)"
   - "React-NativeModulesApple (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
@@ -1918,7 +2082,9 @@ DEPENDENCIES:
   - "React-utils (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/react/utils`)"
   - ReactCodegen (from `build/generated/ios`)
   - "ReactCommon/turbomodule/core (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon`)"
+  - "RNFlashList (from `../node_modules/@shopify/flash-list`)"
   - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
+  - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
   - "Yoga (from `../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/yoga`)"
@@ -1953,6 +2119,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/expo@52.0.49+2e248e749e59b09f/node_modules/expo"
   ExpoAsset:
     :path: "../../../node_modules/.bun/expo-asset@10.0.10+2e248e749e59b09f/node_modules/expo-asset/ios"
+  ExpoBlur:
+    :path: "../../../node_modules/.bun/expo-blur@14.0.3+2e248e749e59b09f/node_modules/expo-blur/ios"
   ExpoClipboard:
     :path: "../../../node_modules/.bun/expo-clipboard@7.0.1+2e248e749e59b09f/node_modules/expo-clipboard/ios"
   ExpoCrypto:
@@ -1966,13 +2134,15 @@ EXTERNAL SOURCES:
   ExpoHaptics:
     :path: "../../../node_modules/.bun/expo-haptics@14.0.1+2e248e749e59b09f/node_modules/expo-haptics/ios"
   ExpoHead:
-    :path: "../../../node_modules/.bun/expo-router@4.0.22+2fc713b09579bf21/node_modules/expo-router/ios"
+    :path: "../../../node_modules/.bun/expo-router@4.0.22+de5a284f33e9e080/node_modules/expo-router/ios"
   ExpoImage:
     :path: "../../../node_modules/.bun/expo-image@2.4.1+b923cc8b4b8563df/node_modules/expo-image/ios"
   ExpoImagePicker:
     :path: "../../../node_modules/.bun/expo-image-picker@16.0.6+2e248e749e59b09f/node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
     :path: "../../../node_modules/.bun/expo-keep-awake@14.0.3+541c8e18387bd8d5/node_modules/expo-keep-awake/ios"
+  ExpoLinearGradient:
+    :path: "../../../node_modules/.bun/expo-linear-gradient@14.0.2+2e248e749e59b09f/node_modules/expo-linear-gradient/ios"
   ExpoLinking:
     :path: "../../../node_modules/.bun/expo-linking@7.0.5+2e248e749e59b09f/node_modules/expo-linking/ios"
   ExpoLiveActivity:
@@ -2052,8 +2222,14 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
     :path: "../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+  react-native-context-menu-view:
+    :path: "../node_modules/react-native-context-menu-view"
+  react-native-keyboard-controller:
+    :path: "../node_modules/react-native-keyboard-controller"
   react-native-safe-area-context:
     :path: "../node_modules/react-native-safe-area-context"
+  react-native-segmented-control:
+    :path: "../node_modules/@react-native-segmented-control/segmented-control"
   react-native-webview:
     :path: "../node_modules/react-native-webview"
   React-nativeconfig:
@@ -2110,8 +2286,12 @@ EXTERNAL SOURCES:
     :path: build/generated/ios
   ReactCommon:
     :path: "../../../node_modules/.bun/react-native@0.76.7+cf240a0eec16e668/node_modules/react-native/ReactCommon"
+  RNFlashList:
+    :path: "../node_modules/@shopify/flash-list"
   RNGestureHandler:
     :path: "../node_modules/react-native-gesture-handler"
+  RNReanimated:
+    :path: "../node_modules/react-native-reanimated"
   RNScreens:
     :path: "../node_modules/react-native-screens"
   RNSVG:
@@ -2129,6 +2309,7 @@ SPEC CHECKSUMS:
   EXNotifications: 9d3d17e52c95f377750d4a2ae553a716313dd4aa
   Expo: 4bb70893882e6382b41d1e910d7226c6a1b85f0a
   ExpoAsset: 286fee7ba711ce66bf20b315e68106b13b8629fc
+  ExpoBlur: 392c1207f71d0ecf22371621c1fbd44ba84d9742
   ExpoClipboard: 44fd1c8959ee8f6175d059dc011b154c9709a969
   ExpoCrypto: e97e864c8d7b9ce4a000bca45dddb93544a1b2b4
   ExpoDocumentPicker: 6d3d499cf15b692688a804f42927d0f35de5ebaa
@@ -2139,6 +2320,7 @@ SPEC CHECKSUMS:
   ExpoImage: b0b4a838c62bb9d5438bb475cccc85619a5f59dc
   ExpoImagePicker: 24e5ba8da111f74519b1e6dc556e0b438b2b8464
   ExpoKeepAwake: b0171a73665bfcefcfcc311742a72a956e6aa680
+  ExpoLinearGradient: 35ebd83b16f80b3add053a2fd68cc328ed927f60
   ExpoLinking: 8d12bee174ba0cdf31239706578e29e74a417402
   ExpoLiveActivity: d0dd0e8e1460b6b26555b611c4826cdb1036eea2
   ExpoModulesCore: 98297c2cc7977c43740a2e52d850d94ac8dbf176
@@ -2181,7 +2363,10 @@ SPEC CHECKSUMS:
   React-logger: 5cad0c76d056809523289e589309012215a393b5
   React-Mapbuffer: a381120aea722d2244d4e4b663a10d4c3b2d4e51
   React-microtasksnativemodule: d9b946675010659cddd1c7611c074216579c8ad3
+  react-native-context-menu-view: 3bb7e1aa97c897e26a027d23895a60066f7e4e17
+  react-native-keyboard-controller: 62b2fbd3de54046976ba0ae51e20914dc581889a
   react-native-safe-area-context: 0f16e24dc808e9f0ced17f2bdcec692b2376fb68
+  react-native-segmented-control: bf6e0032726727498e18dd437ae88afcdbc18e99
   react-native-webview: 0fd07d41896b4bd1da82eeda48fa29dc2c2a1e67
   React-nativeconfig: 67fa7a63ea288cb5b1d0dd2deaf240405fec164f
   React-NativeModulesApple: 34b7a4d7441a4ee78d18109ff107c1ccf7c074a9
@@ -2210,7 +2395,9 @@ SPEC CHECKSUMS:
   React-utils: 0342746d2cf989cf5e0d1b84c98cfa152edbdf3f
   ReactCodegen: e3bfd73c56f94acc1fb64e2218e9cbb1fc5aec44
   ReactCommon: 81e0744ee33adfd6d586141b927024f488bc49ea
+  RNFlashList: 06c43066d9aec5c23d059471fba293ba4f9105ce
   RNGestureHandler: 16ef3dc2d7ecb09f240f25df5255953c4098819b
+  RNReanimated: ec91c742541d7b04271b6003682613a8f5ac8f7d
   RNScreens: 351f431ef2a042a1887d4d90e1c1024b8ae9d123
   RNSVG: 030717ff82ea8f2117347c2fcf52a2d1eafba9ba
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf

@@ -23,6 +23,7 @@ import * as Manager from "../../loop/manager"
 import {
   LOOP_TEMPLATES,
   LoopDefinitionSchema,
+  LoopRunStatusSchema,
   type LoopDefinition,
   definitionFromGenerated,
   definitionFromGeneratedText,
@@ -45,7 +46,7 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
 const LoopRuntimeSchema = z
   .object({
     loopID: z.string(),
-    status: z.enum(["idle", "running", "paused", "error"]),
+    status: z.enum(["idle", "running", "paused", "error", "cancelling"]),
     runs: z.number(),
     lastRunAt: z.number().optional(),
     lastError: z.string().optional(),
@@ -63,7 +64,7 @@ const LoopRunDTOSchema = z
     loopID: z.string(),
     startedAt: z.number(),
     endedAt: z.number().optional(),
-    status: z.enum(["running", "complete", "error", "timeout", "cancelled", "orphaned"]),
+    status: LoopRunStatusSchema,
     ok: z.boolean(),
     error: z.string().optional(),
     sessionID: z.string().optional(),
@@ -260,7 +261,7 @@ export function LoopRoutes() {
         const err = validateDefinition(def)
         if (err) return c.json({ name: "ValidationError", data: { message: err } }, 400)
         const saved = await Manager.upsert(def)
-        await Engine.syncAll()
+        await Engine.sync(saved.id)
         void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id })
         return c.json(saved)
       },
@@ -302,7 +303,7 @@ export function LoopRoutes() {
         const existing = await Manager.get(id)
         if (!existing) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         const saved = await Manager.upsert(body)
-        await Engine.syncAll()
+        await Engine.sync(saved.id)
         void Bus.publish(Engine.LoopEvent.Upserted, { loopID: saved.id })
         return c.json(saved)
       },
@@ -311,7 +312,8 @@ export function LoopRoutes() {
       "/:id",
       describeRoute({
         summary: "Delete a loop",
-        description: "Remove a loop and its run history. Disarms its scheduler entry.",
+        description:
+          "Remove a loop and its run history. Cancels any in-flight run, disarms its scheduler entry, and cascade-deletes run records.",
         operationId: "loop.delete",
         responses: {
           200: { description: "Deleted" },
@@ -321,6 +323,13 @@ export function LoopRoutes() {
       validator("param", z.object({ id: z.string() })),
       async (c) => {
         const { id } = c.req.valid("param")
+        const def = await Manager.get(id)
+        if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
+        // Cancel any in-flight run *before* removing the definition so no
+        // orphan `LoopRun` is written for a loop the user just deleted.
+        await Engine.cancelRun(id).catch((error) => {
+          log.warn("cancelRun on delete failed", { id, error })
+        })
         const removed = await Manager.remove(id)
         if (!removed) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         Engine.disarm(id)
@@ -346,7 +355,7 @@ export function LoopRoutes() {
         const { enabled } = c.req.valid("json")
         const next = await Manager.setEnabled(id, enabled)
         if (!next) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
-        await Engine.syncAll()
+        await Engine.sync(id)
         void Bus.publish(Engine.LoopEvent.Upserted, { loopID: id })
         return c.json(next)
       },
@@ -410,7 +419,7 @@ export function LoopRoutes() {
         const def = await Manager.get(id)
         if (!def) return c.json({ name: "NotFound", data: { message: `Loop "${id}" not found` } }, 404)
         Engine.setRuntimeStatus(id, "idle")
-        await Engine.syncAll()
+        await Engine.sync(id)
         return c.json(true)
       },
     )
@@ -450,7 +459,7 @@ export function LoopRoutes() {
       describeRoute({
         summary: "List recent loop runs across all loops",
         description: "Most-recent-first runs from every loop in the project, useful for a global activity view.",
-        operationId: "loop.runs.recent",
+        operationId: "loop.recentRuns",
         responses: {
           200: {
             description: "Recent runs",
@@ -499,7 +508,7 @@ const GENERATE_SYSTEM_PROMPT = [
   "Output exactly one JSON object.",
 ].join("\n")
 
-async function generateFromDescription(
+export async function generateFromDescription(
   description: string,
   opts: { model?: string; agent?: string },
 ): Promise<LoopDefinition> {

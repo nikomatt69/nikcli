@@ -17,6 +17,7 @@ export type { LoopDefinition, LoopRuntime, LoopRuntimeStatus } from "./sdk"
 const EMPTY: LoopRuntime = { status: "idle", runs: 0 }
 const [runtimes, setRuntimes] = createStore<Record<string, LoopRuntime>>({})
 const sessionByLoop: Map<string, string> = new Map()
+const tombstones = new Set<string>()
 
 export function runtimeOf(id: string): LoopRuntime {
   return runtimes[id] ?? EMPTY
@@ -31,7 +32,11 @@ function unref(timer: ReturnType<typeof setInterval>): void {
   t.unref?.()
 }
 
-const timers = new Map<string, ReturnType<typeof setInterval>>()
+/** Per-loop cosmetic ticker. Does NOT call any run-creating endpoint. */
+const tickers = new Map<string, ReturnType<typeof setInterval>>()
+
+/** Local ticker interval. Cosmetic only; server is the source of truth. */
+const TICKER_INTERVAL_MS = 1_500
 
 /** Best-effort per-file snapshot of a session's cumulative diff. */
 function diffSnapshot(api: TuiPluginApi, sessionID: string): Store.DiffSnapshot {
@@ -86,12 +91,16 @@ export async function runOnce(api: TuiPluginApi, def: LoopDefinition, opts?: { m
   }
 }
 
-/** Reconcile the local reactive store with the server's view. */
+/** Reconcile the local reactive store with the server's view. Skips tombstones. */
 export async function syncWithServer(api: TuiPluginApi): Promise<void> {
   const api2 = new LoopApi(api.client)
   try {
-    const { runtimes } = await api2.list()
+    const { runtimes, loops } = await api2.list()
+    // Drop tombstones that no longer exist on the server.
+    const ids = new Set(loops.map((d) => d.id))
+    for (const id of Array.from(tombstones)) if (!ids.has(id)) tombstones.delete(id)
     for (const { loopID, runtime } of runtimes) {
+      if (tombstones.has(loopID)) continue
       setRuntimes(loopID, runtime)
     }
   } catch {
@@ -157,13 +166,21 @@ export function subscribeEvents(api: TuiPluginApi): () => void {
       void status
     },
     onUpserted: (loopID) => {
-      // Re-pull server view to pick up any metadata changes.
+      // Tombstone check: if the server says a loop was re-upserted that we
+      // recently saw removed, ignore until the next sync.
+      if (tombstones.has(loopID)) {
+        void loopID
+        return
+      }
       void syncWithServer(api)
-      void loopID
     },
     onRemoved: (loopID) => {
-      // Drop reactive state for the removed loop.
+      // Drop reactive state AND the local KV cache for the removed loop.
+      tombstones.add(loopID)
       setRuntimes(loopID, EMPTY)
+      Store.removeById(api.kv, loopID)
+      Store.clearHistory(api.kv, loopID)
+      sessionByLoop.delete(loopID)
     },
     onRuntimeChanged: (loopID) => {
       // Engine published a state change; pull fresh runtimes.
@@ -173,46 +190,60 @@ export function subscribeEvents(api: TuiPluginApi): () => void {
   })
 }
 
-/** Arm (or re-arm) the local interval timer. The server-side engine is the
- *  source of truth; this local timer exists only to keep the UI responsive
- *  (so the sidebar can show "running" while the engine kicks off).
+/**
+ * Subscribe a cosmetic ticker for a loop. The ticker only refreshes the
+ * reactive store from the server's `LoopApi.getRuntime(id)` — it never
+ * writes run records and never calls `loop.run`. The server's
+ * `Scheduler.register` is the only place that fires runs.
  */
-export function arm(api: TuiPluginApi, def: LoopDefinition): void {
-  disarm(def.id)
+export function subscribeTicker(api: TuiPluginApi, def: LoopDefinition): void {
+  unsubscribeTicker(def.id)
   if (!def.enabled || def.trigger.kind !== "interval") return
   const api2 = new LoopApi(api.client)
   const timer = setInterval(() => {
-    void api2.run(def.id).catch(() => {})
-  }, def.trigger.everyMs)
+    void api2
+      .getRuntime(def.id)
+      .then((runtime) => {
+        if (runtime && !tombstones.has(def.id)) {
+          setRuntimes(def.id, runtime)
+        }
+      })
+      .catch(() => {})
+  }, TICKER_INTERVAL_MS)
   unref(timer)
-  timers.set(def.id, timer)
+  tickers.set(def.id, timer)
 }
 
-export function disarm(id: string): void {
-  const timer = timers.get(id)
+export function unsubscribeTicker(id: string): void {
+  const timer = tickers.get(id)
   if (timer) clearInterval(timer)
-  timers.delete(id)
+  tickers.delete(id)
 }
 
-/** Reconcile local timers + reactive state with the server's view. */
+/** Reconcile tickers + reactive state with the server's view. */
 export async function syncAll(api: TuiPluginApi): Promise<void> {
   const api2 = new LoopApi(api.client)
   try {
     const { loops } = await api2.list()
     const ids = new Set(loops.map((d) => d.id))
-    for (const id of Array.from(timers.keys())) if (!ids.has(id)) disarm(id)
-    for (const def of loops) arm(api, def)
+    for (const id of Array.from(tickers.keys())) if (!ids.has(id)) unsubscribeTicker(id)
+    for (const def of loops) subscribeTicker(api, def)
     await syncWithServer(api)
   } catch {
     // Server unreachable — fall back to whatever the local KV knows.
     const defs = Store.loadAll(api.kv)
-    for (const def of defs) arm(api, def)
+    for (const def of defs) subscribeTicker(api, def)
   }
 }
 
 export async function persist(api: TuiPluginApi, def: LoopDefinition): Promise<LoopDefinition> {
   const api2 = new LoopApi(api.client)
-  const saved = await api2.upsert(def)
+  // If the loop already exists on the server, route to update; otherwise upsert.
+  // (We can't tell from a fresh `def` whether it's brand new, so we attempt
+  // get first to disambiguate.)
+  const existing = await api2.get(def.id).catch(() => undefined)
+  const saved = existing ? await api2.update(def) : await api2.upsert(def)
+  tombstones.delete(saved.id)
   // Keep the local KV cache in sync so the manager renders the latest state
   // even if the bus event hasn't fired yet.
   Store.upsert(api.kv, saved)
@@ -223,9 +254,11 @@ export async function removeDefinition(api: TuiPluginApi, id: string): Promise<b
   const api2 = new LoopApi(api.client)
   const ok = await api2.remove(id)
   if (ok) {
+    tombstones.add(id)
     Store.removeById(api.kv, id)
     Store.clearHistory(api.kv, id)
     setRuntimes(id, EMPTY)
+    sessionByLoop.delete(id)
   }
   return ok
 }
@@ -265,25 +298,27 @@ export async function resume(api: TuiPluginApi, def: LoopDefinition): Promise<vo
     }))
 }
 
-export async function abortRun(api: TuiPluginApi, _id: string): Promise<void> {
-  // The headless engine has no "abort a single run" — the next interval tick
-  // will start a new run on a new session. We expose the action for UX parity
-  // and clear the cached session so the next run starts fresh.
-  sessionByLoop.delete(_id)
-  patch(_id, (prev) => ({ ...prev, sessionID: undefined }))
-}
-
-/** Stop a loop's timer and clear its local state. */
-export async function stop(api: TuiPluginApi, id: string): Promise<void> {
-  disarm(id)
+export async function abortRun(api: TuiPluginApi, id: string): Promise<void> {
+  // Best-effort: ask the server to cancel any in-flight run for this loop.
+  // If the server doesn't expose a per-loop abort endpoint, this is a no-op
+  // on the server side and we just clear local cached state.
+  const api2 = new LoopApi(api.client)
+  await api2.abort(id).catch(() => {})
   sessionByLoop.delete(id)
   patch(id, (prev) => ({ ...prev, status: "idle", sessionID: undefined }))
 }
 
-/** Tear down every timer (plugin disposal). */
+/** Stop a loop's ticker and clear its local state. */
+export async function stop(api: TuiPluginApi, id: string): Promise<void> {
+  unsubscribeTicker(id)
+  sessionByLoop.delete(id)
+  patch(id, (prev) => ({ ...prev, status: "idle", sessionID: undefined }))
+}
+
+/** Tear down every ticker (plugin disposal). */
 export function disposeAll(): void {
-  for (const timer of timers.values()) clearInterval(timer)
-  timers.clear()
+  for (const timer of tickers.values()) clearInterval(timer)
+  tickers.clear()
 }
 
 export type LoopTone = "muted" | "running" | "error" | "ok"
@@ -291,6 +326,7 @@ export type LoopTone = "muted" | "running" | "error" | "ok"
 /** Pure status summary for rendering (no JSX/theme coupling). */
 export function statusInfo(def: LoopDefinition, rt: LoopRuntime): { label: string; tone: LoopTone } {
   if (rt.status === "running") return { label: "running", tone: "running" }
+  if (rt.status === "cancelling") return { label: "cancelling", tone: "running" }
   if (rt.status === "error")
     return {
       label: rt.lastError ? `error: ${truncate(rt.lastError, 24)}` : "error",

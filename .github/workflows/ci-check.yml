@@ -1,0 +1,34 @@
+name: ci-check
+
+on:
+  schedule:
+    # Run every 5 hours: 00:00, 05:00, 10:00, 15:00, 20:00 UTC
+    - cron: "0 */5 * * *"
+  workflow_dispatch: # Allow manual trigger
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    if: github.repository == 'nikomatt69/nikcli'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Run CI workflow health check
+        env:
+          GITHUB_TOKEN: ${{ secrets.SST_GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CI_CHECK_VERBOSE: "1"
+        run: bun run script/ci-check-workflows.ts

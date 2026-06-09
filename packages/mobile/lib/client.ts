@@ -19,6 +19,12 @@ import type {
   HostConfigSnapshot,
   HostCommandConfig,
   HostMcpStatus,
+  LoopDefinition,
+  LoopDetailResult,
+  LoopListResult,
+  LoopRun,
+  LoopTemplate,
+  LoopWriteInput,
   ManagedGithubImport,
   MemorySearchHit,
   MobileAuthToken,
@@ -638,6 +644,91 @@ export class MobileClient {
 
   resumeRoutine(id: string) {
     return this.request<Routine>(`/mobile/routines/${encodeURIComponent(id)}/resume`, {
+      method: "POST",
+    })
+  }
+
+  // ── Loops ───────────────────────────────────────────────────────────────────
+
+  async listLoops() {
+    const result = await this.request<unknown>("/mobile/loops")
+    if (
+      !result ||
+      typeof result !== "object" ||
+      !Array.isArray((result as JsonObject).loops) ||
+      !Array.isArray((result as JsonObject).runtimes)
+    ) {
+      throw new Error("The server returned an incompatible loop list. Update the connected Nikcli server and try again.")
+    }
+    return result as LoopListResult
+  }
+
+  listLoopTemplates() {
+    return this.request<{ templates: LoopTemplate[] }>("/mobile/loops/templates")
+  }
+
+  generateLoop(description: string, options?: { model?: string; agent?: string }) {
+    return this.request<LoopDefinition>("/mobile/loops/generate", {
+      method: "POST",
+      body: JSON.stringify({ description, ...options }),
+    })
+  }
+
+  createLoop(input: LoopWriteInput) {
+    return this.request<LoopDefinition>("/mobile/loops", {
+      method: "POST",
+      body: JSON.stringify(input),
+    })
+  }
+
+  getLoop(id: string) {
+    return this.request<LoopDetailResult>(`/mobile/loops/${encodeURIComponent(id)}`)
+  }
+
+  updateLoop(id: string, input: LoopWriteInput) {
+    return this.request<LoopDefinition>(`/mobile/loops/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    })
+  }
+
+  deleteLoop(id: string) {
+    return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    })
+  }
+
+  listLoopRuns(id: string, limit = 50) {
+    return this.request<{ runs: LoopRun[] }>(`/mobile/loops/${encodeURIComponent(id)}/runs?limit=${limit}`)
+  }
+
+  runLoop(id: string) {
+    return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}/run`, {
+      method: "POST",
+    })
+  }
+
+  abortLoop(id: string) {
+    return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}/abort`, {
+      method: "POST",
+    })
+  }
+
+  toggleLoop(id: string, enabled: boolean) {
+    return this.request<LoopDefinition>(`/mobile/loops/${encodeURIComponent(id)}/toggle`, {
+      method: "POST",
+      body: JSON.stringify({ enabled }),
+    })
+  }
+
+  pauseLoop(id: string) {
+    return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}/pause`, {
+      method: "POST",
+    })
+  }
+
+  resumeLoop(id: string) {
+    return this.request<{ success: true }>(`/mobile/loops/${encodeURIComponent(id)}/resume`, {
       method: "POST",
     })
   }

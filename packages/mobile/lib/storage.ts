@@ -15,6 +15,32 @@ const APP_PREFERENCES_KEY = "nikcli_app_preferences"
 const USER_TOKEN_KEY = "nikcli_user_token"
 const REMEMBERED_USER_KEY = "nikcli_remembered_user"
 const LIVE_ACTIVITY_REGISTRY_KEY = "nikcli_live_activity_registry"
+const THEME_ID_KEY = "nikcli_theme_id"
+const COLOR_SCHEME_KEY = "nikcli_color_scheme"
+
+export type StoredColorScheme = "light" | "dark" | "system"
+
+export async function getThemePreferences(): Promise<{
+  themeId: string | null
+  colorScheme: StoredColorScheme | null
+}> {
+  const [themeId, colorScheme] = await Promise.all([
+    SecureStore.getItemAsync(THEME_ID_KEY),
+    SecureStore.getItemAsync(COLOR_SCHEME_KEY),
+  ])
+  return {
+    themeId,
+    colorScheme: colorScheme === "light" || colorScheme === "dark" || colorScheme === "system" ? colorScheme : null,
+  }
+}
+
+export async function setStoredTheme(themeId: string): Promise<void> {
+  await SecureStore.setItemAsync(THEME_ID_KEY, themeId)
+}
+
+export async function setStoredColorScheme(colorScheme: StoredColorScheme): Promise<void> {
+  await SecureStore.setItemAsync(COLOR_SCHEME_KEY, colorScheme)
+}
 
 export type RememberedUser = {
   email: string

@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react-native"
-import { GitBranch, Repeat2, Settings, TerminalSquare, UserCircle2 } from "lucide-react-native"
+import { GitBranch, RefreshCw, Repeat2, Settings, TerminalSquare, UserCircle2 } from "lucide-react-native"
 import type { MobileBootstrap } from "@/lib/types"
 
-export type AppTabRoute = "sessions" | "repos" | "routines" | "terminal"
+export type AppTabRoute = "sessions" | "repos" | "routines" | "loops" | "terminal"
 export type AppRoutePath = `/${AppTabRoute}`
 
 export type AppTabConfig = {
@@ -34,6 +34,13 @@ export const APP_TABS: AppTabConfig[] = [
     label: "Routines",
     subtitle: "Manage scheduled and API-triggered AI workflows.",
     icon: Repeat2,
+  },
+  {
+    route: "loops",
+    path: "/loops",
+    label: "Loops",
+    subtitle: "Run and manage autonomous goal loops.",
+    icon: RefreshCw,
   },
   {
     route: "terminal",

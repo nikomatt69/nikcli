@@ -13,6 +13,18 @@ export const MIN_INTERVAL_MS = 30_000
 export const MAX_CONCURRENT_RUNS = 3
 export const HISTORY_LIMIT = 50
 
+/**
+ * How long a `running` LoopRun can stay untouched before `restore()` declares it
+ * orphaned. Mirrors `BackgroundRun.LEASE_TIMEOUT_MS` (`src/background/run.ts`).
+ */
+export const LOOP_RUN_LEASE_MS = 15_000
+
+/**
+ * Upper bound for interval triggers. Prevents adversarial or accidental
+ * trillion-ms intervals that the user can never cancel.
+ */
+export const MAX_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000
+
 const log = Log.create({ service: "loop.schema" })
 
 export const LoopTriggerSchema = z.discriminatedUnion("kind", [
@@ -102,6 +114,9 @@ export function validateDefinition(def: LoopDefinition): string | undefined {
   }
   if (def.trigger.kind === "interval" && def.trigger.everyMs < MIN_INTERVAL_MS) {
     return `Interval must be at least ${formatDuration(MIN_INTERVAL_MS)}`
+  }
+  if (def.trigger.kind === "interval" && def.trigger.everyMs > MAX_INTERVAL_MS) {
+    return `Interval cannot exceed ${formatDuration(MAX_INTERVAL_MS)}`
   }
   if (def.maxRuns !== undefined && (!Number.isInteger(def.maxRuns) || def.maxRuns <= 0)) {
     return "Max runs must be a positive integer"

@@ -2,10 +2,17 @@
  * Loops — headless engine.
  *
  * Owns the interval triggers via the core `Scheduler` and drives each run
- * server-side through the existing Goal command. The Goal system iterates
- * autonomously until the agent declares the goal complete/blocked or the
- * iteration/budget cap is hit; this engine only schedules, enforces back-
- * pressure, tracks live status, and reconciles in-flight runs after a restart.
+ * server-side through the existing Goal command. Each run is a single
+ * `SessionPrompt.command({ command: "goal" })` call: the agent's own goal loop
+ * (see `src/session/goal.ts` and `nextGoalPrompt` in `src/session/prompt.ts`)
+ * is responsible for the until-done iteration; this engine only handles
+ * scheduling, single-flight, concurrency back-pressure, maxRuns enforcement,
+ * in-flight abort, persistence, and live status tracking.
+ *
+ * All per-instance state (`live` runtime map, `inFlight` slot map) lives in
+ * `Instance.state` so loops in different projects can't collide. Definitions
+ * are persisted in `Storage`; timers are re-armed by `restore()` and stale
+ * `running` runs are reconciled to `"orphaned"` on the same call.
  *
  * Designed to run with the TUI closed: definitions are persisted in `Storage`
  * and the timers live in the server process, so intervals fire regardless of
@@ -24,7 +31,14 @@ import { SessionPrompt } from "../session/prompt"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "../effect"
 import { Effect } from "effect"
 import * as Manager from "./manager"
-import { MAX_CONCURRENT_RUNS, type LoopDefinition, type LoopRun } from "./schema"
+import {
+  LOOP_RUN_LEASE_MS,
+  LoopRunStatusSchema,
+  MAX_CONCURRENT_RUNS,
+  type LoopDefinition,
+  type LoopRun,
+  type LoopRunStatus,
+} from "./schema"
 
 const log = Log.create({ service: "loop.engine" })
 
@@ -48,7 +62,7 @@ export const LoopEvent = {
     z.object({
       loopID: z.string(),
       runID: z.string(),
-      sessionID: z.string().optional(),
+      sessionID: z.string(),
     }),
   ),
   RunFinished: BusEvent.define(
@@ -56,9 +70,13 @@ export const LoopEvent = {
     z.object({
       loopID: z.string(),
       runID: z.string(),
-      status: z.string(),
+      sessionID: z.string().optional(),
+      status: LoopRunStatusSchema,
       ok: z.boolean(),
       error: z.string().optional(),
+      additions: z.number().optional(),
+      deletions: z.number().optional(),
+      files: z.number().optional(),
     }),
   ),
   /** Emitted whenever the engine's live runtime map changes (subscribed by the TUI sidebar). */
@@ -68,11 +86,20 @@ export const LoopEvent = {
       loopID: z.string(),
     }),
   ),
+  /** Emitted when the engine refuses to start a run (or aborts one in flight). */
+  Aborted: BusEvent.define(
+    "loop.aborted",
+    z.object({
+      loopID: z.string(),
+      runID: z.string().optional(),
+      reason: z.string(),
+    }),
+  ),
 }
 
 // ── Live runtime state ────────────────────────────────────────────────────────
 
-export type RuntimeStatus = "idle" | "running" | "paused" | "error"
+export type RuntimeStatus = "idle" | "running" | "paused" | "error" | "cancelling"
 
 export type Runtime = {
   status: RuntimeStatus
@@ -83,18 +110,49 @@ export type Runtime = {
 }
 
 const EMPTY: Runtime = { status: "idle", runs: 0 }
-const live: Map<string, Runtime> = new Map()
-const inFlight: Map<string, Promise<void>> = new Map()
 
-export function runtimeOf(id: string): Runtime {
-  return live.get(id) ?? EMPTY
+type EngineState = {
+  live: Map<string, Runtime>
+  inFlight: Map<string, InFlightRun>
 }
 
-function allRuntimes(): Map<string, Runtime> {
-  return live
+type InFlightRun = {
+  promise: Promise<void>
+  controller: AbortController
+  runID?: string
+  sessionID?: string
+}
+
+const createEngineState = (): EngineState => ({
+  live: new Map(),
+  inFlight: new Map(),
+})
+
+/**
+ * Per-instance state, identical pattern to `Scheduler` (`src/scheduler/index.ts`).
+ * Loops in different projects resolve to different state objects, so `loop_aaa`
+ * in project A and `loop_aaa` in project B do not collide.
+ */
+const state = Instance.state(
+  () => createEngineState(),
+  async (entry) => {
+    for (const slot of entry.inFlight.values()) slot.controller.abort()
+    entry.inFlight.clear()
+    entry.live.clear()
+  },
+)
+
+/** Resolve the engine state for the *current* instance. */
+function instanceState(): EngineState {
+  return state()
+}
+
+export function runtimeOf(id: string): Runtime {
+  return instanceState().live.get(id) ?? EMPTY
 }
 
 function patch(id: string, next: (prev: Runtime) => Runtime): void {
+  const { live } = instanceState()
   const prev = live.get(id) ?? EMPTY
   const value = next(prev)
   if (value === prev) return
@@ -117,7 +175,7 @@ function describeError(error: unknown): string {
 
 function runningCount(): number {
   let n = 0
-  for (const r of live.values()) if (r.status === "running") n += 1
+  for (const r of instanceState().live.values()) if (r.status === "running") n += 1
   return n
 }
 
@@ -137,6 +195,7 @@ async function executeStage(
   def: LoopDefinition,
   stage: LoopDefinition["stages"][number],
   sessionID: string,
+  signal: AbortSignal,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const args = stage.tokenBudget ? `${stage.objective} --token-budget ${stage.tokenBudget}` : stage.objective
@@ -153,6 +212,9 @@ async function executeStage(
         return yield* prompt.command(input)
       }),
     )
+    if (signal.aborted) {
+      return { ok: false, error: "aborted" }
+    }
     return { ok: true }
   } catch (error) {
     return { ok: false, error: describeError(error) }
@@ -189,14 +251,54 @@ async function ensureLoopSession(def: LoopDefinition, reuse?: string): Promise<s
   return ensureSession(`loop: ${def.name}`)
 }
 
+/**
+ * Cancel the SessionPrompt for an in-flight run. Best-effort: the goal command
+ * is a single `prompt.command` call, so the in-flight `executeStage` will see
+ * the `signal.aborted` flag and short-circuit. The session itself is left
+ * intact so the user can still inspect the work that was done.
+ */
+async function cancelInFlightRun(loopID: string, runID: string | undefined, sessionID?: string): Promise<void> {
+  const slot = instanceState().inFlight.get(loopID)
+  slot?.controller.abort()
+  if (sessionID) {
+    try {
+      await runSessionPrompt(
+        Effect.gen(function* () {
+          const prompt = yield* SessionPrompt.Service
+          yield* prompt.cancel(sessionID)
+        }),
+      )
+    } catch (error) {
+      log.warn("session cancel failed", {
+        loopID,
+        runID,
+        error: describeError(error),
+      })
+    }
+  }
+}
+
 /** Run all stages of a loop sequentially in one session. */
-async function executeRun(def: LoopDefinition, run: LoopRun): Promise<void> {
+async function executeRun(
+  def: LoopDefinition,
+  run: LoopRun,
+  signal: AbortSignal,
+  onSessionID?: (sessionID: string) => void,
+): Promise<{
+  ok: boolean
+  firstError?: string
+  sessionID: string
+}> {
   patch(def.id, (prev) => ({
     ...prev,
     status: "running",
     lastError: undefined,
   }))
   const sessionID = await ensureLoopSession(def, run.sessionID)
+  onSessionID?.(sessionID)
+  if (signal.aborted) {
+    return { ok: false, sessionID, firstError: "aborted before stages ran" }
+  }
   patch(def.id, (prev) => ({ ...prev, sessionID }))
 
   await Manager.finishRun(def.id, run.id, {
@@ -213,7 +315,11 @@ async function executeRun(def: LoopDefinition, run: LoopRun): Promise<void> {
 
   let firstError: string | undefined
   for (const stage of def.stages) {
-    const result = await executeStage(def, stage, sessionID)
+    if (signal.aborted) {
+      firstError = "aborted"
+      break
+    }
+    const result = await executeStage(def, stage, sessionID, signal)
     if (!result.ok) {
       firstError = result.error ?? `Stage "${stage.name}" failed`
       break
@@ -222,26 +328,34 @@ async function executeRun(def: LoopDefinition, run: LoopRun): Promise<void> {
 
   const endedAt = Date.now()
   const ok = firstError === undefined
+  const finalStatus: LoopRunStatus = signal.aborted ? "cancelled" : ok ? "complete" : "error"
   await Manager.finishRun(def.id, run.id, {
-    status: ok ? "complete" : "error",
-    ok,
+    status: finalStatus,
+    ok: ok && !signal.aborted,
     endedAt,
     ...(firstError !== undefined ? { error: firstError } : {}),
   })
   void Bus.publish(LoopEvent.RunFinished, {
     loopID: def.id,
     runID: run.id,
-    status: ok ? "complete" : "error",
-    ok,
+    sessionID,
+    status: finalStatus,
+    ok: ok && !signal.aborted,
     ...(firstError !== undefined ? { error: firstError } : {}),
   })
 
-  if (ok) {
+  if (ok && !signal.aborted) {
     patch(def.id, (prev) => ({
       ...prev,
       status: "idle",
       runs: prev.runs + 1,
       lastRunAt: endedAt,
+    }))
+  } else if (signal.aborted) {
+    patch(def.id, (prev) => ({
+      ...prev,
+      status: "idle",
+      lastError: firstError,
     }))
   } else {
     patch(def.id, (prev) => ({
@@ -251,69 +365,149 @@ async function executeRun(def: LoopDefinition, run: LoopRun): Promise<void> {
       sessionID: undefined,
     }))
   }
+  return { ok: ok && !signal.aborted, firstError, sessionID }
 }
+
+// ── Public API ────────────────────────────────────────────────────────────────
 
 /**
  * Run a loop once. Returns immediately if a run is already in flight for this
  * loop, or if global concurrency is at capacity. Errors are caught and surfaced
  * via Bus + Runtime state.
+ *
+ * Concurrency safety: the single-flight slot is **claimed synchronously** before
+ * any await, so two concurrent `runOnce(id)` calls (e.g. timer + manual button)
+ * can never both pass the `inFlight.has` guard. The first call replaces the
+ * placeholder with a real promise; the second call returns the same promise.
  */
 export async function runOnce(id: string): Promise<void> {
-  if (inFlight.has(id)) return
-  if (runningCount() >= MAX_CONCURRENT_RUNS) {
-    log.info("max concurrent runs reached; skipping", { id })
+  const { inFlight } = instanceState()
+  // ── Synchronous claim ──────────────────────────────────────────────────────
+  const existing = inFlight.get(id)
+  if (existing) {
     return
   }
-  const def = await Manager.get(id)
-  if (!def) {
-    log.warn("runOnce called for unknown loop", { id })
-    return
+  const ctrl = new AbortController()
+  const slot: InFlightRun = {
+    controller: ctrl,
+    promise: Promise.resolve(),
   }
-  if (!def.enabled) return
-  if (runtimeOf(id).status === "paused") return
+  inFlight.set(id, slot)
 
-  // Enforce maxRuns before kicking off a new run.
-  if (def.maxRuns !== undefined) {
-    const runs = await Manager.countRuns(id)
-    if (runs >= def.maxRuns) {
-      log.info("loop reached maxRuns; disarming", { id, maxRuns: def.maxRuns })
-      patch(id, (prev) => ({ ...prev, status: "idle" }))
-      Scheduler.unregister(schedulerID(id))
-      void Manager.setEnabled(id, false).catch(() => {})
+  try {
+    // ── Async bookkeeping (after the slot is claimed) ────────────────────────
+    if (runningCount() >= MAX_CONCURRENT_RUNS) {
+      log.info("max concurrent runs reached; skipping", { id })
       return
     }
-  }
+    const def = await Manager.get(id)
+    if (!def) {
+      log.warn("runOnce called for unknown loop", { id })
+      return
+    }
+    if (!def.enabled) return
+    if (runtimeOf(id).status === "paused") return
 
-  const run = await Manager.startRun(id)
-  const promise = executeRun(def, run)
-  inFlight.set(id, promise)
-  try {
-    await promise
-  } catch (error) {
-    const message = describeError(error)
-    log.error("run failed", { id, error: message })
-    await Manager.finishRun(id, run.id, {
-      status: "error",
-      ok: false,
-      endedAt: Date.now(),
-      error: message,
-    })
-    patch(id, (prev) => ({
-      ...prev,
-      status: "error",
-      lastError: message,
-      sessionID: undefined,
-    }))
-    void Bus.publish(LoopEvent.RunFinished, {
-      loopID: id,
-      runID: run.id,
-      status: "error",
-      ok: false,
-      error: message,
-    })
+    // Enforce maxRuns before kicking off a new run.
+    if (def.maxRuns !== undefined) {
+      const runs = await Manager.countRuns(id)
+      if (runs >= def.maxRuns) {
+        log.info("loop reached maxRuns; disarming", {
+          id,
+          maxRuns: def.maxRuns,
+        })
+        patch(id, (prev) => ({ ...prev, status: "idle" }))
+        Scheduler.unregister(schedulerID(id))
+        void Manager.setEnabled(id, false).catch(() => {})
+        return
+      }
+    }
+
+    const latest = await Manager.get(id)
+    if (!latest) {
+      log.warn("loop removed before run could start", { id })
+      return
+    }
+
+    const run = await Manager.startRun(id)
+    slot.runID = run.id
+
+    // Swap the placeholder for the real promise so subsequent calls await it.
+    const real = (async () => {
+      try {
+        await executeRun(def, run, ctrl.signal, (sessionID) => {
+          slot.sessionID = sessionID
+        })
+      } catch (error) {
+        const message = describeError(error)
+        log.error("run failed", { id, error: message })
+        await Manager.finishRun(id, run.id, {
+          status: "error",
+          ok: false,
+          endedAt: Date.now(),
+          error: message,
+        })
+        patch(id, (prev) => ({
+          ...prev,
+          status: "error",
+          lastError: message,
+          sessionID: undefined,
+        }))
+        void Bus.publish(LoopEvent.RunFinished, {
+          loopID: id,
+          runID: run.id,
+          status: "error",
+          ok: false,
+          error: message,
+        })
+      }
+    })()
+    slot.promise = real
+    await real
   } finally {
     inFlight.delete(id)
   }
+}
+
+/**
+ * Abort an in-flight run for a loop. Returns the in-flight promise (so the
+ * caller can await its completion) or `undefined` if nothing is running.
+ *
+ * The DELETE route calls this *before* `Manager.remove` so that no orphan
+ * `LoopRun` is written for a loop the user just deleted.
+ */
+export function abort(id: string): Promise<void> | undefined {
+  return instanceState().inFlight.get(id)?.promise
+}
+
+/** Cancel + finalize any in-flight run for a loop. Used by the DELETE route. */
+export async function cancelRun(id: string): Promise<void> {
+  const slot = instanceState().inFlight.get(id)
+  if (!slot) return
+  const runID = slot.runID
+  const sessionID = slot.sessionID ?? runtimeOf(id).sessionID
+  patch(id, (prev) => ({ ...prev, status: "cancelling" }))
+  await cancelInFlightRun(id, runID, sessionID)
+  if (runID) {
+    await Manager.finishRun(id, runID, {
+      status: "cancelled",
+      ok: false,
+      endedAt: Date.now(),
+      error: "Cancelled by user",
+    })
+  }
+  void Bus.publish(LoopEvent.Aborted, {
+    loopID: id,
+    ...(runID ? { runID } : {}),
+    reason: "user-cancel",
+  })
+  // Wait for the in-flight promise to settle.
+  try {
+    await slot.promise
+  } catch {
+    // best-effort
+  }
+  patch(id, (prev) => ({ ...prev, status: "idle" }))
 }
 
 // ── Scheduler arming ─────────────────────────────────────────────────────────
@@ -345,34 +539,71 @@ export function disarm(id: string): void {
   Scheduler.unregister(schedulerID(id))
 }
 
-/** Reconcile live timers + runtime state with persisted definitions. */
-export async function syncAll(): Promise<void> {
-  const defs = await Manager.list()
-  const ids = new Set(defs.map((d) => d.id))
-  for (const id of Array.from(inFlight.keys())) {
-    if (!ids.has(id)) {
-      // Definition was deleted while a run was in flight; let it finish naturally.
-    }
-  }
-  for (const def of defs) arm(def)
-}
-
-/** Re-arm all enabled interval loops for this instance. Call from InstanceBootstrap. */
+/**
+ * Re-arm all enabled interval loops for this instance, AND rehydrate the live
+ * `Runtime` map from the latest persisted run, AND reconcile any stale
+ * `"running"` runs (process died mid-run). Call from `InstanceBootstrap`.
+ */
 export async function restore(): Promise<void> {
   const defs = await Manager.list()
-  for (const def of defs) arm(def)
+  for (const def of defs) {
+    arm(def)
+    // Rehydrate runtime state from the latest run (if any).
+    const recent = await Manager.listRuns(def.id, 1)
+    if (recent.length > 0) {
+      const last = recent[0]
+      const rehydrated: Runtime = {
+        status: "idle",
+        runs: await Manager.countRuns(def.id),
+        lastRunAt: last.endedAt ?? last.startedAt,
+        ...(last.error ? { lastError: last.error } : {}),
+        ...(last.sessionID ? { sessionID: last.sessionID } : {}),
+      }
+      instanceState().live.set(def.id, rehydrated)
+    }
+  }
+
+  // Reconcile stale "running" runs (orphaned by a previous process exit).
+  const stale = await Manager.listRunningRuns()
+  const cutoff = Date.now() - LOOP_RUN_LEASE_MS
+  for (const run of stale) {
+    if (run.startedAt < cutoff) {
+      log.warn("orphaning stale run", { loopID: run.loopID, runID: run.id })
+      await Manager.orphanRun(run.loopID, run.id)
+      void Bus.publish(LoopEvent.RunFinished, {
+        loopID: run.loopID,
+        runID: run.id,
+        sessionID: run.sessionID,
+        status: "orphaned",
+        ok: false,
+        error: "Process exited before the run finished",
+      })
+    }
+  }
+
   log.info("restored loops", {
     count: defs.length,
     armed: defs.filter((d) => d.enabled && d.trigger.kind === "interval").length,
+    orphaned: stale.filter((r) => r.startedAt < cutoff).length,
   })
 }
 
-/** Drop all timers (instance disposal). */
+/**
+ * Surgical sync: arm/disarm a single loop based on its current state. Cheaper
+ * than `restore()` for write paths.
+ */
+export async function sync(id: string): Promise<void> {
+  const def = await Manager.get(id)
+  if (def) arm(def)
+  else disarm(id)
+}
+
+/** Drop all timers + per-instance state. (Instance disposal hook.) */
 export function dispose(): void {
-  // Scheduler.unregister on instance scope is handled by Instance.state finalizer,
-  // but we still wipe the local runtime cache so a fresh instance starts clean.
-  live.clear()
+  const { inFlight, live } = instanceState()
+  for (const slot of inFlight.values()) slot.controller.abort()
   inFlight.clear()
+  live.clear()
 }
 
 // ── Reactive read-only accessors (for routes + TUI) ─────────────────────────
@@ -382,8 +613,7 @@ export function getRuntime(id: string): Runtime {
 }
 
 export function listRuntimes(): Array<{ loopID: string; runtime: Runtime }> {
-  const defs = live.size ? Array.from(live.keys()) : []
-  return defs.map((id) => ({ loopID: id, runtime: runtimeOf(id) }))
+  return Array.from(instanceState().live.entries()).map(([loopID, runtime]) => ({ loopID, runtime }))
 }
 
 /** Reset the local in-memory run counter for a loop. Used after manual run cap edits. */
@@ -394,4 +624,16 @@ export function resetRunCount(id: string): void {
 /** Public mutator for the runtime status. Used by pause/resume routes. */
 export function setRuntimeStatus(id: string, status: RuntimeStatus): void {
   patch(id, (prev) => ({ ...prev, status }))
+}
+
+/** Test/debug helper: snapshot the engine state for assertions. */
+export function _internalSnapshot(): {
+  live: Array<[string, Runtime]>
+  inFlight: string[]
+} {
+  const { live, inFlight } = instanceState()
+  return {
+    live: Array.from(live.entries()),
+    inFlight: Array.from(inFlight.keys()),
+  }
 }

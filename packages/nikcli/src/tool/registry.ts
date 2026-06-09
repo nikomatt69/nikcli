@@ -48,7 +48,7 @@ import { DelegatorTool } from "./delegator"
 import { ExecCodeTool } from "./exec_code"
 import { SearchToolsTool } from "./search_tools"
 import { CreateGoalTool, GetGoalTool, UpdateGoalTool } from "./goal"
-import { TerminalControlTool } from "./terminal_control"
+
 
 const _toolDir = import.meta.dir
 
@@ -230,7 +230,7 @@ export namespace ToolRegistry {
           InvalidTool,
           ...(["app", "cli", "desktop"].includes(Flag.NIKCLI_CLIENT) ? [QuestionTool] : []),
           BashTool,
-          TerminalControlTool,
+         
           MonitorTool,
           ReadTool,
           TreeTool,

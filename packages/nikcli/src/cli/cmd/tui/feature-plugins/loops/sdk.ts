@@ -15,7 +15,7 @@ import { definitionFromGenerated, definitionFromGeneratedText, isValidModel, val
 export type { LoopDefinition, LoopTemplate, LoopRun } from "@/loop/schema"
 
 /** Wire types — what the server's runtime map returns per loop. */
-export type LoopRuntimeStatus = "idle" | "running" | "paused" | "error"
+export type LoopRuntimeStatus = "idle" | "running" | "paused" | "error" | "cancelling"
 export type LoopRuntime = {
   status: LoopRuntimeStatus
   runs: number
@@ -41,7 +41,9 @@ function asRuntime(value: unknown): LoopRuntime {
   const r = (value ?? {}) as Record<string, unknown>
   const statusRaw = asString(r.status, "idle")
   const status: LoopRuntimeStatus =
-    statusRaw === "running" || statusRaw === "paused" || statusRaw === "error" ? statusRaw : "idle"
+    statusRaw === "running" || statusRaw === "paused" || statusRaw === "error" || statusRaw === "cancelling"
+      ? statusRaw
+      : "idle"
   return {
     status,
     runs: asNumber(r.runs, 0),
@@ -192,6 +194,51 @@ export class LoopApi {
     return saved
   }
 
+  async update(def: LoopDefinition): Promise<LoopDefinition> {
+    const error = validateDefinition(def)
+    if (error) throw new Error(error)
+    const res = await this.client.loop.update({
+      path_id: def.id,
+      body_id: def.id,
+      name: def.name,
+      stages: def.stages,
+      trigger: def.trigger,
+      ...(def.maxRuns !== undefined ? { maxRuns: def.maxRuns } : {}),
+      enabled: def.enabled,
+      createdAt: def.createdAt,
+    })
+    const saved = asDefinition((res.data as unknown) ?? undefined)
+    if (!saved) throw new Error("Server returned an invalid loop definition")
+    return saved
+  }
+
+  async getRuntime(id: string): Promise<LoopRuntime | undefined> {
+    try {
+      const res = await this.client.loop.get({ id })
+      const data = res.data as unknown
+      if (!data || typeof data !== "object") return undefined
+      const v = data as { runtime?: unknown }
+      return v.runtime ? asRuntime(v.runtime) : undefined
+    } catch {
+      return undefined
+    }
+  }
+
+  async abort(id: string): Promise<boolean> {
+    try {
+      // The server doesn't currently expose a per-loop abort endpoint; the
+      // route is reserved for the Phase 3. We attempt it best-effort.
+      const client = this.client as unknown as {
+        loop: { abort?: (input: { id: string }) => Promise<{ data: unknown }> }
+      }
+      if (!client.loop.abort) return false
+      const res = await client.loop.abort({ id })
+      return res.data === true
+    } catch {
+      return false
+    }
+  }
+
   async remove(id: string): Promise<boolean> {
     try {
       const res = await this.client.loop.delete({ id })
@@ -265,25 +312,16 @@ export class LoopApi {
 
   /**
    * Ask the configured model to author a pipeline from a natural-language
-   * description. Creates a throwaway session, runs the goal command, then
-   * parses the first response into a LoopDefinition. The user still confirms
-   * before persistence.
+   * description. The server's `/loop/generate` endpoint handles the LLM call
+   * so the wire schema (and agent) stay consistent across clients.
    */
   async generateFromDescription(
     description: string,
     opts: { model?: string; agent?: string } = {},
   ): Promise<LoopDefinition> {
-    // The server's /loop/generate endpoint handles the LLM call. We use it
-    // directly to keep the wire schema (and agent) consistent across clients.
     const res = await this.client.loop.generate({ description, ...opts })
     const def = asDefinition((res.data as unknown) ?? undefined)
-    if (!def) {
-      // Fallback: if the server returned unparseable, try parsing the response
-      // as text. Most useful when the server path returned a 200 with raw text.
-      const text = typeof (res.data as unknown) === "string" ? (res.data as unknown as string) : ""
-      if (text) return definitionFromGeneratedText(text)
-      throw new Error("The model did not return a usable pipeline")
-    }
+    if (!def) throw new Error("The model did not return a usable pipeline")
     return def
   }
 }

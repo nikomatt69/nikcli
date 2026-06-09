@@ -1,5 +1,7 @@
 #!/usr/bin/env bun
 
+export {} // mark as module so top-level await is allowed
+
 /**
  * ci-check-workflows.ts — Scheduled CI health check.
  *
@@ -7,21 +9,45 @@
  *   1. Lists the most recent workflow runs for this repository
  *   2. Identifies any non-success conclusion (failure, cancelled, timed_out)
  *      from the lookback window
- *   3. Posts (or updates) a sticky issue with the summary, or
- *      logs OK if all recent runs are green
+ *   3. Posts (or updates) a sticky tracking issue with the summary, or
+ *      just logs OK if all recent runs are green
  *
- * Designed to be safe to run repeatedly: it deduplicates by checking
- * whether a comment has already been posted for a given run_id.
+ * Uses @octokit/rest with GITHUB_TOKEN to:
+ *   - List workflow runs
+ *   - Find or create a tracking issue
+ *
+ * Falls back to fetch-based GitHub API if @octokit/rest is not resolvable.
  */
-
-import { Octokit } from "@octokit/rest"
 
 // ─── Config ─────────────────────────────────────────────────────────────────
 
-const WINDOW_HOURS = 6 // check runs in the last 6h (slightly wider than the 5h cron)
+const WINDOW_HOURS = 6 // look at the last 6h (slightly wider than the 5h cron)
 const STICKY_MARKER = "<!-- nikcli-ci-check -->"
 const ISSUE_TITLE = "CI workflow health check"
 const ISSUE_LABELS = ["nikcli-ci-check", "ci"]
+
+// ─── Types ──────────────────────────────────────────────────────────────────
+
+type WorkflowRun = {
+  name: string
+  display_title: string | null
+  conclusion: string | null
+  status: string
+  html_url: string
+  head_branch: string | null
+  head_sha: string
+  event: string
+  created_at: string | null
+}
+
+type Issue = {
+  number: number
+  title: string | null
+  state: string | null
+  body: string | null
+}
+
+// ─── GitHub client (octokit with fetch fallback) ────────────────────────────
 
 const repo = process.env["GITHUB_REPOSITORY"] ?? ""
 const token = process.env["GITHUB_TOKEN"] ?? ""
@@ -41,30 +67,51 @@ if (!owner || !repoName) {
   process.exit(1)
 }
 
-// ─── GitHub client ──────────────────────────────────────────────────────────
+const githubBase = "https://api.github.com"
+const headers: Record<string, string> = {
+  Authorization: `Bearer ${token}`,
+  Accept: "application/vnd.github+json",
+  "X-GitHub-Api-Version": "2022-11-28",
+  "User-Agent": "nikcli-ci-check",
+}
 
-const octokit = new Octokit({ auth: token })
+let Octokit: any = null
+try {
+  const mod: any = await import("@octokit/rest")
+  Octokit = mod.Octokit ?? mod.default
+} catch {
+  console.log("Using fetch-based GitHub API (no @octokit/rest)")
+}
+
+async function githubFetch<T = any>(path: string, opts: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${githubBase}${path}`, {
+    ...opts,
+    headers: {
+      ...headers,
+      ...((opts.headers as Record<string, string>) || {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`GitHub API ${res.status}: ${body.slice(0, 200)}`)
+  }
+  return res.json() as Promise<T>
+}
+
+let octokit: any = null
+if (Octokit) {
+  octokit = new Octokit({ auth: token })
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function isUnhealthy(conclusion: string | null, status: string): boolean {
-  // status: queued | in_progress | waiting | pending | requested | completed
-  if (status !== "completed") return false // in-flight runs are not failures
+  if (status !== "completed") return false
   if (!conclusion) return false
   return conclusion === "failure" || conclusion === "cancelled" || conclusion === "timed_out"
 }
 
-function formatRun(r: {
-  name: string
-  display_title?: string | null
-  conclusion: string | null
-  status: string
-  html_url: string
-  head_branch: string | null
-  head_sha: string
-  event: string
-  created_at: string | null
-}): string {
+function formatRun(r: WorkflowRun): string {
   const title = r.display_title ?? r.name
   const branch = r.head_branch ?? "?"
   const sha = r.head_sha.slice(0, 8)
@@ -73,7 +120,7 @@ function formatRun(r: {
   return `| [${r.name}](${r.html_url}) | \`${branch}\` | \`${sha}\` | ${r.event} | ${when} | ${status} | ${title} |`
 }
 
-function buildIssueBody(runs: Array<Parameters<typeof formatRun>[0]>, windowHours: number, ok: boolean): string {
+function buildIssueBody(runs: WorkflowRun[], windowHours: number, ok: boolean): string {
   const header = [
     STICKY_MARKER,
     `# ${ok ? "✅" : "⚠️"} CI workflow health check`,
@@ -121,49 +168,95 @@ function buildIssueBody(runs: Array<Parameters<typeof formatRun>[0]>, windowHour
   ].join("\n")
 }
 
-// ─── Main ───────────────────────────────────────────────────────────────────
+// ─── Data fetching ──────────────────────────────────────────────────────────
 
-async function listRecentRuns(windowHours: number) {
+async function listRecentRuns(windowHours: number): Promise<WorkflowRun[]> {
   const sinceIso = new Date(Date.now() - windowHours * 3600_000).toISOString()
-  const collected: Awaited<ReturnType<typeof octokit.actions.listWorkflowRunsForRepo>>["data"]["workflow_runs"] = []
+  const collected: WorkflowRun[] = []
   let page = 1
   for (let i = 0; i < 5; i++) {
-    const res = await octokit.actions.listWorkflowRunsForRepo({
-      owner,
-      repo: repoName,
-      per_page: 100,
-      page,
-      created: `>=${sinceIso}`,
-    })
-    collected.push(...res.data.workflow_runs)
-    if (res.data.workflow_runs.length < 100) break
+    const res = octokit
+      ? await octokit.actions.listWorkflowRunsForRepo({
+          owner,
+          repo: repoName,
+          per_page: 100,
+          page,
+          created: `>=${sinceIso}`,
+        })
+      : {
+          data: await githubFetch<{ workflow_runs: WorkflowRun[] }>(
+            `/repos/${owner}/${repoName}/actions/runs?per_page=100&page=${page}&created=%3E=${encodeURIComponent(sinceIso)}`,
+          ),
+        }
+    const runs: WorkflowRun[] = octokit ? res.data.workflow_runs : res.data.workflow_runs
+    collected.push(...runs)
+    if (runs.length < 100) break
     page++
   }
   return collected
 }
 
-async function findExistingIssue(): Promise<{
-  number: number
-  body: string
-} | null> {
-  const issues = await octokit.issues.listForRepo({
-    owner,
-    repo: repoName,
-    state: "open",
-    labels: ISSUE_LABELS.join(","),
-    per_page: 10,
-  })
-  const match = issues.data.find(
-    (i: { title: string | null; state: string | null }) => i.title === ISSUE_TITLE && i.state === "open",
-  )
-  return match ? { number: match.number, body: match.body ?? "" } : null
+async function findExistingIssue(): Promise<Issue | null> {
+  const issues: Issue[] = octokit
+    ? (
+        await octokit.issues.listForRepo({
+          owner,
+          repo: repoName,
+          state: "open",
+          labels: ISSUE_LABELS.join(","),
+          per_page: 10,
+        })
+      ).data
+    : await githubFetch<Issue[]>(
+        `/repos/${owner}/${repoName}/issues?state=open&labels=${encodeURIComponent(ISSUE_LABELS.join(","))}&per_page=10`,
+      )
+  const match = issues.find((i) => i.title === ISSUE_TITLE && i.state === "open")
+  return match ?? null
 }
+
+async function postOrUpdateIssue(body: string, existing: Issue | null): Promise<string> {
+  if (existing) {
+    if (octokit) {
+      await octokit.issues.update({
+        owner,
+        repo: repoName,
+        issue_number: existing.number,
+        body,
+      })
+    } else {
+      await githubFetch(`/repos/${owner}/${repoName}/issues/${existing.number}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      })
+    }
+    return `Updated existing tracking issue #${existing.number}`
+  }
+
+  if (octokit) {
+    const created = await octokit.issues.create({
+      owner,
+      repo: repoName,
+      title: ISSUE_TITLE,
+      body,
+      labels: ISSUE_LABELS,
+    })
+    return `Created new tracking issue #${created.data.number}`
+  }
+
+  const created = await githubFetch<Issue>(`/repos/${owner}/${repoName}/issues`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: ISSUE_TITLE, body, labels: ISSUE_LABELS }),
+  })
+  return `Created new tracking issue #${created.number}`
+}
+
+// ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main() {
   const runs = await listRecentRuns(WINDOW_HOURS)
-  const unhealthy = runs.filter((r: { conclusion: string | null; status: string }) =>
-    isUnhealthy(r.conclusion, r.status),
-  )
+  const unhealthy = runs.filter((r) => isUnhealthy(r.conclusion, r.status))
   const ok = unhealthy.length === 0
 
   console.log(`Checked ${runs.length} run(s) in the last ${WINDOW_HOURS}h; ${unhealthy.length} unhealthy.`)
@@ -171,7 +264,6 @@ async function main() {
   const body = buildIssueBody(runs, WINDOW_HOURS, ok)
 
   if (ok) {
-    // Healthy — log only, do not spam the issue tracker
     console.log("All CI workflows healthy in the lookback window. No issue action.")
     if (process.env["CI_CHECK_VERBOSE"] === "1") {
       console.log("\n" + body)
@@ -180,24 +272,8 @@ async function main() {
   }
 
   const existing = await findExistingIssue()
-  if (existing) {
-    await octokit.issues.update({
-      owner,
-      repo: repoName,
-      issue_number: existing.number,
-      body,
-    })
-    console.log(`Updated existing tracking issue #${existing.number}`)
-  } else {
-    const created = await octokit.issues.create({
-      owner,
-      repo: repoName,
-      title: ISSUE_TITLE,
-      body,
-      labels: ISSUE_LABELS,
-    })
-    console.log(`Created new tracking issue #${created.data.number}`)
-  }
+  const result = await postOrUpdateIssue(body, existing)
+  console.log(result)
 }
 
 main().catch((err) => {
