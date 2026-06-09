@@ -234,7 +234,9 @@ export namespace ModelsDev {
 
   export async function get() {
     if (!Flag.NIKCLI_DISABLE_MODELS_FETCH) {
-      refresh()
+      refresh().catch((error) => {
+        log.error("background models refresh failed", { error })
+      })
     }
     const file = Bun.file(filepath)
     const result = await file.json().catch(() => {})
@@ -250,12 +252,18 @@ export namespace ModelsDev {
     if (Flag.NIKCLI_DISABLE_MODELS_FETCH) return {}
     const url = Global.Path.modelsDevUrl
     const json = await fetch(`${url}/api.json`)
-      .then((x) => x.text())
+      .then((x) => (x.ok ? x.text() : "{}"))
       .catch((error) => {
         log.error("Failed to fetch models.dev", { error })
         return "{}"
       })
-    return patch(JSON.parse(json) as Record<string, Provider>)
+    try {
+      return patch(JSON.parse(json) as Record<string, Provider>)
+    } catch (error) {
+      // Captive portals / proxies can return a 200 with a non-JSON body.
+      log.error("models.dev returned invalid JSON", { error })
+      return {}
+    }
   }
 
   export async function refresh() {

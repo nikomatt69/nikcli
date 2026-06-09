@@ -142,13 +142,17 @@ export namespace Bus {
   export async function publish<Definition extends BusEvent.Definition>(
     def: Definition,
     properties: z.output<Definition["properties"]>,
-  ) {
+  ): Promise<void> {
+    // Best-effort by contract: most call sites fire-and-forget, so a rejection
+    // here must never escape as an unhandled rejection — log it instead.
     return run(
       Effect.gen(function* () {
         const bus = yield* Service
         yield* bus.publish(def, properties)
       }),
-    )
+    ).catch((error) => {
+      log.error("publish failed", { type: def.type, error })
+    })
   }
 
   export function subscribe<Definition extends BusEvent.Definition>(

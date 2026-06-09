@@ -8,6 +8,9 @@ import { errors } from "../error"
 import { lazy } from "../../util/lazy"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 import { Effect } from "effect"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "pty-routes" })
 
 function runPty<A, E>(effect: Effect.Effect<A, E, Pty.Service>) {
   return runPromiseWithLayer(Pty.defaultLayer, withCurrentInstance(effect))
@@ -214,10 +217,14 @@ export const PtyRoutes = lazy(() =>
                       const pty = yield* Pty.Service
                       yield* pty.resize(id, msg.cols as number, msg.rows as number)
                     }),
-                  )
+                  ).catch((error) => {
+                    log.warn("pty resize failed", { id, error })
+                  })
                   return
                 }
-              } catch {}
+              } catch {
+                // Not a JSON control message — fall through and treat it as PTY input.
+              }
             }
             handler?.onMessage(text)
           },

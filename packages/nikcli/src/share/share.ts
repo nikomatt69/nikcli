@@ -27,7 +27,10 @@ export namespace Share {
         const session = yield* Session.Service
         return yield* session.getShare(sessionID)
       }),
-    ).catch(() => {})
+    ).catch((error) => {
+      log.debug("share lookup failed", { sessionID, error })
+      return undefined
+    })
     if (!share) return
     const { secret } = share
     pending.set(key, content)
@@ -54,6 +57,11 @@ export namespace Share {
             status: x.status,
           })
         }
+      })
+      .catch((error) => {
+        // A failed sync must not poison the queue: a rejected `queue` promise
+        // would make every later sync skip its .then() chain permanently.
+        log.warn("share sync failed", { key, error })
       })
   }
 

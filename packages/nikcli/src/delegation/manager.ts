@@ -406,7 +406,9 @@ export namespace Delegation {
               const sessionPrompt = yield* SessionPrompt.Service
               yield* sessionPrompt.cancel(record.sessionID!)
             }),
-          )
+          ).catch((error) => {
+            log.warn("failed to cancel session for timed out delegation", { delegationID, error })
+          })
         }
         scheduleForcedFinalize(delegationID, "timeout", "Timed out")
       } catch (err) {
@@ -427,6 +429,7 @@ export namespace Delegation {
         })
       })
     }, BackgroundRun.LEASE_TIMEOUT_MS)
+    entry.reconcileTimer.unref()
   }
 
   export async function create(params: CreateParams): Promise<Record> {
@@ -780,9 +783,13 @@ export namespace Delegation {
       }
 
       const check = () => {
-        void hasRunningDelegations().then((running) => {
-          if (!running) finish()
-        })
+        void hasRunningDelegations()
+          .then((running) => {
+            if (!running) finish()
+          })
+          .catch((error) => {
+            log.warn("failed to check running delegations", { parentSessionID, error })
+          })
       }
 
       const timer = setTimeout(finish, timeoutMs)
@@ -829,9 +836,13 @@ export namespace Delegation {
       }
 
       const check = () => {
-        void hasRunningDelegations().then((running) => {
-          if (!running) finish()
-        })
+        void hasRunningDelegations()
+          .then((running) => {
+            if (!running) finish()
+          })
+          .catch((error) => {
+            log.warn("failed to check running delegations", { jobID, error })
+          })
       }
 
       const timer = setTimeout(finish, timeoutMs)

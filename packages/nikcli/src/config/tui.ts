@@ -12,7 +12,7 @@ import { isRecord } from "@/util/record"
 import { Global } from "@/global"
 import { parsePluginSpecifier } from "@/plugin/shared"
 import { Effect } from "effect"
-import { InstanceState, type InstanceContext } from "@/effect"
+import { InstanceState, runPromiseWithLayer, type InstanceContext } from "@/effect"
 import { Filesystem } from "@/util/filesystem"
 
 export namespace TuiConfig {
@@ -177,7 +177,7 @@ export namespace TuiConfig {
   })
 
   const state = Instance.state(async () => {
-    return Effect.runPromise(loadState().pipe(Effect.provide(ConfigPaths.defaultLayer)))
+    return runPromiseWithLayer(ConfigPaths.defaultLayer, loadState())
   })
 
   export async function get() {

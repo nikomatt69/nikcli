@@ -82,14 +82,18 @@ export const GlobalRoutes = lazy(() =>
 
           // Send heartbeat every 30s to prevent WKWebView timeout (60s default)
           const heartbeat = setInterval(() => {
-            stream.writeSSE({
-              data: JSON.stringify({
-                payload: {
-                  type: "server.heartbeat",
-                  properties: {},
-                },
-              }),
-            })
+            stream
+              .writeSSE({
+                data: JSON.stringify({
+                  payload: {
+                    type: "server.heartbeat",
+                    properties: {},
+                  },
+                }),
+              })
+              .catch((error) => {
+                log.debug("sse heartbeat failed", { error })
+              })
           }, 30000)
 
           await new Promise<void>((resolve) => {

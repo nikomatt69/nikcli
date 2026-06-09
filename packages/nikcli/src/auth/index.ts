@@ -285,8 +285,13 @@ export namespace Auth {
       try {
         const text = await fs.readFile(filepath(), "utf-8")
         data = JSON.parse(text)
-      } catch {
-        // File doesn't exist or is corrupted, leave data empty
+      } catch (error) {
+        // Missing file is the normal first-run case; anything else means the
+        // auth store is unreadable and silently treating it as empty would
+        // make stored credentials vanish without a trace.
+        if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") {
+          log.warn("auth store unreadable, treating as empty", { error })
+        }
       }
     }
 
@@ -324,6 +329,9 @@ export namespace Auth {
     const normalized = normalizeKey(key)
     const file = filepath()
     const tmp = file + ".tmp"
+    // Serialize all auth.json mutations: an unguarded read-modify-write here
+    // can drop a concurrent update (e.g. a token refresh for another provider).
+    using _ = await Lock.write("auth-file")
     try {
       const data = await allImpl()
       await Bun.write(tmp, JSON.stringify({ ...data, [normalized]: info }, null, 2))
@@ -341,6 +349,7 @@ export namespace Auth {
     const normalized = normalizeKey(key)
     const file = filepath()
     const tmp = file + ".tmp"
+    using _ = await Lock.write("auth-file")
     try {
       const data = await allImpl()
       delete data[normalized]
