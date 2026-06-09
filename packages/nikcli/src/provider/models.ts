@@ -287,8 +287,11 @@ export namespace ModelsDev {
   }
 }
 
-setInterval(() => {
-  ModelsDev.refresh().catch((error) => {
-    Log.Default.error("scheduled models.dev refresh failed", { error })
-  })
-}, 60 * 1000 * 60).unref()
+setInterval(
+  () => {
+    ModelsDev.refresh().catch((error) => {
+      Log.Default.error("scheduled models.dev refresh failed", { error })
+    })
+  },
+  60 * 1000 * 60,
+).unref()

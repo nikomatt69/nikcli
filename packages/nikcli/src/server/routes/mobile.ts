@@ -3649,8 +3649,8 @@ export const MobileRoutes = lazy(() =>
           const { id } = c.req.valid("param")
           if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
           void LoopEngine.runOnce(id).catch((error) => {
-          log.error("loop run failed", { id, error })
-        })
+            log.error("loop run failed", { id, error })
+          })
           return c.json({ success: true as const })
         })
       },
