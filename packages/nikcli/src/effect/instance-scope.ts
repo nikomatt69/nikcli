@@ -1,6 +1,7 @@
 import { Instance } from "@/project/instance"
 import { Cause, Effect, Exit } from "effect"
 import { locallyInstance, locallyWorkspace, type InstanceContext } from "./instance-ref"
+import { AppRuntime } from "./runtime"
 
 export interface WithInput {
   readonly directory: string
@@ -22,7 +23,7 @@ export const InstanceScope = {
             const scoped = input.workspaceID
               ? locallyWorkspace({ id: input.workspaceID }, locallyInstance(ctx, effect))
               : locallyInstance(ctx, effect)
-            const exit = await Effect.runPromiseExit(scoped as Effect.Effect<A, E, never>)
+            const exit = await AppRuntime.runPromiseExit(scoped as Effect.Effect<A, E, never>)
             if (Exit.isSuccess(exit)) return exit.value
             throw Cause.squash(exit.cause)
           },

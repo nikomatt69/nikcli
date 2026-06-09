@@ -5,6 +5,7 @@ import { Filesystem } from "@/util/filesystem"
 import { Flag } from "@/flag/flag"
 import { Global } from "@/global"
 import { Cause, Context, Effect, Exit, Layer, Schema } from "effect"
+import { AppRuntime } from "@/effect/runtime"
 
 export namespace ConfigPaths {
   type MissingMode = "error" | "empty"
@@ -212,7 +213,7 @@ export namespace ConfigPaths {
   export const defaultLayer = layer
 
   async function runCompat<A, E>(effect: Effect.Effect<A, E>) {
-    const exit = await Effect.runPromiseExit(effect)
+    const exit = await AppRuntime.runPromiseExit(effect)
     if (Exit.isSuccess(exit)) return exit.value
     throw Cause.squash(exit.cause)
   }

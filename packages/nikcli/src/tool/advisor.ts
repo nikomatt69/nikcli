@@ -6,6 +6,9 @@ import DESCRIPTION from "./advisor.txt"
 import { Delegation } from "@/delegation/manager"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Log } from "@/util/log"
+
+const log = Log.create({ service: "tool.advisor" })
 
 const parameters = z.object({
   context: z
@@ -98,6 +101,14 @@ export const AdvisorTool = Tool.define<typeof parameters, AdvisorMetadata>("advi
         .catch(async (error) => {
           if (ctx.abort.aborted) return
           await Delegation.finalize(delegation.id, "error", "", error instanceof Error ? error.message : String(error))
+        })
+        .catch((error) => {
+          // Terminal guard: Delegation.finalize itself can reject; don't let it
+          // escape as an unhandled rejection from this fire-and-forget chain.
+          log.error("advisor delegation finalize failed", {
+            delegationID: delegation.id,
+            error: error instanceof Error ? error.message : String(error),
+          })
         })
 
       return {

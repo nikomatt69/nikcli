@@ -10,7 +10,7 @@ import { LLM } from "./llm"
 import { Agent } from "@/agent/agent"
 import { zodObject } from "@/util/effect-zod"
 import { Context, Effect, Layer, Schema } from "effect"
-import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { AppRuntime, InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 export namespace SessionSummary {
   const log = Log.create({ service: "session.summary" })
@@ -141,7 +141,7 @@ export namespace SessionSummary {
             .flatMap((x) => x.files)
             .map((x) => path.relative(ctx.worktree, x)),
         )
-        const diffs = (await Effect.runPromise(computeDiff({ messages: input.messages }))).filter((x) => {
+        const diffs = (await AppRuntime.runPromise(locallyInstance(ctx, computeDiff({ messages: input.messages })))).filter((x) => {
           return files.has(x.file)
         })
         await runSession(
@@ -178,7 +178,7 @@ export namespace SessionSummary {
         const msgWithParts = messages.find((message) => message.info.id === rootID)
         if (!msgWithParts || msgWithParts.info.role !== "user") return
         const userMsg = msgWithParts.info as MessageV2.User
-        const diffs = await Effect.runPromise(computeDiff({ messages }))
+        const diffs = await AppRuntime.runPromise(locallyInstance(ctx, computeDiff({ messages })))
         userMsg.summary = {
           ...userMsg.summary,
           diffs,
@@ -193,7 +193,7 @@ export namespace SessionSummary {
 
         const textPart = msgWithParts.parts.find((p) => p.type === "text" && !p.synthetic) as MessageV2.TextPart
         if (textPart && userMsg.summary?.title === undefined) {
-          const agent = await Effect.runPromise(agentService.get("title"))
+          const agent = await AppRuntime.runPromise(locallyInstance(ctx, agentService.get("title")))
           if (!agent) return
           const model = await runProvider(
             Effect.gen(function* () {

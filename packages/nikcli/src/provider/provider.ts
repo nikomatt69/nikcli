@@ -13,7 +13,7 @@ import { Env } from "../env"
 import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
 import { type DeepMutable, zodObject } from "@/util/effect-zod"
-import { Context, Effect, Layer, Schema, ScopedCache } from "effect"
+import { Context, Effect, Exit, Layer, Schema, ScopedCache } from "effect"
 import {
   InstanceState,
   locallyInstance,
@@ -1070,14 +1070,22 @@ export namespace Provider {
     log.info("init")
 
     // Auto-detect local Ollama and expose it as a provider when available.
-    const ollama = await loadOllamaProvider(config).catch(() => undefined)
+    const ollama = await loadOllamaProvider(config).catch((error) => {
+      log.debug("ollama provider unavailable", { error: error instanceof Error ? error.message : String(error) })
+      return undefined
+    })
     if (ollama && isProviderAllowed(ollama.id)) {
       providers[ollama.id] = ollama
     }
 
     // Auto-detect the nikcli inference gateway (default: https://inference.nikcli.store/v1).
     // Set NIKCLI_INFERENCE_KEY (or config.provider.nikcli-inference.options.apiKey) to enable.
-    const nikcliInference = await loadNikcliInferenceProvider(config).catch(() => undefined)
+    const nikcliInference = await loadNikcliInferenceProvider(config).catch((error) => {
+      log.debug("nikcli inference provider unavailable", {
+        error: error instanceof Error ? error.message : String(error),
+      })
+      return undefined
+    })
     if (nikcliInference && isProviderAllowed(nikcliInference.id)) {
       providers[nikcliInference.id] = nikcliInference
     }
@@ -1877,13 +1885,13 @@ export namespace Provider {
         const s = yield* getState()
         const provider = s.providers[providerID]
         if (provider) {
-          if (providerID.startsWith("nikcli"))
-            if (providerID.startsWith("github-copilot"))
-              for (const item of priority) {
-                for (const model of Object.keys(provider.models)) {
-                  if (model.includes(item)) return yield* getModelEffect(providerID, model)
-                }
+          if (providerID.startsWith("nikcli") || providerID.startsWith("github-copilot")) {
+            for (const item of priority) {
+              for (const model of Object.keys(provider.models)) {
+                if (model.includes(item)) return yield* getModelEffect(providerID, model)
               }
+            }
+          }
         }
 
         const nikcliProvider = s.providers["nikcli"]
@@ -1937,12 +1945,12 @@ export namespace Provider {
       const refresh: Interface["refresh"] = Effect.fn("Provider.refresh")(function* () {
         // Clear the cached LanguageModel instances built from the old SDK +
         // auth before invalidating, so the next getLanguage() rebuilds them.
-        try {
-          const s = yield* getState()
-          s.models.clear()
-          s.sdk.clear()
-        } catch {
-          // state never built yet — nothing to clear
+        // Effect failures don't surface as JS exceptions inside Effect.gen, so
+        // capture the Exit instead of a try/catch (state may not be built yet).
+        const stateExit = yield* Effect.exit(getState())
+        if (Exit.isSuccess(stateExit)) {
+          stateExit.value.models.clear()
+          stateExit.value.sdk.clear()
         }
         // Invalidate every cached directory entry, not just the current one.
         // Auth (`auth.json`) and config live in global/shared locations, so a

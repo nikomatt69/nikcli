@@ -525,8 +525,9 @@ export namespace Session {
             draft.share = share
           })
         })
-        .catch(() => {
-          // Silently ignore sharing errors during session creation
+        .catch((error) => {
+          // Auto-share is best-effort during session creation, but keep a trace.
+          log.warn("failed to auto-share session", { sessionID: result.id, error })
         })
     await publishBus(ctx, Event.Updated, {
       info: result,

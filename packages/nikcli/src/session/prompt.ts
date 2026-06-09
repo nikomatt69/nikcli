@@ -44,7 +44,14 @@ import { iife } from "@/util/iife"
 import { Shell } from "@/shell/shell"
 import { Context, Effect, Layer, ScopedCache } from "effect"
 import { Instance } from "@/project/instance"
-import { InstanceState, runPromiseWithLayer, runtimeFor, withCurrentInstance, type InstanceContext } from "@/effect"
+import {
+  AppRuntime,
+  InstanceState,
+  runPromiseWithLayer,
+  runtimeFor,
+  withCurrentInstance,
+  type InstanceContext,
+} from "@/effect"
 import { errorMessage } from "@/util/error"
 import { resolveTools, createStructuredOutputTool } from "./tools"
 
@@ -356,7 +363,7 @@ export namespace SessionPrompt {
   }
 
   function currentContext(): Promise<InstanceContext> {
-    return Effect.runPromise(withCurrentInstance(InstanceState.context))
+    return AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
   }
 
   function runInInstanceContext<A>(ctx: InstanceContext, fn: () => Promise<A>): Effect.Effect<A, Error> {

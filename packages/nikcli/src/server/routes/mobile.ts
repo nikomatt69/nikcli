@@ -53,7 +53,7 @@ import { generateFromDescription as generateLoopFromDescription } from "./loop"
 import { lazy } from "@/util/lazy"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
-import { InstanceScope, runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
+import { runPromiseWithLayer, withCurrentInstance, withInstance, withInstanceAsync } from "@/effect"
 
 const log = Log.create({ service: "mobile-routes" })
 
@@ -73,11 +73,9 @@ function runCommandForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, Command.Service>,
 ) {
-  return Effect.runPromise(
-    InstanceScope.with(
-      { directory: session.directory, workspaceID: session.workspaceID },
-      Effect.provide(effect, Command.defaultLayer),
-    ),
+  return withInstance(
+    { directory: session.directory, workspaceID: session.workspaceID },
+    Effect.provide(effect, Command.defaultLayer),
   )
 }
 
@@ -89,11 +87,9 @@ function runStatusForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, SessionStatus.Service>,
 ) {
-  return Effect.runPromise(
-    InstanceScope.with(
-      { directory: session.directory, workspaceID: session.workspaceID },
-      Effect.provide(effect, SessionStatus.defaultLayer),
-    ),
+  return withInstance(
+    { directory: session.directory, workspaceID: session.workspaceID },
+    Effect.provide(effect, SessionStatus.defaultLayer),
   )
 }
 
@@ -101,11 +97,9 @@ function runSessionPromptForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, SessionPrompt.Service>,
 ) {
-  return Effect.runPromise(
-    InstanceScope.with(
-      { directory: session.directory, workspaceID: session.workspaceID },
-      Effect.provide(effect, SessionPrompt.defaultLayer),
-    ),
+  return withInstance(
+    { directory: session.directory, workspaceID: session.workspaceID },
+    Effect.provide(effect, SessionPrompt.defaultLayer),
   )
 }
 
@@ -117,11 +111,9 @@ function runSessionForSession<A, E>(
   session: Pick<Session.Info, "directory" | "workspaceID">,
   effect: Effect.Effect<A, E, Session.Service>,
 ) {
-  return Effect.runPromise(
-    InstanceScope.with(
-      { directory: session.directory, workspaceID: session.workspaceID },
-      Effect.provide(effect, Session.defaultLayer),
-    ),
+  return withInstance(
+    { directory: session.directory, workspaceID: session.workspaceID },
+    Effect.provide(effect, Session.defaultLayer),
   )
 }
 
@@ -142,7 +134,7 @@ function runWorktree<A, E>(effect: Effect.Effect<A, E, Worktree.Service>) {
 }
 
 function runWorktreeForDirectory<A, E>(directory: string, effect: Effect.Effect<A, E, Worktree.Service>) {
-  return Effect.runPromise(InstanceScope.with({ directory }, Effect.provide(effect, Worktree.defaultLayer)))
+  return withInstance({ directory }, Effect.provide(effect, Worktree.defaultLayer))
 }
 
 function runConnectorAuth<A, E>(effect: Effect.Effect<A, E, ConnectorAuth.Service>) {
@@ -2599,9 +2591,13 @@ export const MobileRoutes = lazy(() =>
           GlobalBus.on("event", onEvent)
 
           const heartbeat = setInterval(() => {
-            void stream.writeSSE({
-              data: JSON.stringify({ type: "server.heartbeat", properties: { sessionID } }),
-            })
+            stream
+              .writeSSE({
+                data: JSON.stringify({ type: "server.heartbeat", properties: { sessionID } }),
+              })
+              .catch((error) => {
+                log.debug("sse heartbeat failed", { sessionID, error })
+              })
           }, 30000)
 
           await new Promise<void>((resolve) => {
@@ -3652,7 +3648,9 @@ export const MobileRoutes = lazy(() =>
         return withInstanceAsync({ directory: Instance.directory }, async () => {
           const { id } = c.req.valid("param")
           if (!(await LoopManager.get(id))) return c.json({ error: `Loop "${id}" not found` }, 404)
-          void LoopEngine.runOnce(id)
+          void LoopEngine.runOnce(id).catch((error) => {
+          log.error("loop run failed", { id, error })
+        })
           return c.json({ success: true as const })
         })
       },

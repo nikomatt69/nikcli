@@ -1,7 +1,8 @@
 import z from "zod"
 import { Config } from "../config/config"
 import { Effect } from "effect"
-import { InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { AppRuntime, InstanceState, runPromiseWithLayer, withCurrentInstance } from "@/effect"
+import { Instance } from "@/project/instance"
 import { Provider } from "@/provider/provider"
 
 export namespace Mode {
@@ -77,10 +78,14 @@ export namespace Mode {
     }),
   )
 
-  let cache: Record<string, Info> | undefined
+  // Modes are derived from per-instance config, so the memo must be keyed by
+  // directory — a single process can host multiple instances.
+  const cache = new Map<string, Record<string, Info>>()
 
   async function load() {
-    if (cache) return cache
+    const directory = Instance.directory
+    const existing = cache.get(directory)
+    if (existing) return existing
     const effect = Effect.scoped(
       Effect.gen(function* () {
         const handle = yield* facade
@@ -88,8 +93,9 @@ export namespace Mode {
         return value
       }),
     )
-    cache = await Effect.runPromise(effect)
-    return cache
+    const value = await AppRuntime.runPromise(effect)
+    cache.set(directory, value)
+    return value
   }
 
   export async function get(mode: string) {

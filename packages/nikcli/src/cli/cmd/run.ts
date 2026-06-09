@@ -543,7 +543,12 @@ export const RunCommand = cmd({
             })
           }
         }
-      })()
+      })().catch((error) => {
+        // Stream failures must surface through the normal error path: the
+        // processor is only awaited later, after the prompt round-trips, and an
+        // unhandled interim rejection would crash the run instead.
+        errorMsg = errorMsg ? errorMsg + EOL + String(error) : String(error)
+      })
 
       const resolvedAgent = await (async () => {
         if (!args.agent) return undefined

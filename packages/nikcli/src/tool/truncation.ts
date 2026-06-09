@@ -4,6 +4,7 @@ import type { Agent } from "../agent/agent"
 import { Scheduler } from "../scheduler"
 import { DIR as TruncationDir, GLOB as TruncationGlob, outputPath } from "./truncation-dir"
 import { Context, Effect, Layer } from "effect"
+import { AppRuntime } from "@/effect"
 
 export namespace Truncate {
   export const MAX_LINES = 2000
@@ -115,7 +116,7 @@ export namespace Truncate {
         Scheduler.register({
           id: "tool.truncation.cleanup",
           interval: HOUR_MS,
-          run: () => Effect.runPromise(cleanup()),
+          run: () => AppRuntime.runPromise(cleanup()),
           scope: "global",
           skipInitialRun: true,
         })
