@@ -244,9 +244,9 @@ describe("loops/store · diffDelta", () => {
   it("ignores unchanged files and never goes negative", () => {
     const snap = { "a.ts": { additions: 10, deletions: 5 } }
     expect(Store.diffDelta(snap, snap)).toEqual({ additions: 0, deletions: 0, files: 0 })
-    expect(Store.diffDelta({ "a.ts": { additions: 10, deletions: 0 } }, { "a.ts": { additions: 4, deletions: 0 } })).toEqual(
-      { additions: 0, deletions: 0, files: 0 },
-    )
+    expect(
+      Store.diffDelta({ "a.ts": { additions: 10, deletions: 0 } }, { "a.ts": { additions: 4, deletions: 0 } }),
+    ).toEqual({ additions: 0, deletions: 0, files: 0 })
   })
 
   it("counts a fresh run from an empty baseline", () => {

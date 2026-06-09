@@ -217,8 +217,16 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     draft: {
       name: "babysit PR",
       stages: [
-        { name: "watch", agent: "general", objective: "Check CI status on the current PR and report any failing checks" },
-        { name: "fix", agent: "ralph", objective: "Diagnose and fix the failing CI checks until the pipeline is green" },
+        {
+          name: "watch",
+          agent: "general",
+          objective: "Check CI status on the current PR and report any failing checks",
+        },
+        {
+          name: "fix",
+          agent: "ralph",
+          objective: "Diagnose and fix the failing CI checks until the pipeline is green",
+        },
       ],
     },
   },
@@ -241,7 +249,11 @@ export const LOOP_TEMPLATES: LoopTemplate[] = [
     draft: {
       name: "docs sync",
       stages: [
-        { name: "audit", agent: "general", objective: "Find documentation that is out of date with recent code changes" },
+        {
+          name: "audit",
+          agent: "general",
+          objective: "Find documentation that is out of date with recent code changes",
+        },
         { name: "update", agent: "build", objective: "Update the outdated documentation to match the current code" },
       ],
     },
@@ -498,7 +510,10 @@ export type DiffSnapshot = Record<string, { additions: number; deletions: number
  * snapshots. Per-file so a file edited across runs is not double-counted; only
  * the increase since `before` is attributed to this run.
  */
-export function diffDelta(before: DiffSnapshot, after: DiffSnapshot): { additions: number; deletions: number; files: number } {
+export function diffDelta(
+  before: DiffSnapshot,
+  after: DiffSnapshot,
+): { additions: number; deletions: number; files: number } {
   let additions = 0
   let deletions = 0
   let files = 0

@@ -110,31 +110,34 @@ export default function LoopDetailScreen() {
     setEnabled(loop.enabled)
   }, [])
 
-  const load = useCallback(async (silent = false) => {
-    if (!client) return
-    try {
-      if (!silent) setLoading(true)
-      setError(null)
-      const templatesPromise = client.listLoopTemplates()
-      if (isNew || !loopId) {
-        setTemplates((await templatesPromise).templates)
-        return
+  const load = useCallback(
+    async (silent = false) => {
+      if (!client) return
+      try {
+        if (!silent) setLoading(true)
+        setError(null)
+        const templatesPromise = client.listLoopTemplates()
+        if (isNew || !loopId) {
+          setTemplates((await templatesPromise).templates)
+          return
+        }
+        const [detail, history, templateResult] = await Promise.all([
+          client.getLoop(loopId),
+          client.listLoopRuns(loopId),
+          templatesPromise,
+        ])
+        applyDefinition(detail.loop)
+        setRuntime(detail.runtime)
+        setRuns(history.runs)
+        setTemplates(templateResult.templates)
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause))
+      } finally {
+        if (!silent) setLoading(false)
       }
-      const [detail, history, templateResult] = await Promise.all([
-        client.getLoop(loopId),
-        client.listLoopRuns(loopId),
-        templatesPromise,
-      ])
-      applyDefinition(detail.loop)
-      setRuntime(detail.runtime)
-      setRuns(history.runs)
-      setTemplates(templateResult.templates)
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      if (!silent) setLoading(false)
-    }
-  }, [applyDefinition, client, isNew, loopId])
+    },
+    [applyDefinition, client, isNew, loopId],
+  )
 
   useFocusEffect(
     useCallback(() => {
@@ -317,7 +320,10 @@ export default function LoopDetailScreen() {
         >
           <View className="flex-row flex-wrap gap-2">
             <InfoChip label={runtime.status} tone={runtimeTone(runtime)} />
-            <InfoChip label={definition.enabled ? "Enabled" : "Disabled"} tone={definition.enabled ? "good" : "neutral"} />
+            <InfoChip
+              label={definition.enabled ? "Enabled" : "Disabled"}
+              tone={definition.enabled ? "good" : "neutral"}
+            />
             <InfoChip label={`${runtime.runs} runs`} tone="neutral" />
             {runtime.lastRunAt ? <InfoChip label={`Last ${relativeTime(runtime.lastRunAt)}`} tone="neutral" /> : null}
           </View>
@@ -443,7 +449,11 @@ export default function LoopDetailScreen() {
             description="Each stage runs the goal command and must complete before the next stage starts."
           >
             <View className="gap-3">
-              <TextField label="Name" value={stage.name} onChangeText={(value) => updateStage(index, { name: value })} />
+              <TextField
+                label="Name"
+                value={stage.name}
+                onChangeText={(value) => updateStage(index, { name: value })}
+              />
               <TextField
                 label="Objective"
                 value={stage.objective}
@@ -498,12 +508,7 @@ export default function LoopDetailScreen() {
       <View className="gap-3">
         <ActionButton label={isNew ? "Create loop" : "Save changes"} loading={saving} onPress={() => void save()} />
         {!isNew && definition ? (
-          <ActionButton
-            label="Delete loop"
-            loading={action === "delete"}
-            onPress={deleteLoop}
-            variant="danger"
-          />
+          <ActionButton label="Delete loop" loading={action === "delete"} onPress={deleteLoop} variant="danger" />
         ) : null}
       </View>
 

@@ -658,7 +658,9 @@ export class MobileClient {
       !Array.isArray((result as JsonObject).loops) ||
       !Array.isArray((result as JsonObject).runtimes)
     ) {
-      throw new Error("The server returned an incompatible loop list. Update the connected Nikcli server and try again.")
+      throw new Error(
+        "The server returned an incompatible loop list. Update the connected Nikcli server and try again.",
+      )
     }
     return result as LoopListResult
   }

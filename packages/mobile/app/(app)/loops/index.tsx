@@ -66,11 +66,7 @@ function LoopRow({
           />
         </View>
         <View className="flex-1">
-          <ActionButton
-            label="Manage"
-            variant="secondary"
-            onPress={() => router.push(`/loops/${loop.id}` as Href)}
-          />
+          <ActionButton label="Manage" variant="secondary" onPress={() => router.push(`/loops/${loop.id}` as Href)} />
         </View>
       </View>
     </SurfaceCard>
@@ -86,24 +82,27 @@ export default function LoopsScreen() {
   const [runningID, setRunningID] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const load = useCallback(async (silent = false) => {
-    if (!client) {
-      setLoops([])
-      setRuntimes({})
-      return
-    }
-    try {
-      if (!silent) setRefreshing(true)
-      setError(null)
-      const result = await client.listLoops()
-      setLoops(result.loops)
-      setRuntimes(Object.fromEntries(result.runtimes.map((runtime) => [runtime.loopID, runtime])))
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      if (!silent) setRefreshing(false)
-    }
-  }, [client])
+  const load = useCallback(
+    async (silent = false) => {
+      if (!client) {
+        setLoops([])
+        setRuntimes({})
+        return
+      }
+      try {
+        if (!silent) setRefreshing(true)
+        setError(null)
+        const result = await client.listLoops()
+        setLoops(result.loops)
+        setRuntimes(Object.fromEntries(result.runtimes.map((runtime) => [runtime.loopID, runtime])))
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : String(cause))
+      } finally {
+        if (!silent) setRefreshing(false)
+      }
+    },
+    [client],
+  )
 
   useFocusEffect(
     useCallback(() => {
