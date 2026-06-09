@@ -11,7 +11,7 @@ import { Agent } from "@/agent/agent"
 import { Skill } from "@/skill"
 import { Token } from "@/util/token"
 import { Log } from "@/util/log"
-import { runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
+import { AppRuntime, runPromiseWithLayer, withCurrentInstance, InstanceState, type InstanceContext } from "@/effect"
 import { collectSystemPaths } from "./instruction"
 
 const log = Log.create({ service: "session.context-breakdown" })
@@ -79,7 +79,7 @@ export namespace SessionContext {
   }
 
   function currentContext(): Promise<InstanceContext> {
-    return Effect.runPromise(withCurrentInstance(InstanceState.context))
+    return AppRuntime.runPromise(withCurrentInstance(InstanceState.context))
   }
 
   const est = (s: string) => Token.estimate(s)

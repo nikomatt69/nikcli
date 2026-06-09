@@ -80,8 +80,16 @@ function startEventStream(directory: string) {
         continue
       }
 
-      for await (const event of events.stream) {
-        Rpc.emit("event", { id, event: event as Event })
+      try {
+        for await (const event of events.stream) {
+          Rpc.emit("event", { id, event: event as Event })
+        }
+      } catch (error) {
+        // A dropped stream must not kill the subscription loop — log and reconnect.
+        if (signal.aborted) return
+        Log.Default.warn("event stream interrupted, reconnecting", {
+          error: error instanceof Error ? error.message : error,
+        })
       }
 
       if (!signal.aborted) {
@@ -137,7 +145,11 @@ export const rpc = {
       directory: input.directory,
       init: InstanceBootstrap,
       fn: async () => {
-        await upgrade().catch(() => {})
+        await upgrade().catch((error) => {
+          Log.Default.debug("upgrade check failed", {
+            error: error instanceof Error ? error.message : String(error),
+          })
+        })
       },
     })
   },

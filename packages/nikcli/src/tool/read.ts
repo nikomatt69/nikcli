@@ -151,7 +151,7 @@ export const ReadTool = Tool.define("read", {
         yield* lsp.touchFile(filepath, false)
       }),
     )
-    FileTime.read(ctx.sessionID, filepath)
+    await FileTime.read(ctx.sessionID, filepath)
 
     return {
       title,

@@ -12,7 +12,7 @@ import PROMPT_TITLE from "./prompt/title.txt"
 import type { Provider } from "@/provider/provider"
 import { Skill } from "@/skill"
 import { Context, Effect, Layer } from "effect"
-import { InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
+import { AppRuntime, InstanceState, locallyInstance, runPromiseWithLayer, type InstanceContext } from "@/effect"
 
 const log = Log.create({ service: "system-prompt" })
 
@@ -107,7 +107,14 @@ export namespace SystemPrompt {
     if (uniqueNames.length === 0) return []
 
     const loaded = (
-      await Promise.all(uniqueNames.map((name) => Effect.runPromise(skill.load(name)).catch(() => undefined)))
+      await Promise.all(
+        uniqueNames.map((name) =>
+          AppRuntime.runPromise(skill.load(name)).catch((error) => {
+            log.warn("failed to load skill for system prompt", { name, error })
+            return undefined
+          }),
+        ),
+      )
     ).filter((skill): skill is Skill.Loaded => !!skill)
 
     if (loaded.length === 0) return []

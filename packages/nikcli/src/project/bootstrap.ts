@@ -35,6 +35,14 @@ function runLSP<A, E>(effect: Effect.Effect<A, E, LSP.Service>) {
   return runPromiseWithLayer(LSP.defaultLayer, withCurrentInstance(effect))
 }
 
+// Startup inits that must not block instance creation run fire-and-forget,
+// but a rejected promise must never escape as an unhandled rejection.
+function background(service: string, promise: Promise<unknown>) {
+  void promise.catch((error) => {
+    Log.Default.warn("background init failed", { service, error })
+  })
+}
+
 export async function InstanceBootstrap() {
   Log.Default.info("bootstrapping", { directory: Instance.directory })
   await runPlugin(
@@ -43,20 +51,26 @@ export async function InstanceBootstrap() {
       yield* plugin.init()
     }),
   )
-  void runPromiseWithLayer(
-    ShareNext.defaultLayer,
-    Effect.gen(function* () {
-      const shareNext = yield* ShareNext.Service
-      yield* shareNext.init()
-    }),
-  )
-  void runPromiseWithLayer(
-    Format.defaultLayer,
-    withCurrentInstance(
+  background(
+    "share",
+    runPromiseWithLayer(
+      ShareNext.defaultLayer,
       Effect.gen(function* () {
-        const format = yield* Format.Service
-        yield* format.init()
+        const shareNext = yield* ShareNext.Service
+        yield* shareNext.init()
       }),
+    ),
+  )
+  background(
+    "format",
+    runPromiseWithLayer(
+      Format.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const format = yield* Format.Service
+          yield* format.init()
+        }),
+      ),
     ),
   )
   await runLSP(
@@ -65,53 +79,71 @@ export async function InstanceBootstrap() {
       yield* lsp.init()
     }),
   )
-  void runPromiseWithLayer(
-    FileWatcher.defaultLayer,
-    withCurrentInstance(
+  background(
+    "file-watcher",
+    runPromiseWithLayer(
+      FileWatcher.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const fileWatcher = yield* FileWatcher.Service
+          yield* fileWatcher.init()
+        }),
+      ),
+    ),
+  )
+  background(
+    "file",
+    runFile(
       Effect.gen(function* () {
-        const fileWatcher = yield* FileWatcher.Service
-        yield* fileWatcher.init()
+        const file = yield* File.Service
+        yield* file.init()
       }),
     ),
   )
-  void runFile(
-    Effect.gen(function* () {
-      const file = yield* File.Service
-      yield* file.init()
-    }),
+  background(
+    "vcs",
+    runPromiseWithLayer(
+      Vcs.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const vcs = yield* Vcs.Service
+          yield* vcs.init()
+        }),
+      ),
+    ),
   )
-  void runPromiseWithLayer(
-    Vcs.defaultLayer,
-    withCurrentInstance(
+  background(
+    "snapshot",
+    runPromiseWithLayer(
+      Snapshot.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const snapshot = yield* Snapshot.Service
+          yield* snapshot.init()
+        }),
+      ),
+    ),
+  )
+  background(
+    "truncate",
+    runPromiseWithLayer(
+      Truncate.defaultLayer,
       Effect.gen(function* () {
-        const vcs = yield* Vcs.Service
-        yield* vcs.init()
+        const truncate = yield* Truncate.Service
+        yield* truncate.init()
       }),
     ),
   )
-  void runPromiseWithLayer(
-    Snapshot.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const snapshot = yield* Snapshot.Service
-        yield* snapshot.init()
-      }),
-    ),
-  )
-  void runPromiseWithLayer(
-    Truncate.defaultLayer,
-    Effect.gen(function* () {
-      const truncate = yield* Truncate.Service
-      yield* truncate.init()
-    }),
-  )
-  void runPromiseWithLayer(
-    Todo.defaultLayer,
-    withCurrentInstance(
-      Effect.gen(function* () {
-        const todo = yield* Todo.Service
-        yield* todo.init()
-      }),
+  background(
+    "todo",
+    runPromiseWithLayer(
+      Todo.defaultLayer,
+      withCurrentInstance(
+        Effect.gen(function* () {
+          const todo = yield* Todo.Service
+          yield* todo.init()
+        }),
+      ),
     ),
   )
   await Delegation.init()

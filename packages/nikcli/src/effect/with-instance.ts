@@ -24,7 +24,7 @@ import { InstanceScope, type WithInput } from "./instance-scope"
  * Use this at the outermost entry boundary, not inside per-operation helpers.
  */
 export function withInstance<A, E, R>(input: WithInput, effect: Effect.Effect<A, E, R>): Promise<A> {
-  return AppRuntime.runPromise(InstanceScope.with(input, effect) as Effect.Effect<A, unknown, never>) as Promise<A>
+  return AppRuntime.runPromise(InstanceScope.with(input, effect))
 }
 
 /**

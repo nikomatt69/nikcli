@@ -855,6 +855,14 @@ async function launchBackgroundSubtask(params: {
         parentAgent: params.parentAgent,
       })
     })
+    .catch((error) => {
+      // Terminal guard: the error path above can itself reject (finalize/wake),
+      // which would otherwise surface as an unhandled rejection.
+      log.error("background delegation error handling failed", {
+        delegationID: delegation.id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
 
   return {
     jobId: delegation.jobID!,

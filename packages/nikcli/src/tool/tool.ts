@@ -3,7 +3,7 @@ import type { MessageV2 } from "../session/message-v2"
 import type { Agent } from "../agent/agent"
 import type { PermissionNext } from "../permission/next"
 import { Truncate } from "./truncation"
-import { runPromiseWithLayer } from "@/effect"
+import { AppRuntime, runPromiseWithLayer } from "@/effect"
 import { Effect } from "effect"
 
 export namespace Tool {
@@ -61,7 +61,7 @@ export namespace Tool {
     /**
      * Compatibility Promise wrapper. Always present so legacy callers can keep using
      * `await tool.executeAsync(args, ctx)` while the codebase migrates to Effect-native
-     * call sites. Thin wrapper around `Effect.runPromise(execute(args, ctx))`.
+     * call sites. Thin wrapper around `AppRuntime.runPromise(execute(args, ctx))`.
      */
     executeAsync(args: z.infer<Parameters>, ctx: Context): Promise<Result<M>>
     formatValidationError?(error: z.ZodError): string
@@ -147,13 +147,14 @@ export namespace Tool {
             const result = yield* asEffect(authoredExecute(args, wrappedCtx)) as Effect.Effect<Result<M>, Error>
             if (result.metadata.truncated !== undefined) return result
 
-            const truncated = yield* Effect.gen(function* () {
-              try {
-                return yield* Effect.promise(() => truncateOutput(result.output, {}, initCtx?.agent))
-              } catch {
-                return { content: result.output, truncated: false } satisfies Truncate.Result
-              }
-            })
+            // Truncation is best-effort: fall back to the raw output if it fails.
+            // (A try/catch around `yield*` would not see Effect failures, and a
+            // rejected Effect.promise would kill the fiber as a defect.)
+            const truncated = yield* Effect.promise(() =>
+              truncateOutput(result.output, {}, initCtx?.agent).catch(
+                () => ({ content: result.output, truncated: false }) satisfies Truncate.Result,
+              ),
+            )
             return {
               ...result,
               output: truncated.content,
@@ -169,7 +170,7 @@ export namespace Tool {
           description: authored.description,
           parameters: authored.parameters,
           execute,
-          executeAsync: (args, ctx) => Effect.runPromise(execute(args, ctx)),
+          executeAsync: (args, ctx) => AppRuntime.runPromise(execute(args, ctx)),
           formatValidationError: authored.formatValidationError,
         }
         return def
