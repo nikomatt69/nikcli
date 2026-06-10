@@ -631,62 +631,6 @@ export const SessionRoutes = lazy(() =>
       },
     )
     .post(
-      "/:sessionID/init",
-      describeRoute({
-        summary: "Initialize session",
-        description:
-          "Analyze the current application and create an AGENTS.md file with project-specific agent configurations.",
-        operationId: "session.init",
-        responses: {
-          200: {
-            description: "200",
-            content: {
-              "application/json": {
-                schema: resolver(z.boolean()),
-              },
-            },
-          },
-          ...errors(400, 404),
-        },
-      }),
-      validator(
-        "param",
-        z.object({
-          sessionID: z.string().meta({ description: "Session ID" }),
-        }),
-      ),
-      validator("json", Session.InitializeInput.omit({ sessionID: true })),
-      async (c) => {
-        const sessionID = c.req.valid("param").sessionID
-        // Verify session exists first
-        await runSession(
-          Effect.gen(function* () {
-            const service = yield* Session.Service
-            yield* service.get(sessionID)
-          }),
-        )
-        // Then get instruction paths using current instance context
-        const ctx = captureInstanceContext()
-        const config = await runPromiseWithLayer(
-          Config.defaultLayer,
-          locallyInstance(
-            ctx,
-            Effect.gen(function* () {
-              const config = yield* Config.Service
-              return yield* config.get()
-            }),
-          ),
-        )
-        const { collectSystemPaths } = await import("../../session/instruction")
-        const result = await collectSystemPaths(ctx, config)
-        const instructions = Array.from(result.paths).map((p) => ({
-          path: p,
-          name: p.split("/").pop() || p,
-        }))
-        return c.json(instructions)
-      },
-    )
-    .post(
       "/:sessionID/fork",
       describeRoute({
         summary: "Fork session",
