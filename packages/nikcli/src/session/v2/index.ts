@@ -3,24 +3,30 @@ import { Identifier } from "@/id/id"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
 import { SessionEntry } from "./entry"
+import { SessionProjector } from "./projector"
+import { SessionPrompt } from "../prompt"
 import { Stepper } from "./stepper"
 import { Log } from "@/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
 /**
- * STATUS: experimental, NOT wired into any production path.
+ * STATUS: v2 read model, live — write path still delegates to v1.
  *
  * SessionV2 is the entry/event/stepper redesign explored in
- * specs/v2/message-shape.md. It delegates storage to the v1 Session service
- * and keeps its own in-memory entry state, but nothing in src/server,
- * src/cli, or src/acp calls it yet — the production session engine is v1
- * (session/processor.ts + session/prompt.ts + message-v2.ts).
+ * specs/v2/message-shape.md, migrated by strangler:
  *
- * It intentionally does NOT implement the v1 runtime behaviors (retry loop,
- * abort marking, tool state machine, doom-loop detection, snapshots, delta
- * coalescing). Do not adopt it for new call sites until that migration
- * happens; the unit/benchmark coverage lives in test/session/stepper*.
+ * - reads (`entries`, `state`, `pending`) are first-class: storage is
+ *   authoritative for completed messages (converted losslessly via
+ *   `toEntries`), and `SessionProjector` overlays the in-flight assistant
+ *   work streamed by the v1 engine — see projector.ts
+ * - writes (`create`, `prompt`) delegate to the v1 Session/SessionPrompt
+ *   services, so behavior (retry, abort, tool state machine, snapshots,
+ *   permissions) is exactly the production engine's
+ * - `Stepper` remains the reducer for the future native v2 engine
+ *
+ * Consumers can adopt the v2 API today without behavior change; swapping
+ * the engine underneath is a later, isolated step.
  */
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
@@ -28,6 +34,12 @@ export namespace SessionV2 {
   function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
   }
+
+  function runPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>) {
+    return runPromiseWithLayer(SessionPrompt.defaultLayer, withCurrentInstance(effect))
+  }
+
+  export const Event = SessionProjector.Event
 
   // ============================================================================
   // Types
@@ -49,8 +61,9 @@ export namespace SessionV2 {
   export const PromptInput = z.object({
     sessionID: Identifier.schema("session"),
     text: z.string(),
-    files: SessionEntry.User.shape.files.optional(),
-    agents: SessionEntry.User.shape.agents.optional(),
+    files: MessageV2.FilePart.array().optional(),
+    agents: MessageV2.AgentPart.array().optional(),
+    agent: z.string().optional(),
     model: z
       .object({
         providerID: z.string(),
@@ -61,40 +74,17 @@ export namespace SessionV2 {
   export type PromptInput = z.infer<typeof PromptInput>
 
   // ============================================================================
-  // State management
-  // ============================================================================
-
-  /**
-   * Per-session v2 state
-   */
-  const sessions = new Map<string, Stepper.MemoryState>()
-
-  /**
-   * Get or create state for a session
-   */
-  function getState(sessionID: string): Stepper.MemoryState {
-    let state = sessions.get(sessionID)
-    if (!state) {
-      state = { entries: [], pending: [] }
-      sessions.set(sessionID, state)
-    }
-    return state
-  }
-
-  /**
-   * Clear state for a session
-   */
-  export function clear(sessionID: string): void {
-    sessions.delete(sessionID)
-  }
-
-  // ============================================================================
   // Public API
   // ============================================================================
 
+  /** Activate the live projection for the current instance (idempotent). */
+  export function init(): void {
+    SessionProjector.init()
+  }
+
   /**
-   * Create a new v2 session
-   * Delegates to Session v1 for storage, manages v2 state separately
+   * Create a new v2 session.
+   * Delegates to the v1 Session service for storage.
    */
   export async function create(input: CreateInput = {}): Promise<Session.Info> {
     const info = await runSession(
@@ -108,9 +98,6 @@ export namespace SessionV2 {
         })
       }),
     )
-
-    // Initialize v2 state
-    sessions.set(info.id, { entries: [], pending: [] })
 
     log.info("created", { sessionID: info.id })
 
@@ -134,61 +121,75 @@ export namespace SessionV2 {
   }
 
   /**
-   * Get v2 entries for a session
-   * Reads messages from v1 storage and converts to entries
+   * Get v2 entries for a session.
+   * Storage (v1) is the authoritative source for committed messages; the
+   * projector's in-flight assistant work is appended as the live tail.
    */
   export async function entries(sessionID: string): Promise<SessionEntry.Entry[]> {
-    // Check in-memory state first
-    const state = getState(sessionID)
-    if (state.entries.length > 0) {
-      return state.entries
-    }
-
-    // Fall back to reading from v1 storage
     const messages = await runSession(
       Effect.gen(function* () {
         const session = yield* Session.Service
         return yield* session.messages({ sessionID })
       }),
     )
-    return toEntries(messages, sessionID)
+    const committed = new Set(messages.map((message) => message.info.id))
+    const live = SessionProjector.inflight(sessionID).filter((message) => !committed.has(message.info.id))
+    return toEntries([...messages, ...live], sessionID)
   }
 
   /**
-   * Prompt a v2 session with user input
-   * Updates state and returns the new entries
+   * Prompt a v2 session.
+   * Delegates to the v1 prompt engine — retries, aborts, tool execution,
+   * permissions and snapshots behave exactly like a v1 prompt.
    */
-  export async function prompt(input: PromptInput): Promise<SessionEntry.Entry[]> {
-    const sessionID = input.sessionID
-    const state = getState(sessionID)
-
-    // Create user entry
-    const userEntry = SessionEntry.User.parse({
-      id: Identifier.ascending("event"),
-      sessionID,
-      timestamp: Date.now(),
-      role: "user",
-      text: input.text,
-      files: input.files ?? [],
-      agents: input.agents ?? [],
-    })
-
-    // Update state
-    const nextState = Stepper.reduce(state, { type: "append", entry: userEntry })
-    sessions.set(sessionID, nextState)
-
-    log.info("prompted", { sessionID, text: input.text.slice(0, 100) })
-
-    return nextState.entries
+  export async function prompt(input: PromptInput) {
+    const parsed = PromptInput.parse(input)
+    log.info("prompting", { sessionID: parsed.sessionID })
+    return runPrompt(
+      Effect.gen(function* () {
+        const sessionPrompt = yield* SessionPrompt.Service
+        return yield* sessionPrompt.prompt({
+          sessionID: parsed.sessionID,
+          model: parsed.model,
+          agent: parsed.agent,
+          parts: [
+            { type: "text" as const, text: parsed.text },
+            ...(parsed.files ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...file }) => file),
+            ...(parsed.agents ?? []).map(({ messageID: _messageID, sessionID: _sessionID, ...agent }) => agent),
+          ],
+        })
+      }),
+    )
   }
 
   /**
-   * Get pending entries (not yet committed)
+   * Live state for a session: committed entries are not duplicated here —
+   * `pending` reflects the projector's in-flight assistant messages.
+   */
+  export function state(sessionID: string): Stepper.MemoryState {
+    return {
+      entries: [],
+      pending: toEntries(SessionProjector.inflight(sessionID), sessionID),
+    }
+  }
+
+  /**
+   * Get pending (in-flight, not yet persisted as completed) entries
    */
   export function pending(sessionID: string): SessionEntry.Entry[] {
-    const state = getState(sessionID)
-    return state.pending
+    return state(sessionID).pending
   }
+
+  /**
+   * Clear live projection state for a session
+   */
+  export function clear(sessionID: string): void {
+    SessionProjector.clear(sessionID)
+  }
+
+  // ============================================================================
+  // v1 → v2 conversion
+  // ============================================================================
 
   /**
    * Convert v1 messages to v2 entries
@@ -204,7 +205,9 @@ export namespace SessionV2 {
   }
 
   /**
-   * Convert a v1 message to v2 entries
+   * Convert a v1 message to v2 entries — lossless for everything the v2
+   * shape models: text/reasoning parts, every tool state (including
+   * "error"), retry parts, finish reason and terminal message errors.
    */
   function convertMessage(msg: MessageV2.WithParts, sessionID: string): SessionEntry.Entry[] {
     const entries: SessionEntry.Entry[] = []
@@ -236,40 +239,25 @@ export namespace SessionV2 {
       const assistantParts: SessionEntry.AssistantText["parts"] = []
 
       for (const part of msg.parts) {
-        if (part.type === "text") {
-          assistantParts.push({
-            type: "text" as const,
-            text: (part as MessageV2.TextPart).text,
-            ignored: (part as MessageV2.TextPart).ignored,
-          })
+        if (part.type === "retry") {
+          entries.push(
+            SessionEntry.AssistantRetry.parse({
+              id: Identifier.ascending("event"),
+              sessionID,
+              timestamp: part.time.created,
+              role: "assistant",
+              sub: "retry",
+              attempt: part.attempt,
+              error: part.error,
+            }),
+          )
+          continue
         }
-        if (part.type === "reasoning") {
-          assistantParts.push({
-            type: "reasoning" as const,
-            text: (part as MessageV2.ReasoningPart).text,
-          })
-        }
-        if (part.type === "tool") {
-          const toolPart = part as MessageV2.ToolPart
-          if (toolPart.state.status === "completed") {
-            assistantParts.push({
-              type: "tool-result" as const,
-              toolCallId: toolPart.callID,
-              toolName: toolPart.tool,
-              result: toolPart.state.output,
-            })
-          } else if (toolPart.state.status === "pending" || toolPart.state.status === "running") {
-            assistantParts.push({
-              type: "tool-call" as const,
-              toolCallId: toolPart.callID,
-              toolName: toolPart.tool,
-              args: toolPart.state.input,
-            })
-          }
-        }
+        const converted = SessionEntry.fromV1Part(part)
+        if (converted) assistantParts.push(converted)
       }
 
-      if (assistantParts.length > 0) {
+      if (assistantParts.length > 0 || msg.info.error) {
         entries.push(
           SessionEntry.AssistantText.parse({
             id: Identifier.ascending("event"),
@@ -282,28 +270,14 @@ export namespace SessionV2 {
             agent: msg.info.agent,
             finish: msg.info.finish,
             parts: assistantParts,
+            // Terminal message error (abort, auth, overflow, ...) — carried
+            // as metadata so the projection stays lossless.
+            metadata: msg.info.error ? { error: msg.info.error } : undefined,
           }),
         )
       }
     }
 
     return entries
-  }
-
-  /**
-   * Stepper integration - reduce state with an action
-   */
-  export function step(sessionID: string, action: Stepper.Action): SessionEntry.Entry[] {
-    const state = getState(sessionID)
-    const nextState = Stepper.reduce(state, action)
-    sessions.set(sessionID, nextState)
-    return nextState.entries
-  }
-
-  /**
-   * Get the current state for a session
-   */
-  export function state(sessionID: string): Stepper.MemoryState {
-    return getState(sessionID)
   }
 }

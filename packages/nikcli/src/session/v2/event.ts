@@ -103,9 +103,17 @@ export namespace SessionEvent {
     .meta({ ref: "SessionEvent" })
   export type Event = z.infer<typeof Event>
 
-  export function create<T extends Omit<Event, "id" | "timestamp"> & { timestamp?: number; id?: string }>(
-    input: T,
-  ): Event {
+  /**
+   * Draft of an event: the schema's input shape (defaulted fields optional)
+   * minus id/timestamp. Distributes over the union so every member keeps its
+   * own keys (a plain Omit over the union would collapse to common keys).
+   */
+  type EventInput = z.input<typeof Event>
+  export type Draft<T = EventInput> = T extends EventInput
+    ? Omit<T, "id" | "timestamp"> & { id?: string; timestamp?: number }
+    : never
+
+  export function create(input: Draft): Event {
     return Event.parse({
       id: input.id ?? Identifier.ascending("event"),
       timestamp: input.timestamp ?? Date.now(),

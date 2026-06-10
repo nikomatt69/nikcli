@@ -146,6 +146,16 @@ export async function InstanceBootstrap() {
       ),
     ),
   )
+  // Live v2 session projection — read-only subscriber of the v1 engine's
+  // bus events; activating it cannot alter v1 behavior. Imported lazily:
+  // session/v2 reaches back into this module's import graph via
+  // session/prompt, and a static import would close that cycle.
+  try {
+    const { SessionV2 } = await import("../session/v2")
+    SessionV2.init()
+  } catch (error) {
+    Log.Default.warn("session v2 projector init failed", { error })
+  }
   await Delegation.init()
   await Monitor.reconcile().catch((error) => {
     Log.Default.warn("failed to reconcile monitors on startup", { error })
