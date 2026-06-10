@@ -318,7 +318,7 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
         }),
       )
 
-      let sessionTokens = { input: 0, output: 0, reasoning: 0, cache: 0 }
+      let sessionTokens = { input: 0, output: 0, reasoning: 0, cacheRead: 0, cacheWrite: 0 }
       let sessionCost = 0
       let model = "unknown"
 
@@ -328,7 +328,8 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
             sessionTokens.input += message.info.tokens.input || 0
             sessionTokens.output += message.info.tokens.output || 0
             sessionTokens.reasoning += message.info.tokens.reasoning || 0
-            sessionTokens.cache += (message.info.tokens.cache?.read || 0) + (message.info.tokens.cache?.write || 0)
+            sessionTokens.cacheRead += message.info.tokens.cache?.read || 0
+            sessionTokens.cacheWrite += message.info.tokens.cache?.write || 0
           }
           if (message.info.cost) {
             sessionCost += message.info.cost
@@ -342,8 +343,8 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
       stats.totalTokens.input += sessionTokens.input
       stats.totalTokens.output += sessionTokens.output
       stats.totalTokens.reasoning += sessionTokens.reasoning
-      stats.totalTokens.cache.read += Math.floor(sessionTokens.cache / 2)
-      stats.totalTokens.cache.write += Math.floor(sessionTokens.cache / 2)
+      stats.totalTokens.cache.read += sessionTokens.cacheRead
+      stats.totalTokens.cache.write += sessionTokens.cacheWrite
       stats.totalCost += sessionCost
       totalSessionTokens += sessionTokens.input + sessionTokens.output + sessionTokens.reasoning
 
@@ -374,8 +375,9 @@ async function aggregateUsageStats(days: number, projectFilter: string | undefin
       dayData.input += sessionTokens.input
       dayData.output += sessionTokens.output
       dayData.reasoning += sessionTokens.reasoning
-      dayData.cache += sessionTokens.cache
-      dayData.total += sessionTokens.input + sessionTokens.output + sessionTokens.reasoning + sessionTokens.cache
+      const sessionCacheTotal = sessionTokens.cacheRead + sessionTokens.cacheWrite
+      dayData.cache += sessionCacheTotal
+      dayData.total += sessionTokens.input + sessionTokens.output + sessionTokens.reasoning + sessionCacheTotal
       dayMap.set(dateKey, dayData)
     } catch {
       // Skip failed sessions
@@ -446,6 +448,12 @@ function displayUsage(stats: UsageStats, sessions: SessionUsage[], args: Display
   console.log("  \x1b[1;33m├─────────────────────────────────────────────────────────────┤\x1b[0m")
   console.log(
     `  \x1b[1;33m│\x1b[0m   \x1b[36mcache\x1b[0m  ${formatTokens(cacheTotal).padStart(8)} (r: ${formatTokens(stats.totalTokens.cache.read)} / w: ${formatTokens(stats.totalTokens.cache.write)})\x1b[0m`,
+  )
+  // prompt tokens = uncached input + cache reads + cache writes (stored input excludes cached tokens)
+  const promptTotal = stats.totalTokens.input + cacheTotal
+  const hitRatePct = promptTotal > 0 ? ((stats.totalTokens.cache.read / promptTotal) * 100).toFixed(1) : "0.0"
+  console.log(
+    `  \x1b[1;33m│\x1b[0m   \x1b[36mhit %\x1b[0m  ${`${hitRatePct}%`.padStart(8)} of prompt tokens read from cache\x1b[0m`,
   )
   console.log(
     `  \x1b[1;33m│\x1b[0m   \x1b[37mtotal\x1b[0m   ${formatTokens(totalTokens).padStart(8)}${" ".repeat(CHART_WIDTH - 8)}\x1b[0m`,

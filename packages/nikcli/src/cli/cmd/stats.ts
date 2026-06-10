@@ -450,6 +450,10 @@ export function displayStats(stats: SessionStats, toolLimit?: number, modelLimit
   console.log(renderRow("Output", formatNumber(stats.totalTokens.output)))
   console.log(renderRow("Cache Read", formatNumber(stats.totalTokens.cache.read)))
   console.log(renderRow("Cache Write", formatNumber(stats.totalTokens.cache.write)))
+  // prompt tokens = uncached input + cache reads + cache writes (stored input excludes cached tokens)
+  const promptTotal = stats.totalTokens.input + stats.totalTokens.cache.read + stats.totalTokens.cache.write
+  const cacheHitRate = promptTotal > 0 ? (stats.totalTokens.cache.read / promptTotal) * 100 : 0
+  console.log(renderRow("Cache Hit Rate", `${cacheHitRate.toFixed(1)}%`))
   console.log("└────────────────────────────────────────────────────────┘")
   console.log()
 
