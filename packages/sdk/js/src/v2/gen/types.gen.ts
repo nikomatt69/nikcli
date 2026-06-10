@@ -3112,6 +3112,17 @@ export type MobileBootstrap = {
   mobileProject?: MobileProjectType
 }
 
+export type MobileCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  skill?: boolean
+  subtask?: boolean
+  hints: Array<string>
+}
+
 export type MobilePromptHistoryEntry = {
   id: string
   input: string
@@ -3138,17 +3149,6 @@ export type MobilePromptStashEntry = {
 
 export type MobilePromptStashCreateInput = {
   input: string
-}
-
-export type MobileCommand = {
-  name: string
-  description?: string
-  agent?: string
-  model?: string
-  mcp?: boolean
-  skill?: boolean
-  subtask?: boolean
-  hints: Array<string>
 }
 
 export type MobileGithubBranch = {
@@ -7246,6 +7246,44 @@ export type MobileBootstrapResponses = {
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
 
+export type MobileCommandListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/command"
+}
+
+export type MobileCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
+
+export type MobileProjectListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/project"
+}
+
+export type MobileProjectListResponses = {
+  /**
+   * Projects
+   */
+  200: Array<MobileProject>
+}
+
+export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
+
 export type MobileMemoryHistoryData = {
   body?: never
   path?: never
@@ -7363,44 +7401,6 @@ export type MobileMemoryStashDeleteResponses = {
 }
 
 export type MobileMemoryStashDeleteResponse = MobileMemoryStashDeleteResponses[keyof MobileMemoryStashDeleteResponses]
-
-export type MobileCommandListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/command"
-}
-
-export type MobileCommandListResponses = {
-  /**
-   * Commands
-   */
-  200: Array<MobileCommand>
-}
-
-export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
-
-export type MobileProjectListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/project"
-}
-
-export type MobileProjectListResponses = {
-  /**
-   * Projects
-   */
-  200: Array<MobileProject>
-}
-
-export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
 
 export type MobileGithubReposData = {
   body?: never
@@ -8116,6 +8116,31 @@ export type MobileSessionStreamResponses = {
   200: unknown
 }
 
+export type MobileSessionRenameData = {
+  body?: {
+    title: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/rename"
+}
+
+export type MobileSessionRenameResponses = {
+  /**
+   * Session renamed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
+
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput
   path?: never
@@ -8185,31 +8210,6 @@ export type MobileWorktreeResetResponses = {
 }
 
 export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
-
-export type MobileSessionRenameData = {
-  body?: {
-    title: string
-  }
-  path: {
-    sessionID: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/session/{sessionID}/rename"
-}
-
-export type MobileSessionRenameResponses = {
-  /**
-   * Session renamed
-   */
-  200: {
-    success: true
-  }
-}
-
-export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type MobileGitStatusData = {
   body?: never

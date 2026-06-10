@@ -4237,6 +4237,70 @@ export class Auth2 extends HeyApiClient {
   }
 }
 
+export class Command extends HeyApiClient {
+  /**
+   * List mobile commands
+   *
+   * Return command metadata safe for the mobile command palette and slash autocomplete.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
+      url: "/mobile/command",
+      ...options,
+      ...params,
+    })
+  }
+}
+
+export class Project2 extends HeyApiClient {
+  /**
+   * List local projects for mobile
+   *
+   * Return local projects and sandboxes visible to the connected Nikcli host.
+   */
+  public list<ThrowOnError extends boolean = false>(
+    parameters?: {
+      directory?: string
+      workspace?: string
+    },
+    options?: Options<never, ThrowOnError>,
+  ) {
+    const params = buildClientParams(
+      [parameters],
+      [
+        {
+          args: [
+            { in: "query", key: "directory" },
+            { in: "query", key: "workspace" },
+          ],
+        },
+      ],
+    )
+    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
+      url: "/mobile/project",
+      ...options,
+      ...params,
+    })
+  }
+}
+
 export class Stash extends HeyApiClient {
   /**
    * List prompt stash for mobile
@@ -4412,70 +4476,6 @@ export class Memory extends HeyApiClient {
   private _stash?: Stash
   get stash(): Stash {
     return (this._stash ??= new Stash({ client: this.client }))
-  }
-}
-
-export class Command extends HeyApiClient {
-  /**
-   * List mobile commands
-   *
-   * Return command metadata safe for the mobile command palette and slash autocomplete.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileCommandListResponses, unknown, ThrowOnError>({
-      url: "/mobile/command",
-      ...options,
-      ...params,
-    })
-  }
-}
-
-export class Project2 extends HeyApiClient {
-  /**
-   * List local projects for mobile
-   *
-   * Return local projects and sandboxes visible to the connected Nikcli host.
-   */
-  public list<ThrowOnError extends boolean = false>(
-    parameters?: {
-      directory?: string
-      workspace?: string
-    },
-    options?: Options<never, ThrowOnError>,
-  ) {
-    const params = buildClientParams(
-      [parameters],
-      [
-        {
-          args: [
-            { in: "query", key: "directory" },
-            { in: "query", key: "workspace" },
-          ],
-        },
-      ],
-    )
-    return (options?.client ?? this.client).get<MobileProjectListResponses, unknown, ThrowOnError>({
-      url: "/mobile/project",
-      ...options,
-      ...params,
-    })
   }
 }
 
@@ -6851,11 +6851,6 @@ export class Mobile extends HeyApiClient {
     return (this._auth ??= new Auth2({ client: this.client }))
   }
 
-  private _memory?: Memory
-  get memory(): Memory {
-    return (this._memory ??= new Memory({ client: this.client }))
-  }
-
   private _command?: Command
   get command(): Command {
     return (this._command ??= new Command({ client: this.client }))
@@ -6864,6 +6859,11 @@ export class Mobile extends HeyApiClient {
   private _project?: Project2
   get project(): Project2 {
     return (this._project ??= new Project2({ client: this.client }))
+  }
+
+  private _memory?: Memory
+  get memory(): Memory {
+    return (this._memory ??= new Memory({ client: this.client }))
   }
 
   private _github?: Github

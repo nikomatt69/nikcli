@@ -8366,6 +8366,94 @@
         ]
       }
     },
+    "/mobile/command": {
+      "get": {
+        "operationId": "mobile.command.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List mobile commands",
+        "description": "Return command metadata safe for the mobile command palette and slash autocomplete.",
+        "responses": {
+          "200": {
+            "description": "Commands",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MobileCommand"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.command.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
+    "/mobile/project": {
+      "get": {
+        "operationId": "mobile.project.list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "summary": "List local projects for mobile",
+        "description": "Return local projects and sandboxes visible to the connected Nikcli host.",
+        "responses": {
+          "200": {
+            "description": "Projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MobileProject"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.project.list({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/mobile/memory/history": {
       "get": {
         "operationId": "mobile.memory.history",
@@ -8627,94 +8715,6 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.memory.stash.delete({\n  ...\n})"
-          }
-        ]
-      }
-    },
-    "/mobile/command": {
-      "get": {
-        "operationId": "mobile.command.list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "List mobile commands",
-        "description": "Return command metadata safe for the mobile command palette and slash autocomplete.",
-        "responses": {
-          "200": {
-            "description": "Commands",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MobileCommand"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.command.list({\n  ...\n})"
-          }
-        ]
-      }
-    },
-    "/mobile/project": {
-      "get": {
-        "operationId": "mobile.project.list",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "summary": "List local projects for mobile",
-        "description": "Return local projects and sandboxes visible to the connected Nikcli host.",
-        "responses": {
-          "200": {
-            "description": "Projects",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/MobileProject"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.project.list({\n  ...\n})"
           }
         ]
       }
@@ -10395,6 +10395,78 @@
         ]
       }
     },
+    "/mobile/session/{sessionID}/rename": {
+      "post": {
+        "operationId": "mobile.session.rename",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "directory",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "workspace",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sessionID",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "summary": "Rename a session",
+        "description": "Update the title of an existing session.",
+        "responses": {
+          "200": {
+            "description": "Session renamed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": ["success"]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": ["title"]
+              }
+            }
+          }
+        },
+        "x-codeSamples": [
+          {
+            "lang": "js",
+            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.rename({\n  ...\n})"
+          }
+        ]
+      }
+    },
     "/mobile/worktree": {
       "post": {
         "operationId": "mobile.worktree.create",
@@ -10563,78 +10635,6 @@
           {
             "lang": "js",
             "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.worktree.reset({\n  ...\n})"
-          }
-        ]
-      }
-    },
-    "/mobile/session/{sessionID}/rename": {
-      "post": {
-        "operationId": "mobile.session.rename",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "directory",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "workspace",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "sessionID",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "summary": "Rename a session",
-        "description": "Update the title of an existing session.",
-        "responses": {
-          "200": {
-            "description": "Session renamed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "const": true
-                    }
-                  },
-                  "required": ["success"]
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "title": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": ["title"]
-              }
-            }
-          }
-        },
-        "x-codeSamples": [
-          {
-            "lang": "js",
-            "source": "import { createNikcliClient } from \"@nikcli-ai/sdk\n\nconst client = createNikcliClient()\nawait client.mobile.session.rename({\n  ...\n})"
           }
         ]
       }
@@ -23886,6 +23886,39 @@
         },
         "required": ["version", "auth", "currentProject", "projects", "execution", "github", "expo"]
       },
+      "MobileCommand": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "agent": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "mcp": {
+            "type": "boolean"
+          },
+          "skill": {
+            "type": "boolean"
+          },
+          "subtask": {
+            "type": "boolean"
+          },
+          "hints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": ["name", "hints"]
+      },
       "MobilePromptHistoryEntry": {
         "type": "object",
         "properties": {
@@ -23960,39 +23993,6 @@
           }
         },
         "required": ["input"]
-      },
-      "MobileCommand": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "agent": {
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
-          },
-          "mcp": {
-            "type": "boolean"
-          },
-          "skill": {
-            "type": "boolean"
-          },
-          "subtask": {
-            "type": "boolean"
-          },
-          "hints": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": ["name", "hints"]
       },
       "MobileGithubBranch": {
         "type": "object",
