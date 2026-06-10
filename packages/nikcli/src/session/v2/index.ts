@@ -8,6 +8,20 @@ import { Log } from "@/util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
+/**
+ * STATUS: experimental, NOT wired into any production path.
+ *
+ * SessionV2 is the entry/event/stepper redesign explored in
+ * specs/v2/message-shape.md. It delegates storage to the v1 Session service
+ * and keeps its own in-memory entry state, but nothing in src/server,
+ * src/cli, or src/acp calls it yet — the production session engine is v1
+ * (session/processor.ts + session/prompt.ts + message-v2.ts).
+ *
+ * It intentionally does NOT implement the v1 runtime behaviors (retry loop,
+ * abort marking, tool state machine, doom-loop detection, snapshots, delta
+ * coalescing). Do not adopt it for new call sites until that migration
+ * happens; the unit/benchmark coverage lives in test/session/stepper*.
+ */
 export namespace SessionV2 {
   const log = Log.create({ service: "session-v2" })
 
