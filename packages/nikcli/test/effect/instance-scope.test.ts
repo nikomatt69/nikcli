@@ -1,5 +1,5 @@
 import { afterAll, afterEach, describe, expect, it } from "bun:test"
-import { Effect } from "effect"
+import { Cause, Effect, Exit, Fiber, Schema } from "effect"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -59,6 +59,78 @@ describe("InstanceScope", () => {
     )
 
     expect(workspace.id).toBe("workspace-test")
+  })
+
+  it("exposes legacy Instance ALS reads inside the bridged effect", async () => {
+    const directory = await makeProjectDir()
+    const seen = await Effect.runPromise(
+      InstanceScope.with(
+        { directory },
+        Effect.gen(function* () {
+          // Legacy code paths read Instance.* from AsyncLocalStorage even when
+          // invoked from inside Effect bodies — the bridge must keep that working.
+          const viaSync = yield* Effect.sync(() => Instance.directory)
+          const viaPromise = yield* Effect.promise(async () => Instance.directory)
+          return { viaSync, viaPromise }
+        }),
+      ),
+    )
+
+    expect(seen.viaSync).toBe(directory)
+    expect(seen.viaPromise).toBe(directory)
+  })
+
+  it("preserves typed failures across the bridge instead of squashing to Error", async () => {
+    class MarkerError extends Schema.TaggedErrorClass<MarkerError>()("MarkerError", {
+      detail: Schema.String,
+    }) {}
+
+    const directory = await makeProjectDir()
+    const exit = await Effect.runPromiseExit(
+      InstanceScope.with({ directory }, Effect.gen(function* () {
+        return yield* new MarkerError({ detail: "kept" })
+      })),
+    )
+
+    expect(Exit.isFailure(exit)).toBe(true)
+    if (Exit.isFailure(exit)) {
+      const failure = Cause.findErrorOption(exit.cause)
+      expect(failure._tag).toBe("Some")
+      if (failure._tag === "Some") {
+        const error = failure.value as MarkerError
+        expect(error._tag).toBe("MarkerError")
+        expect(error.detail).toBe("kept")
+      }
+    }
+  })
+
+  it("propagates interruption into the bridged effect and waits for finalizers", async () => {
+    const directory = await makeProjectDir()
+    let finalized = false
+    let started: (() => void) | undefined
+    const startedPromise = new Promise<void>((resolve) => {
+      started = resolve
+    })
+
+    const bridged = InstanceScope.with(
+      { directory },
+      Effect.gen(function* () {
+        yield* Effect.sync(() => started!())
+        yield* Effect.never
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            finalized = true
+          }),
+        ),
+      ),
+    )
+
+    const fiber = Effect.runFork(bridged)
+    await startedPromise
+    await Effect.runPromise(Fiber.interrupt(fiber))
+
+    expect(finalized).toBe(true)
   })
 })
 

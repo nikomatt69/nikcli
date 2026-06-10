@@ -1,5 +1,5 @@
 import { Context, Effect, Layer, Schema } from "effect"
-import { make as makeRunner, type Runner } from "./runner"
+import { Busy, make as makeRunner, type Runner } from "./runner"
 import { SessionStatus } from "./status"
 
 /**
@@ -54,7 +54,11 @@ export namespace SessionRunState {
         }).pipe(Effect.tap(() => Effect.sync(() => runners.clear()))),
       )
 
-      const get = (sessionID: string, onInterrupt: Effect.Effect<unknown>) => {
+      // The registry stores type-erased runners (one per sessionID, callers may
+      // use different A/E). `onInterrupt` is intentionally NOT bound here: it is
+      // per call, so a joining caller always gets its own interrupt value rather
+      // than whichever closure happened to create the runner first.
+      const get = (sessionID: string) => {
         const existing = runners.get(sessionID)
         if (existing) return existing
         const runner = makeRunner<unknown, unknown>(scope, {
@@ -65,7 +69,6 @@ export namespace SessionRunState {
             type: "busy",
             since: Date.now(),
           } as SessionStatus.Info),
-          onInterrupt,
         })
         runners.set(sessionID, runner)
         return runner
@@ -94,8 +97,11 @@ export namespace SessionRunState {
         work: Effect.Effect<A, E>,
       ): Effect.Effect<A, E> =>
         Effect.suspend(() => {
-          const runner = get(sessionID, onInterrupt as Effect.Effect<unknown>)
-          return runner.ensureRunning(work as Effect.Effect<unknown, unknown>) as Effect.Effect<A, E>
+          const runner = get(sessionID)
+          return runner.ensureRunning(
+            work as Effect.Effect<unknown, unknown>,
+            onInterrupt as Effect.Effect<unknown, unknown>,
+          ) as Effect.Effect<A, E>
         })
 
       const startShell = <A, E>(
@@ -104,14 +110,13 @@ export namespace SessionRunState {
         work: Effect.Effect<A, E>,
       ): Effect.Effect<A, E | BusyError> =>
         Effect.suspend(() => {
-          const runner = get(sessionID, onInterrupt as Effect.Effect<unknown>)
+          const runner = get(sessionID)
           return runner
-            .startShell(work as Effect.Effect<unknown, unknown>)
-            .pipe(
-              Effect.mapError((e: unknown) =>
-                (e as { _tag?: string })?._tag === "RunnerBusy" ? new BusyError({ sessionID }) : (e as E),
-              ),
-            ) as Effect.Effect<A, E | BusyError>
+            .startShell(work as Effect.Effect<unknown, unknown>, undefined, onInterrupt as Effect.Effect<unknown, unknown>)
+            .pipe(Effect.mapError((e: unknown) => (e instanceof Busy ? new BusyError({ sessionID }) : (e as E)))) as Effect.Effect<
+            A,
+            E | BusyError
+          >
         })
 
       return Service.of({

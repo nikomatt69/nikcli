@@ -23,8 +23,12 @@ export class Busy extends Schema.TaggedErrorClass<Busy>()("RunnerBusy", {}) {}
 export interface Runner<A, E = never> {
   readonly state: State<A, E>
   readonly busy: boolean
-  readonly ensureRunning: (work: Effect.Effect<A, E>) => Effect.Effect<A, E>
-  readonly startShell: (work: Effect.Effect<A, E>, ready?: Latch.Latch) => Effect.Effect<A, E | Busy>
+  readonly ensureRunning: (work: Effect.Effect<A, E>, onInterrupt?: Effect.Effect<A, E>) => Effect.Effect<A, E>
+  readonly startShell: (
+    work: Effect.Effect<A, E>,
+    ready?: Latch.Latch,
+    onInterrupt?: Effect.Effect<A, E>,
+  ) => Effect.Effect<A, E | Busy>
   readonly cancel: Effect.Effect<void>
 }
 
@@ -78,8 +82,10 @@ export const make = <A, E = never>(
       ? Deferred.fail(done, new Cancelled()).pipe(Effect.asVoid)
       : Deferred.done(done, exit).pipe(Effect.asVoid)
 
-  const awaitDone = (done: Deferred.Deferred<A, E | Cancelled>) =>
-    Deferred.await(done).pipe(Effect.catchTag("RunnerCancelled", (e) => onInterrupt ?? Effect.die(e)))
+  // `interrupted` resolves per call: a caller-provided handler wins over the
+  // runner-wide default. Without either, cancellation is a defect by design.
+  const awaitDone = (done: Deferred.Deferred<A, E | Cancelled>, interrupted?: Effect.Effect<A, E>) =>
+    Deferred.await(done).pipe(Effect.catchTag("RunnerCancelled", (e) => interrupted ?? onInterrupt ?? Effect.die(e)))
 
   const idleIfCurrent = () =>
     SynchronizedRef.modify(ref, (st) => [st._tag === "Idle" ? idle : Effect.void, st] as const).pipe(Effect.flatten)
@@ -129,32 +135,36 @@ export const make = <A, E = never>(
       yield* Fiber.interrupt(shell.fiber)
     })
 
-  const ensureRunning = (work: Effect.Effect<A, E>): Effect.Effect<A, E> =>
+  const ensureRunning = (work: Effect.Effect<A, E>, interrupted?: Effect.Effect<A, E>): Effect.Effect<A, E> =>
     SynchronizedRef.modifyEffect(
       ref,
       Effect.fnUntraced(function* (st) {
         switch (st._tag) {
           case "Running":
           case "ShellThenRun":
-            return [awaitDone(st.run.done), st] as const
+            return [awaitDone(st.run.done, interrupted), st] as const
           case "Shell": {
             const run = {
               id: next(),
               done: yield* Deferred.make<A, E | Cancelled>(),
               work,
             } satisfies PendingHandle<A, E>
-            return [awaitDone(run.done), { _tag: "ShellThenRun", shell: st.shell, run }] as const
+            return [awaitDone(run.done, interrupted), { _tag: "ShellThenRun", shell: st.shell, run }] as const
           }
           case "Idle": {
             const done = yield* Deferred.make<A, E | Cancelled>()
             const run = yield* startRun(work, done)
-            return [awaitDone(done), { _tag: "Running", run }] as const
+            return [awaitDone(done, interrupted), { _tag: "Running", run }] as const
           }
         }
       }),
     ).pipe(Effect.flatten)
 
-  const startShell = (work: Effect.Effect<A, E>, ready?: Latch.Latch): Effect.Effect<A, E | Busy> =>
+  const startShell = (
+    work: Effect.Effect<A, E>,
+    ready?: Latch.Latch,
+    interrupted?: Effect.Effect<A, E>,
+  ): Effect.Effect<A, E | Busy> =>
     SynchronizedRef.modifyEffect(
       ref,
       Effect.fnUntraced(function* (st) {
@@ -174,7 +184,8 @@ export const make = <A, E = never>(
               Cause.hasInterruptsOnly(exit.cause) ||
               ((yield* Deferred.isDone(cancelled)) && Cause.hasInterrupts(exit.cause) && !Cause.hasDies(exit.cause))
             ) {
-              if (onInterrupt) return yield* onInterrupt
+              const handler = interrupted ?? onInterrupt
+              if (handler) return yield* handler
               return yield* Effect.die(new Cancelled())
             }
             return yield* Effect.failCause(exit.cause)

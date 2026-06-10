@@ -67,6 +67,33 @@ describe("Auth.Service", () => {
     expect(result["env-provider"]).toEqual({ type: "api", key: "from-env" })
     expect(result.invalid).toBeUndefined()
   })
+
+  it("does not lose concurrent writes to the auth store", async () => {
+    // set/remove serialize on a file lock: without it, concurrent
+    // read-modify-write cycles silently drop one of the credentials.
+    const providers = Array.from({ length: 8 }, (_, i) => `provider-${i}`)
+    await Promise.all(
+      providers.map((id) =>
+        runAuth(
+          Effect.gen(function* () {
+            const auth = yield* Auth.Service
+            yield* auth.set(id, { type: "api", key: `key-${id}` })
+          }),
+        ),
+      ),
+    )
+
+    const all = await runAuth(
+      Effect.gen(function* () {
+        const auth = yield* Auth.Service
+        return yield* auth.all()
+      }),
+    )
+
+    for (const id of providers) {
+      expect(all[id]).toEqual({ type: "api", key: `key-${id}` })
+    }
+  })
 })
 
 afterAll(async () => {
