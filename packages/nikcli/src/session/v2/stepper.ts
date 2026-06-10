@@ -50,6 +50,7 @@ export namespace Stepper {
   export type Action =
     | { type: "append"; entry: SessionEntry.Entry }
     | { type: "appendPending"; entry: SessionEntry.Entry }
+    | { type: "appendPart"; part: SessionEntry.AssistantText["parts"][number] }
     | { type: "removeLastPending" }
     | { type: "replacePending"; entries: SessionEntry.Entry[] }
     | { type: "finish"; result: StepResult }
@@ -112,6 +113,15 @@ export namespace Stepper {
         }
         case "appendPending": {
           draft.pending.push(action.entry)
+          break
+        }
+        case "appendPart": {
+          // Attach a finalized part to the current (last pending) assistant
+          // step; without an open step there is nowhere coherent to put it.
+          const last = draft.pending.at(-1)
+          if (last && last.role === "assistant" && "parts" in last && last.sub === "text") {
+            last.parts.push(action.part)
+          }
           break
         }
         case "removeLastPending": {
@@ -191,28 +201,27 @@ export namespace Stepper {
       }
 
       case "part.updated": {
-        const part = event.part
-        if (part.type === "text" || part.type === "reasoning" || part.type === "tool") {
-          const entry = SessionEntry.AssistantText.parse({
-            id: Identifier.ascending("event"),
-            sessionID,
-            timestamp: event.timestamp ?? Date.now(),
-            role: "assistant",
-            sub: "text",
-            modelID: "",
-            providerID: "",
-            agent: "",
-            parts: [
-              part as
-                | SessionEntry.TextPart
-                | SessionEntry.ReasoningPart
-                | SessionEntry.ToolCallPart
-                | SessionEntry.ToolResultPart,
-            ],
-          })
-          return reduce(state, { type: "appendPending", entry })
+        // Contract: the event stream is entry-grade — one part.updated per
+        // finalized part, between step.started and step.ended. The v1 part is
+        // converted to its v2 shape and attached to the open assistant step.
+        const part = SessionEntry.fromV1Part(event.part)
+        if (!part) return state
+        const open = state.pending.at(-1)
+        if (open && open.role === "assistant" && "parts" in open && open.sub === "text") {
+          return reduce(state, { type: "appendPart", part })
         }
-        return state
+        const entry = SessionEntry.AssistantText.parse({
+          id: Identifier.ascending("event"),
+          sessionID,
+          timestamp: event.timestamp ?? Date.now(),
+          role: "assistant",
+          sub: "text",
+          modelID: "",
+          providerID: "",
+          agent: "",
+          parts: [part],
+        })
+        return reduce(state, { type: "appendPending", entry })
       }
 
       case "part.removed": {

@@ -54,13 +54,17 @@ export namespace SessionEntry {
   export type ToolCallPart = z.infer<typeof ToolCallPart>
 
   /**
-   * Tool result part — maps directly to AI SDK's `type: "tool-result"` part
+   * Tool result part — maps directly to AI SDK's `type: "tool-result"` part.
+   * `error` is set when the underlying v1 tool execution ended in state
+   * "error"; `result` then carries the error text so renderers degrade
+   * gracefully.
    */
   export const ToolResultPart = z.object({
     type: z.literal("tool-result"),
     toolCallId: z.string(),
     toolName: z.string(),
     result: z.string(),
+    error: z.boolean().optional(),
     attachments: MessageV2.FilePart.array().optional(),
   })
   export type ToolResultPart = z.infer<typeof ToolResultPart>
@@ -172,6 +176,56 @@ export namespace SessionEntry {
    */
   export const Entry = z.discriminatedUnion("role", [User, Synthetic, Assistant])
   export type Entry = z.infer<typeof Entry>
+
+  // ============================================================================
+  // v1 part conversion
+  // ============================================================================
+
+  /**
+   * Convert a single v1 message part to its v2 entry part. Returns undefined
+   * for part kinds the v2 shape does not model (step markers, snapshots,
+   * patches, files — files/agents live on the User entry instead).
+   */
+  export function fromV1Part(
+    part: MessageV2.Part,
+  ): TextPart | ReasoningPart | ToolCallPart | ToolResultPart | undefined {
+    switch (part.type) {
+      case "text":
+        return { type: "text", text: part.text, ignored: part.ignored }
+      case "reasoning":
+        return { type: "reasoning", text: part.text }
+      case "tool":
+        switch (part.state.status) {
+          case "completed":
+            return {
+              type: "tool-result",
+              toolCallId: part.callID,
+              toolName: part.tool,
+              result: part.state.output,
+              attachments: part.state.attachments,
+            }
+          case "error":
+            return {
+              type: "tool-result",
+              toolCallId: part.callID,
+              toolName: part.tool,
+              result: part.state.error,
+              error: true,
+            }
+          case "pending":
+          case "running":
+            return {
+              type: "tool-call",
+              toolCallId: part.callID,
+              toolName: part.tool,
+              args: part.state.input,
+            }
+        }
+        return undefined
+      default:
+        return undefined
+    }
+  }
 
   // ============================================================================
   // Factory

@@ -144,7 +144,7 @@ export namespace Tool {
               },
             }
 
-            const result = yield* asEffect(authoredExecute(args, wrappedCtx)) as Effect.Effect<Result<M>, Error>
+            const result = yield* asEffect(authoredExecute(args, wrappedCtx))
             if (result.metadata.truncated !== undefined) return result
 
             // Truncation is best-effort: fall back to the raw output if it fails.

@@ -95,7 +95,11 @@ describe("release automation", () => {
     expect(publishStart).not.toContain("--tags")
     expect(publishStart).toContain("git add -A")
     expect(publishStart).toContain("git fetch origin ${branch}")
-    expect(publishStart).toContain("git push origin HEAD:${branch} v${Script.version}")
+    // The release script pushes the branch (with a rebase-and-retry loop for
+    // non-fast-forward races) and the tag as two separate pushes.
+    expect(publishStart).toContain("git push origin HEAD:${branch}")
+    expect(publishStart).toContain("git tag v${Script.version}")
+    expect(publishStart).toContain("git push origin v${Script.version}")
   })
 
   it("publishes homebrew formula to the correct tap repository with proper checksums", async () => {
