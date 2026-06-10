@@ -30,3 +30,4 @@ export * from "./capabilities";
 export * from "./encode";
 export * from "./decode";
 export * from "./pixels";
+export * from "./kitty-placeholder";

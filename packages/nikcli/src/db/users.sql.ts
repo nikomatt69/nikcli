@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core"
+import { sqliteTable, text, integer, index, primaryKey } from "drizzle-orm/sqlite-core"
 
 // ============================================================================
 // Users
@@ -57,9 +57,7 @@ export const chatContacts = sqliteTable(
       .references(() => users.id, { onDelete: "cascade" }),
     createdAt: integer("created_at").notNull(),
   },
-  (table) => ({
-    pk: index("idx_chat_contacts_pk").on(table.userId, table.contactId),
-  }),
+  (table) => [primaryKey({ columns: [table.userId, table.contactId] })],
 )
 
 // ============================================================================

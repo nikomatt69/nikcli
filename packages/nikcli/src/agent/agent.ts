@@ -636,6 +636,103 @@ Apply small, safe refactors and verify results.`,
         ),
         prompt: PROMPT_TITLE,
       },
+      support: {
+        name: "support",
+        description:
+          "Documentation & how-to assistant for nikcli. Read-only. Use when you need to understand nikcli features, commands, configuration, or troubleshooting.",
+        mode: "all",
+        native: true,
+        // Hidden from the /agents picker: this agent is only invoked from the
+        // support dialog (`/support`, `<leader>z`). Exposing it as a primary
+        // agent would let users spawn a session that cannot edit files, which
+        // would be confusing.
+        hidden: true,
+        color: "#7C3AED",
+        prompt: `You are the nikcli support assistant — a friendly, knowledgeable helper for users learning and using nikcli.
+
+## Your role
+
+Help users understand and use nikcli effectively. Answer questions about:
+  - Features, commands, flags, configuration keys
+  - Slash commands and keybinds
+  - Agents, models, providers, MCP servers, skills, themes
+  - Workflows, troubleshooting, error messages
+  - SDK endpoints, plugin system, custom agents
+  - Installation, updates, doctor diagnostics
+
+## What you can read
+
+- The local nikcli documentation index (provided in a separate section below as \`<docs_index>\`).
+- Any markdown file in the working directory (AGENTS.md, README.md, specs/**, docs/**, packages/*/README.md, packages/*/AGENTS.md).
+- The web via \`webfetch\` and \`websearch\` (for release notes, latest docs, GitHub issues).
+- Diagnostic info: \`nikcli --version\`, \`nikcli doctor\`, \`nikcli agents\`, \`nikcli models\`, \`cat\`, \`head\`, \`tail\`, \`ls\`, \`find\`.
+
+## What you cannot do
+
+- Do not modify files. You have no edit/write/patch permission.
+- Do not run destructive or state-mutating bash commands. The bash allowlist is read-only.
+- Do not start long-running commands (no \`bun run dev\`, no \`bun test\`, no watchers).
+- Do not delegate to other agents. You answer directly.
+
+## Style
+
+- Match the user's language. If they write in Italian, respond in Italian. Otherwise respond in English.
+- Be concise. Aim for 5-15 lines per answer unless the user asks for detail.
+- When mentioning a command, flag, keybind, or config key, format it as \`code\`.
+- For multi-step answers, use a short bulleted list.
+- Always cite the source: either a file path you read, or \`https://nikcli.store/docs/...\`.
+- If you're not sure, say so and suggest where to look. Never invent API endpoints, flags, or config keys.
+- If the user asks something outside nikcli's scope, say so politely and offer to help with a related nikcli question.
+
+## Docs index
+
+The system prompt will include a \`<docs_index>\` block listing all available documentation files with their sizes. Use \`read\` to open the ones you need.`,
+        options: {},
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: "allow",
+            grep: "allow",
+            glob: "allow",
+            list: "allow",
+            webfetch: "allow",
+            websearch: "allow",
+            codesearch: "allow",
+            bash: {
+              // Read-only bash allowlist. Anything else is denied.
+              "nikcli --version": "allow",
+              "nikcli --help": "allow",
+              "nikcli doctor": "allow",
+              "nikcli doctor *": "allow",
+              "nikcli agents": "allow",
+              "nikcli agents *": "allow",
+              "nikcli models": "allow",
+              "nikcli models *": "allow",
+              "nikcli auth list": "allow",
+              "nikcli config *": "allow",
+              "cat *": "allow",
+              "head *": "allow",
+              "tail *": "allow",
+              ls: "allow",
+              "ls *": "allow",
+              "find *": "allow",
+              "wc *": "allow",
+              "file *": "allow",
+              "stat *": "allow",
+              "echo *": "allow",
+              pwd: "allow",
+              "which *": "allow",
+              "*": "deny",
+            },
+            external_directory: {
+              [Truncate.DIR]: "allow",
+              [Truncate.GLOB]: "allow",
+            },
+          }),
+          user,
+        ),
+      },
       summary: {
         name: "summary",
         mode: "primary",
@@ -707,7 +804,12 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
               repo_overview: "allow",
               external_directory: {
                 [path.join(Global.Path.repos, "*")]: "allow",
-                ...(localPath ? { [localPath]: "allow", [path.join(localPath, "*")]: "allow" } : {}),
+                ...(localPath
+                  ? {
+                      [localPath]: "allow",
+                      [path.join(localPath, "*")]: "allow",
+                    }
+                  : {}),
                 [Truncate.DIR]: "allow",
                 [Truncate.GLOB]: "allow",
               },
@@ -769,7 +871,12 @@ Inspect this local reference path directly. Stay read-only and cite absolute pat
 
       result[name].permission = PermissionNext.merge(
         result[name].permission,
-        PermissionNext.fromConfig({ external_directory: { [Truncate.DIR]: "allow", [Truncate.GLOB]: "allow" } }),
+        PermissionNext.fromConfig({
+          external_directory: {
+            [Truncate.DIR]: "allow",
+            [Truncate.GLOB]: "allow",
+          },
+        }),
       )
     }
 

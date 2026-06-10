@@ -4,10 +4,12 @@ import {
   encodeBraille,
   encodeHalfblock,
   encodeIterm2,
+  encodeIterm2Bytes,
   encodeKitty,
   encodeSixel,
 } from "../src/encode";
 import { checkeredImage, solidImage } from "./_fixtures";
+import { setPixel } from "../src/pixels";
 
 describe("encodeKitty", () => {
   test("emits an APC G command with chunked base64 PNG", () => {
@@ -35,6 +37,13 @@ describe("encodeIterm2", () => {
     expect(out.startsWith("\x1b]1337;")).toBe(true);
     expect(out).toMatch(/file=\d+/);
     expect(out).toMatch(/inline=1/);
+  });
+
+  test("forwards compressed image bytes without re-encoding", () => {
+    const bytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+    const out = encodeIterm2Bytes(bytes, { width: 20, height: 10 });
+    expect(out).toContain("file=4;width=20;height=10");
+    expect(out).toContain(Buffer.from(bytes).toString("base64"));
   });
 });
 
@@ -91,6 +100,13 @@ describe("encodeBraille", () => {
       i += 1;
     }
     expect(brailleCount).toBeGreaterThan(0);
+  });
+
+  test("preserves a thin high-contrast detail in the braille mask", () => {
+    const image = solidImage(2, 4, 0, 0, 0);
+    setPixel(image, 0, 0, [255, 255, 255, 255]);
+    const out = encodeBraille(image, { columns: 1, rows: 1 });
+    expect(out).toContain("\u2801");
   });
 });
 

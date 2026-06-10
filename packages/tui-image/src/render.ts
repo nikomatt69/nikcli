@@ -133,30 +133,25 @@ function fitCellDimensions(
   rows: number,
   mode: "halfblock" | "braille" | "ascii",
 ): { columns: number; rows: number; pixelWidth: number; pixelHeight: number } {
-  const aspect = image.width / image.height;
-  const cellAspect = mode === "halfblock" ? 2 : mode === "braille" ? 1 : 2;
-  // For half-block, each cell is 2 px tall × 1 px wide. So a 100×50 image
-  // wants 100 columns × 25 rows.
-  const sourceRows =
-    mode === "halfblock"
-      ? image.height / 2
-      : mode === "braille"
-        ? image.height / 4
-        : image.height;
-  const cols = Math.max(1, Math.min(columns, image.width));
-  const r = Math.max(
+  const sourceColumns = image.width / (mode === "braille" ? 2 : 1);
+  // Terminal cells are roughly twice as tall as they are wide. Half-block
+  // and braille encode that extra vertical resolution directly; ASCII still
+  // needs the same visual aspect correction even though it samples one pixel.
+  const sourceRows = image.height / (mode === "braille" ? 4 : 2);
+  const scale = Math.min(1, columns / sourceColumns, rows / sourceRows);
+  const fittedColumns = Math.max(
     1,
-    Math.min(rows, Math.round(cols / (aspect * cellAspect))),
+    Math.min(columns, Math.round(sourceColumns * scale)),
   );
-  const heightRows = Math.max(1, Math.min(rows, sourceRows));
-  if (r <= heightRows) {
-    return { columns: cols, rows: r, pixelWidth: cols, pixelHeight: r };
-  }
+  const fittedRows = Math.max(
+    1,
+    Math.min(rows, Math.round(sourceRows * scale)),
+  );
   return {
-    columns: cols,
-    rows: heightRows,
-    pixelWidth: cols,
-    pixelHeight: heightRows,
+    columns: fittedColumns,
+    rows: fittedRows,
+    pixelWidth: fittedColumns * (mode === "braille" ? 2 : 1),
+    pixelHeight: fittedRows * (mode === "halfblock" ? 2 : mode === "braille" ? 4 : 1),
   };
 }
 
@@ -294,7 +289,7 @@ export async function renderImage(
     case "halfblock": {
       const dims = fitCellDimensions(image, columns, rows, "halfblock");
       const target = shouldFit
-        ? cover(image, dims.pixelWidth, dims.pixelHeight * 2)
+        ? resize(image, dims.pixelWidth, dims.pixelHeight)
         : image;
       const halfOptions: HalfBlockOptions = {
         columns: dims.columns,
@@ -315,7 +310,7 @@ export async function renderImage(
     case "braille": {
       const dims = fitCellDimensions(image, columns, rows, "braille");
       const target = shouldFit
-        ? cover(image, dims.pixelWidth * 2, dims.pixelHeight * 4)
+        ? resize(image, dims.pixelWidth, dims.pixelHeight)
         : image;
       const brailleOptions: BrailleOptions = {
         columns: dims.columns,
@@ -335,7 +330,7 @@ export async function renderImage(
     case "ascii": {
       const dims = fitCellDimensions(image, columns, rows, "ascii");
       const target = shouldFit
-        ? cover(image, dims.pixelWidth, dims.pixelHeight)
+        ? resize(image, dims.pixelWidth, dims.pixelHeight)
         : image;
       const asciiOptions: AsciiBlocksOptions = {
         columns: dims.columns,

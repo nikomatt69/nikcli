@@ -149,4 +149,5 @@ const TIPS = [
   "Run {highlight}/help{/highlight} or {highlight}Ctrl+X H{/highlight} to show the help dialog",
   "Use {highlight}/rename{/highlight} to rename the current session",
   "Press {highlight}Ctrl+Z{/highlight} to suspend the terminal and return to your shell",
+  "Chat with {highlight}/support{/highlight} or {highlight}Ctrl+X Z{/highlight} for nikcli how-tos and troubleshooting",
 ]

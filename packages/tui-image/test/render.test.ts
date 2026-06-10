@@ -92,6 +92,19 @@ describe("renderImage", () => {
     expect(result.renderer).toBe("halfblock");
   });
 
+  test("fits a portrait halfblock preview without cropping its height", async () => {
+    const portrait: Decoder = async () => checkeredImage(100, 200);
+    const result = await renderImage({
+      input: FIXTURE_BYTES,
+      columns: 60,
+      rows: 24,
+      decoder: portrait,
+      renderer: "halfblock",
+    });
+    expect(result.columns).toBe(24);
+    expect(result.rows).toBe(24);
+  });
+
   test("rejects zero-sized decoders", async () => {
     const empty: Decoder = async () => createPixelImage(0, 0);
     await expect(

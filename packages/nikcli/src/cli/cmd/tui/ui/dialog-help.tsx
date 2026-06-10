@@ -7,6 +7,7 @@ import { For } from "solid-js"
 
 const SHORTCUTS: Array<{ key: string; description: string }> = [
   { key: "command_list", description: "Open the command palette" },
+  { key: "app_support", description: "Open the support assistant" },
   { key: "session_list", description: "List all sessions" },
   { key: "session_new", description: "Create a new session" },
   { key: "theme_list", description: "Switch theme" },
@@ -18,6 +19,7 @@ const SHORTCUTS: Array<{ key: string; description: string }> = [
 
 const SLASH_COMMANDS: Array<{ name: string; description: string }> = [
   { name: "/help", description: "Show this dialog" },
+  { name: "/support", description: "Chat with the support assistant" },
   { name: "/sessions", description: "Browse past sessions" },
   { name: "/models", description: "Pick a model" },
   { name: "/agents", description: "Pick an agent" },

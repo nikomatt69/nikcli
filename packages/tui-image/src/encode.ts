@@ -20,9 +20,17 @@ import { crop, resize, type PixelImage } from "./pixels";
 const ESC = "\x1b";
 const ST = "\x1b\\";
 
-/** Always emits the seven-bit ST (`ESC \`), which every modern terminal accepts. */
-function apc(...parts: string[]): string {
-  return `${ESC}_G${parts.join(";")}${ST}`;
+/**
+ * Kitty graphics escape: `ESC _G key=val,key=val;payload ESC \`. Control
+ * keys are comma-separated; a single semicolon introduces the (optional)
+ * payload. Always emits the seven-bit ST (`ESC \`), which every modern
+ * terminal accepts.
+ */
+function apc(keys: string[], payload?: string): string {
+  const control = keys.join(",");
+  return payload === undefined
+    ? `${ESC}_G${control}${ST}`
+    : `${ESC}_G${control};${payload}${ST}`;
 }
 
 /** iTerm2 inline images use a different framing: `OSC 1337 ; … ST`. */
@@ -242,52 +250,54 @@ export function encodeKitty(
   // Kitty caps a single transmission at 4096 bytes of base64; we chunk to be
   // safe. Empirically small preview images fit in one chunk, but we always
   // go through the chunker so the encoder behaves identically for big inputs.
-  const chunks: string[] = [];
-  if (options.format === "rgba") {
-    const rgb = rgbaToRgb(image);
-    const payload = base64FromBytes(rgb);
+  // Kitty caps a single escape at 4096 bytes of base64. Per spec, the first
+  // chunk carries every key plus `m=1`; continuation chunks carry ONLY `m`
+  // (and the payload); the final chunk has `m=0`.
+  const emitChunked = (head: string[], payload: string): string => {
     const chunkSize = 4096;
+    if (payload.length <= chunkSize) return apc(head, payload);
+    const chunks: string[] = [];
     for (let i = 0; i < payload.length; i += chunkSize) {
       const part = payload.slice(i, i + chunkSize);
       const more = i + chunkSize < payload.length ? 1 : 0;
-      const action = i === 0 ? (fresh ? "a=T" : "a=t") : `m=${more}`;
       chunks.push(
-        apc(
-          `${action}`,
-          `f=24`,
-          `s=${image.width}`,
-          `v=${image.height}`,
-          quiet,
-          `i=${id}`,
-          part,
-        ),
+        i === 0 ? apc([...head, "m=1"], part) : apc([`m=${more}`], part),
       );
     }
-    chunks.push(apc("a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`));
     return chunks.join("");
+  };
+
+  if (options.format === "rgba") {
+    const rgb = rgbaToRgb(image);
+    const payload = base64FromBytes(rgb);
+    const head = [
+      fresh ? "a=T" : "a=t",
+      `f=24`,
+      `s=${image.width}`,
+      `v=${image.height}`,
+      quiet,
+      `i=${id}`,
+    ];
+    return (
+      emitChunked(head, payload) +
+      apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
+    );
   }
 
   const png = rgbaToPng(image);
   const payload = base64FromBytes(png);
-  const chunkSize = 4096;
-  for (let i = 0; i < payload.length; i += chunkSize) {
-    const part = payload.slice(i, i + chunkSize);
-    const more = i + chunkSize < payload.length ? 1 : 0;
-    const action = i === 0 ? (fresh ? "a=T" : "a=t") : `m=${more}`;
-    chunks.push(
-      apc(
-        `${action}`,
-        `f=100`,
-        `s=${image.width}`,
-        `v=${image.height}`,
-        quiet,
-        `i=${id}`,
-        part,
-      ),
-    );
-  }
-  chunks.push(apc("a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`));
-  return chunks.join("");
+  const head = [
+    fresh ? "a=T" : "a=t",
+    `f=100`,
+    `s=${image.width}`,
+    `v=${image.height}`,
+    quiet,
+    `i=${id}`,
+  ];
+  return (
+    emitChunked(head, payload) +
+    apc(["a=p", `p=1`, `i=${id}`, `c=${columns}`, `r=${rows}`, quiet])
+  );
 }
 
 export interface Iterm2Options {
@@ -308,12 +318,24 @@ export function encodeIterm2(
   options: Iterm2Options = {},
 ): string {
   const png = rgbaToPng(image);
-  const payload = base64FromBytes(png);
+  return encodeIterm2Bytes(png, options);
+}
+
+/**
+ * Encode already-compressed image bytes using the iTerm2 inline image
+ * protocol. PNG/JPEG/GIF bytes can be forwarded directly, avoiding an
+ * expensive decode/re-encode cycle and preserving the original image.
+ */
+export function encodeIterm2Bytes(
+  image: Uint8Array,
+  options: Iterm2Options = {},
+): string {
+  const payload = base64FromBytes(image);
   const width = options.width ?? image.width;
   const height = options.height ?? image.height;
   const preserve = options.preserveAspectRatio !== false ? "1" : "0";
   return osc(
-    `file=${png.byteLength};width=${width};height=${height};preserveAspectRatio=${preserve};inline=1`,
+    `file=${image.byteLength};width=${width};height=${height};preserveAspectRatio=${preserve};inline=1`,
     payload,
   );
 }
@@ -495,6 +517,8 @@ export interface BrailleOptions {
   readonly rows: number;
 }
 
+type RgbaColor = [r: number, g: number, b: number, a: number];
+
 const BRAILLE_BITS: readonly (readonly [number, number])[] = [
   [0x01, 0x08],
   [0x02, 0x10],
@@ -502,10 +526,109 @@ const BRAILLE_BITS: readonly (readonly [number, number])[] = [
   [0x40, 0x80],
 ];
 
+function colorDistanceSq(a: RgbaColor, b: RgbaColor): number {
+  const dr = a[0] - b[0];
+  const dg = a[1] - b[1];
+  const db = a[2] - b[2];
+  const da = a[3] - b[3];
+  return dr * dr + dg * dg + db * db + da * da;
+}
+
+function averageColor(colors: RgbaColor[], indexes: number[]): RgbaColor {
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let a = 0;
+  for (const index of indexes) {
+    const color = colors[index]!;
+    r += color[0];
+    g += color[1];
+    b += color[2];
+    a += color[3];
+  }
+  const count = Math.max(1, indexes.length);
+  return [
+    Math.round(r / count),
+    Math.round(g / count),
+    Math.round(b / count),
+    Math.round(a / count),
+  ];
+}
+
+function brailleCell(colors: RgbaColor[]): {
+  char: string;
+  fg: RgbaColor;
+  bg: RgbaColor;
+} {
+  let darkest = 0;
+  let brightest = 0;
+  const luminance = (color: RgbaColor) =>
+    0.2126 * color[0] + 0.7152 * color[1] + 0.0722 * color[2];
+
+  for (let index = 1; index < colors.length; index++) {
+    if (luminance(colors[index]!) < luminance(colors[darkest]!)) darkest = index;
+    if (luminance(colors[index]!) > luminance(colors[brightest]!))
+      brightest = index;
+  }
+
+  if (
+    colorDistanceSq(colors[darkest]!, colors[brightest]!) <
+    24 * 24 * 3
+  ) {
+    const average = averageColor(
+      colors,
+      colors.map((_, index) => index),
+    );
+    return { char: "\u2800", fg: average, bg: average };
+  }
+
+  let centers: [RgbaColor, RgbaColor] = [
+    colors[darkest]!,
+    colors[brightest]!,
+  ];
+  let groups: [number[], number[]] = [[], []];
+  for (let iteration = 0; iteration < 4; iteration++) {
+    groups = [[], []];
+    for (let index = 0; index < colors.length; index++) {
+      const group =
+        colorDistanceSq(colors[index]!, centers[0]) <=
+        colorDistanceSq(colors[index]!, centers[1])
+          ? 0
+          : 1;
+      groups[group].push(index);
+    }
+    if (groups[0].length === 0 || groups[1].length === 0) {
+      const average = averageColor(
+        colors,
+        colors.map((_, index) => index),
+      );
+      return { char: "\u2800", fg: average, bg: average };
+    }
+    centers = [
+      averageColor(colors, groups[0]),
+      averageColor(colors, groups[1]),
+    ];
+  }
+
+  const foregroundGroup = groups[0].length <= groups[1].length ? 0 : 1;
+  const backgroundGroup = foregroundGroup === 0 ? 1 : 0;
+  let mask = 0;
+  for (const index of groups[foregroundGroup]) {
+    const x = index % 2;
+    const y = Math.floor(index / 2);
+    mask |= BRAILLE_BITS[y]?.[x] ?? 0;
+  }
+  return {
+    char: String.fromCharCode(0x2800 + mask),
+    fg: centers[foregroundGroup],
+    bg: centers[backgroundGroup],
+  };
+}
+
 /**
- * Encode a {@link PixelImage} using Unicode Braille characters, similar to
- * the existing `image-preview.tsx` in nikcli. Each cell covers a 2×4 block
- * of source pixels.
+ * Encode a {@link PixelImage} using Unicode Braille characters. Each cell
+ * clusters a 2×4 pixel block into foreground/background colors, then uses
+ * the Braille dot mask to preserve edges and thin details.
  */
 export function encodeBraille(
   image: PixelImage,
@@ -516,54 +639,21 @@ export function encodeBraille(
   for (let y = 0; y < target.height; y += 4) {
     let line = "";
     for (let x = 0; x < target.width; x += 2) {
-      let mask = 0;
-      let rTotal = 0;
-      let gTotal = 0;
-      let bTotal = 0;
-      let aTotal = 0;
-      let count = 0;
-      let maxLuminance = 0;
-      let minLuminance = 255;
-      let minColor: [number, number, number] = [0, 0, 0];
-      let maxColor: [number, number, number] = [0, 0, 0];
+      const colors: RgbaColor[] = [];
       for (let dy = 0; dy < 4; dy++) {
         for (let dx = 0; dx < 2; dx++) {
           const i = ((y + dy) * target.width + (x + dx)) * 4;
           const a = (target.data[i + 3] ?? 0) / 255;
-          const r = (target.data[i] ?? 0) * a;
-          const g = (target.data[i + 1] ?? 0) * a;
-          const b = (target.data[i + 2] ?? 0) * a;
-          const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-          if (lum < minLuminance) {
-            minLuminance = lum;
-            minColor = [Math.round(r), Math.round(g), Math.round(b)];
-          }
-          if (lum > maxLuminance) {
-            maxLuminance = lum;
-            maxColor = [Math.round(r), Math.round(g), Math.round(b)];
-          }
-          rTotal += r;
-          gTotal += g;
-          bTotal += b;
-          aTotal += a;
-          count += 1;
-          mask |= BRAILLE_BITS[dy]?.[dx] ?? 0;
+          colors.push([
+            Math.round((target.data[i] ?? 0) * a),
+            Math.round((target.data[i + 1] ?? 0) * a),
+            Math.round((target.data[i + 2] ?? 0) * a),
+            Math.round(a * 255),
+          ]);
         }
       }
-      const contrast = maxLuminance - minLuminance;
-      const avg: [number, number, number] = [
-        Math.round(rTotal / count),
-        Math.round(gTotal / count),
-        Math.round(bTotal / count),
-      ];
-      let fg: [number, number, number] = maxColor;
-      let bg: [number, number, number] = contrast < 24 ? avg : minColor;
-      if (avg[0] === avg[1] && avg[1] === avg[2] && avg[2] < 16) {
-        fg = maxColor;
-        bg = [0, 0, 0];
-        mask = 0;
-      }
-      line += `\x1b[38;2;${fg[0]};${fg[1]};${fg[2]}m\x1b[48;2;${bg[0]};${bg[1]};${bg[2]}m${String.fromCharCode(0x2800 + mask)}\x1b[0m`;
+      const cell = brailleCell(colors);
+      line += `\x1b[38;2;${cell.fg[0]};${cell.fg[1]};${cell.fg[2]}m\x1b[48;2;${cell.bg[0]};${cell.bg[1]};${cell.bg[2]}m${cell.char}\x1b[0m`;
     }
     lines.push(line);
   }

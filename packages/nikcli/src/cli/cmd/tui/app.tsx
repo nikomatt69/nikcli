@@ -35,7 +35,7 @@ import { DialogSettings } from "@tui/component/dialog-settings"
 import { DialogConfig } from "@tui/component/dialog-config"
 import { DialogHelp } from "./ui/dialog-help"
 import { DialogTour } from "@tui/component/dialog-tour"
-import { DialogQuickstartInfo, DialogDoctorInfo, openExternal } from "@tui/component/dialog-support"
+import { DialogQuickstartInfo, DialogDoctorInfo, DialogSupport, openExternal } from "@tui/component/dialog-support"
 import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command"
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogAdvisorModel } from "@tui/component/dialog-advisor-model"
@@ -83,6 +83,7 @@ import { DialogOnboarding } from "@tui/component/dialog-onboarding"
 import { DialogAuthManage } from "@tui/component/dialog-auth-manage"
 import { DialogChat } from "@tui/component/dialog-chat"
 import { DialogAnalytics } from "@tui/component/dialog-analytics"
+import { SupportSessionProvider } from "@tui/context/support-session"
 import { win32DisableProcessedInput, win32InstallCtrlCGuard, win32FlushInputBuffer } from "./win32"
 
 function rendererConfig(tuiCfg: TuiConfig.Info): CliRendererConfig {
@@ -153,37 +154,39 @@ export function tui(input: {
                             fetch={input.fetch}
                             events={input.events}
                           >
-                            <ProjectProvider>
-                              <SyncProvider>
-                                <AnalyticsProvider>
-                                  <ThemeProvider mode={mode}>
-                                    <LocalProvider>
-                                      <KeybindProvider>
-                                        <PromptStashProvider>
-                                          <EditorContextProvider>
-                                            <DialogProvider>
-                                              <CommandProvider>
-                                                <FrecencyProvider>
-                                                  <PromptHistoryProvider>
-                                                    <PromptRefProvider>
-                                                      <UpgradeProvider upgradeNow={input.upgradeNow}>
-                                                        <AttentionProvider renderer={renderer}>
-                                                          <App />
-                                                        </AttentionProvider>
-                                                      </UpgradeProvider>
-                                                    </PromptRefProvider>
-                                                  </PromptHistoryProvider>
-                                                </FrecencyProvider>
-                                              </CommandProvider>
-                                            </DialogProvider>
-                                          </EditorContextProvider>
-                                        </PromptStashProvider>
-                                      </KeybindProvider>
-                                    </LocalProvider>
-                                  </ThemeProvider>
-                                </AnalyticsProvider>
-                              </SyncProvider>
-                            </ProjectProvider>
+                            <SupportSessionProvider>
+                              <ProjectProvider>
+                                <SyncProvider>
+                                  <AnalyticsProvider>
+                                    <ThemeProvider mode={mode}>
+                                      <LocalProvider>
+                                        <KeybindProvider>
+                                          <PromptStashProvider>
+                                            <EditorContextProvider>
+                                              <DialogProvider>
+                                                <CommandProvider>
+                                                  <FrecencyProvider>
+                                                    <PromptHistoryProvider>
+                                                      <PromptRefProvider>
+                                                        <UpgradeProvider upgradeNow={input.upgradeNow}>
+                                                          <AttentionProvider renderer={renderer}>
+                                                            <App />
+                                                          </AttentionProvider>
+                                                        </UpgradeProvider>
+                                                      </PromptRefProvider>
+                                                    </PromptHistoryProvider>
+                                                  </FrecencyProvider>
+                                                </CommandProvider>
+                                              </DialogProvider>
+                                            </EditorContextProvider>
+                                          </PromptStashProvider>
+                                        </KeybindProvider>
+                                      </LocalProvider>
+                                    </ThemeProvider>
+                                  </AnalyticsProvider>
+                                </SyncProvider>
+                              </ProjectProvider>
+                            </SupportSessionProvider>
                           </SDKProvider>
                         </RouteProvider>
                       </ToastProvider>
@@ -218,7 +221,10 @@ function LegacyRedirect(props: {
   return null
 }
 
-const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+const money = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+})
 
 function formatDuration(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000))
@@ -556,6 +562,17 @@ function App() {
       slash: { name: "docs" },
       onSelect: () => {
         openExternal("https://nikcli.store/docs")
+      },
+    },
+    {
+      title: "Chat with the support assistant",
+      value: "support.chat",
+      category: "Support",
+      suggested: true,
+      keybind: "app_support",
+      slash: { name: "support", aliases: ["ask", "help-me"] },
+      onSelect: () => {
+        dialog.replace(() => <DialogSupport />)
       },
     },
     {
@@ -1215,7 +1232,10 @@ function App() {
             ? route.data.sessionID
             : undefined
         if (currentSessionID === deletedSessionID) {
-          route.navigate({ type: "home", workspaceID: evt.properties.info.workspaceID })
+          route.navigate({
+            type: "home",
+            workspaceID: evt.properties.info.workspaceID,
+          })
           toast.show({
             variant: "info",
             message: "The current session was deleted",

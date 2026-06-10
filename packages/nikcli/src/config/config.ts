@@ -1056,6 +1056,7 @@ export namespace Config {
       terminal_title_toggle: z.string().optional().default("none").describe("Toggle terminal title"),
       tips_toggle: z.string().optional().default("<leader>h").describe("Toggle tips on home screen"),
       voice_record: z.string().optional().default("ctrl+alt+v").describe("Toggle voice recording (push to talk)"),
+      app_support: z.string().optional().default("<leader>z").describe("Open the support assistant dialog"),
     })
     .strict()
     .meta({
