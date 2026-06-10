@@ -321,7 +321,9 @@ function cachedImagePreview(url: string, maxColumns: number, signal: AbortSignal
 
 function ImagePreview(props: { url: string; maxColumns: number }) {
   const { theme } = useTheme()
-  const [state, setState] = createSignal<ImagePreviewState>({ status: "loading" })
+  const [state, setState] = createSignal<ImagePreviewState>({
+    status: "loading",
+  })
 
   createEffect(() => {
     const controller = new AbortController()
@@ -333,7 +335,10 @@ function ImagePreview(props: { url: string; maxColumns: number }) {
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setState({ status: "error", message: error instanceof Error ? error.message : String(error) })
+        setState({
+          status: "error",
+          message: error instanceof Error ? error.message : String(error),
+        })
       })
     onCleanup(() => controller.abort())
   })

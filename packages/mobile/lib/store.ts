@@ -10,7 +10,7 @@ import type {
   ThemeMode,
 } from "@/lib/types"
 
-export type AppShellRoute = "sessions" | "repos" | "settings" | "routines" | "terminal"
+export type AppShellRoute = "sessions" | "repos" | "settings" | "routines" | "loops" | "terminal"
 
 export type RouteLabelMeta = {
   label: string
@@ -52,6 +52,7 @@ const defaultRouteLabels: RouteLabelState = {
   repos: { label: "Repos", subtitle: "Manage connected codebases" },
   settings: { label: "Settings", subtitle: "Configure host access" },
   routines: { label: "Routines", subtitle: "Scheduled & triggered automations" },
+  loops: { label: "Loops", subtitle: "Autonomous goal workflows" },
   terminal: { label: "Terminal", subtitle: "Shell on your nikcli server" },
 }
 

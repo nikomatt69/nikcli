@@ -513,6 +513,7 @@
         "@nikcli-ai/plugin": "workspace:*",
         "@nikcli-ai/remote": "workspace:*",
         "@nikcli-ai/script": "workspace:*",
+        "@nikcli-ai/tui-image": "workspace:*",
         "@nikcli-ai/util": "workspace:*",
         "@octokit/graphql": "9.0.2",
         "@octokit/rest": "catalog:",
@@ -683,6 +684,22 @@
       },
       "optionalDependencies": {
         "@resvg/resvg-js": "2.6.2",
+      },
+    },
+    "packages/tui-image": {
+      "name": "@nikcli-ai/tui-image",
+      "version": "1.60.0",
+      "dependencies": {
+        "jimp": "1.6.0",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+        "@types/node": "catalog:",
+        "typescript": "catalog:",
+      },
+      "optionalDependencies": {
+        "@resvg/resvg-js": "2.6.2",
+        "@silvia-odwyer/photon-node": "0.3.4",
       },
     },
     "packages/ui": {
@@ -1889,6 +1906,8 @@
     "@nikcli-ai/slack": ["@nikcli-ai/slack@workspace:packages/slack"],
 
     "@nikcli-ai/terminal-control": ["@nikcli-ai/terminal-control@workspace:packages/terminal-control"],
+
+    "@nikcli-ai/tui-image": ["@nikcli-ai/tui-image@workspace:packages/tui-image"],
 
     "@nikcli-ai/ui": ["@nikcli-ai/ui@workspace:packages/ui"],
 
@@ -6163,6 +6182,8 @@
     "@nikcli-ai/slack/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/terminal-control/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
+
+    "@nikcli-ai/tui-image/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 
     "@nikcli-ai/ui/typescript": ["typescript@5.8.2", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-aJn6wq13/afZp/jT9QZmwEjDqqvSGp1VT5GVg+f/t6/oVyrgXM6BY1h9BRh/O5p3PlUPAe+WuiEZOmb/49RqoQ=="],
 

@@ -2834,3 +2834,194 @@ For comprehensive read-only audits, launch 3+ explore agents in parallel:
 ### Brain Pass — Recursive Pattern Note (2026-06-09, 2026-06-10)
 
 Multiple nested Brain Pass sessions were initiated (sessions `ses_15145fe50…`, `ses_151458d5a…`, `ses_1510f0fe9…`). The Brain agent itself sometimes appears in its own inputs as the "current" tool — be aware of the recursive structure when reading older Brain Pass sections in this file.
+
+## Brain Pass (2026-06-10)
+
+### TUI Architecture Deep-Dive (session `ses_14e4f2c7effe2VQc5rwm0w1DD5`)
+
+Italian-language comprehensive analysis of TUI subsystem. Key findings consolidated with existing entries:
+
+**Three TUI files, distinct roles** (confirmed with file:line ranges):
+
+| File | Role | Key lines |
+|---|---|---|
+| `app.tsx` | Entry `tui()`: creates `CliRenderer`, mounts provider stack | `app.tsx:108-202` (entry), `app.tsx:237-1376` (root App component, `<Switch>/<Match>` router at `1338-1372`) |
+| `worker.ts` | Bun worker process, isolated | RPC surface + `Server.App().fetch` + SSE + install/upgrade |
+| `thread.ts` | Thread CLI command, spawns worker | `thread.ts:104-296` (registers as `TuiThreadCommand`) |
+
+**Why a separate worker process?** (`thread.ts:153-189`):
+1. `reload` via `SIGUSR2` → `Instance.disposeAll` without killing TUI
+2. `shutdown` with 5s timeout
+3. `server` start/stop of `Bun.Server`
+4. `checkUpgrade` / `upgradeNow` for auto-updates
+
+Vantaggio (advantage): hot-restart of server isolation without terminating the TUI renderer.
+
+**IPC worker↔main**: `Rpc` utility + `Rpc.client<typeof rpc>`. Methods: `fetch`, `server`, `checkUpgrade`, `upgradeNow`, `reload`, `subscribe`/`unsubscribe` (SSE), `shutdown`. `createWorkerFetch` (`thread.ts:37-53`) intercepts HTTP, `createEventSource` (`thread.ts:55-68`) bridges SSE. When `--port`/`--hostname` NOT passed: `url="http://nikcli.local"` with direct RPC (no HTTP server at all).
+
+**OpenTUI rendering**:
+- `targetFps: 45`, `gatherStats: false`, `useKittyKeyboard: {}`, `useMouse` (`app.tsx:90-103`)
+- Resize via `box.on("resize")` (e.g. `bg-pulse.tsx:54`)
+- MouseUp globally on root (`app.tsx:1324-1336`) + text-selection capture
+- Dialog overlay with mouse absorption (`dialog.tsx:60-90`)
+- Layout via `flexDirection`, `flexGrow`, `flexShrink`, `alignItems`, `justifyContent`, `position="absolute"`, `paddingLeft/Right/Top/Bottom`, `gap`
+- `useTerminalDimensions()` reactive (e.g. `dialog.tsx:38`)
+- ANSI/Unicode: 256 colors + 24-bit RGB; box-drawing custom chars (`border.tsx:1-67` — `GlassBorder ╭╮╰╯│─┬┴├┤┼`, `SplitBorder ┃`); braille U+2800-U+28FF (chart-braille-line.tsx:66-72); 8-level block chars `▏▎▍▌▋▊▉█` (chart-braille-line.tsx:629)
+- `ghostty-web` integration: **no direct reference found**; renderer is OpenTUI based on Kitty keyboard protocol + SGR mouse + palette detection via `renderer.getPalette({size:16})` (`theme.tsx:492-516`)
+
+### TUI Dialog System — Complete Catalogue (component/dialog-*.tsx)
+
+**All dialogs in `src/cli/cmd/tui/component/` are stack-based modal overlays** (managed by `DialogContext` in `ui/dialog.tsx:93-224`: `replace`, `clear`, `setSize("medium"|"large"|"xlarge")`, `stack`, `onClose` callbacks; Esc closes top at `dialog.tsx:122-127`; Ctrl+C closes stack if top non-interactive at `dialog.tsx:132-153`).
+
+| Dialog file | Purpose | Size hint |
+|---|---|---|
+| `dialog-onboarding.tsx` | 5-step wizard: account, FS, provider, test | Large (was 4-step) |
+| `dialog-login.tsx` | Returning user login | Medium |
+| `dialog-advisor-model.tsx` | Advisor agent model selection | Medium |
+| `dialog-agent.tsx` | Switch agent (build/plan/general) | Medium |
+| `dialog-model.tsx` | Favorites/recent model picker + fuzzy search | Large |
+| `dialog-image-model.tsx` | Image generation model picker | Medium |
+| `dialog-speak-model.tsx` | TTS model picker | Medium |
+| `dialog-variant.tsx` | Model variant selector | Medium |
+| `dialog-provider.tsx` | Connect/disconnect provider (API key) | Large |
+| `dialog-mcp.tsx` | Installed MCPs + catalog | Large |
+| `dialog-skills.tsx` | Browse loaded skills | Large |
+| `dialog-routine.tsx` | Scheduled routine creation wizard | Large |
+| `dialog-theme-list.tsx` | Switch theme with live preview | Large |
+| `dialog-theme-create.tsx` | Custom theme creation | Large |
+| `dialog-workspace-list.tsx` | Workspace management | Large |
+| `dialog-workspace-create.tsx` | New workspace | Medium |
+| `dialog-workspace-unavailable.tsx` | Workspace unavailable error | Medium |
+| `dialog-workspace-file-changes.tsx` | Workspace file change review | Large |
+| `dialog-session-list.tsx` | Session list + filter | Large |
+| `dialog-session-rename.tsx` | Rename session | Medium |
+| `dialog-session-warp.tsx` | (Experimental) warp session | Large |
+| `dialog-session-delete-failed.tsx` | Delete failure error | Medium |
+| `dialog-stash.tsx` | Prompt stash | Medium |
+| `dialog-tag.tsx` | Session tag | Medium |
+| `dialog-status.tsx` | Provider/MCP/LSP status | Large |
+| `dialog-usage.tsx` | Context token usage | Large |
+| `dialog-analytics.tsx` | Session analytics | XLarge |
+| `dialog-tour.tsx` | 6-step tour | Large |
+| `dialog-support.tsx` | Quickstart/Doctor info | Large |
+| `dialog-web-preview.tsx` | Web preview browser | Large |
+| `dialog-opentui-viz.tsx` | OpenTUI visualization (1856 lines) | XLarge |
+| `dialog-config.tsx` | Config file editor | Large |
+| `dialog-remote.tsx` | Remote server connection | Large |
+| `dialog-chat.tsx` | DM contacts chat | XLarge |
+| `dialog-auth-manage.tsx` | Auth account management | Large |
+| `dialog-command.tsx` | Command palette (slash + keybind) | Large |
+| `dialog-settings/index.tsx` | Settings hub (5 categories) | Large |
+| `dialog-settings/{prompt,sidebar,spinner,ui,brain}.tsx` | Sub-dialogs of settings | Large |
+| `error-component.tsx` | ErrorBoundary fallback (`app.tsx:138`) | Medium |
+| `plugin-route-missing.tsx` | Plugin route fallback (`app.tsx:1368`) | Medium |
+| `startup-loading.tsx` | Splash before pluginReady (`app.tsx:1373`) | **Persistent overlay** (only non-modal) |
+| `image-preview.tsx` | Image attachment preview (Jimp, 40×16) | Inline persistent |
+| `logo.tsx` | ASCII logo (104 lines, static, shadow via `▀`) | Persistent (Home) |
+| `tips.tsx` | Home screen tips | Persistent |
+| `todo-item.tsx` | Single todo item | Inline |
+| `spinner.tsx` | Loading spinner | Inline |
+| `border.tsx` | Box-drawing defs (no render) | — |
+| `bg-pulse.tsx` | Animated Home background | Persistent (Home) |
+| `chart-braille-line.tsx` | Charts: `BrailleLineChart`, `BrailleAreaChart`, `BrailleSparkline`, `StackedBarChartV2`, `HBarPrecision`, `KPICard`, `ModelCard` | Inline |
+| `prompt-frames.tsx` | Prompt frame decorations | Inline |
+| `prompt-jobs-inline.tsx` | Background jobs inline status | Inline |
+| `prompt/{index,history,stash,frecency,autocomplete}.tsx` | Prompt system | Persistent |
+| `mcp-catalog.ts` | Known MCP catalog (data, no render) | — |
+| `textarea-keybindings.ts` | Textarea keybind config | — |
+
+**Only `startup-loading.tsx` is non-modal** (persistent overlay). All others are stack-based modals.
+
+### TUI Routes — File Inventory
+
+`routes/` files are **top-level navigable pages** (NOT HTTP routes) — Switch/Match dispatch in `app.tsx:1338-1372`. Legacy `changes/tree/git-graph/github` redirect to `workspace` (app.tsx:1339-1356). See "TUI Route System" section above for `home|session|plugin|changes|tree|git-graph|github|workspace` types.
+
+### TUI Feature Plugins System
+
+`feature-plugins/` directory contains side-panel widgets and dialogs that integrate via SDK (Promise-based, NOT Effect — see Loops section above). Hot reload via `SIGUSR2` (thread.ts:176) → `Instance.disposeAll` (worker.ts:165-167). Plugins register: `api.slots.register('sidebar_content')`, `api.routes.register()`, `api.commands.register()`. See `system/plugins.tsx` and `context/sync.tsx` for patterns.
+
+### TUI Server Communication
+
+- **SDK import path**: `@nikcli-ai/sdk/v2` (regenerated from OpenAPI spec)
+- **Polling vs push**: All real-time via SSE (`/event` and `/global/event`); no polling
+- **Optimistic updates**: Used in loops plugin (`runner.ts:74-87`) and feature plugins
+- **Error display**: `ToastProvider` (app.tsx stack) for transient errors; dialog for critical
+- **Toast file**: `src/session/toast.tsx` (per `app.tsx:140-194` provider chain, NOT the 2026-04 entry)
+
+### TUI Attach Mode
+
+`src/cli/cmd/tui/attach.ts` opens a TUI against a remote `nikcli serve` instance. **No worker process spawned** — `tui({url, args, directory})` called directly. User runs `nikcli serve` separately on the target host. SSH tunneling typically used for remote access; no built-in SSH client in the TUI itself.
+
+### High-Level Architecture (session `ses_14e6c42b0ffeR3amriRp3YsHUc`)
+
+nikcli is an AI-powered development tool with two faces: headless CLI + interactive TUI (default entrypoint). Conceptually a **"coding agent runtime"**: orchestrator running AI agents (LLM) with a tool set, session persistence, permission system, multi-mode deployment (local/server/remote-attach/mobile-companion).
+
+**Five "pillars" of the core** (from `src/`):
+1. **Agent** — agent profiles (build, plan, ralph + subagents like explore/code-reviewer/debugger). Effect-based schema, tool permissions, modular system prompt.
+2. **Session** — conversation lifecycle, streaming, history, compaction, runner (state machine single-flight via Effect).
+3. **Provider** — 20+ LLM provider abstraction via Vercel AI SDK.
+4. **Tool** — "muscles": bash, edit, glob, grep, webfetch, LSP, MCP, monitor, apply_patch, generate_image, etc.
+5. **Server** — Hono (HTTP + SSE + WebSocket) with auto-generated OpenAPI (`hono-openapi`).
+
+**Three usage modes, same backend**:
+- **CLI one-shot**: `nikcli run "..."` → launches server, executes, exits
+- **TUI**: `nikcli` (default) → worker process SolidJS connects to local server via SDK
+- **Server**: `nikcli serve` → Hono bound, SSE for event stream
+- **Remote attach**: `nikcli attach <url>` → remote TUI
+- **Mobile**: companion package
+
+**Full `src/` directory map (63 entries)**:
+
+- **Core runtime**: `agent/`, `session/` (processor, runner, llm, message-v2, compaction, revert, retry, mode, goal, todo, stats, summary), `session/llm/` (ai-sdk, native-request, native-runtime), `session/v2/`, `provider/` (registry, llm-client, transform, models), `tool/` (~40+ tools with .txt system prompts), `bus/`
+- **Interfaces**: `cli/cmd/` (~40 yargs commands, some in `tui/`, `debug/`), `cli/cmd/tui/` (SolidJS app, 40+ dialogs), `server/` (Hono, routes, SSE, mDNS, WebSocket, OpenAPI), `acp/`
+- **Integrations**: `mcp/`, `lsp/`, `connectors/` (Discord, Slack, GitHub, Linear, Teams, GChat via `@chat-adapter/*`), `chatbot/`, `companion/`, `mobile/`, `plugin/`, `scheduler/`, `share/`
+- **Internal services**: `permission/` (PermissionNext), `storage/`, `db/` (Drizzle), `config/`, `project/` (Instance, bootstrap, vcs), `workspace/`, `worktree/`, `filesystem/`, `file/`, `git/`, `shell/`, `pty/`, `snapshot/`, `patch/`, `sandbox/` (Vercel sandbox), `account/`, `auth/`, `installation/`, `delegation/`, `effect/`, `global/`, `env/`, `flag/`, `id/`, `image/`, `brain/`, `audio.d.ts`, `wasm.d.ts`, `interaction/`, `question/`, `locale/`, `loop/`, `format/`, `prompt/`, `skill/`, `sync/`, `monitor/`, `command/`, `util/`, `ide/`, `background/`
+
+### Image Preview System — `tui-image` Integration (2026-06-10)
+
+**New package**: `tui-image` linked into `packages/nikcli` for native half-block image rendering protocol.
+
+**Integration path** (`image-preview.tsx` + `tui-image.tsx`):
+- `loadImagePreview()` in `image-preview.tsx` now uses the new half-block encoder from `tui-image` instead of the hand-rolled braille encoder
+- `ImagePreviewList` (legacy) delegates to new `TuiImageList` from `tui-image.tsx` when native protocol is available
+- Feature flag in route file (`routes/session/index.tsx`) lets user opt into the new renderer
+- `useTerminalDimensions()` already imported in route (no new import needed)
+- `Bun.link()` completed: `tui-image` is now linked into nikcli workspace
+- `zig.d.ts` exposes `writeOut` on `RenderLib` (not directly on `CliRenderer`); `CliRenderer.writeOut` is private — use `process.stdout.write` for now or pass writer callback
+
+**Note**: `bun run typecheck` ran into SIGTERM timeout (2026-06-10) while integrating. Re-run with longer timeout needed to verify the import paths.
+
+### CLI Commands Catalogue (session `ses_14e6607a2ffeuifEn3QedG7QFS`)
+
+CLI commands grouped by category (per `packages/nikcli/src/cli/cmd/`):
+
+- **Core**: `run` (run.ts), `agent` (agent.ts), `models` (models.ts), `auth` (auth.ts)
+- **Server**: `serve` (serve.ts), `workspace-serve` (workspace-serve.ts), `web` (web.ts)
+- **Remote**: `remote` (remote/), `attach` (attach.ts), `mobile` (mobile-dev.ts), `companion` (companion.ts)
+- **Session**: `session` (session/), `export` (export.ts), `import` (import.ts), `share` (share.ts)
+- **Dev**: `debug` (debug/), `doctor` (doctor.ts), `upgrade` (upgrade.ts), `uninstall` (uninstall.ts), `stats` (stats.ts)
+- **Model**: `image-model` (image-model.ts), `speak-model` (speak-model.ts), `brain-model` (brain-model.ts)
+- **Account**: `account` (account.ts), `usage` (usage.ts), `goal` (goal.ts), `routine` (routine.ts), `heap` (heap.ts), `ads` (ads.ts), `locale` (locale.ts)
+- **Integration**: `mcp` (mcp.ts), `github` (github.ts), `acp` (acp.ts), `pr` (pr.ts), `chatbot` (chatbot.ts)
+- **Plugin**: `plug` (plug.ts)
+- **TUI**: `tui/thread.ts` (default), `tui/plugin/` (plugin routes)
+
+### Default Branch Update (2026-06-10)
+
+**IMPORTANT CORRECTION**: The current default branch is **`live-main`**, NOT `nikoemme-main` (which is in older Brain Pass entries from before 2026-06-07). Confirmed 2026-06-10 by `gh api` checks during CI babysit session.
+
+**Open PRs against `live-main` (2026-06-10)**:
+
+| PR | Branch → live-main | Notable failures |
+|---|---|---|
+| #91 | `nikcli/mobile/nikcli/yrrz85` | Multiple failures |
+| #88 | `claude/npm-publish-error-vCzX7` | Windows smoke + test failures |
+| #86 | `claude/nikcli-effect-skill-integration-X5AAM` | Windows smoke/test + nix hashes failures |
+
+**Recently merged PRs**: #97, #96 (most recent merges to `live-main`).
+
+### Outstanding TODO from 2026-06-10
+
+- **TUI exit logo**: User requested nikcli to display ASCII logo on terminal kill (like OpenCode does) — added 2026-05-20, still not implemented
+- **tui-image typecheck**: Needs re-run with longer timeout to confirm integration compiles cleanly
+- **CI babysit resolution**: PR #91 (most recent open) has multiple failures; needs investigation

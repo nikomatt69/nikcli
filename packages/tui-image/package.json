@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@nikcli-ai/tui-image",
+  "version": "1.60.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "WASM-compatible image rendering for TUI / OpenTUI terminals — auto-detects Kitty Graphics, Sixel, iTerm2 and falls back to Unicode half-blocks. Single dependency-free public API; image decoding delegated to a host-supplied decoder (jimp, photon-node WASM, sharp, …) so the package works in Node, Bun and the browser.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./capabilities": "./src/capabilities.ts",
+    "./encode": "./src/encode.ts",
+    "./render": "./src/render.ts",
+    "./pixels": "./src/pixels.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "jimp": "1.6.0"
+  },
+  "optionalDependencies": {
+    "@silvia-odwyer/photon-node": "0.3.4",
+    "@resvg/resvg-js": "2.6.2"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:"
+  }
+}

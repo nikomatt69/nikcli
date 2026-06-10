@@ -92,7 +92,7 @@ import { DialogExportOptions } from "../../ui/dialog-export-options"
 import { formatTranscript } from "../../util/transcript"
 import { DialogWebPreview } from "@tui/component/dialog-web-preview"
 import { DialogOpenTUIViz } from "@tui/component/dialog-opentui-viz"
-import { ImagePreviewList } from "@tui/component/image-preview"
+import { TuiImageList } from "@tui/component/tui-image"
 import { DialogSelect } from "../../ui/dialog-select"
 import { DialogBgAgents } from "./dialog-bg-agents"
 import {
@@ -230,7 +230,10 @@ export function Session() {
           message: `Session not found: ${route.sessionID}`,
           variant: "error",
         })
-        return navigate({ type: "home", workspaceID: sync.session.get(route.sessionID)?.workspaceID })
+        return navigate({
+          type: "home",
+          workspaceID: sync.session.get(route.sessionID)?.workspaceID,
+        })
       })
   })
 
@@ -315,7 +318,11 @@ export function Session() {
     evt.stopPropagation()
     const job = sync.background.findBySession(route.sessionID)
     if (job) undismissBackground(parentID, job.rootDelegationID)
-    navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
+    navigate({
+      type: "session",
+      sessionID: parentID,
+      workspaceID: sync.session.get(parentID)?.workspaceID,
+    })
   })
 
   // In subagent sessions, Esc should behave like Ctrl+B (background + return to parent).
@@ -328,7 +335,11 @@ export function Session() {
     evt.stopPropagation()
     const job = sync.background.findBySession(route.sessionID)
     if (job) undismissBackground(parentID, job.rootDelegationID)
-    navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
+    navigate({
+      type: "session",
+      sessionID: parentID,
+      workspaceID: sync.session.get(parentID)?.workspaceID,
+    })
   })
 
   // Session pin toggle with <leader>p
@@ -450,7 +461,11 @@ export function Session() {
         if (!parentID) return
         const job = sync.background.findBySession(route.sessionID)
         if (job) undismissBackground(parentID, job.rootDelegationID)
-        navigate({ type: "session", sessionID: parentID, workspaceID: sync.session.get(parentID)?.workspaceID })
+        navigate({
+          type: "session",
+          sessionID: parentID,
+          workspaceID: sync.session.get(parentID)?.workspaceID,
+        })
         dialog.clear()
       },
     },
@@ -501,8 +516,18 @@ export function Session() {
       onSelect: async (dialog) => {
         const copy = (url: string) =>
           Clipboard.copy(url)
-            .then(() => toast.show({ message: "Share URL copied to clipboard!", variant: "success" }))
-            .catch(() => toast.show({ message: "Failed to copy URL to clipboard", variant: "error" }))
+            .then(() =>
+              toast.show({
+                message: "Share URL copied to clipboard!",
+                variant: "success",
+              }),
+            )
+            .catch(() =>
+              toast.show({
+                message: "Failed to copy URL to clipboard",
+                variant: "error",
+              }),
+            )
 
         const shareSession = async (client = sdk.client) => {
           const result = await client.session.share(
@@ -533,7 +558,11 @@ export function Session() {
         } catch (error) {
           const canStartLocalServer = /^https?:\/\/nikcli\.local(?::\d+)?$/i.test(sdk.url) && !!server.startServer
           if (!canStartLocalServer) {
-            toast.show({ message: shareErrorMessage(error), variant: "error", duration: 5000 })
+            toast.show({
+              message: shareErrorMessage(error),
+              variant: "error",
+              duration: 5000,
+            })
             dialog.clear()
             return
           }
@@ -548,7 +577,11 @@ export function Session() {
             })
             await shareSession(client)
           } catch (retryError) {
-            toast.show({ message: shareErrorMessage(retryError), variant: "error", duration: 5000 })
+            toast.show({
+              message: shareErrorMessage(retryError),
+              variant: "error",
+              duration: 5000,
+            })
           }
         }
         dialog.clear()
@@ -659,8 +692,19 @@ export function Session() {
           .unshare({
             sessionID: route.sessionID,
           })
-          .then(() => toast.show({ message: "Session unshared successfully", variant: "success" }))
-          .catch((error) => toast.show({ message: shareErrorMessage(error), variant: "error", duration: 5000 }))
+          .then(() =>
+            toast.show({
+              message: "Session unshared successfully",
+              variant: "success",
+            }),
+          )
+          .catch((error) =>
+            toast.show({
+              message: shareErrorMessage(error),
+              variant: "error",
+              duration: 5000,
+            }),
+          )
         dialog.clear()
       },
     },
@@ -967,7 +1011,10 @@ export function Session() {
           (msg) => msg.role === "assistant" && (!revertID || msg.id < revertID),
         )
         if (!lastAssistantMessage) {
-          toast.show({ message: "No assistant messages found", variant: "error" })
+          toast.show({
+            message: "No assistant messages found",
+            variant: "error",
+          })
           dialog.clear()
           return
         }
@@ -975,7 +1022,10 @@ export function Session() {
         const parts = sync.data.part[lastAssistantMessage.id] ?? []
         const textParts = parts.filter((part) => part.type === "text")
         if (textParts.length === 0) {
-          toast.show({ message: "No text parts found in last assistant message", variant: "error" })
+          toast.show({
+            message: "No text parts found in last assistant message",
+            variant: "error",
+          })
           dialog.clear()
           return
         }
@@ -994,8 +1044,18 @@ export function Session() {
         }
 
         Clipboard.copy(text)
-          .then(() => toast.show({ message: "Message copied to clipboard!", variant: "success" }))
-          .catch(() => toast.show({ message: "Failed to copy to clipboard", variant: "error" }))
+          .then(() =>
+            toast.show({
+              message: "Message copied to clipboard!",
+              variant: "success",
+            }),
+          )
+          .catch(() =>
+            toast.show({
+              message: "Failed to copy to clipboard",
+              variant: "error",
+            }),
+          )
         dialog.clear()
       },
     },
@@ -1013,7 +1073,10 @@ export function Session() {
           const sessionMessages = messages()
           const transcript = formatTranscript(
             sessionData,
-            sessionMessages.map((msg) => ({ info: msg, parts: sync.data.part[msg.id] ?? [] })),
+            sessionMessages.map((msg) => ({
+              info: msg,
+              parts: sync.data.part[msg.id] ?? [],
+            })),
             {
               thinking: showThinking(),
               toolDetails: showDetails(),
@@ -1021,9 +1084,15 @@ export function Session() {
             },
           )
           await Clipboard.copy(transcript)
-          toast.show({ message: "Session transcript copied to clipboard!", variant: "success" })
+          toast.show({
+            message: "Session transcript copied to clipboard!",
+            variant: "success",
+          })
         } catch {
-          toast.show({ message: "Failed to copy session transcript", variant: "error" })
+          toast.show({
+            message: "Failed to copy session transcript",
+            variant: "error",
+          })
         }
         dialog.clear()
       },
@@ -1057,7 +1126,10 @@ export function Session() {
 
           const transcript = formatTranscript(
             sessionData,
-            sessionMessages.map((msg) => ({ info: msg, parts: sync.data.part[msg.id] ?? [] })),
+            sessionMessages.map((msg) => ({
+              info: msg,
+              parts: sync.data.part[msg.id] ?? [],
+            })),
             {
               thinking: options.thinking,
               toolDetails: options.toolDetails,
@@ -1081,7 +1153,10 @@ export function Session() {
               await Bun.write(filepath, result)
             }
 
-            toast.show({ message: `Session exported to ${filename}`, variant: "success" })
+            toast.show({
+              message: `Session exported to ${filename}`,
+              variant: "success",
+            })
           }
         } catch {
           toast.show({ message: "Failed to export session", variant: "error" })
@@ -1429,7 +1504,9 @@ function UserMessage(props: {
   const color = createMemo(() => local.agent.color(props.message.agent))
   const queuedFg = createMemo(() => selectedForeground(theme, color()))
   const metadataVisible = createMemo(() => queued() || ctx.showTimestamps())
+  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const imagePreviewUrls = createMemo(() =>
     files()
       .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
@@ -1463,7 +1540,12 @@ function UserMessage(props: {
             flexShrink={0}
           >
             <Show when={text()}>{(part) => <text fg={theme.text}>{part().text}</text>}</Show>
-            <ImagePreviewList text={text()?.text ?? ""} urls={imagePreviewUrls()} maxColumns={imagePreviewColumns()} />
+            <TuiImageList
+              text={text()?.text ?? ""}
+              urls={imagePreviewUrls()}
+              maxColumns={imagePreviewColumns()}
+              maxRows={imagePreviewRows()}
+            />
             <Show when={files().length}>
               <box flexDirection="row" paddingBottom={metadataVisible() ? 1 : 0} paddingTop={1} gap={1} flexWrap="wrap">
                 <For each={files()}>
@@ -1476,7 +1558,15 @@ function UserMessage(props: {
                     return (
                       <text fg={theme.text}>
                         <span style={{ bg: bg(), fg: theme.background }}> {MIME_BADGE[file.mime] ?? file.mime} </span>
-                        <span style={{ bg: theme.backgroundElement, fg: theme.textMuted }}> {file.filename} </span>
+                        <span
+                          style={{
+                            bg: theme.backgroundElement,
+                            fg: theme.textMuted,
+                          }}
+                        >
+                          {" "}
+                          {file.filename}{" "}
+                        </span>
                       </text>
                     )
                   }}
@@ -1798,7 +1888,9 @@ function ReasoningHeader(props: { done: boolean; title: string | null; duration?
 function TextPart(props: { last: boolean; part: TextPart; message: AssistantMessage }) {
   const ctx = use()
   const { theme, syntax } = useTheme()
+  const terminalDimensions = useTerminalDimensions()
   const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
   const tight = createMemo(() => ctx.width < 84)
   const rendered = createMemo(() => wrapDiagramsInFences(props.part.text.trim()))
 
@@ -1831,7 +1923,7 @@ function TextPart(props: { last: boolean; part: TextPart; message: AssistantMess
             borderColor: theme.borderSubtle,
           }}
         />
-        <ImagePreviewList text={props.part.text} maxColumns={imagePreviewColumns()} />
+        <TuiImageList text={props.part.text} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
       </box>
     </Show>
   )
@@ -1895,12 +1987,21 @@ function createStreamingSpeed(text: () => string, isStreaming: () => boolean) {
 function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMessage }) {
   const ctx = use()
   const sync = useSync()
+  const terminalDimensions = useTerminalDimensions()
+  const imagePreviewColumns = createMemo(() => Math.max(24, Math.min(180, ctx.width - 8)))
+  const imagePreviewRows = createMemo(() => Math.max(4, Math.floor(terminalDimensions().height / 3)))
+  const imagePreviewUrls = createMemo(() => {
+    if (props.part.state.status !== "completed") return []
+    return (props.part.state.attachments ?? [])
+      .filter((file) => file.mime.startsWith("image/") && file.mime !== "image/svg+xml")
+      .flatMap((file) => (file.url ? [file.url] : file.source?.type === "file" ? [file.source.path] : []))
+  })
 
   // Hide tool if showDetails is false and tool completed successfully
   const shouldHide = createMemo(() => {
     if (ctx.showDetails()) return false
     if (props.part.state.status !== "completed") return false
-    return true
+    return imagePreviewUrls().length === 0
   })
 
   const toolprops = {
@@ -1927,64 +2028,71 @@ function ToolPart(props: { last: boolean; part: ToolPart; message: AssistantMess
   }
 
   return (
-    <Show when={!shouldHide()}>
-      <Switch>
-        <Match when={props.part.tool === "bash"}>
-          <Bash {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "exec_code"}>
-          <ExecCode {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "glob"}>
-          <Glob {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "read"}>
-          <Read {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "grep"}>
-          <Grep {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "list"}>
-          <List {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "webfetch"}>
-          <WebFetch {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "codesearch"}>
-          <CodeSearch {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "websearch"}>
-          <WebSearch {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "write"}>
-          <Write {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "edit"}>
-          <Edit {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "task"}>
-          <Task {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "monitor"}>
-          <Monitor {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "apply_patch"}>
-          <ApplyPatch {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "todowrite"}>
-          <TodoWrite {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "question"}>
-          <Question {...toolprops} />
-        </Match>
-        <Match when={props.part.tool === "opentui"}>
-          <OpenTUIViz {...toolprops} />
-        </Match>
-        <Match when={true}>
-          <GenericTool {...toolprops} />
-        </Match>
-      </Switch>
-    </Show>
+    <>
+      <Show when={!shouldHide()}>
+        <Switch>
+          <Match when={props.part.tool === "bash"}>
+            <Bash {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "exec_code"}>
+            <ExecCode {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "glob"}>
+            <Glob {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "read"}>
+            <Read {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "grep"}>
+            <Grep {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "list"}>
+            <List {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "webfetch"}>
+            <WebFetch {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "codesearch"}>
+            <CodeSearch {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "websearch"}>
+            <WebSearch {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "write"}>
+            <Write {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "edit"}>
+            <Edit {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "task"}>
+            <Task {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "monitor"}>
+            <Monitor {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "apply_patch"}>
+            <ApplyPatch {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "todowrite"}>
+            <TodoWrite {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "question"}>
+            <Question {...toolprops} />
+          </Match>
+          <Match when={props.part.tool === "opentui"}>
+            <OpenTUIViz {...toolprops} />
+          </Match>
+          <Match when={true}>
+            <GenericTool {...toolprops} />
+          </Match>
+        </Switch>
+      </Show>
+      <Show when={imagePreviewUrls().length > 0}>
+        <box paddingLeft={3} flexShrink={0}>
+          <TuiImageList urls={imagePreviewUrls()} maxColumns={imagePreviewColumns()} maxRows={imagePreviewRows()} />
+        </box>
+      </Show>
+    </>
   )
 }
 
@@ -2516,7 +2624,8 @@ function WebSearch(props: ToolProps<any>) {
         >
           <box gap={0}>
             <text fg={theme.textMuted}>
-              {results().length} previewable result{results().length === 1 ? "" : "s"} found
+              {results().length} previewable result
+              {results().length === 1 ? "" : "s"} found
             </text>
             <text fg={theme.primary} wrapMode="char">
               {results()[0]!.host}
@@ -2784,7 +2893,10 @@ function DialogMonitorLog(props: {
       toast.show({ message: `Stopped ${props.title}`, variant: "info" })
       await refresh()
     } catch (error) {
-      toast.show({ message: friendlyErrorMessage(error, "Failed to stop monitor"), variant: "error" })
+      toast.show({
+        message: friendlyErrorMessage(error, "Failed to stop monitor"),
+        variant: "error",
+      })
     }
   }
 
@@ -2852,7 +2964,12 @@ function DialogMonitorLog(props: {
       evt.stopPropagation()
       void Clipboard.copy(content())
         .then(() => toast.show({ message: "Monitor log copied", variant: "success" }))
-        .catch(() => toast.show({ message: "Failed to copy monitor log", variant: "error" }))
+        .catch(() =>
+          toast.show({
+            message: "Failed to copy monitor log",
+            variant: "error",
+          }),
+        )
     }
   })
 
@@ -2955,7 +3072,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
 
   const current = createMemo(() => {
     const summary = meta.summary as
-      | Array<{ id: string; tool: string; state: { status: string; title?: string } }>
+      | Array<{
+          id: string
+          tool: string
+          state: { status: string; title?: string }
+        }>
       | undefined
     if (!summary || summary.length === 0) return undefined
     for (let i = summary.length - 1; i >= 0; i--) {
@@ -2991,7 +3112,11 @@ function Task(props: ToolProps<typeof TaskTool>) {
           <text style={{ fg: theme.textMuted }}>└ {question()}</text>
         </Show>
         <Show when={current()}>
-          <text style={{ fg: current()!.state.status === "error" ? theme.error : theme.textMuted }}>
+          <text
+            style={{
+              fg: current()!.state.status === "error" ? theme.error : theme.textMuted,
+            }}
+          >
             └ {Locale.titlecase(current()!.tool)}{" "}
             {current()!.state.status === "completed" ? current()!.state.title : ""}
           </text>
@@ -3085,7 +3210,8 @@ function Monitor(props: ToolProps<typeof MonitorTool>) {
             </Show>
           </box>
           <text fg={theme.text}>
-            follow logs<span style={{ fg: theme.textMuted }}> view monitor output</span>
+            follow logs
+            <span style={{ fg: theme.textMuted }}> view monitor output</span>
           </text>
         </BlockTool>
       </Match>
