@@ -25,8 +25,8 @@
  * surface is the same in Node, Bun, and the browser. The heavy machinery
  * (image decoding, PNG encoding) is pulled in lazily and only when used.
  */
-export * from "./render";
-export * from "./capabilities";
-export * from "./encode";
-export * from "./decode";
-export * from "./pixels";
+export * from "./render"
+export * from "./capabilities"
+export * from "./encode"
+export * from "./decode"
+export * from "./pixels"

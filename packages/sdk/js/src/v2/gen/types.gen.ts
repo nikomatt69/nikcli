@@ -1110,6 +1110,13 @@ export type EventLoopAborted = {
   }
 }
 
+export type EventSessionV2Updated = {
+  type: "session.v2.updated"
+  properties: {
+    sessionID: string
+  }
+}
+
 export type Pty = {
   id: string
   title: string
@@ -1200,6 +1207,7 @@ export type Event =
   | EventLoopRunFinished
   | EventLoopRuntimeChanged
   | EventLoopAborted
+  | EventSessionV2Updated
   | EventPtyCreated
   | EventPtyUpdated
   | EventPtyExited
@@ -2982,6 +2990,154 @@ export type ManagedWorktreeLinkInput = {
   to?: string
 }
 
+export type SessionEntryUser = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "user"
+  text: string
+  files?: Array<FilePart>
+  agents?: Array<AgentPart>
+}
+
+export type SessionEntrySynthetic = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "synthetic"
+  text: string
+  roleType?: "system" | "user" | "assistant"
+}
+
+export type SessionEntryAssistantText = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "assistant"
+  sub: "text"
+  modelID: string
+  providerID: string
+  agent: string
+  finish?: string
+  parts: Array<
+    | {
+        type: "text"
+        text: string
+        ignored?: boolean
+        metadata?: {
+          [key: string]: unknown
+        }
+        ref?: string
+      }
+    | {
+        type: "reasoning"
+        text: string
+        metadata?: {
+          [key: string]: unknown
+        }
+        ref?: string
+      }
+    | {
+        type: "tool-call"
+        toolCallId: string
+        toolName: string
+        args: {
+          [key: string]: unknown
+        }
+        argsText?: string
+        ref?: string
+      }
+    | {
+        type: "tool-result"
+        toolCallId: string
+        toolName: string
+        result: string
+        error?: boolean
+        attachments?: Array<FilePart>
+        ref?: string
+      }
+  >
+}
+
+export type SessionEntryAssistantReasoning = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "assistant"
+  sub: "reasoning"
+  modelID: string
+  providerID: string
+  agent: string
+  parts: Array<{
+    type: "reasoning"
+    text: string
+    metadata?: {
+      [key: string]: unknown
+    }
+    ref?: string
+  }>
+}
+
+export type SessionEntryAssistantTool = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "assistant"
+  sub: "tool"
+  modelID: string
+  providerID: string
+  agent: string
+  parts: Array<
+    | {
+        type: "tool-call"
+        toolCallId: string
+        toolName: string
+        args: {
+          [key: string]: unknown
+        }
+        argsText?: string
+        ref?: string
+      }
+    | {
+        type: "tool-result"
+        toolCallId: string
+        toolName: string
+        result: string
+        error?: boolean
+        attachments?: Array<FilePart>
+        ref?: string
+      }
+  >
+}
+
+export type SessionEntryAssistantRetry = {
+  id: string
+  sessionID: string
+  timestamp: number
+  metadata?: {
+    [key: string]: unknown
+  }
+  role: "assistant"
+  sub: "retry"
+  attempt: number
+  error: ApiError
+}
+
 export type TextPartInput = {
   id?: string
   type: "text"
@@ -3112,6 +3268,17 @@ export type MobileBootstrap = {
   mobileProject?: MobileProjectType
 }
 
+export type MobileCommand = {
+  name: string
+  description?: string
+  agent?: string
+  model?: string
+  mcp?: boolean
+  skill?: boolean
+  subtask?: boolean
+  hints: Array<string>
+}
+
 export type MobilePromptHistoryEntry = {
   id: string
   input: string
@@ -3138,17 +3305,6 @@ export type MobilePromptStashEntry = {
 
 export type MobilePromptStashCreateInput = {
   input: string
-}
-
-export type MobileCommand = {
-  name: string
-  description?: string
-  agent?: string
-  model?: string
-  mcp?: boolean
-  skill?: boolean
-  subtask?: boolean
-  hints: Array<string>
 }
 
 export type MobileGithubBranch = {
@@ -6230,6 +6386,104 @@ export type SessionMessageResponses = {
 
 export type SessionMessageResponse = SessionMessageResponses[keyof SessionMessageResponses]
 
+export type SessionV2EntriesData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/v2/entries"
+}
+
+export type SessionV2EntriesErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionV2EntriesError = SessionV2EntriesErrors[keyof SessionV2EntriesErrors]
+
+export type SessionV2EntriesResponses = {
+  /**
+   * List of v2 entries
+   */
+  200: Array<
+    | SessionEntryUser
+    | SessionEntrySynthetic
+    | SessionEntryAssistantText
+    | SessionEntryAssistantReasoning
+    | SessionEntryAssistantTool
+    | SessionEntryAssistantRetry
+  >
+}
+
+export type SessionV2EntriesResponse = SessionV2EntriesResponses[keyof SessionV2EntriesResponses]
+
+export type SessionV2StateData = {
+  body?: never
+  path: {
+    /**
+     * Session ID
+     */
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/session/{sessionID}/v2/state"
+}
+
+export type SessionV2StateErrors = {
+  /**
+   * Bad request
+   */
+  400: BadRequestError
+  /**
+   * Not found
+   */
+  404: NotFoundError
+}
+
+export type SessionV2StateError = SessionV2StateErrors[keyof SessionV2StateErrors]
+
+export type SessionV2StateResponses = {
+  /**
+   * Live v2 state
+   */
+  200: {
+    entries: Array<
+      | SessionEntryUser
+      | SessionEntrySynthetic
+      | SessionEntryAssistantText
+      | SessionEntryAssistantReasoning
+      | SessionEntryAssistantTool
+      | SessionEntryAssistantRetry
+    >
+    pending: Array<
+      | SessionEntryUser
+      | SessionEntrySynthetic
+      | SessionEntryAssistantText
+      | SessionEntryAssistantReasoning
+      | SessionEntryAssistantTool
+      | SessionEntryAssistantRetry
+    >
+  }
+}
+
+export type SessionV2StateResponse = SessionV2StateResponses[keyof SessionV2StateResponses]
+
 export type PartDeleteData = {
   body?: never
   path: {
@@ -7246,6 +7500,44 @@ export type MobileBootstrapResponses = {
 
 export type MobileBootstrapResponse = MobileBootstrapResponses[keyof MobileBootstrapResponses]
 
+export type MobileCommandListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/command"
+}
+
+export type MobileCommandListResponses = {
+  /**
+   * Commands
+   */
+  200: Array<MobileCommand>
+}
+
+export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
+
+export type MobileProjectListData = {
+  body?: never
+  path?: never
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/project"
+}
+
+export type MobileProjectListResponses = {
+  /**
+   * Projects
+   */
+  200: Array<MobileProject>
+}
+
+export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
+
 export type MobileMemoryHistoryData = {
   body?: never
   path?: never
@@ -7363,44 +7655,6 @@ export type MobileMemoryStashDeleteResponses = {
 }
 
 export type MobileMemoryStashDeleteResponse = MobileMemoryStashDeleteResponses[keyof MobileMemoryStashDeleteResponses]
-
-export type MobileCommandListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/command"
-}
-
-export type MobileCommandListResponses = {
-  /**
-   * Commands
-   */
-  200: Array<MobileCommand>
-}
-
-export type MobileCommandListResponse = MobileCommandListResponses[keyof MobileCommandListResponses]
-
-export type MobileProjectListData = {
-  body?: never
-  path?: never
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/project"
-}
-
-export type MobileProjectListResponses = {
-  /**
-   * Projects
-   */
-  200: Array<MobileProject>
-}
-
-export type MobileProjectListResponse = MobileProjectListResponses[keyof MobileProjectListResponses]
 
 export type MobileGithubReposData = {
   body?: never
@@ -8116,6 +8370,31 @@ export type MobileSessionStreamResponses = {
   200: unknown
 }
 
+export type MobileSessionRenameData = {
+  body?: {
+    title: string
+  }
+  path: {
+    sessionID: string
+  }
+  query?: {
+    directory?: string
+    workspace?: string
+  }
+  url: "/mobile/session/{sessionID}/rename"
+}
+
+export type MobileSessionRenameResponses = {
+  /**
+   * Session renamed
+   */
+  200: {
+    success: true
+  }
+}
+
+export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
+
 export type MobileWorktreeRemoveData = {
   body?: WorktreeRemoveInput
   path?: never
@@ -8185,31 +8464,6 @@ export type MobileWorktreeResetResponses = {
 }
 
 export type MobileWorktreeResetResponse = MobileWorktreeResetResponses[keyof MobileWorktreeResetResponses]
-
-export type MobileSessionRenameData = {
-  body?: {
-    title: string
-  }
-  path: {
-    sessionID: string
-  }
-  query?: {
-    directory?: string
-    workspace?: string
-  }
-  url: "/mobile/session/{sessionID}/rename"
-}
-
-export type MobileSessionRenameResponses = {
-  /**
-   * Session renamed
-   */
-  200: {
-    success: true
-  }
-}
-
-export type MobileSessionRenameResponse = MobileSessionRenameResponses[keyof MobileSessionRenameResponses]
 
 export type MobileGitStatusData = {
   body?: never
