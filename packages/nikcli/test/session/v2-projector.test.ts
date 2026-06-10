@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "bun:test"
 import type { MessageV2 as MessageV2Types } from "@/session/message-v2"
+import type { SessionEntry as SessionEntryTypes } from "@/session/v2/entry"
 import fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -84,20 +85,25 @@ describe("SessionProjector", () => {
           },
         })
 
-        const inflight = SessionProjector.inflight(sessionID)
-        expect(inflight).toHaveLength(1)
-        expect(inflight[0].parts.map((p) => p.type)).toEqual(["text", "tool"])
-
-        // live state surfaces the in-flight work as pending v2 entries
+        // live state is the Stepper reduction of the in-flight work: one open
+        // assistant step carrying the real model and the converted parts
         const live = SessionV2.state(sessionID)
         expect(live.pending).toHaveLength(1)
-        expect(live.pending[0].role).toBe("assistant")
+        const open = live.pending[0] as SessionEntryTypes.AssistantText
+        expect(open.role).toBe("assistant")
+        expect(open.modelID).toBe("test-model")
+        expect(open.parts.map((p) => p.type)).toEqual(["text", "tool-result"])
 
-        // completion drops the mirror (storage becomes the source of truth)
+        // re-emitting the same part (streaming) must not duplicate it
+        await Bus.publish(MessageV2.Event.PartUpdated, { part: { ...textPart, text: "partial answer, longer" } })
+        const replayed = SessionV2.state(sessionID).pending[0] as SessionEntryTypes.AssistantText
+        expect(replayed.parts).toHaveLength(2)
+        expect(replayed.parts[0]).toMatchObject({ type: "text", text: "partial answer, longer" })
+
+        // completion drops the live tail (storage becomes the source of truth)
         await Bus.publish(MessageV2.Event.Updated, {
           info: assistantInfo(sessionID, { id: info.id, time: { created: info.time.created, completed: Date.now() } }),
         })
-        expect(SessionProjector.inflight(sessionID)).toHaveLength(0)
         expect(SessionV2.state(sessionID).pending).toHaveLength(0)
 
         // entry-grade updates were published (message created, tool transition,
@@ -125,14 +131,14 @@ describe("SessionProjector", () => {
             text: "orphan",
           },
         })
-        expect(SessionProjector.inflight(sessionID)).toHaveLength(0)
+        expect(SessionV2.state(sessionID).pending).toHaveLength(0)
 
         const info = assistantInfo(sessionID)
         await Bus.publish(MessageV2.Event.Updated, { info })
-        expect(SessionProjector.inflight(sessionID)).toHaveLength(1)
+        expect(SessionV2.state(sessionID).pending).toHaveLength(1)
 
         SessionV2.clear(sessionID)
-        expect(SessionProjector.inflight(sessionID)).toHaveLength(0)
+        expect(SessionV2.state(sessionID).pending).toHaveLength(0)
       },
     })
   })

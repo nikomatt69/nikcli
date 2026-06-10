@@ -5,26 +5,30 @@ import { Log } from "@/util/log"
 import z from "zod"
 import { Session } from "../index"
 import { MessageV2 } from "../message-v2"
+import { SessionEvent } from "./event"
+import { Stepper } from "./stepper"
 
 /**
  * SessionProjector — live v2 read model over the v1 session engine.
  *
  * The v1 engine (session/processor.ts) stays the only writer: it persists
  * messages and publishes `message.updated` / `message.part.updated` /
- * `message.part.removed` on the Bus. This projector subscribes to those
- * events and mirrors ONLY the in-flight (not yet completed) assistant
- * messages, so `SessionV2.state()` can expose live pending entries without
- * touching the engine — migration by strangler, no behavior change in v1.
+ * `message.part.removed` on the Bus. This projector translates those events
+ * into the v2 `SessionEvent` vocabulary and reduces them through
+ * `Stepper.stepWith`, so the live tail a consumer reads from `snapshot()` is
+ * produced by the exact reducer the future native v2 engine will use —
+ * migration by strangler, no behavior change in v1.
  *
- * Memory is bounded by construction: a message is dropped from the mirror
- * the moment v1 marks it completed (it is then readable from storage via
+ * Memory is bounded by construction: only the single in-flight assistant
+ * message per session is reduced, and its state is dropped the moment v1
+ * marks it completed (it is then readable from storage via
  * `SessionV2.entries()`), when it is removed, or when its session is
  * deleted/disposed.
  *
  * Consumers that need character-level deltas keep using the v1
  * `message.part.updated` events; `session.v2.updated` fires only on
- * entry-grade changes (message lifecycle, tool state transitions, part
- * removal) to stay quiet during text streaming.
+ * entry-grade changes (message lifecycle, tool state transitions, retries,
+ * part removal) to stay quiet during text streaming.
  */
 export namespace SessionProjector {
   const log = Log.create({ service: "session.v2.projector" })
@@ -38,73 +42,123 @@ export namespace SessionProjector {
     ),
   }
 
-  interface Mirror {
-    info: MessageV2.Assistant
-    parts: Map<string, MessageV2.Part>
+  interface Live {
+    state: Stepper.MemoryState
+    /** messageID of the in-flight assistant message being reduced */
+    inflight?: string
+    /** partID → last entry-grade signature, to publish only on grade changes */
+    seen: Map<string, string>
   }
 
   interface State {
-    /** messageID → in-flight assistant message mirror */
-    inflight: Map<string, Mirror>
-    /** sessionID → in-flight messageIDs, for session-level lookup/cleanup */
-    bySession: Map<string, Set<string>>
+    /** sessionID → live reduction */
+    sessions: Map<string, Live>
     unsubscribes: (() => void)[]
   }
+
+  const empty = (): Stepper.MemoryState => ({ entries: [], pending: [] })
+
+  // stepWith's adapter is not consulted on the in-memory reduction path; a
+  // single shared no-op instance keeps the call sites honest.
+  const memoryAdapter = Stepper.memory().adapter
 
   const state = Instance.state<State>(
     () => {
       const s: State = {
-        inflight: new Map(),
-        bySession: new Map(),
+        sessions: new Map(),
         unsubscribes: [],
       }
 
-      const track = (info: MessageV2.Info) => {
-        if (info.role !== "assistant") return
-        if (info.time.completed) {
-          drop(s, info.id, info.sessionID)
-          publish(info.sessionID)
-          return
+      const live = (sessionID: string): Live => {
+        let target = s.sessions.get(sessionID)
+        if (!target) {
+          target = { state: empty(), seen: new Map() }
+          s.sessions.set(sessionID, target)
         }
-        const existing = s.inflight.get(info.id)
-        if (existing) {
-          existing.info = info
-          return
-        }
-        s.inflight.set(info.id, { info, parts: new Map() })
-        let ids = s.bySession.get(info.sessionID)
-        if (!ids) {
-          ids = new Set()
-          s.bySession.set(info.sessionID, ids)
-        }
-        ids.add(info.id)
-        publish(info.sessionID)
+        return target
+      }
+
+      const step = (target: Live, sessionID: string, draft: SessionEvent.Draft) => {
+        target.state = Stepper.stepWith(target.state, memoryAdapter, sessionID, SessionEvent.create(draft))
+      }
+
+      const drop = (target: Live) => {
+        target.state = empty()
+        target.inflight = undefined
+        target.seen.clear()
       }
 
       s.unsubscribes.push(
         Bus.subscribe(MessageV2.Event.Updated, (event) => {
-          track(event.properties.info)
+          const info = event.properties.info
+          if (info.role !== "assistant") return
+          const target = live(info.sessionID)
+          if (info.time.completed) {
+            if (target.inflight !== info.id) return
+            // storage is authoritative from here on: drop the live tail
+            drop(target)
+            publish(info.sessionID)
+            return
+          }
+          if (target.inflight === info.id) return
+          // a new assistant message went in flight: restart the reduction
+          drop(target)
+          target.inflight = info.id
+          step(target, info.sessionID, {
+            type: "step.started",
+            sessionID: info.sessionID,
+            messageID: info.id,
+            providerID: info.providerID,
+            modelID: info.modelID,
+            agent: info.agent,
+          })
+          publish(info.sessionID)
         }),
         Bus.subscribe(MessageV2.Event.PartUpdated, (event) => {
           const part = event.properties.part
-          const mirror = s.inflight.get(part.messageID)
-          if (!mirror) return
-          const previous = mirror.parts.get(part.id)
-          mirror.parts.set(part.id, part)
-          if (entryGradeChange(previous, part)) publish(part.sessionID)
+          const target = s.sessions.get(part.sessionID)
+          if (!target || target.inflight !== part.messageID) return
+          if (part.type === "retry") {
+            // retries are terminal per attempt — translate once
+            if (target.seen.has(part.id)) return
+            target.seen.set(part.id, "retry")
+            step(target, part.sessionID, {
+              type: "retry.error",
+              sessionID: part.sessionID,
+              messageID: part.messageID,
+              attempt: part.attempt,
+              error: part.error,
+            })
+            publish(part.sessionID)
+            return
+          }
+          const grade = part.type === "tool" ? part.state.status : "·"
+          const before = target.seen.get(part.id)
+          target.seen.set(part.id, grade)
+          step(target, part.sessionID, {
+            type: "part.updated",
+            sessionID: part.sessionID,
+            part,
+          })
+          if (before === undefined || before !== grade) publish(part.sessionID)
         }),
         Bus.subscribe(MessageV2.Event.PartRemoved, (event) => {
-          const mirror = s.inflight.get(event.properties.messageID)
-          if (!mirror) return
-          mirror.parts.delete(event.properties.partID)
-          publish(event.properties.sessionID)
+          const { sessionID, messageID, partID } = event.properties
+          const target = s.sessions.get(sessionID)
+          if (!target || target.inflight !== messageID) return
+          target.seen.delete(partID)
+          step(target, sessionID, { type: "part.removed", sessionID, messageID, partID })
+          publish(sessionID)
         }),
         Bus.subscribe(MessageV2.Event.Removed, (event) => {
-          drop(s, event.properties.messageID, event.properties.sessionID)
-          publish(event.properties.sessionID)
+          const { sessionID, messageID } = event.properties
+          const target = s.sessions.get(sessionID)
+          if (!target || target.inflight !== messageID) return
+          drop(target)
+          publish(sessionID)
         }),
         Bus.subscribe(Session.Event.Deleted, (event) => {
-          clearSession(s, event.properties.info.id)
+          s.sessions.delete(event.properties.info.id)
         }),
       )
 
@@ -113,63 +167,26 @@ export namespace SessionProjector {
     },
     async (s) => {
       for (const unsubscribe of s.unsubscribes) unsubscribe()
-      s.inflight.clear()
-      s.bySession.clear()
+      s.sessions.clear()
     },
   )
-
-  function drop(s: State, messageID: string, sessionID: string) {
-    s.inflight.delete(messageID)
-    const ids = s.bySession.get(sessionID)
-    if (!ids) return
-    ids.delete(messageID)
-    if (ids.size === 0) s.bySession.delete(sessionID)
-  }
-
-  function clearSession(s: State, sessionID: string) {
-    const ids = s.bySession.get(sessionID)
-    if (!ids) return
-    for (const id of ids) s.inflight.delete(id)
-    s.bySession.delete(sessionID)
-  }
-
-  /** Tool state transitions and structural parts matter; raw text/reasoning deltas do not. */
-  function entryGradeChange(previous: MessageV2.Part | undefined, next: MessageV2.Part): boolean {
-    if (next.type === "text" || next.type === "reasoning") return previous === undefined
-    if (next.type === "tool") {
-      return previous?.type !== "tool" || previous.state.status !== next.state.status
-    }
-    return true
-  }
-
-  function publish(sessionID: string) {
-    void Bus.publish(Event.Updated, { sessionID })
-  }
 
   /** Initialize (idempotent — first call per instance subscribes). */
   export function init() {
     state()
   }
 
-  /** In-flight assistant messages for a session, parts ordered by ascending id. */
-  export function inflight(sessionID: string): MessageV2.WithParts[] {
-    const s = state()
-    const ids = s.bySession.get(sessionID)
-    if (!ids) return []
-    const result: MessageV2.WithParts[] = []
-    for (const id of [...ids].sort()) {
-      const mirror = s.inflight.get(id)
-      if (!mirror) continue
-      result.push({
-        info: mirror.info,
-        parts: [...mirror.parts.values()].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
-      })
-    }
-    return result
+  /** Live v2 state for a session — `pending` is the in-flight assistant tail. */
+  export function snapshot(sessionID: string): Stepper.MemoryState {
+    return state().sessions.get(sessionID)?.state ?? empty()
   }
 
   /** Drop all live state for a session. */
   export function clear(sessionID: string) {
-    clearSession(state(), sessionID)
+    state().sessions.delete(sessionID)
+  }
+
+  function publish(sessionID: string) {
+    void Bus.publish(Event.Updated, { sessionID })
   }
 }

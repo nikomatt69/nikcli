@@ -50,7 +50,8 @@ export namespace Stepper {
   export type Action =
     | { type: "append"; entry: SessionEntry.Entry }
     | { type: "appendPending"; entry: SessionEntry.Entry }
-    | { type: "appendPart"; part: SessionEntry.AssistantText["parts"][number] }
+    | { type: "upsertPart"; part: SessionEntry.AssistantText["parts"][number] }
+    | { type: "removePart"; ref: string }
     | { type: "removeLastPending" }
     | { type: "replacePending"; entries: SessionEntry.Entry[] }
     | { type: "finish"; result: StepResult }
@@ -101,6 +102,11 @@ export namespace Stepper {
   // Reducer
   // ============================================================================
 
+  /** The open step: a pending assistant-text entry that parts attach to. */
+  function isOpenStep(entry: SessionEntry.Entry): entry is SessionEntry.AssistantText {
+    return entry.role === "assistant" && entry.sub === "text"
+  }
+
   /**
    * Produce the next state based on an action (immer producer)
    */
@@ -115,13 +121,30 @@ export namespace Stepper {
           draft.pending.push(action.entry)
           break
         }
-        case "appendPart": {
-          // Attach a finalized part to the current (last pending) assistant
-          // step; without an open step there is nowhere coherent to put it.
-          const last = draft.pending.at(-1)
-          if (last && last.role === "assistant" && "parts" in last && last.sub === "text") {
-            last.parts.push(action.part)
-          }
+        case "upsertPart": {
+          // Attach a part to the open (last pending assistant-text) step —
+          // `findLast` because a retry entry may sit after the open step.
+          // Idempotent: a part with the same originating v1 part (`ref`)
+          // replaces in place, and a tool-result replaces its tool-call
+          // (same toolCallId). Without an open step there is nowhere
+          // coherent to put it.
+          const open = draft.pending.findLast(isOpenStep)
+          if (!open) break
+          const part = action.part
+          const index = open.parts.findIndex(
+            (existing) =>
+              (part.ref !== undefined && existing.ref === part.ref) ||
+              (part.type === "tool-result" && existing.type === "tool-call" && existing.toolCallId === part.toolCallId),
+          )
+          if (index >= 0) open.parts[index] = part
+          else open.parts.push(part)
+          break
+        }
+        case "removePart": {
+          const open = draft.pending.findLast(isOpenStep)
+          if (!open) break
+          const index = open.parts.findIndex((existing) => existing.ref === action.ref)
+          if (index >= 0) open.parts.splice(index, 1)
           break
         }
         case "removeLastPending": {
@@ -201,14 +224,13 @@ export namespace Stepper {
       }
 
       case "part.updated": {
-        // Contract: the event stream is entry-grade — one part.updated per
-        // finalized part, between step.started and step.ended. The v1 part is
-        // converted to its v2 shape and attached to the open assistant step.
+        // The v1 part is converted to its v2 shape and upserted into the open
+        // assistant step: live streams re-emit the same part (same `ref`)
+        // many times, so the reduction must be idempotent, not append-only.
         const part = SessionEntry.fromV1Part(event.part)
         if (!part) return state
-        const open = state.pending.at(-1)
-        if (open && open.role === "assistant" && "parts" in open && open.sub === "text") {
-          return reduce(state, { type: "appendPart", part })
+        if (state.pending.some(isOpenStep)) {
+          return reduce(state, { type: "upsertPart", part })
         }
         const entry = SessionEntry.AssistantText.parse({
           id: Identifier.ascending("event"),
@@ -225,7 +247,7 @@ export namespace Stepper {
       }
 
       case "part.removed": {
-        return reduce(state, { type: "removeLastPending" })
+        return reduce(state, { type: "removePart", ref: event.partID })
       }
 
       case "retry.error": {

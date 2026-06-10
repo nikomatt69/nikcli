@@ -134,3 +134,36 @@ const msg = {
 ```
 
 Tradeoff: stored messages get much smaller and cleaner, but replay now has to join messages with turn state and prompt hooks still need a way to pick which turn they belong to.
+
+## Implementation status (2026-06-10)
+
+The entry/event/stepper shape is implemented in `src/session/v2/` and live,
+migrated by strangler over the v1 engine:
+
+- `SessionEntry` (entry.ts) — entries plus AI-SDK-aligned parts. Every part
+  carries an optional `ref` (the originating v1 part id) so live reductions
+  upsert instead of appending duplicates.
+- `SessionEvent` (event.ts) — the event vocabulary (`prompt`, `synthetic`,
+  `step.started`, `step.ended`, `part.updated`, `part.removed`,
+  `retry.error`). `Draft` distributes over the union (`z.input`-based) so
+  `create()` accepts each member's own keys.
+- `Stepper` (stepper.ts) — the immer reducer. `stepWith` is idempotent for
+  live streams: `upsertPart` replaces by `ref` (and a tool-result replaces
+  its tool-call by `toolCallId`); the open step is found with `findLast`
+  because retry entries may sit after it.
+- `SessionProjector` (projector.ts) — translates the v1 bus events
+  (`message.updated`, `message.part.updated`, `message.part.removed`) into
+  `SessionEvent`s and reduces them through `Stepper.stepWith`, so the live
+  tail is produced by the same reducer a future native v2 engine will use.
+  Publishes `session.v2.updated` only on entry-grade changes. State is
+  per-instance (`Instance.state`) and dropped on completion/removal/delete.
+- `SessionV2` (index.ts) — public API. Reads: `entries()` = lossless
+  conversion of storage + live pending tail; `state()`/`pending()` =
+  projector snapshot. Writes (`create`, `prompt`) still delegate to the v1
+  Session/SessionPrompt services (v1 stays the only writer).
+- Server: `GET /session/:id/v2/entries` and `GET /session/:id/v2/state`
+  (server/routes/session.ts); `session.v2.updated` reaches clients through
+  the existing bus → SSE forwarding.
+
+Not done yet: native v2 write path (engine swap), persistence of v2 events.
+Tests: `test/session/v2-conversion.test.ts`, `test/session/v2-projector.test.ts`.

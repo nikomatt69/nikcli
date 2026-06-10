@@ -438,3 +438,9 @@ piecewise.
 - Every migrated file should leave the generated SDK output (`packages/sdk/
 openapi.json` and `packages/sdk/js/src/v2/gen/types.gen.ts`) byte-identical
   unless the change is deliberately user-visible.
+- Session v2 (`src/session/v2/`) stays zod-first for now: its schemas
+  (`SessionEntry`, `SessionEvent`) feed `hono-openapi` resolvers directly
+  (`GET /session/:id/v2/{entries,state}`). Migrate them to Effect Schema +
+  the walker together with `session/message-v2.ts`, not before — the v2
+  parts embed `MessageV2.FilePart`/`APIError` and must convert in lockstep.
+  Status of the v2 read model itself: specs/v2/message-shape.md.

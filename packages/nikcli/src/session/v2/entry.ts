@@ -21,6 +21,13 @@ export namespace SessionEntry {
   // ============================================================================
 
   /**
+   * Originating v1 part id. Set whenever a part is converted from a live v1
+   * part so repeated `part.updated` events upsert (replace) instead of
+   * appending duplicates.
+   */
+  const Ref = z.string().optional()
+
+  /**
    * Text part — maps directly to AI SDK's `type: "text"` part
    */
   export const TextPart = z.object({
@@ -28,6 +35,7 @@ export namespace SessionEntry {
     text: z.string(),
     ignored: z.boolean().optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    ref: Ref,
   })
   export type TextPart = z.infer<typeof TextPart>
 
@@ -38,6 +46,7 @@ export namespace SessionEntry {
     type: z.literal("reasoning"),
     text: z.string(),
     metadata: z.record(z.string(), z.unknown()).optional(),
+    ref: Ref,
   })
   export type ReasoningPart = z.infer<typeof ReasoningPart>
 
@@ -50,6 +59,7 @@ export namespace SessionEntry {
     toolName: z.string(),
     args: z.record(z.string(), z.unknown()),
     argsText: z.string().optional(),
+    ref: Ref,
   })
   export type ToolCallPart = z.infer<typeof ToolCallPart>
 
@@ -66,6 +76,7 @@ export namespace SessionEntry {
     result: z.string(),
     error: z.boolean().optional(),
     attachments: MessageV2.FilePart.array().optional(),
+    ref: Ref,
   })
   export type ToolResultPart = z.infer<typeof ToolResultPart>
 
@@ -191,9 +202,9 @@ export namespace SessionEntry {
   ): TextPart | ReasoningPart | ToolCallPart | ToolResultPart | undefined {
     switch (part.type) {
       case "text":
-        return { type: "text", text: part.text, ignored: part.ignored }
+        return { type: "text", text: part.text, ignored: part.ignored, ref: part.id }
       case "reasoning":
-        return { type: "reasoning", text: part.text }
+        return { type: "reasoning", text: part.text, ref: part.id }
       case "tool":
         switch (part.state.status) {
           case "completed":
@@ -203,6 +214,7 @@ export namespace SessionEntry {
               toolName: part.tool,
               result: part.state.output,
               attachments: part.state.attachments,
+              ref: part.id,
             }
           case "error":
             return {
@@ -211,6 +223,7 @@ export namespace SessionEntry {
               toolName: part.tool,
               result: part.state.error,
               error: true,
+              ref: part.id,
             }
           case "pending":
           case "running":
@@ -219,6 +232,7 @@ export namespace SessionEntry {
               toolCallId: part.callID,
               toolName: part.tool,
               args: part.state.input,
+              ref: part.id,
             }
         }
         return undefined

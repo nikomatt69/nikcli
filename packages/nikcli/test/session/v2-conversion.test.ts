@@ -124,7 +124,11 @@ describe("SessionV2.toEntries", () => {
     expect(retry.sub).toBe("retry")
     expect(retry.attempt).toBe(2)
     expect(retry.error.data.message).toBe("rate limited")
-    expect((entries[1] as SessionEntry.AssistantText).parts[0]).toEqual({ type: "text", text: "recovered" })
+    expect((entries[1] as SessionEntry.AssistantText).parts[0]).toEqual({
+      type: "text",
+      text: "recovered",
+      ref: expect.any(String),
+    })
   })
 
   it("keeps terminal message errors instead of dropping the message", () => {

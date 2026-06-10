@@ -18,12 +18,12 @@ import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
  *
  * - reads (`entries`, `state`, `pending`) are first-class: storage is
  *   authoritative for completed messages (converted losslessly via
- *   `toEntries`), and `SessionProjector` overlays the in-flight assistant
- *   work streamed by the v1 engine — see projector.ts
+ *   `toEntries`), and `SessionProjector` translates the v1 engine's live
+ *   bus events into `SessionEvent`s reduced through `Stepper.stepWith` —
+ *   the in-flight tail is already native v2 state, see projector.ts
  * - writes (`create`, `prompt`) delegate to the v1 Session/SessionPrompt
  *   services, so behavior (retry, abort, tool state machine, snapshots,
  *   permissions) is exactly the production engine's
- * - `Stepper` remains the reducer for the future native v2 engine
  *
  * Consumers can adopt the v2 API today without behavior change; swapping
  * the engine underneath is a later, isolated step.
@@ -123,7 +123,7 @@ export namespace SessionV2 {
   /**
    * Get v2 entries for a session.
    * Storage (v1) is the authoritative source for committed messages; the
-   * projector's in-flight assistant work is appended as the live tail.
+   * projector's in-flight assistant reduction is appended as the live tail.
    */
   export async function entries(sessionID: string): Promise<SessionEntry.Entry[]> {
     const messages = await runSession(
@@ -132,9 +132,7 @@ export namespace SessionV2 {
         return yield* session.messages({ sessionID })
       }),
     )
-    const committed = new Set(messages.map((message) => message.info.id))
-    const live = SessionProjector.inflight(sessionID).filter((message) => !committed.has(message.info.id))
-    return toEntries([...messages, ...live], sessionID)
+    return [...toEntries(messages, sessionID), ...SessionProjector.snapshot(sessionID).pending]
   }
 
   /**
@@ -164,13 +162,10 @@ export namespace SessionV2 {
 
   /**
    * Live state for a session: committed entries are not duplicated here —
-   * `pending` reflects the projector's in-flight assistant messages.
+   * `pending` is the Stepper reduction of the in-flight assistant work.
    */
   export function state(sessionID: string): Stepper.MemoryState {
-    return {
-      entries: [],
-      pending: toEntries(SessionProjector.inflight(sessionID), sessionID),
-    }
+    return SessionProjector.snapshot(sessionID)
   }
 
   /**

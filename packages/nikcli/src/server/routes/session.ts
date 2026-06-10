@@ -4,6 +4,8 @@ import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
 import { MessageV2 } from "../../session/message-v2"
+import { SessionV2 } from "../../session/v2"
+import { SessionEntry } from "../../session/v2/entry"
 import { SessionPrompt } from "../../session/prompt"
 import { SessionContext } from "../../session/context-breakdown"
 import { SessionCompaction } from "../../session/compaction"
@@ -1196,6 +1198,83 @@ export const SessionRoutes = lazy(() =>
           messageID: params.messageID,
         })
         return c.json(message)
+      },
+    )
+    .get(
+      "/:sessionID/v2/entries",
+      describeRoute({
+        summary: "Get session v2 entries",
+        description:
+          "Retrieve the session as v2 entries: committed messages converted from storage plus the live in-flight assistant tail. Experimental — the v2 read model is documented in specs/v2/message-shape.md.",
+        operationId: "session.v2.entries",
+        responses: {
+          200: {
+            description: "List of v2 entries",
+            content: {
+              "application/json": {
+                schema: resolver(SessionEntry.Entry.array()),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(sessionID)
+          }),
+        )
+        return c.json(await SessionV2.entries(sessionID))
+      },
+    )
+    .get(
+      "/:sessionID/v2/state",
+      describeRoute({
+        summary: "Get live session v2 state",
+        description:
+          "Retrieve the live v2 state for a session: `pending` holds the in-flight assistant work reduced by the v2 stepper. Entry-grade changes are announced on the bus as `session.v2.updated`. Experimental.",
+        operationId: "session.v2.state",
+        responses: {
+          200: {
+            description: "Live v2 state",
+            content: {
+              "application/json": {
+                schema: resolver(
+                  z.object({
+                    entries: SessionEntry.Entry.array(),
+                    pending: SessionEntry.Entry.array(),
+                  }),
+                ),
+              },
+            },
+          },
+          ...errors(400, 404),
+        },
+      }),
+      validator(
+        "param",
+        z.object({
+          sessionID: z.string().meta({ description: "Session ID" }),
+        }),
+      ),
+      async (c) => {
+        const sessionID = c.req.valid("param").sessionID
+        await runSession(
+          Effect.gen(function* () {
+            const service = yield* Session.Service
+            yield* service.get(sessionID)
+          }),
+        )
+        return c.json(SessionV2.state(sessionID))
       },
     )
     .delete(
