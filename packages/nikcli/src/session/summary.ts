@@ -141,7 +141,9 @@ export namespace SessionSummary {
             .flatMap((x) => x.files)
             .map((x) => path.relative(ctx.worktree, x)),
         )
-        const diffs = (await AppRuntime.runPromise(locallyInstance(ctx, computeDiff({ messages: input.messages })))).filter((x) => {
+        const diffs = (
+          await AppRuntime.runPromise(locallyInstance(ctx, computeDiff({ messages: input.messages })))
+        ).filter((x) => {
           return files.has(x.file)
         })
         await runSession(

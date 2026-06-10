@@ -2706,55 +2706,55 @@ Three parallel `@explore` agents reviewed the loops feature end-to-end. Key find
 
 **TUI plugin issues** (`packages/nikcli/src/cli/cmd/tui/feature-plugins/loops/`):
 
-| Issue                                              | Location                            | Severity | Status     |
-| -------------------------------------------------- | ----------------------------------- | -------- | ---------- |
-| N+1 list call on every bus event                   | `runner.ts:159-163, 168-172`        | Medium   | Pending    |
-| `onRemoved` doesn't update local KV (stale data)   | `runner.ts:164-167`                  | High     | Pending    |
-| Optimistic `patch` redundant with bus event        | `runner.ts:74-87, 107-113`          | Low      | Pending    |
-| Dead export `parseGeneratedDraft`                  | `store.ts`                          | Low      | Pending    |
-| Dead export `Runs` (SDK class via `runs2` getter)  | `sdk.ts`                            | Low      | **Fixed 2026-06-09** (renamed to `recentRuns`) |
-| `isValidModel` unused                               | `dialogs.tsx`                       | Low      | Pending    |
-| `getById` unused                                    | `store.ts`                          | Low      | Pending    |
-| Wizard data-loss: cancel during generate loses draft | `dialogs.tsx`                      | Medium   | Pending    |
-| No `as never` casts needed for typed bus events    | `index.tsx`                         | Low      | **Fixed 2026-06-09** (no cast needed) |
-| `onUpserted`/`onRuntimeChanged` refetch full list  | `runner.ts:159-172`                 | Medium   | Pending (could use `LoopApi.get(loopID)`) |
+| Issue                                                | Location                     | Severity | Status                                         |
+| ---------------------------------------------------- | ---------------------------- | -------- | ---------------------------------------------- |
+| N+1 list call on every bus event                     | `runner.ts:159-163, 168-172` | Medium   | Pending                                        |
+| `onRemoved` doesn't update local KV (stale data)     | `runner.ts:164-167`          | High     | Pending                                        |
+| Optimistic `patch` redundant with bus event          | `runner.ts:74-87, 107-113`   | Low      | Pending                                        |
+| Dead export `parseGeneratedDraft`                    | `store.ts`                   | Low      | Pending                                        |
+| Dead export `Runs` (SDK class via `runs2` getter)    | `sdk.ts`                     | Low      | **Fixed 2026-06-09** (renamed to `recentRuns`) |
+| `isValidModel` unused                                | `dialogs.tsx`                | Low      | Pending                                        |
+| `getById` unused                                     | `store.ts`                   | Low      | Pending                                        |
+| Wizard data-loss: cancel during generate loses draft | `dialogs.tsx`                | Medium   | Pending                                        |
+| No `as never` casts needed for typed bus events      | `index.tsx`                  | Low      | **Fixed 2026-06-09** (no cast needed)          |
+| `onUpserted`/`onRuntimeChanged` refetch full list    | `runner.ts:159-172`          | Medium   | Pending (could use `LoopApi.get(loopID)`)      |
 
 **Core engine issues** (`packages/nikcli/src/loop/`):
 
-| Issue                                                       | Location                                | Severity | Status |
-| ----------------------------------------------------------- | --------------------------------------- | -------- | ------ |
-| `runSession`/`runSessionPrompt` duplicated                  | `engine.ts:126-132`, `routes/loop.ts:37-43` | Low      | Pending (extract to `loop/util.ts`) |
-| `runStorage` redefined 3×                                  | `manager.ts:18-20`, `background/run.ts:16-18`, `mobile/routine.ts:39-82` | Low | Pending (extract to `storage.ts` adapter) |
-| `engine.ts` mixes 5 concerns (persistence, bus, runtime, single-flight, scheduler) | `engine.ts` | Medium | Pending (split into `loop/runtime.ts`, `loop/scheduler.ts`) |
-| `syncAll` has no-op loop with comment-only branch           | `engine.ts:349-358`                     | Low      | Pending (remove or implement) |
-| `dispose` doesn't unregister from bus or drop inFlight     | `engine.ts:371-376`                     | Medium   | Pending |
-| `restore()` doesn't reconcile stale "running" LoopRuns      | `engine.ts:361-368`                     | High     | Pending (no `BackgroundRun.reconcileInterrupted` equivalent) |
-| `restore()` blindly re-arms everything                      | `engine.ts:361-368`                     | Low      | Pending (arm is idempotent, fine in practice) |
-| `source: "loop"` added to `BackgroundRun.SourceSchema` but engine never calls `BackgroundRun.create` | `background/run.ts:74` vs `engine.ts:193-254` | Medium | Pending (loop runs indistinguishable from manual sessions) |
-| No in-flight run cancellation (pause ≠ abort)               | `routes/loop.ts:386-394` + `runner.ts:268-273` | Medium | Pending (next interval just starts new session) |
+| Issue                                                                                                | Location                                                                 | Severity | Status                                                       |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | -------- | ------------------------------------------------------------ |
+| `runSession`/`runSessionPrompt` duplicated                                                           | `engine.ts:126-132`, `routes/loop.ts:37-43`                              | Low      | Pending (extract to `loop/util.ts`)                          |
+| `runStorage` redefined 3×                                                                            | `manager.ts:18-20`, `background/run.ts:16-18`, `mobile/routine.ts:39-82` | Low      | Pending (extract to `storage.ts` adapter)                    |
+| `engine.ts` mixes 5 concerns (persistence, bus, runtime, single-flight, scheduler)                   | `engine.ts`                                                              | Medium   | Pending (split into `loop/runtime.ts`, `loop/scheduler.ts`)  |
+| `syncAll` has no-op loop with comment-only branch                                                    | `engine.ts:349-358`                                                      | Low      | Pending (remove or implement)                                |
+| `dispose` doesn't unregister from bus or drop inFlight                                               | `engine.ts:371-376`                                                      | Medium   | Pending                                                      |
+| `restore()` doesn't reconcile stale "running" LoopRuns                                               | `engine.ts:361-368`                                                      | High     | Pending (no `BackgroundRun.reconcileInterrupted` equivalent) |
+| `restore()` blindly re-arms everything                                                               | `engine.ts:361-368`                                                      | Low      | Pending (arm is idempotent, fine in practice)                |
+| `source: "loop"` added to `BackgroundRun.SourceSchema` but engine never calls `BackgroundRun.create` | `background/run.ts:74` vs `engine.ts:193-254`                            | Medium   | Pending (loop runs indistinguishable from manual sessions)   |
+| No in-flight run cancellation (pause ≠ abort)                                                        | `routes/loop.ts:386-394` + `runner.ts:268-273`                           | Medium   | Pending (next interval just starts new session)              |
 
 **SDK alignment issues** (server `loop` source):
 
-| Issue                                                       | Location                                | Status |
-| ----------------------------------------------------------- | --------------------------------------- | ------ |
-| `Loop.runs2` getter from collision with mobile route       | `packages/sdk/js/src/v2/gen/sdk.gen.ts` | **Fixed 2026-06-09** (renamed to `Loop.recentRuns`) |
-| `loop.runs.recent` exists on server but not used by TUI     | `routes/loop.ts` + `tui/loops/sdk.ts`  | Pending |
+| Issue                                                   | Location                                | Status                                              |
+| ------------------------------------------------------- | --------------------------------------- | --------------------------------------------------- |
+| `Loop.runs2` getter from collision with mobile route    | `packages/sdk/js/src/v2/gen/sdk.gen.ts` | **Fixed 2026-06-09** (renamed to `Loop.recentRuns`) |
+| `loop.runs.recent` exists on server but not used by TUI | `routes/loop.ts` + `tui/loops/sdk.ts`   | Pending                                             |
 
 ### Spec gaps (from `specs/10-loops.md`)
 
 Implementation has moved past the v1 spec but several Phase 3 items remain:
 
-| Spec item                                         | Status             |
-| ------------------------------------------------- | ------------------ |
-| Single `objective: string` per loop               | **Not implemented** (uses `stages: LoopStage[]` pipeline) |
-| Top-level `agent: string`                         | **Not implemented** (per-stage)      |
-| `stop: { maxIterations, tokenBudget, maxRuns }`   | **Partial** (only `maxRuns` at top) |
-| `guardrails: { requireApproval, maxCostUSD }`     | **Not implemented** (Phase 3)       |
-| `trigger: { kind: "event"; on: Event["type"] }`   | **Not implemented** (Phase 3)       |
-| `BackgroundRun.create` per loop iteration         | **Not implemented** (engine uses own `Manager.startRun`) |
-| `client.session.abort` for clean stop             | **Not implemented** (pause ≠ abort)  |
-| "Promote current goal to loop" action             | **Not implemented**                 |
-| `src/loop/definition.ts` file                     | **Renamed to `schema.ts`**          |
+| Spec item                                       | Status                                                    |
+| ----------------------------------------------- | --------------------------------------------------------- |
+| Single `objective: string` per loop             | **Not implemented** (uses `stages: LoopStage[]` pipeline) |
+| Top-level `agent: string`                       | **Not implemented** (per-stage)                           |
+| `stop: { maxIterations, tokenBudget, maxRuns }` | **Partial** (only `maxRuns` at top)                       |
+| `guardrails: { requireApproval, maxCostUSD }`   | **Not implemented** (Phase 3)                             |
+| `trigger: { kind: "event"; on: Event["type"] }` | **Not implemented** (Phase 3)                             |
+| `BackgroundRun.create` per loop iteration       | **Not implemented** (engine uses own `Manager.startRun`)  |
+| `client.session.abort` for clean stop           | **Not implemented** (pause ≠ abort)                       |
+| "Promote current goal to loop" action           | **Not implemented**                                       |
+| `src/loop/definition.ts` file                   | **Renamed to `schema.ts`**                                |
 
 **Items implemented in advance of spec**: `POST /loop/generate`, `loop.generate` SDK method, sidebar live panel via `api.slots.register('sidebar_content')`.
 
@@ -2777,7 +2777,7 @@ try {
 } catch {
   // Fallback: use fetch() directly to GitHub REST API
   const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/runs?per_page=100`, {
-    headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" }
+    headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json" },
   })
   // ... parse manually
 }
@@ -2790,6 +2790,7 @@ try {
 **Source literal** (`src/background/run.ts:74`): `"loop"` was added to `SourceSchema` but the engine does NOT call `BackgroundRun.create` — it uses its own `Manager.startRun`/`finishRun` flow. The `backgroundRunID` field on `LoopRun` is a foreign-key reference but currently unused. Either: (a) engine should create a BackgroundRun per loop-run, or (b) remove the literal.
 
 **SDK regen post-merge** (2026-06-09): After operationId rename to avoid `runs2` collision:
+
 - `client.loop.runs()` → still exists (returns list of runs for a loop)
 - `client.loop.recentRuns()` → new (returns recent runs across loops)
 - Mobile route has its own `client.loop.runs` class → no collision after rename
@@ -2797,14 +2798,15 @@ try {
 
 ### Loop Engine Test Coverage (2026-06-09)
 
-| Test file                                        | Tests | Coverage                                              |
-| ------------------------------------------------ | ----- | ----------------------------------------------------- |
-| `test/loop/*.test.ts` (multiple)                 | ~60+  | Schema, manager, engine basics                        |
-| `test/tui/loops-store.test.ts`                   | ~30   | Solid store CRUD, history, KV persistence             |
-| `test/tui/loops-store-extra.test.ts`             | ~10   | Edge cases                                            |
-| **Total**                                        | **99 pass, 0 fail, 206 expects** | Run: `bun test test/loop/ test/tui/loops-store*.test.ts` |
+| Test file                            | Tests                            | Coverage                                                 |
+| ------------------------------------ | -------------------------------- | -------------------------------------------------------- |
+| `test/loop/*.test.ts` (multiple)     | ~60+                             | Schema, manager, engine basics                           |
+| `test/tui/loops-store.test.ts`       | ~30                              | Solid store CRUD, history, KV persistence                |
+| `test/tui/loops-store-extra.test.ts` | ~10                              | Edge cases                                               |
+| **Total**                            | **99 pass, 0 fail, 206 expects** | Run: `bun test test/loop/ test/tui/loops-store*.test.ts` |
 
 **Test gaps** (per @explore review):
+
 - `runner.ts` — no tests
 - `sdk.ts` (TUI loops) — no tests
 - `dialogs.tsx` (1015 lines) — no component tests
