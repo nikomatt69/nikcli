@@ -15,9 +15,7 @@ import { Installation } from "../installation"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { MessageV2 } from "./message-v2"
-import { SessionPrompt } from "./prompt"
 import { fn } from "@/util/fn"
-import { Command } from "../command"
 import { Snapshot } from "@/snapshot"
 
 import type { Provider } from "@/provider/provider"
@@ -45,13 +43,6 @@ function configGet(ctx?: InstanceContext) {
     return yield* config.get()
   })
   return runPromiseWithLayer(Config.defaultLayer, ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect))
-}
-
-function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Service>, ctx?: InstanceContext) {
-  return runPromiseWithLayer(
-    SessionPrompt.defaultLayer,
-    ctx ? locallyInstance(ctx, effect) : withCurrentInstance(effect),
-  )
 }
 
 function publishBus(ctx: InstanceContext, def: any, properties: any) {
@@ -321,14 +312,6 @@ export namespace Session {
     metadata: z.custom<ProviderMetadata>().optional(),
   })
   type UsageInput = z.infer<typeof UsageInput>
-
-  export const InitializeInput = z.object({
-    sessionID: ID,
-    modelID: z.string(),
-    providerID: z.string(),
-    messageID: Identifier.schema("message"),
-  })
-  export type InitializeInput = z.infer<typeof InitializeInput>
 
   export const Event = {
     Created: BusEvent.define(
@@ -892,22 +875,6 @@ export namespace Session {
    */
   export type Error = BusyError | Storage.NotFoundError | Storage.IOError
 
-  async function initializeImpl(ctx: InstanceContext, input: InitializeInput) {
-    await runSessionPrompt(
-      Effect.gen(function* () {
-        const sessionPrompt = yield* SessionPrompt.Service
-        yield* sessionPrompt.command({
-          sessionID: input.sessionID,
-          messageID: input.messageID,
-          model: input.providerID + "/" + input.modelID,
-          command: Command.Default.INIT,
-          arguments: "",
-        })
-      }),
-      ctx,
-    )
-  }
-
   export interface Interface {
     create(input?: CreateInput): Effect.Effect<Info, Error>
     fork(input: ForkInput): Effect.Effect<Info, Error>
@@ -931,7 +898,6 @@ export namespace Session {
     removePart(input: RemovePartInput): Effect.Effect<string, Error>
     updatePart(input: z.input<typeof UpdatePartInput>): Effect.Effect<MessageV2.Part, Error>
     getUsage(input: UsageInput): Effect.Effect<ReturnType<typeof getUsage>, never>
-    initialize(input: InitializeInput): Effect.Effect<void, Error>
   }
 
   export class Service extends Context.Service<Service, Interface>()("Session.Service") {}
@@ -1132,15 +1098,6 @@ export namespace Session {
           ),
         ),
       getUsage: (input) => Effect.sync(() => getUsage(input)),
-      initialize: (input) =>
-        InstanceState.context.pipe(
-          Effect.flatMap((ctx) =>
-            Effect.tryPromise({
-              try: () => initializeImpl(ctx, input),
-              catch: asSessionError,
-            }),
-          ),
-        ),
     }),
   )
 
