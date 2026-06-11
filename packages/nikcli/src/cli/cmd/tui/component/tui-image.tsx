@@ -1,7 +1,8 @@
-import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch } from "solid-js"
+import { createEffect, createMemo, createSignal, For, Match, onCleanup, Show, Switch, untrack } from "solid-js"
 import { BoxRenderable, type CliRenderer, RGBA } from "@opentui/core"
 import { useRenderer } from "@opentui/solid"
 import {
+  deleteKittyVirtual,
   detectCapabilities,
   encodeIterm2Bytes,
   encodeKittyVirtual,
@@ -166,6 +167,8 @@ type TuiImageData = {
   nativeBytes?: Uint8Array | string
   /** Whether `nativeBytes` has already been written to the terminal. */
   transmitted?: boolean
+  /** Kitty virtual-placement image id; freed via `deleteKittyVirtual` on cache eviction. */
+  kittyId?: number
   /** Placeholder cell rows the terminal composites the image over. */
   placeholder?: { rows: string[]; fg: RGBA }
   /** Cursor-positioned native image drawn after OpenTUI flushes its frame. */
@@ -211,7 +214,39 @@ type TuiImageState =
   | { status: "ready"; data: TuiImageData }
   | { status: "error"; message: string }
 
-const previewCache = new Map<string, Promise<TuiImageData>>()
+type PreviewCacheEntry = {
+  promise: Promise<TuiImageData>
+  /** Number of mounted TuiImage components currently showing this entry. */
+  consumers: number
+  lastUsed: number
+}
+
+const previewCache = new Map<string, PreviewCacheEntry>()
+const PREVIEW_CACHE_LIMIT = 24
+/** Resize events arrive per cell during a drag; wait for the dust to settle. */
+const RESIZE_DEBOUNCE_MS = 200
+
+/**
+ * Drop idle cache entries (oldest first) once the cache outgrows its limit.
+ * Evicted kitty virtual placements are deleted from the terminal too — ids
+ * otherwise pin decoded pixels in the terminal's memory for the whole
+ * session.
+ */
+function evictPreviewCache(writer: TuiImageWriter) {
+  if (previewCache.size <= PREVIEW_CACHE_LIMIT) return
+  const idle = [...previewCache.entries()]
+    .filter(([, entry]) => entry.consumers === 0)
+    .sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+  for (const [key, entry] of idle) {
+    if (previewCache.size <= PREVIEW_CACHE_LIMIT) break
+    previewCache.delete(key)
+    entry.promise
+      .then((data) => {
+        if (data.kittyId !== undefined && data.transmitted) writer(deleteKittyVirtual(data.kittyId))
+      })
+      .catch(() => {})
+  }
+}
 
 type NativeOverlay = {
   box: BoxRenderable
@@ -391,6 +426,7 @@ async function loadTuiImage(
       columns,
       rows: [],
       nativeBytes: encodeKittyVirtual(target, { id, columns, rows }),
+      kittyId: id,
       placeholder: {
         rows: kittyPlaceholderGrid(columns, rows),
         fg: RGBA.fromInts(color.r, color.g, color.b, 255),
@@ -447,17 +483,35 @@ async function loadTuiImage(
   }
 }
 
-function cachedTuiImage(url: string, maxColumns: number, maxRows: number, signal: AbortSignal) {
+function acquireTuiImage(
+  url: string,
+  maxColumns: number,
+  maxRows: number,
+  signal: AbortSignal,
+  writer: TuiImageWriter,
+) {
   const bounds = previewBounds(maxColumns, maxRows)
   const key = `${bounds.columns}x${bounds.rows}\n${url}`
-  const cached = previewCache.get(key)
-  if (cached) return cached
-  const promise = loadTuiImage(url, bounds.columns, bounds.rows, signal).catch((error) => {
-    previewCache.delete(key)
-    throw error
-  })
-  previewCache.set(key, promise)
-  return promise
+  let entry = previewCache.get(key)
+  if (!entry) {
+    const promise = loadTuiImage(url, bounds.columns, bounds.rows, signal).catch((error) => {
+      previewCache.delete(key)
+      throw error
+    })
+    entry = { promise, consumers: 0, lastUsed: Date.now() }
+    previewCache.set(key, entry)
+    evictPreviewCache(writer)
+  }
+  entry.consumers += 1
+  entry.lastUsed = Date.now()
+  return { key, promise: entry.promise }
+}
+
+function releaseTuiImage(key: string) {
+  const entry = previewCache.get(key)
+  if (!entry) return
+  entry.consumers = Math.max(0, entry.consumers - 1)
+  entry.lastUsed = Date.now()
 }
 
 function TuiImage(props: { url: string; maxColumns: number; maxRows: number; writer?: TuiImageWriter }) {
@@ -466,18 +520,38 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
   const [state, setState] = createSignal<TuiImageState>({ status: "loading" })
   const [overlayBox, setOverlayBox] = createSignal<BoxRenderable>()
 
+  // Autoresize: terminal resizes arrive cell by cell during a drag; debounce
+  // the bounds so the image is decoded/retransmitted once per settle, not per
+  // tick. The initial bounds apply immediately.
+  const [bounds, setBounds] = createSignal({
+    columns: props.maxColumns,
+    rows: props.maxRows,
+  })
+  createEffect(() => {
+    const next = { columns: props.maxColumns, rows: props.maxRows }
+    const current = untrack(bounds)
+    if (current.columns === next.columns && current.rows === next.rows) return
+    const timer = setTimeout(() => setBounds(next), RESIZE_DEBOUNCE_MS)
+    onCleanup(() => clearTimeout(timer))
+  })
+
   createEffect(() => {
     const controller = new AbortController()
     const url = props.url
-    setState({ status: "loading" })
-    void cachedTuiImage(url, props.maxColumns, props.maxRows, controller.signal)
+    const { columns, rows } = bounds()
+    const writer = props.writer ?? defaultWriter
+    // Resize-driven reloads keep the previous image on screen (like an <img>
+    // on the web); only a URL change goes back to the loading placeholder.
+    const previous = untrack(state)
+    if (previous.status !== "ready" || previous.data.url !== url) setState({ status: "loading" })
+    const { key, promise } = acquireTuiImage(url, columns, rows, controller.signal, writer)
+    void promise
       .then((data) => {
         if (!controller.signal.aborted) {
           // The kitty transmission is drawless (a=T,U=1) — written once per
           // cache entry, no matter how many times the component remounts.
           if (data.nativeBytes !== undefined && !data.transmitted) {
             data.transmitted = true
-            const writer = props.writer ?? defaultWriter
             writer(data.nativeBytes)
           }
           setState({ status: "ready", data })
@@ -490,7 +564,10 @@ function TuiImage(props: { url: string; maxColumns: number; maxRows: number; wri
           message: error instanceof Error ? error.message : String(error),
         })
       })
-    onCleanup(() => controller.abort())
+    onCleanup(() => {
+      controller.abort()
+      releaseTuiImage(key)
+    })
   })
 
   createEffect(() => {
