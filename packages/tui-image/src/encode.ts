@@ -331,8 +331,8 @@ export function encodeIterm2Bytes(
   options: Iterm2Options = {},
 ): string {
   const payload = base64FromBytes(image);
-  const width = options.width ?? image.width;
-  const height = options.height ?? image.height;
+  const width = options.width ?? "auto";
+  const height = options.height ?? "auto";
   const preserve = options.preserveAspectRatio !== false ? "1" : "0";
   return osc(
     `file=${image.byteLength};width=${width};height=${height};preserveAspectRatio=${preserve};inline=1`,

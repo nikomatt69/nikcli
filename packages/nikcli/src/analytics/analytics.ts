@@ -1,6 +1,8 @@
 import z from "zod"
 import path from "path"
 import { Storage } from "../storage/storage"
+import { SessionRepo } from "../session/repo"
+import { MessageRepo } from "../session/message-repo"
 import { Log } from "../util/log"
 import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
@@ -535,17 +537,9 @@ export namespace Analytics {
           if (!project?.id) continue
 
           // Scan sessions for this project
-          const sessionKeys = await storageList(["session", project.id])
-          for (const sessionKey of sessionKeys) {
+          const projectSessions = SessionRepo.getByProject(project.id)
+          for (const session of projectSessions) {
             try {
-              const session = await storageRead<{
-                id: string
-                projectID: string
-                directory: string
-                title: string
-                time: { created: number; updated: number; archived?: number }
-              }>(sessionKey)
-
               global.totals.sessions++
               const projID = session.projectID || "default"
               if (!global.byProject[projID]) {
@@ -554,23 +548,9 @@ export namespace Analytics {
               global.byProject[projID].sessions++
 
               // Scan messages for this session
-              const messageKeys = await storageList(["message", session.id])
-              for (const msgKey of messageKeys) {
+              const sessionMessages = MessageRepo.listMessages(session.id)
+              for (const msg of sessionMessages) {
                 try {
-                  const msg = await storageRead<{
-                    role: string
-                    tokens?: {
-                      input: number
-                      output: number
-                      reasoning: number
-                      cache?: { read: number; write: number }
-                    }
-                    cost?: number
-                    providerID?: string
-                    modelID?: string
-                    time?: { created?: number; completed?: number }
-                  }>(msgKey)
-
                   if (msg.role !== "assistant" || !msg.tokens) continue
 
                   const input = msg.tokens.input || 0

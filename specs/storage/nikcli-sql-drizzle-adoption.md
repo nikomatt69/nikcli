@@ -80,7 +80,7 @@ Move domain modules in stages:
 
 ### Group 1: Central Runtime And Existing Drizzle Tables
 
-Status: Not started.
+Status: Done. `Database.Service` opens `nikcli.db` (override via `NIKCLI_DB`), applies opencode PRAGMAs, and runs the TypeScript migration journal (`migration.ts` + `migration.gen.ts`). `database/schema.ts` is the pure re-export list. `storage/db.ts`, `storage/db.bun.ts`, `storage/schema.ts`, and `storage/schema.sql.ts` were deleted (no remaining callers).
 
 Files:
 
@@ -109,7 +109,7 @@ Suggested first step:
 
 ### Group 2: Account, Users, Mobile Auth, Workspace
 
-Status: Not started.
+Status: Done. All four domains query `Database.syncDb()` against `nikcli.db`; their tables are created by `20260610211500_initial`. Legacy `accounts.db`, `users.db`, `workspaces.db`, and `mobile_auth.db` rows are imported once by the `20260611020000_import_legacy_databases` data migration (legacy files are left in place, existing central rows win).
 
 Files:
 
@@ -140,7 +140,7 @@ Suggested order:
 
 ### Group 3: Session, Message, Todo, Permission JSON Storage
 
-Status: Not started.
+Status: Done. `SessionRepo`, `MessageRepo`, `TodoRepo`, and `PermissionRepo` back sessions, messages/parts, todos, and permission rulesets with SQL tables from `20260611000000_session_message_todo_permission`. Existing JSON records are backfilled by `20260611030000_import_json_storage` and left in place as the rollout fallback. Auxiliary records (diffs, goals, question, revert, summary) remain on `Storage.Service`, and `Storage.NotFoundError` semantics are preserved at service boundaries.
 
 Files:
 
@@ -174,7 +174,7 @@ Suggested order:
 
 ### Group 4: Sync/Event Log
 
-Status: Not started.
+Status: Done. `sync_event` and `sync_sequence` tables created by `20260611010000_sync_event_sequence`; `SyncStorage` keeps the `Sync.emit`/`replay`/`getEvents`/`getLatestSeq` signatures. Sequence allocation and event append run inside a single `BEGIN IMMEDIATE` transaction, so allocation is atomic across processes. Legacy `sync/<projectID>.{events,sequence}.json` files are imported by `20260611040000_import_sync_json` (sequence counters merge via MAX).
 
 Files:
 
@@ -201,7 +201,7 @@ Suggested order:
 
 ### Group 5: Cleanup And Deletion
 
-Status: Not started.
+Status: Done. `bun:sqlite` and `drizzle(...)` are only constructed in `src/database/database.ts` (plus migration/data-import modules). The unused `storage/db.ts`, `storage/db.bun.ts`, `storage/schema.ts`, and `storage/schema.sql.ts` helpers were deleted, along with the superseded generated SQL under `packages/nikcli/migration/`. Ad hoc `CREATE TABLE`/`ALTER TABLE` blocks now exist only inside explicit migrations.
 
 Files:
 

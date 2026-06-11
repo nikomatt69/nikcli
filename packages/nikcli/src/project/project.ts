@@ -4,8 +4,7 @@ import path from "path"
 import { Storage } from "../storage/storage"
 import { Log } from "../util/log"
 import { Flag } from "@/flag/flag"
-import type { Session } from "../session"
-import { work } from "../util/queue"
+import { SessionRepo } from "../session/repo"
 import { BusEvent } from "@/bus/bus-event"
 import { iife } from "@/util/iife"
 import { GlobalBus } from "@/bus/global"
@@ -387,24 +386,20 @@ export namespace Project {
     const globalProject = await storageRead<Info>(["project", "global"]).catch(() => undefined)
     if (!globalProject) return
 
-    const globalSessions = await storageList(["session", "global"]).catch(() => [])
+    const globalSessions = SessionRepo.getByProject("global")
     if (globalSessions.length === 0) return
 
     log.info("migrating sessions from global", { newProjectID, worktree, count: globalSessions.length })
 
-    await work(10, globalSessions, async (key) => {
-      const sessionID = key[key.length - 1]
-      const session = await storageRead<Session.Info>(key).catch(() => undefined)
-      if (!session) return
-      if (session.directory && session.directory !== worktree) return
-
-      session.projectID = newProjectID
-      log.info("migrating session", { sessionID, from: "global", to: newProjectID })
-      await storageWrite(["session", newProjectID, sessionID], session)
-      await storageRemove(key)
-    }).catch((error) => {
+    try {
+      for (const session of globalSessions) {
+        if (session.directory && session.directory !== worktree) continue
+        log.info("migrating session", { sessionID: session.id, from: "global", to: newProjectID })
+        SessionRepo.upsert({ ...session, projectID: newProjectID })
+      }
+    } catch (error) {
       log.error("failed to migrate sessions from global to project", { error, projectId: newProjectID })
-    })
+    }
   }
 
   async function setInitializedImpl(projectID: string) {

@@ -16,7 +16,7 @@ import { SessionCompaction } from "./compaction"
 import { PermissionNext } from "@/permission/next"
 import { Question } from "@/question"
 import { DeltaCoalescer } from "./delta-coalescer"
-import { Storage } from "@/storage/storage"
+import { MessageRepo } from "./message-repo"
 import { Context, Effect, Layer } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
 
@@ -88,10 +88,6 @@ export namespace SessionProcessor {
     return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
   }
 
-  function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-    return runPromiseWithLayer(Storage.defaultLayer, effect)
-  }
-
   function configGet() {
     return runPromiseWithLayer(
       Config.defaultLayer,
@@ -101,15 +97,6 @@ export namespace SessionProcessor {
           return yield* config.get()
         }),
       ),
-    )
-  }
-
-  function storageWrite<T>(key: string[], content: T) {
-    return runStorage(
-      Effect.gen(function* () {
-        const storage = yield* Storage.Service
-        yield* storage.write(key, content)
-      }),
     )
   }
 
@@ -211,12 +198,12 @@ export namespace SessionProcessor {
       )
 
     // For streaming deltas: publish Bus event immediately but coalesce the disk write.
-    // This avoids ~500 Storage.write calls per response while keeping the UI responsive.
+    // This avoids ~500 SQL writes per response while keeping the UI responsive.
     async function updatePartCoalesced(part: MessageV2.TextPart | MessageV2.ReasoningPart, delta: string) {
       Bus.publish(MessageV2.Event.PartUpdated, { part, delta })
       const key = ["part", part.messageID, part.id]
-      coalescer.schedule(key, part, async (k, content) => {
-        await storageWrite(k, content)
+      coalescer.schedule(key, part, async (_k, content) => {
+        MessageRepo.upsertPart(content as MessageV2.Part)
       })
     }
 

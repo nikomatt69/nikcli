@@ -13,6 +13,10 @@ import { Server } from "../../server/server"
 import { Provider } from "../../provider/provider"
 import { Agent } from "../../agent/agent"
 import { Storage } from "../../storage/storage"
+import { SessionRepo } from "../../session/repo"
+import { MessageRepo } from "../../session/message-repo"
+import type { Session } from "../../session"
+import type { MessageV2 } from "../../session/message-v2"
 import { Instance } from "../../project/instance"
 import { Config } from "../../config/config"
 import { ShareNext } from "../../share/share-next"
@@ -295,17 +299,20 @@ async function importShareReference(input: string): Promise<string | undefined> 
   }
 
   const info = normalized.info
-  await storageWrite(["session", Instance.project.id, info.id as string], info)
+  SessionRepo.upsert({ ...(info as Session.Info), projectID: Instance.project.id })
 
   if (normalized.diff) {
     await storageWrite(["session_diff", info.id as string], normalized.diff)
   }
 
   for (const msg of normalized.messages) {
-    await storageWrite(["message", info.id as string, msg.info.id as string], msg.info)
+    MessageRepo.upsertMessage({ ...(msg.info as MessageV2.Info), sessionID: info.id as string })
     for (const part of msg.parts) {
-      const partTyped = part as { id: string }
-      await storageWrite(["part", msg.info.id as string, partTyped.id], part)
+      MessageRepo.upsertPart({
+        ...(part as MessageV2.Part),
+        sessionID: info.id as string,
+        messageID: msg.info.id as string,
+      })
     }
   }
 

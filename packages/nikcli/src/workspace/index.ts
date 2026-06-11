@@ -11,6 +11,7 @@ import { Vcs } from "@/project/vcs"
 import { Session } from "@/session"
 import { SessionPrompt } from "@/session/prompt"
 import { SessionStatus } from "@/session/status"
+import { SessionRepo } from "@/session/repo"
 import { Storage } from "@/storage/storage"
 import { fn } from "@/util/fn"
 import { Log } from "@/util/log"
@@ -23,10 +24,6 @@ import { zod, zodObject } from "@/util/effect-zod"
 import { Effect, Schema } from "effect"
 import { runPromiseWithLayer, withCurrentInstance, withInstanceAsync } from "@/effect"
 
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
 function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
@@ -37,24 +34,6 @@ function runSessionPrompt<A, E>(effect: Effect.Effect<A, E, SessionPrompt.Servic
 
 function runVcs<A, E>(effect: Effect.Effect<A, E, Vcs.Service>) {
   return runPromiseWithLayer(Vcs.defaultLayer, withCurrentInstance(effect))
-}
-
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
-function storageList(prefix: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.list(prefix)
-    }),
-  )
 }
 
 export namespace Workspace {
@@ -186,13 +165,10 @@ export namespace Workspace {
   ])
 
   async function listRootSessions(workspaceID: string) {
-    const sessions = [] as Session.Info[]
-    for (const key of await storageList(["session", Instance.project.id])) {
-      const session = await storageRead<Session.Info>(key).catch(() => undefined)
-      if (!session || session.workspaceID !== workspaceID || session.parentID) continue
-      sessions.push(session)
-    }
-    return sessions.toSorted((a, b) => b.time.updated - a.time.updated).map((session) => session.id)
+    return SessionRepo.getByProject(Instance.project.id)
+      .filter((session) => session.workspaceID === workspaceID && !session.parentID)
+      .toSorted((a, b) => b.time.updated - a.time.updated)
+      .map((session) => session.id)
   }
 
   async function buildRestorePayload(workspaceID: string): Promise<Restore> {

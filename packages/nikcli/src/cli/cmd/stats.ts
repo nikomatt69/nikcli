@@ -1,6 +1,7 @@
 import type { Argv } from "yargs"
 import { cmd } from "./cmd"
 import { Session } from "../../session"
+import { SessionRepo } from "../../session/repo"
 import { bootstrap } from "../bootstrap"
 import { Storage } from "../../storage/storage"
 import { Project } from "../../project/project"
@@ -164,15 +165,7 @@ async function getAllSessions(): Promise<Session.Info[]> {
 
     for (const project of projects) {
       if (!project) continue
-
-      const sessionKeys = await storageList(["session", project.id])
-      const projectSessions = await Promise.all(sessionKeys.map((key) => storageRead<Session.Info>(key)))
-
-      for (const session of projectSessions) {
-        if (session) {
-          sessions.push(session)
-        }
-      }
+      sessions.push(...SessionRepo.getByProject(project.id))
     }
   } catch (error) {
     log.error("Failed to get all sessions", { error })

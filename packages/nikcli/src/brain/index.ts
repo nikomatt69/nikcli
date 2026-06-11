@@ -6,16 +6,12 @@ import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
 import { Session } from "@/session"
 import type { MessageV2 } from "@/session/message-v2"
-import { Storage } from "@/storage/storage"
+import { SessionRepo } from "@/session/repo"
 import { SessionPrompt } from "@/session/prompt"
 import { Provider } from "@/provider/provider"
 import { Flock } from "@/util/flock"
 import { Effect } from "effect"
 import { runPromiseWithLayer, withCurrentInstance } from "@/effect"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
 
 function configGet() {
   return runPromiseWithLayer(
@@ -90,15 +86,6 @@ function runSession<A, E>(effect: Effect.Effect<A, E, Session.Service>) {
   return runPromiseWithLayer(Session.defaultLayer, withCurrentInstance(effect))
 }
 
-function storageRead<T>(key: string[]) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      return yield* storage.read<T>(key)
-    }),
-  )
-}
-
 export type BrainConfig = {
   minHours: number
   minSessions: number
@@ -156,26 +143,10 @@ export async function listRecentSessions(limit = SESSION_REVIEW_LIMIT): Promise<
 }
 
 async function listProjectSessions(filter: (session: Session.Info) => boolean): Promise<string[]> {
-  const sessions: Array<{ id: string; updated: number }> = []
-  try {
-    const projectDir = path.join(Global.Path.data, "storage", "session", Instance.project.id)
-    const files = await fs.readdir(projectDir)
-    for (const file of files) {
-      if (!file.endsWith(".json")) continue
-      const sessionID = file.replace(".json", "")
-      try {
-        const session = await storageRead<Session.Info>(["session", Instance.project.id, sessionID])
-        if (filter(session)) {
-          sessions.push({ id: sessionID, updated: session.time.updated })
-        }
-      } catch {
-        // skip invalid sessions
-      }
-    }
-  } catch {
-    // no sessions found
-  }
-  return sessions.toSorted((a, b) => a.updated - b.updated).map((session) => session.id)
+  return SessionRepo.getByProject(Instance.project.id)
+    .filter(filter)
+    .toSorted((a, b) => a.time.updated - b.time.updated)
+    .map((session) => session.id)
 }
 
 export async function recordBrain(): Promise<void> {

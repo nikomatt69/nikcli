@@ -30,15 +30,36 @@ describe("Database.Service", () => {
           .query<
             { name: string },
             []
-          >("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'users', 'mobile_tokens', 'workspace') ORDER BY name")
+          >(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('account', 'users', 'mobile_tokens', 'workspace', 'session_info', 'message_info', 'message_part', 'todo_info', 'permission_ruleset', 'sync_event', 'sync_sequence') ORDER BY name",
+          )
           .all()
         return { foreignKeys, journal, tables }
       }),
     )
 
     expect(result.foreignKeys?.foreign_keys).toBe(1)
-    expect(result.journal).toEqual([{ id: "20260610211500_initial" }])
-    expect(result.tables.map((table) => table.name)).toEqual(["account", "mobile_tokens", "users", "workspace"])
+    expect(result.journal).toEqual([
+      { id: "20260610211500_initial" },
+      { id: "20260611000000_session_message_todo_permission" },
+      { id: "20260611010000_sync_event_sequence" },
+      { id: "20260611020000_import_legacy_databases" },
+      { id: "20260611030000_import_json_storage" },
+      { id: "20260611040000_import_sync_json" },
+    ])
+    expect(result.tables.map((table) => table.name)).toEqual([
+      "account",
+      "message_info",
+      "message_part",
+      "mobile_tokens",
+      "permission_ruleset",
+      "session_info",
+      "sync_event",
+      "sync_sequence",
+      "todo_info",
+      "users",
+      "workspace",
+    ])
   })
 
   it("runs Drizzle queries through the central database service", async () => {
@@ -63,5 +84,88 @@ describe("Database.Service", () => {
     )
 
     expect(row?.email).toBe("database@example.com")
+  })
+
+  it("imports legacy databases, JSON storage, and sync JSON on first open", async () => {
+    const legacyDir = await fs.mkdtemp(path.join(os.tmpdir(), "nikcli-database-legacy-"))
+    try {
+      // Legacy accounts.db
+      const { Database: BunDatabase } = await import("bun:sqlite")
+      const accounts = new BunDatabase(path.join(legacyDir, "accounts.db"), { create: true })
+      accounts.exec(`
+        CREATE TABLE account (
+          id TEXT PRIMARY KEY, email TEXT NOT NULL, url TEXT NOT NULL,
+          access_token TEXT NOT NULL, refresh_token TEXT NOT NULL,
+          token_expiry INTEGER NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE config (id INTEGER PRIMARY KEY DEFAULT 1, active_account_id TEXT, active_org_id TEXT);
+        INSERT INTO account VALUES ('acct_legacy', 'legacy@example.com', 'https://example.com', 'at', 'rt', 1, 1, 1);
+        INSERT INTO config (id, active_account_id) VALUES (1, 'acct_legacy');
+      `)
+      accounts.close()
+
+      // Legacy JSON storage records
+      const write = async (parts: string[], content: unknown) => {
+        const file = path.join(legacyDir, ...parts)
+        await fs.mkdir(path.dirname(file), { recursive: true })
+        await fs.writeFile(file, JSON.stringify(content))
+      }
+      const session = {
+        id: "ses_legacy",
+        projectID: "proj_legacy",
+        title: "Legacy session",
+        directory: "/tmp",
+        version: "1",
+        time: { created: 100, updated: 200 },
+      }
+      await write(["storage", "session", "proj_legacy", "ses_legacy.json"], session)
+      const message = { id: "msg_legacy", sessionID: "ses_legacy", role: "user", time: { created: 150 } }
+      await write(["storage", "message", "ses_legacy", "msg_legacy.json"], message)
+      const part = { id: "prt_legacy", messageID: "msg_legacy", sessionID: "ses_legacy", type: "text", text: "hi" }
+      await write(["storage", "part", "msg_legacy", "prt_legacy.json"], part)
+      await write(["storage", "todo", "ses_legacy.json"], [{ id: "todo-1", content: "do it", status: "pending" }])
+      await write(["storage", "permission", "proj_legacy.json"], [{ permission: "bash", action: "allow" }])
+      await write(
+        ["sync", "proj_legacy.events.json"],
+        [{ id: "evt_1", aggregate: "session", seq: 3, type: "session.created", data: { id: "ses_legacy" }, timestamp: 1 }],
+      )
+      await write(["sync", "proj_legacy.sequence.json"], { session: 3 })
+
+      const result = await runPromiseWithLayer(
+        Database.layerFromPath(path.join(legacyDir, "nikcli.db")),
+        Effect.gen(function* () {
+          const database = yield* Database.Service
+          const query = <T>(sql: string) => database.native.query<T, []>(sql).get()
+          return {
+            account: query<{ email: string }>("SELECT email FROM account WHERE id = 'acct_legacy'"),
+            config: query<{ active_account_id: string }>("SELECT active_account_id FROM config WHERE id = 1"),
+            session: query<{ project_id: string; data: string }>(
+              "SELECT project_id, data FROM session_info WHERE id = 'ses_legacy'",
+            ),
+            message: query<{ role: string }>("SELECT role FROM message_info WHERE id = 'msg_legacy'"),
+            part: query<{ message_id: string }>("SELECT message_id FROM message_part WHERE id = 'prt_legacy'"),
+            todo: query<{ todos: string }>("SELECT todos FROM todo_info WHERE session_id = 'ses_legacy'"),
+            ruleset: query<{ rules: string }>("SELECT rules FROM permission_ruleset WHERE project_id = 'proj_legacy'"),
+            event: query<{ seq: number }>("SELECT seq FROM sync_event WHERE id = 'evt_1'"),
+            sequence: query<{ seq: number }>(
+              "SELECT seq FROM sync_sequence WHERE project_id = 'proj_legacy' AND aggregate = 'session'",
+            ),
+          }
+        }),
+      )
+
+      expect(result.account?.email).toBe("legacy@example.com")
+      expect(result.config?.active_account_id).toBe("acct_legacy")
+      expect(result.session?.project_id).toBe("proj_legacy")
+      expect(JSON.parse(result.session?.data ?? "{}").title).toBe("Legacy session")
+      expect(result.message?.role).toBe("user")
+      expect(result.part?.message_id).toBe("msg_legacy")
+      expect(JSON.parse(result.todo?.todos ?? "[]")).toHaveLength(1)
+      expect(JSON.parse(result.ruleset?.rules ?? "[]")).toHaveLength(1)
+      expect(result.event?.seq).toBe(3)
+      expect(result.sequence?.seq).toBe(3)
+    } finally {
+      await fs.rm(legacyDir, { recursive: true, force: true })
+    }
   })
 })

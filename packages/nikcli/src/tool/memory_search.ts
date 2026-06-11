@@ -2,6 +2,7 @@ import z from "zod"
 import { Tool } from "./tool"
 import DESCRIPTION from "./memory_search.txt"
 import { Storage } from "@/storage/storage"
+import { SessionRepo } from "@/session/repo"
 import { Instance } from "@/project/instance"
 import { MessageV2 } from "@/session/message-v2"
 import { Effect } from "effect"
@@ -152,7 +153,6 @@ function makeSnippet(text: string, lower: string, terms: string[]) {
 async function collectSessions(sessionId: string | undefined, max: number) {
   if (sessionId) return [sessionId]
   const project = Instance.project
-  const items = await storageList(["session", project.id])
-  const ids = items.map((item) => item[item.length - 1]).filter(Boolean)
+  const ids = SessionRepo.getByProject(project.id).map((session) => session.id)
   return ids.slice(0, max)
 }

@@ -1,5 +1,6 @@
 import { Snapshot } from "../snapshot"
 import { MessageV2 } from "./message-v2"
+import { MessageRepo } from "./message-repo"
 import { Session } from "."
 import { Log } from "../util/log"
 import { Storage } from "../storage/storage"
@@ -243,7 +244,7 @@ export namespace SessionRevert {
       const partIndex = target.parts.findIndex((x) => x.id === partID)
       const removeParts = partIndex === -1 ? [] : target.parts.slice(partIndex)
       for (const part of removeParts) {
-        await storageRemove(["part", target.info.id, part.id])
+        MessageRepo.removePart(target.info.id, part.id)
         await Bus.publish(MessageV2.Event.PartRemoved, {
           sessionID: sessionID,
           messageID: target.info.id,

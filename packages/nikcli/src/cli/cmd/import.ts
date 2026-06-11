@@ -2,24 +2,10 @@ import type { Argv } from "yargs"
 import { Session } from "../../session"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
-import { Storage } from "../../storage/storage"
+import { SessionRepo } from "../../session/repo"
+import { MessageRepo } from "../../session/message-repo"
 import { Instance } from "../../project/instance"
 import { EOL } from "os"
-import { Effect } from "effect"
-import { runPromiseWithLayer } from "@/effect"
-
-function runStorage<A, E>(effect: Effect.Effect<A, E, Storage.Service>) {
-  return runPromiseWithLayer(Storage.defaultLayer, effect)
-}
-
-function storageWrite<T>(key: string[], content: T) {
-  return runStorage(
-    Effect.gen(function* () {
-      const storage = yield* Storage.Service
-      yield* storage.write(key, content)
-    }),
-  )
-}
 
 const SHARE_ID = /^[a-zA-Z0-9_-]+$/
 
@@ -199,13 +185,14 @@ export const ImportCommand = cmd({
         return
       }
 
-      await storageWrite(["session", Instance.project.id, exportData.info.id], exportData.info)
+      // Import into the current project regardless of where the export came from
+      SessionRepo.upsert({ ...exportData.info, projectID: Instance.project.id })
 
       for (const msg of exportData.messages) {
-        await storageWrite(["message", exportData.info.id, msg.info.id], msg.info)
+        MessageRepo.upsertMessage({ ...msg.info, sessionID: exportData.info.id })
 
         for (const part of msg.parts) {
-          await storageWrite(["part", msg.info.id, part.id], part)
+          MessageRepo.upsertPart({ ...part, sessionID: exportData.info.id, messageID: msg.info.id })
         }
       }
 
