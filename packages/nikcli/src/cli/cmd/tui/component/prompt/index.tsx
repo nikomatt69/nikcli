@@ -58,6 +58,7 @@ import { Effect } from "effect"
 import { runPromiseWithLayer } from "@/effect"
 import { friendlyErrorMessage } from "../../util/error-message"
 import { PromptJobsInlineCompact } from "../prompt-jobs-inline"
+import { TuiImageList } from "../tui-image"
 import { getMonitorsSorted, type MonitorInfo } from "../../util/monitor-helpers"
 
 export type PromptProps = {
@@ -1649,6 +1650,18 @@ export function Prompt(props: PromptProps) {
     return local.agent.color(local.agent.current().name)
   })
 
+  // Live preview of image attachments (pasted or @-mentioned) above the
+  // textarea — disappears when the part is removed, cleared, or sent.
+  const attachedImageUrls = createMemo(() =>
+    store.prompt.parts.flatMap((part) =>
+      part.type === "file" && part.mime.startsWith("image/") && part.mime !== "image/svg+xml" && part.url
+        ? [part.url]
+        : [],
+    ),
+  )
+  const attachmentPreviewColumns = createMemo(() => Math.max(24, Math.min(120, dimensions().width - 12)))
+  const attachmentPreviewRows = createMemo(() => Math.max(4, Math.min(12, Math.floor(dimensions().height / 4))))
+
   const showVariant = createMemo(() => {
     const variants = local.model.variant.list()
     if (variants.length === 0) return false
@@ -1798,6 +1811,22 @@ export function Prompt(props: PromptProps) {
             bottomLeft: "╹",
           }}
         >
+          <Show when={attachedImageUrls().length > 0}>
+            <box
+              paddingLeft={2}
+              paddingRight={2}
+              paddingTop={1}
+              flexShrink={0}
+              backgroundColor={theme.backgroundElement}
+            >
+              <TuiImageList
+                urls={attachedImageUrls()}
+                maxColumns={attachmentPreviewColumns()}
+                maxRows={attachmentPreviewRows()}
+                limit={3}
+              />
+            </box>
+          </Show>
           <box
             paddingLeft={2}
             paddingRight={2}
